@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import { backfillRepositories } from "../github/repositoryBackfill"
+import { reconcileGroupIndex } from "../groups/reconcileGroupIndex"
 import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
 
 export const reconcileTicketIndexOnBoot = Effect.gen(function* () {
@@ -27,6 +28,26 @@ export const reconcileTicketIndexOnBoot = Effect.gen(function* () {
   yield* Effect.logInfo("ticket index reconciliation complete", {
     projects: summary.projects.length,
     reconciled: summary.reconciled
+  })
+  const rebuiltGroups = yield* Effect.forEach(
+    summary.projects,
+    ({ project }) =>
+      reconcileGroupIndex(project).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logError("group index reconciliation failed", cause).pipe(
+            Effect.annotateLogs({
+              orgSlug: project.orgSlug,
+              slug: project.slug
+            }),
+            Effect.as(false)
+          )
+        )
+      ),
+    { concurrency: 4 }
+  )
+  yield* Effect.logInfo("group index reconciliation complete", {
+    projects: summary.projects.length,
+    reconciled: rebuiltGroups.filter(Boolean).length
   })
 }).pipe(
   Effect.catchCause((cause) =>

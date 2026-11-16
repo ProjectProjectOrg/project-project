@@ -22,9 +22,9 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import * as LiveChanges from "../live/LiveChanges"
 import type * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
@@ -141,7 +141,7 @@ const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const users = yield* Users.Users
   const crypto = yield* Crypto.Crypto
-  const liveChanges = yield* LiveChanges.LiveChanges
+  const syncLog = yield* SyncLog.SyncLog
 
   const newCommentId: Effect.Effect<CommentId> = crypto.randomULID.pipe(
     Effect.orDie,
@@ -154,13 +154,10 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<A, E, R | ProjectScope> =>
     Effect.tap(effect, () =>
       Effect.gen(function* () {
-        const { orgSlug, slug } = yield* ProjectScope
-        yield* liveChanges.publish({
-          kind: "comments",
-          orgSlug,
-          slug,
-          ticketId
-        })
+        const { projectId } = yield* ProjectScope
+        yield* syncLog
+          .append(projectId, [{ kind: "comments", id: ticketId, op: "upsert" }])
+          .pipe(Effect.orDie)
       })
     )
 

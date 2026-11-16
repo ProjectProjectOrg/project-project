@@ -13,11 +13,12 @@ import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
 import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
-import * as LiveChanges from "@pp/server-core/live/LiveChanges"
+import * as GroupIndex from "@pp/server-core/groups/GroupIndex"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { CurrentUser, OrgScope, ProjectScope } from "@pp/shared"
@@ -148,11 +149,13 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(EverhourHostLive),
           Layer.provideMerge(Access.layer),
           Layer.provideMerge(TicketIndexServices.layer),
-          Layer.provideMerge(GroupDocs.layer),
+          Layer.provideMerge(
+            GroupDocs.layer.pipe(Layer.provide(GroupIndex.layer))
+          ),
           Layer.provideMerge(TicketDocs.layer),
           Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),
-          Layer.provideMerge(LiveChanges.layer),
+          Layer.provideMerge(SyncLog.layer),
           Layer.provideMerge(TicketActivity.layer),
           Layer.provideMerge(Markdown.layer),
           Layer.provideMerge(SecretCrypto.layer)

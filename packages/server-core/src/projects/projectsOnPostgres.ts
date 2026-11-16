@@ -8,7 +8,7 @@ import * as Redacted from "effect/Redacted"
 import * as Access from "../access/Access"
 import * as GitHub from "../github/GitHub"
 import type * as ProjectGithub from "../github/ProjectGithub"
-import * as LiveChanges from "../live/LiveChanges"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketIndexServices from "../tickets/indexLayer"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
@@ -56,7 +56,7 @@ export const projectsOnPostgres = (
   const ticketIndex = TicketIndexServices.layer.pipe(
     Layer.provide(db),
     Layer.provide(docs),
-    Layer.provide(LiveChanges.layer)
+    Layer.provide(SyncLog.layer.pipe(Layer.provide(db)))
   )
   const finishedStatuses = FinishedStatuses.layer.pipe(Layer.provide(db))
   const tickets = TicketRewrites.layer.pipe(

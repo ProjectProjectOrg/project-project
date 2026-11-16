@@ -14,7 +14,6 @@ import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as GitHub from "@pp/server-core/github/GitHub"
-import * as LiveChanges from "@pp/server-core/live/LiveChanges"
 import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
@@ -22,6 +21,7 @@ import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
+import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -182,7 +182,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       }
     })
     const ticketIndex = TicketIndexServices.layer.pipe(
-      Layer.provide(LiveChanges.layer),
+      Layer.provide(SyncLog.layer),
       Layer.provide(db),
       Layer.provide(ticketDocs),
       Layer.orDie

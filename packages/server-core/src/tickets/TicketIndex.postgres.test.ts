@@ -34,9 +34,9 @@ import { projectScope } from "../access/testing"
 import * as Comments from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
-import * as LiveChanges from "../live/LiveChanges"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
+import * as SyncLog from "../sync/SyncLog"
 import * as Users from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketDocs from "./TicketDocs"
@@ -81,7 +81,7 @@ const defaultRepository = { repoId: "repo-1", isDefault: true }
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const TestLayer = Layer.mergeAll(
   TicketIndexServices.layer.pipe(
-    Layer.provide(LiveChanges.layer),
+    Layer.provide(SyncLog.layer),
     Layer.provide(FakeTicketDocs)
   ),
   TicketBranchIndex.layer
@@ -132,7 +132,7 @@ const RebuildTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
 } satisfies TicketDocs.TicketDocs["Service"])
 
 const RebuildTestLayer = TicketIndexServices.layer.pipe(
-  Layer.provide(LiveChanges.layer),
+  Layer.provide(SyncLog.layer),
   Layer.provide(RebuildTicketDocs),
   Layer.provide(DatabaseLive)
 )
@@ -145,7 +145,7 @@ const stackedDocument: TicketDocs.TicketDocument = {
 }
 
 const StackRebuildTestLayer = TicketIndexServices.layer.pipe(
-  Layer.provide(LiveChanges.layer),
+  Layer.provide(SyncLog.layer),
   Layer.provide(
     Layer.succeed(TicketDocs.TicketDocs, {
       listIds: () => Effect.succeed([stackedDocument.id]),
@@ -295,7 +295,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(
         Effect.provide(
           TicketIndexServices.layer.pipe(
-            Layer.provide(LiveChanges.layer),
+            Layer.provide(SyncLog.layer),
             Layer.provide(docs),
             Layer.provide(DatabaseLive)
           )
@@ -357,7 +357,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(
         Effect.provide(
           TicketIndexServices.layer.pipe(
-            Layer.provide(LiveChanges.layer),
+            Layer.provide(SyncLog.layer),
             Layer.provide(docs),
             Layer.provide(DatabaseLive)
           )
@@ -419,7 +419,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(
         Effect.provide(
           TicketIndexServices.layer.pipe(
-            Layer.provide(LiveChanges.layer),
+            Layer.provide(SyncLog.layer),
             Layer.provide(docs),
             Layer.provide(DatabaseLive)
           )
@@ -877,7 +877,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
               readRaw: () => unexpected("TicketDocs.readRaw")
             } satisfies TicketDocs.TicketDocs["Service"])
           ),
-          Layer.provide(LiveChanges.layer),
+          Layer.provide(SyncLog.layer),
           Layer.provide(DatabaseLive)
         )
       )
@@ -925,7 +925,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
               readRaw: () => unexpected("TicketDocs.readRaw")
             } satisfies TicketDocs.TicketDocs["Service"])
           ),
-          Layer.provide(LiveChanges.layer),
+          Layer.provide(SyncLog.layer),
           Layer.provide(DatabaseLive)
         )
       )
@@ -1003,7 +1003,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       readRaw: () => unexpected("TicketDocs.readRaw")
     } satisfies TicketDocs.TicketDocs["Service"])
     const indexLayer = TicketIndexServices.layer.pipe(
-      Layer.provide(LiveChanges.layer),
+      Layer.provide(SyncLog.layer),
       Layer.provide(ticketDocs),
       Layer.provide(DatabaseLive)
     )
@@ -1027,7 +1027,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }
     }
     const commentsLayer = Comments.layer.pipe(
-      Layer.provide(LiveChanges.layer),
+      Layer.provide(SyncLog.layer),
       Layer.provide(
         Layer.mergeAll(
           ticketDocs,
@@ -1225,7 +1225,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         ])
       }
       const indexLayer = TicketIndexServices.layer.pipe(
-        Layer.provide(LiveChanges.layer),
+        Layer.provide(SyncLog.layer),
         Layer.provide(
           Layer.succeed(TicketDocs.TicketDocs, {
             listIds: () => Effect.succeed([document.id]),

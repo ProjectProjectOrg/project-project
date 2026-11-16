@@ -50,6 +50,7 @@ import type {
   OrgEverhourConfig,
   ProjectBanner,
   ProjectIconImage,
+  SyncChangeRef,
   TicketActivityChangeEncoded,
   DirectReason,
   InboxEventEncoded,
@@ -847,6 +848,74 @@ export const ticketRelationIndex = pgTable(
     }).onDelete("cascade"),
     index("ticket_relation_index_to_idx").on(t.projectId, t.toTicketId)
   ]
+)
+
+export const groupIndex = pgTable(
+  "group_index",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    groupId: text("group_id").notNull(),
+    kind: text("kind", {
+      enum: ["sprint", "epic", "milestone", "other"]
+    }).notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.groupId] })]
+)
+
+export const groupMemberIndex = pgTable(
+  "group_member_index",
+  {
+    projectId: uuid("project_id").notNull(),
+    groupId: text("group_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    position: integer("position").notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.groupId, t.ticketId] }),
+    foreignKey({
+      name: "group_member_index_group_fkey",
+      columns: [t.projectId, t.groupId],
+      foreignColumns: [groupIndex.projectId, groupIndex.groupId]
+    }).onDelete("cascade"),
+    index("group_member_index_ticket_idx").on(t.projectId, t.ticketId)
+  ]
+)
+
+export const syncScope = pgTable("sync_scope", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projectIndex.id, { onDelete: "cascade" }),
+  generation: integer("generation").notNull().default(1),
+  head: bigint("head", { mode: "number" }).notNull().default(0),
+  oldest: bigint("oldest", { mode: "number" }).notNull().default(1)
+})
+
+export const syncChange = pgTable(
+  "sync_change",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => syncScope.projectId, { onDelete: "cascade" }),
+    generation: integer("generation").notNull(),
+    sequence: bigint("sequence", { mode: "number" }).notNull(),
+    operationId: text("operation_id"),
+    origin: text("origin"),
+    changes: jsonb("changes").$type<ReadonlyArray<SyncChangeRef>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.generation, t.sequence] })]
 )
 
 export const commentIndex = pgTable(

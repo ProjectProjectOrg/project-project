@@ -9,11 +9,11 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 import { ConnectionError, SqlError } from "effect/sql/SqlError"
-import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
 
 import { databaseLayer } from "../../test/database"
-import * as LiveChanges from "../live/LiveChanges"
+import * as SyncLog from "../sync/SyncLog"
+import { recordingSyncLog } from "../sync/testing"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
@@ -77,10 +77,11 @@ const layerFor = (
   docs: Layer.Layer<TicketDocs.TicketDocs> = Layer.mock(
     TicketDocs.TicketDocs,
     {}
-  )
+  ),
+  sync: Layer.Layer<SyncLog.SyncLog> = recordingSyncLog().layer
 ) =>
   TicketIndexServices.layer.pipe(
-    Layer.provideMerge(LiveChanges.layer),
+    Layer.provideMerge(sync),
     Layer.provide(db),
     Layer.provide(docs)
   )
@@ -98,36 +99,24 @@ it.effect("retries a transient index publication failure", () => {
   }).pipe(Effect.provide(layerFor(layer)))
 })
 
-it.effect("announces the ticket only after its index row has landed", () => {
+it.effect("logs the ticket once, after its index row has landed", () => {
   const { layer, state } = makeDb(2)
+  const sync = recordingSyncLog()
   return Effect.gen(function* () {
     const index = yield* TicketIndex.TicketIndex
-    const live = yield* LiveChanges.LiveChanges
-    const announced = yield* live.changes.pipe(
-      Stream.take(1),
-      Stream.runCollect,
-      Effect.map((changes) => ({ changes, attempts: state.attempts })),
-      Effect.forkChild
-    )
-    yield* Effect.yieldNow
     const publishing = yield* Effect.forkChild(
       index.upsertTicket(project, document)
     )
     yield* TestClock.adjust("1 second")
     yield* Fiber.join(publishing)
-    expect(yield* Fiber.join(announced)).toEqual({
-      changes: [
-        {
-          kind: "ticket",
-          orgSlug: "acme",
-          slug: "foo",
-          id: "T-1",
-          origin: null
-        }
-      ],
-      attempts: 3
-    })
-  }).pipe(Effect.provide(layerFor(layer)))
+    expect(state.attempts).toBe(3)
+    expect(sync.recorded.appended).toEqual([
+      {
+        projectId: project.projectId,
+        changes: [{ kind: "ticket", id: "T-1", op: "upsert" }]
+      }
+    ])
+  }).pipe(Effect.provide(layerFor(layer, undefined, sync.layer)))
 })
 
 it.effect("does not fail the request when publication stays broken", () => {
@@ -144,41 +133,27 @@ it.effect("does not fail the request when publication stays broken", () => {
   }).pipe(Effect.provide(layerFor(layer)))
 })
 
-it.effect(
-  "reconciles a project whose publication never landed and announces the repair",
-  () => {
-    const { layer } = makeDb(Number.POSITIVE_INFINITY)
-    const docs = { listIdsCalls: 0 }
-    const docsLayer = Layer.mock(TicketDocs.TicketDocs, {
-      listIds: () =>
-        Effect.sync(() => {
-          docs.listIdsCalls += 1
-          return []
-        })
-    })
+it.effect("reconciles a project whose publication never landed", () => {
+  const { layer } = makeDb(Number.POSITIVE_INFINITY)
+  const docs = { listIdsCalls: 0 }
+  const docsLayer = Layer.mock(TicketDocs.TicketDocs, {
+    listIds: () =>
+      Effect.sync(() => {
+        docs.listIdsCalls += 1
+        return []
+      })
+  })
 
-    return Effect.gen(function* () {
-      const index = yield* TicketIndex.TicketIndex
-      const live = yield* LiveChanges.LiveChanges
-      const announced = yield* live.changes.pipe(
-        Stream.filter((change) => change.kind === "tickets"),
-        Stream.take(1),
-        Stream.runCollect,
-        Effect.forkChild
-      )
-      yield* Effect.yieldNow
-      const publishing = yield* Effect.forkChild(
-        index.upsertTicket(project, document)
-      )
-      yield* TestClock.adjust("2 seconds")
-      yield* Fiber.join(publishing)
-      expect(docs.listIdsCalls).toBe(0)
+  return Effect.gen(function* () {
+    const index = yield* TicketIndex.TicketIndex
+    const publishing = yield* Effect.forkChild(
+      index.upsertTicket(project, document)
+    )
+    yield* TestClock.adjust("2 seconds")
+    yield* Fiber.join(publishing)
+    expect(docs.listIdsCalls).toBe(0)
 
-      yield* TestClock.adjust("6 seconds")
-      expect(docs.listIdsCalls).toBeGreaterThan(0)
-      expect(yield* Fiber.join(announced)).toEqual([
-        { kind: "tickets", orgSlug: "acme", slug: "foo", origin: null }
-      ])
-    }).pipe(Effect.provide(layerFor(layer, docsLayer)))
-  }
-)
+    yield* TestClock.adjust("6 seconds")
+    expect(docs.listIdsCalls).toBeGreaterThan(0)
+  }).pipe(Effect.provide(layerFor(layer, docsLayer)))
+})

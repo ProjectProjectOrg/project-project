@@ -41,7 +41,7 @@
 // in the `Layer.provide` chain.
 
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { ChangeOrigin } from "@pp/server-core/live/LiveChanges"
+import { ChangeOrigin } from "@pp/server-core/sync/ChangeOrigin"
 import {
   ActivityActor,
   Authentication,

@@ -1,0 +1,826 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e1147b58-9676-4fc4-b040-9fffcf5f60f8",
+  "prevIds": [
+    "b5aa0a0f-305c-4dd4-8382-c03df8748973"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "group_index"
+      ],
+      "writes": [
+        "s|tbl|public.group_index",
+        "n|tbl|public.group_index",
+        "e|tbl|public.group_index",
+        "n|rel|public.group_index",
+        "n|type|public.group_index",
+        "n|rel|public.group_index_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "group_member_index"
+      ],
+      "writes": [
+        "s|tbl|public.group_member_index",
+        "n|tbl|public.group_member_index",
+        "e|tbl|public.group_member_index",
+        "n|rel|public.group_member_index",
+        "n|type|public.group_member_index",
+        "n|rel|public.group_member_index_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "sync_change"
+      ],
+      "writes": [
+        "s|tbl|public.sync_change",
+        "n|tbl|public.sync_change",
+        "e|tbl|public.sync_change",
+        "n|rel|public.sync_change",
+        "n|type|public.sync_change",
+        "n|rel|public.sync_change_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "sync_scope"
+      ],
+      "writes": [
+        "s|tbl|public.sync_scope",
+        "n|tbl|public.sync_scope",
+        "e|tbl|public.sync_scope",
+        "n|rel|public.sync_scope",
+        "n|type|public.sync_scope",
+        "n|rel|public.sync_scope_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "group_member_index",
+        "group_member_index_ticket_idx"
+      ],
+      "writes": [
+        "s|idx|public.group_member_index_ticket_idx",
+        "n|idx|public.group_member_index_ticket_idx",
+        "e|idx|public.group_member_index_ticket_idx",
+        "n|rel|public.group_member_index_ticket_idx"
+      ],
+      "reads": [
+        "n|tbl|public.group_member_index",
+        "n|sch|public",
+        "n|col|public.group_member_index.project_id",
+        "n|col|public.group_member_index.ticket_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "group_index"
+      ],
+      "writes": [
+        "s|fk|public.group_index.group_index_project_id_project_index_id_fkey",
+        "n|fk|public.group_index.group_index_project_id_project_index_id_fkey",
+        "e|fk|public.group_index.group_index_project_id_project_index_id_fkey",
+        "n|con|public.group_index.group_index_project_id_project_index_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.group_index",
+        "n|sch|public",
+        "n|tbl|public.project_index",
+        "n|sch|public",
+        "n|col|public.group_index.project_id",
+        "n|col|public.project_index.id",
+        "e|uniqueness|public.project_index.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "group_member_index"
+      ],
+      "writes": [
+        "s|fk|public.group_member_index.group_member_index_group_fkey",
+        "n|fk|public.group_member_index.group_member_index_group_fkey",
+        "e|fk|public.group_member_index.group_member_index_group_fkey",
+        "n|con|public.group_member_index.group_member_index_group_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.group_member_index",
+        "n|sch|public",
+        "n|tbl|public.group_index",
+        "n|sch|public",
+        "n|col|public.group_member_index.project_id",
+        "n|col|public.group_member_index.group_id",
+        "n|col|public.group_index.project_id",
+        "n|col|public.group_index.group_id",
+        "e|uniqueness|public.group_index.group_id.project_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "sync_change"
+      ],
+      "writes": [
+        "s|fk|public.sync_change.sync_change_project_id_sync_scope_project_id_fkey",
+        "n|fk|public.sync_change.sync_change_project_id_sync_scope_project_id_fkey",
+        "e|fk|public.sync_change.sync_change_project_id_sync_scope_project_id_fkey",
+        "n|con|public.sync_change.sync_change_project_id_sync_scope_project_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sync_change",
+        "n|sch|public",
+        "n|tbl|public.sync_scope",
+        "n|sch|public",
+        "n|col|public.sync_change.project_id",
+        "n|col|public.sync_scope.project_id",
+        "e|uniqueness|public.sync_scope.project_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "sync_scope"
+      ],
+      "writes": [
+        "s|fk|public.sync_scope.sync_scope_project_id_project_index_id_fkey",
+        "n|fk|public.sync_scope.sync_scope_project_id_project_index_id_fkey",
+        "e|fk|public.sync_scope.sync_scope_project_id_project_index_id_fkey",
+        "n|con|public.sync_scope.sync_scope_project_id_project_index_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sync_scope",
+        "n|sch|public",
+        "n|tbl|public.project_index",
+        "n|sch|public",
+        "n|col|public.sync_scope.project_id",
+        "n|col|public.project_index.id",
+        "e|uniqueness|public.project_index.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "group_index",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "group_member_index",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sync_change",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sync_scope",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "group_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "color",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "starts_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "ends_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "created_by",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "group_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "ticket_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "generation",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "sequence",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "operation_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "origin",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "changes",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "generation",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "head",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "oldest",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "group_member_index_ticket_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "ticket_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "group_index_project_id_project_index_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_index",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "group_member_index_group_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "group_index",
+        "columnsTo": [
+          "project_id",
+          "group_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "sync_change_project_id_sync_scope_project_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "sync_scope",
+        "columnsTo": [
+          "project_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "sync_scope_project_id_project_index_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_index",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_index",
+        "name": "group_index_pkey",
+        "columns": [
+          "project_id",
+          "group_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "group_member_index",
+        "name": "group_member_index_pkey",
+        "columns": [
+          "project_id",
+          "group_id",
+          "ticket_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_change",
+        "name": "sync_change_pkey",
+        "columns": [
+          "project_id",
+          "generation",
+          "sequence"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sync_scope",
+        "name": "sync_scope_pkey",
+        "columns": [
+          "project_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

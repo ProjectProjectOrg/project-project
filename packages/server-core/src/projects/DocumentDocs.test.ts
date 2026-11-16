@@ -6,9 +6,13 @@ import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import * as Stream from "effect/Stream"
 import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
+
+const noGroupIndex = Layer.mock(GroupIndex.GroupIndex, {
+  upsert: () => Effect.void,
+  remove: () => Effect.void
+})
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 import {
@@ -25,7 +29,7 @@ import {
 
 import { testActivityLayer } from "../activity/testing"
 import * as GroupDocs from "../groups/GroupDocs"
-import * as LiveChanges from "../live/LiveChanges"
+import * as GroupIndex from "../groups/GroupIndex"
 import * as KeyedLock from "../locks/KeyedLock"
 import * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -512,7 +516,7 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   }).pipe(
     Effect.provide(
       GroupDocs.layer.pipe(
-        Layer.provide(LiveChanges.layer),
+        Layer.provide(noGroupIndex),
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -536,8 +540,9 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
 )
 
 it.effect(
-  "GroupDocs serializes typed group documents for disk writes and announces them",
+  "GroupDocs serializes typed group documents for disk writes and indexes them after the write",
   () => {
+    const indexed: Array<Readonly<{ id: string; written: boolean }>> = []
     let written:
       | {
           id: string
@@ -548,14 +553,6 @@ it.effect(
 
     return Effect.gen(function* () {
       const docs = yield* GroupDocs.GroupDocs
-      const live = yield* LiveChanges.LiveChanges
-      const announced = yield* live.changes.pipe(
-        Stream.take(1),
-        Stream.runCollect,
-        Effect.map((changes) => ({ changes, written: written !== undefined })),
-        Effect.forkChild
-      )
-      yield* Effect.yieldNow
       yield* docs.writeIfExists("org", "project", "G-2", {
         id: groupId("G-2"),
         name: "Sprint 1",
@@ -588,22 +585,18 @@ it.effect(
         },
         body: "# Sprint 1\n"
       })
-      expect(yield* Fiber.join(announced)).toEqual({
-        changes: [
-          {
-            kind: "group",
-            orgSlug: "org",
-            slug: "project",
-            id: "G-2",
-            origin: null
-          }
-        ],
-        written: true
-      })
+      expect(indexed).toEqual([{ id: "G-2", written: true }])
     }).pipe(
       Effect.provide(
         GroupDocs.layer.pipe(
-          Layer.provideMerge(LiveChanges.layer),
+          Layer.provide(
+            Layer.mock(GroupIndex.GroupIndex, {
+              upsert: (_org, _slug, group) =>
+                Effect.sync(() => {
+                  indexed.push({ id: group.id, written: written !== undefined })
+                })
+            })
+          ),
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
@@ -828,7 +821,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         GroupDocs.layer.pipe(
-          Layer.provide(LiveChanges.layer),
+          Layer.provide(noGroupIndex),
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
@@ -921,7 +914,7 @@ it.effect("GroupDocs traces each call under one GroupDocs span", () => {
     Effect.withTracer(tracer),
     Effect.provide(
       GroupDocs.layer.pipe(
-        Layer.provide(LiveChanges.layer),
+        Layer.provide(noGroupIndex),
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({

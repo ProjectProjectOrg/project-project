@@ -15,10 +15,12 @@ import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
-import * as LiveChanges from "@pp/server-core/live/LiveChanges"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as GroupIndex from "@pp/server-core/groups/GroupIndex"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import {
   makeFakeTicketDocs,
@@ -118,7 +120,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provide(Layer.succeed(TicketDocs.TicketDocs, scopedTicketDocs)),
     Layer.provide(TicketDocumentLock.layer),
     Layer.provide(FinishedStatuses.baseline),
-    Layer.provide(LiveChanges.layer),
+    Layer.provide(SyncLog.layer),
     Layer.provide(databaseLayer)
   )
   const webhookLayer = (
@@ -1008,7 +1010,18 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         }
         const updatedAt = ticketDocs.documents.get(ticketId)?.updatedAt
         const boot = reconcileTicketIndexOnBoot.pipe(
-          Effect.provide(Layer.mergeAll(ticketRewritesLayer, databaseLayer))
+          Effect.provide(
+            Layer.mergeAll(
+              ticketRewritesLayer,
+              databaseLayer,
+              Layer.mock(GroupDocs.GroupDocs, {
+                listIds: () => Effect.succeed([])
+              }),
+              Layer.mock(GroupIndex.GroupIndex, {
+                rebuildProject: () => Effect.succeed(false)
+              })
+            )
+          )
         )
         yield* boot
         expect(ticketDocs.documents.get(ticketId)?.repo).toBe("legacy-repo")

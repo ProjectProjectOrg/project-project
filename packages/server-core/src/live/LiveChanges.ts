@@ -1,164 +1,149 @@
-import type {
-  CommentsChanged,
-  GroupChanged,
-  LiveChange,
-  LiveCursor,
-  TicketChanged,
-  TicketsChanged
-} from "@pp/shared"
+import { PgClient } from "@effect/sql-pg"
+import { Db } from "@pp/db"
+import { organization, projectIndex } from "@pp/db/schema"
+import { eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as PubSub from "effect/PubSub"
-import * as Random from "effect/Random"
-import * as Semaphore from "effect/Semaphore"
-import * as Stream from "effect/Stream"
+import * as Queue from "effect/Queue"
+import * as Schedule from "effect/Schedule"
+import type * as Scope from "effect/Scope"
 
-export const ChangeOrigin = Context.Reference<string | null>(
-  "@pp/server-core/live/ChangeOrigin",
-  { defaultValue: () => null }
-)
+import * as SyncLog from "../sync/SyncLog"
 
-export const forkDetached = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.forkDetach(Effect.provideService(effect, ChangeOrigin, null))
+export type LiveProject = Readonly<{
+  projectId: string
+  orgSlug: string
+  slug: string
+}>
 
-type Unsequenced<Change> = Omit<Change, "origin" | "cursor">
-
-export type LiveChangeInput =
-  | Unsequenced<TicketChanged>
-  | Unsequenced<TicketsChanged>
-  | Unsequenced<CommentsChanged>
-  | Unsequenced<GroupChanged>
-
-export type PublishedChange = LiveChange extends infer Change
-  ? Change extends LiveChange
-    ? Omit<Change, "cursor">
-    : never
-  : never
-
-export type LiveSignal =
-  | Readonly<{ kind: "position"; seq: number }>
-  | Readonly<{ kind: "resync"; seq: number }>
-  | Readonly<{ kind: "change"; seq: number; change: PublishedChange }>
+export type LiveEntry = LiveProject &
+  Readonly<{
+    generation: number
+    sequence: number
+    origin: string | null
+    changes: SyncLog.SyncEntry["changes"]
+    reset: boolean
+  }>
 
 export class LiveChanges extends Context.Service<
   LiveChanges,
   Readonly<{
-    publish: (change: LiveChangeInput) => Effect.Effect<void>
-    changes: Stream.Stream<PublishedChange>
-    changesAfter: (after: LiveCursor | undefined) => Stream.Stream<LiveSignal>
-    cursorAt: (seq: number) => LiveCursor
+    subscribe: Effect.Effect<PubSub.Subscription<LiveEntry>, never, Scope.Scope>
   }>
 >()("@pp/server-core/live/LiveChanges") {}
 
 const SUBSCRIBER_CAPACITY = 4096
-const REPLAY_CAPACITY = 16_384
-
-type Sequenced = Readonly<{ seq: number; change: PublishedChange }>
-
-const parseCursor = (cursor: LiveCursor) => {
-  const dot = cursor.lastIndexOf(".")
-  const seq = Number(cursor.slice(dot + 1))
-  return dot > 0 && Number.isSafeInteger(seq) && seq >= 0
-    ? { epoch: cursor.slice(0, dot), seq }
-    : null
-}
-
-const asChange = ({ seq, change }: Sequenced): LiveSignal => ({
-  kind: "change",
-  seq,
-  change
-})
+const CATCH_UP_LIMIT = 500
 
 const make = Effect.gen(function* () {
-  const epoch = [
-    yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER),
-    yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
-  ]
-    .map((part) => part.toString(36))
-    .join("")
+  const db = yield* Db
+  const pg = yield* PgClient.PgClient
+  const syncLog = yield* SyncLog.SyncLog
   const pubsub = yield* Effect.acquireRelease(
-    PubSub.sliding<Sequenced>(SUBSCRIBER_CAPACITY),
+    PubSub.sliding<LiveEntry>(SUBSCRIBER_CAPACITY),
     PubSub.shutdown
   )
-  const inOrder = yield* Semaphore.make(1)
-  const replay: Array<Sequenced> = []
-  let head = 0
+  const seen = new Map<string, SyncLog.SyncPosition>()
+  const projects = new Map<string, LiveProject>()
 
-  const publish = Effect.fn("LiveChanges.publish")(function* (
-    change: LiveChangeInput
+  const projectOf = Effect.fn("LiveChanges.projectOf")(function* (
+    projectId: string
   ) {
-    const origin = yield* ChangeOrigin
-    yield* inOrder.withPermit(
-      Effect.suspend(() => {
-        head += 1
-        const sequenced: Sequenced = {
-          seq: head,
-          change: { ...change, origin } as PublishedChange
-        }
-        replay.push(sequenced)
-        if (replay.length > REPLAY_CAPACITY) replay.shift()
-        return PubSub.publish(pubsub, sequenced)
-      })
-    )
+    const known = projects.get(projectId)
+    if (known !== undefined) return known
+    const [row] = yield* db
+      .select({ orgSlug: organization.slug, slug: projectIndex.slug })
+      .from(projectIndex)
+      .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
+      .where(eq(projectIndex.id, projectId))
+      .limit(1)
+    if (row === undefined) return null
+    const project = { projectId, ...row }
+    projects.set(projectId, project)
+    return project
   })
 
-  const between = (after: number, before: number) => {
-    const missing = replay.filter(
-      (entry) => entry.seq > after && entry.seq < before
-    )
-    return missing.length === before - after - 1 ? missing : null
-  }
-
-  const catchUp = (
-    after: LiveCursor | undefined,
-    current: number
-  ): ReadonlyArray<LiveSignal> => {
-    if (after === undefined) return [{ kind: "position", seq: current }]
-    const parsed = parseCursor(after)
-    if (parsed === null || parsed.epoch !== epoch || parsed.seq > current)
-      return [{ kind: "resync", seq: current }]
-    const missed = between(parsed.seq, current + 1)
-    return missed === null
-      ? [{ kind: "resync", seq: current }]
-      : [{ kind: "position", seq: parsed.seq }, ...missed.map(asChange)]
-  }
-
-  const fillGaps = (
-    last: number,
-    entry: Sequenced
-  ): readonly [number, ReadonlyArray<LiveSignal>] => {
-    if (entry.seq <= last) return [last, []]
-    if (entry.seq === last + 1) return [entry.seq, [asChange(entry)]]
-    const missed = between(last, entry.seq)
-    return [
-      entry.seq,
-      missed === null
-        ? [{ kind: "resync", seq: entry.seq - 1 }, asChange(entry)]
-        : [...missed.map(asChange), asChange(entry)]
-    ]
-  }
-
-  const changesAfter = (after: LiveCursor | undefined) =>
-    Stream.unwrap(
-      Effect.gen(function* () {
-        const subscription = yield* PubSub.subscribe(pubsub)
-        const current = yield* inOrder.withPermit(Effect.sync(() => head))
-        return Stream.concat(
-          Stream.fromIterable(catchUp(after, current)),
-          Stream.fromSubscription(subscription).pipe(
-            Stream.mapAccum(() => current, fillGaps)
-          )
+  const catchUp = Effect.fn("LiveChanges.catchUp")(function* (
+    projectId: string,
+    head: SyncLog.SyncPosition
+  ) {
+    const project = yield* projectOf(projectId)
+    if (project === null) return
+    const last = seen.get(projectId)
+    if (last === undefined || last.generation !== head.generation) {
+      seen.set(projectId, head)
+      if (last === undefined && head.sequence > 0) {
+        const entries = yield* syncLog.entriesAfter(
+          projectId,
+          { generation: head.generation, sequence: head.sequence - 1 },
+          1
         )
+        for (const entry of entries)
+          yield* PubSub.publish(pubsub, { ...project, ...entry, reset: false })
+        return
+      }
+      yield* PubSub.publish(pubsub, {
+        ...project,
+        ...head,
+        origin: null,
+        changes: [],
+        reset: true
       })
-    )
-
-  return LiveChanges.of({
-    publish,
-    changes: Stream.fromPubSub(pubsub).pipe(Stream.map(({ change }) => change)),
-    changesAfter,
-    cursorAt: (seq) => `${epoch}.${seq}`
+      return
+    }
+    if (head.sequence <= last.sequence) return
+    const entries = yield* syncLog.entriesAfter(projectId, last, CATCH_UP_LIMIT)
+    for (const entry of entries) {
+      seen.set(projectId, entry)
+      yield* PubSub.publish(pubsub, { ...project, ...entry, reset: false })
+    }
+    if (entries.length === CATCH_UP_LIMIT) {
+      seen.set(projectId, head)
+      yield* PubSub.publish(pubsub, {
+        ...project,
+        ...head,
+        origin: null,
+        changes: [],
+        reset: true
+      })
+    }
   })
+
+  const recheckKnown = Effect.suspend(() =>
+    Effect.forEach(
+      [...seen.keys()],
+      (projectId) =>
+        syncLog
+          .head(projectId)
+          .pipe(Effect.flatMap((head) => catchUp(projectId, head))),
+      { discard: true }
+    )
+  )
+
+  const listen = Effect.scoped(
+    Effect.gen(function* () {
+      const notifications = yield* pg.listen(SyncLog.SYNC_CHANNEL)
+      yield* recheckKnown
+      while (true) {
+        const notification = yield* Queue.take(notifications)
+        const parsed = SyncLog.parseNotification(notification.payload)
+        if (parsed === null) continue
+        yield* catchUp(parsed.projectId, parsed)
+      }
+    })
+  )
+
+  yield* listen.pipe(
+    Effect.catchCause((cause) =>
+      Effect.logWarning("live change listener stopped; reconnecting", cause)
+    ),
+    Effect.repeat(Schedule.spaced("1 second")),
+    Effect.forkScoped
+  )
+
+  return LiveChanges.of({ subscribe: PubSub.subscribe(pubsub) })
 })
 
 export const layer = Layer.effect(LiveChanges, make)

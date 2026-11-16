@@ -121,7 +121,7 @@ export default {
         type: "problem",
         docs: {
           description:
-            "require LiveChanges.forkDetached for work that outlives a request"
+            "require forkDetached from sync/ChangeOrigin for work that outlives a request"
         },
         schema: []
       },
@@ -138,7 +138,7 @@ export default {
               context.report({
                 node,
                 message:
-                  "Use `LiveChanges.forkDetached` so background work does not publish live changes as the requesting browser tab, which would hide them from that tab."
+                  "Use `forkDetached` from `sync/ChangeOrigin` so background work is not logged as the requesting browser tab, which would hide its live changes from that tab."
               })
             }
           }

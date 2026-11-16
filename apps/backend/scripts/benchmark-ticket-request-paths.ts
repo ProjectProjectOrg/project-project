@@ -17,13 +17,13 @@ import * as GitHub from "@pp/server-core/github/GitHub"
 import * as ProjectGithub from "@pp/server-core/github/ProjectGithub"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
-import * as LiveChanges from "@pp/server-core/live/LiveChanges"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
+import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
@@ -468,7 +468,7 @@ const DocsLive = TicketDocs.layer.pipe(
 )
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const IndexLive = TicketIndexServices.layer.pipe(
-  Layer.provide(LiveChanges.layer),
+  Layer.provide(SyncLog.layer),
   Layer.provide(DocsLive),
   Layer.provide(DatabaseLive)
 )

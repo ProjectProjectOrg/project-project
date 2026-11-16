@@ -16,9 +16,9 @@ import * as Schema from "effect/Schema"
 import { groupMembershipChanges } from "../activity/changes"
 import { sprintEvents } from "../activity/projectEvents"
 import * as TicketActivity from "../activity/TicketActivity"
-import * as LiveChanges from "../live/LiveChanges"
 import { markdownFileContent } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import * as GroupIndex from "./GroupIndex"
 
 export type GroupDocument = GroupDetail
 
@@ -128,21 +128,19 @@ const annotateGroupDoc = <A, E, R>(
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
   const ticketActivity = yield* TicketActivity.TicketActivity
-  const liveChanges = yield* LiveChanges.LiveChanges
+  const groupIndex = yield* GroupIndex.GroupIndex
 
-  const announced = <A, E, R>(
+  const indexed = <A, E, R>(
     orgSlug: string,
     slug: string,
     id: string,
+    document: GroupDocument | null,
     effect: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R> =>
     Effect.tap(effect, () =>
-      liveChanges.publish({
-        kind: "group",
-        orgSlug,
-        slug,
-        id: GroupId.make(id)
-      })
+      document === null
+        ? groupIndex.remove(orgSlug, slug, id)
+        : groupIndex.upsert(orgSlug, slug, document)
     )
 
   const listIds = Effect.fn("GroupDocs.listIds")(function* (
@@ -218,10 +216,11 @@ const make = Effect.gen(function* () {
     slug: string,
     document: GroupDocument
   ) {
-    return yield* announced(
+    return yield* indexed(
       orgSlug,
       slug,
       document.id,
+      document,
       annotateGroupDoc(
         "create",
         orgSlug,
@@ -253,10 +252,11 @@ const make = Effect.gen(function* () {
     document: GroupDocument,
     activity: GroupActivityOptions = {}
   ) {
-    return yield* announced(
+    return yield* indexed(
       orgSlug,
       slug,
       id,
+      document,
       annotateGroupDoc(
         "write",
         orgSlug,
@@ -291,10 +291,11 @@ const make = Effect.gen(function* () {
     document: GroupDocument,
     activity: GroupActivityOptions = {}
   ) {
-    return yield* announced(
+    return yield* indexed(
       orgSlug,
       slug,
       id,
+      document,
       annotateGroupDoc(
         "writeIfExists",
         orgSlug,
@@ -328,10 +329,11 @@ const make = Effect.gen(function* () {
     slug: string,
     id: string
   ) {
-    return yield* announced(
+    return yield* indexed(
       orgSlug,
       slug,
       id,
+      null,
       annotateGroupDoc(
         "remove",
         orgSlug,

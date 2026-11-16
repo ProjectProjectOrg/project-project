@@ -41,8 +41,8 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
-import * as LiveChanges from "../live/LiveChanges"
 import type * as Markdown from "../markdown/Markdown"
+import { forkDetached } from "../sync/ChangeOrigin"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
@@ -200,7 +200,7 @@ const make = Effect.gen(function* () {
         )
         const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
         if (healable.length > 0)
-          yield* LiveChanges.forkDetached(
+          yield* forkDetached(
             Effect.forEach(
               healable,
               (r) => bannerPlaceholders.ensure(orgSlug, r.slug, r.banner),

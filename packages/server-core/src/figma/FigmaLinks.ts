@@ -35,10 +35,10 @@ import * as Match from "effect/Match"
 import { ulid } from "ulid"
 
 import * as Access from "../access/Access"
-import * as LiveChanges from "../live/LiveChanges"
 import { projectInOrg } from "../projects/projectLookup"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
+import { forkDetached } from "../sync/ChangeOrigin"
 import * as Figma from "./Figma"
 import * as FigmaIntegrations from "./FigmaIntegrations"
 
@@ -709,7 +709,7 @@ const make = Effect.gen(function* () {
         return
       }
 
-      yield* LiveChanges.forkDetached(
+      yield* forkDetached(
         Effect.gen(function* () {
           if (toResolve.length > 0) {
             yield* resolveLinks(orgSlug, slug, toResolve)

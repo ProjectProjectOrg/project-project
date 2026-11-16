@@ -39,6 +39,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as GroupIndex from "@pp/server-core/groups/GroupIndex"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
@@ -61,6 +62,7 @@ import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
+import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
@@ -134,14 +136,21 @@ const JiraDurableServicesLive = Layer.unwrap(
   })
 )
 
+const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
+
+const SyncLive = LiveChanges.layer.pipe(
+  Layer.provideMerge(SyncLog.layer),
+  Layer.provide(DatabaseLive)
+)
+
 export const BackendInfrastructureLive = Layer.mergeAll(
   KeyedLock.layer,
-  LiveChanges.layer,
+  SyncLive,
   GitHubProjectStateCache.layer,
   GitHubRequest.layer,
   TicketDocumentLock.layer,
   BetterAuthLive,
-  DbLive.pipe(Layer.provideMerge(PgLive)),
+  DatabaseLive,
   FetchHttpClient.layer,
   Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch),
   BunFileSystem.layer,
@@ -197,7 +206,9 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectDocs.layer),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
-      Layer.provideMerge(GroupDocs.layer),
+      Layer.provideMerge(
+        GroupDocs.layer.pipe(Layer.provideMerge(GroupIndex.layer))
+      ),
       Layer.provideMerge(TicketActivity.layer),
       Layer.provideMerge(LibraryDocs.layer),
       Layer.provideMerge(Markdown.layer),

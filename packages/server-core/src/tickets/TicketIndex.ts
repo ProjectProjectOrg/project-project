@@ -80,7 +80,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { actorOf, type ActorColumns } from "../activity/actorRow"
-import * as LiveChanges from "../live/LiveChanges"
+import * as SyncLog from "../sync/SyncLog"
 import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
@@ -1034,15 +1034,7 @@ const make = Effect.gen(function* () {
   const db = yield* Db
   const sql = yield* SqlClient.SqlClient
   const repairs = yield* TicketIndexRepairs.TicketIndexRepairs
-  const liveChanges = yield* LiveChanges.LiveChanges
-
-  const announce = (project: TicketProject, ticketId: string) =>
-    liveChanges.publish({
-      kind: "ticket",
-      orgSlug: project.orgSlug,
-      slug: project.slug,
-      id: makeTicketId(ticketId)
-    })
+  const syncLog = yield* SyncLog.SyncLog
 
   const projectFor = Effect.fn("TicketIndex.projectFor")(function* (
     orgSlug: string,
@@ -2074,6 +2066,9 @@ const make = Effect.gen(function* () {
             })
           yield* syncTicketBranches(project, document)
           yield* syncTicketRelations(project, document)
+          yield* syncLog.append(project.projectId, [
+            { kind: "ticket", id: document.id, op: "upsert" }
+          ])
         })
       )
       .pipe(
@@ -2097,8 +2092,7 @@ const make = Effect.gen(function* () {
             }),
             Effect.andThen(repairs.markUnpublished(project))
           )
-        ),
-        Effect.andThen(announce(project, document.id))
+        )
       )
   })
 
@@ -2106,15 +2100,23 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     ticketId: string
   ) {
-    return yield* db
-      .delete(ticketIndex)
-      .where(
-        and(
-          eq(ticketIndex.projectId, project.projectId),
-          eq(ticketIndex.ticketId, ticketId)
-        )
+    return yield* sql
+      .withTransaction(
+        Effect.gen(function* () {
+          yield* db
+            .delete(ticketIndex)
+            .where(
+              and(
+                eq(ticketIndex.projectId, project.projectId),
+                eq(ticketIndex.ticketId, ticketId)
+              )
+            )
+          yield* syncLog.append(project.projectId, [
+            { kind: "ticket", id: ticketId, op: "delete" }
+          ])
+        })
       )
-      .pipe(Effect.orDie, Effect.andThen(announce(project, ticketId)))
+      .pipe(Effect.orDie)
   })
 
   const relationsOf = Effect.fn("TicketIndex.relationsOf")(function* (

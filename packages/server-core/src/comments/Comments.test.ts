@@ -5,7 +5,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
-import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS, type SyncChangeRef, TypeKey } from "@pp/shared"
 import {
   ActivityActor,
   CommentId,
@@ -19,11 +19,9 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import * as Stream from "effect/Stream"
 import * as Tracer from "effect/Tracer"
 import pg from "pg"
 import { beforeAll, describe, expect } from "vitest"
@@ -31,10 +29,11 @@ import { beforeAll, describe, expect } from "vitest"
 import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
-import * as LiveChanges from "../live/LiveChanges"
 import * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
+import * as SyncLog from "../sync/SyncLog"
+import { recordingSyncLog } from "../sync/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Users from "../users/Users"
@@ -210,10 +209,11 @@ const scopeFor = (
 
 const makeLayer = (
   ticketDocs: TicketDocs.TicketDocs["Service"],
-  database = FakeDb
+  database = FakeDb,
+  sync: Layer.Layer<SyncLog.SyncLog> = recordingSyncLog().layer
 ) =>
   Comments.layer.pipe(
-    Layer.provideMerge(LiveChanges.layer),
+    Layer.provideMerge(sync),
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(TicketDocs.TicketDocs, ticketDocs),
@@ -283,41 +283,38 @@ it.effect("creates comments through TicketDocs", () => {
   }).pipe(Effect.provide(layer))
 })
 
-it.effect("announces the ticket's comments once the comment is written", () => {
+it.effect("logs the ticket's comments once the comment is written", () => {
   const writes: Array<string> = []
+  const logged: Array<
+    Readonly<{ changes: ReadonlyArray<SyncChangeRef>; writes: Array<string> }>
+  > = []
   const layer = makeLayer(
     makeTicketDocs({
       update: (_orgSlug, _slug, _ticketId, transform) =>
         transform(document).pipe(
           Effect.tap(() => Effect.sync(() => writes.push("written")))
         )
+    }),
+    FakeDb,
+    Layer.mock(SyncLog.SyncLog, {
+      append: (_projectId, changes) =>
+        Effect.sync(() => {
+          logged.push({ changes, writes: [...writes] })
+          return { generation: 1, sequence: logged.length }
+        })
     })
   )
 
   return Effect.gen(function* () {
     const comments = yield* Comments.Comments
-    const live = yield* LiveChanges.LiveChanges
-    const announced = yield* live.changes.pipe(
-      Stream.take(1),
-      Stream.runCollect,
-      Effect.map((changes) => ({ changes, writes: [...writes] })),
-      Effect.forkChild
-    )
-    yield* Effect.yieldNow
     yield* comments.create(ticketId("T-1"), { body: "A useful comment" })
 
-    expect(yield* Fiber.join(announced)).toEqual({
-      changes: [
-        {
-          kind: "comments",
-          orgSlug: "org",
-          slug: "project",
-          ticketId: "T-1",
-          origin: null
-        }
-      ],
-      writes: ["written"]
-    })
+    expect(logged).toEqual([
+      {
+        changes: [{ kind: "comments", id: "T-1", op: "upsert" }],
+        writes: ["written"]
+      }
+    ])
   }).pipe(Effect.provide(layer))
 })
 
