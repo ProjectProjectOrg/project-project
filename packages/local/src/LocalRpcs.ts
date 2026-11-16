@@ -1,6 +1,14 @@
 import {
   EstimationMode,
+  Group,
+  GroupId,
+  Ticket,
   TicketCountQuery,
+  TicketId,
+  TicketListRow,
+  TicketListSource,
+  TicketSequence,
+  TicketTitle,
   TicketCounts,
   TicketListPage,
   TicketEpicSections,
@@ -81,6 +89,35 @@ export const LocalSectionsResult = Schema.Struct({
 })
 export type LocalSectionsResult = typeof LocalSectionsResult.Type
 
+export const TicketListRequest = Schema.Struct({
+  project: LocalProject,
+  query: TicketListQuery,
+  ...viewer,
+  repositories: LocalRepositories
+})
+
+export const SprintBoardRequest = Schema.Struct({
+  project: LocalProject,
+  groupId: GroupId,
+  repositories: LocalRepositories
+})
+
+export const LocalSprintBoard = Schema.Struct({
+  tickets: Schema.Array(Ticket),
+  completedAt: Schema.NullOr(Schema.DateFromString)
+})
+
+export const SequenceRequest = Schema.Struct({
+  project: LocalProject,
+  id: TicketId,
+  from: Schema.UndefinedOr(TicketListSource),
+  ...viewer
+})
+
+export const LocalSequence = Schema.Struct({
+  sequence: Schema.NullOr(TicketSequence)
+})
+
 export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Hydrated", { payload: LocalProject, success: Schema.Boolean }),
   Rpc.make("Pull", { payload: LocalProject, success: LocalStatus }),
@@ -104,6 +141,30 @@ export class LocalRpcs extends RpcGroup.make(
     payload: CountsRequest,
     success: Schema.NullOr(TicketCounts),
     stream: true
+  }),
+  Rpc.make("TicketList", {
+    payload: TicketListRequest,
+    success: Schema.NullOr(Schema.Array(TicketListRow)),
+    stream: true
+  }),
+  Rpc.make("SprintBoard", {
+    payload: SprintBoardRequest,
+    success: Schema.NullOr(LocalSprintBoard),
+    stream: true
+  }),
+  Rpc.make("Groups", {
+    payload: LocalProject,
+    success: Schema.NullOr(Schema.Array(Group)),
+    stream: true
+  }),
+  Rpc.make("Titles", {
+    payload: LocalProject,
+    success: Schema.NullOr(Schema.Array(TicketTitle)),
+    stream: true
+  }),
+  Rpc.make("Sequence", {
+    payload: SequenceRequest,
+    success: Schema.NullOr(LocalSequence)
   })
 ) {}
 
