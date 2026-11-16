@@ -3,6 +3,7 @@ import {
   TicketCountQuery,
   TicketCounts,
   TicketListPage,
+  TicketEpicSections,
   TicketListQuery,
   TicketSprintSections,
   TicketStatus
@@ -69,6 +70,11 @@ export const SectionsRequest = Schema.Struct({
 })
 export type SectionsRequest = typeof SectionsRequest.Type
 
+export const ParentSectionsRequest = Schema.Struct({
+  ...SectionsRequest.fields,
+  by: Schema.Literals(["epic", "parent"])
+})
+
 export const LocalSectionsResult = Schema.Struct({
   counts: TicketCounts,
   sections: Schema.Record(TicketStatus, TicketListPage)
@@ -87,6 +93,11 @@ export class LocalRpcs extends RpcGroup.make(
   Rpc.make("SprintSections", {
     payload: SectionsRequest,
     success: Schema.NullOr(TicketSprintSections),
+    stream: true
+  }),
+  Rpc.make("ParentSections", {
+    payload: ParentSectionsRequest,
+    success: Schema.NullOr(TicketEpicSections),
     stream: true
   }),
   Rpc.make("Counts", {

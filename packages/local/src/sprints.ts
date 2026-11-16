@@ -48,7 +48,70 @@ const idList = Schema.encodeSync(
 
 const t = localTickets
 
-const inList = (ids: ReadonlyArray<string>) =>
+type Sprint = Readonly<{
+  id: GroupId
+  startsAt: Date | null
+  completedAt: Date | null
+}>
+
+export const groupMembership = (copy: number) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const sprints: ReadonlyArray<Sprint> = (yield* db
+      .select({ data: localGroups.data })
+      .from(localGroups)
+      .where(eq(localGroups.copy, copy)))
+      .map((row) => decodeHeader(row.data))
+      .filter((header) => header.kind === "sprint")
+      .map((header) => ({
+        id: GroupId.make(header.id),
+        startsAt: header.startsAt,
+        completedAt: header.completedAt
+      }))
+    const members = yield* db
+      .select({
+        group: localGroupMembers.groupId,
+        ticket: localGroupMembers.ticket
+      })
+      .from(localGroupMembers)
+      .where(eq(localGroupMembers.copy, copy))
+      .orderBy(asc(localGroupMembers.groupId), asc(localGroupMembers.position))
+    const ticketsOf = new Map<string, Array<string>>()
+    for (const member of members) {
+      const list = ticketsOf.get(member.group)
+      if (list === undefined) ticketsOf.set(member.group, [member.ticket])
+      else list.push(member.ticket)
+    }
+    return { sprints, ticketsOf }
+  })
+
+const incompleteSprintTickets = (
+  sprints: ReadonlyArray<Sprint>,
+  ticketsOf: ReadonlyMap<string, ReadonlyArray<string>>,
+  now: Date
+) =>
+  sprints
+    .filter((sprint) => sprintState(sprint, now) !== "completed")
+    .flatMap((sprint) => ticketsOf.get(sprint.id) ?? [])
+
+export const groupRestriction = (
+  copy: number,
+  groupIds: ReadonlyArray<string> | undefined,
+  now: Date
+) =>
+  Effect.gen(function* () {
+    if (groupIds === undefined || groupIds.length === 0) return undefined
+    const { sprints, ticketsOf } = yield* groupMembership(copy)
+    const named = groupIds.flatMap((id) =>
+      id === "ungrouped" ? [] : (ticketsOf.get(id) ?? [])
+    )
+    const outside = notInList(incompleteSprintTickets(sprints, ticketsOf, now))
+    return groupIds.includes("ungrouped")
+      ? sql`(${inList(named)} or ${outside})`
+      : inList(named)
+  })
+
+export const inList = (ids: ReadonlyArray<string>) =>
   sql`${t.id} in (select value from json_each(${idList(ids)}))`
 
 const notInList = (ids: ReadonlyArray<string>) =>
@@ -81,32 +144,7 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
     if (conditions === null) return null
     const filter = and(...conditions)
 
-    const sprints = (yield* db
-      .select({ data: localGroups.data })
-      .from(localGroups)
-      .where(eq(localGroups.copy, copy)))
-      .map((row) => decodeHeader(row.data))
-      .filter((header) => header.kind === "sprint")
-      .map((header) => ({
-        id: GroupId.make(header.id),
-        startsAt: header.startsAt,
-        completedAt: header.completedAt
-      }))
-    const members = yield* db
-      .select({
-        group: localGroupMembers.groupId,
-        ticket: localGroupMembers.ticket
-      })
-      .from(localGroupMembers)
-      .where(eq(localGroupMembers.copy, copy))
-      .orderBy(asc(localGroupMembers.groupId), asc(localGroupMembers.position))
-    const ticketsOf = new Map<string, Array<string>>()
-    for (const member of members) {
-      const list = ticketsOf.get(member.group)
-      if (list === undefined) ticketsOf.set(member.group, [member.ticket])
-      else list.push(member.ticket)
-    }
-
+    const { sprints, ticketsOf } = yield* groupMembership(copy)
     const shown = backlogSprintSections(sprints, query.groupId, now)
     const selected = new Set(shown.flatMap((sprint) => sprint?.id ?? []))
     const claimed = new Set<string>()
@@ -126,9 +164,7 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
     }
     claim(false)
     claim(true)
-    const inIncompleteSprint = sprints
-      .filter((sprint) => sprintState(sprint, now) !== "completed")
-      .flatMap((sprint) => ticketsOf.get(sprint.id) ?? [])
+    const inIncompleteSprint = incompleteSprintTickets(sprints, ticketsOf, now)
     const wantsUngrouped = query.groupId?.includes("ungrouped") ?? false
 
     const unit = estimationUnit(request.estimation)

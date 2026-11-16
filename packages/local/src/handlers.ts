@@ -19,6 +19,7 @@ import {
   scopeOf,
   type SectionsRequest
 } from "./LocalRpcs"
+import { localParentSections } from "./parents"
 import { localCounts, localSections } from "./sections"
 import { localSprintSections } from "./sprints"
 import {
@@ -268,6 +269,23 @@ export const localRpcsLayer = LocalRpcs.toLayer(
                   ...sectionsRequest(request, copy),
                   perSection: (key) =>
                     request.limits[key] ?? request.defaultLimit,
+                  now
+                })
+              )
+            )
+          )
+          .pipe(Stream.orDie),
+      ParentSections: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              Effect.flatMap(DateTime.nowAsDate, (now) =>
+                localParentSections({
+                  ...sectionsRequest(request, copy),
+                  by: request.by,
+                  limits: request.limits,
+                  defaultLimit: request.defaultLimit,
                   now
                 })
               )

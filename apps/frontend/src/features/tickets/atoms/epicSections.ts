@@ -16,6 +16,8 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
+import { localParentSections } from "@/features/local/atoms/localParentSections"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import {
   projectEstimation,
   projectRequest
@@ -37,6 +39,7 @@ import {
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
+import { epicLoadedPages } from "./epicPages"
 import {
   bulkTicketMove,
   bulkTicketUpdate,
@@ -83,12 +86,6 @@ const snapshotQuery = (req: EpicSectionsRequest) =>
     ]
   })
 
-const loadedPagesAtom = Atom.family((_req: EpicSectionsRequest) =>
-  Atom.make<Readonly<Record<string, number>>>({}).pipe(
-    Atom.setIdleTTL("2 minutes")
-  )
-)
-
 const pageQuery = (
   req: EpicSectionsRequest,
   key: EpicSectionKey,
@@ -128,12 +125,33 @@ const emptyEpicSections = (
 const epicSectionsView = (req: EpicSectionsRequest) =>
   Atom.readable(
     (get) => {
-      const base = get(snapshotQuery(req))
       const viewer = viewerOf(get, req)
+      const local = readLocal(get, req.params, () => localParentSections(req))
+      if (local !== null) {
+        const created = get(createdKeys(scopeOf(req)))
+        return AsyncResult.map(
+          local,
+          (value): EpicSectionsValue => ({
+            total: value.total,
+            counts: value.counts,
+            sections: value.sections.map((section) => ({
+              key: section.key,
+              parent: section.parent,
+              count: section.count,
+              page: {
+                items: withCreatedKeys(section.page.items.map(toRow), created),
+                nextCursor: section.page.nextCursor
+              }
+            })),
+            viewer
+          })
+        )
+      }
+      const base = get(snapshotQuery(req))
       if (!AsyncResult.isSuccess(base)) {
         return AsyncResult.map(base, () => emptyEpicSections(viewer))
       }
-      const loaded = get(loadedPagesAtom(req))
+      const loaded = get(epicLoadedPages(req))
       const created = get(createdKeys(scopeOf(req)))
       let waiting = base.waiting
       const sections = base.value.sections.map((section) => {
@@ -178,6 +196,18 @@ export const loadMoreEpicSections = Atom.family(
         _input: void,
         get: Atom.FnContext
       ) {
+        const shown = get(epicSections(req))
+        const loaded = get(epicLoadedPages(req))
+        if (
+          AsyncResult.isSuccess(shown) &&
+          shown.value.sections
+            .find((section) => section.key === key)
+            ?.page.nextCursor?.startsWith("local:")
+        )
+          return get.set(epicLoadedPages(req), {
+            ...loaded,
+            [key]: (loaded[key] ?? 0) + 1
+          })
         return yield* loadNextPage(get, {
           visibleCursor: () => {
             const current = get(epicSections(req))
@@ -186,7 +216,7 @@ export const loadMoreEpicSections = Atom.family(
                   ?.page.nextCursor
               : undefined
           },
-          depth: () => get(loadedPagesAtom(req))[key] ?? 0,
+          depth: () => get(epicLoadedPages(req))[key] ?? 0,
           firstCursor: () => {
             const base = get(snapshotQuery(req))
             return AsyncResult.isSuccess(base)
@@ -196,8 +226,8 @@ export const loadMoreEpicSections = Atom.family(
           },
           page: (cursor) => pageQuery(req, key, cursor),
           deepen: (depth) =>
-            get.set(loadedPagesAtom(req), {
-              ...get(loadedPagesAtom(req)),
+            get.set(epicLoadedPages(req), {
+              ...get(epicLoadedPages(req)),
               [key]: depth
             })
         })
