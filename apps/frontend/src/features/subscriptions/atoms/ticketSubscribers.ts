@@ -25,7 +25,7 @@ const subscribersQuery = (req: TicketSubscribersRequest) => {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [
-      Keys.ticketsIn(scope),
+      Keys.ticket(scope, req.params.id),
       Keys.ticketComments(scope),
       Keys.ticketSubscribers(scope, req.params.id)
     ]

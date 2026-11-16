@@ -13,10 +13,12 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
+import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
-import { Keys, projectScope } from "@/api/keys"
+import { Api } from "@/api/Api"
+import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
@@ -345,7 +347,7 @@ describe("ticket detail invalidation keys", () => {
     return { registry, publishedBy }
   }
 
-  it("publishes ticketsIn and the title query for a title edit, but never the ticket's own key", async () => {
+  it("publishes ticketsIn, the title query and the ticket's own key for a title edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
       const published = await publishedBy({ title: "After" }, [
@@ -354,15 +356,14 @@ describe("ticket detail invalidation keys", () => {
         "updatedQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery"])
+        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery", "self"])
       )
-      expect(published.has("self")).toBe(false)
     } finally {
       registry.dispose()
     }
   })
 
-  it("publishes the ticket list and updated query for a body-only edit", async () => {
+  it("publishes the ticket list, updated query and the ticket's own key for a body-only edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
       const published = await publishedBy({ body: "After" }, [
@@ -370,16 +371,14 @@ describe("ticket detail invalidation keys", () => {
         "updatedQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "updatedQuery"])
+        new Set<ProbeName>(["ticketsIn", "updatedQuery", "self"])
       )
-      expect(published.has("titleQuery")).toBe(false)
-      expect(published.has("self")).toBe(false)
     } finally {
       registry.dispose()
     }
   })
 
-  it("publishes the list keys for a non-content edit, but never the ticket's own key", async () => {
+  it("publishes the list keys and the ticket's own key for a non-content edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
       const published = await publishedBy({ priority: "high" }, [
@@ -388,9 +387,8 @@ describe("ticket detail invalidation keys", () => {
         "ticketPages"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages"])
+        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages", "self"])
       )
-      expect(published.has("self")).toBe(false)
     } finally {
       registry.dispose()
     }
@@ -428,6 +426,34 @@ describe("an open ticket that disappears", () => {
       await vi.waitFor(() =>
         expect(lastKnownBeforeNotFound(registry.get(view))).toEqual(ticket)
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+const otherTicket = Schema.decodeSync(TicketId)("T-2")
+
+const invalidate = Api.runtime.fn((keys: ReadonlyArray<ReactivityKey>) =>
+  Reactivity.invalidate(keys)
+)
+
+describe("an open ticket and changes elsewhere in its project", () => {
+  it("refetches when the ticket itself changes, and not when another ticket does", async () => {
+    const gets = vi.fn<() => Promise<Response>>(() =>
+      Promise.resolve(Response.json(encode(ticket)))
+    )
+    fetchStub.set(gets)
+    const registry = AtomRegistry.make()
+    registry.mount(ticketDetail(req))
+    registry.mount(invalidate)
+    try {
+      await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(1))
+
+      registry.set(invalidate, Keys.ticketChanged(scope, otherTicket))
+      registry.set(invalidate, Keys.ticketChanged(scope, ticket.id))
+      await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
+      expect(gets).toHaveBeenCalledTimes(2)
     } finally {
       registry.dispose()
     }
