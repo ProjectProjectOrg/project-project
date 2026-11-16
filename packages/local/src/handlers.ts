@@ -1,3 +1,4 @@
+import { type SnapshotPage, snapshotFromPages } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -57,13 +58,47 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const source = yield* SyncSource
     const changed = reactivity.invalidate(LOCAL_SECTION_TABLES)
 
-    const pullUntilApplied = (project: LocalProject) =>
+    const collectSnapshot = (project: LocalProject, first: SnapshotPage) =>
+      Effect.gen(function* () {
+        let page = first
+        let pages = [page]
+        let start = page.start
+        while (page.next !== null) {
+          const next = yield* source.pull(project, { page: page.next })
+          if (next.kind !== "snapshot")
+            return yield* Effect.die(new Error("expected a snapshot page"))
+          page = next
+          if (page.start === null) pages.push(page)
+          else {
+            pages = [page]
+            start = page.start
+          }
+        }
+        if (start === null)
+          return yield* Effect.die(new Error("snapshot without a start page"))
+        return snapshotFromPages(start, pages, page.base)
+      })
+
+    const pullOnce = (project: LocalProject) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
         const after = yield* cursorOf(scope)
-        const sync = yield* source.pull(project, after)
-        return yield* applySync(scope, after, sync)
-      }).pipe(Effect.repeat({ until: (applied) => applied === "applied" }))
+        const first = yield* source.pull(
+          project,
+          after === null ? {} : { after }
+        )
+        if (first.kind === "changes") {
+          const applied = yield* applySync(scope, after, first)
+          return applied === "stale" || first.more ? "again" : "caughtUp"
+        }
+        yield* applySync(scope, after, yield* collectSnapshot(project, first))
+        return "again"
+      })
+
+    const pullUntilApplied = (project: LocalProject) =>
+      pullOnce(project).pipe(
+        Effect.repeat({ until: (state) => state === "caughtUp" })
+      )
 
     const pull = (project: LocalProject) => {
       const scope = scopeOf(project)
@@ -90,9 +125,12 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const checkFacts = (project: LocalProject) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
-        const server = yield* source.pull(project, null)
+        const first = yield* source.pull(project, {})
+        if (first.kind !== "snapshot")
+          return yield* Effect.logInfo("local copy shadow check got changes")
+        const server = yield* collectSnapshot(project, first)
         const local = yield* readFacts(scope)
-        if (server.kind !== "snapshot" || local.cursor !== server.cursor)
+        if (local.cursor !== server.cursor)
           return yield* Effect.logInfo(
             `local copy of ${scope} is at ${local.cursor}, server at ${server.cursor}; shadow check skipped`
           )

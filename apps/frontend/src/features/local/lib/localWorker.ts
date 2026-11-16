@@ -27,18 +27,16 @@ const syncSourceLayer = Layer.effect(
       baseUrl: "/api"
     })
     return {
-      pull: (project, after) =>
-        client
-          .project({ params: project, query: after === null ? {} : { after } })
-          .pipe(
-            Effect.catchTags({
-              NotFound: () => new SyncDenied(),
-              Forbidden: () => new SyncDenied(),
-              HttpClientError: () => new SyncOffline(),
-              Unauthorized: Effect.die,
-              SchemaError: Effect.die
-            })
-          )
+      pull: (project, query) =>
+        client.project({ params: project, query }).pipe(
+          Effect.catchTags({
+            NotFound: () => new SyncDenied(),
+            Forbidden: () => new SyncDenied(),
+            HttpClientError: () => new SyncOffline(),
+            Unauthorized: Effect.die,
+            SchemaError: Effect.die
+          })
+        )
     }
   })
 ).pipe(Layer.provide(FetchHttpClient.layer))

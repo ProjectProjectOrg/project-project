@@ -1,4 +1,4 @@
-import type { ProjectSync, SyncCursor } from "@pp/shared"
+import type { ProjectSync, ProjectSyncQuery } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
@@ -14,7 +14,7 @@ export class SyncSource extends Context.Service<
   Readonly<{
     pull: (
       project: LocalProject,
-      after: SyncCursor | null
+      query: ProjectSyncQuery
     ) => Effect.Effect<ProjectSync, SyncDenied | SyncOffline>
   }>
 >()("@pp/local/SyncSource") {}

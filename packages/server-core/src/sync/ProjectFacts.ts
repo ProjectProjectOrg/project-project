@@ -13,28 +13,72 @@ import {
 } from "@pp/db/schema"
 import type {
   GroupFact,
+  GroupHeader,
+  GroupMemberFact,
   MemberFact,
   ProjectChanges,
   ProjectFact,
   ProjectScope,
   ProjectSync,
+  ProjectSyncQuery,
+  SnapshotPage,
   StatusFact,
   SyncChangeRef,
   SyncCursor,
   TagFact,
   TicketFact
 } from "@pp/shared"
-import { and, asc, eq, gt, inArray, lte, type SQL } from "drizzle-orm"
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gt,
+  inArray,
+  lte,
+  type SQL,
+  sql as drizzleSql
+} from "drizzle-orm"
 import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { estimateFromIndex, flagFromIndex } from "../tickets/TicketIndex"
 import * as SyncLog from "./SyncLog"
 
-export const CATCH_UP_LIMIT = 1000
+export const SyncPageLimits = Context.Reference<
+  Readonly<{ tickets: number; members: number; facts: number; entries: number }>
+>("@pp/server-core/sync/ProjectFacts/SyncPageLimits", {
+  defaultValue: () => ({
+    tickets: 1000,
+    members: 5000,
+    facts: 2000,
+    entries: 20000
+  })
+})
+
+const TicketsAfter = Schema.TaggedStruct("tickets", { ticket: Schema.String })
+const MembersAfter = Schema.TaggedStruct("members", {
+  group: Schema.String,
+  ticket: Schema.String
+})
+
+const isMembersAfter = Schema.is(MembersAfter)
+
+const PageToken = Schema.Struct({
+  generation: Schema.Finite,
+  sequence: Schema.Finite,
+  git: Schema.Boolean,
+  after: Schema.Union([TicketsAfter, MembersAfter])
+})
+type PageToken = typeof PageToken.Type
+
+const encodeToken = Schema.encodeSync(Schema.fromJsonString(PageToken))
+const decodeToken = Schema.decodeUnknownOption(Schema.fromJsonString(PageToken))
 
 export const encodeSyncCursor = (position: SyncLog.SyncPosition): SyncCursor =>
   `${position.generation}.${position.sequence}`
@@ -73,7 +117,7 @@ export class ProjectFacts extends Context.Service<
   Readonly<{
     pull: (
       scope: ProjectScope["Service"],
-      after: SyncCursor | undefined
+      query: ProjectSyncQuery
     ) => Effect.Effect<ProjectSync>
   }>
 >()("@pp/server-core/sync/ProjectFacts") {}
@@ -83,29 +127,33 @@ const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   const syncLog = yield* SyncLog.SyncLog
 
-  const tickets = Effect.fn("ProjectFacts.tickets")(function* (
+  const ticketsWhere = Effect.fn("ProjectFacts.ticketsWhere")(function* (
     projectId: string,
     gitVisible: boolean,
-    ids: Ids
+    condition: SQL | undefined,
+    limit?: number
   ) {
-    const rows = yield* db
+    const selected = db
       .select()
       .from(ticketIndex)
-      .where(
-        scoped(
-          eq(ticketIndex.projectId, projectId),
-          only(ticketIndex.ticketId, ids)
-        )
-      )
-    const relations = yield* db
-      .select()
-      .from(ticketRelationIndex)
-      .where(
-        scoped(
-          eq(ticketRelationIndex.projectId, projectId),
-          only(ticketRelationIndex.fromTicketId, ids)
-        )
-      )
+      .where(scoped(eq(ticketIndex.projectId, projectId), condition))
+      .orderBy(asc(ticketIndex.ticketId))
+    const rows = yield* limit === undefined ? selected : selected.limit(limit)
+    const relations =
+      rows.length === 0
+        ? []
+        : yield* db
+            .select()
+            .from(ticketRelationIndex)
+            .where(
+              and(
+                eq(ticketRelationIndex.projectId, projectId),
+                inArray(
+                  ticketRelationIndex.fromTicketId,
+                  rows.map((row) => row.ticketId)
+                )
+              )
+            )
     const relationsOf = Arr.groupBy(relations, (row) => row.fromTicketId)
     return rows.map(
       (row): TicketFact => ({
@@ -144,6 +192,51 @@ const make = Effect.gen(function* () {
       })
     )
   })
+
+  const tickets = (projectId: string, gitVisible: boolean, ids: Ids) =>
+    ticketsWhere(projectId, gitVisible, only(ticketIndex.ticketId, ids))
+
+  const groupHeaders = (projectId: string) =>
+    db
+      .select({
+        id: groupIndex.groupId,
+        kind: groupIndex.kind,
+        name: groupIndex.name,
+        color: groupIndex.color,
+        startsAt: groupIndex.startsAt,
+        endsAt: groupIndex.endsAt,
+        completedAt: groupIndex.completedAt,
+        createdBy: groupIndex.createdBy,
+        createdAt: groupIndex.createdAt,
+        updatedAt: groupIndex.updatedAt
+      })
+      .from(groupIndex)
+      .where(eq(groupIndex.projectId, projectId))
+      .pipe(Effect.map((rows): ReadonlyArray<GroupHeader> => rows))
+
+  const groupMembers = (
+    projectId: string,
+    after: Readonly<{ group: string; ticket: string }> | null,
+    limit: number
+  ) =>
+    db
+      .select({
+        group: groupMemberIndex.groupId,
+        ticket: groupMemberIndex.ticketId,
+        position: groupMemberIndex.position
+      })
+      .from(groupMemberIndex)
+      .where(
+        and(
+          eq(groupMemberIndex.projectId, projectId),
+          after === null
+            ? undefined
+            : drizzleSql`(${groupMemberIndex.groupId}, ${groupMemberIndex.ticketId}) > (${after.group}, ${after.ticket})`
+        )
+      )
+      .orderBy(asc(groupMemberIndex.groupId), asc(groupMemberIndex.ticketId))
+      .limit(limit)
+      .pipe(Effect.map((rows): ReadonlyArray<GroupMemberFact> => rows))
 
   const groups = Effect.fn("ProjectFacts.groups")(function* (
     projectId: string,
@@ -253,30 +346,112 @@ const make = Effect.gen(function* () {
         )
       )
 
-  const snapshot = Effect.fn("ProjectFacts.snapshot")(function* (
+  const ticketCount = (projectId: string) =>
+    db
+      .select({ n: count() })
+      .from(ticketIndex)
+      .where(eq(ticketIndex.projectId, projectId))
+      .pipe(Effect.map(([row]) => row?.n ?? 0))
+
+  const page = Effect.fn("ProjectFacts.page")(function* (
+    projectId: string,
+    token: PageToken,
+    start: SnapshotPage["start"]
+  ) {
+    const limits = yield* SyncPageLimits
+    const base = encodeSyncCursor(token)
+    const continued = (after: PageToken["after"]) =>
+      encodeToken({ ...token, after })
+    if (isMembersAfter(token.after)) {
+      const members = yield* groupMembers(
+        projectId,
+        token.after,
+        limits.members
+      )
+      const last = members.at(-1)
+      return {
+        kind: "snapshot",
+        base,
+        git: token.git,
+        start,
+        tickets: [],
+        groupMembers: members,
+        next:
+          members.length < limits.members || last === undefined
+            ? null
+            : continued(
+                MembersAfter.make({ group: last.group, ticket: last.ticket })
+              )
+      } satisfies SnapshotPage
+    }
+    const facts = yield* ticketsWhere(
+      projectId,
+      token.git,
+      token.after.ticket === ""
+        ? undefined
+        : gt(ticketIndex.ticketId, token.after.ticket),
+      limits.tickets
+    )
+    const last = facts.at(-1)
+    if (facts.length === limits.tickets && last !== undefined)
+      return {
+        kind: "snapshot",
+        base,
+        git: token.git,
+        start,
+        tickets: facts,
+        groupMembers: [],
+        next: continued(TicketsAfter.make({ ticket: last.id }))
+      } satisfies SnapshotPage
+    const members = yield* groupMembers(projectId, null, limits.members)
+    const lastMember = members.at(-1)
+    return {
+      kind: "snapshot",
+      base,
+      git: token.git,
+      start,
+      tickets: facts,
+      groupMembers: members,
+      next:
+        members.length < limits.members || lastMember === undefined
+          ? null
+          : continued(
+              MembersAfter.make({
+                group: lastMember.group,
+                ticket: lastMember.ticket
+              })
+            )
+    } satisfies SnapshotPage
+  })
+
+  const startPage = Effect.fn("ProjectFacts.startPage")(function* (
     projectId: string,
     gitVisible: boolean,
     head: SyncLog.SyncPosition
   ) {
-    return {
-      kind: "snapshot",
-      cursor: encodeSyncCursor(head),
+    const start = {
       project: yield* project(projectId),
-      tickets: yield* tickets(projectId, gitVisible, undefined),
-      groups: yield* groups(projectId, undefined),
+      groups: yield* groupHeaders(projectId),
       statuses: yield* statuses(projectId, undefined),
       tags: yield* tags(projectId, undefined),
-      members: yield* members(projectId, undefined)
-    } satisfies ProjectSync
+      members: yield* members(projectId, undefined),
+      ticketCount: yield* ticketCount(projectId)
+    }
+    return yield* page(
+      projectId,
+      { ...head, git: gitVisible, after: TicketsAfter.make({ ticket: "" }) },
+      start
+    )
   })
 
   const changedSince = (
     projectId: string,
     after: SyncLog.SyncPosition,
-    head: SyncLog.SyncPosition
+    head: SyncLog.SyncPosition,
+    limit: number
   ) =>
     db
-      .select({ changes: syncChange.changes })
+      .select({ sequence: syncChange.sequence, changes: syncChange.changes })
       .from(syncChange)
       .where(
         and(
@@ -287,13 +462,14 @@ const make = Effect.gen(function* () {
         )
       )
       .orderBy(asc(syncChange.sequence))
-      .limit(CATCH_UP_LIMIT + 1)
+      .limit(limit)
 
   const changes = Effect.fn("ProjectFacts.changes")(function* (
     projectId: string,
     gitVisible: boolean,
     refs: ReadonlyArray<SyncChangeRef>,
-    head: SyncLog.SyncPosition
+    covered: SyncLog.SyncPosition,
+    more: boolean
   ) {
     const resolve = <F, E>(
       ids: ReadonlyArray<string>,
@@ -336,7 +512,7 @@ const make = Effect.gen(function* () {
     )
     return {
       kind: "changes",
-      cursor: encodeSyncCursor(head),
+      cursor: encodeSyncCursor(covered),
       project:
         idsOf(refs, "project").length === 0 ? null : yield* project(projectId),
       upserts: {
@@ -353,35 +529,67 @@ const make = Effect.gen(function* () {
         tags: tagChanges.deletes,
         members: memberChanges.deletes
       },
-      comments: idsOf(refs, "comments")
+      comments: idsOf(refs, "comments"),
+      git: gitVisible,
+      more
     } satisfies ProjectChanges
+  })
+
+  const catchUp = Effect.fn("ProjectFacts.catchUp")(function* (
+    projectId: string,
+    gitVisible: boolean,
+    from: SyncLog.SyncPosition,
+    head: SyncLog.SyncPosition
+  ) {
+    const limits = yield* SyncPageLimits
+    const entries = yield* changedSince(projectId, from, head, limits.entries)
+    const refs: Array<SyncChangeRef> = []
+    const named = new Set<string>()
+    let covered = from.sequence
+    for (const entry of entries) {
+      if (named.size >= limits.facts) break
+      for (const ref of entry.changes) {
+        refs.push(ref)
+        named.add(`${ref.kind}:${ref.id}`)
+      }
+      covered = entry.sequence
+    }
+    return yield* changes(
+      projectId,
+      gitVisible,
+      refs,
+      { generation: head.generation, sequence: covered },
+      covered < head.sequence
+    )
   })
 
   const pull = Effect.fn("ProjectFacts.pull")(function* (
     scope: ProjectScope["Service"],
-    after: SyncCursor | undefined
+    query: ProjectSyncQuery
   ) {
     const gitVisible = scope.permissions.can({ github: ["read"] })
     return yield* sql.withTransaction(
       Effect.gen(function* () {
         yield* sql`set transaction isolation level repeatable read, read only`
         const head = yield* syncLog.head(scope.projectId)
-        const from = after === undefined ? null : decodeSyncCursor(after)
+        if (query.page !== undefined) {
+          const token = Option.getOrNull(decodeToken(query.page))
+          return token !== null &&
+            token.generation === head.generation &&
+            token.sequence <= head.sequence &&
+            token.git === gitVisible
+            ? yield* page(scope.projectId, token, null)
+            : yield* startPage(scope.projectId, gitVisible, head)
+        }
+        const from =
+          query.after === undefined ? null : decodeSyncCursor(query.after)
         if (
           from === null ||
           from.generation !== head.generation ||
           from.sequence > head.sequence
         )
-          return yield* snapshot(scope.projectId, gitVisible, head)
-        const entries = yield* changedSince(scope.projectId, from, head)
-        if (entries.length > CATCH_UP_LIMIT)
-          return yield* snapshot(scope.projectId, gitVisible, head)
-        return yield* changes(
-          scope.projectId,
-          gitVisible,
-          entries.flatMap((entry) => entry.changes),
-          head
-        )
+          return yield* startPage(scope.projectId, gitVisible, head)
+        return yield* catchUp(scope.projectId, gitVisible, from, head)
       })
     )
   }, Effect.orDie)

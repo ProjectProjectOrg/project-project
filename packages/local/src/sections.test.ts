@@ -3,7 +3,7 @@ import { it } from "@effect/vitest"
 import {
   type EstimationMode,
   matchesTicketQuery,
-  type ProjectSync,
+  type ProjectSnapshot,
   type StatusFact,
   type TicketFact,
   TicketListQuery,
@@ -227,7 +227,7 @@ const reference = (
 const snapshot = (
   tickets: ReadonlyArray<TicketFact>,
   estimation: EstimationMode
-): ProjectSync => ({
+): ProjectSnapshot => ({
   kind: "snapshot",
   cursor: "1.1",
   project: {

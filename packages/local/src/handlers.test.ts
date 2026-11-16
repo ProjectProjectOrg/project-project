@@ -13,10 +13,11 @@ import { localRpcsLayer } from "./handlers"
 import { localDatabase } from "./LocalDb"
 import { LocalRpcs } from "./LocalRpcs"
 import { SyncSource } from "./SyncSource"
-import { changes, snapshot, ticket } from "./testFacts"
+import { changes, onePage, ticket } from "./testFacts"
 
 const responses: Array<ProjectSync> = [
-  snapshot("1.1", [ticket("T-1", "one")]),
+  onePage("1.1", [ticket("T-1", "one")]),
+  changes("1.1", [], []),
   changes("1.2", [ticket("T-1", "renamed")], [])
 ]
 

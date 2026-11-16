@@ -2,7 +2,8 @@ import {
   GroupFact,
   MemberFact,
   ProjectFact,
-  type ProjectSync,
+  type ProjectChanges,
+  type ProjectSnapshot,
   StatusFact,
   type SyncCursor,
   TagFact,
@@ -99,9 +100,7 @@ export type LocalFacts = Readonly<{
   facts: Facts
 }>
 
-export const snapshotFacts = (
-  snapshot: Extract<ProjectSync, { kind: "snapshot" }>
-): LocalFacts => ({
+export const snapshotFacts = (snapshot: ProjectSnapshot): LocalFacts => ({
   cursor: snapshot.cursor,
   project: projectJson(snapshot.project),
   facts: {
@@ -386,7 +385,7 @@ const publish = (scope: string, copy: number, cursor: SyncCursor) =>
 export const applySync = (
   scope: string,
   base: SyncCursor | null,
-  sync: ProjectSync
+  sync: ProjectSnapshot | ProjectChanges
 ) =>
   Effect.gen(function* () {
     const sqlClient = yield* SqlClient.SqlClient

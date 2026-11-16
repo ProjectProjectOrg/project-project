@@ -1,4 +1,9 @@
-import type { ProjectSync, TicketFact } from "@pp/shared"
+import type {
+  ProjectChanges,
+  ProjectSnapshot,
+  SnapshotPage,
+  TicketFact
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
@@ -35,7 +40,7 @@ const project = {
 export const snapshot = (
   cursor: string,
   tickets: ReadonlyArray<TicketFact>
-): Extract<ProjectSync, { kind: "snapshot" }> => ({
+): ProjectSnapshot => ({
   kind: "snapshot",
   cursor,
   project,
@@ -50,7 +55,7 @@ export const changes = (
   cursor: string,
   upserts: ReadonlyArray<TicketFact>,
   deletes: ReadonlyArray<string>
-): Extract<ProjectSync, { kind: "changes" }> => ({
+): ProjectChanges => ({
   kind: "changes",
   cursor,
   project: null,
@@ -68,5 +73,30 @@ export const changes = (
     tags: [],
     members: []
   },
-  comments: []
+  comments: [],
+  git: false,
+  more: false
 })
+
+export const onePage = (
+  base: string,
+  tickets: ReadonlyArray<TicketFact>
+): SnapshotPage => {
+  const full = snapshot(base, tickets)
+  return {
+    kind: "snapshot",
+    base,
+    git: false,
+    start: {
+      project: full.project,
+      groups: [],
+      statuses: full.statuses,
+      tags: full.tags,
+      members: full.members,
+      ticketCount: tickets.length
+    },
+    tickets,
+    groupMembers: [],
+    next: null
+  }
+}

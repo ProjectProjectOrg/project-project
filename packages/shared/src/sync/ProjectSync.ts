@@ -52,7 +52,7 @@ export const TicketFact = Schema.Struct({
 })
 export type TicketFact = typeof TicketFact.Type
 
-export const GroupFact = Schema.Struct({
+export const GroupHeader = Schema.Struct({
   id: Schema.String,
   kind: GroupKind,
   name: Schema.String,
@@ -60,12 +60,24 @@ export const GroupFact = Schema.Struct({
   startsAt: Schema.NullOr(Schema.DateFromString),
   endsAt: Schema.NullOr(Schema.DateFromString),
   completedAt: Schema.NullOr(Schema.DateFromString),
-  tickets: Schema.Array(Schema.String),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
   updatedAt: Schema.DateFromString
 })
+export type GroupHeader = typeof GroupHeader.Type
+
+export const GroupFact = Schema.Struct({
+  ...GroupHeader.fields,
+  tickets: Schema.Array(Schema.String)
+})
 export type GroupFact = typeof GroupFact.Type
+
+export const GroupMemberFact = Schema.Struct({
+  group: Schema.String,
+  ticket: Schema.String,
+  position: Schema.Finite
+})
+export type GroupMemberFact = typeof GroupMemberFact.Type
 
 export const StatusFact = Schema.Struct({
   slug: Schema.String,
@@ -110,13 +122,69 @@ const Facts = {
   members: Schema.Array(MemberFact)
 }
 
-export const ProjectSnapshot = Schema.Struct({
-  kind: Schema.Literal("snapshot"),
-  cursor: SyncCursor,
+export const SnapshotStart = Schema.Struct({
   project: ProjectFact,
-  ...Facts
+  groups: Schema.Array(GroupHeader),
+  statuses: Schema.Array(StatusFact),
+  tags: Schema.Array(TagFact),
+  members: Schema.Array(MemberFact),
+  ticketCount: Schema.Finite
 })
-export type ProjectSnapshot = typeof ProjectSnapshot.Type
+export type SnapshotStart = typeof SnapshotStart.Type
+
+export const SnapshotPage = Schema.Struct({
+  kind: Schema.Literal("snapshot"),
+  base: SyncCursor,
+  git: Schema.Boolean,
+  start: Schema.NullOr(SnapshotStart),
+  tickets: Schema.Array(TicketFact),
+  groupMembers: Schema.Array(GroupMemberFact),
+  next: Schema.NullOr(Schema.String)
+}).annotate({
+  description:
+    "One page of a project's facts. A page with `start` begins a new snapshot at log position `base`; follow `next` to the end, then catch up with `after=base`."
+})
+export type SnapshotPage = typeof SnapshotPage.Type
+
+export type ProjectSnapshot = Readonly<{
+  kind: "snapshot"
+  cursor: SyncCursor
+  project: ProjectFact
+  tickets: ReadonlyArray<TicketFact>
+  groups: ReadonlyArray<GroupFact>
+  statuses: ReadonlyArray<StatusFact>
+  tags: ReadonlyArray<TagFact>
+  members: ReadonlyArray<MemberFact>
+}>
+
+export const snapshotFromPages = (
+  start: SnapshotStart,
+  pages: ReadonlyArray<SnapshotPage>,
+  base: SyncCursor
+): ProjectSnapshot => {
+  const members = new Map<string, Array<GroupMemberFact>>()
+  for (const page of pages)
+    for (const member of page.groupMembers) {
+      const list = members.get(member.group)
+      if (list === undefined) members.set(member.group, [member])
+      else list.push(member)
+    }
+  return {
+    kind: "snapshot",
+    cursor: base,
+    project: start.project,
+    tickets: pages.flatMap((page) => page.tickets),
+    groups: start.groups.map((group) => ({
+      ...group,
+      tickets: (members.get(group.id) ?? [])
+        .toSorted((a, b) => a.position - b.position)
+        .map((member) => member.ticket)
+    })),
+    statuses: start.statuses,
+    tags: start.tags,
+    members: start.members
+  }
+}
 
 export const ProjectChanges = Schema.Struct({
   kind: Schema.Literal("changes"),
@@ -130,13 +198,20 @@ export const ProjectChanges = Schema.Struct({
     tags: Schema.Array(Schema.String),
     members: Schema.Array(Schema.String)
   }),
-  comments: Schema.Array(Schema.String)
+  comments: Schema.Array(Schema.String),
+  git: Schema.Boolean,
+  more: Schema.Boolean
+}).annotate({
+  description:
+    "Facts named by log entries after the request's cursor, read as they are now. `cursor` covers every change up to it, possibly later ones; with `more`, ask again with `after=cursor`."
 })
 export type ProjectChanges = typeof ProjectChanges.Type
 
-export const ProjectSync = Schema.Union([ProjectSnapshot, ProjectChanges])
+export const ProjectSync = Schema.Union([SnapshotPage, ProjectChanges])
 export type ProjectSync = typeof ProjectSync.Type
 
 export const ProjectSyncQuery = Schema.Struct({
-  after: Schema.optional(SyncCursor)
+  after: Schema.optional(SyncCursor),
+  page: Schema.optional(Schema.String)
 })
+export type ProjectSyncQuery = typeof ProjectSyncQuery.Type

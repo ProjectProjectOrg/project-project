@@ -10,11 +10,13 @@ import {
   projectTag,
   ticketIndex
 } from "@pp/db/schema"
-import type {
-  ProjectChanges,
-  ProjectScope,
-  ProjectSnapshot,
-  SyncChangeRef
+import {
+  type ProjectChanges,
+  type ProjectScope,
+  type ProjectSnapshot,
+  type SnapshotPage,
+  snapshotFromPages,
+  type SyncChangeRef
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -278,20 +280,42 @@ const normalized = (snapshot: ProjectSnapshot) => ({
   members: sortedBy(snapshot.members, (fact) => fact.userId)
 })
 
-const snapshotOf = (
+const pageOf = (
   facts: ProjectFacts.ProjectFacts["Service"],
   scope: ProjectScope["Service"],
-  after?: string
+  query: Parameters<ProjectFacts.ProjectFacts["Service"]["pull"]>[1]
 ) =>
   facts
-    .pull(scope, after)
+    .pull(scope, query)
     .pipe(
       Effect.flatMap((sync) =>
         sync.kind === "snapshot"
           ? Effect.succeed(sync)
-          : Effect.die(new Error("expected a snapshot"))
+          : Effect.die(new Error("expected a snapshot page"))
       )
     )
+
+const snapshotOf = (
+  facts: ProjectFacts.ProjectFacts["Service"],
+  scope: ProjectScope["Service"],
+  between: (pageIndex: number) => Effect.Effect<unknown> = () => Effect.void
+) =>
+  Effect.gen(function* () {
+    let page = yield* pageOf(facts, scope, {})
+    let pages: Array<SnapshotPage> = [page]
+    let start = page.start
+    while (page.next !== null) {
+      yield* between(pages.length)
+      page = yield* pageOf(facts, scope, { page: page.next })
+      if (page.start === null) pages.push(page)
+      else {
+        pages = [page]
+        start = page.start
+      }
+    }
+    if (start === null) return yield* Effect.die(new Error("no start page"))
+    return snapshotFromPages(start, pages, page.base)
+  })
 
 const changesOf = (
   facts: ProjectFacts.ProjectFacts["Service"],
@@ -299,7 +323,7 @@ const changesOf = (
   after: string
 ) =>
   facts
-    .pull(scope, after)
+    .pull(scope, { after })
     .pipe(
       Effect.flatMap((sync) =>
         sync.kind === "changes"
@@ -307,6 +331,22 @@ const changesOf = (
           : Effect.die(new Error("expected changes"))
       )
     )
+
+const caughtUp = (
+  facts: ProjectFacts.ProjectFacts["Service"],
+  scope: ProjectScope["Service"],
+  snapshot: ProjectSnapshot
+) =>
+  Effect.gen(function* () {
+    let current = snapshot
+    let pages = 0
+    for (;;) {
+      const changes = yield* changesOf(facts, scope, current.cursor)
+      current = apply(current, changes)
+      pages++
+      if (!changes.more) return { snapshot: current, pages }
+    }
+  })
 
 describe.skipIf(!databaseUrl)("ProjectFacts Postgres", () => {
   it.effect(
@@ -372,7 +412,9 @@ describe.skipIf(!databaseUrl)("ProjectFacts Postgres", () => {
           const changes = yield* changesOf(facts, scope, earlier.cursor)
           expect(normalized(apply(earlier, changes))).toEqual(normalized(fresh))
         }
-        const removed = yield* facts.pull(scope, history[6]?.cursor)
+        const removed = yield* facts.pull(scope, {
+          after: history[6]?.cursor
+        })
         expect(removed).toMatchObject({ deletes: { tickets: ["T-2"] } })
         expect(
           fresh.tickets.find((fact) => fact.id === "T-3")?.archivedAt
@@ -389,10 +431,9 @@ describe.skipIf(!databaseUrl)("ProjectFacts Postgres", () => {
       yield* ticket("T-1", "one")
 
       const snapshot = yield* snapshotOf(facts, scopeOf(seeded, Project.client))
-      const changes = yield* facts.pull(
-        scopeOf(seeded, Project.client),
-        before.cursor
-      )
+      const changes = yield* facts.pull(scopeOf(seeded, Project.client), {
+        after: before.cursor
+      })
 
       expect(snapshot.tickets[0]?.git).toBeNull()
       expect(changes).toMatchObject({
@@ -417,11 +458,72 @@ describe.skipIf(!databaseUrl)("ProjectFacts Postgres", () => {
 
       yield* log.bumpGeneration(seeded.projectId)
 
-      expect(yield* facts.pull(scope, before.cursor)).toMatchObject({
+      expect(yield* facts.pull(scope, { after: before.cursor })).toMatchObject({
         kind: "snapshot",
-        cursor: "2.0",
+        base: "2.0",
         tickets: [{ id: "T-1" }]
       })
     }).pipe(Effect.provide(TestLayer), Effect.scoped)
+  )
+
+  it.effect(
+    "a snapshot paged while writes land matches a fresh one after catching up from its base",
+    () =>
+      Effect.gen(function* () {
+        const facts = yield* ProjectFacts.ProjectFacts
+        const seeded = yield* seed
+        const scope = scopeOf(seeded)
+        const { ticket, removeTicket, group } = yield* writes(seeded)
+        for (let n = 1; n <= 10; n++) yield* ticket(`T-${n}`, `ticket ${n}`)
+        yield* group("G-1", ["T-1", "T-2", "T-3", "T-4", "T-5"])
+        const edits = [
+          () => ticket("T-1", "renamed behind the scan"),
+          () => ticket("T-0", "created behind the scan"),
+          () => removeTicket("T-9"),
+          () => group("G-1", ["T-5", "T-0"]),
+          () => ticket("T-99", "created ahead of the scan")
+        ]
+        const paged = yield* snapshotOf(facts, scope, (index) =>
+          (edits[index - 1] ?? (() => Effect.void))()
+        )
+        const { snapshot } = yield* caughtUp(facts, scope, paged)
+        expect(normalized(snapshot)).toEqual(
+          normalized(yield* snapshotOf(facts, scope))
+        )
+      }).pipe(
+        Effect.provideService(ProjectFacts.SyncPageLimits, {
+          tickets: 3,
+          members: 2,
+          facts: 2000,
+          entries: 20000
+        }),
+        Effect.provide(TestLayer),
+        Effect.scoped
+      )
+  )
+
+  it.effect("catches up a long backlog in pages instead of a snapshot", () =>
+    Effect.gen(function* () {
+      const facts = yield* ProjectFacts.ProjectFacts
+      const seeded = yield* seed
+      const scope = scopeOf(seeded)
+      const { ticket } = yield* writes(seeded)
+      const before = yield* snapshotOf(facts, scope)
+      for (let n = 1; n <= 9; n++) yield* ticket(`T-${n}`, `ticket ${n}`)
+      const { snapshot, pages } = yield* caughtUp(facts, scope, before)
+      expect(pages).toBe(5)
+      expect(normalized(snapshot)).toEqual(
+        normalized(yield* snapshotOf(facts, scope))
+      )
+    }).pipe(
+      Effect.provideService(ProjectFacts.SyncPageLimits, {
+        tickets: 1000,
+        members: 5000,
+        facts: 2,
+        entries: 20000
+      }),
+      Effect.provide(TestLayer),
+      Effect.scoped
+    )
   )
 })

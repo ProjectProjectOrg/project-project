@@ -11,7 +11,7 @@ export const SyncHandlerLive = HttpApiBuilder.group(
       Effect.gen(function* () {
         const facts = yield* ProjectFacts.ProjectFacts
         const scope = yield* ProjectScope
-        return yield* facts.pull(scope, query.after)
+        return yield* facts.pull(scope, query)
       })
     )
 )
