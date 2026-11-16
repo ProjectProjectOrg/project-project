@@ -1,0 +1,63 @@
+export const meta = {
+  title: "Surfaces",
+  group: "Design system",
+  order: 4,
+  description:
+    "Flat by default: depth comes from tone and hairlines, not shadows. A few things get a lit edge or a sheen, so they read as objects; nothing at rest floats.",
+  sources: [
+    { kind: "own", name: "theme.css", note: "surfaces, edges, sheen" },
+    { kind: "fluid", name: "surfaces", note: "the ladder, re-authored in OKLCH" }
+  ]
+}
+
+## Overview
+
+<Demo name="overview" title="Edges, the ladder and sheen" />
+
+## Usage
+
+```tsx
+<div className="bg-card shadow-(--shadow-1)" />          {/* a card in a dense row */}
+<div className={cn("relative bg-card", avatarEdgeClass)} /> {/* an object: avatar, tile */}
+<Popover.Popup className={popupSurfaceClass} />         {/* every popup */}
+<div className="bg-surface-1"><div className="bg-surface-3" /></div> {/* nested */}
+```
+
+| | What it is | Where |
+| --- | --- | --- |
+| Tone | A step of lightness (`--page`, `--card`) | Every surface, first |
+| `--shadow-1` | A 1px ring, no offset, no blur | Board cards, dense rows |
+| Lit edge (`avatarEdgeClass`) | A 1px edge plus a soft light along the top | Avatars, project tiles, attachments, embeds |
+| `popupSurfaceClass` | Card fill, 60% hairline, 19px corners | Popovers, menus, selects, the slash menu |
+| `--surface-1` … `8` | A ladder of layers, with their own ring | Surfaces on surfaces (board columns and cards) |
+| `.button-fill`, `.pp-badge` | A sheen from the fill's own colour | Filled buttons, badges, chips |
+
+## Rules
+
+### Flat by default
+
+Pages, panels, cards and rows are flat. Depth comes from tone (a lighter or darker step) and, where tone isn't enough, a hairline. Drop shadows on resting rectangles are what makes a tool look busy (and what the apps this one is designed against do everywhere), so there are none.
+
+### A hairline is not a shadow
+
+`--shadow-1` draws a 1px ring with no offset and no blur. It separates without lifting, and since it's a shadow rather than a border, it takes no space, so a dense row doesn't shift by a pixel. It's allowed at rest.
+
+### Objects get a lit edge
+
+Things that are objects rather than areas (an avatar, a project tile, an attachment, a Figma embed) get the lit edge: a hairline in a tenth of the text colour plus a soft light along the top. It reads as a physical thing catching light, in both themes, without a shadow under it.
+
+### Popups share one surface
+
+Every popup is `popupSurfaceClass`: the card fill and a 60% hairline, nothing else. The tonal step and the hairline already separate it from the page; a shadow would only add noise to a menu that's gone in a second.
+
+### Both themes layer the same way
+
+The ladder steps down for a recessed well and up for a card in light and in dark, by comparable amounts. Light's upward steps are smaller (white is a ceiling), but never flat, so a nested card stays visible. One deliberate exception: settings groups are white cards in light, because a grey well on the light page reads muddy.
+
+### Sheen, not gradients
+
+Filled buttons and badges carry a faint vertical sheen mixed from their own colour (`color-mix(in oklab, fill, white n%)`), shown at rest, gone on hover, a little stronger on press. It gives a fill some material without a gradient that would shift its colour.
+
+### Don't nest cards
+
+A card inside a card means one of them is wrong; use the ladder or drop a level.

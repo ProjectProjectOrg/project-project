@@ -1,0 +1,68 @@
+export const meta = {
+  title: "Motion",
+  group: "Design system",
+  order: 6,
+  description:
+    "Short, decelerating, for feedback only: three springs and a few named transitions, all on one curve. Hover lands at once, press gives a little, and reduced motion keeps only fades.",
+  sources: [
+    { kind: "own", name: "lib/springs", note: "springs and transitions" },
+    { kind: "own", name: "theme.css", note: "--ease-standard, --ease-spring, hover rule" }
+  ]
+}
+
+## Overview
+
+Press Play to run every timing side by side; hover the rows and press the button for the feel.
+
+<Demo name="overview" title="Timings" />
+
+## Usage
+
+```tsx
+import { spring, transitions } from "@pp/ui/lib/springs"
+
+<motion.div layout transition={transitions.layout} />
+<motion.span layoutId={id} transition={transitions.morph} />  // chip ↔ tile
+<motion.div animate={{ x }} transition={spring.moderate} />
+
+// CSS: the same curve
+<div className="transition-colors duration-150 ease-standard hover:bg-hover" />
+```
+
+| Timing | Duration | For |
+| --- | --- | --- |
+| `spring.fast` | 80ms, exits in 60 | Highlights following the pointer or keys (menus, hover highlight), slider thumbs |
+| `spring.moderate` | 160ms, exits in 120 | Bars and panels changing size (progress, the command menu, merge and split) |
+| `spring.slow` | 240ms, slight bounce | The rare large move that may feel physical (a multi-step flow's panels) |
+| `transitions.fade` | 150ms | Opacity |
+| `transitions.presence` | 180ms | Things appearing and leaving; a tooltip moving on |
+| `transitions.layout` | 220ms | Layout shifts |
+| `transitions.morph` | 260ms | One thing becoming another (chip ↔ tile, a value swapping) |
+
+Every transition, in motion and in CSS, uses `--ease-standard`, `cubic-bezier(0.22, 1, 0.36, 1)`: fast out of the gate, a long gentle landing. The springs have no bounce except `slow`. `--ease-spring` is the same feel as a CSS `linear()` curve, for spring-like CSS transitions.
+
+## Rules
+
+### Motion explains, it doesn't decorate
+
+Motion is for feedback (a press), state changes (a value swapping), loading, and showing where something went (a chip opening into a tile). No ambient animation, no attention-seeking loops; the dithered brand graphics are the only thing allowed to move on their own, and they stay out of the chrome.
+
+### Fast, and decelerating
+
+Most things finish within 260ms. Exits are shorter than entrances (a spring's exit is about three quarters of its entrance), because what's leaving has already been seen. Everything decelerates, so motion starts immediately (it feels responsive) and settles softly (it doesn't feel abrupt).
+
+### Hover is instant in, eased out
+
+Hover styles land at once on the way in and ease out over ~150ms on the way out: instant feedback where you're pointing, no flicker trail behind the pointer. One global rule in `theme.css` does it; an element only needs a `transition-colors` (or `-opacity`) class so there's something to cut.
+
+### Press gives a little
+
+Every clickable thing scales to 97% while pressed, over 100–150ms. The press lands even before the action does. Icon-only buttons press the icon, not their background.
+
+### One thing becomes another
+
+When something changes form (a compact chip becoming a tile, a value replacing another), it morphs on `transitions.morph` with a shared `layoutId`, so the eye follows it instead of losing it. Values that change in place roll through `TextSwap`.
+
+### Reduced motion keeps fades
+
+With reduced motion, movement, scaling and morphs are dropped (`motion-reduce:`) and opacity changes stay, so state changes are still visible without anything travelling.

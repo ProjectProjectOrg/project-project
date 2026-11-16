@@ -49,41 +49,38 @@ colors:
   tag-loud-anchor: "oklch(0.7 0.16 0)"
 typography:
   display:
-    fontFamily: "Geist Pixel, monospace"
-    fontSize: "1rem"
-    fontWeight: 400
-    lineHeight: 1
-    letterSpacing: "normal"
-  headline:
     fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.5rem"
+    fontSize: "28px"
     fontWeight: 600
-    lineHeight: 1.25
-    letterSpacing: "-0.01em"
+    lineHeight: "34px"
   title:
     fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.125rem"
+    fontSize: "16px"
     fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: "-0.005em"
+    lineHeight: "22px"
+  subtitle:
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    lineHeight: "20px"
   body:
     fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "normal"
-  label:
+    lineHeight: "20px"
+  caption:
     fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.8125rem"
-    fontWeight: 500
-    lineHeight: 1.2
-    letterSpacing: "normal"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: "16px"
+  micro:
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 400
+    lineHeight: "14px"
   mono:
     fontFamily: "Geist Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
-    fontSize: "0.8125rem"
     fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "normal"
 rounded:
   sm: "12px"
   md: "14px"
@@ -103,7 +100,7 @@ components:
     rounded: "{rounded.md}"
     padding: "0 16px"
     height: "32px"
-    typography: "{typography.label}"
+    typography: "{typography.body}"
   button-primary-hover:
     backgroundColor: "{colors.foreground}"
   button-tertiary:
@@ -154,7 +151,7 @@ components:
     textColor: "{colors.muted-foreground}"
     rounded: "{rounded.md}"
     padding: "8px 12px"
-    typography: "{typography.label}"
+    typography: "{typography.body}"
   sidebar-link-active:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.foreground}"
@@ -233,12 +230,13 @@ Success, info, merged and danger sit on the tag wheel's outer ring (`L=0.7 C=0.1
 
 ### User-Assigned (Tag Wheel)
 
-Defined in `packages/shared/src/colors.ts`. Two OKLCH rings at fixed L/C:
+Defined in `packages/shared/src/colors.ts`. The colour picker (`TAG_COLOR_WHEEL`) offers 22 colours, laid out as a honeycomb:
 
-- **Inner ring** — 8 swatches at `L=0.78 C=0.07`: quiet pastels for low-emphasis tags.
-- **Outer ring** — 13 swatches at `L=0.7 C=0.16`: the default tag palette.
+- **Strong** — 12 swatches at `L=0.7 C=0.16`, every 30° from 15°: the default palette.
+- **Soft** — 6 swatches at `L=0.78 C=0.07`, on the hues between the strong ones: quiet pastels for low-emphasis tags.
+- **Neutral** — 4 greys at `L` 0.45, 0.66, 0.84 and 0.98.
 
-When a new feature needs categorical color the user controls (tags, statuses, labels, future taxonomies), it pulls from `TAG_COLOR_WHEEL` — never an ad-hoc hex.
+`STORED_COLORS` also accepts the earlier 8-swatch soft ring, which saved tags, statuses and templates may still use. When a new feature needs categorical color the user controls (tags, statuses, labels, projects, future taxonomies), it pulls from `TAG_COLOR_WHEEL` — never an ad-hoc hex.
 
 ### Named Rules
 
@@ -252,19 +250,22 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 
 **Body / UI Font:** Allo, at roundness 0 (`ROND` 0, crisp terminals) (with `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`)
 **Mono Font:** Geist Mono (with `ui-monospace, SFMono-Regular, Menlo, monospace`)
-**Display / Decorative Font:** Geist Pixel — load-bearing for empty-state graphics and brand marks; never used for body or running UI.
-
-**Character:** A single neutral sans (Allo) carries every UI surface — headings, buttons, labels, body, data — with a tight `1.125–1.2` ratio between hierarchy steps. Mono shows up the moment a value is a _literal_: IDs, branches, slugs, code, file paths, hashes. Geist Pixel is reserved for the dithered brand thread and never bleeds into running text.
+**Character:** A single neutral sans (Allo) carries every UI surface — headings, buttons, labels, body, data — on a tight scale: the working sizes sit 1–2px apart, with one jump to the page title. Mono shows up the moment a value is a _literal_: IDs, branches, slugs, code, file paths, hashes.
 
 ### Hierarchy
 
-- **Display** (Geist Pixel, 400, 1rem, 1.0): decorative only — empty-state captions, brand marks, occasional pixel labels. Never headlines, never body.
-- **Headline** (Allo, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
-- **Title** (Allo, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
-- **Body** (Allo, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
-- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
-- **Label** (Allo, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
-- **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
+Six roles, sizes / line heights in px, each with a compact size for dense places (comments, previews, popovers):
+
+- **Display** (600, 28 / 34; compact 24 / 30): page titles.
+- **Title** (600, 16 / 22; compact 15 / 20): section headings, a panel's title.
+- **Subtitle** (600, 14 / 20; compact 13 / 18): sub-sections, a card's title.
+- **Body** (400, 13 / 20; compact 12 / 18): running text, rows, controls. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
+- **Caption** (12 / 16; compact 11 / 14): meta, hints, chips.
+- **Micro** (11 / 14; compact 10 / 12): counts, keys, the smallest labels.
+- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground. Headings get 8px below and 20–24px above.
+- **Mono** (Geist Mono, 400, at the size of the text around it): IDs, branches, slugs, code, anywhere "this is a literal."
+
+Weights: 400 for text, 550 (`--font-weight-semibold`) for headings and anything selected, 700 only for emphasis inside text.
 
 Inline links strengthen their underline on hover without a background fill; keyboard focus retains a visible outline. Favicons keep their original colors. Confirmed transparent monochrome symbols follow the active theme with a dark silhouette in light mode and a light silhouette in dark mode. Favicons have no backing tile or added padding.
 
@@ -273,8 +274,6 @@ Inline links strengthen their underline on hover without a background fill; keyb
 **The Sentence Case Rule.** No capitalized headings, subheadings, or labels — anywhere. No `uppercase`, no `tracking-wide` on rail dividers, section headers, popover titles, table column heads, pill labels, status indicators. The all-caps "Active / Planned / Completed / Tags / Recent / Status / Type" pattern is a Jira-DNA tell and is forbidden. Acronyms (PR, ID, URL) keep their natural casing inside otherwise sentence-case strings.
 
 **The Mono-For-Literals Rule.** Geist Mono is reserved for content that is a literal token in another system — a branch name, a slug, an ID, a hash, a code fragment. Don't reach for it as a "techy" flavor; reach for it when the user could copy-paste the string into a terminal.
-
-**The Pixel-Stays-In-Graphics Rule.** Geist Pixel is decorative-only. It supports the dithered brand thread on graphic surfaces (empty states, loading frames, brand marks). It never carries body, labels, or nav.
 
 ## 4. Elevation
 
@@ -311,7 +310,7 @@ Components that **elevate** read the surface level they sit on instead of hard-c
 - **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a white card: a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
 - **Dragged list row:** substrate + 1 while it is being dragged.
-- **Menus and popovers** keep `--card` with the hairline border and their drop shadow. A deliberate choice: the darker floating surface reads better here than a substrate + 2 lift.
+- **Menus and popovers** keep `--card` with the 60% hairline (`popupSurfaceClass`) and no shadow. A deliberate choice: the card fill reads better here than a substrate + 2 lift.
 
 Everything that only changes state on hover or press uses the overlays instead and needs no surface level.
 
@@ -476,7 +475,6 @@ It never appears on functional controls.
 - **Don't** invent ad-hoc colors when the tag wheel covers the space.
 - **Don't** use `#000`, `#fff`, or any pure-grayscale HSL.
 - **Don't** use `uppercase` / `tracking-wide` on labels, section headers, pill text, table column heads, or status indicators. Sentence case only.
-- **Don't** use `Geist Pixel` outside of graphic surfaces (empty states, brand marks, decorative moments). Never in body, labels, nav, or running UI.
 - **Don't** put drop shadows on permanent rectangles. Shadows are for elements that lift off the surface (popovers, menus, drag previews).
 - **Don't** nest cards. If a card is inside a card, one of them is wrong.
 - **Don't** use a modal dialog. The project rule is zero dialogs apart from the cmd+k menu (see PRODUCT.md): cmd+k actions stay in cmd+k, and page buttons and menus open popovers. Inline and progressive disclosure first.

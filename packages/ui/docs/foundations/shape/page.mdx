@@ -1,0 +1,48 @@
+export const meta = {
+  title: "Shape",
+  group: "Design system",
+  order: 5,
+  description:
+    "Two corner shapes: a superellipse for controls and a squircle for objects. Controls round to half their height, and nested corners are concentric.",
+  sources: [
+    { kind: "own", name: "--button-corner", note: "superellipse(1.5)" },
+    { kind: "own", name: "corner-squircle", note: "@toolwind/corner-shape" }
+  ]
+}
+
+## Overview
+
+<Demo name="overview" title="Corners" />
+
+## Usage
+
+```tsx
+// Controls: the primitive sets it; never at a call site.
+<Button size="sm" />  // h-7, 14px, [corner-shape:var(--button-corner)]
+
+// Objects: avatars, tiles, attachments, cards that hold media.
+<div className="rounded-[18px] corner-squircle" />
+
+// Nested: subtract the gap.
+<div className="rounded-[18px] p-1"><div className="rounded-[14px]" /></div>
+```
+
+`corner-shape` is new in CSS; browsers without it draw the same radius round, which still looks right.
+
+## Rules
+
+### Controls: half the height, a superellipse
+
+Buttons, inputs, selects, badges and chips round to half their height (`xs` 10px, `sm` 14px, `md` 16px, `lg` 18px), shaped by `--button-corner`, `superellipse(1.5)`: between a pill and a squircle. A pill's round ends read as soft and bouncy; the superellipse keeps a control's flat top and bottom longer, so it reads as a precise, pressable thing. Controls of the same height share the same radius, so a toolbar or a row of fields lines up.
+
+### Objects: a squircle
+
+Things that are objects rather than controls (avatars, project tiles, attachments, embeds, the editor's selection ring around them) use `corner-shape: squircle`. Its curvature changes continuously, the way a physical object's edge does, so it pairs with the lit edge ([Surfaces](/foundations/surfaces)) to read as a thing, not a box.
+
+### Concentric
+
+A surface inside another takes the outer radius minus the gap between them: an 18px tile with a 4px inset holds a 14px well. Equal radii look like the inner corner is bulging; concentric ones keep the gap the same width all the way round.
+
+### Primitives own their corners
+
+The shape is part of the primitive, so call sites never set a radius or corner shape on a Button, Input or Badge. A one-off corner is a sign the component needs a variant.

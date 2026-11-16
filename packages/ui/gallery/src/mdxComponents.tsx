@@ -73,6 +73,18 @@ export const mdxComponents: MDXComponents = {
       {...props}
     />
   ),
+  ol: ({ className, ...props }) => (
+    <ol
+      className={cn(
+        "my-4 flex max-w-prose list-decimal flex-col gap-3 pl-6 text-subtitle leading-6 text-muted-foreground marker:text-muted-foreground marker:tabular-nums",
+        className
+      )}
+      {...props}
+    />
+  ),
+  li: ({ className, ...props }) => (
+    <li className={cn("pl-1", className)} {...props} />
+  ),
   strong: ({ className, ...props }) => (
     <strong
       className={cn("font-semibold text-foreground", className)}
@@ -82,7 +94,7 @@ export const mdxComponents: MDXComponents = {
   a: ({ className, children, ...props }) => (
     <a
       className={cn(
-        "text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground",
+        "text-foreground underline decoration-[color-mix(in_oklab,currentColor_35%,transparent)] underline-offset-4 transition-colors hover:decoration-foreground",
         className
       )}
       {...props}

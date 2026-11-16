@@ -1,0 +1,54 @@
+export const meta = {
+  title: "Interaction states",
+  group: "Design system",
+  order: 7,
+  description:
+    "How every control answers: hover tints, press gives, focus shows a grey ring, disabled steps back. The same states, the same way, on every primitive.",
+  sources: [
+    { kind: "own", name: "theme.css", note: "focus-ring, the hover rule, overlays" }
+  ]
+}
+
+## Overview
+
+<Demo name="overview" title="States" />
+
+## Usage
+
+The primitives do all of this themselves. When building a new interactive element:
+
+```tsx
+<button
+  className={cn(
+    "focus-ring transition-[background-color,scale] duration-150 ease-standard",
+    "not-disabled:hover:bg-hover not-disabled:active:scale-[0.97]",
+    "disabled:cursor-not-allowed disabled:opacity-50"
+  )}
+/>
+```
+
+## Rules
+
+### Hover only on things that act
+
+A static element never changes on hover; a hover says "this does something". Hover is a see-through overlay (`--hover`), so it works on any surface, lands instantly and fades out ([Motion](/foundations/motion)).
+
+### Press: darker and smaller
+
+Pressed deepens the overlay (`--active`) and scales the control to 97%. Both, because either alone is easy to miss: the scale is felt, the tone is seen.
+
+### Focus: a grey ring, off the edge
+
+Keyboard focus is the `focus-ring` class: a 2px `--ring` outline 2px outside the control, following its corners. Grey, not a brand colour (there isn't one), at 3:1 against every surface. It shows only for keyboard focus, never animates, and doesn't move on press, so it stays a steady "you are here". No glows, no coloured box-shadow rings.
+
+### Disabled steps back, and says why
+
+Disabled is about half opacity (45–50%) with `cursor-not-allowed`, and hover and press are off (`not-disabled:`), so it never pretends to respond. A control the viewer's role can never use isn't shown at all; disabled is for "not now" (a pending save, a closed sprint), and the reason sits next to it or in its tooltip.
+
+### Loading keeps its shape
+
+A loading control stays at full strength with `cursor-progress` and swaps its label for the logo loader at the same size, so nothing around it moves.
+
+### Hit areas of 24px or more
+
+Every target is at least 24×24 (WCAG 2.5.8). Small visual controls (a 16px checkbox, a 12px chip action) extend their hit area with a pseudo-element or a 24px round target, so they stay small to look at and easy to hit.

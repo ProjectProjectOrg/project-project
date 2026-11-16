@@ -26,7 +26,7 @@ Concretely: an engineer's tool that gets out of the way. No decoration for decor
 
 **Theme:** Light and dark are equal. Whichever the user picks should feel finished, not adapted. The OKLCH grayscale palette in `styles.css` is the foundation for chrome — `--foreground`, `--muted-foreground`, `--background`, `--accent`. The chromatic palette in `packages/shared/src/colors.ts` (`TAG_COLOR_WHEEL`, two OKLCH rings at fixed L/C) is the foundation for _user-assigned_ color — tags today, anything categorical the user controls in the future. Don't introduce a brand hue and don't invent ad-hoc colors when the wheel already covers the space.
 
-**Typography:** Geist (sans), Geist Mono (mono), Geist Pixel (display/decorative) are already loaded. Geist Sans for everything UI. Geist Mono for IDs, branches, slugs, code, anywhere "this is a literal." Geist Pixel exists for moments where the dithering brand thread surfaces — empty-state graphics, brand marks, occasional decorative labels — never for body text or running UI.
+**Typography:** Allo (sans, roundness 0) for everything UI; Geist Mono for IDs, branches, slugs, code, anywhere "this is a literal." The dithered brand thread carries the graphic voice; there is no display face.
 
 **The signature: dithering.** The brand mark itself is a dithered projection — stepped 1-bit-feeling shapes built from two greys (`#FEFEFE` foreground, `#807F7F` muted-foreground) on the surface color. That texture is the brand. Pull the same language through every graphic surface: empty states, illustrations, decorative motifs, marketing/landing surfaces, loading frames, hero blocks. Stick to ordered-dither (Bayer matrix) shading and the same two-grey vocabulary as the logo so everything reads as one family.
 

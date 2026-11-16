@@ -6,6 +6,18 @@ export const meta = {
     "The primitives every ProjectProject screen is built from: Base UI components styled with the app's tokens, shared motion springs and squircle corners. This gallery is built from the same components."
 }
 
+## Principles
+
+**The engineer's quiet workshop.** ProjectProject is a Markdown-first tool for people who'd rather be doing the work. The interface is there to be used and then forgotten: anything that isn't carrying weight is removed, and what's left is made sharp.
+
+1. **Quiet chrome, so content speaks.** Greys, one face, no shadows at rest. Colour is kept for what the user chose and for state, so it always means something ([Colour](/foundations/colour)).
+2. **Dense, not cramped.** Lots on screen at rest, details on hover and focus. Small type steps and a 2px rhythm keep dense lists calm ([Typography](/foundations/typography)).
+3. **Craft in the details people feel.** Presses that give, hovers that land at once, values that roll instead of jump, corners that nest. Nobody notices them one by one; together they're why the app feels fast ([Motion](/foundations/motion), [Shape](/foundations/shape)).
+4. **One signature.** The dithering is the brand, and it lives only in graphics, so it stays recognisable ([Dithering](/foundations/dithering)).
+5. **Light and dark are peers.** Every surface is designed and checked in both; a choice that only works in one isn't done ([Surfaces](/foundations/surfaces)).
+6. **Accessible by construction.** Contrast is measured, every control has a name, a visible focus ring and a 24px target, and every demo here runs axe ([Interaction states](/foundations/states)).
+7. **One primitive per pattern.** A second look for something is a variant on its primitive, never a restyle at a call site, so the language stays singular.
+
 ## How the package works
 
 - Components import from `@pp/ui/<name>`, for example `@pp/ui/checkbox`. Helpers live under `@pp/ui/lib/*` and `@pp/ui/hooks/*`.

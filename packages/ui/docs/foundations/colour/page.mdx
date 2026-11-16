@@ -1,0 +1,73 @@
+export const meta = {
+  title: "Colour",
+  group: "Design system",
+  order: 2,
+  description:
+    "A neutral palette in OKLCH, three layers deep, with see-through overlays for every state. Colour itself belongs to the user: tags, statuses and projects. The chrome stays grey so their colours mean something.",
+  sources: [
+    { kind: "own", name: "theme.css", note: "every token, light and dark" },
+    { kind: "own", name: "colors.ts", note: "@pp/shared: the user's colours" }
+  ]
+}
+
+## Overview
+
+Switch the theme: every swatch and ratio below is read from the live tokens.
+
+<Demo name="overview" title="The palette" />
+
+## Usage
+
+Use the token, through its Tailwind class, never a value:
+
+```tsx
+<div className="bg-page">            {/* a page */}
+  <div className="bg-card">          {/* a card on it */}
+    <button className="hover:bg-hover active:bg-active" />
+  </div>
+</div>
+```
+
+| Token | Light | Dark | For |
+| --- | --- | --- | --- |
+| `--background` | 0.955 | 0.145 | The frame: sidebar, rail, recessed boxes |
+| `--page` | 0.982 | 0.219 | What every page sits on |
+| `--card` | 1 | 0.205 | Cards, popups |
+| `--field` | 1 | 0.18 | Inputs and select triggers |
+| `--muted` | 0.945 | 0.269 | Wells and placeholders |
+| `--foreground` | 0.145 | 0.985 | Text, the primary button |
+| `--muted-foreground` | 0.5 | 0.708 | Secondary text, icons at rest |
+| `--hover`, `--active` | 4%, 7% black | 4%, 10% white | Hover and pressed, over anything |
+| `--tint` | 8% black | 14% white | The secondary button |
+
+Lightness (OKLCH L) for the greys; all of them have zero chroma. The user's colours come from `TAG_COLOR_WHEEL` in `@pp/shared`; state colours from `--state-*`.
+
+## Rules
+
+### The chrome is grey
+
+No brand hue. Buttons, inputs, rows, menus and the frame are greys, and the primary button is the text colour. Colour is a signal, so it's kept for the two things that need one: what the user chose (a tag's, a status's, a project's colour) and state (a passing check, a failed one). If the chrome were coloured, a red tag would have to compete with it.
+
+### Three layers, steps on purpose
+
+Frame, page, then cards and fields: `0.955 → 0.982 → 1` in light, `0.145 → 0.219` (cards at `0.205`) in dark. The steps are small so the eye reads structure, not boxes. Both themes layer in the same order, so a layout that works in one works in the other.
+
+### States are overlays, not greys
+
+Hover, pressed and the secondary fill are see-through (`--hover`, `--active`, `--tint`): black over light, white over dark. The same hover reads on the frame, a page, a card or a coloured chip. A fixed grey would vanish the moment a control moved to a surface of its own tone.
+
+### Contrast is measured, not hoped for
+
+Text holds 4.5:1 on every surface it can land on, pressed rows included; outlines, focus rings and control borders hold 3:1 (WCAG 1.4.11). The table above re-measures this in each theme. `--muted-foreground`'s value comes from the worst case (a pressed row on the light frame, 4.6:1).
+
+### OKLCH, always
+
+Every token is OKLCH, never `#000`, `#fff` or HSL. OKLCH's lightness is perceptual, so a step of 0.03 looks like the same step at either end of the scale, and two colours at the same L look equally bright, which is how the tag wheel's colours sit together without one shouting.
+
+### The user's colours are a fixed wheel
+
+12 strong colours (L 0.7, C 0.16, every 30°), 6 soft ones between them (L 0.78, C 0.07) and 4 neutrals. Anything the user colours picks from these, so tags, statuses and projects always sit together. State colours are taken from the same ring (success, info, merged, danger), except warning, which is darker in light mode because amber at L 0.7 is unreadable on white.
+
+### One red
+
+Destructive is the only colour the chrome uses on its own: delete, irreversible confirms, validation errors. It stays scarce so it keeps meaning "careful".
