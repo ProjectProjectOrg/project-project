@@ -205,7 +205,10 @@
       }
     },
     {
-      "files": ["packages/server-core/src/sync/ChangeOrigin.ts", "**/*.test.ts"],
+      "files": [
+        "packages/server-core/src/sync/ChangeOrigin.ts",
+        "**/*.test.ts"
+      ],
       "rules": {
         "workspace/no-raw-fork-detach": "off"
       }
