@@ -5,6 +5,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { RpcClient, RpcWorker } from "effect/rpc"
 
+import { forgetOtherUser } from "./forgetOtherUser"
+
 const OPEN_REQUESTS_PER_WORKER = 1024
 
 const makeClient = RpcClient.make(LocalRpcs)
@@ -36,5 +38,6 @@ export const localClientLayer = (userId: string) =>
     Layer.provide(
       RpcWorker.layerInitialMessage(LocalWorkerInit, Effect.succeed({ userId }))
     ),
-    Layer.provide(BrowserWorker.layer(spawn))
+    Layer.provide(BrowserWorker.layer(spawn)),
+    Layer.provide(Layer.effectDiscard(forgetOtherUser(userId)))
   )

@@ -3,7 +3,7 @@ import type { TicketId } from "@pp/shared"
 import { useContext, useEffect } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { markTicketRead } from "@/features/inbox/atoms/inbox"
+import { markInbox } from "@/features/inbox/atoms/localInbox"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 
 export function useMarkTicketRead(ticketId: TicketId, loaded: boolean) {
@@ -11,10 +11,11 @@ export function useMarkTicketRead(ticketId: TicketId, loaded: boolean) {
   const registry = useContext(RegistryContext)
   useEffect(() => {
     if (!loaded) return
-    void fireMutation(
-      registry,
-      markTicketRead({ orgSlug, slug, id: ticketId }),
-      undefined
-    )
+    void fireMutation(registry, markInbox, {
+      kind: "read",
+      orgSlug,
+      projectSlug: slug,
+      ticketId
+    })
   }, [registry, orgSlug, slug, ticketId, loaded])
 }

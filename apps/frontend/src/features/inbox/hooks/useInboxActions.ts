@@ -1,4 +1,5 @@
-import { RegistryContext, useAtomSet } from "@effect/atom-react"
+import { RegistryContext } from "@effect/atom-react"
+import type { InboxMark } from "@pp/local"
 import type { InboxItem } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import {
@@ -11,25 +12,23 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import {
-  markInboxAllDone,
-  markInboxAllRead,
-  markInboxDone,
-  markInboxRead,
-  markInboxUnread,
-  restoreInboxRow,
-  type InboxRequest
-} from "@/features/inbox/atoms/inbox"
+import type { InboxRequest } from "@/features/inbox/atoms/inbox"
+import { markInbox } from "@/features/inbox/atoms/localInbox"
 import { afterRemoving, inboxKey } from "@/features/inbox/lib/inboxRows"
 import {
   setSubscribed,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 
-const rowOf = (req: InboxRequest, item: InboxItem) => ({
-  req,
+const markOf = (
+  req: InboxRequest,
+  item: InboxItem,
+  kind: "read" | "unread" | "done"
+): InboxMark => ({
+  kind,
+  orgSlug: req.params.orgSlug,
   projectSlug: item.projectSlug,
-  id: item.ticket.id
+  ticketId: item.ticket.id
 })
 
 export type InboxActions = ReturnType<typeof useInboxActions>
@@ -51,21 +50,18 @@ export function useInboxActions(
   const { orgSlug } = req.params
   const navigate = useNavigate()
   const registry = useContext(RegistryContext)
-  const readAllSet = useAtomSet(markInboxAllRead(req))
-  const doneAllSet = useAtomSet(markInboxAllDone(req))
+  const mark = useCallback(
+    (input: InboxMark) => fireMutation(registry, markInbox, input),
+    [registry]
+  )
   const latest = useRef({ items, selected, cleared })
   useLayoutEffect(() => {
     latest.current = { items, selected, cleared }
   })
 
   useEffect(() => {
-    if (selected?.unread === true)
-      void fireMutation(
-        registry,
-        markInboxRead(rowOf(req, selected)),
-        undefined
-      )
-  }, [selected, req, registry])
+    if (selected?.unread === true) void mark(markOf(req, selected, "read"))
+  }, [selected, req, mark])
 
   const select = useCallback(
     (item: InboxItem | null, replace: boolean) =>
@@ -97,11 +93,11 @@ export function useInboxActions(
       if (wasSelected) select(afterRemoving(current, inboxKey(item)), true)
       const settled = Promise.all([
         unsubscribed ? subscribe(item, false) : null,
-        fireMutation(registry, markInboxDone(rowOf(req, item)), undefined)
+        mark(markOf(req, item, "done"))
       ])
       setCleared({ item, unsubscribed, wasSelected, settled })
     },
-    [select, subscribe, registry, req, setCleared]
+    [select, subscribe, mark, req, setCleared]
   )
 
   const done = useCallback((item: InboxItem) => clear(item, false), [clear])
@@ -115,23 +111,16 @@ export function useInboxActions(
     const last = latest.current.cleared
     if (last === null) return
     setCleared(null)
-    void fireMutation(registry, restoreInboxRow(req), {
-      item: last.item,
-      after: last.settled
-    })
+    void mark(markOf(req, last.item, "unread"))
     if (last.unsubscribed)
       void last.settled.then(() => subscribe(last.item, true))
     if (last.wasSelected) select(last.item, true)
-  }, [registry, req, subscribe, select, setCleared])
+  }, [mark, req, subscribe, select, setCleared])
 
   const toggleUnread = useCallback(
     (item: InboxItem) =>
-      void fireMutation(
-        registry,
-        (item.unread ? markInboxRead : markInboxUnread)(rowOf(req, item)),
-        undefined
-      ),
-    [registry, req]
+      void mark(markOf(req, item, item.unread ? "read" : "unread")),
+    [mark, req]
   )
 
   const openTicket = useCallback(
@@ -143,13 +132,16 @@ export function useInboxActions(
     [navigate, orgSlug]
   )
 
-  const readAll = useCallback(() => readAllSet(undefined), [readAllSet])
+  const readAll = useCallback(
+    () => void mark({ kind: "readAll", orgSlug }),
+    [mark, orgSlug]
+  )
 
   const doneAll = useCallback(() => {
     select(null, true)
     setCleared(null)
-    doneAllSet(undefined)
-  }, [select, setCleared, doneAllSet])
+    void mark({ kind: "doneAll", orgSlug })
+  }, [select, setCleared, mark, orgSlug])
 
   return useMemo(
     () => ({

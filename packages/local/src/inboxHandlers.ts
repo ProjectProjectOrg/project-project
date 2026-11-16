@@ -56,6 +56,7 @@ export const inboxHandlers = (
     const source = yield* InboxSource
     const crypto = yield* Crypto.Crypto
     const loop = yield* Semaphore.make(1)
+    const sending = yield* Semaphore.make(1)
     const pending = new Map<string, PendingMark>()
     const changed = reactivity.invalidate([INBOX_KEY])
 
@@ -135,7 +136,7 @@ export const inboxHandlers = (
         const at = yield* DateTime.nowAsDate
         pending.set(id, { mark, at, receipt: null })
         yield* changed
-        const receipt = yield* source.mark(id, mark).pipe(
+        const receipt = yield* sending.withPermit(source.mark(id, mark)).pipe(
           Effect.catchTags({
             InboxRejected: () => Effect.succeed(null),
             SyncOffline: () => Effect.succeed(null)

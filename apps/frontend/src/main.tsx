@@ -11,6 +11,7 @@ import ReactDOM from "react-dom/client"
 
 import { saveBoot } from "./api/bootCache"
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { localInboxSync } from "./features/inbox/atoms/localInbox"
 import { localRuntime } from "./features/local/atoms/localProject"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
@@ -32,6 +33,7 @@ document.head.appendChild(stateColorStyle)
 const history = createBrowserHistory()
 const sessions = createSessionCache((registry) => {
   registry.mount(localRuntime)
+  registry.mount(localInboxSync)
   return createRouter({
     routeTree,
     history,

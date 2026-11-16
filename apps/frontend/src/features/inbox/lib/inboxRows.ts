@@ -10,60 +10,6 @@ export const seenUntil = (item: InboxItem): Date =>
   item.lastReadAt ??
   DateTime.toDate(DateTime.makeUnsafe(item.firstAt.getTime() - SAME_WRITE_MS))
 
-export const readRow = (
-  items: ReadonlyArray<InboxItem>,
-  key: string,
-  at: Date
-): ReadonlyArray<InboxItem> =>
-  items.map((item) =>
-    inboxKey(item) === key
-      ? { ...item, unread: false, unreadCount: 0, lastReadAt: at }
-      : item
-  )
-
-export const unreadRow = (
-  items: ReadonlyArray<InboxItem>,
-  key: string
-): ReadonlyArray<InboxItem> =>
-  items.map((item) =>
-    inboxKey(item) === key
-      ? { ...item, unread: true, unreadCount: Math.max(item.unreadCount, 1) }
-      : item
-  )
-
-export const withoutRow = (
-  items: ReadonlyArray<InboxItem>,
-  key: string
-): ReadonlyArray<InboxItem> => items.filter((item) => inboxKey(item) !== key)
-
-export const restoreRow = (
-  items: ReadonlyArray<InboxItem>,
-  item: InboxItem
-): ReadonlyArray<InboxItem> => {
-  const rest = withoutRow(items, inboxKey(item))
-  const index = rest.findIndex(
-    (other) => other.latestAt.getTime() < item.latestAt.getTime()
-  )
-  const restored = {
-    ...item,
-    unread: true,
-    unreadCount: Math.max(item.unreadCount, 1)
-  }
-  return index < 0
-    ? [...rest, restored]
-    : [...rest.slice(0, index), restored, ...rest.slice(index)]
-}
-
-export const readAllRows = (
-  items: ReadonlyArray<InboxItem>,
-  at: Date
-): ReadonlyArray<InboxItem> =>
-  items.map((item) =>
-    item.unread
-      ? { ...item, unread: false, unreadCount: 0, lastReadAt: at }
-      : item
-  )
-
 export const stepRow = (
   items: ReadonlyArray<InboxItem>,
   current: string | null,

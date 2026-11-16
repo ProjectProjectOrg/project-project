@@ -1,20 +1,11 @@
-import type { InboxItem, TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as Reactivity from "effect/reactivity/Reactivity"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
-import { keepPredicted, viewMutation } from "@/api/viewMutation"
-import {
-  readAllRows,
-  readRow,
-  restoreRow,
-  unreadRow,
-  withoutRow
-} from "@/features/inbox/lib/inboxRows"
+
+import { localInboxList, localInboxUnread } from "./localInbox"
 
 export type InboxRequest = Readonly<{
   _view: "inbox"
@@ -27,6 +18,16 @@ export const inboxRequest = (
   readSince: string
 ): InboxRequest => ({ _view: "inbox", params: { orgSlug }, readSince })
 
+const preferLocal = <A, B extends A, E, F>(
+  local: AsyncResult.AsyncResult<B | null, F>,
+  server: () => AsyncResult.AsyncResult<A, E>
+): AsyncResult.AsyncResult<A, E> => {
+  if (AsyncResult.isInitial(local)) return AsyncResult.initial(true)
+  if (AsyncResult.isSuccess(local) && local.value !== null)
+    return AsyncResult.success(local.value)
+  return server()
+}
+
 const inboxQuery = (req: InboxRequest) =>
   query("inbox", "list", {
     params: req.params,
@@ -36,7 +37,17 @@ const inboxQuery = (req: InboxRequest) =>
   })
 
 export const inboxList = Atom.family((req: InboxRequest) =>
-  Atom.optimistic(inboxQuery(req))
+  Atom.make((get) =>
+    preferLocal(
+      get(
+        localInboxList({
+          orgSlug: req.params.orgSlug,
+          readSince: req.readSince
+        })
+      ),
+      () => get(inboxQuery(req))
+    )
+  )
 )
 
 export type InboxUnreadRequest = Readonly<{
@@ -57,121 +68,12 @@ const inboxUnreadQuery = (req: InboxUnreadRequest) =>
   })
 
 export const inboxUnread = Atom.family((req: InboxUnreadRequest) =>
-  Atom.optimistic(inboxUnreadQuery(req))
-)
-
-export type InboxRowRequest = Readonly<{
-  req: InboxRequest
-  projectSlug: string
-  id: TicketId
-}>
-
-const now = () => DateTime.toDate(DateTime.nowUnsafe())
-
-const rowKey = (row: InboxRowRequest): string => `${row.projectSlug}/${row.id}`
-
-const ticketParams = (row: InboxRowRequest) => ({
-  orgSlug: row.req.params.orgSlug,
-  slug: row.projectSlug,
-  id: row.id
-})
-
-const inboxChanged = (req: InboxRequest) => () => [
-  Keys.inbox(req.params.orgSlug)
-]
-
-export const markInboxRead = Atom.family((row: InboxRowRequest) =>
-  viewMutation(inboxList(row.req), {
-    name: "markInboxRead",
-    predict: (items: ReadonlyArray<InboxItem>, _input: void) =>
-      readRow(items, rowKey(row), now()),
-    call: (client) => client.inbox.markRead({ params: ticketParams(row) }),
-    confirm: keepPredicted,
-    publish: inboxChanged(row.req)
-  })
-)
-
-export const markInboxUnread = Atom.family((row: InboxRowRequest) =>
-  viewMutation(inboxList(row.req), {
-    name: "markInboxUnread",
-    predict: (items: ReadonlyArray<InboxItem>, _input: void) =>
-      unreadRow(items, rowKey(row)),
-    call: (client) => client.inbox.markUnread({ params: ticketParams(row) }),
-    confirm: keepPredicted,
-    publish: inboxChanged(row.req)
-  })
-)
-
-export const markInboxDone = Atom.family((row: InboxRowRequest) =>
-  viewMutation(inboxList(row.req), {
-    name: "markInboxDone",
-    predict: (items: ReadonlyArray<InboxItem>, _input: void) =>
-      withoutRow(items, rowKey(row)),
-    call: (client) => client.inbox.markDone({ params: ticketParams(row) }),
-    confirm: keepPredicted,
-    publish: inboxChanged(row.req)
-  })
-)
-
-export type RestoreInput = Readonly<{
-  item: InboxItem
-  after: Promise<unknown>
-}>
-
-export const restoreInboxRow = Atom.family((req: InboxRequest) =>
-  viewMutation(inboxList(req), {
-    name: "restoreInboxRow",
-    predict: (items: ReadonlyArray<InboxItem>, { item }: RestoreInput) =>
-      restoreRow(items, item),
-    call: (client, { item, after }) =>
-      Effect.promise(() => after).pipe(
-        Effect.andThen(
-          client.inbox.markUnread({
-            params: {
-              orgSlug: req.params.orgSlug,
-              slug: item.projectSlug,
-              id: item.ticket.id
-            }
-          })
-        )
+  Atom.make((get) =>
+    preferLocal(
+      AsyncResult.map(get(localInboxUnread(req.params.orgSlug)), (count) =>
+        count === null ? null : { count }
       ),
-    confirm: keepPredicted,
-    publish: inboxChanged(req)
-  })
-)
-
-export const markInboxAllRead = Atom.family((req: InboxRequest) =>
-  viewMutation(inboxList(req), {
-    name: "markInboxAllRead",
-    predict: (items: ReadonlyArray<InboxItem>, _input: void) =>
-      readAllRows(items, now()),
-    call: (client) => client.inbox.readAll({ params: req.params }),
-    confirm: keepPredicted,
-    publish: inboxChanged(req)
-  })
-)
-
-export const markInboxAllDone = Atom.family((req: InboxRequest) =>
-  viewMutation(inboxList(req), {
-    name: "markInboxAllDone",
-    predict: (_items: ReadonlyArray<InboxItem>, _input: void) => [],
-    call: (client) => client.inbox.doneAll({ params: req.params }),
-    confirm: keepPredicted,
-    publish: inboxChanged(req)
-  })
-)
-
-export type TicketReadRequest = Readonly<{
-  orgSlug: string
-  slug: string
-  id: TicketId
-}>
-
-export const markTicketRead = Atom.family((req: TicketReadRequest) =>
-  Api.runtime.fn(
-    Effect.fn("markTicketRead")(function* (_: void) {
-      yield* Api.use((client) => client.inbox.markRead({ params: req }))
-      yield* Reactivity.invalidate([Keys.inbox(req.orgSlug)])
-    })
+      () => get(inboxUnreadQuery(req))
+    )
   )
 )

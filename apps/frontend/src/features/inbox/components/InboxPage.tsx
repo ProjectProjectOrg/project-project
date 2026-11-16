@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import type { InboxItem } from "@pp/shared"
 import { getRouteApi } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
@@ -24,26 +24,23 @@ import {
 } from "@/features/inbox/hooks/useInboxActions"
 import { useInboxCommands } from "@/features/inbox/hooks/useInboxCommands"
 import { useInboxKeys } from "@/features/inbox/hooks/useInboxKeys"
+import { useInboxSync } from "@/features/inbox/hooks/useInboxSync"
 import { useScrollToNew } from "@/features/inbox/hooks/useScrollToNew"
 import { inboxKey, seenUntil, stepRow } from "@/features/inbox/lib/inboxRows"
 import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/inbox")
-
-const POLL_MS = 30_000
 
 export function InboxPage() {
   const { orgSlug } = routeApi.useParams()
   const [readSince] = useState(() => DateTime.formatIso(DateTime.nowUnsafe()))
   const req = inboxRequest(orgSlug, readSince)
   const result = useAtomValue(inboxList(req))
-  const refresh = useAtomRefresh(inboxList(req))
-  useVisibleInterval(refresh, POLL_MS, true)
+  const refresh = useInboxSync(true)
   return (
     <div className="absolute inset-0 flex min-h-0">
       <AsyncView

@@ -38,7 +38,11 @@ export const sendMagicLink = Api.runtime.fn(
 )
 
 export const logout = Api.runtime.fn(
-  Effect.fn("logout")(function* (_: void) {
+  Effect.fn("logout")(function* (_: void, get: Atom.FnContext) {
+    const { forgetInbox } = yield* Effect.promise(
+      () => import("@/features/inbox/atoms/localInbox")
+    )
+    yield* get.result(forgetInbox).pipe(Effect.catchCause(() => Effect.void))
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
     yield* Effect.promise(() => clearBannerRenderCache())
   })
