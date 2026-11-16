@@ -190,6 +190,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     ticketIndexLayer = ticketIndex
     projectsLayer = ProjectServices.layer.pipe(
       Layer.provideMerge(Access.layer),
+      Layer.provide(SyncLog.layer.pipe(Layer.provide(db))),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(FinishedStatuses.baseline),

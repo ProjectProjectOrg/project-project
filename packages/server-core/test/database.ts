@@ -10,6 +10,8 @@ import type * as SqlConnection from "effect/sql/SqlConnection"
 import type { SqlError } from "effect/sql/SqlError"
 import * as Stream from "effect/Stream"
 
+import { recordingSyncLog } from "../src/sync/testing"
+
 export type Query = Readonly<{
   sql: string
   params: ReadonlyArray<unknown>
@@ -59,9 +61,10 @@ export const databaseLayer = (
 ) =>
   Layer.unwrap(
     Effect.map(makeDatabase(execute), (db) =>
-      Layer.merge(
+      Layer.mergeAll(
         Layer.succeed(Db, db),
-        Layer.succeed(SqlClient.SqlClient, db.$client)
+        Layer.succeed(SqlClient.SqlClient, db.$client),
+        recordingSyncLog().layer
       )
     )
   )

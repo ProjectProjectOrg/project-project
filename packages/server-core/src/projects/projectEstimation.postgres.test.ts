@@ -29,6 +29,7 @@ import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketServices from "../tickets/layer"
 import * as TicketCommands from "../tickets/TicketCommands"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -118,7 +119,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       [id, id]
     )
     const db = DbLive.pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
+      Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
     layer = TicketServices.layer
       .pipe(
@@ -128,6 +129,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         Layer.provide(testActivityLayer(id)),
         Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
         Layer.provide(TicketBranchIndex.layer.pipe(Layer.provide(db))),
+        Layer.provide(SyncLog.layer.pipe(Layer.provide(db))),
         Layer.provide(db),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(accessLayer({})),

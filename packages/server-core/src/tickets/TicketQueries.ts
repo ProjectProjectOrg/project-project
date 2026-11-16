@@ -71,6 +71,7 @@ import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import * as SyncLog from "../sync/SyncLog"
 import * as Users from "../users/Users"
 import { compareByRank } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
@@ -317,6 +318,7 @@ const make = Effect.gen(function* () {
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const finishedStatuses = yield* FinishedStatuses
   const library = yield* Library.Library
@@ -335,7 +337,12 @@ const make = Effect.gen(function* () {
       query.estimate?.length ||
       ("sort" in query && query.sort.key === "estimate")
     ) {
-      yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+      yield* readProjectDocument({
+        db,
+        syncLog,
+        docs: projectDocs,
+        project: scope
+      })
     }
     return scope
   })
@@ -848,7 +855,7 @@ const make = Effect.gen(function* () {
     const [members, projectDocument, view] = yield* Effect.all(
       [
         sprintSectionMembers(scope, query),
-        readProjectDocument({ db, docs: projectDocs, project: scope }),
+        readProjectDocument({ db, syncLog, docs: projectDocs, project: scope }),
         gitView
       ],
       { concurrency: "unbounded" }

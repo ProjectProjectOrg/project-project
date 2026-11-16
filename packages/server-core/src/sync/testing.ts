@@ -40,7 +40,13 @@ export const recordingSyncLog = () => {
           return next
         }),
       head: (projectId) => Effect.sync(() => headOf(projectId)),
-      entriesAfter: () => Effect.succeed([])
+      entriesAfter: () => Effect.succeed([]),
+      withEntry: (projectId, changes, write) =>
+        Effect.tap(write, () =>
+          Effect.sync(() => {
+            recorded.appended.push({ projectId, changes })
+          })
+        )
     })
   )
   return { layer, recorded }

@@ -29,6 +29,7 @@ import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
 import type * as Markdown from "../markdown/Markdown"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 
@@ -79,6 +80,7 @@ const rowToStatus = (r: typeof projectStatus.$inferSelect): ProjectStatus => ({
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const ticketIndex = yield* TicketIndex.TicketIndex
   const rewrites = yield* TicketRewrites.TicketRewrites
 
@@ -127,20 +129,24 @@ const make = Effect.gen(function* () {
     const color = input.color ?? pickStatusColor(existing.map((s) => s.color))
     const icon = input.icon ?? DEFAULT_ICON
 
-    const inserted = yield* db
-      .insert(projectStatus)
-      .values({
-        projectId,
-        slug: derived,
-        label: input.label,
-        icon,
-        color,
-        description: input.description ?? null,
-        orderKey: nextKey,
-        createdBy: userId
-      })
-      .returning()
-      .pipe(Effect.orDie)
+    const inserted = yield* syncLog.withEntry(
+      projectId,
+      [{ kind: "status", id: derived, op: "upsert" }],
+      db
+        .insert(projectStatus)
+        .values({
+          projectId,
+          slug: derived,
+          label: input.label,
+          icon,
+          color,
+          description: input.description ?? null,
+          orderKey: nextKey,
+          createdBy: userId
+        })
+        .returning()
+        .pipe(Effect.orDie)
+    )
     return rowToStatus(inserted[0])
   })
 
@@ -197,9 +203,45 @@ const make = Effect.gen(function* () {
     const cosmetic = newSlug === current.slug
 
     if (cosmetic) {
-      const updated = yield* db
+      const updated = yield* syncLog.withEntry(
+        projectId,
+        [{ kind: "status", id: statusSlug, op: "upsert" }],
+        db
+          .update(projectStatus)
+          .set({
+            label: newLabel,
+            icon: input.icon ?? current.icon,
+            color: input.color ?? current.color,
+            description
+          })
+          .where(
+            and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          )
+          .returning()
+          .pipe(Effect.orDie)
+      )
+      return rowToStatus(updated[0])
+    }
+
+    const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+    const affectedIds = yield* ticketIndex.findTicketIdsByStatus(
+      indexProject,
+      current.slug
+    )
+    yield* rewrites.moveToStatus(orgSlug, slug, affectedIds, newSlug, "renamed")
+    const updated = yield* syncLog.withEntry(
+      projectId,
+      [
+        { kind: "status", id: statusSlug, op: "delete" },
+        { kind: "status", id: newSlug, op: "upsert" }
+      ],
+      db
         .update(projectStatus)
         .set({
+          slug: newSlug,
           label: newLabel,
           icon: input.icon ?? current.icon,
           color: input.color ?? current.color,
@@ -213,32 +255,7 @@ const make = Effect.gen(function* () {
         )
         .returning()
         .pipe(Effect.orDie)
-      return rowToStatus(updated[0])
-    }
-
-    const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
-    const affectedIds = yield* ticketIndex.findTicketIdsByStatus(
-      indexProject,
-      current.slug
     )
-    yield* rewrites.moveToStatus(orgSlug, slug, affectedIds, newSlug, "renamed")
-    const updated = yield* db
-      .update(projectStatus)
-      .set({
-        slug: newSlug,
-        label: newLabel,
-        icon: input.icon ?? current.icon,
-        color: input.color ?? current.color,
-        description
-      })
-      .where(
-        and(
-          eq(projectStatus.projectId, projectId),
-          eq(projectStatus.slug, statusSlug)
-        )
-      )
-      .returning()
-      .pipe(Effect.orDie)
     return rowToStatus(updated[0])
   })
 
@@ -261,17 +278,21 @@ const make = Effect.gen(function* () {
     )
     if (hasBaselineOrder(existing) && !hasBaselineOrder(reordered))
       return yield* new Conflict({ reason: "baseline_order" })
-    const updated = yield* db
-      .update(projectStatus)
-      .set({ orderKey: input.orderKey })
-      .where(
-        and(
-          eq(projectStatus.projectId, projectId),
-          eq(projectStatus.slug, statusSlug)
+    const updated = yield* syncLog.withEntry(
+      projectId,
+      [{ kind: "status", id: statusSlug, op: "upsert" }],
+      db
+        .update(projectStatus)
+        .set({ orderKey: input.orderKey })
+        .where(
+          and(
+            eq(projectStatus.projectId, projectId),
+            eq(projectStatus.slug, statusSlug)
+          )
         )
-      )
-      .returning()
-      .pipe(Effect.orDie)
+        .returning()
+        .pipe(Effect.orDie)
+    )
     if (updated.length === 0) return yield* new NotFound()
     return rowToStatus(updated[0])
   })
@@ -329,15 +350,19 @@ const make = Effect.gen(function* () {
         "removed"
       )
     }
-    yield* db
-      .delete(projectStatus)
-      .where(
-        and(
-          eq(projectStatus.projectId, projectId),
-          eq(projectStatus.slug, statusSlug)
+    yield* syncLog.withEntry(
+      projectId,
+      [{ kind: "status", id: statusSlug, op: "delete" }],
+      db
+        .delete(projectStatus)
+        .where(
+          and(
+            eq(projectStatus.projectId, projectId),
+            eq(projectStatus.slug, statusSlug)
+          )
         )
-      )
-      .pipe(Effect.orDie)
+        .pipe(Effect.orDie)
+    )
   })
 
   return ProjectStatuses.of({ list, create, update, reorder, remove })

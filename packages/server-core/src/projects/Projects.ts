@@ -43,6 +43,7 @@ import * as Schema from "effect/Schema"
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
 import type * as Markdown from "../markdown/Markdown"
 import { forkDetached } from "../sync/ChangeOrigin"
+import * as SyncLog from "../sync/SyncLog"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
@@ -117,6 +118,7 @@ export class Projects extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
 
   const bannerPlaceholders = yield* BannerPlaceholders.BannerPlaceholders
 
@@ -407,6 +409,7 @@ const make = Effect.gen(function* () {
             [
               readProjectDocument({
                 db,
+                syncLog,
                 docs: projectDocs,
                 project: scope,
                 indexed: indexRow
@@ -464,6 +467,7 @@ const make = Effect.gen(function* () {
         const { indexRow } = yield* inScope
         const file = yield* readProjectDocument({
           db,
+          syncLog,
           docs: projectDocs,
           project: scope,
           indexed: indexRow
@@ -528,11 +532,15 @@ const make = Effect.gen(function* () {
           dbPatch.estimation = nextEstimation
         }
         if (Object.keys(dbPatch).length > 0) {
-          yield* db
-            .update(projectIndex)
-            .set(dbPatch)
-            .where(eq(projectIndex.id, indexRow.id))
-            .pipe(Effect.orDie)
+          yield* syncLog.withEntry(
+            indexRow.id,
+            [{ kind: "project", id: indexRow.id, op: "upsert" }],
+            db
+              .update(projectIndex)
+              .set(dbPatch)
+              .where(eq(projectIndex.id, indexRow.id))
+              .pipe(Effect.orDie)
+          )
         }
 
         const members = yield* loadMembers(indexRow.id)
@@ -588,6 +596,7 @@ const make = Effect.gen(function* () {
         const { indexRow } = yield* inScope
         const file = yield* readProjectDocument({
           db,
+          syncLog,
           docs: projectDocs,
           project: scope,
           indexed: indexRow

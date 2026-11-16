@@ -4,6 +4,7 @@ import { NotFound, type ProjectScope } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
+import type * as SyncLog from "../sync/SyncLog"
 import type * as ProjectDocs from "./ProjectDocs"
 
 type ProjectRef = Pick<
@@ -13,11 +14,13 @@ type ProjectRef = Pick<
 
 export const readProjectDocument = Effect.fn("readProjectDocument")(function* ({
   db,
+  syncLog,
   docs,
   project,
   indexed
 }: Readonly<{
   db: Db["Service"]
+  syncLog: SyncLog.SyncLog["Service"]
   docs: ProjectDocs.ProjectDocs["Service"]
   project: ProjectRef
   indexed?: Pick<typeof projectIndex.$inferSelect, "estimation">
@@ -56,6 +59,9 @@ export const readProjectDocument = Effect.fn("readProjectDocument")(function* ({
             .set({ estimation: current.estimation })
             .where(eq(projectIndex.id, project.projectId))
             .pipe(Effect.orDie)
+          yield* syncLog.append(project.projectId, [
+            { kind: "project", id: project.projectId, op: "upsert" }
+          ])
         }
         return current
       })

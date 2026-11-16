@@ -264,44 +264,59 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("rebuilds an index row that is ahead of its ticket file", () =>
-    Effect.gen(function* () {
-      const organizationId = yield* seedRebuildProject
-      const docs = Layer.succeed(TicketDocs.TicketDocs, {
-        listIds: () => Effect.succeed([rebuiltDocument.id]),
-        read: () => Effect.succeed(rebuiltDocument),
-        create: () => unexpected("create"),
-        write: () => unexpected("write"),
-        update: () => unexpected("update"),
-        remove: () => unexpected("remove"),
-        readRaw: () => unexpected("readRaw")
-      } satisfies TicketDocs.TicketDocs["Service"])
-      yield* Effect.gen(function* () {
-        const index = yield* TicketIndex.TicketIndex
-        const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
-        const project = yield* index.projectFor(organizationId, organizationId)
-        yield* index.upsertTicket(project, {
-          ...rebuiltDocument,
-          title: "Rolled back",
-          updatedAt: DateTime.toDate(
-            DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+  it.effect(
+    "rebuilds an index row that is ahead of its ticket file and starts a new sync generation",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = yield* seedRebuildProject
+        const docs = Layer.succeed(TicketDocs.TicketDocs, {
+          listIds: () => Effect.succeed([rebuiltDocument.id]),
+          read: () => Effect.succeed(rebuiltDocument),
+          create: () => unexpected("create"),
+          write: () => unexpected("write"),
+          update: () => unexpected("update"),
+          remove: () => unexpected("remove"),
+          readRaw: () => unexpected("readRaw")
+        } satisfies TicketDocs.TicketDocs["Service"])
+        yield* Effect.gen(function* () {
+          const index = yield* TicketIndex.TicketIndex
+          const maintenance =
+            yield* TicketIndexMaintenance.TicketIndexMaintenance
+          const project = yield* index.projectFor(
+            organizationId,
+            organizationId
           )
-        })
-        yield* maintenance.rebuildProject(project)
-        const rows = yield* index.list(project, ["T-41"])
-        expect(rows.map(({ id, title }) => [id, title])).toEqual([
-          ["T-41", "Restored ticket"]
-        ])
-      }).pipe(
-        Effect.provide(
-          TicketIndexServices.layer.pipe(
-            Layer.provide(SyncLog.layer),
-            Layer.provide(docs),
-            Layer.provide(DatabaseLive)
+          yield* index.upsertTicket(project, {
+            ...rebuiltDocument,
+            title: "Rolled back",
+            updatedAt: DateTime.toDate(
+              DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+            )
+          })
+          const log = yield* SyncLog.SyncLog
+          expect(yield* log.head(project.projectId)).toEqual({
+            generation: 1,
+            sequence: 1
+          })
+          yield* maintenance.rebuildProject(project)
+          const rows = yield* index.list(project, ["T-41"])
+          expect(rows.map(({ id, title }) => [id, title])).toEqual([
+            ["T-41", "Restored ticket"]
+          ])
+          expect(yield* log.head(project.projectId)).toEqual({
+            generation: 2,
+            sequence: 0
+          })
+        }).pipe(
+          Effect.provide(
+            TicketIndexServices.layer.pipe(
+              Layer.provideMerge(SyncLog.layer),
+              Layer.provide(docs),
+              Layer.provide(DatabaseLive)
+            )
           )
         )
-      )
-    }).pipe(Effect.provide(DatabaseLive))
+      }).pipe(Effect.provide(DatabaseLive))
   )
 
   it.effect("clears cached git state when a rebuild changes the branch", () =>

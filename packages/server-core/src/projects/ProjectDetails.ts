@@ -33,6 +33,7 @@ import * as Schema from "effect/Schema"
 
 import type * as ProjectGithub from "../github/ProjectGithub"
 import type * as Markdown from "../markdown/Markdown"
+import * as SyncLog from "../sync/SyncLog"
 import * as ProjectDocs from "./ProjectDocs"
 import { readProjectDocument } from "./readProjectDocument"
 
@@ -119,6 +120,7 @@ export class ProjectDetails extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const projectDocs = yield* ProjectDocs.ProjectDocs
 
   const withProjectWriteLock = Effect.fn("ProjectDetails.withWriteLock")(
@@ -324,6 +326,7 @@ const make = Effect.gen(function* () {
         const { orgSlug, slug } = scope
         const file = yield* readProjectDocument({
           db,
+          syncLog,
           docs: projectDocs,
           project: scope,
           indexed: indexRow

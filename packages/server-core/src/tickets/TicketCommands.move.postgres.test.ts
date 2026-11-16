@@ -31,6 +31,7 @@ import {
 import * as Library from "../library/Library"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
+import * as SyncLog from "../sync/SyncLog"
 import {
   FakeGroups,
   makeFakeGroups,
@@ -196,9 +197,13 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
       Layer.provide(FakeUsers),
       Layer.provide(makeFakeTicketIndex(docs.documents)),
       Layer.provide(
-        DbLive.pipe(
-          Layer.provide(
-            PgClient.layer({ url: Redacted.make(databaseUrl ?? "") })
+        SyncLog.layer.pipe(
+          Layer.provideMerge(
+            DbLive.pipe(
+              Layer.provideMerge(
+                PgClient.layer({ url: Redacted.make(databaseUrl ?? "") })
+              )
+            )
           )
         )
       ),

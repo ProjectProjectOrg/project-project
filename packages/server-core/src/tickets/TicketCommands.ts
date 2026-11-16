@@ -79,6 +79,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import * as SyncLog from "../sync/SyncLog"
 import { compareByRank, rankBetween, ranksBetween } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -311,6 +312,7 @@ const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const attachments = yield* Attachments.Attachments
   const access = yield* Access.Access
   const figmaLinks = yield* FigmaLinks.FigmaLinks
@@ -419,6 +421,7 @@ const make = Effect.gen(function* () {
     if (estimate === undefined || estimate === null) return
     const { estimation } = yield* readProjectDocument({
       db,
+      syncLog,
       docs: projectDocs,
       project: scope
     })
@@ -867,7 +870,12 @@ const make = Effect.gen(function* () {
           ? Effect.void
           : groups.ensureSprintAssignable([sprint]),
         sort?.key === "estimate" && !readsProjectDocument
-          ? readProjectDocument({ db, docs: projectDocs, project: scope })
+          ? readProjectDocument({
+              db,
+              syncLog,
+              docs: projectDocs,
+              project: scope
+            })
           : Effect.void
       ],
       { concurrency: 3, discard: true }
@@ -1113,6 +1121,7 @@ const make = Effect.gen(function* () {
       yield* requireTicketChange({ content: true })
       const { estimation } = yield* readProjectDocument({
         db,
+        syncLog,
         docs: projectDocs,
         project: scope
       })
@@ -1520,8 +1529,18 @@ const make = Effect.gen(function* () {
           })
           .pipe(Effect.orDie),
         projectMembers.memberIds(),
-        readProjectDocument({ db, docs: projectDocs, project: source }),
-        readProjectDocument({ db, docs: projectDocs, project: destination }),
+        readProjectDocument({
+          db,
+          syncLog,
+          docs: projectDocs,
+          project: source
+        }),
+        readProjectDocument({
+          db,
+          syncLog,
+          docs: projectDocs,
+          project: destination
+        }),
         projects.key()
       ],
       { concurrency: 7 }

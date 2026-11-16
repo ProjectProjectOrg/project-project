@@ -25,6 +25,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectStatuses from "./ProjectStatuses"
@@ -72,11 +73,14 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       [id, id]
     )
     layer = ProjectStatuses.layer.pipe(
+      Layer.provide(SyncLog.layer),
       Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
       Layer.provide(Layer.mock(TicketRewrites.TicketRewrites, {})),
       Layer.provide(
         DbLive.pipe(
-          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
+          Layer.provideMerge(
+            PgClient.layer({ url: Redacted.make(databaseUrl) })
+          )
         )
       ),
       Layer.orDie

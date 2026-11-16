@@ -22,6 +22,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import * as ProjectStatuses from "../projects/ProjectStatuses"
+import * as SyncLog from "../sync/SyncLog"
 import * as Tags from "../tags/Tags"
 import {
   makeFakeTicketDocs,
@@ -139,8 +140,14 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
           upserts.push(document.id)
         })
     })
-    const db = DbLive.pipe(
-      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl ?? "") }))
+    const db = SyncLog.layer.pipe(
+      Layer.provideMerge(
+        DbLive.pipe(
+          Layer.provideMerge(
+            PgClient.layer({ url: Redacted.make(databaseUrl ?? "") })
+          )
+        )
+      )
     )
     const layer = Layer.mergeAll(Tags.layer, ProjectStatuses.layer).pipe(
       Layer.provide(

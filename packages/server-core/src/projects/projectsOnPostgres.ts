@@ -68,6 +68,7 @@ export const projectsOnPostgres = (
   )
   return ProjectServices.layer.pipe(
     Layer.provideMerge(tickets),
+    Layer.provide(SyncLog.layer.pipe(Layer.provide(db))),
     Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(

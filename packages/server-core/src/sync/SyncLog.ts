@@ -40,6 +40,11 @@ export class SyncLog extends Context.Service<
       after: SyncPosition,
       limit: number
     ) => Effect.Effect<ReadonlyArray<SyncEntry>>
+    withEntry: <A, R>(
+      projectId: string,
+      changes: ReadonlyArray<SyncChangeRef>,
+      write: Effect.Effect<A, never, R>
+    ) => Effect.Effect<A, never, R>
   }>
 >()("@pp/server-core/sync/SyncLog") {}
 
@@ -169,7 +174,16 @@ const make = Effect.gen(function* () {
       .limit(limit)
   }, Effect.orDie)
 
-  return SyncLog.of({ append, bumpGeneration, head, entriesAfter })
+  const withEntry = <A, R>(
+    projectId: string,
+    changes: ReadonlyArray<SyncChangeRef>,
+    write: Effect.Effect<A, never, R>
+  ): Effect.Effect<A, never, R> =>
+    sql
+      .withTransaction(Effect.tap(write, () => append(projectId, changes)))
+      .pipe(Effect.orDie)
+
+  return SyncLog.of({ append, bumpGeneration, head, entriesAfter, withEntry })
 })
 
 export const layer = Layer.effect(SyncLog, make)

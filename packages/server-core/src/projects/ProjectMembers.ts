@@ -29,6 +29,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type * as Markdown from "../markdown/Markdown"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as Users from "../users/Users"
 import * as ProjectDetails from "./ProjectDetails"
@@ -89,6 +90,7 @@ export class ProjectMembers extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const users = yield* Users.Users
   const rewrites = yield* TicketRewrites.TicketRewrites
   const {
@@ -252,27 +254,35 @@ const make = Effect.gen(function* () {
           Effect.gen(function* () {
             const currentRole = yield* memberRole(indexRow.id, target.id)
             if (currentRole === null) {
-              yield* db
-                .insert(projectMember)
-                .values({
-                  projectId: indexRow.id,
-                  organizationId: indexRow.organizationId,
-                  userId: target.id,
-                  roleId: input.role
-                })
-                .pipe(Effect.orDie)
+              yield* syncLog.withEntry(
+                indexRow.id,
+                [{ kind: "member", id: target.id, op: "upsert" }],
+                db
+                  .insert(projectMember)
+                  .values({
+                    projectId: indexRow.id,
+                    organizationId: indexRow.organizationId,
+                    userId: target.id,
+                    roleId: input.role
+                  })
+                  .pipe(Effect.orDie)
+              )
             } else if (currentRole !== input.role) {
               yield* requireAnotherPm(indexRow, currentRole)
-              yield* db
-                .update(projectMember)
-                .set({ roleId: input.role })
-                .where(
-                  and(
-                    eq(projectMember.projectId, indexRow.id),
-                    eq(projectMember.userId, target.id)
+              yield* syncLog.withEntry(
+                indexRow.id,
+                [{ kind: "member", id: target.id, op: "upsert" }],
+                db
+                  .update(projectMember)
+                  .set({ roleId: input.role })
+                  .where(
+                    and(
+                      eq(projectMember.projectId, indexRow.id),
+                      eq(projectMember.userId, target.id)
+                    )
                   )
-                )
-                .pipe(Effect.orDie)
+                  .pipe(Effect.orDie)
+              )
             }
           })
         )
@@ -379,16 +389,20 @@ const make = Effect.gen(function* () {
             if (currentRole !== nextRole) {
               yield* requireAnotherPm(indexRow, currentRole)
             }
-            yield* db
-              .update(projectMember)
-              .set({ roleId: nextRole })
-              .where(
-                and(
-                  eq(projectMember.projectId, indexRow.id),
-                  eq(projectMember.userId, targetUserId)
+            yield* syncLog.withEntry(
+              indexRow.id,
+              [{ kind: "member", id: targetUserId, op: "upsert" }],
+              db
+                .update(projectMember)
+                .set({ roleId: nextRole })
+                .where(
+                  and(
+                    eq(projectMember.projectId, indexRow.id),
+                    eq(projectMember.userId, targetUserId)
+                  )
                 )
-              )
-              .pipe(Effect.orDie)
+                .pipe(Effect.orDie)
+            )
           })
         )
         return yield* replayDetail
@@ -411,15 +425,19 @@ const make = Effect.gen(function* () {
           const lockedRole = yield* memberRole(indexRow.id, targetUserId)
           if (lockedRole === null) return false
           yield* requireAnotherPm(indexRow, lockedRole)
-          yield* db
-            .delete(projectMember)
-            .where(
-              and(
-                eq(projectMember.projectId, indexRow.id),
-                eq(projectMember.userId, targetUserId)
+          yield* syncLog.withEntry(
+            indexRow.id,
+            [{ kind: "member", id: targetUserId, op: "delete" }],
+            db
+              .delete(projectMember)
+              .where(
+                and(
+                  eq(projectMember.projectId, indexRow.id),
+                  eq(projectMember.userId, targetUserId)
+                )
               )
-            )
-            .pipe(Effect.orDie)
+              .pipe(Effect.orDie)
+          )
           return true
         })
       )

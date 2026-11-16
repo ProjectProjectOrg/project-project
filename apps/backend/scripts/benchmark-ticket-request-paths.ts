@@ -467,8 +467,9 @@ const DocsLive = TicketDocs.layer.pipe(
   Layer.provideMerge(BunServices.layer)
 )
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
+const SyncLive = SyncLog.layer.pipe(Layer.provide(DatabaseLive))
 const IndexLive = TicketIndexServices.layer.pipe(
-  Layer.provide(SyncLog.layer),
+  Layer.provide(SyncLive),
   Layer.provide(DocsLive),
   Layer.provide(DatabaseLive)
 )
@@ -479,6 +480,7 @@ const BenchmarkLive = (options: Options) =>
       Layer.mergeAll(
         DocsLive,
         DatabaseLive,
+        SyncLive,
         IndexLive,
         TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,

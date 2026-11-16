@@ -692,7 +692,11 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
           })
           const layer = makeLayer(
             makeTicketDocs({ update: () => Effect.fail(failure) }),
-            DbLive.pipe(Layer.provideMerge(PgLive), Layer.orDie)
+            SyncLog.layer.pipe(
+              Layer.provideMerge(
+                DbLive.pipe(Layer.provideMerge(PgLive), Layer.orDie)
+              )
+            )
           )
           const result = yield* Effect.gen(function* () {
             const comments = yield* Comments.Comments

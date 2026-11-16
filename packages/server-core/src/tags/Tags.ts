@@ -21,6 +21,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type * as Markdown from "../markdown/Markdown"
+import * as SyncLog from "../sync/SyncLog"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 
 export class Tags extends Context.Service<
@@ -69,6 +70,7 @@ function pickColor(used: ReadonlyArray<string>): TagColor {
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const syncLog = yield* SyncLog.SyncLog
   const rewrites = yield* TicketRewrites.TicketRewrites
 
   const list = Effect.fn("Tags.list")(function* () {
@@ -123,16 +125,20 @@ const make = Effect.gen(function* () {
 
     const color = input.color ?? pickColor(existing.map((e) => e.color))
 
-    const inserted = yield* db
-      .insert(projectTag)
-      .values({
-        projectId,
-        name: input.name,
-        color,
-        createdBy: userId
-      })
-      .returning()
-      .pipe(Effect.orDie)
+    const inserted = yield* syncLog.withEntry(
+      projectId,
+      [{ kind: "tag", id: input.name, op: "upsert" }],
+      db
+        .insert(projectTag)
+        .values({
+          projectId,
+          name: input.name,
+          color,
+          createdBy: userId
+        })
+        .returning()
+        .pipe(Effect.orDie)
+    )
     const row = inserted[0]
     return {
       name: makeTagName(row.name),
@@ -181,13 +187,22 @@ const make = Effect.gen(function* () {
       if (collision) return yield* new Conflict({ reason: "tag_exists" })
     }
 
-    yield* db
-      .update(projectTag)
-      .set({ name: nextName, color: nextColor })
-      .where(
-        and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
-      )
-      .pipe(Effect.orDie)
+    yield* syncLog.withEntry(
+      projectId,
+      nextName === name
+        ? [{ kind: "tag", id: name, op: "upsert" }]
+        : [
+            { kind: "tag", id: name, op: "delete" },
+            { kind: "tag", id: nextName, op: "upsert" }
+          ],
+      db
+        .update(projectTag)
+        .set({ name: nextName, color: nextColor })
+        .where(
+          and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
+        )
+        .pipe(Effect.orDie)
+    )
 
     if (renaming) {
       yield* rewrites.renameTag(orgSlug, slug, name, nextName)
@@ -219,12 +234,16 @@ const make = Effect.gen(function* () {
     if (!existingRow) return yield* new NotFound()
 
     yield* rewrites.renameTag(orgSlug, slug, name, null)
-    yield* db
-      .delete(projectTag)
-      .where(
-        and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
-      )
-      .pipe(Effect.orDie)
+    yield* syncLog.withEntry(
+      projectId,
+      [{ kind: "tag", id: name, op: "delete" }],
+      db
+        .delete(projectTag)
+        .where(
+          and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
+        )
+        .pipe(Effect.orDie)
+    )
   })
 
   return Tags.of({ list, listPaged, create, update, remove })

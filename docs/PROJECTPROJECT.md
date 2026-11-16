@@ -192,6 +192,16 @@ The tables themselves are in `packages/db/src/schema.ts`.
 
 Adding a column for content a human writes is still a smell; it belongs in markdown.
 
+### Change log
+
+Every change to a project's facts is recorded in a durable per-project change log (`sync_scope`, `sync_change`; `packages/server-core/src/sync/SyncLog.ts`). An entry names what changed (`ticket`, `group`, `comments`, `status`, `tag`, `member` or `project`, with an id and upsert or delete), not its new content; readers take current rows. Appending locks the project's `sync_scope` row, so sequence numbers are gap-free and in commit order, and each document write appends inside the same transaction as its index row: a write is in the log exactly when its index row is committed. A command that touches several documents, such as a ticket edit that also changes the sprint, produces consecutive entries.
+
+Groups have an index of their own (`group_index`, `group_member_index` with membership order), written with their log entry by `GroupIndex` and rebuilt from the group files on startup. Any full rewrite of a project's ticket or group index (startup reconcile, repair of a write whose index update failed) bumps the project's generation and clears its entries, which tells readers to start over rather than trust their position.
+
+Logged writes: ticket index upserts and deletions (`TicketIndex`), which every ticket write reaches whether it comes from the app, MCP, the CLI, GitHub automation or an import; group writes (`GroupDocs` through `GroupIndex`); comments; statuses (`ProjectStatuses`); tags (`Tags`); project membership (`ProjectMembers`); project settings (`Projects` and the estimation repair in `readProjectDocument`). Not logged: creating a project (it has no readers yet), banner placeholders (an instance-local rendering detail) and per-user state such as subscriptions and inbox rows.
+
+The live update stream reads the log: `LiveChanges` listens for `pg_notify` after each commit and reads the committed entries, and `LiveFeed` stamps each SSE event with a cursor holding one position per project, so a client that reconnects, even after a server restart, replays what it missed from the log and only resyncs when a project's generation changed or the gap is large.
+
 ---
 
 ## Surfaces
