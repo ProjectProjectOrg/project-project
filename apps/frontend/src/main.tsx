@@ -10,6 +10,7 @@ import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { localRuntime } from "./features/local/atoms/localProject"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { routeTree } from "./routeTree.gen"
@@ -28,8 +29,9 @@ stateColorStyle.textContent = `:root{${lightStateVars}}.dark{${darkStateVars}}`
 document.head.appendChild(stateColorStyle)
 
 const history = createBrowserHistory()
-const sessions = createSessionCache((registry) =>
-  createRouter({
+const sessions = createSessionCache((registry) => {
+  registry.mount(localRuntime)
+  return createRouter({
     routeTree,
     history,
     parseSearch,
@@ -39,7 +41,7 @@ const sessions = createSessionCache((registry) =>
     scrollToTopSelectors: ["[data-scroll-root]"],
     context: { registry }
   })
-)
+})
 
 authClient.$store.atoms.$sessionSignal.listen(sessions.refreshIdentity)
 window.addEventListener("focus", sessions.refreshIdentity)
