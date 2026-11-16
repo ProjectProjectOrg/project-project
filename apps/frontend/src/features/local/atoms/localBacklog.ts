@@ -1,20 +1,14 @@
-import {
-  LOCAL_SECTION_TABLES,
-  localCounts as countLocally,
-  localSections,
-  sectionDifferences
-} from "@pp/local"
+import { type LocalRepositories, sectionDifferences } from "@pp/local"
 import { TICKET_LIST_LIMIT } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
 import { Api } from "@/api/Api"
 import { projectScope } from "@/api/keys"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { ticketRepo } from "@/features/github/lib/repos"
+import { connectedRepos } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import type {
   BacklogRequest,
@@ -25,6 +19,7 @@ import type { CountsRequest } from "@/features/tickets/atoms/ticketCounts"
 import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { toRow, withCreatedKeys } from "@/features/tickets/lib/ticketRows"
 
+import { LocalClient } from "../lib/localClient"
 import { localShadowChecks } from "../lib/localShadow"
 import { localReady, localRuntime } from "./localProject"
 
@@ -52,6 +47,23 @@ const compareWithServer = (
     )
   )
 
+type ProjectRepos = Parameters<typeof connectedRepos>[0]
+
+const repository = (
+  repo: NonNullable<ProjectRepos["github"]>
+): LocalRepositories["byId"][string] => ({
+  repoOwner: repo.repoOwner,
+  repoName: repo.repoName,
+  defaultBaseBranch: repo.defaultBaseBranch
+})
+
+const repositories = (detail: ProjectRepos): LocalRepositories => ({
+  fallback: detail.github === null ? null : repository(detail.github),
+  byId: Object.fromEntries(
+    connectedRepos(detail).map((repo) => [repo.repoId, repository(repo)])
+  )
+})
+
 export const localBacklog = Atom.family((req: BacklogRequest) =>
   localRuntime.atom((get) => {
     const ready = get(localReady(req.params))
@@ -64,41 +76,50 @@ export const localBacklog = Atom.family((req: BacklogRequest) =>
     const loaded = get(backlogLoadedPages(req))
     const scope = projectScope(req.params.orgSlug, req.params.slug)
     const created = get(createdKeys(scope))
-    const sections = localSections({
-      scope,
-      query: req.query,
-      viewerId: get(currentUserId),
-      estimation: detail.value.estimation,
-      repository: (repoId) => ticketRepo(detail.value, repoId),
-      perStatus: (status) => TICKET_LIST_LIMIT * (1 + (loaded[status] ?? 0))
-    })
     return Stream.unwrap(
-      Effect.map(SqlClient.SqlClient, (sql) =>
-        sql.reactive(LOCAL_SECTION_TABLES, sections).pipe(
-          Stream.zipWithIndex,
-          Stream.tap(([value, index]) =>
-            index === 0 && value !== null && localShadowChecks()
-              ? Effect.forkDetach(compareWithServer(req, value))
-              : Effect.void
-          ),
-          Stream.map(([value]) => value),
-          Stream.map((value): BacklogValue | null =>
-            value === null
-              ? null
-              : {
-                  counts: value.counts,
-                  sections: Object.fromEntries(
-                    Object.entries(value.sections).map(([key, page]) => [
-                      key,
-                      {
-                        items: withCreatedKeys(page.items.map(toRow), created),
-                        nextCursor: page.nextCursor
-                      }
-                    ])
-                  )
-                }
+      Effect.map(LocalClient, (client) =>
+        client
+          .Sections({
+            project: req.params,
+            query: req.query,
+            viewerId: get(currentUserId),
+            estimation: detail.value.estimation,
+            repositories: repositories(detail.value),
+            limits: Object.fromEntries(
+              Object.entries(loaded).map(([status, pages]) => [
+                status,
+                TICKET_LIST_LIMIT * (1 + pages)
+              ])
+            ),
+            defaultLimit: TICKET_LIST_LIMIT
+          })
+          .pipe(
+            Stream.zipWithIndex,
+            Stream.tap(([value, index]) =>
+              index === 0 && value !== null && localShadowChecks()
+                ? Effect.forkDetach(compareWithServer(req, value))
+                : Effect.void
+            ),
+            Stream.map(([value]): BacklogValue | null =>
+              value === null
+                ? null
+                : {
+                    counts: value.counts,
+                    sections: Object.fromEntries(
+                      Object.entries(value.sections).map(([key, page]) => [
+                        key,
+                        {
+                          items: withCreatedKeys(
+                            page.items.map(toRow),
+                            created
+                          ),
+                          nextCursor: page.nextCursor
+                        }
+                      ])
+                    )
+                  }
+            )
           )
-        )
       )
     )
   })
@@ -113,15 +134,14 @@ export const localCounts = Atom.family((req: CountsRequest) =>
       project(projectRequest(req.params.orgSlug, req.params.slug))
     )
     if (!AsyncResult.isSuccess(detail)) return Stream.never
-    const counts = countLocally({
-      scope: projectScope(req.params.orgSlug, req.params.slug),
-      query: req.query,
-      viewerId: get(currentUserId),
-      estimation: detail.value.estimation
-    })
     return Stream.unwrap(
-      Effect.map(SqlClient.SqlClient, (sql) =>
-        sql.reactive(LOCAL_SECTION_TABLES, counts)
+      Effect.map(LocalClient, (client) =>
+        client.Counts({
+          project: req.params,
+          query: req.query,
+          viewerId: get(currentUserId),
+          estimation: detail.value.estimation
+        })
       )
     )
   })

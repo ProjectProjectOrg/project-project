@@ -176,11 +176,12 @@ export const sectionPage = (
       parentTitle: parent.title,
       parentType: parent.type,
       subTicketCount: sql<number>`(${children(count())})`,
-      subTicketDoneCount: sql<number>`(${children(
+      subTicketDoneCount:
         finished.length === 0
-          ? sql`0`
-          : sql`coalesce(sum(case when ${inArray(child.status, [...finished])} then 1 else 0 end), 0)`
-      )})`,
+          ? sql<number>`0`
+          : sql<number>`(${children(
+              sql`coalesce(sum(case when ${inArray(child.status, [...finished])} then 1 else 0 end), 0)`
+            )})`,
       openBlockerCount: sql<number>`(${directed(relation.fromId, relation.toId)})`,
       openBlockingCount: sql<number>`(${directed(relation.toId, relation.fromId)})`,
       relatedCount: sql<number>`(${related})`,

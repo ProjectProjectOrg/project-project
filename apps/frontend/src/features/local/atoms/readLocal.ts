@@ -12,7 +12,11 @@ export const readLocal = <A, E>(
 ): AsyncResult.AsyncResult<A> | null => {
   if (!get(localActive(projectScope(params.orgSlug, params.slug)))) return null
   const result = get(local())
-  if (AsyncResult.isInitial(result)) return AsyncResult.initial(true)
+  if (
+    AsyncResult.isInitial(result) ||
+    (AsyncResult.isSuccess(result) && result.value === null && result.waiting)
+  )
+    return AsyncResult.initial(true)
   if (!AsyncResult.isSuccess(result) || result.value === null) return null
   return AsyncResult.success(result.value)
 }
