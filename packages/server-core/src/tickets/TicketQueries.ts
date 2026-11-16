@@ -293,6 +293,11 @@ export class TicketQueries extends Context.Service<
     get: (
       id: string
     ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
+    snapshot: () => Effect.Effect<
+      ReadonlyArray<TicketDetail>,
+      TicketReadError,
+      ProjectScope
+    >
     movedTo: (
       id: string
     ) => Effect.Effect<
@@ -1279,6 +1284,18 @@ const make = Effect.gen(function* () {
     })
   })
 
+  const snapshot = Effect.fn("TicketQueries.snapshot")(function* () {
+    const { orgSlug, slug } = yield* ProjectScope
+    const ids = yield* ticketDocs.listIds(orgSlug, slug)
+    const tickets = yield* Effect.forEach(
+      ids,
+      (id) =>
+        get(id).pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
+      { concurrency: 8 }
+    )
+    return tickets.filter((ticket) => ticket !== null)
+  })
+
   const movedTo = Effect.fn("TicketQueries.movedTo")(function* (id: string) {
     const scope = yield* ProjectScope
     const found = yield* ticketIndex.movedTo(scope, id)
@@ -1310,7 +1327,8 @@ const make = Effect.gen(function* () {
     textSearch,
     listInGroup,
     tagUsageCounts,
-    get
+    get,
+    snapshot
   })
 })
 

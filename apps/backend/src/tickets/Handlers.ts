@@ -89,6 +89,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           commands.clearStaleEstimates()
         ).pipe(dieOnMarkdown)
       )
+      .handle("snapshot", () =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.snapshot()
+        ).pipe(dieOnMarkdown)
+      )
       .handle("get", ({ params }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.get(params.id)

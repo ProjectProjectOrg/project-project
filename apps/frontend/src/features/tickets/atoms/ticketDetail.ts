@@ -9,6 +9,7 @@ import {
   type TicketId
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
+import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
@@ -21,10 +22,11 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
+import { localTickets } from "@/features/local/atoms/localTickets"
+import { decodeTicketRow } from "@/features/local/lib/ticketCollection"
 
 import { withoutRelation } from "../lib/relationGroups"
-import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
-import { coalescingTicketUpdate } from "./ticketRows"
+import type { TicketEdit } from "../lib/ticketPatch"
 
 export type TicketRequest = Readonly<{
   _view: "ticketDetail"
@@ -44,17 +46,47 @@ export const ticketRequest = (
 const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export const ticketQuery = (req: TicketRequest) =>
-  query("tickets", "get", {
-    params: req.params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticket(scopeOf(req), req.params.id),
-      Keys.orgMembers(req.params.orgSlug),
-      Keys.orgLibrary(req.params.orgSlug),
-      Keys.projectLibrary(scopeOf(req))
-    ]
-  })
+export const ticketQuery = (req: TicketRequest) => {
+  let reload = () => {}
+  return Atom.readable(
+    (get): AsyncResult.AsyncResult<TicketDetail, NotFound> => {
+      const local = get(
+        localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+      )
+      if (!AsyncResult.isSuccess(local)) return AsyncResult.initial(true)
+      const { collection, fetchOne } = local.value
+      const id = req.params.id
+      let last: AsyncResult.Success<TicketDetail, NotFound> | null = null
+      const shown = (ticket: TicketDetail) => {
+        last = AsyncResult.success(ticket)
+        return last
+      }
+      const missing = () =>
+        AsyncResult.fail(new NotFound(), {
+          previousSuccess: Option.fromNullishOr(last)
+        })
+      const load = () =>
+        fetchOne(id).then(
+          (outcome) => {
+            if (outcome._tag === "Missing") get.setSelf(missing())
+          },
+          (error: unknown) => get.setSelf(AsyncResult.failure(Cause.die(error)))
+        )
+      reload = () => void load()
+      const subscription = collection.subscribeChanges((changes) => {
+        if (!changes.some((change) => change.key === id)) return
+        const row = collection.get(id)
+        get.setSelf(row === undefined ? missing() : shown(decodeTicketRow(row)))
+      })
+      get.addFinalizer(() => subscription.unsubscribe())
+      const row = collection.get(id)
+      if (row !== undefined) return shown(decodeTicketRow(row))
+      void load()
+      return AsyncResult.initial(true)
+    },
+    () => reload()
+  )
+}
 
 export const ticketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimistic(ticketQuery(req))
@@ -99,15 +131,29 @@ const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   return keys
 }
 
+export class TicketSaveFailed extends Data.TaggedError("TicketSaveFailed")<{
+  cause: unknown
+}> {}
+
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
-  coalescingTicketUpdate(ticketDetail(req), {
-    name: "updateTicketDetail",
-    path: req.params,
-    idleTTL: "10 minutes",
-    predict: applyTicketDetailPatch,
-    confirm: (_ticket, { ticket }) => ticket,
-    publish: (patch) => publishFor(req, patch)
-  })
+  Api.runtime
+    .fn(
+      Effect.fn("updateTicketDetail")(function* (
+        edit: TicketEdit,
+        get: Atom.FnContext
+      ) {
+        const local = yield* get.result(
+          localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+        )
+        const transaction = local.updateTicket({ id: req.params.id, edit })
+        yield* Effect.tryPromise({
+          try: () => transaction.when("settled"),
+          catch: (cause) => new TicketSaveFailed({ cause })
+        })
+        yield* Reactivity.invalidate(publishFor(req, edit))
+      })
+    )
+    .pipe(Atom.setIdleTTL("10 minutes"))
 )
 
 export const archiveTicket = Atom.family((req: TicketRequest) =>

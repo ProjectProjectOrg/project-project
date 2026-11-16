@@ -345,6 +345,19 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.get(
+      "snapshot",
+      "/orgs/:orgSlug/projects/:slug/tickets/snapshot",
+      {
+        params: ProjectPath,
+        success: Schema.Array(TicketDetail),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id", {
       params: TicketPath,
       success: TicketDetail,

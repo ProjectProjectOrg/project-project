@@ -9,7 +9,6 @@ import {
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -27,10 +26,8 @@ export function TitleField({
     result,
     (error) =>
       Match.value(error).pipe(
-        Match.tag("HttpClientError", "SchemaError", "Validation", () =>
-          m.tickets_title_save_error()
-        ),
-        Match.orElse((error) => errorMessage(error))
+        Match.tag("TicketSaveFailed", () => m.tickets_title_save_error()),
+        Match.exhaustive
       ),
     m.tickets_title_save_error
   )

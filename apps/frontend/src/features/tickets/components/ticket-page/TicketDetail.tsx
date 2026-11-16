@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import { TicketId } from "@pp/shared"
+import { type TicketDetail as Ticket, TicketId } from "@pp/shared"
+import { eq, useLiveQuery } from "@tanstack/react-db"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -11,6 +12,11 @@ import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import { ticketRepo } from "@/features/github/lib/repos"
 import { useMarkTicketRead } from "@/features/inbox/hooks/useMarkTicketRead"
+import { localTickets } from "@/features/local/atoms/localTickets"
+import {
+  decodeTicketRow,
+  type LocalTickets
+} from "@/features/local/lib/ticketCollection"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   lastKnownBeforeNotFound,
@@ -150,8 +156,64 @@ function LoadedTicket({
   autoFocusBody: boolean
   splitInto: ReadonlyArray<TicketId>
 }>) {
+  const local = useAtomValue(
+    localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+  )
+  if (!Result.isSuccess(local)) return loading
+  return (
+    <LocalTicket
+      key={local.value.generation}
+      collection={local.value.collection}
+      req={req}
+      loading={loading}
+      stepper={stepper}
+      from={from}
+      autoFocusBody={autoFocusBody}
+      splitInto={splitInto}
+    />
+  )
+}
+
+function LocalTicket({
+  collection,
+  req,
+  loading,
+  stepper,
+  from,
+  autoFocusBody,
+  splitInto
+}: Readonly<{
+  collection: LocalTickets["collection"]
+  req: TicketRequest
+  loading: ReactNode
+  stepper: ReactNode
+  from: TicketPageSource | undefined
+  autoFocusBody: boolean
+  splitInto: ReadonlyArray<TicketId>
+}>) {
+  const id = req.params.id
+  const { data: row } = useLiveQuery({
+    query: (q) =>
+      q
+        .from({ ticket: collection })
+        .where(({ ticket }) => eq(ticket.id, id))
+        .findOne()
+  })
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
+  const page = (value: Ticket) => (
+    <TicketPage
+      key={value.id}
+      ticket={value}
+      members={project.members}
+      github={ticketRepo(project, value.repoId)}
+      autoFocusBody={autoFocusBody}
+      splitInto={splitInto}
+      from={from}
+      stepper={stepper}
+    />
+  )
+  if (row !== undefined) return page(decodeTicketRow(row))
   return Result.matchWithError(result, {
     onInitial: () => loading,
     onError: (error) =>
@@ -165,17 +227,6 @@ function LoadedTicket({
         Match.orElse((error) => <ErrorPage contained error={error} />)
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
-    onSuccess: ({ value }) => (
-      <TicketPage
-        key={value.id}
-        ticket={value}
-        members={project.members}
-        github={ticketRepo(project, value.repoId)}
-        autoFocusBody={autoFocusBody}
-        splitInto={splitInto}
-        from={from}
-        stepper={stepper}
-      />
-    )
+    onSuccess: ({ value }) => page(value)
   })
 }

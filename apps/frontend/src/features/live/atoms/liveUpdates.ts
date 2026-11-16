@@ -12,6 +12,7 @@ import { Keys, type ReactivityKey } from "@/api/keys"
 import { liveFresh } from "@/api/liveFreshness"
 import { openInteractions } from "@/lib/interactions"
 
+import { emitLiveEvent } from "../lib/liveEvents"
 import {
   initialLiveGate,
   type LiveGateInput,
@@ -67,6 +68,15 @@ const session = (
         Stream.timeout(SILENCE_LIMIT),
         Stream.concat(Stream.fail(new LiveStreamClosed())),
         Stream.zipWithIndex,
+        Stream.tap(([event, index]) =>
+          Effect.sync(() =>
+            emitLiveEvent(
+              resyncFirst && index === 0
+                ? { kind: "resync", cursor: event.cursor }
+                : event
+            )
+          )
+        ),
         Stream.map(([event, index]) => received(resyncFirst)(event, index)),
         Stream.groupedWithin(BATCH_LIMIT, BATCH_WINDOW),
         Stream.map(merged),
