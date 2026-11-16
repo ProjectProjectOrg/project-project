@@ -8,21 +8,20 @@ import {
 } from "@pp/shared"
 import {
   and,
+  exists,
   asc,
   count,
-  countDistinct,
   desc,
   eq,
   inArray,
-  or,
   type SQL,
   sql
 } from "drizzle-orm"
-import { alias } from "drizzle-orm/sqlite-core"
+import { alias, union } from "drizzle-orm/sqlite-core"
 import * as Effect from "effect/Effect"
 
 import { LocalDb } from "./localDatabase"
-import { compileFilter, never, open } from "./localFilter"
+import { compileFilter, open } from "./localFilter"
 import { readOrderKey } from "./localSchema"
 import {
   localRelations,
@@ -77,58 +76,78 @@ const sectionPage = (
   const child = alias(localTickets, "child")
   const linked = alias(localTickets, "linked")
   const relation = alias(localRelations, "relation")
-  const children = (condition: SQL | undefined) =>
+  const children = (value: SQL) =>
     db
-      .select({ n: count() })
+      .select({ n: value })
       .from(child)
       .where(
         and(
           eq(child.scope, page.scope),
           eq(child.parent, page.id),
-          eq(child.archived, 0),
-          condition
+          eq(child.archived, 0)
         )
       )
+  const isOpenLinked = (other: typeof relation.toId) =>
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(linked)
+        .where(
+          and(
+            eq(linked.scope, relation.scope),
+            eq(linked.id, other),
+            open(linked, finished)
+          )
+        )
+    )
   const directed = (
     self: typeof relation.fromId,
-    other: typeof relation.toId,
-    kind: string,
-    condition: SQL | undefined
+    other: typeof relation.toId
   ) =>
     db
       .select({ n: count() })
       .from(relation)
-      .innerJoin(
-        linked,
-        and(eq(linked.scope, relation.scope), eq(linked.id, other))
-      )
       .where(
         and(
           eq(relation.scope, page.scope),
           eq(self, page.id),
-          eq(relation.kind, kind),
-          condition
+          eq(relation.kind, "blocked_by"),
+          isOpenLinked(other)
         )
       )
+  const relatedEnd = (
+    self: typeof relation.fromId,
+    other: typeof relation.toId
+  ) =>
+    db
+      .select({ other: sql<string>`${other}`.as("other") })
+      .from(relation)
+      .where(
+        and(
+          eq(relation.scope, page.scope),
+          eq(self, page.id),
+          eq(relation.kind, "related")
+        )
+      )
+  const ends = union(
+    relatedEnd(relation.fromId, relation.toId),
+    relatedEnd(relation.toId, relation.fromId)
+  ).as("ends")
   const related = db
-    .select({ n: countDistinct(linked.id) })
-    .from(relation)
-    .innerJoin(
-      linked,
-      and(
-        eq(linked.scope, relation.scope),
-        eq(
-          linked.id,
-          sql`case when ${relation.fromId} = ${page.id} then ${relation.toId} else ${relation.fromId} end`
-        )
-      )
-    )
+    .select({ n: count() })
+    .from(ends)
     .where(
-      and(
-        eq(relation.scope, page.scope),
-        or(eq(relation.fromId, page.id), eq(relation.toId, page.id)),
-        eq(relation.kind, "related"),
-        eq(linked.archived, 0)
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(linked)
+          .where(
+            and(
+              eq(linked.scope, page.scope),
+              eq(linked.id, ends.other),
+              eq(linked.archived, 0)
+            )
+          )
       )
     )
   const duplicates = db
@@ -156,10 +175,14 @@ const sectionPage = (
       orderKey: pageOrder,
       parentTitle: parent.title,
       parentType: parent.type,
-      subTicketCount: sql<number>`(${children(undefined)})`,
-      subTicketDoneCount: sql<number>`(${children(finished.length === 0 ? never : inArray(child.status, [...finished]))})`,
-      openBlockerCount: sql<number>`(${directed(relation.fromId, relation.toId, "blocked_by", open(linked, finished))})`,
-      openBlockingCount: sql<number>`(${directed(relation.toId, relation.fromId, "blocked_by", open(linked, finished))})`,
+      subTicketCount: sql<number>`(${children(count())})`,
+      subTicketDoneCount: sql<number>`(${children(
+        finished.length === 0
+          ? sql`0`
+          : sql`coalesce(sum(case when ${inArray(child.status, [...finished])} then 1 else 0 end), 0)`
+      )})`,
+      openBlockerCount: sql<number>`(${directed(relation.fromId, relation.toId)})`,
+      openBlockingCount: sql<number>`(${directed(relation.toId, relation.fromId)})`,
       relatedCount: sql<number>`(${related})`,
       duplicateCount: sql<number>`(${duplicates})`
     })

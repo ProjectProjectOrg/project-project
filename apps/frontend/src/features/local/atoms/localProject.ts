@@ -109,33 +109,35 @@ const shadowCheck = ({ orgSlug, slug }: LocalProjectRequest) =>
   )
 
 export const localProject = Atom.family((request: LocalProjectRequest) =>
-  localRuntime.atom(
-    Stream.unwrap(
-      Effect.gen(function* () {
-        const scope = projectScope(request.orgSlug, request.slug)
-        const hydrated = (yield* cursorOf(scope)) !== null
-        const checkOnce = yield* Effect.cached(shadowCheck(request))
-        const initial: LocalStatus = hydrated
-          ? { kind: "ready", sync: "behind" }
-          : { kind: "initializing" }
-        return Stream.concat(
-          Stream.make(initial),
-          Reactivity.stream(syncStatus(request), [
-            Keys.projectFacts(scope),
-            Keys.liveResync()
-          ]).pipe(
-            Stream.tap((status) =>
-              localShadowChecks() &&
-              status.kind === "ready" &&
-              status.sync === "live"
-                ? Effect.forkDetach(checkOnce)
-                : Effect.void
+  localRuntime
+    .atom(
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const scope = projectScope(request.orgSlug, request.slug)
+          const hydrated = (yield* cursorOf(scope)) !== null
+          const checkOnce = yield* Effect.cached(shadowCheck(request))
+          const initial: LocalStatus = hydrated
+            ? { kind: "ready", sync: "behind" }
+            : { kind: "initializing" }
+          return Stream.concat(
+            Stream.make(initial),
+            Reactivity.stream(syncStatus(request), [
+              Keys.projectFacts(scope),
+              Keys.liveResync()
+            ]).pipe(
+              Stream.tap((status) =>
+                localShadowChecks() &&
+                status.kind === "ready" &&
+                status.sync === "live"
+                  ? Effect.forkDetach(checkOnce)
+                  : Effect.void
+              )
             )
           )
-        )
-      })
+        })
+      )
     )
-  ).pipe(Atom.setIdleTTL("30 seconds"))
+    .pipe(Atom.setIdleTTL("30 seconds"))
 )
 
 export const localReady = Atom.family((request: LocalProjectRequest) =>
