@@ -32,6 +32,7 @@
     "@pp/shared": "workspace:*",
     "@scritto/react": "^0.1.0",
     "@toolwind/corner-shape": "^0.0.8-3",
+    "allo-font": "1.0.0",
     "chrono-node": "^2.10.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

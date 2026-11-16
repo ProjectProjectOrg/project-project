@@ -7,13 +7,48 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 
+/* Allo (OFL), the interface face: the variable font (weight, roundness,
+   optical size) plus its drawn obliques for italics. Roundness is set on
+   the root below. */
 @font-face {
-  font-family: "Geist";
+  font-family: "Allo";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
+  src: url("../../node_modules/allo-font/fonts/webfonts/AlloVariable.woff2")
     format("woff2-variations");
+}
+@font-face {
+  font-family: "Allo";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../node_modules/allo-font/fonts/webfonts/Allo-Oblique.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Allo";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../node_modules/allo-font/fonts/webfonts/Allo-MediumOblique.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Allo";
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../node_modules/allo-font/fonts/webfonts/Allo-SemiBoldOblique.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Allo";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../node_modules/allo-font/fonts/webfonts/Allo-BoldOblique.woff2")
+    format("woff2");
 }
 @font-face {
   font-family: "Geist Mono";
@@ -364,7 +399,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans:
-    "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Allo", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-focus-ring: var(--focus-ring);
@@ -1389,6 +1424,13 @@
     @apply bg-muted text-foreground antialiased;
     margin: 0;
     padding: 0;
+  }
+  /* Allo with crisp terminals (roundness 0). It inherits, so every text
+     on the page gets it; an element that sets its own variation settings
+     must include ROND. */
+  html {
+    --font-roundness: 0;
+    font-variation-settings: "ROND" var(--font-roundness);
   }
   html,
   body,

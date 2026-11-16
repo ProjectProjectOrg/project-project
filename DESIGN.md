@@ -55,25 +55,25 @@ typography:
     lineHeight: 1
     letterSpacing: "normal"
   headline:
-    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "-0.01em"
   title:
-    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "-0.005em"
   body:
-    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Allo, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.2
@@ -250,20 +250,20 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 
 ## 3. Typography
 
-**Body / UI Font:** Geist (with `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`)
+**Body / UI Font:** Allo, at roundness 0 (`ROND` 0, crisp terminals) (with `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`)
 **Mono Font:** Geist Mono (with `ui-monospace, SFMono-Regular, Menlo, monospace`)
 **Display / Decorative Font:** Geist Pixel — load-bearing for empty-state graphics and brand marks; never used for body or running UI.
 
-**Character:** A single neutral sans (Geist) carries every UI surface — headings, buttons, labels, body, data — with a tight `1.125–1.2` ratio between hierarchy steps. Mono shows up the moment a value is a _literal_: IDs, branches, slugs, code, file paths, hashes. Geist Pixel is reserved for the dithered brand thread and never bleeds into running text.
+**Character:** A single neutral sans (Allo) carries every UI surface — headings, buttons, labels, body, data — with a tight `1.125–1.2` ratio between hierarchy steps. Mono shows up the moment a value is a _literal_: IDs, branches, slugs, code, file paths, hashes. Geist Pixel is reserved for the dithered brand thread and never bleeds into running text.
 
 ### Hierarchy
 
 - **Display** (Geist Pixel, 400, 1rem, 1.0): decorative only — empty-state captions, brand marks, occasional pixel labels. Never headlines, never body.
-- **Headline** (Geist, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
-- **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
-- **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
+- **Headline** (Allo, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
+- **Title** (Allo, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
+- **Body** (Allo, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
 - **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
-- **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
+- **Label** (Allo, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
 
 Inline links strengthen their underline on hover without a background fill; keyboard focus retains a visible outline. Favicons keep their original colors. Confirmed transparent monochrome symbols follow the active theme with a dark silhouette in light mode and a light silhouette in dark mode. Favicons have no backing tile or added padding.
