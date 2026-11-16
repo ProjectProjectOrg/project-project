@@ -13,6 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { GripVertical, Plus, Text, X } from "@pp/ui/icons"
 import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
 import { useSurface } from "@pp/ui/lib/surfaceContext"
@@ -20,7 +22,6 @@ import { cn } from "@pp/ui/lib/utils"
 import { Reorder, useDragControls } from "motion/react"
 import { useMemo, useRef, useState, type ReactNode } from "react"
 
-import { blockChrome } from "@/features/editor/lib/blockChrome"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -34,7 +35,6 @@ import {
   withSection,
   type StartingRow
 } from "../lib/startingSections"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { LibraryEntryLink } from "./LibraryEntryLink"
 import { NewSectionPopover } from "./NewSectionPopover"

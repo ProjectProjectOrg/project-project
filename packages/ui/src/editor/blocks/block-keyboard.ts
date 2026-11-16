@@ -18,7 +18,7 @@ import {
   $removeBlock,
   type BlockDirection,
   type TopLevelBlockNode
-} from "./blockCommands"
+} from "./block-commands"
 
 export type BlockKeyboardHandlers = Readonly<{
   transformers: ReadonlyArray<Transformer>

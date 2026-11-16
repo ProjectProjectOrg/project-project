@@ -1,5 +1,8 @@
-import type { TicketBlockNode } from "../TicketBlockNode"
-import { $createSyncedBlockNode, type SyncedBlockNode } from "./SyncedBlockNode"
+import {
+  $createSyncedBlockNode,
+  type SyncedBlockNode
+} from "./synced-block-node"
+import type { TicketBlockNode } from "./ticket-block-node"
 
 export function $revertToReference(node: TicketBlockNode): SyncedBlockNode {
   const reference = $createSyncedBlockNode(node.getBlockType(), "", "reference")

@@ -1,9 +1,9 @@
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { cn } from "@pp/ui/lib/utils"
 import { MarqueeIfOverflow } from "@pp/ui/marquee-if-overflow"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import type { SketchBlock, SketchLine } from "../lib/blockSketchModel"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 
 const BAR_WIDTHS = ["w-[82%]", "w-[58%]", "w-[70%]", "w-[46%]"] as const
 

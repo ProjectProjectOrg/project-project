@@ -1,34 +1,21 @@
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import { figmaRefKey, type FigmaRef } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { figmaRefKey, type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
 import { useState } from "react"
 
-import {
-  figmaTicketLinksAtom,
-  type FigmaTicketLinksRequest
-} from "@/features/figma/atoms/figma"
-import { useVisibleInterval } from "@/hooks/useVisibleInterval"
+import { useVisibleInterval } from "../../hooks/useVisibleInterval"
+import { useEditorServices, type TicketTarget } from "../services"
 
 const MAX_REFRESHES = 15
 
-export interface FigmaLinkMetadata {
-  readonly name: string
-  readonly fileName: string
-  readonly thumbnailUrl: string | null
-}
-
 export const useFigmaMetadata = (
   ref: FigmaRef | null,
-  request: FigmaTicketLinksRequest
+  target: TicketTarget
 ): FigmaLinkMetadata | null => {
-  const links = figmaTicketLinksAtom(request)
-  const result = useAtomValue(links)
-  const refresh = useAtomRefresh(links)
+  const { links, refresh } = useEditorServices().useFigmaLinks(target)
   const refKey = ref === null ? null : figmaRefKey(ref)
   const metadata =
-    refKey === null || !AsyncResult.isSuccess(result)
+    refKey === null || links === null
       ? null
-      : (result.value.find(
+      : (links.find(
           (link) => `${link.fileKey}/${link.nodeId ?? ""}` === refKey
         ) ?? null)
 
@@ -46,6 +33,6 @@ export const useFigmaMetadata = (
     { immediate: true, onFocus: false }
   )
 
-  if (ref === null || !AsyncResult.isSuccess(result)) return null
+  if (ref === null || links === null) return null
   return metadata
 }

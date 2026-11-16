@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { placeTypeahead } from "./typeaheadPlacement"
+import { placeTypeahead } from "./typeahead-placement"
 
 const viewport = { top: 0, left: 0, width: 1000, height: 800 }
 const base = {

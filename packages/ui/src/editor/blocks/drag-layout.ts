@@ -1,6 +1,6 @@
 import type { NodeKey } from "lexical"
 
-import type { BlockPlacement } from "./blockCommands"
+import type { BlockPlacement } from "./block-commands"
 
 export type DragSlot = Readonly<{ key: NodeKey; top: number; height: number }>
 

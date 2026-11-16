@@ -7,7 +7,7 @@ import {
   blockChrome,
   blockTooltip,
   lookupFor
-} from "./blockChrome"
+} from "./block-chrome"
 
 describe("blankBlockHeading", () => {
   it("returns the heading of a block with nothing under it", () => {

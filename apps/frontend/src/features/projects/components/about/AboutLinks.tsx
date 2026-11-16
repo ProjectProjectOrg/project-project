@@ -2,6 +2,8 @@ import { useAtomSet } from "@effect/atom-react"
 import type { ProjectLink } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { CopyButton } from "@pp/ui/copy-button"
+import { FigmaGlyph } from "@pp/ui/editor/figma/figma-chip"
+import { PaperGlyph } from "@pp/ui/editor/paper/paper-glyph"
 import {
   GitBranch,
   Globe,
@@ -16,8 +18,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useRef, useState, type ReactElement } from "react"
 
-import { FigmaGlyph } from "@/features/editor/lexical/FigmaChip"
-import { PaperGlyph } from "@/features/editor/lexical/PaperNode"
 import { useLinkPreview } from "@/features/link-previews/hooks/useLinkPreview"
 import { updateProject } from "@/features/projects/atoms/projects"
 import { ProjectLinkForm } from "@/features/projects/forms/project-link"

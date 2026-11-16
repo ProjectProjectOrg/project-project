@@ -11,7 +11,7 @@ import {
 } from "@pp/shared"
 import { createContext, useContext, useMemo } from "react"
 
-import { m } from "@/paraglide/messages"
+import { m } from "../messages"
 
 export type BlockChrome = Readonly<{
   name: string

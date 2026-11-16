@@ -2,6 +2,8 @@ import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { type GroupId, type TicketId, isEpicType } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Input } from "@pp/ui/input"
 import { PopoverClose } from "@pp/ui/popover"
 import { useNavigate } from "@tanstack/react-router"
@@ -20,8 +22,6 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   projectRequest,
   projectsFor,

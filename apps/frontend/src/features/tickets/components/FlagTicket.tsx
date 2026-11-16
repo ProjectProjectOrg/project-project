@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import {

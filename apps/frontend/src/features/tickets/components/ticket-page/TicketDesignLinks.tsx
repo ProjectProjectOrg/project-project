@@ -7,19 +7,13 @@ import {
   type TicketDetail
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { FigmaGlyph, figmaDisplayName } from "@pp/ui/editor/figma/figma-chip"
+import { useFigmaMetadata } from "@pp/ui/editor/figma/figma-metadata"
+import { PaperGlyph } from "@pp/ui/editor/paper/paper-glyph"
+import { isPaperDesignUrl } from "@pp/ui/editor/paper/paper-url"
+import type { TicketTarget } from "@pp/ui/editor/services"
 import { ExternalLink } from "@pp/ui/icons"
 
-import {
-  FigmaGlyph,
-  figmaDisplayName
-} from "@/features/editor/lexical/FigmaChip"
-import { useFigmaMetadata } from "@/features/editor/lexical/figmaMetadata"
-import { PaperGlyph } from "@/features/editor/lexical/PaperNode"
-import { isPaperDesignUrl } from "@/features/editor/lexical/paperUrl"
-import {
-  figmaTicketLinksRequest,
-  type FigmaTicketLinksRequest
-} from "@/features/figma/atoms/figma"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
@@ -113,7 +107,7 @@ function FigmaDesignLink({
   request
 }: {
   link: Extract<TicketDesignLink, { kind: "figma" }>
-  request: FigmaTicketLinksRequest
+  request: TicketTarget
 }) {
   const metadata = useFigmaMetadata(link.reference, request)
   const name = figmaDisplayName({
@@ -176,7 +170,7 @@ function PaperDesignLink({
 
 export function TicketDesignLinks({ ticket }: { ticket: TicketDetail }) {
   const { orgSlug, slug } = useProjectRoute()
-  const figmaRequest = figmaTicketLinksRequest(orgSlug, slug, ticket.id)
+  const figmaRequest = { orgSlug, slug, ticketId: ticket.id }
   const bodyDraft = useAtomValue(
     ticketBodyDraft(ticketRequest(orgSlug, slug, ticket.id))
   )

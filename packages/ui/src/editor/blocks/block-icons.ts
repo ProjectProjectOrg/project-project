@@ -1,4 +1,5 @@
 import { FALLBACK_BLOCK_ICON, type BlockIconName } from "@pp/shared"
+
 import {
   Accessibility,
   Ban,
@@ -55,7 +56,7 @@ import {
   Wrench,
   Zap,
   type IconType
-} from "@pp/ui/icons"
+} from "../../components/icons"
 
 const BLOCK_ICON_MAP: Record<BlockIconName, IconType> = {
   Accessibility,

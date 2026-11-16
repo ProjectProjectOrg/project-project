@@ -1,12 +1,12 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   useProject,
   useProjectRoute

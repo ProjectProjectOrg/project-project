@@ -60,7 +60,7 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         toolbar:
-          "rounded-md bg-transparent text-muted-foreground not-disabled:hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
+          "bg-transparent text-muted-foreground not-disabled:hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
         overlay:
           "bg-background text-muted-foreground shadow-sm not-disabled:hover:bg-[image:linear-gradient(var(--hover),var(--hover))] not-disabled:hover:text-foreground not-disabled:active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         // A control that holds a value, like a select trigger: the same
@@ -360,7 +360,7 @@ function Button({
       (onPage
         ? "button-fill button-tertiary"
         : SURFACE_BG[Math.min(surface + 2, 8)]),
-    variant !== "toolbar" && (BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]"),
+    BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]",
     KBD_INSET[size ?? "md"],
     countdownClass,
     className

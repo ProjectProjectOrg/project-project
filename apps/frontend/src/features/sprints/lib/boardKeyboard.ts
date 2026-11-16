@@ -1,4 +1,4 @@
-import { ownsKeystrokes } from "@/lib/keyboard"
+import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 
 const letterArrows = new Map([
   ["h", "ArrowLeft"],

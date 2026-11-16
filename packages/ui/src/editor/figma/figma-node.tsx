@@ -1,8 +1,5 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { parseFigmaUrl, type FigmaDensity, type FigmaRef } from "@pp/shared"
-import { ExternalLink, Maximize2, Minimize2, Trash2 } from "@pp/ui/icons"
-import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
@@ -20,20 +17,22 @@ import {
 } from "motion/react"
 import { useCallback, useLayoutEffect, useRef, type ReactElement } from "react"
 
-import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
-import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { m } from "@/paraglide/messages"
-
-import { FigmaChip } from "./FigmaChip"
-import { FigmaEmbed } from "./FigmaEmbed"
-import { NodeOverlayAction } from "./NodeOverlayAction"
+import { Maximize2, Minimize2, Trash2 } from "../../components/icons"
+import { NodeOverlayAction } from "../../editor/node-overlay-action"
+import { useDecoratorSelection } from "../../editor/use-decorator-selection"
+import { standardEaseCss, transitions } from "../../lib/springs"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import type { TicketTarget } from "../services"
+import { FigmaChip } from "./figma-chip"
+import { FigmaEmbed } from "./figma-embed"
 
 export interface FigmaPayload {
   readonly url: string
   readonly label: string
   readonly ref: FigmaRef | null
   readonly density?: FigmaDensity
-  readonly request?: FigmaTicketLinksRequest | null
+  readonly request?: TicketTarget | null
 }
 
 export type SerializedFigmaNode = Spread<
@@ -58,7 +57,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
   __label: string
   __ref: FigmaRef | null
   __density: FigmaDensity
-  __request: FigmaTicketLinksRequest | null
+  __request: TicketTarget | null
 
   static getType(): string {
     return "figma"
@@ -128,7 +127,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     writable.__density = density
   }
 
-  setRequest(request: FigmaTicketLinksRequest | null): void {
+  setRequest(request: TicketTarget | null): void {
     const writable = this.getWritable()
     writable.__request = request
   }
@@ -180,7 +179,7 @@ function FigmaSelectable({
   label: string
   reference: FigmaRef | null
   density: FigmaDensity
-  request: FigmaTicketLinksRequest | null
+  request: TicketTarget | null
 }) {
   const [editor] = useLexicalComposerContext()
   const { isSelected, remove, selectOnPointer } = useDecoratorSelection(
@@ -258,15 +257,18 @@ function FigmaSelectable({
 
   return (
     <span
-      className="inline-block max-w-full align-middle"
+      className="inline-chip inline-block max-w-full"
       onMouseDown={selectOnPointer}
     >
       <span
         ref={wrapperRef}
         data-figma-selected={isSelected ? "true" : undefined}
         className={cn(
-          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 focus-within:z-20 hover:z-20",
-          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
+          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 [--chip-shift:0px] focus-within:z-20 hover:z-20",
+          // The ring follows the content's shape, like attachments'.
+          compact
+            ? "my-0.5 rounded-[10px] [corner-shape:var(--button-corner)]"
+            : "my-2 rounded-[18px] corner-squircle",
           isSelected
             ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
             : "z-0 ring-0 ring-transparent"
@@ -280,7 +282,7 @@ function FigmaSelectable({
               key={compact ? "compact" : "expanded"}
               layoutId={morphId}
               transition={CONTENT_MORPH}
-              className="block"
+              className="flex [--chip-shift:0px]"
             >
               {compact ? (
                 <FigmaChip
@@ -310,24 +312,6 @@ function FigmaSelectable({
           >
             <Trash2 strokeWidth={1.75} />
           </NodeOverlayAction>
-          {reference === null || compact ? null : (
-            <NodeOverlayAction
-              morphId={`${morphId}-open`}
-              slot={cn(OVERLAY_SLOT, "-right-2 -bottom-2")}
-              label={m.figma_embed_open_in_figma()}
-              variant="overlay"
-              render={
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  data-figma-action="open"
-                />
-              }
-            >
-              <ExternalLink strokeWidth={1.75} />
-            </NodeOverlayAction>
-          )}
           {reference === null ? null : (
             <NodeOverlayAction
               morphId={`${morphId}-density`}

@@ -1,5 +1,6 @@
 import { isEpic } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
+import type { MentionCandidate } from "@pp/ui/editor/mentions/registry"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -11,7 +12,7 @@ import { EpicSeparator } from "@/features/tickets/components/ticket-list/EpicLab
 import { m } from "@/paraglide/messages"
 
 import { MentionSearchFailed } from "./errors"
-import type { MentionCandidate, MentionPage, MentionProvider } from "./registry"
+import type { MentionPage, SearchableMentionProvider } from "./searchable"
 
 const NO_PAGE: MentionPage = { items: [], nextCursor: null }
 
@@ -25,7 +26,7 @@ export const ticketProvider = (
     orgSlug: string
     slug: string
   }>
-): MentionProvider => ({
+): SearchableMentionProvider => ({
   type: "ticket",
   search: (query, cursor) => {
     if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)

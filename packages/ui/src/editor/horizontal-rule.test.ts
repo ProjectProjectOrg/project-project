@@ -11,7 +11,7 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { HORIZONTAL_RULE } from "./horizontalRuleTransformer"
+import { HORIZONTAL_RULE } from "./horizontal-rule"
 
 function importMarkdown(markdown: string) {
   const editor = createEditor({

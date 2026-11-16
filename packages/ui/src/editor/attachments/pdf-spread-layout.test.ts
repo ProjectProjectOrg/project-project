@@ -4,7 +4,7 @@ import {
   PDF_SPREAD_PAGE_HEIGHT,
   PDF_SPREAD_PAGE_WIDTH,
   pdfSpreadScale
-} from "./pdfSpreadLayout"
+} from "./pdf-spread-layout"
 
 const rasterOf = (page: { width: number; height: number }) => {
   const scale = pdfSpreadScale(page)

@@ -1,0 +1,59 @@
+export const meta = {
+  title: "Mentions",
+  group: "Editor",
+  order: 4,
+  description:
+    "“@” for people and tickets: a menu of matches while you type, and a chip in the text that links to them. People are notified; tickets show their card on hover.",
+  sources: [
+    { kind: "own", name: "MentionsPlugin", note: "on Lexical's typeahead menu" },
+    { kind: "own", name: "MentionChip", note: "a Badge" }
+  ]
+}
+
+## Overview
+
+Each kind of chip in a sentence. Hover a ticket for its card.
+
+<Demo name="overview" title="Chips" />
+
+## Usage
+
+Mentions come with `LexicalEditor`; the app provides who and what can be mentioned through `EditorServices` and the scope around the editor:
+
+```tsx
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+
+<MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
+  <LexicalEditor markdown={body} />
+</MentionScopeProvider>
+```
+
+| `EditorServices` | |
+| --- | --- |
+| `useMentionSearch(query)` | People and tickets matching what follows "@" (`null` while no menu is open): each group's provider (heading, row, failure text) and results (`items`, `status`) |
+| `mentionHref.user`, `mentionHref.ticket` | Where a chip links |
+| `renderTicketPreview(ticketId, scope)` | The card a ticket chip shows on hover |
+
+In Markdown a mention is a link: `[Maya Chen](mention:user/maya)`, `[ATL-8](mention:ticket/ATL-8)`, or `mention:ticket/billing/BIL-3` for another project's ticket.
+
+## Rules
+
+### People first, a few of them
+
+The menu shows up to 3 people (the best matches on name, username or email) above up to 8 tickets. A group that fails says so in place; tickets say when they're still loading or when nothing matches.
+
+### Prose ends the search
+
+A query can hold single spaces (for full names and ticket titles), up to 48 characters; a double space or a new line ends it. Once a query with a space finds nothing, typing on doesn't search again, so the menu doesn't follow you through a sentence.
+
+### Chips read as text
+
+A chip is an xs Badge on the text's line: blue for a person (their name, following renames), muted mono for a ticket key. Both are links; a plain click navigates in the app, a modified click opens a tab.
+
+### A ticket's card on hover
+
+Hovering a ticket chip opens its card after a short delay; a ticket in another project links there. A key that isn't a ticket stays a plain, muted chip.
+
+## Examples
+
+<Demo name="in-the-editor" title="Typing @" className="min-h-96 place-items-start" />

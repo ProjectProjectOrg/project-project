@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { isBareUrlLabel, previewableUrl } from "./linkPreviewUrl"
+import { isBareUrlLabel, previewableUrl } from "./link-preview-url"
 
 describe("previewableUrl", () => {
   it.each([

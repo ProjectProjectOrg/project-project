@@ -1,7 +1,4 @@
 import type { AttachmentDensity } from "@pp/shared"
-import { Maximize2, Minimize2, Trash2 } from "@pp/ui/icons"
-import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import type { NodeKey } from "lexical"
 import {
   AnimatePresence,
@@ -11,10 +8,12 @@ import {
 } from "motion/react"
 import { useLayoutEffect, useRef, type ReactNode } from "react"
 
-import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
-import { m } from "@/paraglide/messages"
-
-import { NodeOverlayAction } from "./NodeOverlayAction"
+import { Maximize2, Minimize2, Trash2 } from "../../components/icons"
+import { NodeOverlayAction } from "../../editor/node-overlay-action"
+import { useDecoratorSelection } from "../../editor/use-decorator-selection"
+import { standardEaseCss, transitions } from "../../lib/springs"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
 
 const INTERACTIVE_SELECTOR =
   "a, button, [data-attachment-action], [data-attachment-resize], [data-attachment-player]"
@@ -143,14 +142,14 @@ export function AttachmentSelectable({
 
   return (
     <span
-      className="inline-block max-w-full align-middle"
+      className="inline-chip inline-block max-w-full"
       onMouseDown={selectOnPointer}
     >
       <span
         ref={wrapperRef}
         data-attachment-selected={isSelected ? "true" : undefined}
         className={cn(
-          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 focus-within:z-20 hover:z-20",
+          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 [--chip-shift:0px] focus-within:z-20 hover:z-20",
           // The ring follows the attachment's own shape: a chip's
           // half-height squircle, or the 18px surface of a tile, image or video.
           compact

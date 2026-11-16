@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { attachmentResolves } from "./attachmentAvailability"
+import { attachmentResolves } from "./availability"
 
 const ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
 const OTHER = "01JBX7Q2K9ZWCVE8MTQ4RXPGHM"

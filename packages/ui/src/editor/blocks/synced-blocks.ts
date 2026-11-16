@@ -12,17 +12,16 @@ import {
   type NodeKey
 } from "lexical"
 
-import { syncedView } from "@/features/editor/lib/syncedContent"
-
-import {
-  $createTicketBlockNode,
-  type TicketBlockNode
-} from "../TicketBlockNode"
 import {
   $isSyncedBlockNode,
   DETACH_SYNCED_BLOCK_COMMAND,
   SyncedBlockNode
-} from "./SyncedBlockNode"
+} from "./synced-block-node"
+import { syncedView } from "./synced-content"
+import {
+  $createTicketBlockNode,
+  type TicketBlockNode
+} from "./ticket-block-node"
 
 export function $detachSyncedBlock(
   node: SyncedBlockNode,

@@ -1,6 +1,6 @@
 import { defineExtension } from "lexical"
 
-import { FigmaNode } from "./FigmaNode"
+import { FigmaNode } from "./figma-node"
 
 export const FigmaExtension = defineExtension({
   name: "@pp/figma",

@@ -1,8 +1,8 @@
+import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
+import type { SaveStatus } from "@pp/ui/editor/save-queue"
 import { ArrowLeft } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
-import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"

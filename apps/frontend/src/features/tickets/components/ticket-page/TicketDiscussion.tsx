@@ -1,6 +1,7 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ChevronRight, Plus } from "@pp/ui/icons"
+import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
@@ -8,7 +9,6 @@ import { useEffect, useState, type ReactNode } from "react"
 
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
-import { ownsKeystrokes } from "@/lib/keyboard"
 import { m } from "@/paraglide/messages"
 
 import { AddChildTicketButton } from "./AddChildTicketButton"

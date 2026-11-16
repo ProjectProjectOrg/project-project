@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { typeFor, type Library, type TypeKey } from "@pp/shared"
+import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo, useState } from "react"
 
-import { lookupFor } from "@/features/editor/lib/blockChrome"
 import {
   projectLibraryFor,
   projectLibraryRequest

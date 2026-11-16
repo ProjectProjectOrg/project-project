@@ -1,30 +1,9 @@
 import { Toolbar as ToolbarPrimitive } from "@base-ui/react/toolbar"
-import { $isCodeNode } from "@lexical/code"
-import { $isLinkNode, $toggleLink } from "@lexical/link"
-import { $isListNode, ListNode, REMOVE_LIST_COMMAND } from "@lexical/list"
+import { $toggleLink } from "@lexical/link"
+import { REMOVE_LIST_COMMAND } from "@lexical/list"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text"
 import { $setBlocksType } from "@lexical/selection"
-import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils"
-import { Button } from "@pp/ui/button"
-import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "@pp/ui/hooks/useFluidHover"
-import {
-  Bold,
-  Code,
-  Italic,
-  Link,
-  Strikethrough,
-  Unlink,
-  type IconType
-} from "@pp/ui/icons"
-import { Popover as PopoverRoot, PopoverContent } from "@pp/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
-import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
+import { mergeRegister } from "@lexical/utils"
 import {
   $createParagraphNode,
   $getSelection,
@@ -32,271 +11,47 @@ import {
   $setSelection,
   FORMAT_TEXT_COMMAND,
   type BaseSelection,
-  type LexicalEditor,
-  type RangeSelection,
-  type TextFormatType
+  type LexicalEditor
 } from "lexical"
+import { useEffect, useRef, useState, type RefObject } from "react"
+
+import { Button } from "../components/button"
+import { FluidHoverHighlight } from "../components/fluid-hover-highlight"
+import { Link, Unlink } from "../components/icons"
+import { ToggleGroup, ToggleGroupItem } from "../components/toggle-group"
+import { TooltipGroup } from "../components/tooltip"
+import { useFluidHover } from "../hooks/useFluidHover"
+import { $insertBasicBlock, BASIC_BLOCK_ICONS } from "./basic-blocks"
 import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-  type RefObject
-} from "react"
+  LinkInput,
+  Popover,
+  ToolbarButton,
+  type FormattingToolbarLabels
+} from "./formatting-toolbar-parts"
+import {
+  BLOCK_KINDS,
+  LIST_BLOCKS,
+  TEXT_FORMATS,
+  TOOLBAR_SHORTCUT,
+  isToolbarShortcut,
+  readToolbar,
+  type BlockKind,
+  type SelectionAnchor,
+  type Toolbar,
+  withHttps
+} from "./formatting-toolbar-state"
 
-import { m } from "@/paraglide/messages"
-
-import { $insertBasic } from "./blocks/slashCommands"
-import type { SlashBasicKind } from "./blocks/slashMenuItems"
-import { BASIC_ICONS, basicLabel } from "./blocks/SlashMenuView"
-
-const TEXT_FORMATS: ReadonlyArray<
-  Readonly<{ format: TextFormatType; icon: IconType; label: () => string }>
-> = [
-  { format: "bold", icon: Bold, label: m.editor_format_bold },
-  { format: "italic", icon: Italic, label: m.editor_format_italic },
-  {
-    format: "strikethrough",
-    icon: Strikethrough,
-    label: m.editor_format_strikethrough
-  },
-  { format: "code", icon: Code, label: m.editor_format_code }
-]
-
-const BLOCK_KINDS: ReadonlyArray<SlashBasicKind> = [
-  "heading",
-  "bullet-list",
-  "numbered-list",
-  "checklist",
-  "quote",
-  "code"
-]
-
-const LIST_KINDS = {
-  bullet: "bullet-list",
-  number: "numbered-list",
-  check: "checklist"
-} as const satisfies Record<ReturnType<ListNode["getListType"]>, SlashBasicKind>
-
-const LIST_BLOCKS: ReadonlySet<SlashBasicKind> = new Set(
-  Object.values(LIST_KINDS)
-)
+/*
+ * FormattingToolbarPlugin: a toolbar over a text selection with the inline
+ * formats (bold, italic, strikethrough, code), a link, and the block types
+ * the selection can turn into. Alt+F10 moves focus into it.
+ */
 
 const DRAG_DISTANCE = 4
 
-const STARTS_WITH_HOSTNAME = /^[a-z\d-]+(\.[a-z\d-]+)+(:\d+)?([/?#]|$)/i
-
-const withHttps = (url: string) =>
-  STARTS_WITH_HOSTNAME.test(url) && !/\s/.test(url) ? `https://${url}` : url
-
-type ToolbarAlign = "start" | "center"
-
-type SelectionAnchor = Readonly<{ rect: DOMRect; align: ToolbarAlign }>
-
-type Toolbar = SelectionAnchor &
-  Readonly<{
-    formats: ReadonlySet<TextFormatType>
-    link: boolean
-    block: SlashBasicKind | null
-  }>
-
-function $blockOf(selection: RangeSelection): SlashBasicKind | null {
-  const anchor = selection.anchor.getNode()
-  const list = $getNearestNodeOfType(anchor, ListNode)
-  if ($isListNode(list)) return LIST_KINDS[list.getListType()]
-  const top = anchor.getTopLevelElement()
-  if ($isHeadingNode(top))
-    return (
-      {
-        h1: "heading-1",
-        h2: "heading",
-        h3: "heading-3",
-        h4: "heading-4",
-        h5: "heading-5",
-        h6: "heading-6"
-      } satisfies Readonly<Record<string, SlashBasicKind>>
-    )[top.getTag()]
-  if ($isQuoteNode(top)) return "quote"
-  if ($isCodeNode(top)) return "code"
-  return null
-}
-
-type ToolbarState = Omit<Toolbar, keyof SelectionAnchor>
-
-const selectionAnchor = (range: Range): SelectionAnchor => {
-  const lines = [...range.getClientRects()].filter((line) => line.width > 0)
-  const [first] = lines
-  const multiline =
-    first !== undefined &&
-    lines.some((line) => line.top > first.top + first.height / 2)
-  return multiline
-    ? { rect: first, align: "start" }
-    : { rect: range.getBoundingClientRect(), align: "center" }
-}
-
-function readState(editor: LexicalEditor): ToolbarState | null {
-  return editor.getEditorState().read(() => {
-    const selection = $getSelection()
-    if (!$isRangeSelection(selection) || selection.isCollapsed()) return null
-    if (selection.getTextContent().trim() === "") return null
-    const parent = selection.anchor.getNode().getParent()
-    return {
-      formats: new Set(
-        TEXT_FORMATS.flatMap(({ format }) =>
-          selection.hasFormat(format) ? [format] : []
-        )
-      ),
-      link: $isLinkNode(parent),
-      block: $blockOf(selection)
-    }
-  })
-}
-
-function readToolbar(
-  editor: LexicalEditor,
-  focused: Toolbar | null
-): Toolbar | null {
-  if (focused !== null) {
-    const state = readState(editor)
-    return state === null ? focused : { ...focused, ...state }
-  }
-  const root = editor.getRootElement()
-  const native = window.getSelection()
-  if (root === null || native === null || native.rangeCount === 0) return null
-  if (!root.contains(native.anchorNode)) return null
-  if (!root.contains(document.activeElement)) return null
-  const state = readState(editor)
-  if (state === null) return null
-  return { ...selectionAnchor(native.getRangeAt(0)), ...state }
-}
-
-const TOOLBAR_SHORTCUT = "Alt+F10"
-
-const isToolbarShortcut = (event: globalThis.KeyboardEvent) =>
-  event.altKey && event.key === "F10"
-
-function ToolbarButton({
-  label,
-  index,
-  hover,
-  render,
-  onPress,
-  children
-}: Readonly<{
-  label: string
-  index: number
-  hover: UseFluidHoverReturn
-  render: ReactElement
-  onPress?: () => void
-  children: ReactNode
-}>) {
-  const ref = useRef<HTMLButtonElement>(null)
-  useRegisterFluidHoverItem(hover.registerItem, index, ref)
-  return (
-    <TooltipGroupTrigger
-      tooltip={label}
-      render={
-        <ToolbarPrimitive.Button
-          ref={ref}
-          render={render}
-          aria-label={label}
-          onFocus={() => hover.setActiveIndex(index)}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={onPress}
-        />
-      }
-    >
-      {children}
-    </TooltipGroupTrigger>
-  )
-}
-
-const STAY_ABOVE = {
-  side: "none",
-  align: "shift",
-  fallbackAxisSide: "none"
-} as const
-
-function Popover({
-  rect,
-  align,
-  boundary,
-  open,
-  onEscape,
-  children
-}: Readonly<{
-  rect: DOMRect | null
-  align: ToolbarAlign
-  boundary: HTMLElement | null
-  open: boolean
-  onEscape?: () => void
-  children: ReactNode
-}>) {
-  const anchor = useMemo(
-    () => (rect === null ? null : { getBoundingClientRect: () => rect }),
-    [rect]
-  )
-  return (
-    <PopoverRoot
-      open={open}
-      onOpenChange={(next, details) => {
-        if (!next && details.reason === "escape-key") onEscape?.()
-      }}
-    >
-      <PopoverContent
-        anchor={anchor}
-        side="top"
-        align={align}
-        sideOffset={8}
-        collisionAvoidance={STAY_ABOVE}
-        collisionBoundary={boundary ?? undefined}
-        collisionPadding={0}
-        initialFocus={false}
-        finalFocus={false}
-        className="p-1"
-      >
-        {children}
-      </PopoverContent>
-    </PopoverRoot>
-  )
-}
-
-function LinkInput({
-  onApply,
-  onCancel
-}: Readonly<{
-  onApply: (url: string) => void
-  onCancel: () => void
-}>) {
-  const [url, setUrl] = useState("")
-  return (
-    <input
-      autoFocus
-      value={url}
-      placeholder={m.editor_format_link_placeholder()}
-      aria-label={m.editor_format_link()}
-      onChange={(event) => setUrl(event.target.value)}
-      onBlur={onCancel}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault()
-          event.stopPropagation()
-          onCancel()
-          return
-        }
-        if (event.key !== "Enter") return
-        event.preventDefault()
-        if (url.trim() === "") onCancel()
-        else onApply(url.trim())
-      }}
-      className="h-7 w-64 bg-transparent px-2 text-body outline-none placeholder:text-muted-foreground"
-    />
-  )
-}
-
-export function FormattingToolbarPlugin() {
+export function FormattingToolbarPlugin({
+  labels
+}: Readonly<{ labels: FormattingToolbarLabels }>) {
   const [editor] = useLexicalComposerContext()
   const [toolbar, setToolbar] = useState<Toolbar | null>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
@@ -409,7 +164,11 @@ export function FormattingToolbarPlugin() {
         boundary={root}
         open={linking !== null}
       >
-        <LinkInput onApply={finishLink} onCancel={() => finishLink(null)} />
+        <LinkInput
+          labels={labels}
+          onApply={finishLink}
+          onCancel={() => finishLink(null)}
+        />
       </Popover>
       <Popover
         rect={shown?.rect ?? null}
@@ -423,6 +182,7 @@ export function FormattingToolbarPlugin() {
       >
         {shown !== null && (
           <ToolbarButtons
+            labels={labels}
             ref={toolbarRef}
             editor={editor}
             toolbar={shown}
@@ -438,8 +198,10 @@ function ToolbarButtons({
   ref,
   editor,
   toolbar,
+  labels,
   onLink
 }: Readonly<{
+  labels: FormattingToolbarLabels
   ref: RefObject<HTMLDivElement | null>
   editor: LexicalEditor
   toolbar: Toolbar
@@ -447,11 +209,11 @@ function ToolbarButtons({
 }>) {
   const hover = useFluidHover(ref, { axis: "x" })
 
-  const toggleBlock = (kind: SlashBasicKind) =>
+  const toggleBlock = (kind: BlockKind) =>
     editor.update(() => {
       const selection = $getSelection()
       if (!$isRangeSelection(selection)) return
-      if (toolbar.block !== kind) $insertBasic(editor, kind)
+      if (toolbar.block !== kind) $insertBasicBlock(editor, kind)
       else if (LIST_BLOCKS.has(kind))
         editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
       else $setBlocksType(selection, () => $createParagraphNode())
@@ -462,7 +224,7 @@ function ToolbarButtons({
       <ToolbarPrimitive.Root
         ref={ref}
         loopFocus
-        aria-label={m.editor_format_toolbar()}
+        aria-label={labels.toolbar}
         {...hover.handlers}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget))
@@ -482,18 +244,21 @@ function ToolbarButtons({
         }}
         className="relative flex items-center gap-0.5"
       >
-        <FluidHoverHighlight hover={hover} className="rounded-md" />
+        <FluidHoverHighlight
+          hover={hover}
+          className="rounded-[14px] [corner-shape:var(--button-corner)]"
+        />
         <ToggleGroup
           multiple
           value={[...toolbar.formats]}
-          aria-label={m.editor_format_text()}
+          aria-label={labels.text}
         >
-          {TEXT_FORMATS.map(({ format, icon: Icon, label }, index) => (
+          {TEXT_FORMATS.map(({ format, icon: Icon }, index) => (
             <ToolbarButton
               key={format}
               index={index}
               hover={hover}
-              label={label()}
+              label={labels.formats[format]}
               render={
                 <ToggleGroupItem
                   value={format}
@@ -508,9 +273,7 @@ function ToolbarButtons({
           ))}
         </ToggleGroup>
         <ToolbarButton
-          label={
-            toolbar.link ? m.editor_format_unlink() : m.editor_format_link()
-          }
+          label={toolbar.link ? labels.unlink : labels.link}
           index={TEXT_FORMATS.length}
           hover={hover}
           render={<Button variant="toolbar" size="square-7" />}
@@ -525,16 +288,16 @@ function ToolbarButtons({
         <ToolbarPrimitive.Separator className="mx-1 h-4 w-px bg-border" />
         <ToggleGroup
           value={toolbar.block === null ? [] : [toolbar.block]}
-          aria-label={m.editor_format_block()}
+          aria-label={labels.block}
         >
           {BLOCK_KINDS.map((kind, index) => {
-            const Icon = BASIC_ICONS[kind]
+            const Icon = BASIC_BLOCK_ICONS[kind]
             return (
               <ToolbarButton
                 key={kind}
                 index={TEXT_FORMATS.length + 1 + index}
                 hover={hover}
-                label={basicLabel(kind)}
+                label={labels.blocks[kind]}
                 render={
                   <ToggleGroupItem
                     value={kind}

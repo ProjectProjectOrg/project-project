@@ -1,4 +1,6 @@
 @import "tw-animate-css";
+@import "./prose.css";
+@import "./blocks.css";
 
 @source "../";
 
@@ -57,14 +59,6 @@
   font-display: swap;
   src: url("../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
     format("woff2-variations");
-}
-@font-face {
-  font-family: "Geist Pixel";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2")
-    format("woff2");
 }
 
 :root {
@@ -1092,6 +1086,29 @@
     [data-slot="color-picker"] [data-slot="color-picker-chip-icon"] {
       opacity: 1 !important;
     }
+  }
+}
+
+/* Inline chips (badges, chips and code in running text) sit centred on the
+   text around them: their middle on half the text's cap height above the
+   baseline. `middle` centres on half the x-height, a little low, so the chip
+   rises by half the difference, measured in the text's own font (the
+   parent's, before a mono or smaller chip changes it). */
+@property --chip-shift {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+@layer base {
+  :where(:has(> .inline-chip, > code)) {
+    --chip-shift: calc(0.5ex - 0.5cap);
+  }
+}
+@layer components {
+  .inline-chip {
+    position: relative;
+    top: var(--chip-shift);
+    vertical-align: middle;
   }
 }
 

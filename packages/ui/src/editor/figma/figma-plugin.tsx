@@ -8,15 +8,14 @@ import {
 } from "lexical"
 import { useEffect, type JSX } from "react"
 
-import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-
-import { figmaSlugLabel } from "./FigmaChip"
-import { $createFigmaNode, FigmaNode } from "./FigmaNode"
+import type { TicketTarget } from "../services"
+import { figmaSlugLabel } from "./figma-chip"
+import { $createFigmaNode, FigmaNode } from "./figma-node"
 
 export function FigmaPlugin({
   request
 }: {
-  request: FigmaTicketLinksRequest | null
+  request: TicketTarget | null
 }): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
 

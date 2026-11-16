@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Library, TypeDefinition, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { cn } from "@pp/ui/lib/utils"
 import {
   Popover,
@@ -36,7 +37,6 @@ import {
   replacementTypes,
   ticketsToMove
 } from "../lib/deletePlan"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 
 type DeleteTypePopoverProps = Readonly<{
   req: ProjectLibraryRequest

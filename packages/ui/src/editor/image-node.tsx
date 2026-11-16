@@ -10,7 +10,7 @@ import type { Image } from "mdast"
 import type { ReactElement } from "react"
 import { defaultUrlTransform } from "react-markdown"
 
-import { ATTACHMENT_IMAGE_CLASS } from "./attachmentImageStyle"
+import { ATTACHMENT_IMAGE_CLASS } from "./attachment-image-style"
 
 type ImagePayload = Readonly<Pick<Image, "url" | "alt" | "title">>
 type SerializedImageNode = Readonly<Spread<ImagePayload, SerializedLexicalNode>>

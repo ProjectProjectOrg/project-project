@@ -2,6 +2,8 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Link2 } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import * as Cause from "effect/Cause"
@@ -18,8 +20,6 @@ import {
 } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   project as projectView,
   projectRequest

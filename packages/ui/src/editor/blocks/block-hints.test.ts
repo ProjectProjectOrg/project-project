@@ -26,11 +26,10 @@ import {
 } from "lexical"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { BUILTIN_LIBRARY, lookupFor } from "@/features/editor/lib/blockChrome"
-
-import { MARKDOWN_TRANSFORMERS } from "../../components/LexicalEditor"
-import { TicketBlockExtension } from "../TicketBlockExtension"
-import { registerBlockHints } from "./blockHints"
+import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
+import { registerBlockHints } from "./block-hints"
+import { TicketBlockExtension } from "./ticket-block-extension"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 

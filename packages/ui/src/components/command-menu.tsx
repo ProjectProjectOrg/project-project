@@ -486,7 +486,7 @@ function CommandMenuTabs({
     <div
       ref={ref}
       data-slot="command-menu-tabs"
-      className={cn("flex shrink-0 items-center", "px-1.5 pt-1.5", className)}
+      className={cn("flex shrink-0 items-center", "p-1.5", className)}
       {...props}
     >
       <div

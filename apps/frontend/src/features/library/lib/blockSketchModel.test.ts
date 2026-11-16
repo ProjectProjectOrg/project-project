@@ -1,7 +1,6 @@
 import { blockLookupFor, formatTicketBlock } from "@pp/shared"
+import { BUILTIN_LIBRARY } from "@pp/ui/editor/blocks/block-chrome"
 import { describe, expect, it } from "vitest"
-
-import { BUILTIN_LIBRARY } from "@/features/editor/lib/blockChrome"
 
 import { sketchLines, templateSketch } from "./blockSketchModel"
 

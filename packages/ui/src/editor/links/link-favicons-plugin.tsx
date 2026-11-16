@@ -4,12 +4,9 @@ import { mergeRegister } from "@lexical/utils"
 import { $getNodeByKey, type NodeKey, type NodeMutation } from "lexical"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
-import {
-  paintLinkFavicon,
-  useLinkPreview,
-  type LinkFavicon
-} from "@/features/link-previews/hooks/useLinkPreview"
-import { previewableUrl } from "@/features/link-previews/lib/linkPreviewUrl"
+import { useEditorServices } from "../services"
+import { paintLinkFavicon, type LinkFavicon } from "./link-favicon"
+import { previewableUrl } from "./link-preview-url"
 
 const PENDING: LinkFavicon = { kind: "pending" }
 const SETTLE_MS = 400
@@ -104,7 +101,7 @@ function FaviconSource({
   url: string
   onResolve: (url: string, favicon: LinkFavicon) => void
 }>) {
-  const { favicon } = useLinkPreview(url)
+  const { favicon } = useEditorServices().useLinkPreview(url)
   useLayoutEffect(() => onResolve(url, favicon), [url, favicon, onResolve])
   return null
 }

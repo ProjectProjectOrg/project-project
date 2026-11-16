@@ -14,7 +14,7 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
+import { hasModifier, ownsKeystrokes } from "../lib/keyboard"
 
 export function useEditMode({
   editorRef,

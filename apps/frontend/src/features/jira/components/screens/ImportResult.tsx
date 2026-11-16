@@ -6,12 +6,12 @@ import type {
 } from "@pp/shared"
 import { AutoHeight } from "@pp/ui/auto-height"
 import { Button } from "@pp/ui/button"
+import { Markdown } from "@pp/ui/editor/markdown"
 import { Link } from "@tanstack/react-router"
 import { useId, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Markdown } from "@/features/editor/components/Markdown"
 import {
   jiraMigrationReport,
   jiraReportRequest,

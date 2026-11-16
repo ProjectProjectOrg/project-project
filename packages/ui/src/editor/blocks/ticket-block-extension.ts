@@ -13,7 +13,7 @@ import {
   type ParagraphNode
 } from "lexical"
 
-import { $isTicketBlockNode, TicketBlockNode } from "./TicketBlockNode"
+import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
 
 const $unwrap = (block: TicketBlockNode) => {
   for (const child of block.getChildren()) block.insertBefore(child)

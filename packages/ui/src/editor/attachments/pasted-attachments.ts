@@ -3,7 +3,7 @@ import { parseAttachmentUrl } from "@pp/shared"
 import {
   ATTACHMENT_MARKDOWN_RE,
   unescapeAttachmentAlt
-} from "./attachmentTransformer"
+} from "./attachment-transformer"
 
 export type PastedPart =
   | { readonly type: "text"; readonly value: string }

@@ -7,8 +7,8 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { $getRoot, createEditor } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { transformersForMode } from "../../components/LexicalEditor"
-import { $isHintNode, HintNode } from "./HintNode"
+import { $isHintNode, HintNode } from "../editor/hint-node"
+import { transformersForMode } from "./editor-transformers"
 
 const TRANSFORMERS = transformersForMode("definition", undefined)
 

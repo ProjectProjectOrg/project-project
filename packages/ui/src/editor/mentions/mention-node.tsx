@@ -17,7 +17,7 @@ import {
 } from "lexical"
 import type { ReactElement } from "react"
 
-import { MentionChip } from "./MentionChip"
+import { MentionChip } from "./mention-chip"
 
 export type SerializedMentionNode = Spread<
   {

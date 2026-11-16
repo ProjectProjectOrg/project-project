@@ -1,8 +1,4 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { Badge } from "@pp/ui/badge"
-import { ExternalLink, Pencil, Trash2 } from "@pp/ui/icons"
-import { Input } from "@pp/ui/input"
-import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
@@ -21,10 +17,13 @@ import {
   type ReactElement
 } from "react"
 
-import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
-import { m } from "@/paraglide/messages"
-
-import { NodeOverlayAction } from "./NodeOverlayAction"
+import { Pencil, Trash2 } from "../../components/icons"
+import { Input } from "../../components/input"
+import { NodeOverlayAction } from "../../editor/node-overlay-action"
+import { useDecoratorSelection } from "../../editor/use-decorator-selection"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import { PaperChip } from "./paper-chip"
 
 export interface PaperPayload {
   readonly url: string
@@ -174,13 +173,13 @@ function PaperSelectable({
 
   return (
     <span
-      className="inline-block max-w-full align-middle"
+      className="inline-chip inline-block max-w-full"
       onMouseDown={selectOnPointer}
     >
       <span
         data-paper-selected={isSelected ? "true" : undefined}
         className={cn(
-          "group/hitbox relative my-0.5 inline-block max-w-full rounded-md align-middle transition-shadow duration-150 focus-within:z-20 hover:z-20",
+          "group/hitbox relative my-0.5 inline-flex max-w-full rounded-[10px] align-middle transition-shadow duration-150 [--chip-shift:0px] [corner-shape:var(--button-corner)] focus-within:z-20 hover:z-20",
           isSelected
             ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
             : "z-0 ring-0 ring-transparent"
@@ -202,29 +201,7 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <Badge
-            variant="outline"
-            className="mx-0.5 max-w-full gap-1.5 align-baseline"
-          >
-            <PaperGlyph className="size-3 shrink-0" />
-            <span className="truncate">{resolvedLabel}</span>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer noopener"
-              data-paper-action="open"
-              aria-label={m.editor_paper_open()}
-              title={m.editor_paper_open()}
-              onMouseDown={(event) => event.stopPropagation()}
-              className="shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground [&>svg]:transition-transform [&>svg]:duration-100 active:[&>svg]:scale-[0.97]"
-            >
-              <ExternalLink
-                strokeWidth={1.75}
-                className="size-3"
-                aria-hidden="true"
-              />
-            </a>
-          </Badge>
+          <PaperChip url={url} label={resolvedLabel} />
         )}
         <NodeOverlayAction
           slot="absolute right-full -top-1 mr-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
@@ -244,32 +221,6 @@ function PaperSelectable({
         </NodeOverlayAction>
       </span>
     </span>
-  )
-}
-
-export function PaperGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      focusable="false"
-      className={className}
-    >
-      <rect
-        width="16"
-        height="16"
-        rx="3.5"
-        className="fill-[oklch(0.738562_0.104396_258.136)]"
-      />
-      <path
-        className="fill-[oklch(0.969316_0.00397_106.473)]"
-        d="M5 3.5h7.5v6H9.5V5H5z"
-      />
-      <path
-        className="fill-[oklch(0.969316_0.00397_106.473)]"
-        d="M3.5 5H5v4.5h4.5v3H3.5z"
-      />
-    </svg>
   )
 }
 

@@ -6,19 +6,18 @@ import {
   type Library,
   type UpdateBlockInput
 } from "@pp/shared"
+import { LibraryContext } from "@pp/ui/editor/blocks/block-chrome"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
+import type { EditorBlocks } from "@pp/ui/editor/blocks/editor-blocks"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
 import { Switch } from "@pp/ui/switch"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useCallback, useId, useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import type { EditorBlocks } from "@/features/editor/lexical/blocks/editorBlocks"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -38,7 +37,6 @@ import {
 } from "../lib/entryStanding"
 import { blockDraftOf, containsBlockMarkup } from "../lib/libraryModel"
 import { typesUsingSection } from "../lib/sectionUsage"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
   AsideGroup,
   CommitInput,

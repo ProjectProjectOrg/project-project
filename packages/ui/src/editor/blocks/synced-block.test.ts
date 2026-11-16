@@ -1,8 +1,8 @@
 import type { Library } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { BUILTIN_LIBRARY } from "../lib/blockChrome"
-import { syncedEditAction } from "./SyncedBlock"
+import { BUILTIN_LIBRARY } from "./block-chrome"
+import { syncedEditAction } from "./synced-block"
 
 describe("syncedEditAction", () => {
   const ADOPTED: Library = { ...BUILTIN_LIBRARY }

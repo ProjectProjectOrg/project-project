@@ -8,11 +8,14 @@ import {
 } from "lexical"
 import { useEffect } from "react"
 
-import { m } from "@/paraglide/messages"
-
 const ATTRIBUTE = "data-line-placeholder"
 
-export function LinePlaceholderPlugin() {
+// Shows `placeholder` on the empty paragraph holding the caret, once the
+// document has more than one line (the editor's own placeholder covers an
+// empty document).
+export function LinePlaceholderPlugin({
+  placeholder
+}: Readonly<{ placeholder: string }>) {
   const [editor] = useLexicalComposerContext()
   useEffect(() => {
     let marked: HTMLElement | null = null
@@ -33,13 +36,13 @@ export function LinePlaceholderPlugin() {
       const element = key === null ? null : editor.getElementByKey(key)
       if (element === marked) return
       unmark()
-      element?.setAttribute(ATTRIBUTE, m.editor_line_placeholder())
+      element?.setAttribute(ATTRIBUTE, placeholder)
       marked = element
     })
     return () => {
       unregister()
       unmark()
     }
-  }, [editor])
+  }, [editor, placeholder])
   return null
 }

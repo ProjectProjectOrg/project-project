@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 const HOVER_DELAY_MS = 450
 
 // The chip: a 20px soft badge (sheen and all), its baseline on the text's.
-const chipClass = "mx-0.5 max-w-full gap-1 align-[-4px] text-caption"
+const chipClass = "inline-chip mx-0.5 max-w-full gap-1 text-caption"
 
 function ChipBody({
   filename,

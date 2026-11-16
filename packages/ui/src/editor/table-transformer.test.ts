@@ -17,8 +17,8 @@ import { expect, it } from "vitest"
 import {
   commonMarkTransformers,
   INLINE_MARKDOWN_TRANSFORMER
-} from "./commonMarkTransformer"
-import { TABLE_TRANSFORMER } from "./tableTransformer"
+} from "./common-mark"
+import { TABLE_TRANSFORMER } from "./table-transformer"
 
 const exports = [
   TABLE_TRANSFORMER,

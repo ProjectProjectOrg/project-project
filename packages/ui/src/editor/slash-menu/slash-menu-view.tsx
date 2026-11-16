@@ -1,39 +1,5 @@
 import { mergeRegister } from "@lexical/utils"
-import type { BlockDefinition, BlockIconName, Library } from "@pp/shared"
-import {
-  CommandMenu,
-  CommandMenuEmpty,
-  CommandMenuFooter,
-  CommandMenuFooterHint,
-  CommandMenuItem,
-  CommandMenuList,
-  CommandMenuShortcut,
-  CommandMenuTabs,
-  useCommandMenu,
-  useHighlightedItem,
-  type CommandMenuItemData
-} from "@pp/ui/command-menu"
-import {
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
-  Pilcrow,
-  LibraryBig,
-  List,
-  ListOrdered,
-  ListTodo,
-  Minus,
-  SquareCode,
-  Table2,
-  TextCursorInput,
-  TextQuote,
-  type IconType
-} from "@pp/ui/icons"
-import type { IconComponent } from "@pp/ui/lib/icon"
-import { cn } from "@pp/ui/lib/utils"
+import type { Library } from "@pp/shared"
 import {
   COMMAND_PRIORITY_CRITICAL,
   KEY_ARROW_DOWN_COMMAND,
@@ -45,176 +11,25 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type RefObject
 } from "react"
 
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
-import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { keyLabels } from "@/lib/keyLabels"
-import { m } from "@/paraglide/messages"
-
+import { useCommandMenu } from "../../components/command-menu"
+import { cn } from "../../lib/utils"
+import { SlashMenu, type SlashMenuModel } from "./slash-menu"
 import {
   fitSlashMenu,
   placeSlashMenu,
-  SLASH_MENU_BODY_REM,
   SLASH_MENU_FULL_REM,
   SLASH_MENU_LIST_REM,
   slashMenuBounds,
   slashMenuSpan,
   type SlashMenuFit,
   type SlashMenuPlacement
-} from "./slashMenuFit"
-import type {
-  SlashBasicKind,
-  SlashItem,
-  SlashSection,
-  SlashSectionKey,
-  SlashTab,
-  SlashTabCount
-} from "./slashMenuItems"
-import { BASIC_LITERALS, SlashMenuPreview } from "./SlashMenuPreview"
-
-const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
-  paragraph: m.editor_slash_basic_paragraph,
-  "heading-1": m.editor_slash_basic_heading_1,
-  "heading-3": m.editor_slash_basic_heading_3,
-  "heading-4": m.editor_slash_basic_heading_4,
-  "heading-5": m.editor_slash_basic_heading_5,
-  "heading-6": m.editor_slash_basic_heading_6,
-  heading: m.editor_slash_basic_heading,
-  checklist: m.editor_slash_basic_checklist,
-  "bullet-list": m.editor_slash_basic_bullet_list,
-  "numbered-list": m.editor_slash_basic_numbered_list,
-  code: m.editor_slash_basic_code,
-  quote: m.editor_slash_basic_quote,
-  divider: m.editor_slash_basic_divider,
-  table: m.editor_slash_basic_table,
-  hint: m.editor_slash_basic_hint
-}
-
-export const BASIC_ICONS: Record<SlashBasicKind, IconType> = {
-  paragraph: Pilcrow,
-  "heading-1": Heading1,
-  "heading-3": Heading3,
-  "heading-4": Heading4,
-  "heading-5": Heading5,
-  "heading-6": Heading6,
-  heading: Heading2,
-  checklist: ListTodo,
-  "bullet-list": List,
-  "numbered-list": ListOrdered,
-  code: SquareCode,
-  quote: TextQuote,
-  divider: Minus,
-  table: Table2,
-  hint: TextCursorInput
-}
-
-const SECTION_LABELS: Record<SlashSectionKey, () => string> = {
-  suggested: m.editor_slash_section_suggested,
-  blocks: m.editor_slash_section_blocks,
-  basic: m.editor_slash_section_basic
-}
-
-const TAB_LABELS: Record<SlashTab, () => string> = {
-  all: m.editor_slash_tab_all,
-  blocks: m.editor_slash_section_blocks,
-  markdown: m.editor_slash_section_basic
-}
-
-const ORIGIN_LABELS = {
-  builtin: m.editor_block_origin_builtin,
-  org: m.editor_block_origin_org,
-  project: m.editor_block_origin_project
-}
-
-export const basicLabel = (kind: SlashBasicKind): string => BASIC_LABELS[kind]()
-
-function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
-  if (item.kind === "block")
-    return (
-      <BlockIconGlyph
-        icon={item.definition.icon}
-        color={item.definition.color}
-      />
-    )
-  const Icon = item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
-  return (
-    <Icon
-      aria-hidden
-      strokeWidth={1.75}
-      className="size-4 shrink-0 text-muted-foreground"
-    />
-  )
-}
-
-const glyphs = new Map<string, IconComponent>()
-
-const glyphIcon = (
-  icon: BlockIconName,
-  color: string | null
-): IconComponent => {
-  const key = `${icon}:${color ?? ""}`
-  const cached = glyphs.get(key)
-  if (cached !== undefined) return cached
-  const Icon = blockIconComponent(icon)
-  const Glyph: IconComponent = ({ size, strokeWidth, className }) => (
-    <Icon
-      aria-hidden
-      data-block-icon={icon}
-      size={size}
-      strokeWidth={strokeWidth}
-      className={className}
-      style={color === null ? undefined : { color }}
-    />
-  )
-  glyphs.set(key, Glyph)
-  return Glyph
-}
-
-const itemIcon = (item: SlashItem): IconComponent => {
-  if (item.kind === "block")
-    return glyphIcon(item.definition.icon, item.definition.color)
-  return item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
-}
-
-const itemName = (item: SlashItem): string => {
-  if (item.kind === "block") return item.definition.name
-  if (item.kind === "gallery") return m.editor_slash_gallery_blocks()
-  return basicLabel(item.basic)
-}
-
-const blockMeta = (definition: BlockDefinition): string | null => {
-  if (definition.sync) return m.editor_slash_synced()
-  return ORIGIN_LABELS[definition.origin]()
-}
-
-const itemMeta = (item: SlashItem): string | null => {
-  if (item.kind === "block")
-    return item.suggestedBy ?? blockMeta(item.definition)
-  if (item.kind === "gallery") return m.editor_slash_gallery_browse()
-  return null
-}
-
-const itemLiteral = (item: SlashItem): string | null =>
-  item.kind === "basic" ? BASIC_LITERALS[item.basic] : null
-
-const itemShortcut = (item: SlashItem): string | null =>
-  item.kind === "block" && item.definition.sync
-    ? m.editor_slash_copy_hint()
-    : null
-
-export type SlashMenuModel = Readonly<{
-  tab: SlashTab
-  tabs: ReadonlyArray<SlashTabCount>
-  sections: ReadonlyArray<SlashSection>
-}>
-
-const showsSectionLabel = (menu: SlashMenuModel): boolean =>
-  menu.tab === "all" || menu.sections.length > 1
+} from "./slash-menu-fit"
+import type { SlashTab } from "./slash-menu-items"
 
 function SlashMenuKeys({
   editor,
@@ -281,97 +96,6 @@ function SlashMenuKeys({
   return null
 }
 
-function SlashMenuPreviewPane({
-  items,
-  library
-}: Readonly<{
-  items: ReadonlyMap<string, SlashItem>
-  library: Library
-}>) {
-  const row = useHighlightedItem()
-  const item = row === undefined ? undefined : items.get(row.value)
-  return (
-    <div
-      data-slash-menu-preview
-      className="flex min-w-0 flex-1 border-t border-l border-border/60"
-    >
-      {item === undefined ? null : (
-        <SlashMenuPreview
-          item={item}
-          icon={<ItemIcon item={item} />}
-          name={itemName(item)}
-          meta={itemMeta(item)}
-          library={library}
-        />
-      )}
-    </div>
-  )
-}
-
-function SlashMenuFooter({ tabs }: Readonly<{ tabs: boolean }>) {
-  const row = useHighlightedItem()
-  return (
-    <CommandMenuFooter>
-      <CommandMenuFooterHint
-        keyLabels={keyLabels()}
-        label={m.editor_slash_footer_select()}
-        keys={["up", "down"]}
-      />
-      {tabs ? (
-        <CommandMenuFooterHint
-          keyLabels={keyLabels()}
-          label={m.editor_slash_tabs_label()}
-          keys="tab"
-        />
-      ) : null}
-      {row === undefined ? null : (
-        <span className="ml-auto flex min-w-0 items-center gap-1.5 text-foreground">
-          <span className="truncate">{row.label}</span>
-          <CommandMenuShortcut
-            keyLabels={keyLabels()}
-            keys="enter"
-            className="ml-0"
-          />
-        </span>
-      )}
-    </CommandMenuFooter>
-  )
-}
-
-function SlashMenuRow({
-  item,
-  detachRef
-}: Readonly<{ item: SlashItem; detachRef: RefObject<boolean> }>) {
-  const meta = itemMeta(item)
-  const literal = itemLiteral(item)
-  const shortcut = itemShortcut(item)
-  return (
-    <CommandMenuItem
-      value={item.key}
-      onClick={(event) => {
-        detachRef.current = event.altKey
-      }}
-    >
-      <span className="min-w-0 flex-1 truncate">{itemName(item)}</span>
-      {meta ? (
-        <span className="shrink-0 text-caption text-muted-foreground">
-          {meta}
-        </span>
-      ) : null}
-      {literal ? (
-        <code className="shrink-0 font-mono text-micro text-muted-foreground">
-          {literal}
-        </code>
-      ) : null}
-      {shortcut ? (
-        <span className="shrink-0 text-caption text-muted-foreground">
-          {shortcut}
-        </span>
-      ) : null}
-    </CommandMenuItem>
-  )
-}
-
 export function SlashMenuList({
   editor,
   menu,
@@ -397,45 +121,19 @@ export function SlashMenuList({
     editor.getRootElement(),
     query
   )
-  const labelled = showsSectionLabel(menu)
-  const hasTabs = menu.tabs.length > 1
-
-  const itemsByKey = useMemo(
-    () =>
-      new Map(
-        menu.sections.flatMap((section) =>
-          section.items.map((item) => [item.key, item] as const)
-        )
-      ),
-    [menu.sections]
-  )
-  const items = useMemo(
-    (): ReadonlyArray<CommandMenuItemData> =>
-      menu.sections.flatMap((section) =>
-        section.items.map((item) => ({
-          value: item.key,
-          label: itemName(item),
-          icon: itemIcon(item),
-          group: SECTION_LABELS[section.section]()
-        }))
-      ),
-    [menu.sections]
-  )
-  const tabs = useMemo(
-    () =>
-      menu.tabs.map((entry) => ({
-        value: entry.tab,
-        label: TAB_LABELS[entry.tab](),
-        count: entry.count
-      })),
-    [menu.tabs]
-  )
 
   return (
     <div ref={frameRef} data-slash-menu-frame className="relative h-0 w-0">
-      <div
+      <SlashMenu
         ref={menuRef}
-        role="presentation"
+        menu={menu}
+        query={query}
+        library={library}
+        preview={layout?.fit.preview === true}
+        detachRef={detachRef}
+        onPick={onPick}
+        onTab={onTab}
+        keys={<SlashMenuKeys editor={editor} detachRef={detachRef} />}
         data-slash-menu-side={layout?.placement.side}
         style={
           layout === null
@@ -447,62 +145,12 @@ export function SlashMenuList({
               }
         }
         className={cn(
-          "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] [corner-shape:var(--button-corner)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "fixed top-0 left-0 z-50",
           "data-[slash-menu-side=above]:slide-in-from-bottom-2 data-[slash-menu-side=below]:slide-in-from-top-2",
           layout !== null &&
-            "animate-in transition-none duration-150 ease-out fade-in-0 motion-reduce:animate-none",
-          !hasTabs && "[&_.scroll-divider]:border-t-0"
+            "animate-in transition-none duration-150 ease-out fade-in-0 motion-reduce:animate-none"
         )}
-      >
-        <CommandMenu items={items} onSelect={(row) => onPick(row.value)}>
-          <SlashMenuKeys editor={editor} detachRef={detachRef} />
-          {hasTabs ? (
-            <CommandMenuTabs
-              tabs={tabs}
-              value={menu.tab}
-              tabsLabel={m.editor_slash_tabs_label()}
-              onValueChange={(next) => {
-                const entry = menu.tabs.find(
-                  (candidate) => candidate.tab === next
-                )
-                if (entry !== undefined) onTab(entry.tab)
-              }}
-            />
-          ) : null}
-          <div
-            className="flex min-h-0"
-            style={{ height: `${SLASH_MENU_BODY_REM}rem` }}
-          >
-            <div
-              className={cn(
-                "flex min-w-0 flex-col",
-                layout?.fit.preview === true ? "w-[28rem] shrink-0" : "flex-1"
-              )}
-            >
-              <CommandMenuList
-                aria-label={m.editor_slash_label()}
-                className={cn(
-                  !labelled && "[&_[role=group]>[role=presentation]]:hidden"
-                )}
-                renderItem={(row) => {
-                  const item = itemsByKey.get(row.value)
-                  return item === undefined ? null : (
-                    <SlashMenuRow item={item} detachRef={detachRef} />
-                  )
-                }}
-              >
-                <CommandMenuEmpty className="py-2 text-left text-body">
-                  {m.editor_slash_empty({ query })}
-                </CommandMenuEmpty>
-              </CommandMenuList>
-            </div>
-            {layout?.fit.preview === true ? (
-              <SlashMenuPreviewPane items={itemsByKey} library={library} />
-            ) : null}
-          </div>
-          <SlashMenuFooter tabs={hasTabs} />
-        </CommandMenu>
-      </div>
+      />
     </div>
   )
 }

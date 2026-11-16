@@ -7,6 +7,17 @@ import {
   type TicketDetail,
   type TypeKey
 } from "@pp/shared"
+import { AttachmentAvailabilityProvider } from "@pp/ui/editor/attachments/availability"
+import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
+import { $selectFirstHint } from "@pp/ui/editor/blocks/block-commands"
+import {
+  attachmentsForDescription,
+  transformersForAttachments
+} from "@pp/ui/editor/editor-transformers"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
+import { useEditMode } from "@pp/ui/editor/use-edit-mode"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -25,18 +36,7 @@ import {
   type Ref
 } from "react"
 
-import {
-  attachmentsForDescription,
-  LexicalEditor,
-  transformersForAttachments,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { useEditMode } from "@/features/editor/hooks/useEditMode"
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
-import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attachmentAvailability"
-import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
-import { lookupFor } from "@/features/editor/lib/blockChrome"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {

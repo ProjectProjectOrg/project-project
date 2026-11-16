@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { staleUploadIds } from "./staleUploads"
+import { staleUploadIds } from "./stale-uploads"
 
 describe("staleUploadIds", () => {
   it("keeps an upload whose node is still in the document", () => {

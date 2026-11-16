@@ -2,10 +2,10 @@ import type { Transformer } from "@lexical/markdown"
 import { mergeRegister } from "@lexical/utils"
 import { defineExtension, type LexicalEditor } from "lexical"
 
-import { TicketBlockNode } from "../TicketBlockNode"
-import { $unwrapBlock } from "./blockCommands"
-import { HintNode } from "./HintNode"
-import { SyncedBlockNode } from "./SyncedBlockNode"
+import { HintNode } from "../../editor/hint-node"
+import { $unwrapBlock } from "./block-commands"
+import { SyncedBlockNode } from "./synced-block-node"
+import { TicketBlockNode } from "./ticket-block-node"
 
 export const HintExtension = defineExtension({
   name: "@pp/block-hint",

@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketId, User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -13,7 +14,6 @@ import {
   commentsRequest,
   createComment
 } from "@/features/comments/atoms/comments"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"
 

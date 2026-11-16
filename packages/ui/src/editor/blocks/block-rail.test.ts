@@ -1,6 +1,6 @@
 import { expect, it } from "vitest"
 
-import { railLeft } from "./blockRail"
+import { railLeft } from "./block-rail"
 
 it("floats the rail just outside the host when the margin has room", () => {
   expect(railLeft({ hostLeft: 100, textLeft: 112, gap: 4, clipLeft: 40 })).toBe(

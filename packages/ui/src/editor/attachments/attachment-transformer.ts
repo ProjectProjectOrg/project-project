@@ -11,7 +11,7 @@ import {
   $createAttachmentNode,
   $isAttachmentNode,
   AttachmentNode
-} from "./AttachmentNode"
+} from "./attachment-node"
 
 export const ATTACHMENT_MARKDOWN_RE =
   /(!?)\[((?:\\.|[^\]\\])*)\]\((\/api\/attachments\/[^)\s]+)\)/

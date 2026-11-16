@@ -1,9 +1,8 @@
 import type { Transformer } from "@lexical/markdown"
 import { createContext, useContext, useMemo, type ReactNode } from "react"
 
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
-
-import type { EditorBlocks } from "./editorBlocks"
+import { LibraryContext } from "./block-chrome"
+import type { EditorBlocks } from "./editor-blocks"
 
 export type EditorBlocksScope = Readonly<{
   blocks: EditorBlocks

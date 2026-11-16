@@ -1,8 +1,8 @@
-import { transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import { motion, useReducedMotion, type MotionValue } from "motion/react"
 
-import type { BlockDrag } from "./useBlockDrag"
+import { transitions } from "../../lib/springs"
+import { cn } from "../../lib/utils"
+import type { BlockDrag } from "./use-block-drag"
 
 const LIFTED_SCALE = 1.015
 

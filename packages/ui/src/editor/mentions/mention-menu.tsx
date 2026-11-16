@@ -1,21 +1,18 @@
 import { MenuOption } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import { cn } from "@pp/ui/lib/utils"
-import { MenuHighlight } from "@pp/ui/menu-highlight"
-import { MenuNote } from "@pp/ui/menu-note"
+import { useLayoutEffect, useRef } from "react"
+
+import { MenuHighlight } from "../../components/menu-highlight"
+import { MenuNote } from "../../components/menu-note"
 import {
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
   menuSeparatorClass
-} from "@pp/ui/menu-styles"
-import { ScrollArea } from "@pp/ui/scroll-area"
-import { useLayoutEffect, useRef } from "react"
-
-import type {
-  MentionCandidate,
-  MentionProvider
-} from "@/features/editor/mentions/registry"
-import { m } from "@/paraglide/messages"
+} from "../../components/menu-styles"
+import { ScrollArea } from "../../components/scroll-area"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import type { MentionCandidate, MentionProvider } from "./registry"
 
 const MENTION_LISTBOX_ID = "typeahead-menu"
 

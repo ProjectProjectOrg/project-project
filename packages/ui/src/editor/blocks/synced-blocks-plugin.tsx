@@ -4,11 +4,10 @@ import type { Library } from "@pp/shared"
 import type { LexicalEditor, NodeKey } from "lexical"
 import { useContext, useEffect, useMemo, useRef } from "react"
 
-import { lookupFor } from "@/features/editor/lib/blockChrome"
-import { m } from "@/paraglide/messages"
-
-import { EditorBlocksContext } from "./editorBlocksContext"
-import { registerSyncedBlocks } from "./syncedBlocks"
+import { m } from "../messages"
+import { lookupFor } from "./block-chrome"
+import { EditorBlocksContext } from "./editor-blocks-context"
+import { registerSyncedBlocks } from "./synced-blocks"
 
 const markSourceRemoved = (
   editor: LexicalEditor,

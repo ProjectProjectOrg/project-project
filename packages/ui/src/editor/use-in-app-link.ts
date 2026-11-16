@@ -1,4 +1,3 @@
-import { useRouter } from "@tanstack/react-router"
 import { useCallback } from "react"
 
 const opensElsewhere = (event: MouseEvent): boolean =>
@@ -8,8 +7,12 @@ const opensElsewhere = (event: MouseEvent): boolean =>
   event.shiftKey ||
   event.altKey
 
+import { useEditorServices } from "./services"
+
+// Ref callback for an in-app <a>: a plain click navigates without a page
+// load (EditorServices navigate); modified and middle clicks open as usual.
 export function useInAppLink() {
-  const router = useRouter()
+  const { navigate } = useEditorServices()
   return useCallback(
     (anchor: HTMLAnchorElement | null) => {
       if (anchor === null) return undefined
@@ -18,7 +21,7 @@ export function useInAppLink() {
         const href = anchor.getAttribute("href")
         if (href === null || opensElsewhere(event)) return
         event.preventDefault()
-        void router.navigate({ href })
+        navigate(href)
       }
       const onMouseUp = (event: MouseEvent) => {
         if (event.button === 1) event.stopPropagation()
@@ -30,6 +33,6 @@ export function useInAppLink() {
         anchor.removeEventListener("mouseup", onMouseUp)
       }
     },
-    [router]
+    [navigate]
   )
 }

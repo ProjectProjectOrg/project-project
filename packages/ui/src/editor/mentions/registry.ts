@@ -1,12 +1,13 @@
 import type { MentionType } from "@pp/shared"
-import type * as Effect from "effect/Effect"
-import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
-import type { SearchPage } from "@/lib/searchPages"
-
-import type { MentionSearchFailed } from "./errors"
 import type { MentionScope } from "./scope"
+
+/*
+ * A kind of thing "@" can mention (people, tickets) and how its menu group
+ * looks. The search behind it is the app's (EditorServices
+ * useMentionSearch).
+ */
 
 export type MentionCandidate = Readonly<{
   id: string
@@ -15,17 +16,24 @@ export type MentionCandidate = Readonly<{
   image?: string | null
 }>
 
-export type MentionPage = SearchPage<MentionCandidate>
-
 export type { MentionScope }
 
 export type MentionProvider = Readonly<{
   type: MentionType
-  search: (
-    query: string,
-    cursor: string | null
-  ) => Effect.Effect<MentionPage, MentionSearchFailed, AtomRegistry>
   renderRow: (candidate: MentionCandidate) => ReactNode
   heading: () => string
   failed: () => string
+}>
+
+export type MentionSearchStatus =
+  | "idle"
+  | "loading"
+  | "searching"
+  | "ready"
+  | "failed"
+
+// One group's results for the current query.
+export type MentionResults = Readonly<{
+  items: ReadonlyArray<MentionCandidate>
+  status: MentionSearchStatus
 }>

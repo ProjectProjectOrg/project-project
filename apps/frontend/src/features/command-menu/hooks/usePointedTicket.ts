@@ -1,13 +1,12 @@
 import { RegistryContext } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
+import { isKeyboardNavigating } from "@pp/ui/lib/keyboard"
 import {
   useContext,
   useEffect,
   type FocusEvent,
   type PointerEvent
 } from "react"
-
-import { isKeyboardNavigating } from "@/lib/keyboard"
 
 import { pointedTicket } from "../atoms/commandMenu"
 import type { TicketContext } from "../lib/commandMenu"

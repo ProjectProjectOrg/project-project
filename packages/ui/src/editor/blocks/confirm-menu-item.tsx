@@ -1,12 +1,11 @@
-import { Button } from "@pp/ui/button"
-import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
-import { X, type IconType } from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
 import { motion } from "motion/react"
 
-import { m } from "@/paraglide/messages"
-
-import { useSnapBack } from "./useSnapBack"
+import { Button } from "../../components/button"
+import { DropdownMenuItem } from "../../components/dropdown-menu"
+import { X, type IconType } from "../../components/icons"
+import { transitions } from "../../lib/springs"
+import { m } from "../messages"
+import { useSnapBack } from "./use-snap-back"
 
 export function ConfirmMenuItem({
   icon: Icon,

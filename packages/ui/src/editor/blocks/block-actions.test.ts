@@ -35,11 +35,8 @@ import {
 } from "lexical"
 import { describe, expect, it, vi } from "vitest"
 
-import { BUILTIN_LIBRARY, lookupFor } from "@/features/editor/lib/blockChrome"
-
-import { MARKDOWN_TRANSFORMERS } from "../../components/LexicalEditor"
-import { TicketBlockExtension } from "../TicketBlockExtension"
-import { $isTicketBlockNode } from "../TicketBlockNode"
+import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
 import {
   $blankBlockAtCaret,
   $blockMarkdown,
@@ -51,17 +48,19 @@ import {
   $topLevelBlocks,
   $unwrapBlock,
   type TopLevelBlockNode
-} from "./blockCommands"
+} from "./block-commands"
 import {
   registerBlockKeyboard,
   type BlockKeyboardHandlers
-} from "./blockKeyboard"
-import { $blockMenuModel } from "./blockMenuModel"
+} from "./block-keyboard"
+import { $blockMenuModel } from "./block-menu-model"
 import {
   $createSyncedBlockNode,
   $isSyncedBlockNode,
   SyncedBlockExtension
-} from "./SyncedBlockNode"
+} from "./synced-block-node"
+import { TicketBlockExtension } from "./ticket-block-extension"
+import { $isTicketBlockNode } from "./ticket-block-node"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 

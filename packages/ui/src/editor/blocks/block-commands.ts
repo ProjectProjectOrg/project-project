@@ -39,11 +39,10 @@ import {
   type RangeSelection
 } from "lexical"
 
-import { blankBlockHeading } from "@/features/editor/lib/blockChrome"
-
-import { $isTicketBlockNode, type TicketBlockNode } from "../TicketBlockNode"
-import { $isSyncedBlockNode, type SyncedBlockNode } from "./SyncedBlockNode"
-import { $detachSyncedBlock } from "./syncedBlocks"
+import { blankBlockHeading } from "./block-chrome"
+import { $isSyncedBlockNode, type SyncedBlockNode } from "./synced-block-node"
+import { $detachSyncedBlock } from "./synced-blocks"
+import { $isTicketBlockNode, type TicketBlockNode } from "./ticket-block-node"
 
 export const OPEN_BLOCK_MENU_COMMAND: LexicalCommand<NodeKey> = createCommand(
   "OPEN_BLOCK_MENU_COMMAND"

@@ -36,6 +36,8 @@ export function MorphIconLink({
       aria-label={label}
       title={label}
       onMouseDown={(event) => event.stopPropagation()}
+      // A chip's action, not a text link: prose.css leaves it alone.
+      data-chip-action=""
       className={cn(chipIconActionClass, className)}
     >
       <Icon strokeWidth={1.75} className="size-3" aria-hidden="true" />

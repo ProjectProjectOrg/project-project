@@ -1,9 +1,8 @@
-import type { AttachmentTileLabels } from "@pp/ui/attachment-tile"
-import type { AttachmentVideoLabels } from "@pp/ui/attachment-video"
+import type { AttachmentTileLabels } from "../../components/attachment-tile"
+import type { AttachmentVideoLabels } from "../../components/attachment-video"
+import { m } from "../messages"
 
-import { m } from "@/paraglide/messages"
-
-// The app's strings for @pp/ui's attachment parts.
+// The attachment parts' strings, from the editor's messages.
 
 export const attachmentTileLabels = (): AttachmentTileLabels => ({
   download: m.editor_attachment_download(),

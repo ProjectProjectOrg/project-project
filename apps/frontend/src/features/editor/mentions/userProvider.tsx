@@ -1,3 +1,4 @@
+import type { MentionScope } from "@pp/ui/editor/mentions/registry"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
@@ -7,9 +8,11 @@ import { rankMembers } from "@/features/editor/lib/memberRanking"
 import { m } from "@/paraglide/messages"
 
 import { MentionSearchFailed } from "./errors"
-import type { MentionProvider, MentionScope } from "./registry"
+import type { SearchableMentionProvider } from "./searchable"
 
-export const userProvider = (scope: MentionScope): MentionProvider => ({
+export const userProvider = (
+  scope: MentionScope
+): SearchableMentionProvider => ({
   type: "user",
   search: (query) =>
     Effect.gen(function* () {

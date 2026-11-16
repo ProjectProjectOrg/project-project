@@ -14,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { IconGridPicker } from "@pp/ui/icon-grid-picker"
 import { ChevronDown, Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
@@ -33,7 +34,6 @@ import {
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 
 const NO_PRIORITY = "none" as const
 

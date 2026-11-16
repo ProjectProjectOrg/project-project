@@ -7,8 +7,7 @@ import {
   type TypeDefinition,
   type TypeKey
 } from "@pp/shared"
-
-import { blockChrome } from "@/features/editor/lib/blockChrome"
+import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 
 import type { TypePrediction } from "./ticketRows"
 import { offersType, visibleTypes, type TicketType } from "./ticketTypes"

@@ -3,6 +3,8 @@ import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
 import { InlineForm, useInlineForm } from "@pp/ui/inline-form"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
@@ -15,8 +17,6 @@ import {
   deleteComment,
   editComment
 } from "@/features/comments/atoms/comments"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"

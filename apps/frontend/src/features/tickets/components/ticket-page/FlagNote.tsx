@@ -1,9 +1,9 @@
 import type { Member, TicketFlag } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Flag } from "@pp/ui/icons"
 
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { m } from "@/paraglide/messages"

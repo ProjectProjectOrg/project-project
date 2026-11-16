@@ -16,17 +16,17 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { transformersForMode } from "../../components/LexicalEditor"
+import { $isHintNode, HintNode } from "../../editor/hint-node"
+import { transformersForMode } from "../editor-transformers"
+import { registerNoNestedBlocks } from "./definition-mode"
+import { $isSyncedBlockNode, SyncedBlockNode } from "./synced-block-node"
+import { $detachSyncedBlock } from "./synced-blocks"
+import { $revertToReference } from "./template-blocks"
 import {
   $createTicketBlockNode,
   $isTicketBlockNode,
   TicketBlockNode
-} from "../TicketBlockNode"
-import { registerNoNestedBlocks } from "./definitionMode"
-import { $isHintNode, HintNode } from "./HintNode"
-import { $isSyncedBlockNode, SyncedBlockNode } from "./SyncedBlockNode"
-import { $detachSyncedBlock } from "./syncedBlocks"
-import { $revertToReference } from "./templateBlocks"
+} from "./ticket-block-node"
 
 const TEMPLATE = transformersForMode("template", undefined)
 const DEFINITION = transformersForMode("definition", undefined)

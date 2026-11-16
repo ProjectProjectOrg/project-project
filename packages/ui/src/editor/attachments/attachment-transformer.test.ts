@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest"
 import {
   ATTACHMENT_MARKDOWN_RE,
   unescapeAttachmentAlt
-} from "./attachmentTransformer"
+} from "./attachment-transformer"
 
 const ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
 const URL = `/api/attachments/acme/${ID}`

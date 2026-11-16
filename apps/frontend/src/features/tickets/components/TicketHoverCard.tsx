@@ -49,12 +49,12 @@ import {
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
-type MarkdownModule = typeof import("@/features/editor/components/Markdown")
+type MarkdownModule = typeof import("@pp/ui/editor/markdown")
 
 let loadedMarkdown: MarkdownModule | null = null
 
 export const loadMarkdown = () =>
-  import("@/features/editor/components/Markdown").then((mod) => {
+  import("@pp/ui/editor/markdown").then((mod) => {
     loadedMarkdown = mod
     return mod
   })

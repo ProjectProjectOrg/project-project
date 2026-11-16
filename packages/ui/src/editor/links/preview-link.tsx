@@ -5,11 +5,9 @@ import {
   type ReactNode
 } from "react"
 
-import {
-  paintLinkFavicon,
-  useLinkPreview
-} from "@/features/link-previews/hooks/useLinkPreview"
-import { isBareUrlLabel } from "@/features/link-previews/lib/linkPreviewUrl"
+import { useEditorServices } from "../services"
+import { paintLinkFavicon } from "./link-favicon"
+import { isBareUrlLabel } from "./link-preview-url"
 
 type PreviewLinkProps = Readonly<
   AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -27,7 +25,7 @@ export function PreviewLink({
   children,
   ...rest
 }: PreviewLinkProps) {
-  const { title, favicon } = useLinkPreview(url)
+  const { title, favicon } = useEditorServices().useLinkPreview(url)
   const ref = useRef<HTMLAnchorElement>(null)
 
   useLayoutEffect(() => {

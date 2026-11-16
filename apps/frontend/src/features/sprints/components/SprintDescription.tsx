@@ -1,16 +1,14 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { GroupDetail } from "@pp/shared"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useState } from "react"
 
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   useProject,
   useProjectRoute

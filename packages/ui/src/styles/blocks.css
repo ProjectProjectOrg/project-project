@@ -1,0 +1,131 @@
+/* Ticket blocks in the Markdown body and the editor: the block's frame,
+   its icon in the margin (the block rail), the gutter's hover and drag
+   states, and a template's {{hint}} placeholders. Imported by theme.css.
+   The page around them (the ticket page's insets) is the app's. */
+/* Blocks share the Markdown body's block spacing. */
+.prose-md .ticket-block > * + *,
+.prose-md .ticket-block-body > * + * {
+  margin-top: 12px;
+}
+
+@property --block-rail-gap {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 4px;
+}
+
+.prose-md .ticket-block {
+  --block-first-line: var(--lh-title);
+  position: relative;
+  padding: 6px 8px;
+  margin-inline: -8px;
+  border-radius: var(--radius-md);
+  transition-property: background-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
+  --block-first-line: var(--lh-display-compact);
+}
+.prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
+  --block-first-line: var(--lh-subtitle);
+}
+.prose-md
+  .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
+  --block-first-line: var(--lh-body);
+}
+.prose-md .ticket-block[data-source-removed] > :first-child::after {
+  content: var(--source-removed-note);
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.prose-md .ticket-block > .ticket-block-icon {
+  position: absolute;
+  top: 6px;
+  left: -16px;
+  display: flex;
+  align-items: center;
+  height: var(--block-first-line);
+  margin: 0;
+}
+
+[data-block-rail-inset] .ticket-block {
+  padding-inline-start: 2rem;
+  border-radius: calc(var(--radius-xl) - 4px);
+}
+[data-block-rail-inset] .lexical-content > .ticket-block:first-child {
+  margin-top: -4px;
+  padding-top: 10px;
+}
+[data-block-rail-inset]
+  .lexical-content
+  > .ticket-block:first-child
+  > .ticket-block-icon {
+  top: 10px;
+}
+
+.prose-md.block-gutter
+  .lexical-content[contenteditable="true"]
+  > .ticket-block:is([data-hovered], [data-active]) {
+  background-color: var(--hover);
+}
+.prose-md.block-gutter:has(.lexical-content:focus)
+  .lexical-content
+  > .ticket-block:is([data-hovered], [data-active]) {
+  background-color: var(--surface-3);
+  box-shadow: var(--shadow-2);
+  transition-duration: 0ms;
+}
+.prose-md .ticket-block[data-dragging] {
+  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
+  outline: 1px dashed var(--border);
+  outline-offset: -1px;
+}
+.prose-md .ticket-block[data-dragging] > * {
+  visibility: hidden;
+}
+.prose-md .ticket-block[data-flash] {
+  animation:
+    ticket-block-flash 600ms ease-out,
+    ticket-block-land 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--flash-order, 0) * 70ms);
+}
+@keyframes ticket-block-flash {
+  from {
+    background-color: var(--accent);
+  }
+}
+@keyframes ticket-block-land {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.block-rail-landing {
+  animation: ticket-block-land 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--flash-order, 0) * 70ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .prose-md .ticket-block[data-flash] {
+    animation: ticket-block-flash 600ms ease-out;
+  }
+  .block-rail-landing {
+    animation: none;
+  }
+}
+
+.prose-md .ticket-block [data-hint]::after {
+  content: attr(data-hint);
+  color: var(--muted-foreground);
+  opacity: 0.7;
+  pointer-events: none;
+  user-select: none;
+}
+.prose-md .ticket-block [data-hint-empty] > br {
+  display: none;
+}

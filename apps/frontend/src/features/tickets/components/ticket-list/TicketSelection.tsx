@@ -1,5 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { BulkTicketPatch } from "@pp/shared"
+import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import { AnimatePresence } from "motion/react"
@@ -27,7 +28,6 @@ import {
   projectOfKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
-import { ownsKeystrokes } from "@/lib/keyboard"
 
 import { SelectionBar } from "./SelectionBar"
 import {

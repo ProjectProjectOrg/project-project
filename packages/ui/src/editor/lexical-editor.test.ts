@@ -22,21 +22,20 @@ import {
 } from "lexical"
 import { describe, expect, it, vi } from "vitest"
 
-import { AttachmentNode } from "../lexical/AttachmentNode"
-import { INLINE_MARKDOWN_TRANSFORMER } from "../lexical/commonMarkTransformer"
-import { FigmaNode } from "../lexical/FigmaNode"
-import { ImageNode } from "../lexical/ImageNode"
-import { MentionNode } from "../lexical/MentionNode"
-import { $isTicketBlockNode, TicketBlockNode } from "../lexical/TicketBlockNode"
-import { parseMarkdown } from "../lib/markdownParser"
+import { INLINE_MARKDOWN_TRANSFORMER } from "../editor/common-mark"
+import { ImageNode } from "../editor/image-node"
+import { parseMarkdown } from "../editor/markdown-parser"
+import { AttachmentNode } from "./attachments/attachment-node"
+import { $isTicketBlockNode, TicketBlockNode } from "./blocks/ticket-block-node"
 import {
   attachmentsForDescription,
   AUTO_LINK_MATCHERS,
-  createCoalescedSaveQueue,
   MARKDOWN_TRANSFORMERS,
-  nextMarkdownChange,
   transformersForAttachments
-} from "./LexicalEditor"
+} from "./editor-transformers"
+import { FigmaNode } from "./figma/figma-node"
+import { MentionNode } from "./mentions/mention-node"
+import { createCoalescedSaveQueue, nextMarkdownChange } from "./save-queue"
 
 const decodeUnknownTicketIdSync = Schema.decodeUnknownSync(TicketId)
 

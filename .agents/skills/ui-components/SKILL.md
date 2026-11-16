@@ -13,9 +13,13 @@ description: Add, change, polish or document a design-system primitive in packag
 | --- | --- |
 | `packages/ui/src/components/<name>.tsx` | The primitive, kebab-case. Imported in the app as `@pp/ui/<name>` |
 | `packages/ui/src/lib/*`, `src/hooks/*` | Helpers (`cn`, `springs`, `typeScale`, `useFluidHover`, …), imported as `@pp/ui/lib/*` and `@pp/ui/hooks/*` |
+| `packages/ui/src/editor/**` | The Markdown editor (Lexical) and everything in it: `lexical-editor.tsx`, read-only `markdown.tsx`, and folders per part (`slash-menu/`, `mentions/`, `blocks/` for sections, `attachments/`, `figma/`, `paper/`, `links/`). Imported as `@pp/ui/editor/<path>`; `.tsx` modules need an entry in `package.json` exports (regenerate them when adding one) |
+| `packages/ui/src/editor/messages.ts`, `services.tsx` | The editor's strings (`provideEditorMessages(m)`, called once by the app; `m` from this module in editor code) and its app data (`EditorServicesProvider`: mention search, uploads, Figma links, link previews, navigation). The app's side is `apps/frontend/src/features/editor/AppEditorServices.tsx` |
+| `packages/ui/src/styles/prose.css`, `blocks.css` | The Markdown body (`.prose-md`, `.lexical-content`) and sections (`.ticket-block`, the gutter), imported by `theme.css` |
 | `packages/ui/src/styles/theme.css` | Every token: colours (light and `.dark`), state colours, type scale, radii, easings (`ease-standard`, `ease-spring`), fonts, global hover and press rules |
 | `packages/ui/src/assets/` | Brand assets (the logo and wordmark), exposed as `@pp/ui/assets/*` |
 | `packages/ui/docs/components/<name>/page.mdx` | The component's gallery page |
+| `packages/ui/docs/editor/<name>/page.mdx`, `docs/editor/kit.tsx` | The Editor group's pages; every demo wraps itself in `<EditorKit>` (English messages and sample services). Sample attachments are served from `gallery/public/api/attachments/demo/` |
 | `packages/ui/docs/patterns/<name>/page.mdx` | A pattern's page: a composition of primitives (Confirm button), in the gallery's Patterns group |
 | `packages/ui/docs/components/<name>/demos/*.tsx` | Its demos, one default-exported component per file |
 | `packages/ui/gallery/` | The gallery app itself: sidebar, search, theme switch, demo frame, accessibility check |
@@ -25,7 +29,7 @@ The gallery (http://localhost:6006) starts with the app on `bun run dev` from th
 
 ## Rules for primitives
 
-1. **No translations, no English defaults.** Every visible or spoken string is a prop (`closeLabel`, `cancelLabel`, `keyLabels`, …), required unless leaving it out renders nothing. The app passes its Paraglide messages. Never import `@/paraglide`, and never give a string prop a default.
+1. **No translations, no English defaults.** Every visible or spoken string is a prop (`closeLabel`, `cancelLabel`, `keyLabels`, …), required unless leaving it out renders nothing. The app passes its Paraglide messages. Never import `@/paraglide`, and never give a string prop a default. The editor is the one exception to "a prop": its code reads `m` from `editor/messages.ts`, which the app fills once; add a new editor string to `EditorMessages` and to the gallery's `docs/editor/messages.ts`.
 2. **No app imports.** `packages/ui` never imports from `apps/frontend`. If a primitive needs app data (an error formatter, say), take a function prop such as `describeError`.
 3. **Relative imports inside the package** (`../lib/utils`, `./button`). Only consumers use `@pp/ui/...`.
 4. **Tokens, not values.** Colours, radii and easings come from `theme.css`. A new token goes in `theme.css` for both light and `.dark`, and in `DESIGN.md`.
@@ -126,6 +130,7 @@ Set during the polish passes; a component that breaks one is not done.
 - **Fields:** text-entry surfaces and select triggers use `bg-field` (`--field`).
 - **Hover and press only on interactive things.** A static element never changes on hover. Press scales to 97%.
 - **Icon padding:** a leading or trailing icon takes about a quarter off the padding on its side (buttons: `iconLeft`/`iconRight`; badges: `has-[>svg:first-child]`).
+- **Inline chips are centred on the text:** a badge, chip or code inside running text carries `inline-chip` (theme.css), which centres it on half the text's cap height, measured in the text's own font. Never nudge one with `align-[-4px]` or `align-middle`. When the chip sits in a wrapper (an editor node's selection span), the wrapper takes `inline-chip` and the chip's parent resets `[--chip-shift:0px]`. A leading logo or icon gets the same 12px box and inset as a trailing action, so both ends match.
 - **Value changes:** when a control shows a value the user just changed (a select's chosen option, a toggle's label, a tooltip moving on), it plays through `TextSwap` (Scritto), which also animates the width. Pass plain text; an icon goes in `icon`.
 - **No layout shift:** messages that appear under a control (errors, helper text) take a reserved grid cell or replace the description, so nothing moves.
 - **Responsive:** every overview and example fits a half-width (50/50) window: `@container` queries and `minmax(0,1fr)` columns, never viewport breakpoints.

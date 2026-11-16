@@ -15,12 +15,12 @@ import {
   $createSyncedBlockNode,
   $isSyncedBlockNode,
   SyncedBlockNode
-} from "./blocks/SyncedBlockNode"
+} from "./synced-block-node"
 import {
   $createTicketBlockNode,
   $isTicketBlockNode,
   TicketBlockNode
-} from "./TicketBlockNode"
+} from "./ticket-block-node"
 
 const trimBlankLines = (content: string): string =>
   content.replace(/^(?:[ \t]*\n)+/, "").replace(/(?:\n[ \t]*)+$/, "")

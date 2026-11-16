@@ -1,4 +1,5 @@
 import { Button } from "@pp/ui/button"
+import type { SaveStatus } from "@pp/ui/editor/save-queue"
 import { Check, Pencil } from "@pp/ui/icons"
 import { Kbd } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
@@ -6,7 +7,6 @@ import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
-import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { m } from "@/paraglide/messages"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }

@@ -16,9 +16,9 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../components/LexicalEditor"
-import { $exitTicketBlockFromEmptyLastLine } from "./TicketBlockExtension"
-import { $isTicketBlockNode, TicketBlockNode } from "./TicketBlockNode"
+import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { $exitTicketBlockFromEmptyLastLine } from "./ticket-block-extension"
+import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
 
 const BLOCK = '<block type="notes">\n\n## Notes\n\n</block>'
 

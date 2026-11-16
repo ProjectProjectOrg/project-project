@@ -1,5 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, TicketSequence } from "@pp/shared"
+import { hasModifier, ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import { useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -30,7 +31,6 @@ import {
   type StepCursor,
   type StepDirection
 } from "@/features/tickets/lib/ticketStepping"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 
 export const PREVIOUS_KEY = "k"
 export const NEXT_KEY = "j"

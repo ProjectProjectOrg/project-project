@@ -1,0 +1,539 @@
+/* Markdown body styles (`.prose-md`): read-only Markdown and the Lexical
+   editor (`.lexical-content`, the classes in editor/theme.ts). Imported by
+   theme.css. */
+.prose-md {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--prose-body);
+}
+/* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
+   block types (.prose-md p, .lexical-paragraph, etc) because that has higher
+   specificity than this rule and would silently clobber the spacing. */
+.prose-md > * + *,
+.prose-md .lexical-content > * + *,
+.prose-md blockquote > * + * {
+  margin-top: 12px;
+}
+.prose-md
+  :is(h1, h2, h3, h4, h5, h6, .lexical-h1, .lexical-h2, .lexical-h3)
+  + * {
+  margin-top: 8px;
+}
+.prose-md * + :is(h1, h2, .lexical-h1, .lexical-h2) {
+  margin-top: 24px;
+}
+.prose-md * + :is(h3, h4, h5, h6, .lexical-h3) {
+  margin-top: 20px;
+}
+.prose-md.prose-compact {
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
+}
+.prose-md.prose-compact h1,
+.prose-md.prose-compact h2 {
+  font-size: var(--fs-subtitle-compact);
+  line-height: var(--lh-subtitle-compact);
+}
+.prose-md.prose-compact h3 {
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
+}
+.prose-md.prose-compact em {
+  color: var(--muted-foreground);
+}
+.prose-md .lexical-hint {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.prose-md h1 {
+  color: var(--foreground);
+  font-size: var(--fs-display-compact);
+  font-weight: 700;
+  line-height: var(--lh-display-compact);
+}
+.prose-md h2 {
+  color: var(--foreground);
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
+}
+.prose-md h3 {
+  color: var(--foreground);
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
+}
+/* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
+   above provides spacing between sibling blocks. No explicit `margin: 0` here
+   — that would override the spacing rule via specificity. */
+.prose-md a:not([data-slot="button"], [data-tone], [data-chip-action]),
+.prose-md .lexical-link {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--foreground) 38%,
+    transparent
+  );
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  border-radius: 3px;
+  padding: 0.08em 0.18em;
+  margin: -0.08em -0.18em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    text-decoration-color 150ms ease;
+}
+.prose-md .lexical-link {
+  cursor: pointer;
+}
+.prose-md a:not([data-slot="button"], [data-tone], [data-chip-action]):hover,
+.prose-md .lexical-link:hover {
+  text-decoration-color: var(--foreground);
+}
+.prose-md
+  a:not([data-slot="button"], [data-tone], [data-chip-action]):focus-visible,
+.prose-md .lexical-link:focus-visible {
+  outline: none;
+  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
+  box-shadow: 0 0 0 2px var(--ring);
+  text-decoration-color: var(--foreground);
+}
+[data-link-favicon]::before {
+  content: "";
+  display: inline-block;
+  width: 0.875em;
+  height: 0.875em;
+  margin-right: 0.3em;
+  vertical-align: -0.125em;
+  border-radius: 2px;
+  background: var(--link-favicon) center / contain no-repeat;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+[data-link-favicon="image"]::before {
+  opacity: 1;
+}
+[data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0);
+}
+.dark
+  [data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0) invert(1);
+}
+[data-link-favicon-animate="false"]::before {
+  transition: none;
+}
+[data-link-favicon="fallback"]::before {
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'/%3E%3Cpath d='M2 12h20'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  opacity: 0.45;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-link-favicon]::before {
+    transition: none;
+  }
+}
+/* Inline code is a chip in the text: centred on it like one (theme.css,
+   .inline-chip). */
+.prose-md :not(pre) > code:not(.lexical-code) {
+  position: relative;
+  top: var(--chip-shift);
+  vertical-align: middle;
+}
+.prose-md code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  letter-spacing: 0;
+  color: var(--foreground);
+  background: var(--prose-code);
+  box-shadow: inset 0 0 0 1px var(--prose-code-ring);
+  padding: 0.12em 0.38em;
+  border-radius: 5px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+/* Code blocks, the editor's and read-only Markdown's, look like the
+   gallery's: a 20px squircle on --surface-2, Geist Mono at 12 on 22px lines,
+   and line numbers in a 31px gutter at 65% ink. The editor's comes from
+   Lexical (data-gutter), the read view's from rehype-prism-plus
+   (showLineNumbers). */
+.prose-md pre,
+.prose-md .lexical-code {
+  --code-gutter: 31px;
+  position: relative;
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 22px;
+  letter-spacing: 0;
+  color: var(--foreground);
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: none;
+  border-radius: 20px;
+  corner-shape: squircle;
+  padding: 8px 0.6ch 8px calc(var(--code-gutter) + 0.6ch);
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+.prose-md pre code {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+.prose-md .lexical-code::before {
+  content: attr(data-gutter);
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: var(--code-gutter);
+  padding-right: 0.6ch;
+  box-sizing: border-box;
+  text-align: right;
+  white-space: pre;
+  color: color-mix(in oklab, var(--foreground) 65%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.prose-md pre .line-number::before {
+  content: attr(line);
+  display: inline-block;
+  width: var(--code-gutter);
+  margin-left: calc(-1 * var(--code-gutter) - 0.6ch);
+  margin-right: 0.6ch;
+  padding-right: 0.6ch;
+  box-sizing: border-box;
+  text-align: right;
+  color: color-mix(in oklab, var(--foreground) 65%, transparent);
+  user-select: none;
+}
+
+/* Syntax colours from the gallery's Pierre themes, on the token classes
+   both Prism highlighters emit (rehype-prism-plus in the read view, Lexical
+   in the editor). Each keeps Pierre's hue; the ones under 4.5:1 on the code
+   fill (most of light, the comment grey in dark) are darkened or lightened
+   in OKLCH just enough to pass AA at 12px. */
+.prose-md {
+  --code-comment: #707070;
+  --code-punctuation: #636363;
+  --code-keyword: #d12860;
+  --code-string: #008125;
+  --code-number: #00799d;
+  --code-function: #693acf;
+  --code-type: #a631be;
+  --code-tag: #c5421f;
+  --code-attribute: #00804b;
+  --code-variable: #b25700;
+}
+html.dark .prose-md {
+  --code-comment: #888888;
+  --code-punctuation: #8a8a8a;
+  --code-keyword: #ff678d;
+  --code-string: #5ecc71;
+  --code-number: #68cdf2;
+  --code-function: #9d6afb;
+  --code-type: #d568ea;
+  --code-tag: #ff855e;
+  --code-attribute: #60d199;
+  --code-variable: #ffa359;
+}
+.prose-md :is(.token.comment, .token.prolog, .token.doctype, .token.cdata) {
+  color: var(--code-comment);
+}
+.prose-md :is(.token.punctuation, .token.operator) {
+  color: var(--code-punctuation);
+}
+.prose-md
+  :is(
+    .token.keyword,
+    .token.atrule,
+    .token.important,
+    .token.deleted,
+    .token.deleted-sign,
+    .token.deleted-arrow
+  ) {
+  color: var(--code-keyword);
+}
+.prose-md
+  :is(
+    .token.string,
+    .token.char,
+    .token.attr-value,
+    .token.regex,
+    .token.url,
+    .token.inserted,
+    .token.inserted-sign,
+    .token.inserted-arrow
+  ) {
+  color: var(--code-string);
+}
+.prose-md
+  :is(
+    .token.number,
+    .token.boolean,
+    .token.constant,
+    .token.symbol,
+    .token.coord
+  ) {
+  color: var(--code-number);
+}
+.prose-md :is(.token.function, .token.function-name) {
+  color: var(--code-function);
+}
+.prose-md :is(.token.class-name, .token.builtin, .token.namespace) {
+  color: var(--code-type);
+}
+.prose-md :is(.token.tag, .token.selector) {
+  color: var(--code-tag);
+}
+.prose-md :is(.token.attr-name, .token.property) {
+  color: var(--code-attribute);
+}
+.prose-md :is(.token.variable, .token.parameter) {
+  color: var(--code-variable);
+}
+.prose-md :is(.token.bold, .token.important) {
+  font-weight: 600;
+}
+.prose-md .token.italic {
+  font-style: italic;
+}
+
+/* Lexical content surface — inherit `.prose-md` typography but with a couple
+   of editor-specific tweaks. The `.lexical-*` classes are emitted by the
+   editor's theme dictionary in components/LexicalEditor.tsx. */
+.prose-md .lexical-content {
+  caret-color: var(--foreground);
+}
+.prose-md .lexical-h1 {
+  color: var(--foreground);
+  font-size: var(--fs-display-compact);
+  font-weight: 700;
+  line-height: var(--lh-display-compact);
+}
+.prose-md .lexical-h2 {
+  color: var(--foreground);
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
+}
+.prose-md .lexical-h3 {
+  color: var(--foreground);
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
+}
+.prose-md .lexical-quote {
+  border-left: 2px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.prose-md .lexical-li-nested {
+  list-style: none;
+  margin: 4px 0 0;
+}
+.prose-md .lexical-li-nested::before,
+.prose-md .lexical-li-nested::after {
+  display: none;
+}
+.prose-md .lexical-li-nested.lexical-li-checked,
+.prose-md .lexical-li-nested.lexical-li-unchecked {
+  padding-left: 1.75em;
+  cursor: auto;
+}
+.prose-md .lexical-checklist {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .lexical-li-checked,
+.prose-md .lexical-li-unchecked {
+  position: relative;
+  margin: 0.3em 0;
+  padding-left: 1.75em;
+  list-style: none;
+  outline: none;
+  cursor: text;
+}
+/* The item's box is the Checkbox's own markup (editor/checklist-item-node.ts),
+   placed like the read-only Markdown's Checkbox (.task-list-item below). */
+.prose-md .lexical-li > [data-slot="checkbox"] {
+  position: absolute;
+  left: 0;
+  top: 0.3em;
+  width: 1em;
+  height: 1em;
+}
+.prose-md .lexical-li-checked {
+  color: var(--prose-quiet);
+  text-decoration: line-through;
+  text-decoration-color: var(--prose-check-ring);
+}
+.prose-md .lexical-hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+  cursor: text;
+}
+.prose-md .lexical-hr.selected {
+  border-top-color: var(--foreground);
+}
+.prose-md .lexical-bold,
+.prose-md :is(strong, b) {
+  font-weight: 550;
+  color: var(--foreground);
+}
+.prose-md .lexical-italic {
+  font-style: italic;
+}
+.prose-md .lexical-strike {
+  text-decoration: line-through;
+}
+.prose-md .lexical-underline {
+  text-decoration: underline;
+}
+.prose-md blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.prose-md ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.prose-md ul ul {
+  list-style: circle;
+}
+.prose-md ul > li::marker {
+  color: var(--prose-quiet);
+}
+.prose-md ol {
+  list-style: none;
+  padding-left: 0;
+  counter-reset: ol-counter;
+}
+.prose-md ol > li {
+  counter-increment: ol-counter;
+}
+.prose-md ol > li::before {
+  content: counters(ol-counter, ".") ".";
+  margin-right: 0.5em;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.prose-md ol > li.lexical-li-nested {
+  counter-increment: none;
+}
+.prose-md ol > li.lexical-li-nested::before {
+  content: none;
+}
+.prose-md ol > li > ol {
+  padding-left: 1.4em;
+}
+.prose-md li + li {
+  margin-top: 4px;
+}
+.prose-md li > p {
+  margin: 0;
+}
+.prose-md li > ul,
+.prose-md li > ol {
+  margin-top: 4px;
+}
+.prose-md hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+.prose-md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.prose-md th,
+.prose-md td {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose-md :is(th, td):first-child {
+  padding-left: 0;
+}
+.prose-md :is(th, td):last-child {
+  padding-right: 0;
+}
+.prose-md :is(th, td)[align="center"] {
+  text-align: center;
+}
+.prose-md :is(th, td)[align="right"] {
+  text-align: right;
+}
+.prose-md th {
+  color: var(--muted-foreground);
+  background: transparent;
+  font-weight: 500;
+}
+.lexical-table-scroll {
+  overflow-x: auto;
+}
+.prose-md :is(th, td) > p {
+  margin: 0;
+}
+.prose-md .lexical-table-cell-selected {
+  background: var(--selected);
+}
+.lexical-table-selection ::selection {
+  background: transparent;
+}
+.prose-md .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .task-list-item {
+  position: relative;
+  margin: 0.3em 0;
+  padding-left: 1.75em;
+}
+.prose-md .task-list-item > [data-slot="checkbox"],
+.prose-md .task-list-item > p:first-child > [data-slot="checkbox"] {
+  position: absolute;
+  left: 0;
+  top: 0.3em;
+  width: 1em;
+  height: 1em;
+}
+.prose-md
+  .task-list-item:has(
+    > [data-slot="checkbox"][data-checked],
+    > p:first-child > [data-slot="checkbox"][data-checked]
+  ) {
+  color: var(--prose-quiet);
+  text-decoration: line-through;
+  text-decoration-color: var(--prose-check-ring);
+}
+
+/* The editor's empty-line hint (LinePlaceholderPlugin). */
+.lexical-content:focus p[data-line-placeholder] {
+  position: relative;
+}
+.lexical-content:focus p[data-line-placeholder]::before {
+  content: attr(data-line-placeholder) / "";
+  position: absolute;
+  inset-inline-start: 0;
+  color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  pointer-events: none;
+  user-select: none;
+}

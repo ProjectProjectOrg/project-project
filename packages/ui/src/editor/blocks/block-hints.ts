@@ -36,9 +36,9 @@ import {
   type NodeKey
 } from "lexical"
 
-import { $isTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
-import { $topLevelBlocks } from "./blockCommands"
-import { slashTriggerMatch } from "./slashMenuItems"
+import { slashTriggerMatch } from "../slash-menu/slash-menu-items"
+import { $topLevelBlocks } from "./block-commands"
+import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
 
 export type ActiveHint = Readonly<{
   key: NodeKey

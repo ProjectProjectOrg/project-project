@@ -1,7 +1,8 @@
-import { Button } from "@pp/ui/button"
-import { transitions } from "@pp/ui/lib/springs"
 import { motion } from "motion/react"
 import type { ReactElement, ReactNode } from "react"
+
+import { Button } from "../components/button"
+import { transitions } from "../lib/springs"
 
 const OVERLAY_REVEAL =
   "invisible opacity-0 transition-opacity group-focus-within/editing:visible hitbox-hover:opacity-100 group-focus-within/hitbox:opacity-100"

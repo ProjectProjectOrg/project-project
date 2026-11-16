@@ -45,7 +45,7 @@ import {
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
-const loadMarkdown = () => import("@/features/editor/components/Markdown")
+const loadMarkdown = () => import("@pp/ui/editor/markdown")
 
 const Markdown = lazy(() =>
   loadMarkdown().then((mod) => ({ default: mod.Markdown }))

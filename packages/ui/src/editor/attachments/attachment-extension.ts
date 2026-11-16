@@ -1,6 +1,6 @@
 import { defineExtension } from "lexical"
 
-import { AttachmentNode } from "./AttachmentNode"
+import { AttachmentNode } from "./attachment-node"
 
 export const AttachmentExtension = defineExtension({
   name: "@pp/attachment",

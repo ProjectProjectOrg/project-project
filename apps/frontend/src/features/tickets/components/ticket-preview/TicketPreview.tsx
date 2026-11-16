@@ -12,6 +12,8 @@ import {
   type TicketStatus
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Copy } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
@@ -29,8 +31,6 @@ import {
 } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   project,
   type ProjectRequest

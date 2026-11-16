@@ -2,7 +2,7 @@ import type { TextMatchTransformer } from "@lexical/markdown"
 import { formatMentionHref, parseMentionHref } from "@pp/shared"
 import { $createTextNode } from "lexical"
 
-import { $createMentionNode, $isMentionNode, MentionNode } from "./MentionNode"
+import { $createMentionNode, $isMentionNode, MentionNode } from "./mention-node"
 
 export const MENTION_TRANSFORMER: TextMatchTransformer = {
   dependencies: [MentionNode],

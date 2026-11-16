@@ -1,4 +1,3 @@
-import { transitions } from "@pp/ui/lib/springs"
 import { $getRoot, type LexicalEditor, type NodeKey } from "lexical"
 import {
   animate,
@@ -15,15 +14,16 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
-import { $isTopLevelBlockNode } from "./blockCommands"
-import { layoutTop } from "./blockRail"
+import { transitions } from "../../lib/springs"
+import { $isTopLevelBlockNode } from "./block-commands"
+import { layoutTop } from "./block-rail"
 import {
   dragLayout,
   dropPlacement,
   insertionIndexAt,
   type DragSlot,
   type DropPlacement
-} from "./dragLayout"
+} from "./drag-layout"
 
 const DRAG_THRESHOLD = 4
 const PREVIEW_MAX_HEIGHT = 320

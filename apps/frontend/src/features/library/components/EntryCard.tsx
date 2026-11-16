@@ -1,4 +1,5 @@
 import type { BlockIconName } from "@pp/shared"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import type { ReactNode } from "react"
@@ -7,7 +8,6 @@ import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
 import type { LibraryKind } from "../lib/libraryModel"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import { LibraryEntryLink, LibraryNewLink } from "./LibraryEntryLink"
 
 export const ENTRY_GRID_CLASS =

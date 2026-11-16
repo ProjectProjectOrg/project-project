@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
 import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import { Archive, CircleSlash, Flag, Layers, Plus, Trash2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
@@ -16,7 +17,6 @@ import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import { scopeSelectionClear } from "@/features/command-menu/lib/commandScopes"
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   projectActor,
   projectRequest

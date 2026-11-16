@@ -4,7 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut
-} from "@pp/ui/dropdown-menu"
+} from "../../components/dropdown-menu"
 import {
   ArrowDown,
   ArrowUp,
@@ -14,14 +14,12 @@ import {
   Ungroup,
   Unlink,
   Upload
-} from "@pp/ui/icons"
-
-import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { keyLabels } from "@/lib/keyLabels"
-import { m } from "@/paraglide/messages"
-
-import type { BlockMenuAction, BlockMenuModel } from "./blockMenuModel"
-import { ConfirmMenuItem } from "./ConfirmMenuItem"
+} from "../../components/icons"
+import { keyLabelsFrom } from "../../lib/keyLabels"
+import { m } from "../messages"
+import { BlockIconGlyph } from "./block-icon-glyph"
+import type { BlockMenuAction, BlockMenuModel } from "./block-menu-model"
+import { ConfirmMenuItem } from "./confirm-menu-item"
 
 export type BlockMenuProps = Readonly<{
   model: BlockMenuModel | null
@@ -105,7 +103,10 @@ function BlockMenuItems({
       >
         <ArrowUp strokeWidth={1.75} />
         {m.editor_block_menu_move_up()}
-        <DropdownMenuShortcut keys="mod+shift+up" keyLabels={keyLabels()} />
+        <DropdownMenuShortcut
+          keys="mod+shift+up"
+          keyLabels={keyLabelsFrom(m)}
+        />
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!model.canMoveDown}
@@ -113,7 +114,10 @@ function BlockMenuItems({
       >
         <ArrowDown strokeWidth={1.75} />
         {m.editor_block_menu_move_down()}
-        <DropdownMenuShortcut keys="mod+shift+down" keyLabels={keyLabels()} />
+        <DropdownMenuShortcut
+          keys="mod+shift+down"
+          keyLabels={keyLabelsFrom(m)}
+        />
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => onAction("duplicate")}>
         <Copy strokeWidth={1.75} />

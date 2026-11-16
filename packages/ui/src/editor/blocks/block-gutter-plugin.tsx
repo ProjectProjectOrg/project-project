@@ -2,13 +2,10 @@ import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { mergeRegister } from "@lexical/utils"
-import { TooltipGroup } from "@pp/ui/tooltip"
 import {
   $getNodeByKey,
   COMMAND_PRIORITY_LOW,
   HISTORY_PUSH_TAG,
-  type LexicalEditor,
-  type LexicalNode,
   type NodeKey
 } from "lexical"
 import {
@@ -20,10 +17,9 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { blockChrome, lookupFor } from "@/features/editor/lib/blockChrome"
-import { m } from "@/paraglide/messages"
-
-import { $isTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
+import { TooltipGroup } from "../../components/tooltip"
+import { m } from "../messages"
+import { blockChrome, lookupFor } from "./block-chrome"
 import {
   $duplicateBlock,
   $findBlockAtSelection,
@@ -32,165 +28,44 @@ import {
   $moveBlockTo,
   $removeBlock,
   $resetBlock,
-  $topLevelBlocks,
   $unwrapBlock,
-  OPEN_BLOCK_MENU_COMMAND,
-  type BlockDirection,
-  type TopLevelBlockNode
-} from "./blockCommands"
-import { BlockDragPreview } from "./BlockDragPreview"
-import { registerBlockKeyboard } from "./blockKeyboard"
-import { BlockMenu } from "./BlockMenu"
+  OPEN_BLOCK_MENU_COMMAND
+} from "./block-commands"
+import { BlockDragPreview } from "./block-drag-preview"
+import { registerBlockKeyboard } from "./block-keyboard"
+import { BlockMenu } from "./block-menu"
 import {
   $blockMenuModel,
   type BlockMenuAction,
   type BlockMenuModel
-} from "./blockMenuModel"
+} from "./block-menu-model"
+import { railHost } from "./block-rail"
+import type { DropPlacement } from "./drag-layout"
+import type { EditorBlocks } from "./editor-blocks"
+import { GutterButton } from "./gutter-button"
 import {
-  INSET_RAIL_LEFT,
-  layoutTop,
-  measureRailBounds,
-  RAIL_SIZE,
-  railHost,
-  railLeft
-} from "./blockRail"
-import type { DropPlacement } from "./dragLayout"
-import type { EditorBlocks } from "./editorBlocks"
-import { GutterButton } from "./GutterButton"
-import { DETACH_SYNCED_BLOCK_COMMAND, SyncedBlockNode } from "./SyncedBlockNode"
-import { $revertToReference } from "./templateBlocks"
-import { useBlockDrag } from "./useBlockDrag"
-
-type GutterItem = Readonly<{
-  key: NodeKey
-  blockType: string
-  synced: boolean
-  top: number
-  blockTop: number
-  right: number
-}>
-
-type Announcement = Readonly<{ id: number; text: string }>
-
-const firstLineOffset = (block: HTMLElement): number => {
-  const line =
-    block.firstElementChild instanceof HTMLElement
-      ? block.firstElementChild
-      : block
-  const top =
-    line === block
-      ? 0
-      : line.offsetParent === block
-        ? line.offsetTop
-        : line.getBoundingClientRect().top - block.getBoundingClientRect().top
-  const lineHeight = Number.parseFloat(getComputedStyle(line).lineHeight)
-  const box = Number.isFinite(lineHeight)
-    ? lineHeight
-    : line.getBoundingClientRect().height
-  return top + (box - RAIL_SIZE) / 2
-}
-
-const measureItems = (
-  editor: LexicalEditor,
-  anchor: HTMLElement
-): ReadonlyArray<GutterItem> => {
-  const anchorRight = anchor.getBoundingClientRect().right
-  return editor.getEditorState().read(() =>
-    $topLevelBlocks().flatMap((node) => {
-      const element = editor.getElementByKey(node.getKey())
-      if (element === null) return []
-      const blockTop = layoutTop(element, anchor)
-      return [
-        {
-          key: node.getKey(),
-          blockType: node.getBlockType(),
-          synced: !$isTicketBlockNode(node),
-          top: blockTop + firstLineOffset(element),
-          blockTop,
-          right: anchorRight - element.getBoundingClientRect().right
-        }
-      ]
-    })
-  )
-}
-
-const sameItems = (
-  a: ReadonlyArray<GutterItem>,
-  b: ReadonlyArray<GutterItem>
-): boolean =>
-  a.length === b.length &&
-  a.every(
-    (item, index) =>
-      item.key === b[index].key &&
-      item.blockType === b[index].blockType &&
-      Math.abs(item.top - b[index].top) < 0.5 &&
-      Math.abs(item.right - b[index].right) < 0.5
-  )
-
-const blockAtY = (
-  editor: LexicalEditor,
-  items: ReadonlyArray<GutterItem>,
-  y: number
-): NodeKey | null =>
-  items.find((item) => {
-    const rect = editor.getElementByKey(item.key)?.getBoundingClientRect()
-    return rect !== undefined && y >= rect.top && y <= rect.bottom
-  })?.key ?? null
-
-const focusedWithin = (editor: LexicalEditor): HTMLElement | null => {
-  const active = document.activeElement
-  const area = editor.getRootElement()?.parentElement
-  return active instanceof HTMLElement && area?.contains(active) === true
-    ? active
-    : null
-}
-
-const measureRail = (anchor: HTMLElement): number | null => {
-  const host = railHost(anchor)
-  return host.hasAttribute("data-block-rail-inset")
-    ? INSET_RAIL_LEFT
-    : railLeft(measureRailBounds(anchor, host))
-}
-
-const flash = (element: HTMLElement, order: number) => {
-  element.style.setProperty("--flash-order", String(order))
-  element.dataset.flash = ""
-  const settle = (event: AnimationEvent) => {
-    if (event.animationName !== "ticket-block-flash") return
-    element.removeEventListener("animationend", settle)
-    delete element.dataset.flash
-    element.style.removeProperty("--flash-order")
-  }
-  element.addEventListener("animationend", settle)
-}
-
-type Created = Readonly<{ key: NodeKey; element: HTMLElement }>
+  blockAtY,
+  flash,
+  focusedWithin,
+  inDocumentOrder,
+  measureItems,
+  measureRail,
+  sameItems,
+  type Created,
+  type GutterItem
+} from "./gutter-layout"
+import {
+  DETACH_SYNCED_BLOCK_COMMAND,
+  SyncedBlockNode
+} from "./synced-block-node"
+import { $revertToReference } from "./template-blocks"
+import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
+import { useBlockAnnouncer } from "./use-block-announcer"
+import { useBlockDrag } from "./use-block-drag"
 
 const LANDING_MS = 1500
+
 const NO_LANDING: ReadonlyMap<NodeKey, number> = new Map()
-
-const inDocumentOrder = (
-  created: ReadonlyArray<Created>
-): ReadonlyArray<Created> =>
-  created.toSorted((a, b) =>
-    a.element.compareDocumentPosition(b.element) &
-    Node.DOCUMENT_POSITION_FOLLOWING
-      ? -1
-      : 1
-  )
-
-function useAnnouncer() {
-  const [announcement, setAnnouncement] = useState<Announcement>({
-    id: 0,
-    text: ""
-  })
-  const announce = useCallback(
-    (text: string) =>
-      setAnnouncement((current) => ({ id: current.id + 1, text })),
-    []
-  )
-  return { announcement, announce }
-}
 
 export function BlockGutterPlugin({
   blocks,
@@ -215,47 +90,7 @@ export function BlockGutterPlugin({
   const [editorFocused, setEditorFocused] = useState(false)
   const [menu, setMenu] = useState<BlockMenuModel | null>(null)
   const [returnFocus, setReturnFocus] = useState<HTMLElement | null>(null)
-  const { announcement, announce } = useAnnouncer()
-
-  const nameOf = useCallback(
-    (node: LexicalNode | null): string | null =>
-      $isTopLevelBlockNode(node)
-        ? blockChrome(node.getBlockType(), lookup).name
-        : null,
-    [lookup]
-  )
-
-  const announceMoved = useCallback(
-    (
-      node: TopLevelBlockNode,
-      neighbour: LexicalNode | null,
-      direction: BlockDirection
-    ) => {
-      const name = nameOf(node) ?? ""
-      if (neighbour === null) {
-        announce(
-          direction === "up"
-            ? m.editor_block_announce_edge_top({ name })
-            : m.editor_block_announce_edge_bottom({ name })
-        )
-        return
-      }
-      const target = nameOf(neighbour)
-      if (target === null)
-        announce(
-          direction === "up"
-            ? m.editor_block_announce_moved_up({ name })
-            : m.editor_block_announce_moved_down({ name })
-        )
-      else
-        announce(
-          direction === "up"
-            ? m.editor_block_announce_moved_above({ name, target })
-            : m.editor_block_announce_moved_below({ name, target })
-        )
-    },
-    [announce, nameOf]
-  )
+  const { announcement, announce, announceMoved } = useBlockAnnouncer(lookup)
 
   const onDrop = useCallback(
     (key: NodeKey, target: DropPlacement) =>

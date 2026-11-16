@@ -11,7 +11,7 @@ import {
   addSectionGroups,
   slashMenuSections,
   slashTriggerMatch
-} from "./slashMenuItems"
+} from "./slash-menu-items"
 
 describe("slashTriggerMatch", () => {
   it("fires at the start of a line or after whitespace only", () => {

@@ -1,8 +1,8 @@
 import type { TextMatchTransformer } from "@lexical/markdown"
 import { $createTextNode } from "lexical"
 
-import { $createPaperNode, $isPaperNode, PaperNode } from "./PaperNode"
-import { isPaperDesignUrl } from "./paperUrl"
+import { $createPaperNode, $isPaperNode, PaperNode } from "./paper-node"
+import { isPaperDesignUrl } from "./paper-url"
 
 const PAPER_MARKDOWN_RE =
   /\[((?:\\.|[^\]\\])*)\]\((https:\/\/app\.paper\.design\/file\/[^)\s]+)\)/i

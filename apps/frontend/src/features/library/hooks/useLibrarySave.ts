@@ -5,13 +5,13 @@ import type {
   UpdateBlockInput,
   UpdateTypeInput
 } from "@pp/shared"
+import type { SaveStatus } from "@pp/ui/editor/save-queue"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type * as Registry from "effect/reactivity/AtomRegistry"
 import { useCallback, useContext, useRef, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 

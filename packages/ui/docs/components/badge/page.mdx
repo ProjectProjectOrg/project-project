@@ -69,6 +69,10 @@ import { Badge } from "@pp/ui/badge"
 - Text in every tone passes AA on its own fill, in both themes.
 - When a badge is a select's trigger, its value changes through `TextSwap` (see Select).
 
+### Centred on the text around it
+
+A badge in running text (a mention, an attachment or design chip, inline code) takes `inline-chip`: its middle sits on half the text's cap height above the baseline, the text's optical centre. Plain `vertical-align: middle` centres on half the x-height, about a pixel low; a fixed nudge (`align-[-4px]`) is only right for one font size. The correction is measured in the surrounding text's font, so a mono or smaller chip still lines up.
+
 ## Examples
 
 ### Pull request links

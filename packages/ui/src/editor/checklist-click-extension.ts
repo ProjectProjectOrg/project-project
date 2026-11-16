@@ -1,16 +1,24 @@
-import { $isListItemNode, CheckListExtension } from "@lexical/list"
 // Bypasses @lexical/list's click handler, whose per-LI dedup stamp swallows the click after a near miss.
+import { $isListItemNode, CheckListExtension } from "@lexical/list"
 import {
   $getNearestNodeFromDOMNode,
   defineExtension,
   type LexicalEditor
 } from "lexical"
 
+import { ChecklistItemExtension } from "./checklist-item-node"
+
 const CHECKBOX_ZONE_EM = 1.75
 
 function isCheckboxClick(
   event: MouseEvent | PointerEvent
 ): HTMLLIElement | null {
+  // The drawn box (checklist-item-node.ts) belongs to its item.
+  const box =
+    event.target instanceof Element
+      ? event.target.closest('[data-slot="checkbox"]')
+      : null
+  if (box?.parentElement instanceof HTMLLIElement) return box.parentElement
   const target = event.target
   if (!(target instanceof HTMLLIElement)) return null
   if (target.classList.contains("lexical-li-nested")) return null
@@ -28,7 +36,7 @@ function isCheckboxClick(
 
 export const ChecklistClickExtension = defineExtension({
   name: "@pp/checklist-click",
-  dependencies: [CheckListExtension],
+  dependencies: [CheckListExtension, ChecklistItemExtension],
   register: (editor: LexicalEditor) => {
     return editor.registerRootListener((rootElement) => {
       if (rootElement === null) return

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { FIGMA_MARKDOWN_RE, formatFigmaMarkdown } from "./figmaTransformer"
+import { FIGMA_MARKDOWN_RE, formatFigmaMarkdown } from "./figma-transformer"
 
 const KEY = "aBcDeF1234567890GhIjKl"
 

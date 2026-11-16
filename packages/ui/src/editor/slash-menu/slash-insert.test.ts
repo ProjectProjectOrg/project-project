@@ -31,19 +31,19 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { BUILTIN_LIBRARY, lookupFor } from "@/features/editor/lib/blockChrome"
-
-import { MARKDOWN_TRANSFORMERS } from "../../components/LexicalEditor"
-import { TicketBlockExtension } from "../TicketBlockExtension"
-import { $isTicketBlockNode } from "../TicketBlockNode"
+import { $insertBasicBlock } from "../../editor/basic-blocks"
+import { BUILTIN_LIBRARY, lookupFor } from "../blocks/block-chrome"
 import {
   $applyTemplate,
   $insertBlocksAt,
   $selectFirstHint,
   missingBlocksMarkdown
-} from "./blockCommands"
-import { $insertBasic, $runSlashItem } from "./slashCommands"
-import { slashMenuSections } from "./slashMenuItems"
+} from "../blocks/block-commands"
+import { TicketBlockExtension } from "../blocks/ticket-block-extension"
+import { $isTicketBlockNode } from "../blocks/ticket-block-node"
+import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { $runSlashItem } from "./slash-commands"
+import { slashMenuSections } from "./slash-menu-items"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
@@ -374,7 +374,7 @@ describe("markdown slash actions", () => {
     const editor = editorWith(body)
     run(editor, () => {
       $caretAfter("Example")
-      $insertBasic(editor, "paragraph")
+      $insertBasicBlock(editor, "paragraph")
     })
     expect(markdown(editor)).toBe(expected)
   })
@@ -383,8 +383,8 @@ describe("markdown slash actions", () => {
     const editor = editorWith("Example")
     run(editor, () => {
       $caretAfter("Example")
-      $insertBasic(editor, "quote")
-      $insertBasic(editor, "paragraph")
+      $insertBasicBlock(editor, "quote")
+      $insertBasicBlock(editor, "paragraph")
     })
     expect(markdown(editor)).toBe("Example")
   })

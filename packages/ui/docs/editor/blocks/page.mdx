@@ -1,0 +1,70 @@
+export const meta = {
+  title: "Sections",
+  group: "Editor",
+  order: 5,
+  description:
+    "Named sections of a ticket (context, acceptance criteria, definition of done), from the org's and project's library. Each has an icon in the margin, a handle to drag it and a menu; synced sections follow their definition. The app calls them sections; the code calls them blocks (`<block>` in Markdown, `blocks` props).",
+  sources: [
+    { kind: "own", name: "TicketBlockNode", note: "an element node" },
+    { kind: "own", name: "SyncedBlockNode", note: "a decorator node" },
+    { kind: "own", name: "BlockGutterPlugin" }
+  ]
+}
+
+## Overview
+
+Hover a section for its handle in the gutter: drag it to move the section, click it for the menu.
+
+<Demo name="overview" title="Sections in a ticket" />
+
+## Usage
+
+```tsx
+<LexicalEditor
+  markdown={body}
+  blocks={{
+    mode: "ticket",
+    library,
+    ticketType,
+    canEdit: { org: canEditOrg, project: canEditProject },
+    onEditDefinition: (kind, key, origin) => openDefinition(kind, key, origin),
+    onMakeDefinition: (definition, content) => saveDefinition(definition, content)
+  }}
+/>
+```
+
+In Markdown a block is a `<block>` element around its content: `<block type="acceptance-criteria">` … `</block>`; a synced one adds `sync`.
+
+| `blocks` | |
+| --- | --- |
+| `mode` | `"ticket"` (a ticket's description), `"template"` (a type's template) or `"definition"` (a block's own content, with `{{hints}}`) |
+| `library` | The blocks and types the org and project define, over the built-ins |
+| `ticketType` | The ticket's type, for the slash menu's suggestions |
+| `canEdit` | Whether the viewer can edit the org's and project's definitions |
+| `onEditDefinition`, `onMakeDefinition` | Open a block's definition; save a block from the ticket as a new definition |
+
+## Rules
+
+### Icons hang in the margin
+
+A block's icon sits in the margin at its first line's height, so the text keeps one left edge with the rest of the description. Surfaces without a margin (the app's comments) hide it, and the block reads as plain sections.
+
+### One handle, three jobs
+
+Hovering a section shows its handle in the gutter. Drag it to move the section (the others make room; a drop flashes it in place). Click it for the menu: move up or down, duplicate, remove (or remove just the wrapper and keep the content), and for a synced section detach or reset it; a changed section can become a new definition. Destructive actions confirm in place.
+
+### Synced sections follow their definition
+
+A synced section (the definition of done) shows its definition's content; only the checkboxes are the ticket's. Edit the definition and every ticket follows. Detach to make a copy you can edit; a removed definition says so and keeps the last content.
+
+### Hints are placeholders
+
+In a template, `{{text}}` is a hint: shown faded where the content goes, never saved into a ticket.
+
+## Examples
+
+<Demo name="read-only" title="Read-only" />
+
+### Say "section"
+
+People see sections: the slash menu's tab, the library, the handle's and menu's names, the announcements. "Block" stays in code and Markdown (`<block>`, `blocks`), and in "Block type", which is about text blocks (paragraph, heading, list).

@@ -1,16 +1,16 @@
 import type { BlockLookup } from "@pp/shared"
-import { Button } from "@pp/ui/button"
-import { GripVertical } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
-import { TooltipGroupTrigger } from "@pp/ui/tooltip"
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from "react"
 
-import { blockChrome, blockTooltip } from "@/features/editor/lib/blockChrome"
-import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { m } from "@/paraglide/messages"
+import { Button } from "../../components/button"
+import { GripVertical } from "../../components/icons"
+import { TooltipGroupTrigger } from "../../components/tooltip"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import { blockChrome, blockTooltip } from "./block-chrome"
+import { BlockIconGlyph } from "./block-icon-glyph"
 
 export type GutterButtonState = Readonly<{
   grip: boolean

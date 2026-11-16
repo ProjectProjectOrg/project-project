@@ -1,6 +1,10 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import type { ProjectDetail } from "@pp/shared"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
+import { useEditMode } from "@pp/ui/editor/use-edit-mode"
 import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -8,12 +12,6 @@ import type { LexicalEditor as LexicalEditorType } from "lexical"
 import { useRef, useState } from "react"
 
 import { PageContainer } from "@/components/shell/Page"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { useEditMode } from "@/features/editor/hooks/useEditMode"
 import { updateProject } from "@/features/projects/atoms/projects"
 import { AboutGoTo } from "@/features/projects/components/about/AboutGoTo"
 import { AboutLinks } from "@/features/projects/components/about/AboutLinks"

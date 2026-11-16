@@ -1,15 +1,15 @@
 import type { Library } from "@pp/shared"
 import type { ReactNode } from "react"
 
-import { Markdown } from "@/features/editor/components/Markdown"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
-import { hintsAsEmphasis } from "@/features/editor/lib/syncedContent"
-import { DitheredBlocks } from "@/features/library/components/DitheredBlocks"
-import { m } from "@/paraglide/messages"
+import type { BasicBlockKind } from "../../editor/basic-blocks"
+import { LibraryContext } from "../blocks/block-chrome"
+import { DitheredBlocks } from "../blocks/dithered-blocks"
+import { hintsAsEmphasis } from "../blocks/synced-content"
+import { Markdown } from "../markdown"
+import { m } from "../messages"
+import type { SlashItem } from "./slash-menu-items"
 
-import type { SlashBasicKind, SlashItem } from "./slashMenuItems"
-
-export const BASIC_LITERALS: Readonly<Record<SlashBasicKind, string>> = {
+export const BASIC_LITERALS: Readonly<Record<BasicBlockKind, string>> = {
   paragraph: "¶",
   "heading-1": "#",
   "heading-3": "###",
@@ -27,7 +27,7 @@ export const BASIC_LITERALS: Readonly<Record<SlashBasicKind, string>> = {
   hint: "{{ }}"
 }
 
-const basicSample = (kind: SlashBasicKind, label: string): string => {
+const basicSample = (kind: BasicBlockKind, label: string): string => {
   switch (kind) {
     case "paragraph":
       return label

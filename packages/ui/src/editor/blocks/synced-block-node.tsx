@@ -23,7 +23,17 @@ import {
   type ReactElement
 } from "react"
 
-import { MarkdownSegment } from "@/features/editor/components/Markdown"
+import {
+  isInteractiveTarget,
+  useDecoratorSelection
+} from "../../editor/use-decorator-selection"
+import { MarkdownSegment } from "../markdown"
+import { m } from "../messages"
+import { useBlockLookup } from "./block-chrome"
+import {
+  EditorBlocksContext,
+  type EditorBlocksScope
+} from "./editor-blocks-context"
 import {
   SourceRemovedNote,
   SyncedChip,
@@ -32,12 +42,7 @@ import {
   managedInLabel,
   syncedChipLabel,
   syncedEditAction
-} from "@/features/editor/components/SyncedBlock"
-import {
-  isInteractiveTarget,
-  useDecoratorSelection
-} from "@/features/editor/hooks/useDecoratorSelection"
-import { useBlockLookup } from "@/features/editor/lib/blockChrome"
+} from "./synced-block"
 import {
   splitLeadingHeading,
   syncedDisplayContent,
@@ -45,13 +50,7 @@ import {
   toggleTaskAtLine,
   type SyncedBlockMode,
   type SyncedView
-} from "@/features/editor/lib/syncedContent"
-import { m } from "@/paraglide/messages"
-
-import {
-  EditorBlocksContext,
-  type EditorBlocksScope
-} from "./editorBlocksContext"
+} from "./synced-content"
 
 export type DetachSyncedBlockPayload = Readonly<{
   key: NodeKey

@@ -6,7 +6,7 @@ import {
   insertionIndexAt,
   isNoopInsertion,
   type DragSlot
-} from "./dragLayout"
+} from "./drag-layout"
 
 const SLOTS: ReadonlyArray<DragSlot> = [
   { key: "a", top: 0, height: 40 },

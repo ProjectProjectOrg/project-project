@@ -7,6 +7,7 @@ import type {
   TypeDefinition,
   TypeKey
 } from "@pp/shared"
+import { Markdown } from "@pp/ui/editor/markdown"
 import {
   GitBranch,
   GitMerge,
@@ -21,7 +22,6 @@ import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { Markdown } from "@/features/editor/components/Markdown"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"

@@ -4,6 +4,7 @@ import {
   type BlockIconName,
   type Library
 } from "@pp/shared"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { Check } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useId, useMemo, type ReactNode } from "react"
@@ -18,7 +19,6 @@ import {
   libraryWithExamples,
   NEW_TYPE_ICON
 } from "../lib/newEntry"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import { BlockStrip } from "./BlockSketch"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 

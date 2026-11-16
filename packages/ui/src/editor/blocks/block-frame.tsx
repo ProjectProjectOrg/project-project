@@ -1,10 +1,13 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import type { ReactNode } from "react"
 
-import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { m } from "@/paraglide/messages"
-
-import { blockChrome, blockTooltip, useBlockLookup } from "../lib/blockChrome"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "../../components/tooltip"
+import { m } from "../messages"
+import { blockChrome, blockTooltip, useBlockLookup } from "./block-chrome"
+import { BlockIconGlyph } from "./block-icon-glyph"
 
 export function BlockFrame({
   blockType,

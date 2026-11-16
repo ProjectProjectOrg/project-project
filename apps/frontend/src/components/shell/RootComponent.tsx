@@ -3,6 +3,7 @@ import { Outlet, useRouterState } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
+import { AppEditorServices } from "@/features/editor/AppEditorServices"
 
 export function RootComponent() {
   const isLoading = useRouterState({ select: (s) => s.isLoading })
@@ -18,7 +19,10 @@ export function RootComponent() {
 
   return (
     <>
-      <Outlet />
+      {/* The editor's data and navigation, for every editor in the app. */}
+      <AppEditorServices>
+        <Outlet />
+      </AppEditorServices>
       <LoaderOverlay active={isLoading} />
       {/* The one tooltip for the whole app; every TooltipTrigger feeds it. */}
       <TooltipHost />

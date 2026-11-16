@@ -8,45 +8,15 @@ import {
   type TypeKey
 } from "@pp/shared"
 
-import type { EditorBlocksMode } from "./editorBlocks"
+import {
+  BASIC_BLOCK_KINDS,
+  type BasicBlockKind
+} from "../../editor/basic-blocks"
+import type { EditorBlocksMode } from "../blocks/editor-blocks"
 
 export type SlashMode = EditorBlocksMode | "basic"
 
-export type SlashBasicKind =
-  | "paragraph"
-  | "heading-1"
-  | "heading"
-  | "heading-3"
-  | "heading-4"
-  | "heading-5"
-  | "heading-6"
-  | "checklist"
-  | "bullet-list"
-  | "numbered-list"
-  | "code"
-  | "quote"
-  | "divider"
-  | "table"
-  | "hint"
-
-export const SLASH_BASIC_KINDS: ReadonlyArray<SlashBasicKind> = [
-  "paragraph",
-  "heading-1",
-  "heading",
-  "heading-3",
-  "heading-4",
-  "heading-5",
-  "heading-6",
-  "checklist",
-  "bullet-list",
-  "numbered-list",
-  "code",
-  "quote",
-  "divider",
-  "table"
-]
-
-const BASIC_ALIASES: Record<SlashBasicKind, ReadonlyArray<string>> = {
+const BASIC_ALIASES: Record<BasicBlockKind, ReadonlyArray<string>> = {
   paragraph: ["text", "plain", "normal", "body"],
   "heading-1": ["h1"],
   "heading-3": ["h3"],
@@ -71,7 +41,7 @@ export type SlashItem =
       definition: BlockDefinition
       suggestedBy: string | null
     }>
-  | Readonly<{ kind: "basic"; key: string; basic: SlashBasicKind }>
+  | Readonly<{ kind: "basic"; key: string; basic: BasicBlockKind }>
   | Readonly<{ kind: "gallery"; key: string }>
 
 export type SlashSectionKey = "suggested" | "blocks" | "basic"
@@ -91,7 +61,7 @@ export type SlashMenuInput = Readonly<{
   ticketType: TypeKey | null
   body: string
   query: string
-  basicLabel: (kind: SlashBasicKind) => string
+  basicLabel: (kind: BasicBlockKind) => string
   mode?: SlashMode
 }>
 
@@ -211,8 +181,8 @@ export const addSectionGroups = (
   }
 }
 
-const basicKindsFor = (mode: SlashMode): ReadonlyArray<SlashBasicKind> =>
-  mode === "definition" ? [...SLASH_BASIC_KINDS, "hint"] : SLASH_BASIC_KINDS
+const basicKindsFor = (mode: SlashMode): ReadonlyArray<BasicBlockKind> =>
+  mode === "definition" ? [...BASIC_BLOCK_KINDS, "hint"] : BASIC_BLOCK_KINDS
 
 const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
   basicKindsFor(input.mode ?? "ticket").flatMap(

@@ -1,17 +1,20 @@
 import type { FigmaRef } from "@pp/shared"
-import { Badge } from "@pp/ui/badge"
-import { ExternalLink } from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
-import { MorphIconLink } from "@pp/ui/morph-icon-link"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { motion } from "motion/react"
 import { useState } from "react"
 
-import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { m } from "@/paraglide/messages"
-
-import { useFigmaMetadata } from "./figmaMetadata"
+import { Badge } from "../../components/badge"
+import { ExternalLink } from "../../components/icons"
+import { MorphIconLink } from "../../components/morph-icon-link"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "../../components/popover"
+import { transitions } from "../../lib/springs"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import type { TicketTarget } from "../services"
+import { useFigmaMetadata } from "./figma-metadata"
 
 const HOVER_DELAY_MS = 450
 
@@ -62,7 +65,7 @@ export const figmaDisplayName = (input: {
 export function FigmaChip({
   request,
   ...props
-}: FigmaChipProps & { request: FigmaTicketLinksRequest | null }) {
+}: FigmaChipProps & { request: TicketTarget | null }) {
   return request === null ? (
     <FigmaChipContent {...props} metadata={null} />
   ) : (
@@ -80,7 +83,7 @@ type FigmaChipProps = Readonly<{
 function ResolvedFigmaChip({
   request,
   ...props
-}: FigmaChipProps & { request: FigmaTicketLinksRequest }) {
+}: FigmaChipProps & { request: TicketTarget }) {
   const metadata = useFigmaMetadata(props.reference, request)
   return <FigmaChipContent {...props} metadata={metadata} />
 }
@@ -100,7 +103,7 @@ function FigmaChipContent({
     return (
       <Badge
         size="xs"
-        className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption text-muted-foreground"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption text-muted-foreground"
       >
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
@@ -117,12 +120,14 @@ function FigmaChipContent({
   const thumbnailUrl = metadata?.thumbnailUrl ?? null
   const showThumbnail = thumbnailUrl !== null && !broken
 
-  const body = (
+  const nameParts = (
     <>
       <motion.span
         layout="position"
         transition={transitions.morph}
-        className="flex shrink-0 items-center"
+        // A 12px box like the open icon's, so the logo sits as far from
+        // the start as the icon does from the end.
+        className="flex size-3 shrink-0 items-center justify-center"
       >
         <FigmaGlyph className="h-3" />
       </motion.span>
@@ -134,59 +139,67 @@ function FigmaChipContent({
       >
         {resolvedName}
       </motion.span>
-      {url === undefined ? null : (
-        <MorphIconLink
-          layoutId={`${morphId}-open`}
-          href={url}
-          target="_blank"
-          rel="noreferrer noopener"
-          data-figma-action="open"
-          label={m.figma_embed_open_in_figma()}
-          icon={ExternalLink}
-          className="-mr-1.5"
-        />
-      )}
     </>
   )
+  const open =
+    url === undefined ? null : (
+      <MorphIconLink
+        layoutId={`${morphId}-open`}
+        href={url}
+        target="_blank"
+        rel="noreferrer noopener"
+        data-figma-action="open"
+        label={m.figma_embed_open_in_figma()}
+        icon={ExternalLink}
+        className="-mr-1.5"
+      />
+    )
 
   if (!showThumbnail) {
     return (
       <Badge
         size="xs"
-        className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
         title={metadata?.fileName ?? resolvedName}
       >
-        {body}
+        {nameParts}
+        {open}
       </Badge>
     )
   }
 
+  // The name previews the frame on hover; the open link sits beside it,
+  // not inside it (one control each).
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={HOVER_DELAY_MS}
-        render={
-          <Badge
-            size="xs"
-            className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption"
-            title={metadata?.fileName ?? resolvedName}
+    <Badge
+      size="xs"
+      className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
+      title={metadata?.fileName ?? resolvedName}
+      contentEditable={false}
+    >
+      <Popover>
+        <PopoverTrigger
+          openOnHover
+          delay={HOVER_DELAY_MS}
+          nativeButton={false}
+          render={
+            <span className="focus-ring -my-0.5 -ml-1.5 inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-1.5" />
+          }
+        >
+          {nameParts}
+        </PopoverTrigger>
+        <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
+          <img
+            src={thumbnailUrl}
+            alt={m.figma_chip_thumbnail_alt({ name: resolvedName })}
+            loading="lazy"
+            decoding="async"
+            className="block max-h-72 max-w-full rounded-md object-contain"
+            onError={() => setBroken(true)}
           />
-        }
-        contentEditable={false}
-      >
-        {body}
-      </PopoverTrigger>
-      <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
-        <img
-          src={thumbnailUrl}
-          alt={m.figma_chip_thumbnail_alt({ name: resolvedName })}
-          loading="lazy"
-          decoding="async"
-          className="block max-h-72 max-w-full rounded-md object-contain"
-          onError={() => setBroken(true)}
-        />
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+      {open}
+    </Badge>
   )
 }

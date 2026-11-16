@@ -6,7 +6,6 @@ import {
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
 import { mergeRegister } from "@lexical/utils"
 import type { Library, TypeKey } from "@pp/shared"
-import { useRouter } from "@tanstack/react-router"
 import {
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_EDITOR,
@@ -27,9 +26,11 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { lookupFor } from "@/features/editor/lib/blockChrome"
-
-import { $runSlashItem, $typeSlashTrigger } from "./slashCommands"
+import { lookupFor } from "../blocks/block-chrome"
+import { useEditorServices } from "../services"
+import { $runSlashItem, $typeSlashTrigger } from "./slash-commands"
+import { type SlashMenuModel } from "./slash-menu"
+import { basicLabel } from "./slash-menu-item"
 import {
   cycleSlashTab,
   slashMenuView,
@@ -37,8 +38,8 @@ import {
   type SlashItem,
   type SlashMode,
   type SlashTab
-} from "./slashMenuItems"
-import { basicLabel, SlashMenuList, type SlashMenuModel } from "./SlashMenuView"
+} from "./slash-menu-items"
+import { SlashMenuList } from "./slash-menu-view"
 
 export const OPEN_SLASH_MENU_COMMAND: LexicalCommand<SlashTab | null> =
   createCommand("OPEN_SLASH_MENU_COMMAND")
@@ -61,32 +62,6 @@ const EMPTY_MENU: SlashMenuState = {
   options: []
 }
 
-type RouteParams = Readonly<{ orgSlug?: string; slug?: string }>
-
-function useOpenGallery() {
-  const router: ReturnType<typeof useRouter> | undefined = useRouter({
-    warn: false
-  })
-  return useCallback(() => {
-    if (router === undefined) return
-    const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
-    const search = { tab: "sections" as const }
-    if (params.orgSlug === undefined) return
-    if (params.slug === undefined)
-      void router.navigate({
-        to: "/orgs/$orgSlug/settings/types",
-        params: { orgSlug: params.orgSlug },
-        search
-      })
-    else
-      void router.navigate({
-        to: "/orgs/$orgSlug/projects/$slug/settings/types",
-        params: { orgSlug: params.orgSlug, slug: params.slug },
-        search
-      })
-  }, [router])
-}
-
 export function SlashMenuPlugin({
   library,
   ticketType,
@@ -104,7 +79,7 @@ export function SlashMenuPlugin({
   const bodyRef = useRef<string | null>(null)
   const [tab, setTab] = useState<SlashTab>("all")
   const detachRef = useRef(false)
-  const openGallery = useOpenGallery()
+  const openGallery = useEditorServices().openBlockGallery
   const lookup = useMemo(() => lookupFor(library), [library])
 
   const changeQuery = useCallback(

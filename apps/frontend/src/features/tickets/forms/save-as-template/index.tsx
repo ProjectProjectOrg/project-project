@@ -2,13 +2,13 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Library, TypeKey, TicketDetail } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Checkbox } from "@pp/ui/checkbox"
+import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Exit from "effect/Exit"
 import { useId, useMemo, useState } from "react"
 
-import { lookupFor } from "@/features/editor/lib/blockChrome"
 import {
   createTypeAtom,
   orgScope,

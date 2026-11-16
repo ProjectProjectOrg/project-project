@@ -5,12 +5,13 @@ import {
   type TypeDefinition,
   type UpdateTypeInput
 } from "@pp/shared"
+import { LibraryContext } from "@pp/ui/editor/blocks/block-chrome"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useCallback, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -26,7 +27,6 @@ import { useLibraryPermissions } from "../hooks/useLibraryPermissions"
 import { saveTypeTask, useLibrarySave } from "../hooks/useLibrarySave"
 import { entryView, type EntryView } from "../lib/entryStanding"
 import { typeDraftOf } from "../lib/libraryModel"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
   AsideGroup,
   CommitInput,

@@ -6,9 +6,8 @@ import {
   type Library,
   type TypeDefinition
 } from "@pp/shared"
+import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { describe, expect, it } from "vitest"
-
-import { lookupFor } from "@/features/editor/lib/blockChrome"
 
 import { startingType, startingTypes, typeStart } from "./creatorType"
 

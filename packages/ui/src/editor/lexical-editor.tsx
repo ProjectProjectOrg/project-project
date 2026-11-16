@@ -1,19 +1,15 @@
-import { CodeExtension, registerCodeHighlighting } from "@lexical/code"
+import { CodeExtension } from "@lexical/code"
 import { AutoFocusExtension, HorizontalRuleExtension } from "@lexical/extension"
 import { HistoryExtension } from "@lexical/history"
 import {
   AutoLinkExtension,
   ClickableLinkExtension,
-  LinkExtension,
-  createLinkMatcherWithRegExp,
-  formatUrl
+  LinkExtension
 } from "@lexical/link"
 import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
-  $convertToMarkdownString,
-  INLINE_CODE,
-  TRANSFORMERS
+  $convertToMarkdownString
 } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
@@ -23,8 +19,7 @@ import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
-import { EMPTY_LAYER, resolveLibrary, type TicketId } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
+import { EMPTY_LAYER, resolveLibrary } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import {
@@ -44,236 +39,47 @@ import {
   type RefObject
 } from "react"
 
-import { figmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { m } from "@/paraglide/messages"
-
-import { AttachmentExtension } from "../lexical/AttachmentExtension"
-import { AttachmentsPlugin } from "../lexical/AttachmentsPlugin"
-import { ATTACHMENT_TRANSFORMER } from "../lexical/attachmentTransformer"
-import { HintExtension } from "../lexical/blocks/definitionMode"
+import { ChecklistClickExtension } from "../editor/checklist-click-extension"
+import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
+import { FormattingToolbarPlugin } from "../editor/formatting-toolbar"
+import { HorizontalRuleEnterExtension } from "../editor/horizontal-rule"
+import { ImageNode } from "../editor/image-node"
+import { LinePlaceholderPlugin } from "../editor/line-placeholder-plugin"
+import { ListTabExtension } from "../editor/list-tab-extension"
+import { registerMarkdownPaste } from "../editor/markdown-paste"
+import { SubmitOnEnterPlugin } from "../editor/submit-on-enter-plugin"
+import { CodeLanguagePlugin } from "./code-language-plugin"
+import { CodeHighlightExtension, editorTheme } from "../editor/theme"
+import { cn } from "../lib/utils"
+import { AttachmentExtension } from "./attachments/attachment-extension"
+import { AttachmentsPlugin } from "./attachments/attachments-plugin"
+import { HintExtension } from "./blocks/definition-mode"
+import { hasBlockGutter, type EditorBlocks } from "./blocks/editor-blocks"
+import { EditorBlocksProvider } from "./blocks/editor-blocks-context"
+import { SyncedBlockExtension } from "./blocks/synced-block-node"
+import { TicketBlockExtension } from "./blocks/ticket-block-extension"
+import { TicketBlocksPlugins } from "./blocks/ticket-blocks-plugins"
 import {
-  hasBlockGutter,
-  type EditorBlocks,
-  type EditorBlocksMode
-} from "../lexical/blocks/editorBlocks"
-import { EditorBlocksProvider } from "../lexical/blocks/editorBlocksContext"
-import { HINT_TRANSFORMER } from "../lexical/blocks/HintNode"
-import { SlashMenuPlugin } from "../lexical/blocks/SlashMenuPlugin"
-import { SyncedBlockExtension } from "../lexical/blocks/SyncedBlockNode"
-import { TicketBlocksPlugins } from "../lexical/blocks/TicketBlocksPlugins"
-import { ChecklistClickExtension } from "../lexical/checklistClickExtension"
+  AUTO_LINK_MATCHERS,
+  transformersForMode,
+  type AttachmentsTarget
+} from "./editor-transformers"
+import { FigmaExtension } from "./figma/figma-extension"
+import { FigmaPlugin } from "./figma/figma-plugin"
+import { formattingToolbarLabels } from "./formatting-toolbar-labels"
+import { LinkFaviconsPlugin } from "./links/link-favicons-plugin"
+import type { MarkdownSize } from "./markdown"
+import { MentionExtension } from "./mentions/mention-extension"
+import { MentionsPlugin } from "./mentions/mentions-plugin"
+import { m } from "./messages"
+import { PaperExtension } from "./paper/paper-extension"
+import { PaperPlugin } from "./paper/paper-plugin"
 import {
-  ChecklistShortcutExtension,
-  ESCAPED_CHECK_LIST
-} from "../lexical/checklistMarkdown"
-import {
-  INLINE_MARKDOWN_TRANSFORMER,
-  commonMarkTransformers
-} from "../lexical/commonMarkTransformer"
-import { FigmaExtension } from "../lexical/FigmaExtension"
-import { FigmaPlugin } from "../lexical/FigmaPlugin"
-import { FIGMA_TRANSFORMER } from "../lexical/figmaTransformer"
-import { FormattingToolbarPlugin } from "../lexical/FormattingToolbarPlugin"
-import {
-  HORIZONTAL_RULE,
-  HorizontalRuleEnterExtension
-} from "../lexical/horizontalRuleTransformer"
-import { ImageNode } from "../lexical/ImageNode"
-import { LinePlaceholderPlugin } from "../lexical/LinePlaceholderPlugin"
-import { LinkFaviconsPlugin } from "../lexical/LinkFaviconsPlugin"
-import { ListTabExtension } from "../lexical/listTabExtension"
-import { registerMarkdownPaste } from "../lexical/markdownPaste"
-import { MentionExtension } from "../lexical/MentionExtension"
-import { MentionsPlugin } from "../lexical/MentionsPlugin"
-import { MENTION_TRANSFORMER } from "../lexical/mentionTransformer"
-import { PaperExtension } from "../lexical/PaperExtension"
-import { PaperPlugin } from "../lexical/PaperPlugin"
-import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
-import "@pp/ui/lib/prismLangs"
-
-import { SubmitOnEnterPlugin } from "../lexical/SubmitOnEnterPlugin"
-import { TABLE_TRANSFORMER } from "../lexical/tableTransformer"
-import { TicketBlockExtension } from "../lexical/TicketBlockExtension"
-import { createTicketBlockTransformer } from "../lexical/ticketBlockTransformer"
-import type { MarkdownSize } from "./Markdown"
-
-const INLINE_AND_BLOCK_TRANSFORMERS = [
-  INLINE_MARKDOWN_TRANSFORMER,
-  MENTION_TRANSFORMER,
-  ESCAPED_CHECK_LIST,
-  HORIZONTAL_RULE,
-  PAPER_TRANSFORMER,
-  FIGMA_TRANSFORMER,
-  ...TRANSFORMERS.filter((transformer) => transformer !== INLINE_CODE)
-]
-
-function createMarkdownTransformers(
-  inline: ReadonlyArray<(typeof INLINE_AND_BLOCK_TRANSFORMERS)[number]>,
-  mode: EditorBlocksMode | undefined
-) {
-  const content = [TABLE_TRANSFORMER, ...inline]
-  const transformers =
-    mode === "definition"
-      ? [HINT_TRANSFORMER, ...content]
-      : [
-          createTicketBlockTransformer(commonMarkTransformers(content), {
-            emptyAsReference: mode === "template"
-          }),
-          ...content
-        ]
-  return commonMarkTransformers(transformers)
-}
-
-export const MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
-  INLINE_AND_BLOCK_TRANSFORMERS,
-  undefined
-)
-
-const ATTACHMENT_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
-  [ATTACHMENT_TRANSFORMER, ...INLINE_AND_BLOCK_TRANSFORMERS],
-  undefined
-)
-
-const TEMPLATE_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
-  INLINE_AND_BLOCK_TRANSFORMERS,
-  "template"
-)
-
-const DEFINITION_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
-  INLINE_AND_BLOCK_TRANSFORMERS,
-  "definition"
-)
-
-export const transformersForMode = (
-  mode: EditorBlocksMode | undefined,
-  attachments: AttachmentsTarget | undefined
-) => {
-  if (mode === "template") return TEMPLATE_MARKDOWN_TRANSFORMERS
-  if (mode === "definition") return DEFINITION_MARKDOWN_TRANSFORMERS
-  return transformersForAttachments(attachments)
-}
-
-export const transformersForAttachments = (
-  attachments: AttachmentsTarget | undefined
-) =>
-  attachments === undefined
-    ? MARKDOWN_TRANSFORMERS
-    : ATTACHMENT_MARKDOWN_TRANSFORMERS
-
-export const attachmentsForDescription = (input: {
-  readonly orgSlug: string
-  readonly slug: string
-  readonly ticketId: TicketId
-  readonly storageActive: boolean
-}): AttachmentsTarget => ({
-  orgSlug: input.orgSlug,
-  slug: input.slug,
-  ticketId: input.ticketId,
-  uploadsEnabled: input.storageActive
-})
-
-const URL_MATCHER = createLinkMatcherWithRegExp(
-  /(?:https?:\/\/|www\.)[^\s<>()]+[^\s<>().,;:!?]/i,
-  formatUrl
-)
-
-const EMAIL_MATCHER = createLinkMatcherWithRegExp(
-  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
-  formatUrl
-)
-
-export const AUTO_LINK_MATCHERS = [URL_MATCHER, EMAIL_MATCHER]
-
-const lexicalTheme = {
-  tableScrollableWrapper: "lexical-table-scroll",
-  tableCellSelected: "lexical-table-cell-selected",
-  tableSelection: "lexical-table-selection",
-  paragraph: "lexical-paragraph",
-  heading: {
-    h1: "lexical-h1",
-    h2: "lexical-h2",
-    h3: "lexical-h3",
-    h4: "lexical-h4",
-    h5: "lexical-h5",
-    h6: "lexical-h6"
-  },
-  quote: "lexical-quote",
-  list: {
-    ul: "lexical-ul",
-    ol: "lexical-ol",
-    listitem: "lexical-li",
-    checklist: "lexical-checklist",
-    listitemChecked: "lexical-li-checked",
-    listitemUnchecked: "lexical-li-unchecked",
-    nested: {
-      listitem: "lexical-li-nested"
-    }
-  },
-  hr: "lexical-hr",
-  link: "lexical-link",
-  text: {
-    bold: "lexical-bold",
-    italic: "lexical-italic",
-    strikethrough: "lexical-strike",
-    underline: "lexical-underline"
-  },
-  code: "lexical-code",
-  codeHighlight: {
-    atrule: "token atrule",
-    attr: "token attr-name",
-    boolean: "token boolean",
-    builtin: "token builtin",
-    cdata: "token cdata",
-    char: "token char",
-    "class-name": "token class-name",
-    comment: "token comment",
-    constant: "token constant",
-    deleted: "token deleted",
-    doctype: "token doctype",
-    entity: "token entity",
-    function: "token function",
-    important: "token important",
-    inserted: "token inserted",
-    keyword: "token keyword",
-    namespace: "token namespace",
-    number: "token number",
-    operator: "token operator",
-    prolog: "token prolog",
-    property: "token property",
-    punctuation: "token punctuation",
-    regex: "token regex",
-    selector: "token selector",
-    string: "token string",
-    symbol: "token symbol",
-    tag: "token tag",
-    url: "token url",
-    variable: "token variable",
-    "deleted-sign": "token deleted-sign",
-    "deleted-arrow": "token deleted-arrow",
-    "inserted-sign": "token inserted-sign",
-    "inserted-arrow": "token inserted-arrow",
-    unchanged: "token unchanged",
-    diff: "token diff",
-    coord: "token coord",
-    line: "token line",
-    prefix: "token prefix"
-  }
-}
-
-const CodeHighlightExtension = defineExtension({
-  name: "@pp/code-highlight",
-  dependencies: [CodeExtension],
-  register: (editor: LexicalEditorType) => registerCodeHighlighting(editor)
-})
-
-export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "failed"
-
-export interface AttachmentsTarget {
-  readonly orgSlug: string
-  readonly slug: string
-  readonly ticketId: TicketId
-  readonly uploadsEnabled: boolean
-}
+  createCoalescedSaveQueue,
+  nextMarkdownChange,
+  type SaveStatus
+} from "./save-queue"
+import { SlashMenuPlugin } from "./slash-menu/slash-menu-plugin"
 
 const NO_LIBRARY = resolveLibrary(
   { org: EMPTY_LAYER, project: null },
@@ -297,71 +103,6 @@ export interface LexicalEditorProps {
   blocks?: EditorBlocks
   editorRef?: RefObject<LexicalEditorType | null>
   editable?: boolean
-}
-
-export function nextMarkdownChange(
-  currentMarkdown: string,
-  nextMarkdown: string
-) {
-  if (nextMarkdown === currentMarkdown) return null
-  return nextMarkdown
-}
-
-export function createCoalescedSaveQueue<A>(options: {
-  readonly save: (value: A) => Promise<void> | void
-  readonly schedule: () => void
-  readonly onStatus: (status: SaveStatus) => void
-  readonly onError: (error: unknown) => void
-}) {
-  let pending: A | null = null
-  let inflight = false
-  let unmounted = false
-
-  const flush = (notify = true): Promise<void> | undefined => {
-    if (inflight || pending === null) return undefined
-    const next = pending
-    pending = null
-    inflight = true
-    if (notify) options.onStatus("saving")
-    let retainedFailure = false
-    let saving: Promise<void>
-    try {
-      saving = Promise.resolve(options.save(next))
-    } catch (error) {
-      saving = Promise.reject(error)
-    }
-    saving = saving
-      .then(() => {
-        if (notify && pending === null) options.onStatus("saved")
-      })
-      .catch((error: unknown) => {
-        if (pending === null) {
-          pending = next
-          retainedFailure = true
-        }
-        options.onError(error)
-        if (notify) options.onStatus("failed")
-      })
-      .finally(() => {
-        inflight = false
-        if (pending !== null && !retainedFailure) {
-          if (unmounted) void flush(false)
-          else options.schedule()
-        }
-      })
-    return saving
-  }
-
-  return {
-    enqueue: (value: A) => {
-      pending = value
-    },
-    flush,
-    unmount: () => {
-      unmounted = true
-      void flush(false)
-    }
-  }
 }
 
 function LinkBlurActivationPlugin() {
@@ -428,7 +169,7 @@ export function LexicalEditor({
     return defineExtension({
       name: "@pp/body-editor",
       namespace: "ProjectBody",
-      theme: lexicalTheme,
+      theme: editorTheme,
       nodes: [ImageNode],
       register: (editor: LexicalEditorType) =>
         registerMarkdownPaste(editor, transformers),
@@ -569,17 +310,21 @@ export function LexicalEditor({
       figmaProjectSlug === undefined ||
       figmaTicketId === undefined
         ? null
-        : figmaTicketLinksRequest(
-            figmaOrgSlug,
-            figmaProjectSlug,
-            figmaTicketId
-          ),
+        : {
+            orgSlug: figmaOrgSlug,
+            slug: figmaProjectSlug,
+            ticketId: figmaTicketId
+          },
     [figmaOrgSlug, figmaProjectSlug, figmaTicketId]
   )
 
   return (
     <div
       ref={wrapperRef}
+      // With sections, their icon and handle sit inside each section, at
+      // the start of its first line, not in the margin: nothing sticks out
+      // of a hovered section.
+      data-block-rail-inset={hasBlockGutter(blocks) ? "" : undefined}
       className={cn(
         "group/editing prose-md",
         size === "compact" && "prose-compact",
@@ -614,10 +359,15 @@ export function LexicalEditor({
             </>
           ) : null}
           <EditablePlugin editable={editable} />
-          {editable && <FormattingToolbarPlugin />}
+          {editable && (
+            <FormattingToolbarPlugin labels={formattingToolbarLabels()} />
+          )}
           <LinkBlurActivationPlugin />
+          <CodeLanguagePlugin />
           <LinkFaviconsPlugin />
-          {compact ? null : <LinePlaceholderPlugin />}
+          {compact ? null : (
+            <LinePlaceholderPlugin placeholder={m.editor_line_placeholder()} />
+          )}
           {blocks !== undefined ? (
             <TicketBlocksPlugins blocks={blocks} transformers={transformers} />
           ) : (

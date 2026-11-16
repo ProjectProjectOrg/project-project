@@ -1,7 +1,7 @@
 import type { BlockIconName } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
 
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
+import { cn } from "../../lib/utils"
+import { blockIconComponent } from "./block-icons"
 
 export function BlockIconGlyph({
   icon,

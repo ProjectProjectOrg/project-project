@@ -1,4 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
+import { provideEditorMessages } from "@pp/ui/editor/messages"
 import {
   createBrowserHistory,
   createRouter,
@@ -9,10 +10,14 @@ import ReactDOM from "react-dom/client"
 
 import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
+import { m } from "./paraglide/messages"
 import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
 
 import "./styles.css"
+
+// The editor (@pp/ui/editor) reads its strings from the app's messages.
+provideEditorMessages(m)
 
 const history = createBrowserHistory()
 const sessions = createSessionCache((registry) =>

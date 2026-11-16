@@ -37,11 +37,11 @@ import {
   vi
 } from "vitest"
 
-import { transformersForAttachments } from "../components/LexicalEditor"
-import { AttachmentNode } from "./AttachmentNode"
-import { ImageNode } from "./ImageNode"
-import { registerMarkdownPaste } from "./markdownPaste"
-import { MentionNode } from "./MentionNode"
+import { ImageNode } from "../editor/image-node"
+import { registerMarkdownPaste } from "../editor/markdown-paste"
+import { AttachmentNode } from "./attachments/attachment-node"
+import { transformersForAttachments } from "./editor-transformers"
+import { MentionNode } from "./mentions/mention-node"
 
 beforeAll(() => {
   vi.stubGlobal("ClipboardEvent", class ClipboardEvent extends Event {})

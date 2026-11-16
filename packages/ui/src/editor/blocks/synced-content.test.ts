@@ -1,14 +1,14 @@
 import type { Library } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { BUILTIN_LIBRARY, lookupFor } from "./blockChrome"
+import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
 import {
   hintsAsEmphasis,
   splitLeadingHeading,
   syncedDisplayContent,
   syncedView,
   toggleTaskAtLine
-} from "./syncedContent"
+} from "./synced-content"
 
 const DOD = "definition-of-done"
 

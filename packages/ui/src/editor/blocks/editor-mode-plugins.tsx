@@ -10,17 +10,13 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 
-import {
-  SyncedChip,
-  SyncedChipAction
-} from "@/features/editor/components/SyncedBlock"
-import { lookupFor } from "@/features/editor/lib/blockChrome"
-import { m } from "@/paraglide/messages"
-
-import { $isTicketBlockNode } from "../TicketBlockNode"
-import { $findBlockAtSelection, $topLevelBlocks } from "./blockCommands"
-import { registerNoNestedBlocks } from "./definitionMode"
-import { $revertToReference } from "./templateBlocks"
+import { m } from "../messages"
+import { lookupFor } from "./block-chrome"
+import { $findBlockAtSelection, $topLevelBlocks } from "./block-commands"
+import { registerNoNestedBlocks } from "./definition-mode"
+import { SyncedChip, SyncedChipAction } from "./synced-block"
+import { $revertToReference } from "./template-blocks"
+import { $isTicketBlockNode } from "./ticket-block-node"
 
 export function DefinitionModePlugin({
   transformers

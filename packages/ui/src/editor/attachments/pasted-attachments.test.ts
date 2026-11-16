@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { splitPastedAttachments } from "./pastedAttachments"
+import { splitPastedAttachments } from "./pasted-attachments"
 
 const ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
 const URL = `/api/attachments/acme/${ID}`

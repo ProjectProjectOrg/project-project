@@ -7,22 +7,18 @@ import {
 } from "@pp/shared"
 import type { NodeKey } from "lexical"
 
-import {
-  canEditDefinition,
-  syncedChipLabel
-} from "@/features/editor/components/SyncedBlock"
-import { blockChrome } from "@/features/editor/lib/blockChrome"
-import { syncedView } from "@/features/editor/lib/syncedContent"
-import { m } from "@/paraglide/messages"
-
-import { $isTicketBlockNode } from "../TicketBlockNode"
+import { m } from "../messages"
+import { blockChrome } from "./block-chrome"
 import {
   $blockMarkdown,
   $blockNeighbour,
   type TopLevelBlockNode
-} from "./blockCommands"
-import type { EditorBlocks } from "./editorBlocks"
-import type { SyncedBlockNode } from "./SyncedBlockNode"
+} from "./block-commands"
+import type { EditorBlocks } from "./editor-blocks"
+import { canEditDefinition, syncedChipLabel } from "./synced-block"
+import type { SyncedBlockNode } from "./synced-block-node"
+import { syncedView } from "./synced-content"
+import { $isTicketBlockNode } from "./ticket-block-node"
 
 export type BlockMenuKind = "copy" | "synced" | "reference"
 

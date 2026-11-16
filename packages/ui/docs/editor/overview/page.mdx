@@ -1,0 +1,92 @@
+export const meta = {
+  title: "Editor",
+  group: "Editor",
+  order: 1,
+  description:
+    "The Markdown editor behind ticket descriptions, comments and the library: CommonMark in and out, Markdown shortcuts while typing, mentions, blocks, attachments and design links. The app plugs in its data; everything you see is here.",
+  sources: [
+    { kind: "own", name: "LexicalEditor", note: "on Lexical, with remark for parsing", href: "https://lexical.dev" }
+  ]
+}
+
+## Overview
+
+A ticket description as the ticket page edits it, with the Markdown it saves beside it. Type "/" for sections, "@" for people and tickets, or select text for the toolbar.
+
+<Demo name="overview" title="A ticket description" />
+
+## Usage
+
+The app sets the editor up once, at its root: its strings, and its data and navigation.
+
+```tsx
+import { provideEditorMessages } from "@pp/ui/editor/messages"
+import { EditorServicesProvider } from "@pp/ui/editor/services"
+import { m } from "@/paraglide/messages"
+
+provideEditorMessages(m)
+
+<EditorServicesProvider services={services}>
+  <App />
+</EditorServicesProvider>
+```
+
+Then every editor is one component:
+
+```tsx
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+
+<MentionScopeProvider scope={{ orgSlug, slug, members }}>
+  <LexicalEditor
+    markdown={ticket.body}
+    onChange={(next) => save(next)}
+    onStatusChange={setSaveStatus}
+    placeholder={m.tickets_description_placeholder()}
+    attachments={{ orgSlug, slug, ticketId, uploadsEnabled }}
+    blocks={blocks}
+  />
+</MentionScopeProvider>
+```
+
+| `LexicalEditor` | |
+| --- | --- |
+| `markdown` | The starting Markdown (read once; give it a `key` to load another document) |
+| `onChange`, `onDraftChange` | Saves, debounced (`debounceMs`) and coalesced; every change, for a draft |
+| `onStatusChange` | `"idle"`, `"dirty"`, `"saving"`, `"saved"` or `"failed"` |
+| `onSubmit` | Enter submits (Shift+Enter for a new line), as in comments |
+| `attachments` | The ticket uploads and Figma links belong to; turns on attachments |
+| `blocks` | The block library and mode; turns on sections, their gutter and the slash menu's Sections tab ([Sections](/editor/blocks)) |
+| `placeholder`, `autoFocus`, `compact`, `size`, `editable`, `editorRef`, `className` | |
+
+| `EditorServices` | |
+| --- | --- |
+| `navigate(href)` | Follows an in-app link without a page load |
+| `useMentionSearch`, `mentionHref`, `renderTicketPreview` | [Mentions](/editor/mentions) |
+| `useUploadAttachment(target)` | Uploads a dropped or pasted file, with progress ([Attachments](/components/attachments)) |
+| `useFigmaLinks(target)`, `useLinkPreview(url)` | [Embeds and links](/editor/embeds) |
+| `openBlockGallery()` | The slash menu's "Browse blocks" |
+| `renderPdf(url)` | A PDF's first pages, for its tile (optional) |
+
+The editor's strings are the app's messages (`EditorMessages` lists the keys); nothing has an English default. The gallery provides English and sample data (`docs/editor/kit.tsx`).
+
+## Rules
+
+### Markdown is the format
+
+The editor reads and writes CommonMark (with GFM tables and task lists), and everything it adds is Markdown too: mentions and design links are links, attachments are images and links, blocks are `<block>` elements. What's on the right is exactly what's saved, and a round trip never changes a description.
+
+### Format as you type
+
+Markdown shortcuts apply as you type (`## ` a heading, `- [ ] ` a checklist item, `> ` a quote, three backticks a code block), and pasted Markdown arrives formatted. People who write Markdown never need the toolbar or the slash menu; people who don't never need Markdown.
+
+### One editor, many places
+
+Descriptions, comments, sprint and project descriptions, and the library's blocks and templates are the same editor with different parts on: `onSubmit` for comments, `blocks` with a mode for the library, `compact` for small fields. A read-only description is [Markdown](/editor/markdown), styled the same, so switching into edit mode moves nothing.
+
+### Saving is quiet
+
+Changes save after a pause, one at a time (a newer change waits for the save in flight and replaces any older queued one). The page shows the status; leaving with unsaved changes flushes them.
+
+### The parts
+
+[Slash menu](/editor/slash-menu) · [Formatting toolbar](/editor/formatting-toolbar) · [Mentions](/editor/mentions) · [Sections](/editor/blocks) · [Embeds and links](/editor/embeds) · [Attachments](/components/attachments) · [Markdown](/editor/markdown)

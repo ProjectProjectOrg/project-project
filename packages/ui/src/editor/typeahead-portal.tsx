@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
-import { placeTypeahead } from "@/features/editor/lib/typeaheadPlacement"
+import { placeTypeahead } from "./typeahead-placement"
 
 const createHost = (): HTMLDivElement => {
   const host = document.createElement("div")

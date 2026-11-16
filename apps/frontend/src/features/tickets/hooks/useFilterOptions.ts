@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketFilter } from "@pp/shared"
+import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import {
   Archive,
   Flag,
@@ -16,7 +17,6 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   useProject,
   useProjectRoute

@@ -8,7 +8,7 @@ import {
 } from "@pp/shared"
 import { $createTextNode } from "lexical"
 
-import { $createFigmaNode, $isFigmaNode, FigmaNode } from "./FigmaNode"
+import { $createFigmaNode, $isFigmaNode, FigmaNode } from "./figma-node"
 
 export const FIGMA_MARKDOWN_RE =
   /\[((?:\\.|[^\]\\])*)\]\((https?:\/\/(?:www\.)?figma\.com\/(?:design|board|slides|proto|file)\/[^)\s]+)\)/

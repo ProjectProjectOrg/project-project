@@ -1,14 +1,14 @@
 import type { Transformer } from "@lexical/markdown"
 
-import { BlockGutterPlugin } from "./BlockGutterPlugin"
-import { BlockHintsPlugin } from "./BlockHintsPlugin"
-import { hasBlockGutter, type EditorBlocks } from "./editorBlocks"
+import { SlashMenuPlugin } from "../slash-menu/slash-menu-plugin"
+import { BlockGutterPlugin } from "./block-gutter-plugin"
+import { BlockHintsPlugin } from "./block-hints-plugin"
+import { hasBlockGutter, type EditorBlocks } from "./editor-blocks"
 import {
   DefinitionModePlugin,
   TemplateCustomizedPlugin
-} from "./EditorModePlugins"
-import { SlashMenuPlugin } from "./SlashMenuPlugin"
-import { SyncedBlocksPlugin } from "./SyncedBlocksPlugin"
+} from "./editor-mode-plugins"
+import { SyncedBlocksPlugin } from "./synced-blocks-plugin"
 
 export function TicketBlocksPlugins({
   blocks,

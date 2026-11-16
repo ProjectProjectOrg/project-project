@@ -15,9 +15,9 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../components/LexicalEditor"
-import { ChecklistShortcutExtension } from "./checklistMarkdown"
-import { TicketBlockExtension } from "./TicketBlockExtension"
+import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
+import { TicketBlockExtension } from "./blocks/ticket-block-extension"
+import { MARKDOWN_TRANSFORMERS } from "./editor-transformers"
 
 function editorWith(markdown: string): LexicalEditor {
   const editor = buildEditorFromExtensions(

@@ -1,6 +1,5 @@
+import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import { useEffect, type RefObject } from "react"
-
-import { ownsKeystrokes } from "@/lib/keyboard"
 
 export function useGlobalShortcut(
   key: string,

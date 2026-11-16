@@ -1,4 +1,5 @@
 import type { TicketId } from "@pp/shared"
+import { hasModifier, ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import {
   createContext,
   use,
@@ -13,7 +14,6 @@ import {
 import { useReturnToTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import { listStep, stepTicket } from "@/features/tickets/lib/listKeyboard"
 import { useKeyboardMode } from "@/hooks/useKeyboardMode"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 
 type ListKeyboardSection = Readonly<{
   ticketIds: ReadonlyArray<TicketId>

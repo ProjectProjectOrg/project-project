@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   attachmentMaxBytes,
@@ -21,18 +20,21 @@ import {
   DROP_COMMAND,
   PASTE_COMMAND
 } from "lexical"
-import { useCallback, useEffect, useRef, useState, type JSX } from "react"
-
 import {
-  uploadAttachment,
-  uploadAttachmentRequest
-} from "@/features/attachments/atoms/attachments"
-import { useMountedRef } from "@/hooks/useMountedRef"
-import { m } from "@/paraglide/messages"
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX
+} from "react"
 
-import { AttachmentNode, $createAttachmentNode } from "./AttachmentNode"
-import { splitPastedAttachments } from "./pastedAttachments"
-import { staleUploadIds } from "./staleUploads"
+import { useMountedRef } from "../../hooks/useMountedRef"
+import { m } from "../messages"
+import { useEditorServices } from "../services"
+import { AttachmentNode, $createAttachmentNode } from "./attachment-node"
+import { splitPastedAttachments } from "./pasted-attachments"
+import { staleUploadIds } from "./stale-uploads"
 
 export interface AttachmentsPluginProps {
   readonly orgSlug: string
@@ -46,9 +48,8 @@ export function AttachmentsPlugin({
   ticketId
 }: AttachmentsPluginProps): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
-  const upload = useAtomSet(
-    uploadAttachment(uploadAttachmentRequest(orgSlug, slug, ticketId)),
-    { mode: "promiseExit" }
+  const upload = useEditorServices().useUploadAttachment(
+    useMemo(() => ({ orgSlug, slug, ticketId }), [orgSlug, slug, ticketId])
   )
   const [rejection, setRejection] = useState<string | null>(null)
   const pendingFiles = useRef(new Map<string, File>())

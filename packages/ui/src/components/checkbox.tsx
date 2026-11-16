@@ -25,6 +25,22 @@ export const CHECK_PATH = "M4.6 8.4 L7 10.7 L11.5 5.6"
 export const markClass =
   "fill-none stroke-background stroke-[1.75] [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard motion-reduce:transition-none"
 
+// The box's own classes (also drawn outside React: the editor's checklist
+// items, editor/checklist-item-node.ts).
+export const checkboxClass = (variant: keyof typeof variants = "default") =>
+  cn(
+    "group/checkbox relative inline-grid shrink-0 cursor-pointer place-items-center rounded-(--cb-r) align-middle transition-[box-shadow,scale] duration-[150ms,120ms] ease-standard outline-none corner-squircle before:absolute before:-inset-2 before:content-[''] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[readonly]:cursor-default motion-reduce:transition-none",
+    variants[variant],
+    interactive
+  )
+
+export const checkboxFillClass = fillClass
+
+export const checkboxCheckClass = cn(
+  markClass,
+  "group-data-checked/checkbox:delay-60 group-data-checked/checkbox:duration-160 group-data-checked/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
+)
+
 function Checkbox({
   className,
   variant = "default",
@@ -34,13 +50,7 @@ function Checkbox({
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"
-      className={cn(
-        "group/checkbox relative inline-grid shrink-0 cursor-pointer place-items-center rounded-(--cb-r) align-middle transition-[box-shadow,scale] duration-[150ms,120ms] ease-standard outline-none corner-squircle before:absolute before:-inset-2 before:content-[''] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[readonly]:cursor-default motion-reduce:transition-none",
-        variants[variant],
-        interactive,
-        focusRing,
-        className
-      )}
+      className={cn(checkboxClass(variant), focusRing, className)}
       {...props}
     >
       <span aria-hidden className={fillClass} />
@@ -49,14 +59,7 @@ function Checkbox({
         viewBox="0 0 16 16"
         className="relative size-full overflow-visible"
       >
-        <path
-          pathLength={1}
-          d={CHECK_PATH}
-          className={cn(
-            markClass,
-            "group-data-checked/checkbox:delay-60 group-data-checked/checkbox:duration-160 group-data-checked/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
-          )}
-        />
+        <path pathLength={1} d={CHECK_PATH} className={checkboxCheckClass} />
         <path
           pathLength={1}
           d="M5 8 H11"

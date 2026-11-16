@@ -1,25 +1,20 @@
-import { RegistryContext } from "@effect/atom-react"
-import { TicketId, type FigmaRef } from "@pp/shared"
+import { TicketId, type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
 import { act, cleanup, renderHook } from "@testing-library/react"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { createElement, type ReactNode } from "react"
+import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
-  figmaTicketLinksAtom,
-  type FigmaTicketLinksRequest
-} from "@/features/figma/atoms/figma"
+  EditorServicesProvider,
+  type EditorServices,
+  type TicketTarget
+} from "../services"
+import { useFigmaMetadata } from "./figma-metadata"
 
-import { useFigmaMetadata, type FigmaLinkMetadata } from "./figmaMetadata"
-
-const request: FigmaTicketLinksRequest = {
-  params: {
-    orgSlug: "org",
-    slug: "project",
-    id: Schema.decodeSync(TicketId)("T-1")
-  }
+const request: TicketTarget = {
+  orgSlug: "org",
+  slug: "project",
+  ticketId: Schema.decodeSync(TicketId)("T-1")
 }
 const refA: FigmaRef = {
   kind: "design",
@@ -43,12 +38,16 @@ const advanceSeconds = (seconds: number) => {
 }
 
 const setup = () => {
-  const registry = AtomRegistry.make({
-    initialValues: [[figmaTicketLinksAtom(request), AsyncResult.success([])]]
-  })
-  const refresh = vi.spyOn(registry, "refresh").mockImplementation(() => {})
-  const wrapper = ({ children }: Readonly<{ children: ReactNode }>) =>
-    createElement(RegistryContext.Provider, { value: registry }, children)
+  const refresh = vi.fn()
+  // Only Figma links are used here; Figma hasn't answered for any of them.
+  const services = {
+    useFigmaLinks: () => ({ links: [], refresh })
+  } as unknown as EditorServices
+  const wrapper = ({ children }: Readonly<{ children: ReactNode }>) => (
+    <EditorServicesProvider services={services}>
+      {children}
+    </EditorServicesProvider>
+  )
   return { refresh, wrapper }
 }
 

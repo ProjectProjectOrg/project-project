@@ -1,5 +1,9 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
 import { getRouteApi } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -9,12 +13,6 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import {
   projectRequest,
   updateProject

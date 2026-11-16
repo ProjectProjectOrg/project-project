@@ -3,6 +3,8 @@ import type { Group } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { DatePicker } from "@pp/ui/date-picker"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { ArrowRightLeft, CalendarDays } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { useNavigate } from "@tanstack/react-router"
@@ -13,8 +15,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { useContext, useState, type FormEvent, type KeyboardEvent } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   projectsFor,
   projectsRequest

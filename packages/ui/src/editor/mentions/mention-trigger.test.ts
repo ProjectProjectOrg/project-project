@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { matchMentionTrigger } from "./mentionTrigger"
+import { matchMentionTrigger } from "./mention-trigger"
 
 describe("matchMentionTrigger", () => {
   it("matches a trigger at the start or after whitespace", () => {

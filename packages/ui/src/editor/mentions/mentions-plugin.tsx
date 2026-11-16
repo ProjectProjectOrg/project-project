@@ -28,48 +28,32 @@ import {
   type JSX
 } from "react"
 
-import {
-  isProseQuery,
-  matchMentionTrigger
-} from "@/features/editor/lib/mentionTrigger"
-import type {
-  MentionCandidate,
-  MentionProvider
-} from "@/features/editor/mentions/registry"
-import { useMentionScope } from "@/features/editor/mentions/scope"
-import { ticketProvider } from "@/features/editor/mentions/ticketProvider"
-import { userProvider } from "@/features/editor/mentions/userProvider"
-import { type PagedSearchResults, usePagedSearch } from "@/hooks/usePagedSearch"
-import { m } from "@/paraglide/messages"
-
+import { TypeaheadPortal } from "../../editor/typeahead-portal"
+import { m } from "../messages"
+import { useEditorServices } from "../services"
 import {
   MentionMenu,
   MentionMenuOption,
   type MenuGroup,
   type MenuNoteContent
-} from "./MentionMenu"
-import { $createMentionNode, $isMentionNode } from "./MentionNode"
-import { TypeaheadPortal } from "./TypeaheadPortal"
+} from "./mention-menu"
+import { $createMentionNode, $isMentionNode } from "./mention-node"
+import { isProseQuery, matchMentionTrigger } from "./mention-trigger"
+import type { MentionCandidate, MentionResults } from "./registry"
+import { useMentionScope } from "./scope"
 
 const MENTION_TRIGGER = "@"
 const PEOPLE_LIMIT = 3
 const TICKET_LIMIT = 8
 
-const searchSource = (provider: MentionProvider) => ({
-  key: provider.type,
-  search: provider.search,
-  deadEnd: (empty: string, query: string) =>
-    isProseQuery(empty) && query.startsWith(empty)
-})
-
 const exactItems = (
-  results: PagedSearchResults<MentionCandidate>,
+  results: MentionResults,
   query: string
 ): ReadonlyArray<MentionCandidate> =>
   results.status === "searching" && isProseQuery(query) ? [] : results.items
 
 const ticketNote = (
-  results: PagedSearchResults<MentionCandidate>,
+  results: MentionResults,
   items: ReadonlyArray<MentionCandidate>
 ): MenuNoteContent | null => {
   if (items.length > 0) return null
@@ -82,32 +66,16 @@ const ticketNote = (
   return { text: m.tickets_mention_tickets_empty(), tone: "muted" }
 }
 
-const emptyScope = { orgSlug: "", slug: "" }
-
 export function MentionsPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
   const scope = useMentionScope()
-  const orgSlug = scope?.orgSlug ?? emptyScope.orgSlug
-  const slug = scope?.slug ?? emptyScope.slug
-  const members = scope?.members
-  const involved = scope?.involved
-  const people = useMemo(
-    () => userProvider({ orgSlug, slug, members, involved }),
-    [orgSlug, slug, members, involved]
-  )
-  const tickets = useMemo(
-    () => ticketProvider({ orgSlug, slug }),
-    [orgSlug, slug]
-  )
+  const slug = scope?.slug ?? ""
   const [queryString, setQueryString] = useState<string | null>(null)
-  const peopleResults = usePagedSearch(
-    useMemo(() => searchSource(people), [people]),
-    queryString
-  )
-  const ticketResults = usePagedSearch(
-    useMemo(() => searchSource(tickets), [tickets]),
-    queryString
-  )
+  const search = useEditorServices().useMentionSearch(queryString)
+  const people = search.people.provider
+  const tickets = search.tickets.provider
+  const peopleResults = search.people.results
+  const ticketResults = search.tickets.results
   const checkForTriggerMatch = useCallback(
     (text: string) => matchMentionTrigger(text, MENTION_TRIGGER),
     []

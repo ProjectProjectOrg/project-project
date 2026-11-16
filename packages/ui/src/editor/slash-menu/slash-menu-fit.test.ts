@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { fitSlashMenu, placeSlashMenu } from "./slashMenuFit"
+import { fitSlashMenu, placeSlashMenu } from "./slash-menu-fit"
 
 const full = 704
 const list = 448

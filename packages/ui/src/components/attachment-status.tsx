@@ -44,7 +44,7 @@ export function AttachmentUnavailable({
   if (variant === "inline")
     return (
       <span
-        className="pp-badge mx-0.5 inline-flex items-center gap-1 rounded-[10px] px-2 align-[-4px] text-caption whitespace-nowrap text-muted-foreground [corner-shape:var(--button-corner)]"
+        className="pp-badge inline-chip mx-0.5 inline-flex items-center gap-1 rounded-[10px] px-2 text-caption whitespace-nowrap text-muted-foreground [corner-shape:var(--button-corner)]"
         // As wide as its words, like any chip; only the height is fixed.
         style={{ height: ATTACHMENT_UNAVAILABLE_CHIP_HEIGHT }}
       >

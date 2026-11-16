@@ -1,6 +1,6 @@
 import { defineExtension } from "lexical"
 
-import { PaperNode } from "./PaperNode"
+import { PaperNode } from "./paper-node"
 
 export const PaperExtension = defineExtension({
   name: "@pp/paper",

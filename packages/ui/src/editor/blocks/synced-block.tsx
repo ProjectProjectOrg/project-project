@@ -1,13 +1,12 @@
 import type { Library, LibraryOrigin } from "@pp/shared"
-import { Button } from "@pp/ui/button"
-import { Link2 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import type { ReactNode } from "react"
 
-import { m } from "@/paraglide/messages"
-
-import { BUILTIN_LIBRARY } from "../lib/blockChrome"
-import type { SyncedBlockMode } from "../lib/syncedContent"
+import { Button } from "../../components/button"
+import { Link2 } from "../../components/icons"
+import { cn } from "../../lib/utils"
+import { m } from "../messages"
+import { BUILTIN_LIBRARY } from "./block-chrome"
+import type { SyncedBlockMode } from "./synced-content"
 
 const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
   builtin: m.editor_block_origin_builtin,

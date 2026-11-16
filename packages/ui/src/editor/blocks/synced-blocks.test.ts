@@ -18,18 +18,17 @@ import {
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { BUILTIN_LIBRARY } from "@/features/editor/lib/blockChrome"
-import { toggleTaskAtLine } from "@/features/editor/lib/syncedContent"
-
-import { MARKDOWN_TRANSFORMERS } from "../../components/LexicalEditor"
-import { $isTicketBlockNode, TicketBlockNode } from "../TicketBlockNode"
-import { createTicketBlockTransformer } from "../ticketBlockTransformer"
+import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { BUILTIN_LIBRARY } from "./block-chrome"
 import {
   $isSyncedBlockNode,
   DETACH_SYNCED_BLOCK_COMMAND,
   SyncedBlockNode
-} from "./SyncedBlockNode"
-import { registerSyncedBlocks } from "./syncedBlocks"
+} from "./synced-block-node"
+import { registerSyncedBlocks } from "./synced-blocks"
+import { toggleTaskAtLine } from "./synced-content"
+import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
+import { createTicketBlockTransformer } from "./ticket-block-transformer"
 
 const DOD = "definition-of-done"
 

@@ -1,3 +1,4 @@
+import { hasModifier, ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import {
   createContext,
   useCallback,
@@ -12,7 +13,6 @@ import {
 
 import { useReturnToTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import { useKeyboardMode } from "@/hooks/useKeyboardMode"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 
 import {
   createBoardKeyboardNavigation,

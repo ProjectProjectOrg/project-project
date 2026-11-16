@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TypeKey } from "@pp/shared"
+import { BUILTIN_LIBRARY } from "@pp/ui/editor/blocks/block-chrome"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
-import { BUILTIN_LIBRARY } from "@/features/editor/lib/blockChrome"
 import {
   projectLibraryFor,
   projectLibraryRequest
