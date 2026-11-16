@@ -16,6 +16,8 @@ import type * as Registry from "effect/reactivity/AtomRegistry"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
+import { localTicketList } from "@/features/local/atoms/localViews"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import {
   insertByOrderKey,
   patchTicketRow,
@@ -70,8 +72,15 @@ const childTicketsView = (req: ChildTicketsRequest) =>
   Atom.readable(
     (get) => {
       const created = get(createdKeys(scopeOf(req)))
+      const rows =
+        readLocal(get, req.params, () =>
+          localTicketList({
+            params: req.params,
+            query: { parent: [req.parent], sort: CHILD_TICKET_SORT }
+          })
+        ) ?? allPages(get, (cursor) => childTicketsPage(req, cursor))
       return AsyncResult.map(
-        allPages(get, (cursor) => childTicketsPage(req, cursor)),
+        rows,
         (rows): ReadonlyArray<TicketRow> =>
           withCreatedKeys(rows.map(toRow), created)
       )

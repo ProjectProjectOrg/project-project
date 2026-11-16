@@ -10,6 +10,8 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
+import { localTitles } from "@/features/local/atoms/localViews"
+import { readLocal } from "@/features/local/atoms/readLocal"
 
 export type TicketSearchOptions = Readonly<{
   q?: string
@@ -59,7 +61,7 @@ export const ticketTextSearch = Atom.family(
   }
 )
 
-export const ticketTitles = Atom.family((params: SearchRequest["params"]) => {
+const titlesQuery = (params: SearchRequest["params"]) => {
   const scope = projectScope(params.orgSlug, params.slug)
   return query("tickets", "titles", {
     params,
@@ -70,7 +72,16 @@ export const ticketTitles = Atom.family((params: SearchRequest["params"]) => {
       Keys.ticketTitleQuery(scope)
     ]
   })
-})
+}
+
+export const ticketTitles = Atom.family((params: SearchRequest["params"]) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, params, () => localTitles(params)) ??
+      get(titlesQuery(params)),
+    (refresh) => refresh(titlesQuery(params))
+  )
+)
 
 export const idleTicketTitles: ReturnType<typeof ticketTitles> = Atom.make(
   AsyncResult.success<ReadonlyArray<TicketTitle>>([])
