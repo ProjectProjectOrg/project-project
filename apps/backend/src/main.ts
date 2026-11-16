@@ -122,6 +122,7 @@ import {
 import { OrgEmailHandlerLive } from "./organizations/EmailHandlers"
 import { OrgHandlerLive } from "./organizations/Handlers"
 import { InvitationsHandlerLive } from "./organizations/InvitationHandlers"
+import { SidebarPinsHandlerLive } from "./pins/Handlers"
 import { ProjectsHandlerLive } from "./projects/Handlers"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { SlackHandlerLive } from "./slack/Handlers"
@@ -198,7 +199,8 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
       CommentsHandlerLive,
       TicketActivityHandlerLive,
       TicketSubscriptionsHandlerLive,
-      InboxHandlerLive
+      InboxHandlerLive,
+      SidebarPinsHandlerLive
     )
   ),
   Layer.provide(TagsHandlerLive),

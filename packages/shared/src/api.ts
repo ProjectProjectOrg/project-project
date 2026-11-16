@@ -28,6 +28,7 @@ import {
   OrgEmailGroup,
   OrgGroup
 } from "./organizations/OrgApi"
+import { SidebarPinsGroup } from "./pins/PinsApi"
 import { ProjectsGroup } from "./projects/ProjectsApi"
 import { SlackGroup } from "./slack/SlackApi"
 import { StatusesGroup } from "./statuses/StatusesApi"
@@ -82,6 +83,7 @@ export const AppApi = HttpApi.make("projectproject")
   .add(TicketActivityGroup)
   .add(TicketSubscriptionsGroup)
   .add(InboxGroup)
+  .add(SidebarPinsGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GitAutomationGroup)

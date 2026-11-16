@@ -18,6 +18,8 @@ import { getLocale } from "@/paraglide/runtime"
 
 type SprintStateName = ReturnType<typeof sprintState>
 
+type SprintTiming = Pick<Group, "completedAt" | "startsAt" | "endsAt">
+
 export const SPRINT_STATE_META: Record<
   SprintStateName,
   { icon: IconType; className: string }
@@ -40,7 +42,7 @@ export function SprintStateIcon({
   className,
   size = "sm"
 }: {
-  sprint: Group
+  sprint: SprintTiming
   now?: Date
   className?: string
   size?: "xs" | "sm" | "md" | "lg"
@@ -131,7 +133,10 @@ export const shortDateFormatter = () =>
     day: "numeric"
   })
 
-export const sprintStatusText = (sprint: Group, now: Date): string | null =>
+export const sprintStatusText = (
+  sprint: SprintTiming,
+  now: Date
+): string | null =>
   Match.value(sprintState(sprint, now)).pipe(
     Match.when("planned", () =>
       sprint.startsAt === null

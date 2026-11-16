@@ -3,10 +3,9 @@ import { Button } from "@pp/ui/button"
 import { Menu } from "@pp/ui/icons"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@pp/ui/sheet"
 import { useRouter } from "@tanstack/react-router"
-import { LayoutGroup } from "motion/react"
 import { useEffect, useState } from "react"
 
-import { SidebarContent } from "@/components/shell/Sidebar"
+import { SidebarContent } from "@/components/shell/sidebar/Sidebar"
 import { m } from "@/paraglide/messages"
 
 export function MobileNav({ user }: { user: User }) {
@@ -44,11 +43,9 @@ export function MobileNav({ user }: { user: User }) {
           </Button>
         }
       />
-      <SheetContent side="left">
+      <SheetContent side="left" className="w-auto">
         <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
-        <LayoutGroup id="sidebar-drawer">
-          <SidebarContent user={user} />
-        </LayoutGroup>
+        <SidebarContent user={user} />
       </SheetContent>
     </Sheet>
   )

@@ -12,7 +12,9 @@ export default defineConfig({
   root: here("."),
   plugins: [
     { enforce: "pre", ...mdx({ remarkPlugins: [remarkGfm] }) },
-    react({ include: /\.(mdx|tsx?)$/ }),
+    // The React Compiler, as in the app, so the gallery runs the components
+    // the way the app does.
+    react({ include: /\.(mdx|tsx?)$/, compiler: { target: "19" } }),
     tailwindcss(),
     markdownPages(here("../docs"))
   ],

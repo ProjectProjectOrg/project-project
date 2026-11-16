@@ -154,6 +154,8 @@ import {
   PauseIcon,
   PenTool01Icon,
   PencilEdit01Icon,
+  PinIcon,
+  PinOffIcon,
   PlayIcon,
   Plug01Icon,
   PlusSignIcon,
@@ -655,6 +657,8 @@ export const Pause = icon(PauseIcon, "Pause")
 export const Pencil = icon(PencilEdit01Icon, "Pencil")
 export const PenTool = icon(PenTool01Icon, "PenTool")
 export const Pilcrow = icon(ParagraphIcon, "Pilcrow")
+export const Pin = icon(PinIcon, "Pin")
+export const PinOff = icon(PinOffIcon, "PinOff")
 export const Play = icon(PlayIcon, "Play")
 export const Plug = icon(Plug01Icon, "Plug")
 export const Plus = icon(PlusSignIcon, "Plus")

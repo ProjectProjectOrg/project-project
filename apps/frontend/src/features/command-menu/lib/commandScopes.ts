@@ -1,10 +1,12 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
-import type {
-  SelectedTicket,
-  SprintContext,
-  TicketContext,
-  ViewContext
+import {
+  openCommandMenu,
+  type CommandMenuState,
+  type SelectedTicket,
+  type SprintContext,
+  type TicketContext,
+  type ViewContext
 } from "./commandMenu"
 import type { Command } from "./commands"
 
@@ -40,6 +42,22 @@ export const scopeSelection = (
     if (picked !== undefined && picked !== null) return picked
   }
   return null
+}
+
+export const openFromScopes = (
+  orgSlug: string,
+  scopes: ReadonlyArray<CommandScope>,
+  pointed: TicketContext | null
+): CommandMenuState => {
+  const selection = scopeSelection(scopes)
+  const [first] = selection?.tickets ?? []
+  return selection !== null && first !== undefined
+    ? openCommandMenu(
+        { orgSlug, slug: selection.slug, ticketId: first.id },
+        "root",
+        selection.tickets
+      )
+    : openCommandMenu(scopeTicket(scopes) ?? pointed)
 }
 
 export const scopeSelectionUpdate = (scopes: ReadonlyArray<CommandScope>) =>

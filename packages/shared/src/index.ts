@@ -65,6 +65,8 @@ export * from "./linkPreviews/LinkPreview"
 export * from "./organizations/Org"
 export * from "./organizations/OrgEmail"
 
+export * from "./pins/SidebarPin"
+
 export * from "./pagination/Pagination"
 export * from "./pagination/cursor"
 

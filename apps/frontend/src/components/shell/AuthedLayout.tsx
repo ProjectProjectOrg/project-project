@@ -13,7 +13,7 @@ import { Breadcrumbs } from "@/components/shell/Breadcrumbs"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { MobileNav } from "@/components/shell/MobileNav"
-import { Sidebar } from "@/components/shell/Sidebar"
+import { Sidebar } from "@/components/shell/sidebar/Sidebar"
 import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
@@ -52,10 +52,10 @@ function Shell({ user }: { user: User }) {
   const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
   return (
     <div className="h-full">
-      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-1">
         <Sidebar user={user} />
         <Topbar user={user} />
-        <main className="flex min-h-0 overflow-hidden p-2 pt-0">
+        <main className="flex min-h-0 overflow-hidden p-2 pt-0 lg:pt-2">
           <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-page">
             <PageBackdropContext value={backdrop}>
               <div
@@ -69,8 +69,9 @@ function Shell({ user }: { user: User }) {
                 />
                 <div
                   data-scroll-content
-                  className="flex min-h-full flex-col p-6"
+                  className="flex min-h-full flex-col p-6 pt-3"
                 >
+                  <PageBar user={user} />
                   <Outlet />
                 </div>
                 <div data-scroll-spacer aria-hidden />
@@ -87,16 +88,33 @@ function Shell({ user }: { user: User }) {
   )
 }
 
+// Phones only: the menu button and the timer. On desktop the sidebar spans
+// the full height and the page bar inside the container carries both.
 function Topbar({ user }: { user: User }) {
   return (
-    <header className="flex h-14 items-center gap-2 px-4">
+    <header className="flex h-14 items-center gap-2 px-4 lg:hidden">
       <MobileNav user={user} />
-      <div className="min-w-0 flex-1">
-        <Breadcrumbs />
-      </div>
+      <div className="flex-1" />
       {user.activeOrgSlug ? (
         <RunningTimerIndicator orgSlug={user.activeOrgSlug} />
       ) : null}
     </header>
+  )
+}
+
+// The breadcrumbs, at the top of the page container so they scroll with
+// it and sit on its banner.
+function PageBar({ user }: { user: User }) {
+  return (
+    <div className="mb-3 flex min-h-8 items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <Breadcrumbs />
+      </div>
+      {user.activeOrgSlug ? (
+        <div className="hidden lg:block">
+          <RunningTimerIndicator orgSlug={user.activeOrgSlug} />
+        </div>
+      ) : null}
+    </div>
   )
 }

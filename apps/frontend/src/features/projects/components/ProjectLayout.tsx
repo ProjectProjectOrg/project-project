@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react"
-import { cn } from "@pp/ui/lib/utils"
 import { getRouteApi, Outlet, useMatch } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -29,11 +28,6 @@ export function ProjectLayout() {
   const req = projectRequest(orgSlug, slug)
   const projectResult = useAtomValue(project(req))
   const projectUpdate = useAtomValue(updateProject(req))
-  const inSettings =
-    useMatch({
-      from: "/_authed/orgs/$orgSlug/projects/$slug/settings",
-      shouldThrow: false
-    }) !== undefined
   const onAbout =
     useMatch({
       from: "/_authed/orgs/$orgSlug/projects/$slug/about",
@@ -78,10 +72,7 @@ export function ProjectLayout() {
         <div
           key={`${orgSlug}/${slug}`}
           data-page-banner={value.banner ? "" : undefined}
-          className={cn(
-            "relative isolate flex flex-1 flex-col gap-3",
-            !inSettings && "pp-context-in"
-          )}
+          className="relative isolate flex flex-1 flex-col gap-3"
           style={{ "--ticket-key-width": ticketKeyWidth(value) }}
         >
           <ProjectBanner

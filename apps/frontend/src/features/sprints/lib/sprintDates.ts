@@ -128,7 +128,7 @@ export const sprintCountdown = (
 }
 
 export const sprintEnded = (
-  sprint: Group,
+  sprint: Pick<Group, "completedAt" | "startsAt" | "endsAt">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
 ): boolean =>
   sprintState(sprint, now) === "active" &&

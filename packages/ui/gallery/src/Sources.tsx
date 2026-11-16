@@ -17,7 +17,7 @@ export function Sources({
       <h2 className="text-caption text-muted-foreground">Built on</h2>
       <ul className="flex flex-wrap gap-2">
         {sources.map((source) => (
-          <li key={`${source.kind}-${source.name}`}>
+          <li key={`${source.kind}-${source.name}`} className="min-w-0 max-w-full">
             <SourceChip source={source} />
           </li>
         ))}
@@ -29,18 +29,20 @@ export function Sources({
 function SourceChip({ source }: Readonly<{ source: Source }>) {
   const body = (
     <>
-      <span className="text-muted-foreground">{LIBRARY[source.kind]}</span>
+      <span className="text-muted-foreground">{LIBRARY[source.kind]}</span>{" "}
       <span className="font-semibold">{source.name}</span>
       {source.note === undefined ? null : (
-        <span className="text-muted-foreground">· {source.note}</span>
+        <span className="text-muted-foreground"> · {source.note}</span>
       )}
       {source.href === undefined ? null : (
-        <ArrowUpRight className="size-3.5 text-muted-foreground" />
+        <ArrowUpRight className="ml-1 inline size-3.5 align-[-2px] text-muted-foreground" />
       )}
     </>
   )
+  // Plain inline text, not a flex row, so a long note wraps like a sentence
+  // inside the chip instead of squeezing into a column.
   const className =
-    "inline-flex h-7 items-center gap-1.5 rounded-lg bg-surface-2 px-2.5 text-caption corner-squircle"
+    "inline-block max-w-full rounded-lg bg-surface-2 px-2.5 py-1.5 text-caption corner-squircle"
   return source.href === undefined ? (
     <span className={className}>{body}</span>
   ) : (

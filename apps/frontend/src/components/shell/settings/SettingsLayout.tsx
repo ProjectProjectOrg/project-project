@@ -17,7 +17,7 @@ export function SettingsLayout() {
         .at(-1)
   })
   return (
-    <div className="pp-context-in mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       {page ? (
         <PageHeader>
           <h1>{page.heading}</h1>

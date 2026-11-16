@@ -59,7 +59,8 @@ function TextSwap({
   const swap = (
     <span
       data-slot="text-swap"
-      aria-hidden={announce || undefined}
+      // Empty text (a value rolling out to nothing) has nothing to read.
+      aria-hidden={announce || children === "" || undefined}
       className={cn(
         "inline-flex max-w-full min-w-0 items-center whitespace-nowrap",
         className

@@ -1,3 +1,8 @@
+// The tooltip store is module state (one host, many triggers) that the host
+// reads while it renders. The React Compiler (on in the app) caches that read
+// and the host never shows a tooltip, so this file opts out.
+"use no memo"
+
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { AnimatePresence, motion, type Transition } from "motion/react"
@@ -99,8 +104,17 @@ const clearTimers = () => {
   window.clearTimeout(hideTimer)
 }
 
+// A trigger whose menu or popover is open shows no tooltip: it would sit on
+// top of the popup it opened.
+const popupOpen = (id: string) =>
+  registrations
+    .get(id)
+    ?.current.element?.matches("[data-popup-open], [aria-expanded='true']") ??
+  false
+
 const show = (id: string, source: Source) => {
   clearTimers()
+  if (popupOpen(id)) return
   if (activeId === id && activeSource === source) return
   activeId = id
   activeSource = source
@@ -156,6 +170,11 @@ const tooltipStore = {
     window.clearTimeout(showTimer)
     suppressedId = activeId
     hide()
+  },
+  // The trigger opened a menu or popover: its tooltip goes away at once.
+  popupOpened(id: string) {
+    window.clearTimeout(showTimer)
+    if (activeId === id) hide()
   },
   popupEnter() {
     window.clearTimeout(hideTimer)
@@ -311,7 +330,9 @@ function HostSurface() {
   )
   const id = activeId
   const registration = id === null ? null : registrations.get(id)?.current
-  const content = registration?.disabled ? null : registration?.content
+  // An empty label (a name that isn't set) has nothing to show.
+  const raw = registration?.disabled ? null : registration?.content
+  const content = raw === "" ? null : raw
   const measureRef = React.useRef<HTMLDivElement>(null)
   const surfaceRef = React.useRef<HTMLDivElement | null>(null)
   const [layout, setLayout] = React.useState<Layout | null>(null)
@@ -557,6 +578,21 @@ function useTrigger(
     tooltipStore.touch(id)
   })
   React.useEffect(() => () => tooltipStore.unregister(id), [id])
+  // A popup trigger (menu, popover) marks itself open with data-popup-open or
+  // aria-expanded. Watch for it rather than rely on our pointerdown: the
+  // popup's own handler runs first and can stop ours.
+  React.useEffect(() => {
+    const element = elementRef.current
+    if (element === null) return undefined
+    const observer = new MutationObserver(() => {
+      if (popupOpen(id)) tooltipStore.popupOpened(id)
+    })
+    observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["data-popup-open", "aria-expanded"]
+    })
+    return () => observer.disconnect()
+  }, [id])
 
   const setElement = React.useCallback(
     (element: HTMLElement | null) => {

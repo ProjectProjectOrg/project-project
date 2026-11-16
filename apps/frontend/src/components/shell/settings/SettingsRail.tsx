@@ -12,15 +12,13 @@ import {
   useMatchRoute,
   type LinkComponentProps
 } from "@tanstack/react-router"
-import {
-  createContext,
-  use,
-  useRef,
-  type ReactNode,
-  type RefObject
-} from "react"
+import { createContext, use, useRef, type ReactNode } from "react"
 
-import { navActiveFill, navActiveState } from "@/components/shell/NavItem"
+// Chrome composites background-color transitions and can paint their start colour for one frame as they end.
+const navActiveFill =
+  "before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-accent before:opacity-0 before:transition-opacity hover:before:duration-0"
+
+const navActiveState = "font-semibold text-foreground before:opacity-100"
 
 const SettingsRailNavContext = createContext<
   UseFluidHoverReturn["registerItem"] | null
@@ -49,17 +47,6 @@ export function SettingsRailNav({
         </div>
       </nav>
     </SettingsRailNavContext>
-  )
-}
-
-export function useSettingsRailItem(
-  index: number,
-  ref: RefObject<HTMLElement | null>
-) {
-  useRegisterFluidHoverItem(
-    use(SettingsRailNavContext) ?? undefined,
-    index,
-    ref
   )
 }
 

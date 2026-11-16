@@ -12,7 +12,7 @@ import {
 } from "@/features/projects/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 
-import type { BannerShaderSettings } from "../components/BannerShader"
+import type { BannerShaderSettings } from "@pp/ui/banner-shader"
 
 export { bannerSource }
 

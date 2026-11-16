@@ -34,8 +34,10 @@
 
 :root {
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
-     Pages sit one step up on --page, cards and popups one more on --card. */
+     Pages sit one step up on --page, cards and popups one more on --card.
+     The sidebar's icon rail sits one step below, on --rail. */
   --background: oklch(0.955 0 0);
+  --rail: oklch(0.925 0 0);
   --page: oklch(0.982 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -177,6 +179,7 @@
 
 .dark {
   --background: oklch(0.145 0 0);
+  --rail: oklch(0.115 0 0);
   --page: oklch(0.219 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -325,6 +328,7 @@
   --text-micro-compact--line-height: var(--lh-micro-compact);
   --color-hover: var(--hover);
   --color-page: var(--page);
+  --color-rail: var(--rail);
   --color-field: var(--field);
   --color-active: var(--active);
   --color-tint: var(--tint);
@@ -935,6 +939,185 @@
   .pp-badge > button:first-child {
     cursor: pointer;
     outline: none;
+  }
+}
+
+/* Sidebar (@pp/ui/sidebar). Fills and tints come from one tone in oklch;
+   the active fill is a ::before layer, because Chrome can paint a
+   background-color transition's start colour for one frame as it ends. */
+@layer components {
+  .pp-rail-item,
+  .pp-sidebar-row {
+    position: relative;
+    isolation: isolate;
+    color: var(--muted-foreground);
+  }
+  .pp-rail-item::before,
+  .pp-sidebar-row::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    corner-shape: var(--button-corner);
+    background-color: var(--accent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms;
+  }
+
+  .pp-rail-item {
+    transition:
+      color 150ms,
+      background-color 150ms,
+      opacity 150ms,
+      filter 150ms,
+      scale 120ms var(--ease-standard);
+  }
+  .pp-rail-item:hover {
+    transition-duration: 0ms, 0ms, 0ms, 0ms, 120ms;
+  }
+  .pp-rail-item:active {
+    scale: 0.97;
+  }
+  .pp-rail-item:not([data-tone]):hover {
+    background-color: var(--hover);
+    color: var(--foreground);
+  }
+  .pp-rail-item:not([data-tone])[data-active] {
+    color: var(--foreground);
+  }
+  .pp-rail-item:not([data-tone])[data-active]::before {
+    opacity: 1;
+  }
+  .pp-rail-item[data-tone] {
+    color: var(--foreground);
+    background-color: oklch(from var(--rail-tone) 0.91 calc(c * 0.45) h);
+    opacity: 0.6;
+    filter: saturate(0.55);
+  }
+  .dark .pp-rail-item[data-tone] {
+    background-color: oklch(from var(--rail-tone) 0.34 calc(c * 0.5) h);
+  }
+  .pp-rail-item[data-tone]:hover,
+  .pp-rail-item[data-tone]:focus-visible,
+  .pp-rail-item[data-tone][data-active] {
+    opacity: 1;
+    filter: saturate(1);
+  }
+
+  .pp-sidebar-row {
+    transition:
+      color 150ms,
+      background-color 150ms,
+      box-shadow 200ms var(--ease-standard),
+      scale 120ms var(--ease-standard);
+  }
+  .pp-sidebar-row:hover,
+  [data-fluid-hover-active] > .pp-sidebar-row {
+    color: var(--foreground);
+    transition-duration: 0ms, 0ms, 120ms;
+  }
+  .pp-sidebar-row:not([data-fluid]):hover {
+    background-color: var(--hover);
+  }
+  .pp-sidebar-row:active {
+    scale: 0.97;
+  }
+  .pp-sidebar-row[data-active] {
+    color: var(--foreground);
+    font-weight: 550;
+  }
+  .pp-sidebar-row[data-active]:not([data-live])::before {
+    opacity: 1;
+  }
+  .pp-sidebar-row[data-live] {
+    font-weight: 400;
+    box-shadow: inset 0 0 0 1px var(--segment-line);
+  }
+  .pp-sidebar-row[data-highlight] {
+    animation: pp-sidebar-landed 420ms var(--ease-standard);
+  }
+
+  /* While a pinned row is dragged, the whole page shows the closed hand. */
+  html.pp-sidebar-dragging,
+  html.pp-sidebar-dragging * {
+    cursor: grabbing !important;
+    user-select: none;
+  }
+  /* The row being dragged: lifted onto the accent fill while the list
+     reorders around it. */
+  .pp-sidebar-row-dragging .pp-sidebar-row::before {
+    opacity: 1;
+  }
+  .pp-sidebar-row-dragging .pp-sidebar-row {
+    color: var(--foreground);
+  }
+  .pp-sidebar-row-submenu {
+    transition: translate 150ms var(--ease-standard);
+  }
+  .pp-sidebar-row:hover .pp-sidebar-row-submenu,
+  [data-fluid-hover-active] > .pp-sidebar-row .pp-sidebar-row-submenu {
+    translate: 2px 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pp-sidebar-row-submenu {
+      transition: none;
+    }
+  }
+  .pp-sidebar-row-meta {
+    transition: opacity 150ms;
+  }
+  .pp-sidebar-row-action {
+    opacity: 0;
+    color: var(--muted-foreground);
+    transition:
+      opacity 150ms,
+      color 150ms,
+      background-color 150ms,
+      scale 120ms var(--ease-standard);
+  }
+  .pp-sidebar-row-action:hover {
+    background-color: var(--hover);
+    color: var(--foreground);
+  }
+  .pp-sidebar-row-action:active {
+    scale: 0.97;
+  }
+  [data-slot="sidebar-row"]:is(
+      :has(:hover),
+      [data-fluid-hover-active],
+      :has(:focus-visible),
+      [data-live]
+    )
+    .pp-sidebar-row-action {
+    opacity: 1;
+    transition-duration: 0ms, 0ms, 0ms, 120ms;
+  }
+  [data-slot="sidebar-row"][data-action]:is(
+      :has(:hover),
+      [data-fluid-hover-active],
+      :has(:focus-visible),
+      [data-live]
+    )
+    .pp-sidebar-row-meta {
+    opacity: 0;
+    transition-duration: 0ms;
+  }
+  [data-slot="sidebar-row"][data-live] .pp-sidebar-row-action {
+    color: var(--foreground);
+  }
+  [data-slot="sidebar-row"][data-live] .pp-sidebar-row-action:hover {
+    background-color: var(--accent);
+  }
+
+}
+@keyframes pp-sidebar-landed {
+  from {
+    background-color: var(--accent);
+  }
+  to {
+    background-color: transparent;
   }
 }
 

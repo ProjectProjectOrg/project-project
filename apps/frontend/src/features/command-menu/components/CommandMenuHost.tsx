@@ -64,10 +64,9 @@ import {
 } from "../lib/commandMenu"
 import type { CommandContext, CommandEnv } from "../lib/commands"
 import {
+  openFromScopes,
   scopeCommands,
-  scopeSelection,
   scopeSprint,
-  scopeTicket,
   scopeView,
   type CommandScope
 } from "../lib/commandScopes"
@@ -91,23 +90,13 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
     <>
       <CommandMenuDialog
         open={state.open}
-        onOpenChange={(open) => {
-          const selection = open ? scopeSelection(scopes) : null
-          const [first] = selection?.tickets ?? []
+        onOpenChange={(open) =>
           setState(
-            !open
-              ? CLOSED_COMMAND_MENU
-              : selection !== null && first !== undefined
-                ? openCommandMenu(
-                    { orgSlug, slug: selection.slug, ticketId: first.id },
-                    "root",
-                    selection.tickets
-                  )
-                : openCommandMenu(
-                    scopeTicket(scopes) ?? registry.get(pointedTicket)
-                  )
+            open
+              ? openFromScopes(orgSlug, scopes, registry.get(pointedTicket))
+              : CLOSED_COMMAND_MENU
           )
-        }}
+        }
         title={m.chrome_command_menu_title()}
         pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
       >

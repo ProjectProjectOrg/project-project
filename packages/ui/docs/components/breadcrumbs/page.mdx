@@ -1,0 +1,98 @@
+export const meta = {
+  title: "Breadcrumbs",
+  group: "Primitives",
+  description:
+    "Where the page sits: a trail of links ending in the page, at the top of the page container. It animates its own changes, so moving between projects, tickets and sprints swaps the crumbs instead of redrawing them.",
+  sources: [
+    {
+      kind: "own",
+      name: "Breadcrumbs",
+      note: "Motion for crumbs that come and go, TextSwap for crumbs that change"
+    }
+  ]
+}
+
+## Overview
+
+Every state, one per row: the page alone, a trail, a ticket and a sub-ticket (its parent is the key; hover it for the title), a hovered and a focused link, and a crumb that is still loading. Crumbs always show their full text.
+
+<Demo name="overview" title="All states" />
+
+## Playground
+
+Change the trail the ways the app does. Next project and Next ticket keep their crumb and roll the new text in. Open sprint, From parent and Open ticket add a crumb, which opens its width and fades in while the crumbs after it slide along; closing it fades it out and closes the gap. From parent shows the parent as its key; hover it for the title. Dashboard rolls the root crumb from Projects into Dashboard and drops the rest. Reload project shows the skeleton over the name for a moment, without moving anything.
+
+<Demo name="playground" title="Change the trail" />
+
+## Usage
+
+The app builds the trail from its routes' loader data. Each crumb component reads its own data and renders one `BreadcrumbItem`, so the trail can hold crumbs that load on their own.
+
+```tsx
+import { BreadcrumbItem, Breadcrumbs } from "@pp/ui/breadcrumbs"
+import { Link } from "@tanstack/react-router"
+
+<Breadcrumbs label={m.nav_breadcrumb_label()}>
+  <BreadcrumbItem
+    key="0-static"
+    label={m.chrome_sidebar_projects()}
+    render={<Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />}
+  />
+  <BreadcrumbItem
+    key="1-project"
+    label={project?.name ?? null}
+    loadingLabel={m.nav_crumb_loading({ slug })}
+    render={<Link to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }} />}
+  />
+</Breadcrumbs>
+```
+
+| Component        | Prop           | Type                                                   | Default    |
+| ---------------- | -------------- | ------------------------------------------------------ | ---------- |
+| `Breadcrumbs`    | `label`        | `string`, the nav's accessible name                    | required   |
+| `BreadcrumbItem` | `label`        | `string \| null`; `null` while it loads (a skeleton); leave it out for a prefix-only crumb | |
+| `BreadcrumbItem` | `loadingLabel` | `string`, read out while it loads                      |            |
+| `BreadcrumbItem` | `loadingWidth` | `string`, the skeleton's width                         | `"8ch"`    |
+| `BreadcrumbItem` | `prefix`       | `string`, a mono prefix such as a ticket key           |            |
+| `BreadcrumbItem` | `detail`       | `string`, the full name of a crumb that shows less: a tooltip under it, and part of its accessible name | |
+| `BreadcrumbItem` | `render`       | the link to render (a router `Link`); ignored on the last crumb | `<span>` |
+
+## Rules
+
+### Keys are identity
+
+A crumb's React key is its identity. Crumbs have no layout animation: they slide along with the widths that open and close, and a measured jump (the page scrolling back to the top on navigation) would otherwise fly them in from far away. The same key on the next render is the same crumb: it stays mounted, rolls new text through `TextSwap`, and glides if it moves. A new key enters, a key that's gone exits. Choose the key by what should read as "the same thing": the app keys the project, sprint, parent and ticket crumbs by their role (another project is the same crumb with a new name) and its static section and page titles by their depth (General and Team are the same crumb). Never key by position: inserting a parent would turn the ticket into the parent.
+
+### The root always swaps
+
+The first crumb is always the same crumb, whatever its key, so the trail's root rolls from Projects into Dashboard and back through `TextSwap` instead of leaving and entering. Everything after it follows the key rule.
+
+### Loading
+
+A crumb loading for the first time shows a skeleton at `loadingWidth`; when its name arrives, the crumb eases from the skeleton's width to its own (`interpolate-size`; browsers without it jump) and the name fades in. A crumb that reloads keeps its last name in place under the skeleton, so its width never moves, and a different name then rolls in from the old one.
+
+### Crumbs that come and go
+
+A new crumb opens its width over 260ms on `--ease-standard` (`transitions.morph`), and its text fades in and sharpens from a 4px blur a beat behind (180ms, 60ms later), so it never shows squeezed. A leaving crumb is quicker, on the same house curve: its text fades and blurs out at once (100ms) while its width closes over 180ms. (A reversed copy of the enter starts too slowly.) Both stay in the flow, so the crumbs around them slide along with the width and nothing jumps.
+
+A leaving crumb keeps its place: it stays right in front of the crumb that followed it, or at the end if nothing did. So a crumb that replaces others, like Dashboard for Projects and everything after it, grows in at the front while the old ones shrink away behind it. The trail runs its own presence for this rather than `AnimatePresence`, whose leaving crumbs either can't shrink (`popLayout` pins their width) or land behind the new one. A leaving crumb is `inert` and takes no hover. Reduced motion only fades.
+
+### A sub-ticket's parent is its key
+
+On a sub-ticket opened from its parent, the parent crumb shows only the parent's key (`ATL-3`), not its title: the trail stays short and the page's own title stays the longest thing in it. Hovering or focusing the key shows the parent's title in a tooltip under the crumb (`detail`), and the title is part of the link's accessible name.
+
+### The page is the last crumb
+
+The last crumb is the current page: foreground text, `aria-current="page"`, never a link. Earlier crumbs are muted links. A chevron separates crumbs and belongs to the crumb after it, so it comes and goes with that crumb.
+
+### Never cut off
+
+Every crumb keeps its full text. A trail is a few short names, so there is room, and a cut-off name hides the one thing the crumb is for. It also has to be this way: TextSwap's letters can't take an ellipsis, and Scritto wraps any text with a space once its box is narrower than the text. Only a trail wider than the whole page is clipped, with a 4px clip margin so focus rings still show.
+
+### Hover and press
+
+Links share one `bg-hover` highlight that glides between them (`useFluidHover`), turn to foreground on hover, and press to 97%. The page crumb has no hover.
+
+### Placement
+
+The trail sits at the top of the page container, inside it, on the same 36px line as the rail's logo and the sidebar's header. It scrolls with the page and sits on the page's banner.

@@ -781,17 +781,6 @@ html.dark .prose-md .token.coord {
   text-decoration-color: var(--prose-check-ring);
 }
 
-@keyframes pp-context-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-.pp-context-in {
-  animation: pp-context-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 @keyframes pp-pane-in {
   from {
     opacity: 0;
@@ -804,7 +793,6 @@ html.dark .prose-md .token.coord {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pp-context-in,
   .pp-pane-in {
     animation: none;
   }

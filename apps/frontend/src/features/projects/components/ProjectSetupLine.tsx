@@ -70,10 +70,7 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
   const Icon = next.icon
 
   return (
-    <div
-      data-nav-skip
-      className="group/setup-line flex items-center gap-2 border-t border-border/60 px-3 py-2 text-caption text-muted-foreground"
-    >
+    <div className="group/setup-line mx-2 mb-1 flex items-center gap-2 px-2.5 py-1 text-caption text-muted-foreground">
       <Link
         to={next.to}
         params={{ orgSlug, slug }}

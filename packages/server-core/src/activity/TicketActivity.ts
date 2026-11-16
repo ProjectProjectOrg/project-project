@@ -31,6 +31,7 @@ import { stageInbox, type InboxNotice } from "../inbox/events"
 import { applyInbox, lockTickets, removeTicketInbox } from "../inbox/inboxRows"
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import { removeTicketPins } from "../pins/pinRows"
 import type { SubscriptionIntent } from "../subscriptions/intents"
 import {
   applySubscriptions,
@@ -512,6 +513,7 @@ const make = Effect.gen(function* () {
         lockTickets(db, projectId, [ticketId]).pipe(
           Effect.andThen(removeTicketInbox(projectId, ticketId)),
           Effect.andThen(removeTicketSubscriptions(projectId, ticketId)),
+          Effect.andThen(removeTicketPins(projectId, ticketId)),
           Effect.provideService(Db, db)
         )
       )

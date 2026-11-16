@@ -49,6 +49,7 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OAuthApplications from "@pp/server-core/oauth/OAuthApplications"
 import * as Org from "@pp/server-core/organizations/Org"
+import * as SidebarPins from "@pp/server-core/pins/SidebarPins"
 import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
@@ -159,7 +160,11 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(TicketServices.layer),
       Layer.provideMerge(TicketActivityFeed.layer),
       Layer.provideMerge(
-        Layer.mergeAll(TicketSubscriptions.layer, Inbox.layer)
+        Layer.mergeAll(
+          TicketSubscriptions.layer,
+          Inbox.layer,
+          SidebarPins.layer
+        )
       ),
       Layer.provideMerge(Library.layer),
       Layer.provideMerge(LibraryMigration.layer),

@@ -1,5 +1,5 @@
 import * as Match from "effect/Match"
-import { useEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 
 export type BannerShaderSettings = {
   pixelSize: number
@@ -121,12 +121,14 @@ export function BannerShader({
   const drawRef = useRef<(() => void) | null>(null)
   const options = useRef({ settings, mode, onRender })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     options.current = { settings, mode, onRender }
     drawRef.current?.()
   }, [settings, mode, onRender])
 
-  useEffect(() => {
+  // Layout effects: the first draw lands before paint, so a mounted banner
+  // never shows a blank frame.
+  useLayoutEffect(() => {
     const canvas = ref.current!
     const gl = fallback
       ? null

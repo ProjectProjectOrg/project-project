@@ -1053,6 +1053,36 @@ export const inboxRow = pgTable(
     index("inbox_row_user_idx").on(t.userId, t.state, t.latestAt)
   ]
 )
+
+export const sidebarPin = pgTable(
+  "sidebar_pin",
+  {
+    userId: text("user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    kind: text("kind", { enum: ["ticket", "sprint"] }).notNull(),
+    ref: text("ref").notNull(),
+    orderKey: text("order_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.projectId, t.kind, t.ref] }),
+    foreignKey({
+      name: "sidebar_pin_project_fkey",
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "sidebar_pin_org_member_fkey",
+      columns: [t.organizationId, t.userId],
+      foreignColumns: [member.organizationId, member.userId]
+    }).onDelete("cascade"),
+    index("sidebar_pin_user_org_idx").on(t.userId, t.organizationId),
+    index("sidebar_pin_target_idx").on(t.projectId, t.kind, t.ref)
+  ]
+)
 export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
   Readonly<{ occurredAt: string }>
 

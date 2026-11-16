@@ -1,0 +1,63 @@
+export const meta = {
+  title: "Project icon",
+  group: "Primitives",
+  description:
+    "A project's tile: its emoji (or uploaded image) on a backdrop generated from the project, the square sibling of the member orbs. Used in the rail, the sidebar, project cards and the page header.",
+  sources: [
+    { kind: "own", name: "ProjectIcon", note: "generated dithered tiles, like MemberAvatar" }
+  ]
+}
+
+## Overview
+
+Four projects large, the Atlas tile at every size the app uses, and the emoji, uploaded-image and saving states.
+
+<Demo name="overview" title="All states" />
+
+## Explore
+
+Generated tiles for sixteen seeds. Each seed picks a surface pattern, a light and a texture; the project's colour sets the palette. Roll new seeds to see more.
+
+<Demo name="explore" title="Generated tiles" />
+
+## Usage
+
+```tsx
+import { ProjectIcon } from "@pp/ui/project-icon"
+
+<ProjectIcon
+  seed={project.slug}
+  color={project.color}
+  icon={project.icon}
+  image={project.iconImage ? <ProjectIconImage project={project} size={28} /> : undefined}
+  size={28}
+/>
+```
+
+| Prop      | Type                                                      | Default  |
+| --------- | --------------------------------------------------------- | -------- |
+| `seed`    | `string`, what the backdrop is generated from (the slug)  | required |
+| `color`   | `string`, the project's colour as `#rrggbb`               | required |
+| `size`    | `number`, the side in px                                  | required |
+| `icon`    | `string`, the emoji                                       |          |
+| `image`   | `ReactNode`, an uploaded icon shown instead of the emoji   |          |
+| `waiting` | `boolean`, pulses while the icon saves                    | `false`  |
+| `label`   | `string`, the project's name when the tile stands alone   |          |
+
+## Rules
+
+### Generated like the avatars
+
+The backdrop is a generated tile (`lib/projectTile`), built like the member orbs (`lib/orbAvatar`): one seed picks a surface pattern from the orbs' set, a light (diagonal, side or flat), a zoom, a texture and sometimes a glow, and the result is painted through the same 4×4 ordered dither at the avatars' cell sizes. The palette is five steps of the project's own colour in OKLCH, from deep to lit, with a seeded hue drift at the ends. So the tile keeps the project's colour, and two projects with the same colour still look different. Painted tiles are cached per seed, colour, size and pixel density.
+
+### The emoji is centred on the tile
+
+The emoji is 62% of the side, at line-height 1, centred by the tile's grid at its real width. That matters at small sizes: below about 14px the emoji font draws its smallest bitmap, up to 30% wider than the font size, so a glyph box the size of the font pushes the emoji off to the right (the old 16px tile's drift). Vertically, at line-height 1, the glyph already sits within 5% of the centre, so it gets no nudge.
+
+### Shadows by size
+
+From 24px up the emoji gets the layered drop shadow that lifts it off the dither; below that a single half-pixel shadow, since a blur at that size only muddies it.
+
+### Shape
+
+Corners at about 28% of the side, squircled (`corner-squircle`), with the house `shadow-sm`. Without a label the tile is hidden from assistive tech, because the project's name is always next to it.

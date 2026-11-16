@@ -155,7 +155,10 @@ export const updateSprint = Atom.family(({ req, groupId }: SprintKey) =>
       }),
     confirm: (sprints, updated) =>
       replaceSprint(sprints, groupId, () => updated),
-    publish: () => [Keys.sprint(scopeOf(req), groupId)]
+    publish: () => [
+      Keys.sprint(scopeOf(req), groupId),
+      Keys.pins(req.params.orgSlug)
+    ]
   })
 )
 
@@ -172,7 +175,8 @@ export const deleteSprint = Atom.family(({ req, groupId }: SprintKey) =>
     publish: () => [
       Keys.sprintMembership(scopeOf(req)),
       Keys.ticketsIn(scopeOf(req)),
-      Keys.sprint(scopeOf(req), groupId)
+      Keys.sprint(scopeOf(req), groupId),
+      Keys.pins(req.params.orgSlug)
     ]
   })
 )
@@ -220,6 +224,7 @@ export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
       Keys.sprintMembership(scopeOf(req)),
       Keys.ticketsIn(scopeOf(req)),
       Keys.sprint(scopeOf(req), groupId),
+      Keys.pins(req.params.orgSlug),
       ...(input.destination.kind === "sprint"
         ? [Keys.sprint(scopeOf(req), input.destination.groupId)]
         : [])
