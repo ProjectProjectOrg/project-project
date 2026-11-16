@@ -4,6 +4,8 @@ ProjectProject (PP) is a markdown-first project management tool: organizations, 
 
 This file describes the system as it is. Keep it current in the same PR as the change that makes it wrong. Describe shapes and boundaries, and point at the code for anything it enumerates — tools, endpoints, tables, env vars — so there is no second list to fall out of step. How we work, and the frontend conventions, live in `AGENTS.md`; the visual system lives in `DESIGN.md` and `PRODUCT.md`; running it lives in `README.md` and `docs/deploy.md`.
 
+A replacement for the frontend data layer is planned but not yet built: a synced local copy of each project, served from a durable change log. Its plan of record is `docs/history/specs/2026-11-16-local-first-data-layer-design.md` (epic T-382). Until each step ships, this file and `docs/frontend/` describe the current layer.
+
 ---
 
 ## Tech stack
