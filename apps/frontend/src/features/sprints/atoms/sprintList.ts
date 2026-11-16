@@ -24,6 +24,8 @@ import { persisted } from "@/api/bootCache"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
+import { localGroups } from "@/features/local/atoms/localViews"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import { bulkBatches } from "@/features/tickets/atoms/bulkTickets"
 
 import { applySprintPatch } from "./sprintPatch"
@@ -41,12 +43,20 @@ export const sprintListRequest = (
 const scopeOf = (req: SprintListRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const sprintsQuery = (req: SprintListRequest) =>
+const groupsQuery = (req: SprintListRequest) =>
   query("groups", "list", {
     params: req.params,
     timeToLive: "1 minute",
     reactivityKeys: [Keys.sprints(scopeOf(req))]
-  }).pipe(persisted(`groups/${scopeOf(req)}`, Schema.Array(Group)))
+  })
+
+const sprintsQuery = (req: SprintListRequest) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localGroups(req.params)) ??
+      get(groupsQuery(req)),
+    (refresh) => refresh(groupsQuery(req))
+  ).pipe(persisted(`groups/${scopeOf(req)}`, Schema.Array(Group)))
 
 const sprintListQuery = (req: SprintListRequest) =>
   Atom.mapResult(sprintsQuery(req), (groups) =>

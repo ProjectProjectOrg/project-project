@@ -5,6 +5,8 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation } from "@/api/viewMutation"
+import { localSprintBoard } from "@/features/local/atoms/localViews"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
 import { compareByRank } from "@/features/tickets/lib/ticketRank"
@@ -51,6 +53,8 @@ const boardView = (req: BoardRequest) => {
   )
   return Atom.readable(
     (get) => {
+      const local = readLocal(get, req.params, () => localSprintBoard(req))
+      if (local !== null) return local
       const combined = AsyncResult.all([get(sprint), get(ticketsQuery(req))])
       return AsyncResult.map(
         combined,

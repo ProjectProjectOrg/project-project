@@ -10,6 +10,8 @@ import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
+import { localSprintBoard } from "./board"
+import { localGroupList } from "./groups"
 import {
   type CountsRequest,
   type LocalProject,
@@ -21,6 +23,7 @@ import {
 } from "./LocalRpcs"
 import { localParentSections } from "./parents"
 import { localCounts, localSections } from "./sections"
+import { localSequence } from "./sequence"
 import { localSprintSections } from "./sprints"
 import {
   applyChanges,
@@ -38,6 +41,8 @@ import {
   syncOf
 } from "./store"
 import { SyncSource } from "./SyncSource"
+import { localTicketList, repositoryFrom } from "./ticketList"
+import { localTitles } from "./titles"
 
 const sectionsRequest = (request: SectionsRequest, copy: number) => ({
   copy,
@@ -301,7 +306,62 @@ export const localRpcsLayer = LocalRpcs.toLayer(
               localCounts(countsRequest(request, copy))
             )
           )
-          .pipe(Stream.orDie)
+          .pipe(Stream.orDie),
+      TicketList: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              localTicketList({
+                copy,
+                query: request.query,
+                viewerId: request.viewerId,
+                estimation: request.estimation,
+                repository: repositoryFrom(request.repositories)
+              })
+            )
+          )
+          .pipe(Stream.orDie),
+      SprintBoard: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              localSprintBoard({
+                copy,
+                groupId: request.groupId,
+                repository: repositoryFrom(request.repositories)
+              })
+            )
+          )
+          .pipe(Stream.orDie),
+      Groups: (project) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(project))],
+            readCopy(project, localGroupList)
+          )
+          .pipe(Stream.orDie),
+      Titles: (project) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(project))],
+            readCopy(project, localTitles)
+          )
+          .pipe(Stream.orDie),
+      Sequence: (request) =>
+        readCopy(request.project, (copy) =>
+          Effect.flatMap(DateTime.nowAsDate, (now) =>
+            localSequence({
+              copy,
+              id: request.id,
+              from: request.from,
+              viewerId: request.viewerId,
+              estimation: request.estimation,
+              now
+            })
+          )
+        ).pipe(Effect.orDie)
     }
   })
 )
