@@ -7,7 +7,7 @@ export const meta = {
     {
       kind: "own",
       name: "Sidebar",
-      note: "our own; the hover glide is Fluid's useFluidHover, the bar is a motion shared layout"
+      note: "our own; the hover glide is Fluid's useFluidHover, the bar is one element on a CSS transition"
     }
   ]
 }
@@ -132,6 +132,10 @@ import {
 `SidebarRowGroup` takes keyed rows as `children`, plus `onReorder?: (keys) => void` to make them sortable (called once, on drop, with every key in the new order) and `isSortable?: (key) => boolean` for rows that stay put (the live row). `SidebarRailSeparator`, `SidebarSubRows` and `SidebarNote` take only `children` and `className`. Other props on `SidebarRailItem`, `SidebarRow` and `SidebarRowAction` go to the element they render.
 
 ## Rules
+
+### The rail's bar runs on the compositor
+
+The active item's bar is one element for the whole rail, moved with a CSS transition on `translate` (220ms, standard curve). The browser runs that on the compositor, so the bar keeps sliding while a project switch keeps the main thread busy rendering the new page; a JS-driven shared layout froze for 130–300ms there. It also starts on pointerdown, before the click navigates, which gives it a head start; a press that doesn't navigate puts it back.
 
 ### The rail
 

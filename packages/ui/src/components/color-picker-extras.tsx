@@ -212,6 +212,10 @@ function Flyer({
   )
 }
 
+// Trimmed to cap height, so the letters (not the line box, whose centre
+// sits below them) centre on the hexagon icon.
+const labelClass = "[text-box:trim-both_cap_alphabetic]"
+
 // The current choice is outlined like a picked dot, but only if it was the
 // choice when the grid opened: one picked to close the grid doesn't need it.
 const outlineClass =
@@ -269,7 +273,7 @@ export function ColorPickerExtras({
               onClick={onClear}
               className={outlined === "clear" ? outlineClass : undefined}
             >
-              {clear}
+              <span className={labelClass}>{clear}</span>
             </Button>
           )}
           {multi === undefined ? null : (
@@ -282,7 +286,7 @@ export function ColorPickerExtras({
               onClick={multi.onToggle}
               className={outlined === "multi" ? outlineClass : undefined}
             >
-              {multi.label}
+              <span className={labelClass}>{multi.label}</span>
             </Button>
           )}
         </div>
