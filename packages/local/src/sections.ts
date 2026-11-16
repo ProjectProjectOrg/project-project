@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm"
 import { alias, union } from "drizzle-orm/sqlite-core"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 
 import { compileFilter, open } from "./filter"
 import { LocalDb } from "./LocalDb"
@@ -38,6 +39,17 @@ import {
 } from "./ticketRows"
 
 const t = localTickets
+
+const idList = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Array(Schema.String))
+)
+
+export const inList = (ids: ReadonlyArray<string>) =>
+  sql`${t.id} in (select value from json_each(${idList(ids)}))`
+
+export const notInList = (ids: ReadonlyArray<string>) =>
+  sql`${t.id} not in (select value from json_each(${idList(ids)}))`
+
 export type LocalSectionsRequest = Readonly<{
   copy: number
   query: TicketListQuery
@@ -164,6 +176,7 @@ export const sectionPage = (
   }[query.sort.key]
   return db
     .select({
+      id: page.id,
       data: localTicketData.data,
       orderKey: pageOrder,
       parentTitle: parent.title,

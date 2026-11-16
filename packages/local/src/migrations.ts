@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Migrator from "effect/sql/Migrator"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import { deriveCopy } from "./sectionKeys"
 import { type LocalSortKey, SORT_KEYS } from "./tables"
 
 export const FACT_TABLES = [
@@ -185,11 +186,25 @@ const descriptions = Effect.gen(function* () {
   yield* sql`create index local_ticket_cache_used on local_ticket_cache (used)`
 })
 
+const sections = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`alter table local_tickets add column sprint text`
+  yield* sql`alter table local_tickets add column epic_section text`
+  yield* sql`alter table local_tickets add column parent_section text`
+  for (const { id } of yield* sql<{ id: number }>`select id from local_copies`)
+    yield* deriveCopy(id)
+  yield* sql`create index local_tickets_sprint on local_tickets (copy, archived, sprint, status)`
+  yield* sql`create index local_tickets_epic_section on local_tickets (copy, archived, epic_section, status, type)`
+  yield* sql`create index local_tickets_parent_section on local_tickets (copy, archived, parent_section, status, type)`
+  yield* sql`create index local_tickets_epics on local_tickets (copy, archived, order_title) where type = 'epic'`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
   "0003_copies": copies,
   "0004_staging": staging,
   "0005_pending": pending,
-  "0006_descriptions": descriptions
+  "0006_descriptions": descriptions,
+  "0007_sections": sections
 })

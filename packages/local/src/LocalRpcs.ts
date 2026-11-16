@@ -275,4 +275,7 @@ export class LocalRpcs extends RpcGroup.make(
   })
 ) {}
 
-export const LocalWorkerInit = Schema.Struct({ userId: Schema.String })
+export const LocalWorkerInit = Schema.Struct({
+  userId: Schema.String,
+  timings: Schema.Boolean
+})

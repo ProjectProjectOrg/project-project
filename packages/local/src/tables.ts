@@ -45,7 +45,10 @@ export const localTickets = sqliteTable(
     orderUpdated: text("order_updated").notNull(),
     orderTitle: text("order_title").notNull(),
     orderPriority: text("order_priority").notNull(),
-    orderEstimate: text("order_estimate").notNull()
+    orderEstimate: text("order_estimate").notNull(),
+    sprint: text("sprint"),
+    epicSection: text("epic_section"),
+    parentSection: text("parent_section")
   },
   (t) => [primaryKey({ columns: [t.copy, t.id] })]
 )

@@ -14,7 +14,7 @@ import * as Stream from "effect/Stream"
 import { localSprintBoard } from "./board"
 import { descriptionKey, LocalDescriptions } from "./descriptions"
 import { localGroupList } from "./groups"
-import type { LocalDb } from "./LocalDb"
+import { type LocalDb, timed } from "./LocalDb"
 import {
   type CountsRequest,
   type LocalProject,
@@ -99,8 +99,10 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const inFlight = new Set<string>()
     const writer = yield* Semaphore.make(1)
     const loops = new Map<string, Semaphore.Semaphore>()
-    const write = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      writer.withPermit(effect)
+    const write =
+      (label: string) =>
+      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        writer.withPermit(timed(`write ${label}`)(effect))
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
     const descriptions = yield* LocalDescriptions
@@ -154,13 +156,13 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       })
 
     const retire = (copy: number) =>
-      write(dropCopyBatch(copy)).pipe(
+      write("drop")(dropCopyBatch(copy)).pipe(
         Effect.repeat({ until: (dropped) => dropped })
       )
 
     const restart = (scope: string, page: SnapshotPage) =>
       Effect.gen(function* () {
-        const abandoned = yield* write(beginStaging(scope, page))
+        const abandoned = yield* write("begin")(beginStaging(scope, page))
         if (abandoned !== null) yield* retire(abandoned)
       })
 
@@ -170,7 +172,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         const staging = yield* stagingOf(scope)
         if (staging !== null) {
           if (staging.next === null) {
-            const published = yield* write(publishStaging(scope))
+            const published = yield* write("publish")(publishStaging(scope))
             yield* changed(scope)
             if (published?.retired != null) yield* retire(published.retired)
             return "again" as const
@@ -179,7 +181,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           if (page.kind !== "snapshot")
             return yield* Effect.die(new Error("expected a snapshot page"))
           if (page.start !== null) yield* restart(scope, page)
-          else yield* write(applyPage(scope, staging.next, page))
+          else yield* write("page")(applyPage(scope, staging.next, page))
           return "again" as const
         }
         const current = yield* syncOf(scope)
@@ -200,7 +202,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           scope,
           current.cursor,
           response,
-          write
+          write("changes")
         )
         if (applied === "applied" && touches(response)) yield* changed(scope)
         if (applied === "applied")
@@ -212,7 +214,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
 
     const forgetCopies = (scope: string) =>
       Effect.gen(function* () {
-        const copies = yield* write(forget(scope))
+        const copies = yield* write("forget")(forget(scope))
         yield* changed(scope)
         for (const copy of copies) yield* retire(copy)
       })
@@ -234,7 +236,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       const scope = scopeOf(project)
       return sender.withPermit(writes.send(project, id, pending)).pipe(
         Effect.flatMap((receipt) =>
-          write(confirmEdit(scope, id, receipt)).pipe(Effect.orDie)
+          write("confirm")(confirmEdit(scope, id, receipt)).pipe(Effect.orDie)
         ),
         Effect.flatMap((settled) => (settled ? changed(scope) : Effect.void)),
         Effect.as("sent" as const),
@@ -242,7 +244,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           Effect.succeed("offline" as const)
         ),
         Effect.tapError(() =>
-          write(rejectEdit(scope, id)).pipe(
+          write("reject")(rejectEdit(scope, id)).pipe(
             Effect.andThen(changed(scope)),
             Effect.orDie
           )
@@ -278,9 +280,9 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         const scope = scopeOf(project)
         const id = yield* writes.operationId
         inFlight.add(id)
-        yield* write(recordEdit(scope, { id, write: pending, edits })).pipe(
-          Effect.orDie
-        )
+        yield* write("edit")(
+          recordEdit(scope, { id, write: pending, edits })
+        ).pipe(Effect.orDie)
         yield* changed(scope)
         yield* deliver(project, id, pending)
       })
@@ -356,12 +358,15 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       )
 
     const readCopy = <A, E, R>(
+      label: string,
       project: LocalProject,
       read: (copy: number) => Effect.Effect<A | null, E, R>
     ) =>
-      sql.withTransaction(
-        Effect.flatMap(copyOf(scopeOf(project)), (copy) =>
-          copy === null ? Effect.succeed(null) : read(copy)
+      timed(`read ${label}`)(
+        sql.withTransaction(
+          Effect.flatMap(copyOf(scopeOf(project)), (copy) =>
+            copy === null ? Effect.succeed(null) : read(copy)
+          )
         )
       )
 
@@ -377,7 +382,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("Sections", request.project, (copy) =>
               localSections(sectionsRequest(request, copy))
             )
           )
@@ -386,12 +391,12 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("SprintSections", request.project, (copy) =>
               Effect.flatMap(DateTime.nowAsDate, (now) =>
                 localSprintSections({
                   ...sectionsRequest(request, copy),
-                  perSection: (key) =>
-                    request.pageSize * (1 + (request.pages[key] ?? 0)),
+                  pages: request.pages,
+                  pageSize: request.pageSize,
                   now
                 })
               )
@@ -402,7 +407,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy(`ParentSections ${request.by}`, request.project, (copy) =>
               Effect.flatMap(DateTime.nowAsDate, (now) =>
                 localParentSections({
                   ...sectionsRequest(request, copy),
@@ -419,7 +424,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("Counts", request.project, (copy) =>
               localCounts(countsRequest(request, copy))
             )
           )
@@ -428,7 +433,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("TicketList", request.project, (copy) =>
               localTicketList({
                 copy,
                 query: request.query,
@@ -443,7 +448,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("SprintBoard", request.project, (copy) =>
               localSprintBoard({
                 copy,
                 groupId: request.groupId,
@@ -456,18 +461,18 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(project))],
-            readCopy(project, localGroupList)
+            readCopy("Groups", project, localGroupList)
           )
           .pipe(Stream.orDie),
       Titles: (project) =>
         sql
           .reactive(
             [projectKey(scopeOf(project))],
-            readCopy(project, localTitles)
+            readCopy("Titles", project, localTitles)
           )
           .pipe(Stream.orDie),
       Sequence: (request) =>
-        readCopy(request.project, (copy) =>
+        readCopy("Sequence", request.project, (copy) =>
           Effect.flatMap(DateTime.nowAsDate, (now) =>
             localSequence({
               copy,
@@ -487,7 +492,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(request.project, (copy) =>
+            readCopy("Ticket", request.project, (copy) =>
               localTicket(copy, request.id, (repoId) =>
                 repoId === null
                   ? request.repositories.fallback

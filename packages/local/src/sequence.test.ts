@@ -1,6 +1,11 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import { it } from "@effect/vitest"
-import { type StatusFact, type TicketFact, TicketListSource } from "@pp/shared"
+import {
+  type StatusFact,
+  type TicketFact,
+  TicketListQuery,
+  TicketListSource
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -9,6 +14,7 @@ import { expect } from "vitest"
 import { localDbLayer } from "./LocalDb"
 import { localSequence } from "./sequence"
 import { at, sprintFact } from "./sprintFacts"
+import { localSprintSections } from "./sprints"
 import { copyOf } from "./store"
 import { install, snapshot, ticket } from "./testFacts"
 
@@ -28,6 +34,7 @@ const status = (slug: string, orderKey: string): StatusFact => ({
 })
 
 const decodeSource = Schema.decodeUnknownEffect(TicketListSource)
+const decodeQuery = Schema.decodeEffect(TicketListQuery)
 
 const sequenceOf = (
   id: string,
@@ -141,5 +148,57 @@ it.effect(
         })
       ).toEqual({ within: "parent", ids: ["T-3", "T-2"] })
       expect(yield* sequenceOf("T-1", undefined)).toBeNull()
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+const viewOrder = (query: typeof TicketListQuery.Encoded) =>
+  Effect.gen(function* () {
+    const result = yield* localSprintSections({
+      copy: (yield* copyOf("a/p")) ?? -1,
+      query: yield* decodeQuery(query),
+      viewerId: "user-1",
+      estimation: "off",
+      repository: () => null,
+      pages: {},
+      pageSize: 50,
+      now
+    })
+    return result?.sections.flatMap((section) =>
+      section.page.items.map((item) => item.ticket.id)
+    )
+  })
+
+it.effect(
+  "the sprint grouping steps in the view's order when sprints share a ticket",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", {
+        ...snapshot("1.1", [
+          ranked("T-1", "a"),
+          ranked("T-2", "z"),
+          ranked("T-3", "b"),
+          ranked("T-4", "c")
+        ]),
+        groups: [
+          sprintFact("G-1", ["T-1", "T-2"]),
+          sprintFact("G-2", ["T-2", "T-3"], {
+            createdAt: at("2026-11-05T00:00:00Z")
+          })
+        ]
+      })
+
+      for (const [query, ids] of [
+        [{}, ["T-4", "T-1", "T-3", "T-2"]],
+        [{ groupId: ["G-1", "G-2"] }, ["T-1", "T-3", "T-2"]]
+      ] as const) {
+        expect(yield* viewOrder(query)).toEqual(ids)
+        expect(
+          yield* sequenceOf("T-1", {
+            kind: "sections",
+            grouping: "sprint",
+            query
+          })
+        ).toEqual({ within: "view", ids })
+      }
     }).pipe(Effect.provide(TestDatabase))
 )

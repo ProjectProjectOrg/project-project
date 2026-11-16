@@ -47,7 +47,8 @@ const sectionsFor = (query: typeof TicketListQuery.Encoded) =>
       viewerId: "user-1",
       estimation: "off",
       repository: () => null,
-      perSection: () => 50,
+      pages: {},
+      pageSize: 50,
       now
     })
     return result?.sections.map((section) => ({
@@ -89,4 +90,65 @@ it.effect(
         { key: "unscheduled", count: 3, ids: ["T-3", "T-4", "T-5"] }
       ])
     }).pipe(Effect.provide(TestDatabase))
+)
+
+it.effect(
+  "a ticket in two open sprints belongs to the newest, and ties go to the lower id",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", {
+        ...snapshot("1.1", [ticket("T-1", "one"), ticket("T-2", "two")]),
+        groups: [
+          sprint("G-10", ["T-1", "T-2"], null),
+          sprint("G-9", ["T-2"], null),
+          {
+            ...sprint("G-11", ["T-1"], null),
+            createdAt: at("2026-11-05T00:00:00Z")
+          }
+        ]
+      })
+
+      expect(yield* sectionsFor({})).toEqual([
+        { key: "unscheduled", count: 0, ids: [] },
+        { key: "G-10", count: 0, ids: [] },
+        { key: "G-11", count: 1, ids: ["T-1"] },
+        { key: "G-9", count: 1, ids: ["T-2"] }
+      ])
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+it.effect("a section past the row budget gets its rows once asked for", () =>
+  Effect.gen(function* () {
+    const backlog = Array.from({ length: 500 }, (_, index) =>
+      ticket(`T-${index + 1}`, "backlog")
+    )
+    yield* install("a/p", {
+      ...snapshot("1.1", [...backlog, ticket("T-501", "sprint")]),
+      groups: [sprint("G-1", ["T-501"], null)]
+    })
+    const sprintSection = (pages: Readonly<Record<string, number>>) =>
+      Effect.gen(function* () {
+        const result = yield* localSprintSections({
+          copy: (yield* copyOf("a/p")) ?? -1,
+          query: yield* decodeQuery({}),
+          viewerId: "user-1",
+          estimation: "off",
+          repository: () => null,
+          pages,
+          pageSize: 500,
+          now
+        })
+        const section = result?.sections.find(({ key }) => key === "G-1")
+        return {
+          ids: section?.page.items.map((item) => item.ticket.id),
+          nextCursor: section?.page.nextCursor
+        }
+      })
+
+    expect(yield* sprintSection({})).toEqual({ ids: [], nextCursor: "local:0" })
+    expect(yield* sprintSection({ "G-1": 0 })).toEqual({
+      ids: ["T-501"],
+      nextCursor: null
+    })
+  }).pipe(Effect.provide(TestDatabase))
 )

@@ -212,9 +212,11 @@ export function SectionList({
 
       <SectionBody collapsed={collapsed}>
         {items.length === 0 ? (
-          <div className="px-3 py-4 text-center text-caption text-muted-foreground">
-            {emptyMessage ?? "—"}
-          </div>
+          page.nextCursor === null && (
+            <div className="px-3 py-4 text-center text-caption text-muted-foreground">
+              {emptyMessage ?? "—"}
+            </div>
+          )
         ) : (
           <SectionRows
             items={items}

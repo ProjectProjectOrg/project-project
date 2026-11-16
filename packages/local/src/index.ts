@@ -1,5 +1,5 @@
 export { localRpcsLayer } from "./handlers"
-export { LocalDb, localDatabase, localDbLayer } from "./LocalDb"
+export { LocalDb, localDatabase, localDbLayer, LocalTimings } from "./LocalDb"
 export {
   type CountsRequest,
   type LocalProject,

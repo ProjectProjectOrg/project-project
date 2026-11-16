@@ -14,14 +14,20 @@ import {
   type TicketSequenceEntry,
   type TicketSort
 } from "@pp/shared"
-import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm"
-import { alias } from "drizzle-orm/sqlite-core"
+import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import { groupOf } from "./board"
 import { compileFilter } from "./filter"
 import { LocalDb } from "./LocalDb"
-import { groupMembership, groupRestriction, inList } from "./sprints"
+import { inList } from "./sections"
+import {
+  claimTickets,
+  groupMembership,
+  groupRestriction,
+  type Membership,
+  sprintHeaders
+} from "./sprints"
 import { localTickets, orderColumns } from "./tables"
 import { statusesOf } from "./ticketList"
 import { finishedStatuses } from "./ticketRows"
@@ -41,29 +47,17 @@ type Candidate = Readonly<{
   status: string
   type: string | null
   parent: string | null
-  parentFound: string | null
-  parentType: string | null
-  grandparent: string | null
+  sprint: string | null
+  epicSection: string | null
+  parentSection: string | null
 }>
 
 type Rank = (row: Candidate) => number | null
 type NestWithin = ((row: Candidate) => string | null) | undefined
 
 const t = localTickets
-const sequenceParent = alias(localTickets, "sequence_parent")
+const isEpic = sql`${t.type} = 'epic'`
 const PARENT_SECTIONS_LIMIT = 200
-
-const epicKey = (row: Candidate) =>
-  row.parentFound === null
-    ? EPIC_SECTION_NONE
-    : isEpicType(row.parentType)
-      ? row.parentFound
-      : (row.grandparent ?? EPIC_SECTION_NONE)
-
-const ticketParentKey = (row: Candidate) =>
-  row.parentFound !== null && !isEpicType(row.parentType)
-    ? row.parentFound
-    : EPIC_SECTION_NONE
 
 const statusRank = (statuses: ReadonlyArray<StatusFact>): Rank => {
   const keys = [
@@ -124,26 +118,38 @@ const byTitle = (
   EPIC_SECTION_NONE
 ]
 
-type Membership = Effect.Success<ReturnType<typeof groupMembership>>
-
 const sprintSections = (
-  { sprints, ticketsOf }: Membership,
+  sprints: Membership["sprints"],
+  groupIds: TicketListQuery["groupId"],
+  now: Date,
+  sectionOf: (row: Candidate) => string | null
+) => ({
+  rank: keyRank(
+    backlogSprintSections(sprints, groupIds, now).map(
+      (sprint) => sprint?.id ?? "ungrouped"
+    ),
+    sectionOf
+  ),
+  sectionOf
+})
+
+const storedSprint = (row: Candidate) => row.sprint ?? "ungrouped"
+
+const selectedSprintSections = (
+  membership: Membership,
   groupIds: TicketListQuery["groupId"],
   now: Date
 ) => {
-  const shown = backlogSprintSections(sprints, groupIds, now)
-  const selected = new Set(shown.flatMap((sprint) => sprint?.id ?? []))
-  const owner = new Map<string, string>()
-  for (const completed of [false, true])
-    for (const sprint of sprints) {
-      if ((sprint.completedAt !== null) !== completed) continue
-      if (!selected.has(sprint.id)) continue
-      for (const id of ticketsOf.get(sprint.id) ?? [])
-        if (!owner.has(id)) owner.set(id, sprint.id)
-    }
+  const shown = backlogSprintSections(membership.sprints, groupIds, now)
+  const owner = claimTickets(
+    membership,
+    new Set(shown.flatMap((sprint) => sprint?.id ?? []))
+  )
   const incomplete = new Set(
-    sprints.flatMap((sprint) =>
-      sprint.completedAt === null ? (ticketsOf.get(sprint.id) ?? []) : []
+    membership.sprints.flatMap((sprint) =>
+      sprint.completedAt === null
+        ? (membership.ticketsOf.get(sprint.id) ?? [])
+        : []
     )
   )
   const unscheduled = shown.includes(null)
@@ -151,13 +157,7 @@ const sprintSections = (
   const sectionOf = (row: Candidate) =>
     owner.get(row.id) ??
     (unscheduled && (!explicit || !incomplete.has(row.id)) ? "ungrouped" : null)
-  return {
-    rank: keyRank(
-      shown.map((sprint) => sprint?.id ?? "ungrouped"),
-      sectionOf
-    ),
-    sectionOf
-  }
+  return sprintSections(membership.sprints, groupIds, now, sectionOf)
 }
 
 const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
@@ -198,18 +198,11 @@ export const localSequence = (request: LocalSequenceRequest) =>
             status: t.status,
             type: t.type,
             parent: t.parent,
-            parentFound: sequenceParent.id,
-            parentType: sequenceParent.type,
-            grandparent: sequenceParent.parent
+            sprint: t.sprint,
+            epicSection: t.epicSection,
+            parentSection: t.parentSection
           })
           .from(t)
-          .leftJoin(
-            sequenceParent,
-            and(
-              eq(sequenceParent.copy, t.copy),
-              eq(sequenceParent.id, t.parent)
-            )
-          )
           .where(and(eq(t.copy, copy), restriction, ...conditions))
           .orderBy(direction(orderColumns[sort.key]))
         return rows
@@ -249,11 +242,19 @@ export const localSequence = (request: LocalSequenceRequest) =>
         if (source.grouping === "sprint") {
           const rows = yield* candidates(query, undefined, query.sort)
           if (rows === null) return null
-          const sections = sprintSections(
-            yield* groupMembership(copy),
-            query.groupId,
-            now
-          )
+          const sections =
+            (query.groupId?.length ?? 0) > 0
+              ? selectedSprintSections(
+                  yield* groupMembership(copy),
+                  query.groupId,
+                  now
+                )
+              : sprintSections(
+                  yield* sprintHeaders(copy),
+                  undefined,
+                  now,
+                  storedSprint
+                )
           return arrange(rows, sections.rank, sections.sectionOf, nested)
         }
         const rows = yield* candidates(
@@ -265,30 +266,34 @@ export const localSequence = (request: LocalSequenceRequest) =>
         if (source.grouping === "epic") {
           const epics = [
             ...(yield* titled(
-              and(eq(t.type, EPIC_TYPE), eq(t.archived, 0)),
+              and(isEpic, eq(t.archived, 0)),
               PARENT_SECTIONS_LIMIT
             )),
             ...(yield* titled(
-              and(eq(t.type, EPIC_TYPE), eq(t.archived, 1)),
+              and(isEpic, eq(t.archived, 1)),
               PARENT_SECTIONS_LIMIT
             ))
           ]
           return arrange(
             rows,
-            keyRank(byTitle(epics), epicKey),
+            keyRank(
+              byTitle(epics),
+              (row) => row.epicSection ?? EPIC_SECTION_NONE
+            ),
             undefined,
             nested
           )
         }
         const parentIds = [
-          ...new Set(
-            rows.map(ticketParentKey).filter((key) => key !== EPIC_SECTION_NONE)
-          )
+          ...new Set(rows.flatMap((row) => row.parentSection ?? []))
         ]
         const parents = yield* titled(inArray(t.id, parentIds), -1)
         return arrange(
           rows,
-          keyRank(byTitle(parents), ticketParentKey),
+          keyRank(
+            byTitle(parents),
+            (row) => row.parentSection ?? EPIC_SECTION_NONE
+          ),
           undefined,
           nested
         )
@@ -296,23 +301,31 @@ export const localSequence = (request: LocalSequenceRequest) =>
 
     const childSequence = Effect.gen(function* () {
       const [entry] = yield* db
-        .select({ parentFound: sequenceParent.id, type: sequenceParent.type })
+        .select({
+          parent: t.parent,
+          epicSection: t.epicSection,
+          parentSection: t.parentSection
+        })
         .from(t)
-        .innerJoin(
-          sequenceParent,
-          and(eq(sequenceParent.copy, t.copy), eq(sequenceParent.id, t.parent))
-        )
         .where(and(eq(t.copy, copy), eq(t.id, request.id)))
-      if (entry === undefined) return { sequence: null }
+      if (entry === undefined || entry.parent === null)
+        return { sequence: null }
+      const within =
+        entry.parentSection === entry.parent
+          ? "parent"
+          : entry.epicSection === entry.parent
+            ? "epic"
+            : null
+      if (within === null) return { sequence: null }
       const rows = yield* candidates(
-        { parent: [TicketId.make(entry.parentFound)], sort: CHILD_TICKET_SORT },
+        { parent: [TicketId.make(entry.parent)], sort: CHILD_TICKET_SORT },
         undefined,
         CHILD_TICKET_SORT
       )
       if (rows === null) return null
       return {
         sequence: {
-          within: isEpicType(entry.type) ? "epic" : "parent",
+          within,
           tickets: arrange(rows, () => 0, undefined, false)
         } satisfies TicketSequence
       }

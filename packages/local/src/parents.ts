@@ -12,22 +12,16 @@ import {
   TicketStatus,
   TypeKey
 } from "@pp/shared"
-import { and, asc, count, eq, inArray, type SQL, sql } from "drizzle-orm"
-import { alias } from "drizzle-orm/sqlite-core"
+import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import { compileFilter } from "./filter"
+import { keyedCounts, keyedRows } from "./keyedSections"
 import { LocalDb } from "./LocalDb"
 import { readOrderKey } from "./orderKey"
-import { sectionPage } from "./sections"
-import { groupRestriction, inList } from "./sprints"
-import { localStatuses, localTickets, orderColumns } from "./tables"
-import {
-  decodeStatus,
-  finishedStatuses,
-  type SectionRow,
-  toTicket
-} from "./ticketRows"
+import { groupRestriction } from "./sprints"
+import { localStatuses, localTickets } from "./tables"
+import { decodeStatus, finishedStatuses, toTicket } from "./ticketRows"
 
 export type ParentGrouping = "epic" | "parent"
 
@@ -47,27 +41,7 @@ const EPIC_SECTIONS_LIMIT = 200
 const EAGER_SECTIONS = 50
 
 const t = localTickets
-const sectionParent = alias(localTickets, "section_parent")
-
-const keyOf = (db: LocalDb["Service"], by: ParentGrouping): SQL<string> => {
-  const parentRow = and(
-    eq(sectionParent.copy, t.copy),
-    eq(sectionParent.id, t.parent)
-  )
-  const owner =
-    by === "epic"
-      ? db
-          .select({
-            key: sql`case when ${sectionParent.type} = ${EPIC_TYPE} then ${sectionParent.id} else ${sectionParent.parent} end`
-          })
-          .from(sectionParent)
-          .where(parentRow)
-      : db
-          .select({ key: sectionParent.id })
-          .from(sectionParent)
-          .where(and(parentRow, sql`${sectionParent.type} is not ${EPIC_TYPE}`))
-  return sql<string>`coalesce((${owner}), ${EPIC_SECTION_NONE})`
-}
+const isEpic = sql`${t.type} = 'epic'`
 
 type Wanted = Readonly<{
   key: EpicSectionKey
@@ -101,18 +75,14 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
       ...conditions,
       yield* groupRestriction(copy, query.groupId, request.now)
     )
-    const key = keyOf(db, by)
-    const counted = yield* db
-      .select({ key, status: t.status, n: count() })
-      .from(t)
-      .where(and(eq(t.copy, copy), filter))
-      .groupBy(key, t.status)
-    const countsOf = new Map<string, Map<string, number>>()
-    for (const row of counted) {
-      const byStatus = countsOf.get(row.key) ?? new Map<string, number>()
-      byStatus.set(row.status, row.n)
-      countsOf.set(row.key, byStatus)
-    }
+    const column = by === "epic" ? t.epicSection : t.parentSection
+    const countsOf = yield* keyedCounts(
+      db,
+      copy,
+      column,
+      EPIC_SECTION_NONE,
+      filter
+    )
 
     const parentsOf = (condition: SQL | undefined, limit?: number) =>
       Effect.map(
@@ -144,11 +114,11 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
       by === "epic"
         ? [
             ...(yield* parentsOf(
-              and(eq(t.type, EPIC_TYPE), eq(t.archived, 0)),
+              and(isEpic, eq(t.archived, 0)),
               EPIC_SECTIONS_LIMIT
             )),
             ...(yield* parentsOf(
-              and(eq(t.type, EPIC_TYPE), eq(t.archived, 1)),
+              and(isEpic, eq(t.archived, 1)),
               EPIC_SECTIONS_LIMIT
             ))
           ]
@@ -166,53 +136,29 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
     ]
 
     const limits = Object.fromEntries(
-      wanted.map((section, index) => [
-        section.key,
-        request.pageSize *
-          ((index < EAGER_SECTIONS ? 1 : 0) + (request.pages[section.key] ?? 0))
-      ])
+      wanted.flatMap((section, index) =>
+        countsOf.has(section.key)
+          ? [
+              [
+                section.key,
+                request.pageSize *
+                  ((index < EAGER_SECTIONS ? 1 : 0) +
+                    (request.pages[section.key] ?? 0))
+              ]
+            ]
+          : []
+      )
     )
-    const order = orderColumns[query.sort.key]
-    const ranked = db
-      .select({
-        id: t.id,
-        sectionKey: sql<string>`${key}`.as("section_key"),
-        rank: sql<number>`row_number() over (partition by ${key} order by ${order} ${sql.raw(query.sort.dir === "desc" ? "desc" : "asc")})`.as(
-          "section_rank"
-        )
-      })
-      .from(t)
-      .where(and(eq(t.copy, copy), filter))
-      .as("ranked")
-    const deepest = Math.max(0, ...Object.values(limits))
-    const shown = (yield* db
-      .select({
-        id: ranked.id,
-        sectionKey: ranked.sectionKey,
-        rank: ranked.rank
-      })
-      .from(ranked)
-      .where(sql`${ranked.rank} <= ${deepest}`)).filter(
-      (row) => row.rank <= (limits[row.sectionKey] ?? 0)
+    const rowsOf = yield* keyedRows(
+      db,
+      copy,
+      column,
+      EPIC_SECTION_NONE,
+      filter,
+      query,
+      finished,
+      limits
     )
-    const sectionOf = new Map(shown.map((row) => [row.id, row.sectionKey]))
-    const rowsOf = new Map<string, Array<SectionRow>>()
-    if (shown.length > 0)
-      for (const row of yield* sectionPage(
-        db,
-        copy,
-        inList(shown.map((row) => row.id)),
-        filter,
-        query,
-        finished,
-        shown.length
-      )) {
-        const id = toTicket(row, request.repository).id
-        const section = sectionOf.get(id) ?? EPIC_SECTION_NONE
-        const list = rowsOf.get(section)
-        if (list === undefined) rowsOf.set(section, [row])
-        else list.push(row)
-      }
 
     const byStatus: Record<TicketStatus, number> = {}
     let total = 0

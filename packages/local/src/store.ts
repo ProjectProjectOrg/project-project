@@ -35,6 +35,7 @@ import {
   type PendingWrite,
   type TicketState
 } from "./pending"
+import { deriveCopy, deriveTouched } from "./sectionKeys"
 import {
   localCopies,
   localGroupMembers,
@@ -199,7 +200,14 @@ const excluded = (columns: Readonly<Record<string, { name: string }>>) =>
       .map(([key, column]) => [key, sql.raw(`excluded.${column.name}`)])
   )
 
-const excludedTicket = excluded(getTableColumns(localTickets))
+const {
+  sprint: _sprint,
+  epicSection: _epicSection,
+  parentSection: _parentSection,
+  ...writtenTicketColumns
+} = getTableColumns(localTickets)
+
+const excludedTicket = excluded(writtenTicketColumns)
 
 const chunked = <A, E, R>(
   rows: ReadonlyArray<A>,
@@ -525,6 +533,7 @@ export const publishStaging = (scope: string) =>
           .values(row)
           .onConflictDoUpdate({ target: localSync.scope, set: row })
         yield* db.delete(localStaging).where(eq(localStaging.scope, scope))
+        yield* deriveCopy(staging.copy)
         yield* settlePending(scope, staging.copy, staging.base)
         yield* overlayPending(scope, staging.copy)
         return { retired: current?.copy ?? null }
@@ -548,6 +557,14 @@ const writeChanges = (copy: number, changes: ProjectChanges) =>
     )
     yield* writeMembers(copy, membersOf(changes.upserts.groups))
     for (const kind of JSON_KINDS) yield* writeJson(copy, kind, json[kind])
+    yield* deriveTouched(copy, {
+      tickets: changes.upserts.tickets.map((fact) => fact.id),
+      deletedTickets: changes.deletes.tickets,
+      groups: [
+        ...changes.deletes.groups,
+        ...changes.upserts.groups.map((group) => group.id)
+      ]
+    })
   })
 
 export const applyChanges = (
@@ -572,6 +589,11 @@ export const applyChanges = (
           if (current === null || current.cursor !== base) return false
           yield* unapplyPending(current.copy)
           yield* writeTickets(current.copy, chunk, false)
+          yield* deriveTouched(current.copy, {
+            tickets: chunk.map((fact) => fact.id),
+            deletedTickets: [],
+            groups: []
+          })
           yield* overlayPending(scope, current.copy)
           return true
         })
@@ -693,6 +715,11 @@ const writeState = (copy: number, state: TicketState) =>
       copy,
       state.groups.map((member) => ({ ...member, ticket: state.fact.id }))
     )
+    yield* deriveTouched(copy, {
+      tickets: [state.fact.id],
+      deletedTickets: [],
+      groups: []
+    })
   })
 
 const pendingOps = (scope: string) =>

@@ -1,34 +1,39 @@
 import {
   backlogSprintSections,
+  type Estimate,
+  EstimateSize,
   type EstimationMode,
   estimationUnit,
   type GitRepository,
   GroupHeader,
   GroupId,
   SPRINT_SECTION_UNSCHEDULED,
-  type SprintSectionKey,
   sprintState,
   statusPhaseLookup,
   summarizeEstimates,
-  TicketFact,
   type TicketListQuery,
   type TicketSprintSection,
   type TicketSprintSections,
   TicketStatus
 } from "@pp/shared"
-import { and, asc, count, eq, inArray, type SQL, sql } from "drizzle-orm"
+import { and, asc, count, eq, type SQL, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { compileFilter } from "./filter"
+import {
+  type KeyedCounts,
+  keyedCounts,
+  keyedRows,
+  sectionTotal
+} from "./keyedSections"
 import { LocalDb } from "./LocalDb"
 import { readOrderKey } from "./orderKey"
-import { sectionPage } from "./sections"
+import { inList, notInList, sectionPage } from "./sections"
 import {
   localGroupMembers,
   localGroups,
   localStatuses,
-  localTicketData,
   localTickets
 } from "./tables"
 import {
@@ -41,33 +46,49 @@ import {
 const decodeHeader = Schema.decodeUnknownSync(
   Schema.fromJsonString(GroupHeader)
 )
-const decodeFact = Schema.decodeUnknownSync(Schema.fromJsonString(TicketFact))
-const idList = Schema.encodeSync(
-  Schema.fromJsonString(Schema.Array(Schema.String))
-)
+const isEstimateSize = Schema.is(EstimateSize)
 
 const t = localTickets
+
+const ROW_BUDGET = 500
 
 type Sprint = Readonly<{
   id: GroupId
   startsAt: Date | null
   completedAt: Date | null
+  createdAt: Date
 }>
 
-export const groupMembership = (copy: number) =>
+const claimOrder = (a: Sprint, b: Sprint) =>
+  Number(a.completedAt !== null) - Number(b.completedAt !== null) ||
+  b.createdAt.getTime() - a.createdAt.getTime() ||
+  a.id.length - b.id.length ||
+  (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+
+export const sprintHeaders = (copy: number) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
-    const sprints: ReadonlyArray<Sprint> = (yield* db
+    return (yield* db
       .select({ data: localGroups.data })
       .from(localGroups)
       .where(eq(localGroups.copy, copy)))
       .map((row) => decodeHeader(row.data))
       .filter((header) => header.kind === "sprint")
-      .map((header) => ({
-        id: GroupId.make(header.id),
-        startsAt: header.startsAt,
-        completedAt: header.completedAt
-      }))
+      .map(
+        (header): Sprint => ({
+          id: GroupId.make(header.id),
+          startsAt: header.startsAt,
+          completedAt: header.completedAt,
+          createdAt: header.createdAt
+        })
+      )
+      .toSorted(claimOrder)
+  })
+
+export const groupMembership = (copy: number) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const sprints = yield* sprintHeaders(copy)
     const members = yield* db
       .select({
         group: localGroupMembers.groupId,
@@ -85,9 +106,23 @@ export const groupMembership = (copy: number) =>
     return { sprints, ticketsOf }
   })
 
-const incompleteSprintTickets = (
-  sprints: ReadonlyArray<Sprint>,
-  ticketsOf: ReadonlyMap<string, ReadonlyArray<string>>,
+export type Membership = Effect.Success<ReturnType<typeof groupMembership>>
+
+export const claimTickets = (
+  { sprints, ticketsOf }: Membership,
+  selected: ReadonlySet<string>
+) => {
+  const owner = new Map<string, string>()
+  for (const sprint of sprints) {
+    if (!selected.has(sprint.id)) continue
+    for (const id of ticketsOf.get(sprint.id) ?? [])
+      if (!owner.has(id)) owner.set(id, sprint.id)
+  }
+  return owner
+}
+
+export const incompleteSprintTickets = (
+  { sprints, ticketsOf }: Membership,
   now: Date
 ) =>
   sprints
@@ -101,21 +136,15 @@ export const groupRestriction = (
 ) =>
   Effect.gen(function* () {
     if (groupIds === undefined || groupIds.length === 0) return undefined
-    const { sprints, ticketsOf } = yield* groupMembership(copy)
+    const membership = yield* groupMembership(copy)
     const named = groupIds.flatMap((id) =>
-      id === "ungrouped" ? [] : (ticketsOf.get(id) ?? [])
+      id === "ungrouped" ? [] : (membership.ticketsOf.get(id) ?? [])
     )
-    const outside = notInList(incompleteSprintTickets(sprints, ticketsOf, now))
+    const outside = notInList(incompleteSprintTickets(membership, now))
     return groupIds.includes("ungrouped")
       ? sql`(${inList(named)} or ${outside})`
       : inList(named)
   })
-
-export const inList = (ids: ReadonlyArray<string>) =>
-  sql`${t.id} in (select value from json_each(${idList(ids)}))`
-
-const notInList = (ids: ReadonlyArray<string>) =>
-  sql`${t.id} not in (select value from json_each(${idList(ids)}))`
 
 export type LocalSprintSectionsRequest = Readonly<{
   copy: number
@@ -123,9 +152,44 @@ export type LocalSprintSectionsRequest = Readonly<{
   viewerId: string | undefined
   estimation: EstimationMode
   repository: (repoId: string | null) => GitRepository | null
-  perSection: (key: SprintSectionKey) => number
+  pages: Readonly<Record<string, number>>
+  pageSize: number
   now: Date
 }>
+
+const estimateOf = (
+  row: Readonly<{ unit: string | null; size: string | null; amount: number }>
+): Estimate | null =>
+  row.unit === "points"
+    ? { unit: "points", value: row.amount }
+    : row.unit === "time"
+      ? { unit: "time", minutes: row.amount }
+      : row.unit === "tshirt" && isEstimateSize(row.size)
+        ? { unit: "tshirt", value: row.size }
+        : null
+
+const keyOf = (sprint: Sprint | null) =>
+  sprint?.id ?? SPRINT_SECTION_UNSCHEDULED
+
+const budgeted = (
+  shown: ReadonlyArray<Sprint | null>,
+  counts: KeyedCounts,
+  pages: Readonly<Record<string, number>>,
+  pageSize: number
+) => {
+  const limits: Record<string, number> = {}
+  let planned = 0
+  for (const sprint of shown) {
+    const key = keyOf(sprint)
+    const available = sectionTotal(counts, key)
+    const asked = pages[key] !== undefined
+    if (available === 0 || (!asked && planned >= ROW_BUDGET)) continue
+    const limit = pageSize * (1 + (pages[key] ?? 0))
+    limits[key] = limit
+    planned += Math.min(limit, available)
+  }
+  return limits
+}
 
 export const localSprintSections = (request: LocalSprintSectionsRequest) =>
   Effect.gen(function* () {
@@ -143,108 +207,166 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
     )
     if (conditions === null) return null
     const filter = and(...conditions)
-
-    const { sprints, ticketsOf } = yield* groupMembership(copy)
-    const shown = backlogSprintSections(sprints, query.groupId, now)
-    const selected = new Set(shown.flatMap((sprint) => sprint?.id ?? []))
-    const claimed = new Set<string>()
-    const bySprint = new Map<string, Array<string>>()
-    const claim = (completed: boolean) => {
-      for (const sprint of sprints) {
-        if ((sprint.completedAt !== null) !== completed) continue
-        if (!selected.has(sprint.id)) continue
-        const ids: Array<string> = []
-        for (const id of ticketsOf.get(sprint.id) ?? []) {
-          if (claimed.has(id)) continue
-          claimed.add(id)
-          ids.push(id)
-        }
-        bySprint.set(sprint.id, ids)
-      }
-    }
-    claim(false)
-    claim(true)
-    const inIncompleteSprint = incompleteSprintTickets(sprints, ticketsOf, now)
-    const wantsUngrouped = query.groupId?.includes("ungrouped") ?? false
-
     const unit = estimationUnit(request.estimation)
-    const phaseOf = statusPhaseLookup(statuses)
-    const estimatesOf = (ids: ReadonlyArray<string>) =>
-      Effect.gen(function* () {
-        if (unit === null) return null
-        const facts =
-          ids.length === 0
-            ? []
-            : (yield* db
-                .select({ data: localTicketData.data })
-                .from(localTicketData)
-                .where(
-                  and(
-                    eq(localTicketData.copy, copy),
-                    inArray(localTicketData.id, [...ids])
-                  )
-                )).map((row) => decodeFact(row.data))
-        return summarizeEstimates(
-          facts.flatMap((fact) =>
-            fact.archivedAt === null
-              ? [
-                  {
-                    status: TicketStatus.make(fact.status),
-                    estimate: fact.estimate
-                  }
-                ]
-              : []
-          ),
-          unit,
-          phaseOf
+
+    const amount = sql<number>`cast(${t.orderEstimate} as integer)`
+    const estimateRows = (restriction: SQL | undefined) =>
+      db
+        .select({
+          key: t.sprint,
+          status: t.status,
+          unit: t.estimateUnit,
+          size: t.estimateSize,
+          amount,
+          n: count()
+        })
+        .from(t)
+        .where(and(eq(t.copy, copy), eq(t.archived, 0), restriction))
+        .groupBy(t.sprint, t.status, t.estimateUnit, t.estimateSize, amount)
+    type EstimateRow = Effect.Success<ReturnType<typeof estimateRows>>[number]
+
+    const allSprints = Effect.gen(function* () {
+      const shown = backlogSprintSections(
+        yield* sprintHeaders(copy),
+        undefined,
+        now
+      )
+      const counts = yield* keyedCounts(
+        db,
+        copy,
+        t.sprint,
+        SPRINT_SECTION_UNSCHEDULED,
+        filter
+      )
+      const rowsOf: ReadonlyMap<
+        string,
+        ReadonlyArray<SectionRow>
+      > = yield* keyedRows(
+        db,
+        copy,
+        t.sprint,
+        SPRINT_SECTION_UNSCHEDULED,
+        filter,
+        query,
+        finished,
+        budgeted(shown, counts, request.pages, request.pageSize)
+      )
+      const estimated = new Map<string, Array<EstimateRow>>()
+      if (unit !== null)
+        for (const row of yield* estimateRows(sql`${t.sprint} is not null`)) {
+          if (row.key === null) continue
+          const list = estimated.get(row.key)
+          if (list === undefined) estimated.set(row.key, [row])
+          else list.push(row)
+        }
+      return { shown, counts, rowsOf, estimated }
+    })
+
+    const selectedSprints = Effect.gen(function* () {
+      const membership = yield* groupMembership(copy)
+      const shown = backlogSprintSections(
+        membership.sprints,
+        query.groupId,
+        now
+      )
+      const owner = claimTickets(
+        membership,
+        new Set(shown.flatMap((sprint) => sprint?.id ?? []))
+      )
+      const inIncompleteSprint = incompleteSprintTickets(membership, now)
+      const wantsUngrouped = query.groupId?.includes("ungrouped") ?? false
+      const restrictionOf = (sprint: Sprint | null) =>
+        sprint === null
+          ? and(
+              notInList([...owner.keys()]),
+              wantsUngrouped ? notInList(inIncompleteSprint) : undefined
+            )
+          : inList(
+              (membership.ticketsOf.get(sprint.id) ?? []).filter(
+                (id) => owner.get(id) === sprint.id
+              )
+            )
+      const counts = new Map<string, Map<string, number>>()
+      for (const sprint of shown)
+        counts.set(
+          keyOf(sprint),
+          new Map(
+            (yield* db
+              .select({ status: t.status, n: count() })
+              .from(t)
+              .where(and(eq(t.copy, copy), restrictionOf(sprint), filter))
+              .groupBy(t.status)).map((row) => [row.status, row.n])
+          )
         )
-      })
+      const limits = budgeted(shown, counts, request.pages, request.pageSize)
+      const rowsOf = new Map<string, ReadonlyArray<SectionRow>>()
+      const estimated = new Map<string, Array<EstimateRow>>()
+      for (const sprint of shown) {
+        const key = keyOf(sprint)
+        const limit = limits[key]
+        if (limit !== undefined)
+          rowsOf.set(
+            key,
+            yield* sectionPage(
+              db,
+              copy,
+              restrictionOf(sprint),
+              filter,
+              query,
+              finished,
+              limit
+            )
+          )
+        if (unit !== null && sprint !== null)
+          estimated.set(key, yield* estimateRows(restrictionOf(sprint)))
+      }
+      return { shown, counts, rowsOf, estimated }
+    })
+
+    const { shown, counts, rowsOf, estimated } =
+      (query.groupId?.length ?? 0) > 0
+        ? yield* selectedSprints
+        : yield* allSprints
+
+    const phaseOf = statusPhaseLookup(statuses)
+    const estimatesOf = (key: string) =>
+      unit === null
+        ? null
+        : summarizeEstimates(
+            (estimated.get(key) ?? []).flatMap((row) =>
+              Array.from({ length: row.n }, () => ({
+                status: TicketStatus.make(row.status),
+                estimate: estimateOf(row)
+              }))
+            ),
+            unit,
+            phaseOf
+          )
 
     const byStatus: Record<TicketStatus, number> = {}
     let total = 0
     const sections: Array<TicketSprintSection> = []
     for (const sprint of shown) {
-      const key = sprint?.id ?? SPRINT_SECTION_UNSCHEDULED
-      const sprintIds = sprint === null ? null : (bySprint.get(sprint.id) ?? [])
-      const restriction: SQL | undefined =
-        sprintIds !== null
-          ? inList(sprintIds)
-          : and(
-              notInList([...claimed]),
-              wantsUngrouped ? notInList(inIncompleteSprint) : undefined
-            )
-      const counted = yield* db
-        .select({ status: t.status, n: count() })
-        .from(t)
-        .where(and(eq(t.copy, copy), restriction, filter))
-        .groupBy(t.status)
-      let sectionTotal = 0
-      for (const { status, n } of counted) {
+      const key = keyOf(sprint)
+      let sectionCount = 0
+      for (const [status, n] of counts.get(key) ?? []) {
         const slug = TicketStatus.make(status)
         byStatus[slug] = (byStatus[slug] ?? 0) + n
-        sectionTotal += n
+        sectionCount += n
       }
-      total += sectionTotal
-      const rows: ReadonlyArray<SectionRow> = yield* sectionPage(
-        db,
-        copy,
-        restriction,
-        filter,
-        query,
-        finished,
-        request.perSection(key)
-      )
+      total += sectionCount
+      const rows = rowsOf.get(key) ?? []
       sections.push({
         key,
-        count: sectionTotal,
+        count: sectionCount,
         page: {
           items: rows.map((row) => ({
             ticket: toTicket(row, request.repository),
             orderKey: readOrderKey(row.orderKey)
           })),
-          nextCursor: sectionTotal > rows.length ? `local:${rows.length}` : null
+          nextCursor: sectionCount > rows.length ? `local:${rows.length}` : null
         },
-        estimates: sprintIds === null ? null : yield* estimatesOf(sprintIds)
+        estimates: sprint === null ? null : estimatesOf(sprint.id)
       })
     }
     return {

@@ -286,7 +286,12 @@ const make = Effect.gen(function* () {
     )
     return results
       .map(documentToGroup)
-      .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .toSorted(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() ||
+          a.id.length - b.id.length ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      )
   })
 
   const matchesGroupFilter = (

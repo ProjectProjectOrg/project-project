@@ -5,6 +5,7 @@ import {
   localDescriptionsLayer,
   LocalRpcs,
   localRpcsLayer,
+  LocalTimings,
   LocalWorkerInit,
   PendingWrite,
   PendingWrites,
@@ -186,14 +187,15 @@ const descriptionSourceLayer = Layer.effect(
 ).pipe(Layer.provide(FetchHttpClient.layer))
 
 const engine = Layer.unwrap(
-  Effect.map(RpcWorker.initialMessage(LocalWorkerInit), ({ userId }) =>
+  Effect.map(RpcWorker.initialMessage(LocalWorkerInit), ({ userId, timings }) =>
     localRpcsLayer.pipe(
       Layer.provide(syncSourceLayer),
       Layer.provide(pendingWritesLayer),
       Layer.provide(
         localDescriptionsLayer.pipe(Layer.provide(descriptionSourceLayer))
       ),
-      Layer.provide(localDatabaseLayer(userId))
+      Layer.provide(localDatabaseLayer(userId)),
+      Layer.provide(Layer.succeed(LocalTimings)(timings))
     )
   )
 )
