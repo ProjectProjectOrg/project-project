@@ -13,20 +13,19 @@ import * as Atom from "effect/reactivity/Atom"
 import type * as Registry from "effect/reactivity/AtomRegistry"
 
 import { Keys, projectScope } from "@/api/keys"
-import { query } from "@/api/query"
 import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
+import { localTicketQuery } from "@/features/local/atoms/localTicketQuery"
 import {
   insertByOrderKey,
   localOrderKey,
   patchTicketRow,
   placeholderRow,
-  toRow,
   withCreatedKeys,
   type QuickCreatePrediction,
   type TicketRow
 } from "@/features/tickets/lib/ticketRows"
+import { compareCodePoints } from "@/lib/orderKey"
 
-import { allPages } from "./allPages"
 import {
   bulkTicketUpdate,
   coalescingTicketUpdate,
@@ -48,36 +47,39 @@ export const childTicketsRequest = (
 const scopeOf = (req: ChildTicketsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const childTicketsPage = (
-  req: ChildTicketsRequest,
-  cursor: string | undefined
-) =>
-  query("tickets", "list", {
-    params: req.params,
-    query: {
-      parent: [req.parent],
-      sort: CHILD_TICKET_SORT,
-      cursor
-    },
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
-      Keys.orgMembers(req.params.orgSlug)
-    ]
+const childRows = (req: ChildTicketsRequest) =>
+  localTicketQuery(req.params, {
+    where: { kind: "children", parent: req.parent },
+    select: (children): ReadonlyArray<TicketRow> => {
+      const direction = CHILD_TICKET_SORT.dir === "asc" ? 1 : -1
+      return children
+        .map(
+          (ticket): TicketRow => ({
+            ticket,
+            key: ticket.id,
+            orderKey: localOrderKey(ticket, CHILD_TICKET_SORT),
+            pending: false
+          })
+        )
+        .sort(
+          (a, b) =>
+            direction * compareCodePoints(a.orderKey ?? "", b.orderKey ?? "")
+        )
+    }
   })
 
-const childTicketsView = (req: ChildTicketsRequest) =>
-  Atom.readable(
+const childTicketsView = (req: ChildTicketsRequest) => {
+  const rows = childRows(req)
+  return Atom.readable(
     (get) => {
       const created = get(createdKeys(scopeOf(req)))
-      return AsyncResult.map(
-        allPages(get, (cursor) => childTicketsPage(req, cursor)),
-        (rows): ReadonlyArray<TicketRow> =>
-          withCreatedKeys(rows.map(toRow), created)
+      return AsyncResult.map(get(rows), (found) =>
+        withCreatedKeys(found, created)
       )
     },
-    (refresh) => refresh(childTicketsPage(req, undefined))
+    (refresh) => refresh(rows)
   )
+}
 
 export const childTickets = Atom.family((req: ChildTicketsRequest) =>
   Atom.optimistic(childTicketsView(req))

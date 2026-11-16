@@ -265,7 +265,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           Layer.mergeAll(
             Layer.mock(TicketCommands.TicketCommands, {}),
             Layer.mock(TicketGit.TicketGit, {}),
-            Layer.mock(TicketQueries.TicketQueries, {})
+            Layer.mock(TicketQueries.TicketQueries, {}),
+            Layer.mock(LiveChanges.LiveChanges, { cursorAt: (seq) => `e.${seq}` })
           )
         ),
         Layer.provide(

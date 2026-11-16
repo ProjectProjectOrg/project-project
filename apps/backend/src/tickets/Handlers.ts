@@ -2,12 +2,15 @@
 
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
+import * as LiveChanges from "@pp/server-core/live/LiveChanges"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { AppApi, Validation } from "@pp/shared"
+import { AppApi, ProjectScope, TicketId, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "../http/dieOnMarkdown"
+
+const MAX_DELTA_TICKETS = 200
 
 export const TicketsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -89,10 +92,45 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           commands.clearStaleEstimates()
         ).pipe(dieOnMarkdown)
       )
-      .handle("snapshot", () =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.snapshot()
-        ).pipe(dieOnMarkdown)
+      .handle("sync", ({ query }) =>
+        Effect.gen(function* () {
+          const queries = yield* TicketQueries.TicketQueries
+          const live = yield* LiveChanges.LiveChanges
+          const { orgSlug, slug } = yield* ProjectScope
+          const cursor = yield* live.head
+          const requested = (query.ids ?? "").split(",").filter(Boolean)
+          const changes =
+            query.after === undefined
+              ? requested.length > 0
+                ? ({ kind: "tickets", ids: [] } as const)
+                : ({ kind: "unknown" } as const)
+              : yield* live.projectChangesAfter(query.after, orgSlug, slug)
+          if (changes.kind !== "tickets")
+            return {
+              mode: "full" as const,
+              rows: yield* queries.rows(),
+              removed: [],
+              cursor
+            }
+          const ids = [...new Set([...changes.ids, ...requested])]
+          if (ids.length > MAX_DELTA_TICKETS)
+            return {
+              mode: "full" as const,
+              rows: yield* queries.rows(),
+              removed: [],
+              cursor
+            }
+          const rows = ids.length === 0 ? [] : yield* queries.rows(ids)
+          const found = new Set<string>(rows.map((row) => row.id))
+          return {
+            mode: "delta" as const,
+            rows,
+            removed: ids
+              .filter((id) => !found.has(id))
+              .map((id) => TicketId.make(id)),
+            cursor
+          }
+        })
       )
       .handle("get", ({ params }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>

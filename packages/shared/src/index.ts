@@ -85,6 +85,7 @@ export type { TagUsageCounts } from "./tags/TagsApi"
 
 export * from "./tickets/BulkTickets"
 export * from "./tickets/Ticket"
+export * from "./tickets/TicketSync"
 export * from "./tickets/TicketActivity"
 export * from "./tickets/TicketTextSearch"
 export * from "./tickets/blocks"

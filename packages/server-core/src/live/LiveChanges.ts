@@ -41,6 +41,11 @@ export type LiveSignal =
   | Readonly<{ kind: "resync"; seq: number }>
   | Readonly<{ kind: "change"; seq: number; change: PublishedChange }>
 
+export type ProjectChanges =
+  | Readonly<{ kind: "unknown" }>
+  | Readonly<{ kind: "whole" }>
+  | Readonly<{ kind: "tickets"; ids: ReadonlyArray<string> }>
+
 export class LiveChanges extends Context.Service<
   LiveChanges,
   Readonly<{
@@ -48,6 +53,12 @@ export class LiveChanges extends Context.Service<
     changes: Stream.Stream<PublishedChange>
     changesAfter: (after: LiveCursor | undefined) => Stream.Stream<LiveSignal>
     cursorAt: (seq: number) => LiveCursor
+    head: Effect.Effect<LiveCursor>
+    projectChangesAfter: (
+      after: LiveCursor,
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<ProjectChanges>
   }>
 >()("@pp/server-core/live/LiveChanges") {}
 
@@ -153,7 +164,33 @@ const make = Effect.gen(function* () {
       })
     )
 
+  const projectChanges = (
+    after: LiveCursor,
+    orgSlug: string,
+    slug: string,
+    current: number
+  ): ProjectChanges => {
+    const parsed = parseCursor(after)
+    if (parsed === null || parsed.epoch !== epoch || parsed.seq > current)
+      return { kind: "unknown" }
+    const missed = between(parsed.seq, current + 1)
+    if (missed === null) return { kind: "unknown" }
+    const ids = new Set<string>()
+    for (const { change } of missed) {
+      if (change.orgSlug !== orgSlug || change.slug !== slug) continue
+      if (change.kind === "comments") continue
+      if (change.kind !== "ticket") return { kind: "whole" }
+      ids.add(change.id)
+    }
+    return { kind: "tickets", ids: [...ids] }
+  }
+
   return LiveChanges.of({
+    head: inOrder.withPermit(Effect.sync(() => `${epoch}.${head}`)),
+    projectChangesAfter: (after, orgSlug, slug) =>
+      inOrder.withPermit(
+        Effect.sync(() => projectChanges(after, orgSlug, slug, head))
+      ),
     publish,
     changes: Stream.fromPubSub(pubsub).pipe(Stream.map(({ change }) => change)),
     changesAfter,

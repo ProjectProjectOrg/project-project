@@ -22,8 +22,8 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
-import { localTickets } from "@/features/local/atoms/localTickets"
-import { decodeTicketRow } from "@/features/local/lib/ticketCollection"
+import { localProject } from "@/features/local/atoms/localProject"
+import { decodeDetailRow } from "@/features/local/lib/localProject"
 
 import { withoutRelation } from "../lib/relationGroups"
 import type { TicketEdit } from "../lib/ticketPatch"
@@ -51,10 +51,10 @@ export const ticketQuery = (req: TicketRequest) => {
   return Atom.readable(
     (get): AsyncResult.AsyncResult<TicketDetail, NotFound> => {
       const local = get(
-        localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+        localProject({ orgSlug: req.params.orgSlug, slug: req.params.slug })
       )
       if (!AsyncResult.isSuccess(local)) return AsyncResult.initial(true)
-      const { collection, fetchOne } = local.value
+      const { details: collection, fetchDetail } = local.value
       const id = req.params.id
       let last: AsyncResult.Success<TicketDetail, NotFound> | null = null
       const shown = (ticket: TicketDetail) => {
@@ -66,7 +66,7 @@ export const ticketQuery = (req: TicketRequest) => {
           previousSuccess: Option.fromNullishOr(last)
         })
       const load = () =>
-        fetchOne(id).then(
+        fetchDetail(id).then(
           (outcome) => {
             if (outcome._tag === "Missing") get.setSelf(missing())
           },
@@ -76,11 +76,11 @@ export const ticketQuery = (req: TicketRequest) => {
       const subscription = collection.subscribeChanges((changes) => {
         if (!changes.some((change) => change.key === id)) return
         const row = collection.get(id)
-        get.setSelf(row === undefined ? missing() : shown(decodeTicketRow(row)))
+        get.setSelf(row === undefined ? missing() : shown(decodeDetailRow(row)))
       })
       get.addFinalizer(() => subscription.unsubscribe())
       const row = collection.get(id)
-      if (row !== undefined) return shown(decodeTicketRow(row))
+      if (row !== undefined) return shown(decodeDetailRow(row))
       if (collection.isReady()) void load()
       else
         get.addFinalizer(
@@ -141,25 +141,37 @@ export class TicketSaveFailed extends Data.TaggedError("TicketSaveFailed")<{
   cause: unknown
 }> {}
 
-export const updateTicketDetail = Atom.family((req: TicketRequest) =>
+export type LocalTicketKey = Readonly<{
+  orgSlug: string
+  slug: string
+  id: TicketId
+}>
+
+export const localTicketEdit = Atom.family((key: LocalTicketKey) =>
   Api.runtime
     .fn(
-      Effect.fn("updateTicketDetail")(function* (
+      Effect.fn("localTicketEdit")(function* (
         edit: TicketEdit,
         get: Atom.FnContext
       ) {
         const local = yield* get.result(
-          localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+          localProject({ orgSlug: key.orgSlug, slug: key.slug })
         )
-        const transaction = local.updateTicket({ id: req.params.id, edit })
+        const transaction = local.updateTicket({ id: key.id, edit })
         yield* Effect.tryPromise({
           try: () => transaction.when("settled"),
           catch: (cause) => new TicketSaveFailed({ cause })
         })
-        yield* Reactivity.invalidate(publishFor(req, edit))
+        yield* Reactivity.invalidate(
+          publishFor(ticketRequest(key.orgSlug, key.slug, key.id), edit)
+        )
       })
     )
     .pipe(Atom.setIdleTTL("10 minutes"))
+)
+
+export const updateTicketDetail = Atom.family((req: TicketRequest) =>
+  localTicketEdit(req.params)
 )
 
 export const archiveTicket = Atom.family((req: TicketRequest) =>

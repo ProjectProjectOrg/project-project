@@ -1,11 +1,10 @@
 import { EPIC_TYPE } from "@pp/shared"
-import type { TicketSort } from "@pp/shared"
+import type { Ticket, TicketSort } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Keys, projectScope } from "@/api/keys"
-import { query } from "@/api/query"
-
-import { allPages } from "./allPages"
+import { localTicketQuery } from "@/features/local/atoms/localTicketQuery"
+import { localOrderKey } from "@/features/tickets/lib/ticketRows"
+import { compareCodePoints } from "@/lib/orderKey"
 
 export type EpicsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -17,27 +16,15 @@ export const epicsRequest = (orgSlug: string, slug: string): EpicsRequest => ({
 
 const EPIC_SORT: TicketSort = { key: "title", dir: "asc" }
 
-const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
-  query("tickets", "list", {
-    params: req.params,
-    query: {
-      type: [EPIC_TYPE],
-      archived: false,
-      sort: EPIC_SORT,
-      cursor
-    },
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
-    ]
-  })
-
-const epicRows = (req: EpicsRequest) =>
-  Atom.readable(
-    (get) => allPages(get, (cursor) => epicsPage(req, cursor)),
-    (refresh) => refresh(epicsPage(req, undefined))
-  )
+const byTitle = (a: Ticket, b: Ticket) =>
+  compareCodePoints(localOrderKey(a, EPIC_SORT), localOrderKey(b, EPIC_SORT))
 
 export const projectEpics = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicRows(req), (rows) => rows.map((row) => row.ticket))
+  localTicketQuery(req.params, {
+    where: {
+      kind: "test",
+      test: (ticket) => ticket.type === EPIC_TYPE && ticket.archivedAt === null
+    },
+    select: (epics) => [...epics].sort(byTitle)
+  })
 )

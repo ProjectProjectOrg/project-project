@@ -17,9 +17,11 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { localTicketQuery } from "@/features/local/atoms/localTicketQuery"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
+  localOrderKey,
   patchTicketRow,
   placeholderRow,
   toRow,
@@ -31,8 +33,11 @@ import {
   viewQuery,
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
+import { compareCodePoints } from "@/lib/orderKey"
 
+import { localTicketEdit } from "./ticketDetail"
 import {
+  type TicketUpdateAtom,
   bulkTicketMove,
   bulkTicketUpdate,
   coalescingTicketUpdate,
@@ -147,8 +152,89 @@ const backlogView = (req: BacklogRequest) =>
     (refresh) => refresh(sectionsQuery(req))
   )
 
+const isLocalBacklog = (req: BacklogRequest) =>
+  (req.query.groupId?.length ?? 0) === 0
+
+const sectionKey = (id: string, status: string) => `${id}\u0000${status}`
+
+const localSections = (
+  matching: ReadonlyArray<Ticket>,
+  all: ReadonlyArray<Ticket>,
+  sort: TicketSort
+): BacklogValue => {
+  const inSection = new Map<string, number>()
+  for (const ticket of all) {
+    if (ticket.parent === null || ticket.archivedAt !== null) continue
+    const key = sectionKey(ticket.parent.id, ticket.status)
+    inSection.set(key, (inSection.get(key) ?? 0) + 1)
+  }
+  const grouped = new Map<string, Array<TicketRow>>()
+  for (const found of matching) {
+    const ticket = {
+      ...found,
+      subTicketsInSection:
+        inSection.get(sectionKey(found.id, found.status)) ?? 0
+    }
+    const rows = grouped.get(ticket.status) ?? []
+    rows.push({
+      ticket,
+      key: ticket.id,
+      orderKey: localOrderKey(ticket, sort),
+      pending: false
+    })
+    grouped.set(ticket.status, rows)
+  }
+  const direction = sort.dir === "asc" ? 1 : -1
+  const sections: Record<string, TicketRowPage> = {}
+  const byStatus: Record<string, number> = {}
+  for (const [status, rows] of grouped) {
+    rows.sort(
+      (a, b) =>
+        direction * compareCodePoints(a.orderKey ?? "", b.orderKey ?? "")
+    )
+    sections[status] = { items: rows, nextCursor: null }
+    byStatus[status] = rows.length
+  }
+  return { counts: { total: matching.length, byStatus }, sections }
+}
+
+const localBacklogView = (req: BacklogRequest) => {
+  const filter = { ...req.query, status: undefined }
+  const sections = localTicketQuery(req.params, {
+    where: {
+      kind: "test",
+      test: (ticket, { viewerId, estimation }) =>
+        matchesTicketQuery(ticket, filter, viewerId, estimation)
+    },
+    select: (matching, all) => localSections(matching, all(), req.query.sort)
+  })
+  const server = backlogView(req)
+  return Atom.readable(
+    (get) => {
+      const local = get(sections)
+      if (AsyncResult.isInitial(local)) return get(server)
+      const created = get(createdKeys(scopeOf(req)))
+      return AsyncResult.map(
+        local,
+        (value): BacklogValue => ({
+          ...value,
+          sections: Object.fromEntries(
+            Object.entries(value.sections).map(([status, page]) => [
+              status,
+              { ...page, items: withCreatedKeys(page.items, created) }
+            ])
+          )
+        })
+      )
+    },
+    (refresh) => refresh(sections)
+  )
+}
+
 export const backlog = Atom.family((req: BacklogRequest) =>
-  Atom.optimistic(backlogView(req))
+  Atom.optimistic(
+    isLocalBacklog(req) ? localBacklogView(req) : backlogView(req)
+  )
 )
 
 export const loadMoreBacklog = Atom.family(
@@ -265,22 +351,27 @@ const replaceRow = (
 }
 
 export const updateBacklogTicket = Atom.family(
-  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
-    coalescingTicketUpdate(backlog(req), {
-      name: "updateBacklogTicket",
-      path: { ...req.params, id },
-      sort: req.query.sort,
-      predict: (value, patch) =>
-        patchRow(
-          value,
-          id,
-          patch,
-          req.query.sort,
-          DateTime.toDate(DateTime.nowUnsafe())
-        ),
-      confirm: (value, { ticket, orderKey }) =>
-        replaceRow(value, ticket, orderKey, req.query.sort)
-    })
+  ({
+    req,
+    id
+  }: Readonly<{ req: BacklogRequest; id: TicketId }>): TicketUpdateAtom =>
+    isLocalBacklog(req)
+      ? localTicketEdit({ ...req.params, id })
+      : coalescingTicketUpdate(backlog(req), {
+          name: "updateBacklogTicket",
+          path: { ...req.params, id },
+          sort: req.query.sort,
+          predict: (value, patch) =>
+            patchRow(
+              value,
+              id,
+              patch,
+              req.query.sort,
+              DateTime.toDate(DateTime.nowUnsafe())
+            ),
+          confirm: (value, { ticket, orderKey }) =>
+            replaceRow(value, ticket, orderKey, req.query.sort)
+        })
 )
 
 export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)

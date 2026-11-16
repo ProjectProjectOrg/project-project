@@ -71,6 +71,7 @@ import {
   TicketDetail,
   UpdateTicketInput
 } from "./Ticket"
+import { TicketSync, TicketSyncQuery } from "./TicketSync"
 import { TicketActivityPage } from "./TicketActivity"
 import {
   TicketTextHit,
@@ -346,11 +347,12 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .add(
     HttpApiEndpoint.get(
-      "snapshot",
-      "/orgs/:orgSlug/projects/:slug/tickets/snapshot",
+      "sync",
+      "/orgs/:orgSlug/projects/:slug/tickets/sync",
       {
         params: ProjectPath,
-        success: Schema.Array(TicketDetail),
+        query: TicketSyncQuery,
+        success: TicketSync,
         error: [Unauthorized, NotFound, Forbidden]
       }
     )

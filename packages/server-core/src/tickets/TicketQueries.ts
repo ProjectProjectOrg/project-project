@@ -293,11 +293,9 @@ export class TicketQueries extends Context.Service<
     get: (
       id: string
     ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
-    snapshot: () => Effect.Effect<
-      ReadonlyArray<TicketDetail>,
-      TicketReadError,
-      ProjectScope
-    >
+    rows: (
+      ids?: ReadonlyArray<string>
+    ) => Effect.Effect<ReadonlyArray<Ticket>, never, ProjectScope>
     movedTo: (
       id: string
     ) => Effect.Effect<
@@ -1284,16 +1282,39 @@ const make = Effect.gen(function* () {
     })
   })
 
-  const snapshot = Effect.fn("TicketQueries.snapshot")(function* () {
-    const { orgSlug, slug } = yield* ProjectScope
-    const ids = yield* ticketDocs.listIds(orgSlug, slug)
-    const tickets = yield* Effect.forEach(
-      ids,
-      (id) =>
-        get(id).pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
-      { concurrency: 8 }
+  const rows = Effect.fn("TicketQueries.rows")(function* (
+    ids?: ReadonlyArray<string>
+  ) {
+    const scope = yield* ProjectScope
+    if (ids === undefined) {
+      const [entries, view] = yield* Effect.all(
+        [ticketIndex.list(scope), gitView],
+        { concurrency: 2 }
+      )
+      return entries.map((entry) => indexEntryToTicket(entry, view))
+    }
+    const [entries, relations, view] = yield* Effect.all(
+      [
+        ticketIndex.list(scope, ids),
+        Effect.forEach(ids, (id) => ticketIndex.relationsOf(scope, id), {
+          concurrency: 4
+        }),
+        gitView
+      ],
+      { concurrency: 3 }
     )
-    return tickets.filter((ticket) => ticket !== null)
+    const requested = new Set(ids)
+    const neighbours = new Set<string>()
+    for (const entry of entries)
+      if (entry.parent !== null) neighbours.add(entry.parent.id)
+    for (const relation of relations) {
+      for (const linked of [...relation.blockedBy, ...relation.blocking])
+        neighbours.add(linked.id)
+    }
+    const extra = [...neighbours].filter((id) => !requested.has(id))
+    const more =
+      extra.length === 0 ? [] : yield* ticketIndex.list(scope, extra)
+    return [...entries, ...more].map((entry) => indexEntryToTicket(entry, view))
   })
 
   const movedTo = Effect.fn("TicketQueries.movedTo")(function* (id: string) {
@@ -1328,7 +1349,7 @@ const make = Effect.gen(function* () {
     listInGroup,
     tagUsageCounts,
     get,
-    snapshot
+    rows
   })
 })
 

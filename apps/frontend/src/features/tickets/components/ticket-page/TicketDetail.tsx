@@ -12,11 +12,11 @@ import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import { ticketRepo } from "@/features/github/lib/repos"
 import { useMarkTicketRead } from "@/features/inbox/hooks/useMarkTicketRead"
-import { localTickets } from "@/features/local/atoms/localTickets"
+import { localProject } from "@/features/local/atoms/localProject"
 import {
-  decodeTicketRow,
-  type LocalTickets
-} from "@/features/local/lib/ticketCollection"
+  decodeDetailRow,
+  type LocalProject
+} from "@/features/local/lib/localProject"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   lastKnownBeforeNotFound,
@@ -157,13 +157,13 @@ function LoadedTicket({
   splitInto: ReadonlyArray<TicketId>
 }>) {
   const local = useAtomValue(
-    localTickets({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+    localProject({ orgSlug: req.params.orgSlug, slug: req.params.slug })
   )
   if (!Result.isSuccess(local)) return loading
   return (
     <LocalTicket
       key={local.value.generation}
-      collection={local.value.collection}
+      collection={local.value.details}
       req={req}
       loading={loading}
       stepper={stepper}
@@ -183,7 +183,7 @@ function LocalTicket({
   autoFocusBody,
   splitInto
 }: Readonly<{
-  collection: LocalTickets["collection"]
+  collection: LocalProject["details"]
   req: TicketRequest
   loading: ReactNode
   stepper: ReactNode
@@ -213,7 +213,7 @@ function LocalTicket({
       stepper={stepper}
     />
   )
-  if (row !== undefined) return page(decodeTicketRow(row))
+  if (row !== undefined && row.id === id) return page(decodeDetailRow(row))
   return Result.matchWithError(result, {
     onInitial: () => loading,
     onError: (error) =>

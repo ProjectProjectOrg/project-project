@@ -1,10 +1,8 @@
 import {
   matchesTicketQuery,
   type GroupId,
-  type Ticket,
   type TicketCounts,
-  type TicketListQuery,
-  type TicketStatus
+  type TicketListQuery
 } from "@pp/shared"
 import type { BacklogGrouping } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -32,6 +30,7 @@ import {
   sprintSectionsRequest,
   type SprintSectionsRequest
 } from "./sprintSections"
+import { countTickets } from "./ticketCounts"
 
 export type ViewCountsSource = Readonly<{
   orgSlug: string
@@ -41,14 +40,6 @@ export type ViewCountsSource = Readonly<{
   grouping: BacklogGrouping
   query: TicketListQuery
 }>
-
-const countTickets = (tickets: ReadonlyArray<Ticket>): TicketCounts => {
-  const byStatus: Record<TicketStatus, number> = {}
-  for (const ticket of tickets) {
-    byStatus[ticket.status] = (byStatus[ticket.status] ?? 0) + 1
-  }
-  return { total: tickets.length, byStatus }
-}
 
 const backlogCounts = Atom.family((req: BacklogRequest) =>
   backlog(req).pipe(Atom.mapResult((value) => value.counts))
