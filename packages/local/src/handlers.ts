@@ -1,11 +1,16 @@
+import type { ProjectSync, SyncCursor } from "@pp/shared"
+import * as Clock from "effect/Clock"
+import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
+import * as SubscriptionRef from "effect/SubscriptionRef"
 
 import {
   type CountsRequest,
   type LocalProject,
+  type LocalPull,
   LocalRpcs,
   type LocalStatus,
   type LocalSyncState,
@@ -21,7 +26,7 @@ import {
   readFacts,
   snapshotFacts
 } from "./store"
-import { SyncSource } from "./SyncSource"
+import { SyncOffline, SyncSource } from "./SyncSource"
 
 const sectionsRequest = (request: SectionsRequest) => ({
   scope: scopeOf(request.project),
@@ -42,6 +47,26 @@ const countsRequest = (request: CountsRequest) => ({
   estimation: request.estimation
 })
 
+const factCount = (sync: ProjectSync) => {
+  const facts = sync.kind === "snapshot" ? sync : sync.upserts
+  const upserted =
+    facts.tickets.length +
+    facts.groups.length +
+    facts.statuses.length +
+    facts.tags.length +
+    facts.members.length
+  if (sync.kind === "snapshot") return upserted
+  return Object.values(sync.deletes).reduce(
+    (total, ids) => total + ids.length,
+    upserted
+  )
+}
+
+type Diagnostics = Readonly<{
+  offline: boolean
+  pulls: Readonly<Record<string, LocalPull>>
+}>
+
 const unavailable = (scope: string, state: LocalSyncState) =>
   Effect.map(
     cursorOf(scope),
@@ -55,13 +80,50 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const reactivity = yield* Reactivity.Reactivity
     const source = yield* SyncSource
     const changed = reactivity.invalidate(LOCAL_SECTION_TABLES)
+    const diagnostics = yield* SubscriptionRef.make<Diagnostics>({
+      offline: false,
+      pulls: {}
+    })
+
+    const pullFrom = (project: LocalProject, after: SyncCursor | null) =>
+      Effect.flatMap(SubscriptionRef.get(diagnostics), ({ offline }) =>
+        offline ? Effect.fail(new SyncOffline()) : source.pull(project, after)
+      )
+
+    const record = (
+      scope: string,
+      sync: ProjectSync,
+      took: Duration.Duration
+    ) =>
+      Effect.flatMap(Clock.currentTimeMillis, (at) =>
+        SubscriptionRef.update(diagnostics, (current) => ({
+          ...current,
+          pulls: {
+            ...current.pulls,
+            [scope]: {
+              at,
+              millis: Duration.toMillis(took),
+              kind: sync.kind,
+              facts: factCount(sync)
+            }
+          }
+        }))
+      )
 
     const pullUntilApplied = (project: LocalProject) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
         const after = yield* cursorOf(scope)
-        const sync = yield* source.pull(project, after)
-        return yield* applySync(scope, after, sync)
+        const [took, [sync, applied]] = yield* Effect.timed(
+          Effect.flatMap(pullFrom(project, after), (sync) =>
+            Effect.map(
+              applySync(scope, after, sync),
+              (applied) => [sync, applied] as const
+            )
+          )
+        )
+        if (applied === "applied") yield* record(scope, sync, took)
+        return applied
       }).pipe(Effect.repeat({ until: (applied) => applied === "applied" }))
 
     const pull = (project: LocalProject) => {
@@ -89,7 +151,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const checkFacts = (project: LocalProject) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
-        const server = yield* source.pull(project, null)
+        const server = yield* pullFrom(project, null)
         const local = yield* readFacts(scope)
         if (server.kind !== "snapshot" || local.cursor !== server.cursor)
           return yield* Effect.logInfo(
@@ -118,6 +180,24 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         ),
       Pull: pull,
       CheckFacts: checkFacts,
+      Diagnostics: (project) => {
+        const scope = scopeOf(project)
+        return SubscriptionRef.changes(diagnostics).pipe(
+          Stream.mapEffect(({ offline, pulls }) =>
+            Effect.map(cursorOf(scope), (cursor) => ({
+              cursor,
+              lastPull: pulls[scope] ?? null,
+              offline
+            }))
+          ),
+          Stream.orDie
+        )
+      },
+      SimulateOffline: ({ offline }) =>
+        SubscriptionRef.update(diagnostics, (current) => ({
+          ...current,
+          offline
+        })),
       Sections: (request) =>
         sql
           .reactive(

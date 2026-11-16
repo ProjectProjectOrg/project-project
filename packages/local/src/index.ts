@@ -2,8 +2,10 @@ export { localRpcsLayer } from "./handlers"
 export { LocalDb, localDatabase, localDbLayer } from "./LocalDb"
 export {
   type CountsRequest,
+  type LocalDiagnostics,
   type LocalProject,
   type LocalRepositories,
+  type LocalPull,
   LocalRpcs,
   type LocalSectionsResult,
   type LocalStatus,

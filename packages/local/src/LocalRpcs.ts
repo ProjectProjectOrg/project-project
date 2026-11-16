@@ -1,5 +1,6 @@
 import {
   EstimationMode,
+  SyncCursor,
   TicketCountQuery,
   TicketCounts,
   TicketListPage,
@@ -74,10 +75,33 @@ export const LocalSectionsResult = Schema.Struct({
 })
 export type LocalSectionsResult = typeof LocalSectionsResult.Type
 
+export const LocalPull = Schema.Struct({
+  at: Schema.Finite,
+  millis: Schema.Finite,
+  kind: Schema.Literals(["snapshot", "changes"]),
+  facts: Schema.Finite
+})
+export type LocalPull = typeof LocalPull.Type
+
+export const LocalDiagnostics = Schema.Struct({
+  cursor: Schema.NullOr(SyncCursor),
+  lastPull: Schema.NullOr(LocalPull),
+  offline: Schema.Boolean
+})
+export type LocalDiagnostics = typeof LocalDiagnostics.Type
+
 export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Hydrated", { payload: LocalProject, success: Schema.Boolean }),
   Rpc.make("Pull", { payload: LocalProject, success: LocalStatus }),
   Rpc.make("CheckFacts", { payload: LocalProject }),
+  Rpc.make("Diagnostics", {
+    payload: LocalProject,
+    success: LocalDiagnostics,
+    stream: true
+  }),
+  Rpc.make("SimulateOffline", {
+    payload: Schema.Struct({ offline: Schema.Boolean })
+  }),
   Rpc.make("Sections", {
     payload: SectionsRequest,
     success: Schema.NullOr(LocalSectionsResult),

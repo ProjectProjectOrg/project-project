@@ -67,3 +67,54 @@ it.effect(
       expect(yield* Queue.take(results)).toBe("renamed")
     }).pipe(Effect.scoped, Effect.provide(TestEngine))
 )
+
+const engineServing = (served: Array<ProjectSync>) =>
+  localRpcsLayer.pipe(
+    Layer.provideMerge(
+      Layer.succeed(SyncSource, {
+        pull: () => Effect.sync(() => served.shift() ?? changes("1.9", [], []))
+      })
+    ),
+    Layer.provideMerge(localDatabase(SqliteClient.makeMemory({})))
+  )
+
+it.effect("a simulated offline pull answers offline without the server", () => {
+  const served = [
+    snapshot("1.1", [ticket("T-1", "one")]),
+    changes("1.2", [], [])
+  ]
+  return Effect.gen(function* () {
+    const client = yield* RpcTest.makeClient(LocalRpcs)
+    yield* client.Pull(project)
+    yield* client.SimulateOffline({ offline: true })
+    expect(yield* client.Pull(project)).toEqual({
+      kind: "ready",
+      sync: "offline"
+    })
+    expect(served).toHaveLength(1)
+  }).pipe(Effect.scoped, Effect.provide(engineServing(served)))
+})
+
+it.effect("diagnostics report the cursor and size of the last pull", () =>
+  Effect.gen(function* () {
+    const client = yield* RpcTest.makeClient(LocalRpcs)
+    yield* client.Pull(project)
+    yield* client.Pull(project)
+    const [diagnostics] = yield* client
+      .Diagnostics(project)
+      .pipe(Stream.take(1), Stream.runCollect)
+    expect(diagnostics).toMatchObject({
+      cursor: "1.2",
+      lastPull: { kind: "changes", facts: 2 },
+      offline: false
+    })
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      engineServing([
+        snapshot("1.1", [ticket("T-1", "one")]),
+        changes("1.2", [ticket("T-2", "two")], ["T-1"])
+      ])
+    )
+  )
+)

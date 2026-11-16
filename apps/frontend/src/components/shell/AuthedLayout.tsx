@@ -7,7 +7,7 @@ import {
   useParams
 } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Fragment, useState } from "react"
+import { Fragment, lazy, Suspense, useState } from "react"
 
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs"
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -25,6 +25,14 @@ import { CreateTicketDialogHost } from "@/features/tickets/components/create-tic
 import { FlagTicketDialogHost } from "@/features/tickets/components/FlagTicketDialog"
 import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
+
+const DevToolbar = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/features/dev-toolbar/components/DevToolbar").then((module) => ({
+        default: module.DevToolbar
+      }))
+    )
+  : null
 
 export function AuthedLayout() {
   const viewer = useAtomValue(me())
@@ -59,7 +67,7 @@ function Shell({ user }: { user: User }) {
   const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
   return (
     <div className="h-full transition-[padding] duration-300 ease-out motion-reduce:transition-none lg:p-3">
-      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_minmax(0,1fr)] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr_auto] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_minmax(0,1fr)] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
@@ -85,6 +93,11 @@ function Shell({ user }: { user: User }) {
             </PageBackdropContext>
           </div>
         </main>
+        {DevToolbar !== null && (
+          <Suspense>
+            <DevToolbar />
+          </Suspense>
+        )}
       </div>
       {user.activeOrgSlug ? (
         <CommandMenuHost orgSlug={user.activeOrgSlug} />
