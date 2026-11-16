@@ -20,7 +20,8 @@ import {
   type BranchProtected,
   type NotFound,
   type OpenPrResult,
-  type TicketDetail
+  type TicketDetail,
+  pendingGitState
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -35,10 +36,7 @@ import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
-import {
-  pendingGitState,
-  type TicketReadError
-} from "../tickets/ticketPresentation"
+import type { TicketReadError } from "../tickets/ticketPresentation"
 import type { TicketProject } from "../tickets/ticketProject"
 import * as TicketView from "../tickets/TicketView"
 import {

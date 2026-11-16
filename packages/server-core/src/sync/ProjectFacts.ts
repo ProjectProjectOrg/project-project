@@ -131,6 +131,9 @@ const make = Effect.gen(function* () {
               pr: row.pr,
               prState: row.prState,
               prDraft: row.prDraft,
+              prBase: row.prBase,
+              lastTransitionedPr: row.lastTransitionedPr,
+              branchDeletedAt: row.branchDeletedAt,
               checks: row.checks
             }
           : null,

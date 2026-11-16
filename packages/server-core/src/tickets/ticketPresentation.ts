@@ -8,7 +8,8 @@ import {
   type TicketParent,
   type TicketParentState,
   type TicketDetail,
-  type User
+  type User,
+  pendingGitState
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
@@ -46,58 +47,6 @@ const withoutGit = <T extends Ticket>(ticket: T): T => ({
 
 export const presentTicket = <T extends Ticket>(view: GitView, ticket: T): T =>
   view.visible ? ticket : withoutGit(ticket)
-
-export function pendingGitState(
-  document: Pick<TicketDocs.TicketDocument, "branch" | "pr" | "prState"> &
-    Readonly<{ prBase?: string | null | undefined }>,
-  github: ProjectGithub.ProjectGithubIntegration | null,
-  branchDeletedAt: Date | null = null
-): Ticket["gitState"] {
-  const defaultBase = github?.defaultBaseBranch ?? "main"
-  if (!document.branch) return { tag: "no_branch", baseBranch: defaultBase }
-  if (document.pr !== null) {
-    const baseBranch = document.prBase ?? defaultBase
-    const url = github
-      ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
-      : ""
-    if (document.prState === "merged") {
-      return {
-        tag: "pr_merged",
-        branch: document.branch,
-        baseBranch,
-        number: document.pr,
-        url,
-        title: "",
-        mergedAt: null
-      }
-    }
-    if (document.prState === "closed") {
-      return {
-        tag: "pr_closed",
-        branch: document.branch,
-        baseBranch,
-        number: document.pr,
-        url,
-        title: ""
-      }
-    }
-    return {
-      tag: "pr_pending",
-      branch: document.branch,
-      baseBranch,
-      number: document.pr,
-      url
-    }
-  }
-  if (branchDeletedAt !== null) {
-    return { tag: "stale_branch", name: document.branch }
-  }
-  return {
-    tag: "branch_pending",
-    name: document.branch,
-    baseBranch: defaultBase
-  }
-}
 
 function documentToTicket(
   document: TicketDocs.TicketDocument,

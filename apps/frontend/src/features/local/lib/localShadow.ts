@@ -1,6 +1,6 @@
-const FLAG = "pp:local-copy"
+const FLAG = "pp:local-shadow"
 
-export const localCopyEnabled = () => {
+export const localShadowChecks = () => {
   try {
     return window.localStorage.getItem(FLAG) === "on"
   } catch {

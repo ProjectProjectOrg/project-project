@@ -17,6 +17,8 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { localBacklog } from "@/features/local/atoms/localBacklog"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
@@ -32,6 +34,7 @@ import {
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
+import { backlogLoadedPages } from "./backlogPages"
 import {
   bulkTicketMove,
   bulkTicketUpdate,
@@ -85,12 +88,6 @@ const sectionsQuery = (req: BacklogRequest) =>
     ]
   })
 
-const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
-  Atom.make<Readonly<Record<string, number>>>({}).pipe(
-    Atom.setIdleTTL("2 minutes")
-  )
-)
-
 const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
   query("tickets", "list", {
     params: req.params,
@@ -115,11 +112,13 @@ const emptyBacklog = (): BacklogValue => ({
 const backlogView = (req: BacklogRequest) =>
   Atom.readable(
     (get) => {
+      const local = readLocal(get, req.params, () => localBacklog(req))
+      if (local !== null) return local
       const base = get(sectionsQuery(req))
       if (!AsyncResult.isSuccess(base)) {
         return AsyncResult.map(base, emptyBacklog)
       }
-      const loaded = get(loadedPagesAtom(req))
+      const loaded = get(backlogLoadedPages(req))
       const created = get(createdKeys(scopeOf(req)))
       let waiting = base.waiting
       const sections: Record<string, TicketRowPage> = {}
@@ -164,6 +163,15 @@ export const loadMoreBacklog = Atom.family(
         _input: void,
         get: Atom.FnContext
       ) {
+        const current = get(backlog(req))
+        if (
+          AsyncResult.isSuccess(current) &&
+          current.value.sections[status]?.nextCursor?.startsWith("local:")
+        )
+          return get.set(backlogLoadedPages(req), {
+            ...get(backlogLoadedPages(req)),
+            [status]: (get(backlogLoadedPages(req))[status] ?? 0) + 1
+          })
         return yield* loadNextPage(get, {
           visibleCursor: () => {
             const current = get(backlog(req))
@@ -171,7 +179,7 @@ export const loadMoreBacklog = Atom.family(
               ? current.value.sections[status]?.nextCursor
               : undefined
           },
-          depth: () => get(loadedPagesAtom(req))[status] ?? 0,
+          depth: () => get(backlogLoadedPages(req))[status] ?? 0,
           firstCursor: () => {
             const base = get(sectionsQuery(req))
             return AsyncResult.isSuccess(base)
@@ -181,8 +189,8 @@ export const loadMoreBacklog = Atom.family(
           },
           page: (cursor) => pageQuery(req, status, cursor),
           deepen: (depth) =>
-            get.set(loadedPagesAtom(req), {
-              ...get(loadedPagesAtom(req)),
+            get.set(backlogLoadedPages(req), {
+              ...get(backlogLoadedPages(req)),
               [status]: depth
             })
         })

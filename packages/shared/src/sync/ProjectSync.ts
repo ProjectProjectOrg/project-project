@@ -23,6 +23,9 @@ export const TicketGitFact = Schema.Struct({
   pr: Schema.NullOr(Schema.Finite),
   prState: Schema.NullOr(PullRequestState),
   prDraft: Schema.Boolean,
+  prBase: Schema.NullOr(Schema.String),
+  lastTransitionedPr: Schema.NullOr(Schema.Finite),
+  branchDeletedAt: Schema.NullOr(Schema.DateFromString),
   checks: Schema.NullOr(ChecksStatus)
 })
 

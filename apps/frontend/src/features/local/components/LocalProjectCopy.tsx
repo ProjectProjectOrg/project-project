@@ -1,13 +1,11 @@
-import { lazy, Suspense } from "react"
+import { useAtomMount } from "@effect/atom-react"
 
-import { localCopyEnabled } from "../lib/localCopyFlag"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 
-const KeepLocalCopy = lazy(() => import("./KeepLocalCopy"))
+import { localProject } from "../atoms/localProject"
 
 export function LocalProjectCopy() {
-  return localCopyEnabled() ? (
-    <Suspense fallback={null}>
-      <KeepLocalCopy />
-    </Suspense>
-  ) : null
+  const { orgSlug, slug } = useProjectRoute()
+  useAtomMount(localProject({ orgSlug, slug }))
+  return null
 }

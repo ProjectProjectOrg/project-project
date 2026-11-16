@@ -125,7 +125,17 @@ export const patchesSortedField = (
   return false
 }
 
-export const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
+export type Orderable = Readonly<{
+  id: string
+  rank: string
+  createdAt: Date
+  updatedAt: Date
+  title: string
+  priority: Ticket["priority"]
+  estimate: Ticket["estimate"]
+}>
+
+export const localOrderKey = (ticket: Orderable, sort: TicketSort): string => {
   let value: string
   switch (sort.key) {
     case "manual":

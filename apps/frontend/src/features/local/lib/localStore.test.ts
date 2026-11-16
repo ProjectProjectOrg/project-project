@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
+import { localDbLayer } from "./localDatabase"
 import { localMigrations } from "./localSchema"
 import {
   applySync,
@@ -17,9 +18,10 @@ import {
   snapshotFacts
 } from "./localStore"
 
-const TestDatabase = SqliteMigrator.layer({ loader: localMigrations }).pipe(
-  Layer.provideMerge(SqliteClient.layerMemory({}))
-)
+const TestDatabase = Layer.mergeAll(
+  SqliteMigrator.layer({ loader: localMigrations }),
+  localDbLayer
+).pipe(Layer.provideMerge(SqliteClient.layerMemory({})))
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
 
@@ -138,7 +140,7 @@ it.effect(
 
       expect(result).toBe("stale")
       expect(yield* cursorOf("a/p")).toBe("1.3")
-      expect((yield* readFacts("a/p")).facts.local_tickets[0]?.data).toContain(
+      expect((yield* readFacts("a/p")).facts.tickets[0]?.data).toContain(
         "newer"
       )
     }).pipe(Effect.provide(TestDatabase))
@@ -154,9 +156,9 @@ it.effect("purging a project leaves other projects alone", () =>
     expect(yield* readFacts("a/p")).toMatchObject({
       cursor: null,
       project: null,
-      facts: { local_tickets: [], local_tags: [] }
+      facts: { tickets: [], tags: [] }
     })
-    expect((yield* readFacts("a/q")).facts.local_tickets).toHaveLength(1)
+    expect((yield* readFacts("a/q")).facts.tickets).toHaveLength(1)
   }).pipe(Effect.provide(TestDatabase))
 )
 
@@ -169,8 +171,8 @@ it.effect("reports facts that differ from the server", () =>
     )
 
     expect(differences(yield* readFacts("a/p"), server)).toEqual([
-      "local_tickets/T-1",
-      "local_tickets/T-2"
+      "tickets/T-1",
+      "tickets/T-2"
     ])
   }).pipe(Effect.provide(TestDatabase))
 )

@@ -3,6 +3,8 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
+import { localCounts } from "@/features/local/atoms/localBacklog"
+import { readLocal } from "@/features/local/atoms/readLocal"
 
 export type CountsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -33,5 +35,10 @@ const countsQuery = (req: CountsRequest) => {
 }
 
 export const ticketCounts = Atom.family((req: CountsRequest) =>
-  countsQuery(req)
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localCounts(req)) ??
+      get(countsQuery(req)),
+    (refresh) => refresh(countsQuery(req))
+  )
 )

@@ -1,6 +1,7 @@
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Stream from "effect/Stream"
@@ -10,6 +11,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { currentUserId } from "@/features/auth/atoms/auth"
 
 import { localDatabaseLayer } from "../lib/localDatabase"
+import { localShadowChecks } from "../lib/localShadow"
 import {
   applySync,
   cursorOf,
@@ -29,7 +31,7 @@ export type LocalStatus =
 
 class SignedOut extends Data.TaggedError("SignedOut") {}
 
-const localRuntime = Api.runtime.factory((get) => {
+export const localRuntime = Api.runtime.factory((get) => {
   const userId = get(currentUserId)
   const api = get(Api.runtime.layer)
   return Layer.unwrap(
@@ -123,7 +125,9 @@ export const localProject = Atom.family((request: LocalProjectRequest) =>
             Keys.liveResync()
           ]).pipe(
             Stream.tap((status) =>
-              status.kind === "ready" && status.sync === "live"
+              localShadowChecks() &&
+              status.kind === "ready" &&
+              status.sync === "live"
                 ? Effect.forkDetach(checkOnce)
                 : Effect.void
             )
@@ -132,4 +136,12 @@ export const localProject = Atom.family((request: LocalProjectRequest) =>
       })
     )
   )
+)
+
+export const localReady = Atom.family((request: LocalProjectRequest) =>
+  Atom.make((get) => {
+    const status = get(localProject(request))
+    if (AsyncResult.isInitial(status)) return undefined
+    return AsyncResult.isSuccess(status) && status.value.kind === "ready"
+  })
 )

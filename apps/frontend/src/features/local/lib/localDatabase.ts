@@ -1,5 +1,10 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import * as SqliteMigrator from "@effect/sql-sqlite-wasm/SqliteMigrator"
+import {
+  type EffectSQLiteWasmDatabase,
+  makeWithDefaults
+} from "drizzle-orm/effect-sqlite-wasm"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -82,7 +87,24 @@ const tuned = (userId: string) =>
     ])
   )
 
-export const localDatabaseLayer = (userId: string) =>
-  SqliteMigrator.layer({ loader: localMigrations }).pipe(
-    Layer.provideMerge(Layer.effect(SqlClient.SqlClient, tuned(userId)))
+export class LocalDb extends Context.Service<
+  LocalDb,
+  EffectSQLiteWasmDatabase
+>()("@pp/frontend/features/local/lib/localDatabase/LocalDb") {}
+
+export const localDbLayer = Layer.effect(LocalDb, makeWithDefaults())
+
+const clientLayer = (userId: string) =>
+  Layer.effectContext(
+    Effect.map(tuned(userId), (client) =>
+      Context.make(SqliteClient.SqliteClient, client).pipe(
+        Context.add(SqlClient.SqlClient, client)
+      )
+    )
   )
+
+export const localDatabaseLayer = (userId: string) =>
+  Layer.mergeAll(
+    localDbLayer,
+    SqliteMigrator.layer({ loader: localMigrations })
+  ).pipe(Layer.provideMerge(clientLayer(userId)))

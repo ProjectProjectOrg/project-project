@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { projectScope } from "@/api/keys"
 import {
   everhourProjectRequest,
   everhourProjectStatusAtom
@@ -8,6 +9,8 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
+import { localActive } from "@/features/local/atoms/localActive"
+import { localProject } from "@/features/local/atoms/localProject"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
@@ -25,6 +28,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
     const { registry } = context
+    registry.set(localActive(projectScope(orgSlug, slug)), true)
+    registry.mount(localProject({ orgSlug, slug }))()
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
