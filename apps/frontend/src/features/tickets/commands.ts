@@ -1,6 +1,7 @@
 import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import {
   Archive,
@@ -468,15 +469,20 @@ export const ticketCommands: ReadonlyArray<Command> = [
         ticket.slug,
         ticket.ticketId
       )
+      const view = ticketSubscribers(req)
       const toggle = (subscribed: boolean) =>
         env.execute(setSubscribed(req), !subscribed)
       if (ticketSubscribed !== null) {
         toggle(ticketSubscribed)
         return
       }
-      void Effect.runPromise(
-        AtomRegistry.getResult(env.registry, ticketSubscribers(req))
-      ).then(({ subscribed }) => toggle(subscribed))
+      void Effect.runPromise(AtomRegistry.getResult(env.registry, view)).then(
+        () => {
+          const current = env.registry.get(view)
+          if (AsyncResult.isSuccess(current)) toggle(current.value.subscribed)
+        },
+        () => undefined
+      )
     }
   },
   {
