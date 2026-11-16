@@ -13,6 +13,7 @@ import { and, eq, inArray, ne, sql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
+import { type PrivateTouch, touchPrivate } from "../sync/PrivateLog"
 import { deliver, read, resolve, type InboxRowValue } from "./rows"
 
 type Database = Db["Service"]
@@ -268,8 +269,14 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
     }
 
     yield* upsert(db, projectId, staged.ticketId, changed)
+    const touches: Array<PrivateTouch> = [...changed.keys()].map((userId) => ({
+      userId,
+      projectId,
+      ticketId: staged.ticketId
+    }))
 
-    if (!staged.notify || staged.unblockWith === null) return
+    if (!staged.notify || staged.unblockWith === null)
+      return yield* touchPrivate(touches)
     const finished = staged.unblockWith
     for (const { ticketId } of waiting) {
       if (
@@ -297,7 +304,10 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
         )
       }
       yield* upsert(db, projectId, ticketId, unblocked)
+      for (const userId of unblocked.keys())
+        touches.push({ userId, projectId, ticketId })
     }
+    yield* touchPrivate(touches)
   })
 
 export const removeTicketInbox = (projectId: string, ticketId: string) =>

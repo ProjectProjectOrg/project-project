@@ -130,7 +130,7 @@ import { slackOAuthRoutes } from "./slack/OAuthRoutes"
 import { StatusesHandlerLive } from "./statuses/Handlers"
 import { StorageHandlerLive } from "./storage/Handlers"
 import { TicketSubscriptionsHandlerLive } from "./subscriptions/Handlers"
-import { SyncHandlerLive } from "./sync/Handlers"
+import { PrivateSyncHandlerLive, SyncHandlerLive } from "./sync/Handlers"
 import { TagsHandlerLive } from "./tags/Handlers"
 import { TicketsHandlerLive } from "./tickets/Handlers"
 import { ToolsRouteLive } from "./tools/http"
@@ -218,7 +218,12 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
     )
   ),
   Layer.provide(
-    Layer.mergeAll(AttachmentsHandlerLive, LiveHandlerLive, SyncHandlerLive)
+    Layer.mergeAll(
+      AttachmentsHandlerLive,
+      LiveHandlerLive,
+      SyncHandlerLive,
+      PrivateSyncHandlerLive
+    )
   )
 )
 

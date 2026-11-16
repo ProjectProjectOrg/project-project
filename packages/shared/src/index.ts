@@ -68,6 +68,7 @@ export * from "./live/LiveEvent"
 export * from "./sync/SyncChange"
 export * from "./sync/Operations"
 export * from "./github/pendingGitState"
+export * from "./sync/PrivateSync"
 export * from "./sync/ProjectSync"
 export * from "./sync/SyncApi"
 

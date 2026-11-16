@@ -6,7 +6,10 @@ import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
   ActivityActor,
+  CurrentUser,
   OrgScope,
+  type PrivateSync,
+  User,
   ProjectScope,
   TicketId,
   TicketStatus,
@@ -26,6 +29,8 @@ import { orgScope, projectScope } from "../access/testing"
 import type { TicketScopedChange } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Markdown from "../markdown/Markdown"
+import * as PrivateFacts from "../sync/PrivateFacts"
+import * as SyncLog from "../sync/SyncLog"
 import * as Users from "../users/Users"
 import type { InboxNotice } from "./events"
 import * as Inbox from "./Inbox"
@@ -77,8 +82,12 @@ const TestLayer = Layer.unwrap(
           )
         )
       ),
-      Inbox.layer.pipe(Layer.provide(Layer.mergeAll(Access.layer, Users.layer)))
-    ).pipe(Layer.provide(DbLive.pipe(Layer.provideMerge(PgLive))))
+      Inbox.layer.pipe(
+        Layer.provide(Layer.mergeAll(Access.layer, Users.layer))
+      ),
+      PrivateFacts.layer.pipe(Layer.provide(Users.layer)),
+      SyncLog.layer
+    ).pipe(Layer.provideMerge(DbLive.pipe(Layer.provideMerge(PgLive))))
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
@@ -258,6 +267,38 @@ const inboxOf = (project: Project, user: string) =>
     })),
     asOrgMember(project, user)
   )
+
+const asUser = (id: string) =>
+  Effect.provideService(
+    CurrentUser,
+    Schema.decodeUnknownSync(User)({
+      id,
+      email: `${id}@example.com`,
+      name: id,
+      username: null,
+      image: null,
+      createdAt: "2026-11-16T00:00:00Z",
+      activeOrgSlug: null,
+      personalGithub: { connected: false },
+      editorPreference: "github",
+      personalEverhour: {
+        connected: false,
+        everhourUserId: null,
+        name: null,
+        email: null,
+        lastVerifiedAt: null,
+        lastCheckError: null
+      }
+    })
+  )
+
+const pullPrivate = (owner: string, query: Readonly<{ after?: string }>) =>
+  Effect.flatMap(PrivateFacts.PrivateFacts, (facts) =>
+    facts.pull(owner, query)
+  ).pipe(asUser(owner), Effect.orDie)
+
+const baseOf = (sync: PrivateSync) =>
+  sync.kind === "snapshot" ? sync.base : sync.cursor
 
 describe.skipIf(!databaseUrl)("inbox", () => {
   it.live(
@@ -458,6 +499,78 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         unread: 0
       })
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("serves a private copy only to its owner", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const pulled = yield* Effect.flatMap(PrivateFacts.PrivateFacts, (facts) =>
+        facts.pull(project.bob, {})
+      ).pipe(asUser(project.ann), Effect.flip)
+      expect(pulled._tag).toBe("Forbidden")
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live(
+    "an assignment and marking it done reach the owner's private copy",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        const empty = yield* pullPrivate(project.bob, {})
+        yield* assign(project, "T-1", project.bob)
+        const assigned = yield* pullPrivate(project.bob, {
+          after: baseOf(empty)
+        })
+        expect(assigned).toMatchObject({
+          kind: "changes",
+          upserts: [
+            {
+              id: `${project.projectId}/T-1`,
+              orgSlug: project.orgSlug,
+              inbox: {
+                done: false,
+                item: { unread: true, direct: ["assigned"] }
+              }
+            }
+          ],
+          more: false
+        })
+        yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+          inbox.markDone("T-1")
+        ).pipe(asProjectMember(project, project.bob))
+        const done = yield* pullPrivate(project.bob, {
+          after: baseOf(assigned)
+        })
+        expect(done).toMatchObject({
+          upserts: [{ inbox: { done: true, item: { unread: false } } }]
+        })
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live(
+    "a retitled ticket reaches the private copy of whoever holds it",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        yield* assign(project, "T-1", project.bob)
+        const before = yield* pullPrivate(project.bob, {})
+        yield* sql(
+          "update ticket_index set title = 'Renamed' where project_id = $1 and ticket_id = 'T-1'",
+          [project.projectId]
+        )
+        yield* Effect.flatMap(SyncLog.SyncLog, (log) =>
+          log.append(project.projectId, [
+            { kind: "ticket", id: "T-1", op: "upsert" }
+          ])
+        )
+        const after = yield* pullPrivate(project.bob, { after: baseOf(before) })
+        expect(after).toMatchObject({
+          upserts: [{ inbox: { item: { ticket: { title: "Renamed" } } } }]
+        })
+        expect(yield* pullPrivate(project.carl, {})).toMatchObject({
+          facts: []
+        })
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
   it.live("drops a ticket's rows when the ticket is removed", () =>

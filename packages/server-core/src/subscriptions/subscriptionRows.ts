@@ -7,6 +7,7 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
+import { touchPrivate } from "../sync/PrivateLog"
 import { overridesUnsubscribe, type SubscriptionIntent } from "./intents"
 
 export type StagedSubscription =
@@ -60,20 +61,32 @@ export const applySubscriptions = (
       ticketSubscription.ticketId,
       ticketSubscription.userId
     ]
-    if (overriding.length > 0)
-      yield* db
-        .insert(ticketSubscription)
-        .values(overriding)
-        .onConflictDoUpdate({
-          target,
-          set: { subscribed: true, updatedAt: sql`now()` },
-          setWhere: eq(ticketSubscription.subscribed, false)
-        })
-    if (joining.length > 0)
-      yield* db
-        .insert(ticketSubscription)
-        .values(joining)
-        .onConflictDoNothing({ target })
+    const changed = {
+      userId: ticketSubscription.userId,
+      projectId: ticketSubscription.projectId,
+      ticketId: ticketSubscription.ticketId
+    }
+    const overridden =
+      overriding.length === 0
+        ? []
+        : yield* db
+            .insert(ticketSubscription)
+            .values(overriding)
+            .onConflictDoUpdate({
+              target,
+              set: { subscribed: true, updatedAt: sql`now()` },
+              setWhere: eq(ticketSubscription.subscribed, false)
+            })
+            .returning(changed)
+    const joined =
+      joining.length === 0
+        ? []
+        : yield* db
+            .insert(ticketSubscription)
+            .values(joining)
+            .onConflictDoNothing({ target })
+            .returning(changed)
+    yield* touchPrivate([...overridden, ...joined])
   })
 
 export const removeTicketSubscriptions = (

@@ -12,7 +12,9 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 
+import { touchPrivate } from "../sync/PrivateLog"
 import * as Users from "../users/Users"
 
 export class TicketSubscriptions extends Context.Service<
@@ -33,6 +35,7 @@ const decodeUserId = Schema.decodeSync(UserId)
 const make = Effect.gen(function* () {
   const db = yield* Db
   const users = yield* Users.Users
+  const sqlClient = yield* SqlClient.SqlClient
 
   const requireTicket = (projectId: string, ticketId: string) =>
     db
@@ -91,22 +94,30 @@ const make = Effect.gen(function* () {
       const scope = yield* ProjectScope
       if (scope.role === null) return yield* new Forbidden()
       yield* requireTicket(scope.projectId, ticketId)
-      yield* db
-        .insert(ticketSubscription)
-        .values({
-          projectId: scope.projectId,
-          ticketId,
-          userId: scope.userId,
-          subscribed
-        })
-        .onConflictDoUpdate({
-          target: [
-            ticketSubscription.projectId,
-            ticketSubscription.ticketId,
-            ticketSubscription.userId
-          ],
-          set: { subscribed, updatedAt: sql`now()` }
-        })
+      const touch = {
+        projectId: scope.projectId,
+        ticketId,
+        userId: scope.userId
+      }
+      yield* sqlClient
+        .withTransaction(
+          db
+            .insert(ticketSubscription)
+            .values({ ...touch, subscribed })
+            .onConflictDoUpdate({
+              target: [
+                ticketSubscription.projectId,
+                ticketSubscription.ticketId,
+                ticketSubscription.userId
+              ],
+              set: { subscribed, updatedAt: sql`now()` }
+            })
+            .pipe(
+              Effect.andThen(touchPrivate([touch])),
+              Effect.provideService(Db, db),
+              Effect.provideService(SqlClient.SqlClient, sqlClient)
+            )
+        )
         .pipe(Effect.orDie)
       return yield* subscribersOf(scope, ticketId)
     }

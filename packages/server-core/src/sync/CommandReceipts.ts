@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import { encodeCursor } from "../live/liveCursor"
+import { PRIVATE_RECEIPT_KEY, privatePositionOf } from "./PrivateLog"
 import * as SyncLog from "./SyncLog"
 
 export type Claim =
@@ -69,7 +70,12 @@ const make = Effect.gen(function* () {
     key: CommandKey,
     outcome: CommandOutcome
   ) {
-    const receipt = encodeCursor(yield* syncLog.positionsOf(key.operationId))
+    const positions = new Map(yield* syncLog.positionsOf(key.operationId))
+    const own = yield* privatePositionOf(key.operationId, key.userId).pipe(
+      Effect.provideService(Db, db)
+    )
+    if (own !== null) positions.set(PRIVATE_RECEIPT_KEY, own)
+    const receipt = encodeCursor(positions)
     yield* db
       .update(commandReceipt)
       .set({ outcome, receipt, completedAt: sql`now()` })

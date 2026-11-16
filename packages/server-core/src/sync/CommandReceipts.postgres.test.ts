@@ -10,6 +10,7 @@ import { describe, expect } from "vitest"
 
 import { SyncOperation } from "./ChangeOrigin"
 import * as CommandReceipts from "./CommandReceipts"
+import { touchPrivate } from "./PrivateLog"
 import * as SyncLog from "./SyncLog"
 
 const { Client } = pg
@@ -104,6 +105,29 @@ describe.skipIf(!databaseUrl)("CommandReceipts Postgres", () => {
           outcome,
           receipt
         })
+      }).pipe(Effect.provide(TestLayer), Effect.scoped)
+  )
+
+  it.effect(
+    "carries the last position the operation reached in the operator's private scope",
+    () =>
+      Effect.gen(function* () {
+        const receipts = yield* CommandReceipts.CommandReceipts
+        const { projectId, key } = yield* seed
+        const touch = (userId: string) => ({
+          userId,
+          projectId,
+          ticketId: "T-1"
+        })
+
+        yield* receipts.claim(key, "hash")
+        yield* touchPrivate([touch(key.userId), touch(key.userId)]).pipe(
+          Effect.provideService(SyncOperation, key.operationId)
+        )
+        yield* touchPrivate([touch(key.userId)]).pipe(
+          Effect.provideService(SyncOperation, key.operationId)
+        )
+        expect(yield* receipts.complete(key, outcome)).toBe("private.1.2")
       }).pipe(Effect.provide(TestLayer), Effect.scoped)
   )
 

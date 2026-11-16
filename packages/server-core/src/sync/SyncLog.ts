@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { ChangeOrigin, SyncOperation } from "./ChangeOrigin"
+import { fanOutPrivate } from "./PrivateLog"
 
 export const SYNC_CHANNEL = "pp_sync"
 
@@ -110,6 +111,10 @@ const make = Effect.gen(function* () {
           origin,
           changes: [...changes]
         })
+        yield* fanOutPrivate(projectId, changes).pipe(
+          Effect.provideService(Db, db),
+          Effect.provideService(SqlClient.SqlClient, sql)
+        )
         yield* notify(projectId, scope)
         return scope
       })

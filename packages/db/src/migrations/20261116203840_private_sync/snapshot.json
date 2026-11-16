@@ -1,0 +1,380 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "baea51e6-3930-4e5f-9f22-f3e25730735c",
+  "prevIds": [
+    "b919240b-c481-407e-ab4c-f53b756f3d39",
+    "2641460d-c043-4684-9cde-4040a84bfc54"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "private_sync_change"
+      ],
+      "writes": [
+        "s|tbl|public.private_sync_change",
+        "n|tbl|public.private_sync_change",
+        "e|tbl|public.private_sync_change",
+        "n|rel|public.private_sync_change",
+        "n|type|public.private_sync_change",
+        "n|rel|public.private_sync_change_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "private_sync_scope"
+      ],
+      "writes": [
+        "s|tbl|public.private_sync_scope",
+        "n|tbl|public.private_sync_scope",
+        "e|tbl|public.private_sync_scope",
+        "n|rel|public.private_sync_scope",
+        "n|type|public.private_sync_scope",
+        "n|rel|public.private_sync_scope_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "private_sync_change",
+        "private_sync_change_operation_idx"
+      ],
+      "writes": [
+        "s|idx|public.private_sync_change_operation_idx",
+        "n|idx|public.private_sync_change_operation_idx",
+        "e|idx|public.private_sync_change_operation_idx",
+        "n|rel|public.private_sync_change_operation_idx"
+      ],
+      "reads": [
+        "n|tbl|public.private_sync_change",
+        "n|sch|public",
+        "n|col|public.private_sync_change.operation_id",
+        "n|col|public.private_sync_change.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "private_sync_change"
+      ],
+      "writes": [
+        "s|fk|public.private_sync_change.private_sync_change_user_id_private_sync_scope_user_id_fkey",
+        "n|fk|public.private_sync_change.private_sync_change_user_id_private_sync_scope_user_id_fkey",
+        "e|fk|public.private_sync_change.private_sync_change_user_id_private_sync_scope_user_id_fkey",
+        "n|con|public.private_sync_change.private_sync_change_user_id_private_sync_scope_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.private_sync_change",
+        "n|sch|public",
+        "n|tbl|public.private_sync_scope",
+        "n|sch|public",
+        "n|col|public.private_sync_change.user_id",
+        "n|col|public.private_sync_scope.user_id",
+        "e|uniqueness|public.private_sync_scope.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "private_sync_scope"
+      ],
+      "writes": [
+        "s|fk|public.private_sync_scope.private_sync_scope_user_id_user_id_fkey",
+        "n|fk|public.private_sync_scope.private_sync_scope_user_id_user_id_fkey",
+        "e|fk|public.private_sync_scope.private_sync_scope_user_id_user_id_fkey",
+        "n|con|public.private_sync_scope.private_sync_scope_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.private_sync_scope",
+        "n|sch|public",
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.private_sync_scope.user_id",
+        "n|col|public.user.id",
+        "e|uniqueness|public.user.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "private_sync_change",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "private_sync_scope",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "generation",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "sequence",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "operation_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "tickets",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_scope",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_scope",
+        "name": "generation",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_scope",
+        "name": "head",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "private_sync_change_operation_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "operation_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"operation_id\" is not null",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "private_sync_change_user_id_private_sync_scope_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "private_sync_scope",
+        "columnsTo": [
+          "user_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_scope",
+        "name": "private_sync_scope_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_change",
+        "name": "private_sync_change_pkey",
+        "columns": [
+          "user_id",
+          "generation",
+          "sequence"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "private_sync_scope",
+        "name": "private_sync_scope_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

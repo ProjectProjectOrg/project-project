@@ -1,13 +1,10 @@
 import { Db } from "@pp/db"
 import { inboxRow, projectIndex, ticketIndex } from "@pp/db/schema"
 import {
-  InboxEvent,
   type InboxItem,
   type InboxListQuery,
   OrgScope,
-  ProjectScope,
-  TicketId,
-  TicketStatus
+  ProjectScope
 } from "@pp/shared"
 import {
   and,
@@ -26,18 +23,15 @@ import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import * as Access from "../access/Access"
-import { actorOf, presentActor } from "../activity/actorRow"
+import { type PrivateTouch, touchPrivate } from "../sync/PrivateLog"
 import * as Users from "../users/Users"
+import { inboxItems } from "./inboxItems"
 import { lockInbox, lockTickets } from "./inboxRows"
 
 const INBOX_LIMIT = 200
-
-const decodeEvent = Schema.decodeUnknownSync(InboxEvent)
-const decodeTicketId = Schema.decodeUnknownSync(TicketId)
-const decodeStatus = Schema.decodeUnknownSync(TicketStatus)
 
 const mine = (userId: string, projectIds: ReadonlyArray<string>) =>
   and(eq(inboxRow.userId, userId), inArray(inboxRow.projectId, [...projectIds]))
@@ -71,6 +65,13 @@ const make = Effect.gen(function* () {
   const db = yield* Db
   const access = yield* Access.Access
   const users = yield* Users.Users
+  const sqlClient = yield* SqlClient.SqlClient
+
+  const touch = (touches: ReadonlyArray<PrivateTouch>) =>
+    touchPrivate(touches).pipe(
+      Effect.provideService(Db, db),
+      Effect.provideService(SqlClient.SqlClient, sqlClient)
+    )
 
   const readableProjectIds = Effect.map(access.projectsInOrg(), (scopes) =>
     scopes
@@ -103,31 +104,8 @@ const make = Effect.gen(function* () {
       .orderBy(desc(inboxRow.latestAt), desc(inboxRow.ticketId))
       .limit(INBOX_LIMIT)
       .pipe(Effect.orDie)
-    const actors = rows.map(({ row }) => actorOf(row))
-    const people = yield* users.fullByIds([
-      ...new Set(
-        actors.flatMap((actor) => (actor.kind === "system" ? [] : actor.userId))
-      )
-    ])
-    const peopleById = new Map(people.map((user) => [user.id, user]))
-    return rows.map(
-      ({ row, projectSlug, title, status, archivedAt }, index): InboxItem => ({
-        projectSlug,
-        ticket: {
-          id: decodeTicketId(row.ticketId),
-          title,
-          status: decodeStatus(status),
-          archived: archivedAt !== null
-        },
-        unread: row.state === "unread",
-        direct: row.direct.map((entry) => entry.reason),
-        latest: decodeEvent(row.latest),
-        latestAt: row.latestAt,
-        firstAt: row.firstAt,
-        actor: presentActor(actors[index], peopleById),
-        unreadCount: row.unreadCount,
-        lastReadAt: row.lastReadAt
-      })
+    return yield* inboxItems(rows).pipe(
+      Effect.provideService(Users.Users, users)
     )
   })
 
@@ -164,7 +142,7 @@ const make = Effect.gen(function* () {
               .from(inboxRow)
               .where(and(mine(userId, projectIds), pending))
             yield* lockInbox(db, refs)
-            yield* db
+            const settled = yield* db
               .update(inboxRow)
               .set({
                 state:
@@ -182,6 +160,11 @@ const make = Effect.gen(function* () {
                   lte(inboxRow.latestAt, at)
                 )
               )
+              .returning({
+                projectId: inboxRow.projectId,
+                ticketId: inboxRow.ticketId
+              })
+            yield* touch(settled.map((row) => ({ ...row, userId })))
           })
         )
         .pipe(Effect.orDie)
@@ -215,7 +198,13 @@ const make = Effect.gen(function* () {
                     eq(inboxRow.userId, scope.userId)
                   )
                 )
-            )
+                .returning({
+                  projectId: inboxRow.projectId,
+                  ticketId: inboxRow.ticketId,
+                  userId: inboxRow.userId
+                })
+            ),
+            Effect.flatMap(touch)
           )
         )
         .pipe(Effect.orDie)

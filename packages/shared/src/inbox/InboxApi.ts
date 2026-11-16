@@ -6,6 +6,7 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import { Forbidden, NotFound, Unauthorized } from "../errors"
 import { OrgPath, TicketPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import { InboxItem, InboxListQuery, InboxUnread } from "./InboxItem"
 
 const readPath = "/orgs/:orgSlug/projects/:slug/tickets/:id/read"
@@ -79,4 +80,5 @@ export const InboxGroup = HttpApiGroup.make("inbox")
       .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
   )
+  .middleware(Operations)
   .middleware(Authentication)

@@ -4,6 +4,7 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import { Forbidden, NotFound, Unauthorized } from "../errors"
 import { ProjectPath } from "../http/paths"
+import { PrivateSync, PrivateSyncPath } from "./PrivateSync"
 import { ProjectSync, ProjectSyncQuery } from "./ProjectSync"
 
 export const SyncGroup = HttpApiGroup.make("sync")
@@ -16,4 +17,15 @@ export const SyncGroup = HttpApiGroup.make("sync")
     }).annotate(RequiresProject, { ticket: ["read"] })
   )
   .middleware(ProjectAccess)
+  .middleware(Authentication)
+
+export const PrivateSyncGroup = HttpApiGroup.make("privateSync")
+  .add(
+    HttpApiEndpoint.get("pull", "/users/:userId/sync", {
+      params: PrivateSyncPath,
+      query: ProjectSyncQuery,
+      success: PrivateSync,
+      error: [Unauthorized, Forbidden]
+    })
+  )
   .middleware(Authentication)

@@ -947,6 +947,36 @@ export const commandReceipt = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.operationId] })]
 )
 
+export const privateSyncScope = pgTable("private_sync_scope", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  generation: integer("generation").notNull().default(1),
+  head: bigint("head", { mode: "number" }).notNull().default(0)
+})
+
+export const privateSyncChange = pgTable(
+  "private_sync_change",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => privateSyncScope.userId, { onDelete: "cascade" }),
+    generation: integer("generation").notNull(),
+    sequence: bigint("sequence", { mode: "number" }).notNull(),
+    operationId: text("operation_id"),
+    tickets: jsonb("tickets").$type<ReadonlyArray<string>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.generation, t.sequence] }),
+    index("private_sync_change_operation_idx")
+      .on(t.operationId, t.userId)
+      .where(sql`${t.operationId} is not null`)
+  ]
+)
+
 export const commentIndex = pgTable(
   "comment_index",
   {

@@ -62,6 +62,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import * as Access from "../access/Access"
 import { ticketChanges } from "../activity/changes"
@@ -79,6 +80,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import { holdersOf, touchPrivate } from "../sync/PrivateLog"
 import * as SyncLog from "../sync/SyncLog"
 import { compareByRank, rankBetween, ranksBetween } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
@@ -312,6 +314,7 @@ const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
+  const sqlClient = yield* SqlClient.SqlClient
   const syncLog = yield* SyncLog.SyncLog
   const attachments = yield* Attachments.Attachments
   const access = yield* Access.Access
@@ -1612,6 +1615,12 @@ const make = Effect.gen(function* () {
           moved.map(({ from }) => from)
         ).pipe(
           Effect.andThen(
+            holdersOf(
+              source.projectId,
+              moved.map(({ from }) => from)
+            )
+          ),
+          Effect.tap(() =>
             Effect.forEach(
               moved,
               ({ from, to }) =>
@@ -1725,7 +1734,17 @@ const make = Effect.gen(function* () {
                 }),
               { discard: true }
             )
-          )
+          ),
+          Effect.flatMap((before) =>
+            holdersOf(
+              destination.projectId,
+              moved.map(({ to }) => to)
+            ).pipe(
+              Effect.flatMap((after) => touchPrivate([...before, ...after]))
+            )
+          ),
+          Effect.provideService(Db, db),
+          Effect.provideService(SqlClient.SqlClient, sqlClient)
         )
       )
       .pipe(Effect.orDie)

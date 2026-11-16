@@ -83,7 +83,9 @@ const decodeToken = Schema.decodeUnknownOption(Schema.fromJsonString(PageToken))
 export const encodeSyncCursor = (position: SyncLog.SyncPosition): SyncCursor =>
   `${position.generation}.${position.sequence}`
 
-const decodeSyncCursor = (cursor: SyncCursor): SyncLog.SyncPosition | null => {
+export const decodeSyncCursor = (
+  cursor: SyncCursor
+): SyncLog.SyncPosition | null => {
   const [generation, sequence, ...rest] = cursor.split(".").map(Number)
   return rest.length === 0 &&
     Number.isSafeInteger(generation) &&

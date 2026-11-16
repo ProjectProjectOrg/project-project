@@ -26,6 +26,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
+import * as SqlClient from "effect/sql/SqlClient"
 
 import { stageInbox, type InboxNotice } from "../inbox/events"
 import { applyInbox, lockTickets, removeTicketInbox } from "../inbox/inboxRows"
@@ -38,6 +39,7 @@ import {
   stageSubscriptions,
   type StagedSubscription
 } from "../subscriptions/subscriptionRows"
+import { holdersOf, touchPrivate } from "../sync/PrivateLog"
 import { actorColumns, actorOf } from "./actorRow"
 import type { TicketScopedChange } from "./changes"
 
@@ -126,6 +128,7 @@ const olderThan = (cursor: ActivityPageCursor) =>
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const sqlClient = yield* SqlClient.SqlClient
   const markdown = yield* Markdown.Markdown
   const crypto = yield* Crypto.Crypto
   const newId = crypto.randomUUIDv7().pipe(Effect.orDie)
@@ -164,9 +167,13 @@ const make = Effect.gen(function* () {
           .returning({ batchId: ticketActivityOutbox.batchId })
         if (claimed.length === 0) return
         yield* applySubscriptions(projectId, subscriptions).pipe(
-          Effect.provideService(Db, db)
+          Effect.provideService(Db, db),
+          Effect.provideService(SqlClient.SqlClient, sqlClient)
         )
-        yield* applyInbox(projectId, inbox).pipe(Effect.provideService(Db, db))
+        yield* applyInbox(projectId, inbox).pipe(
+          Effect.provideService(Db, db),
+          Effect.provideService(SqlClient.SqlClient, sqlClient)
+        )
         if (rows.length > 0)
           yield* db
             .insert(ticketActivity)
@@ -509,10 +516,15 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie)
     yield* db
       .transaction(() =>
-        lockTickets(db, projectId, [ticketId]).pipe(
-          Effect.andThen(removeTicketInbox(projectId, ticketId)),
-          Effect.andThen(removeTicketSubscriptions(projectId, ticketId)),
-          Effect.provideService(Db, db)
+        Effect.gen(function* () {
+          yield* lockTickets(db, projectId, [ticketId])
+          const holders = yield* holdersOf(projectId, [ticketId])
+          yield* removeTicketInbox(projectId, ticketId)
+          yield* removeTicketSubscriptions(projectId, ticketId)
+          yield* touchPrivate(holders)
+        }).pipe(
+          Effect.provideService(Db, db),
+          Effect.provideService(SqlClient.SqlClient, sqlClient)
         )
       )
       .pipe(Effect.orDie)

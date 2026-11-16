@@ -34,7 +34,7 @@ import { SlackGroup } from "./slack/SlackApi"
 import { StatusesGroup } from "./statuses/StatusesApi"
 import { StorageGroup } from "./storage/StorageApi"
 import { TicketSubscriptionsGroup } from "./subscriptions/SubscriptionsApi"
-import { SyncGroup } from "./sync/SyncApi"
+import { PrivateSyncGroup, SyncGroup } from "./sync/SyncApi"
 import { TagsGroup } from "./tags/TagsApi"
 import { TicketActivityGroup, TicketsGroup } from "./tickets/TicketsApi"
 
@@ -96,4 +96,5 @@ export const AppApi = HttpApi.make("projectproject")
   .add(FeedbackIntakeGroup)
   .add(LiveGroup)
   .add(SyncGroup)
+  .add(PrivateSyncGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
