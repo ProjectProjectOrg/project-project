@@ -2,64 +2,124 @@
 
 Read before adding or changing a read, a mutation or an `AsyncResult` render in `apps/frontend`. The short rules live in `AGENTS.md`.
 
-## Reads, mutations and optimistic updates
+## Where data comes from
 
-**Default to optimistic.** Reads are `query(...)` (`apps/frontend/src/api/query.ts`) wrapped in `Atom.optimistic`. Mutations are `viewMutation` (`apps/frontend/src/api/viewMutation.ts`) against the wrapper of the view they fire from. Worked examples and the legacy shapes we removed: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/history/specs/2026-09-11-native-atom-data-layer-design.md`.
+**Project views read the local copy, and only the local copy.** Opening a project syncs its facts into SQLite in a worker (`packages/local`, see "Local copy" in `docs/PROJECTPROJECT.md`). The backlog in every grouping, the sprint page (list, board and header), the toolbar and header counts, the ticket page's fields, description and J/K order, and Cmd K title search all read it through the atoms in `features/local/atoms`. There is no server fallback: a project view never renders a server response, and never keeps another view's rows on screen while its own copy loads.
+
+`LocalCopyGate` (`features/local/components/LocalCopyGate.tsx`), inside `ProjectLayout`, turns the copy's status into what the project shows, through `useLocalCopy`:
+
+| `localProject` status | Shown |
+| --- | --- |
+| Initial (the worker hasn't answered `Hydrated` yet) | the views, which paint their last first screen from `persisted` until the copy answers |
+| `initializing` (the first sync of a project with no published copy: never opened here, a new device, cleared storage, a copy dropped after an access change) | the full-screen `LoaderOverlay` |
+| `ready` (`live`, `behind`, `offline` or `erroring`) | the views |
+| `denied` (access lost) | the project not-found page |
+| `failed` (the first sync failed or ran offline), or the local runtime can't start (no worker, no WASM, signed out) | the project error page; its retry runs the pull again and, when the runtime failed, restarts it |
+
+**The server serves everything else:** MCP, the CLI, and the org-wide surfaces of the web app — the dashboard, My Work, the inbox, hover cards, `TicketPeek`, Cmd K pointed at a dashboard row, the Everhour timer — plus what the copy doesn't hold: comments, activity, subscribers, search and full-text search, project detail and settings, integrations. Don't add a view-shaped server endpoint for a project view; add a worker query in `packages/local` instead.
+
+A few reads serve both a project view and an org-wide surface: `ticketDetail`, `statusesFor`, `tagsFor`, `sprintList`, `childTickets`, `projectEpics` and `ticketTitles`. They go through `readLocal` (`features/local/atoms/readLocal.ts`): the copy once the project was opened in this session (`localActive`) and its copy isn't known to be unusable, the server otherwise. Inside a project the gate guarantees the first.
+
+## Local reads
+
+A project view is a plain atom over its worker query, piped into `persisted` for the first paint after a reload:
+
+```ts
+const boardView = (req: BoardRequest) =>
+  Atom.make((get) => localValue(get(localSprintBoard(req)))).pipe(
+    persisted(`board/${scopeOf(req)}/${req.params.id}`, BoardValue, (value) => ({
+      ...value,
+      tickets: firstScreenCards(value.tickets)
+    }))
+  )
+
+export const sprintBoard = Atom.family(boardView)
+```
+
+1. **`localValue` adapts a worker answer.** A worker query answers `null` when the copy can't answer yet (not ready, or a sprint that hasn't synced), which becomes `Initial`; a failed local read becomes a defect, which `AsyncView` draws with `ErrorPage`. The view's error type stays `never`. `withDefects` does the second half alone.
+2. **Something a ready copy doesn't hold is decided in the view atom.** `ticketDetail` answers `NotFound` (so the ticket page asks `movedTo`) unless this session just created that id (`createdKeys`), in which case it waits for the sync that brings it; `sprintDetail` answers `NotFound` only when `localGroups` has no such sprint, and otherwise waits for the description.
+3. **Worker queries are reactive.** A local query emits again whenever its project's copy changes, so local views publish and listen to no reactivity keys. Keys still drive server reads and the pull itself (`Keys.projectFacts`, `Keys.liveResync`).
+4. **More rows are a deeper query, not a cursor fetch.** `loadMoreBacklog`, `loadMoreSprintSections` and `loadMoreEpicSections` raise the loaded page count (`loadMorePages`) and the worker answers with more rows.
+5. **No `Atom.optimistic` on a local view** unless a server write predicts into it. `backlog` keeps one for the composer, which creates on the server because it opens the new ticket and needs its real id; `sprintDetail` keeps one for description edits.
+6. **Retained views still apply.** A new filter is a new worker query and takes a frame or more, so the list views keep the displayed result until the requested one settles (`StatusSections`, `SprintSections`, `EpicSections`, `RetainedProjectViews`).
+
+## Writes
+
+**Ticket and sprint edits from a project view are local pending edits.** `localEditFn(project, toLocal)` (`features/local/atoms/localEdit.ts`) turns the input into `Edit` RPCs; the worker applies the edit's intents to the copy at once, sends the write with an operation id, and drops it once a pull covers the receipt. Every view re-renders from the copy, so there is nothing to predict, confirm or publish. The builders live in `features/tickets/atoms/ticketRows.ts` (`localTicketUpdate`, `localBulkUpdate`, `localTicketMove`, `localCreate`) and the intents in `features/local/lib/localIntents.ts` and `localCreate.ts`:
+
+```ts
+export const updateBacklogTicket = Atom.family(
+  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+    localTicketUpdate({ ...req.params, id })
+)
+
+export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)
+```
+
+**Writes that can start where the copy may not be ready** — My Work, the dashboard, hover cards, Cmd K on a dashboard row, the flag dialog, `TicketPeek` — use `localFirst(project, server, toLocal)`: the local edit when `localEditing(project)` (opened here and ready), otherwise a plain server mutation on the org-wide view (`coalescingTicketUpdate`, `bulkUpdateTickets`, `bulkArchiveTickets`, `bulkDeleteTickets`).
+
+**Writes the copy doesn't cover** stay on the server with an optimistic wrapper: comments, creating and deleting sprints, sprint membership through `groups addTickets` / `removeTickets`, sprint descriptions, mark, move and split, statuses, tags, project settings, and creators that open the new ticket. The rest of this document is about them.
+
+## Server reads, mutations and optimistic updates
+
+**Default to optimistic.** Server reads are `query(...)` (`apps/frontend/src/api/query.ts`) wrapped in `Atom.optimistic`. Mutations are `viewMutation` (`apps/frontend/src/api/viewMutation.ts`) against the wrapper of the view they fire from. Worked examples: `.agents/skills/effect-atom-optimistic-updates/SKILL.md`. Rationale: `docs/history/specs/2026-09-11-native-atom-data-layer-design.md`.
 
 1. **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Calls to better-auth stay `Effect.tryPromise`, but run inside `Api.runtime.fn` so there is one runtime. Reads go through `query` from `@/api/query`, a drop-in for `Api.query` that revalidates in the background when the tab becomes visible or a view remounts and its data is older than 30 seconds (`Atom.swr`). A refetch that never reaches the server (`HttpClientError` with a `TransportError` reason: offline, DNS, connection reset) keeps the last loaded value, so a laptop waking up offline never swaps a loaded view for `ErrorPage`; every response the server did send, typed errors and undeclared statuses such as a 500 alike, still surfaces. `workspace/no-raw-api-query` rejects `Api.query` outside `src/api/`.
 
-2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
+2. **Reads are wrappers.** Every exported server read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
 
    ```ts
-   export type TagsRequest = Readonly<{
-     _view: "tags"
-     params: Readonly<{ orgSlug: string; slug: string }>
-   }>
-
-   const tagsQuery = (req: TagsRequest) =>
-     query("tags", "list", {
+   const tagUsageQuery = (req: TagsRequest) =>
+     query("tags", "usageCounts", {
        params: req.params,
        timeToLive: "2 minutes",
-       reactivityKeys: [Keys.tags(scopeOf(req))]
+       reactivityKeys: [
+         Keys.tagUsage(scopeOf(req)),
+         Keys.tags(scopeOf(req)),
+         Keys.ticketsIn(scopeOf(req)),
+         Keys.ticketLists(scopeOf(req))
+       ]
      })
 
-   export const tagsFor = Atom.family((req: TagsRequest) =>
-     Atom.optimistic(tagsQuery(req))
+   export const tagUsage = Atom.family((req: TagsRequest) =>
+     Atom.optimistic(tagUsageQuery(req))
    )
    ```
 
    Each view's request carries a `_view` literal and is built by its own builder (`tagsRequest`, `backlogRequest`, `sprintSectionsRequest`), so two views with the same params cannot take each other's request: `updateBacklogTicket({ req: sprintSectionsReq, id })` does not compile. Requests shared by several reads on purpose (`ProjectRequest`, `OrgRequest`) stay unbranded.
 
-   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
+   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Strip fields a family doesn't key by before you pass them on: a ticket path passed as a project would key a second `localProject` and start a second pull. Components never see a query.
 
 3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
 
-4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors. Adding a tag did exactly this during the migration — the detail view read `ticketDetail` while four editors still wrote a legacy atom that no longer had a consumer.
+4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors.
 
-5. **Optimism is per view.** A mutation targets the wrapper of the view it fires from. Other views catch up through reactivity keys, updating once, old to new — that is not flicker. Never fan one transition into several wrappers, and never normalise entities into a store. When the same action must feel instant in three views, write three small `optimisticFn` atoms over one shared pure helper (`applyTicketPatch`).
+5. **Optimism is per view.** A mutation targets the wrapper of the view it fires from. Other views catch up through reactivity keys, updating once, old to new — that is not flicker. Never fan one transition into several wrappers, and never normalise entities into a store. When the same action must feel instant in three views, write three small `optimisticFn` atoms over one shared pure helper (`applyTicketPatch`); My Work does this for its three lists with `updateOrgTicket`.
 
 6. **Key mutations by view request plus entity id**, never by the container alone:
 
    ```ts
-   export const deleteTag = Atom.family(
-     ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
-       viewMutation(tagsFor(req), {
-         name: "deleteTag",
-         predict: (tags, _input: void) => withoutTag(tags, name),
-         call: (client) => client.tags.delete({ params: { ...req.params, name } }),
-         confirm: (tags) => withoutTag(tags, name),
-         publish: () => tagsChanged(scopeOf(req))
-       })
+   export const deleteTagInEditor = Atom.family(({ req, name }: EditorTagKey) =>
+     viewMutation(tagEditor(req), {
+       name: "deleteTagInEditor",
+       predict: (value, _input: void) => deleteEditorTag(value, name),
+       call: (client) =>
+         client.tags.delete({
+           params: { orgSlug: req.params.orgSlug, slug: req.params.slug, name }
+         }),
+       confirm: (value) => deleteEditorTag(value, name),
+       publish: () => tagsChanged(editorScope(req))
+     })
    )
    ```
 
-   A mutation atom's `AsyncResult` is per key. Key a row mutation by the project and every row in the list shares one transition, so one failed assignment paints the error state onto every visible row. Values that only change when another read loads (the viewer, the project's estimation mode) are not key material: the view reads them, as `sprintSections` does, so the key doesn't change under an in-flight edit.
+   A mutation atom's `AsyncResult` is per key. Key a row mutation by the project and every row in the list shares one transition, so one failed assignment paints the error state onto every visible row. Values that only change when another read loads (the viewer, the project's estimation mode) are not key material: the view reads them, so the key doesn't change under an in-flight edit.
 
-   `viewMutation` maps `predict` over the current `AsyncResult`, runs `call` with the API client, pushes `confirm` through `set` and publishes the keys `publish` returns. `confirm: replaceWith` takes the server's value as is; `keepPredicted` is for calls that confirm nothing. Editors that send queued edits (ticket fields, project setup) use `coalescingMutation`, or `coalescingTicketUpdate` in `features/tickets/atoms/ticketRows.ts`, which serializes requests per mutation key and merges only waiting edits into the next payload. Sent fields are removed from the queue, so completed or rejected fields are not replayed. Saves keep their mutation and view mounted until settlement, including after navigation. Active writes finish before the next starts; only the latest invocation confirms into the view. Nested payloads supply a `merge` callback; flat patches use the default shallow merge. Write `Atom.optimisticFn` by hand only when the factory can't express the mutation, such as a timer start that reads the previous timer before calling.
+   `viewMutation` maps `predict` over the current `AsyncResult`, runs `call` with the API client, pushes `confirm` through `set` and publishes the keys `publish` returns. `confirm: replaceWith` takes the server's value as is; `keepPredicted` is for calls that confirm nothing. Editors that send queued edits (ticket fields on org-wide views, project setup) use `coalescingMutation`, or `coalescingTicketUpdate` in `features/tickets/atoms/ticketRows.ts`, which serializes requests per mutation key and merges only waiting edits into the next payload. Sent fields are removed from the queue, so completed or rejected fields are not replayed. Saves keep their mutation and view mounted until settlement, including after navigation. Active writes finish before the next starts; only the latest invocation confirms into the view. Nested payloads supply a `merge` callback; flat patches use the default shallow merge. Write `Atom.optimisticFn` by hand only when the factory can't express the mutation, such as a timer start that reads the previous timer before calling.
 
 7. **Mutation input equals the API payload.** Path params come from the family key. Cache keys, settle targets and view metadata never appear in the input. A quick-create that must draw a placeholder row takes `{ payload, prediction }`: `call` sends `payload` alone, and `prediction` (client id, project prefix, template priority) only feeds `predict`.
 
-8. **Reactivity keys are array form, built in `src/api/keys.ts`.** `Keys` returns a branded `ReactivityKey`, and `publish` accepts nothing else. Use the bundles for the common lists: `Keys.ticketChanged(scope, id)` for one ticket's content plus every ticket list, `Keys.ticketsChanged(scope)` for the lists alone. Record form also hashes the bare key, which would make any ticket mutation refetch every ticket query. Publish every key another view needs, including each source of a composed region. Prefer not to publish a key your own view registered — the wrapper already refreshes its source when the transition commits, so that is a second refetch per edit — but when the key another view needs is one yours also listens to, publish it anyway: correctness before a saved request.
+8. **Reactivity keys are array form, built in `src/api/keys.ts`.** `Keys` returns a branded `ReactivityKey`, and `publish` accepts nothing else. Use the bundles for the common lists: `Keys.ticketChanged(scope, id)` for one ticket's content plus every ticket list, `Keys.ticketsChanged(scope)` for the lists alone. Record form also hashes the bare key, which would make any ticket mutation refetch every ticket query. Publish every key another server view needs, including each source of a composed region; a key no query registers is dead, so delete it rather than publish it. Prefer not to publish a key your own view registered — the wrapper already refreshes its source when the transition commits — but when the key another view needs is one yours also listens to, publish it anyway: correctness before a saved request. A server write reaches the local copy through the live event it causes, which invalidates `Keys.projectFacts`.
 
 9. **Reducers are pure,** use `AsyncResult.map(current, ...)` and derive from `current`, so stacked edits compose. Don't set `waiting` yourself — `optimisticFn` marks the provisional value waiting for you. A reducer that returns `current` unchanged is a pulse-only reducer: allowed only when the result is genuinely unpredictable, such as a PR number the server assigns.
 
@@ -69,9 +129,9 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
 
 12. **Multi-query regions** compose in `Atom.readable(read, (refresh) => ...)` that forwards refresh to every source, with one wrapper around the region. The composed result must report `waiting` while any source is waiting, and must not carry a timestamp older than the value it replaces — `AsyncResult.all` does both, unioning `waiting` and stamping the composed success with the composition time. Get either wrong and the confirmed value is dropped silently, which looks exactly like the bug you were fixing.
 
-13. **Refresh the wrapper, not the query.** `Atom.optimistic` forwards `refresh` to its source (`node_modules/effect/src/reactivity/Atom.ts`, the third argument to `writable`), and queries aren't exported, so `useAtomRefresh(backlog(req))` is both correct and the only option. This reverses the pre-migration rule that had callers refresh a base atom.
+13. **Refresh the wrapper, not the query.** `Atom.optimistic` forwards `refresh` to its source (`node_modules/effect/src/reactivity/Atom.ts`, the third argument to `writable`), and queries aren't exported, so `useAtomRefresh(tagUsage(req))` is both correct and the only option.
 
-14. **Rows bind their update one way.** The view passes its mutation family already bound to its request — `backlogTicketUpdates(req)`, `sprintSectionsTicketUpdates(req)`, `boardTicketUpdates(req)`, `myTicketUpdates(req)` — and `Row` or `SprintBoardCard` calls it with the ticket id, sets through it and renders its failure with `UpdateFailureMarker`, an icon with the message in a tooltip that fits the fixed row height. Rows hold no default mutation and no per-view wrapper component.
+14. **Rows bind their update one way.** The view passes its mutation family already bound to its request — `backlogTicketUpdates(req)`, `sprintSectionsTicketUpdates(req)`, `boardTicketUpdates(req)` (local edits), `myTicketUpdates(req)` (`localFirst`) — and `Row` or `SprintBoardCard` calls it with the ticket id, sets through it and renders its failure with `UpdateFailureMarker`, an icon with the message in a tooltip that fits the fixed row height. Rows hold no default mutation and no per-view wrapper component.
 
 **`waiting` means a mutation is in flight, never a read.** Once a wrapper holds a success it ignores a `Success { waiting: true }` from its source — see the `Success` branch of the source subscription in `Atom.optimistic` (`node_modules/effect/src/reactivity/Atom.ts`, around line 2557), which only adopts a source value that is not waiting and is not older. A refetch behind an already-loaded view is therefore invisible through the wrapper, and any loading state driven off a wrapper's `waiting` is dead code. Two consequences:
 
@@ -81,7 +141,7 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
 
 Types obey the type rule in `AGENTS.md` — nested `Readonly<{ ... }>`, `ReadonlyArray<T>`, `readonly [A, B]`, no `interface`, no per-field `readonly`. That covers request types, mutation inputs and composed view-model types.
 
-Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (one sections query plus on-demand cursor pages through `readLoadedPages` and `loadNextPage`, with sort-aware placement in the reducers), `apps/frontend/src/features/sprints/atoms/sprintBoard.ts` (a region composed from two queries), `apps/frontend/src/features/tags/atoms/tags.ts` (`tagsFor` as a plain aggregate, `tagEditor` as a region composed from two wrappers).
+Reference: `apps/frontend/src/features/tickets/atoms/backlog.ts` (a local view with local edits, and the wrapper the composer's server create predicts into), `apps/frontend/src/features/sprints/atoms/sprintDetail.ts` (a local view that decides `NotFound`, with a server write's wrapper), `apps/frontend/src/features/tickets/atoms/myTickets.ts` (org-wide server lists with cursor pages through `readLoadedPages` and `loadNextPage`, and `localFirst` row edits), `apps/frontend/src/features/tags/atoms/tags.ts` (`tagsFor` through `readLocal`, `tagEditor` as a region composed from two wrappers).
 
 ## Rendering atom AsyncResults — `AsyncView`, with `AsyncResult.matchWithError` as the escape hatch
 
