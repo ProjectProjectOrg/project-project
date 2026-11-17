@@ -21,17 +21,24 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { LocalDb, type Write, type Writer } from "./LocalDb"
 import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
+  applyGroupIntents,
   applyIntents,
   covers,
+  decodeBase,
   decodeEdits,
   decodeFact,
+  decodeGroupEdits,
   decodeGroups,
+  encodeBase,
   encodeEdits,
+  encodeGroupEdits,
   encodeGroups,
   encodeWrite,
   decodeWrite,
-  type Intent,
+  GroupIntent,
+  Intent,
   type PendingEdit,
+  type PendingGroupEdit,
   type PendingWrite,
   type TicketState
 } from "./pending"
@@ -42,6 +49,7 @@ import {
   localGroups,
   localMembers,
   localPendingBase,
+  localPendingGroupBase,
   localPendingOps,
   localProjects,
   localRelations,
@@ -55,6 +63,7 @@ import {
   localTicketTags,
   type LocalSortKey
 } from "./tables"
+import { decodeStatus, finishedStatuses } from "./ticketRows"
 
 const CHUNK = 500
 
@@ -818,25 +827,24 @@ const visibleState = (copy: number, id: string) =>
     return { fact: decodeFact(row.data), groups } satisfies TicketState
   })
 
-const writeState = (copy: number, state: TicketState) =>
+const writeState = (copy: number, id: string, state: TicketState | null) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
-    yield* writeTickets(copy, [state.fact], false)
+    if (state === null) yield* removeFacts(copy, "tickets", [id])
+    else yield* writeTickets(copy, [state.fact], false)
     yield* db
       .delete(localGroupMembers)
       .where(
-        and(
-          eq(localGroupMembers.copy, copy),
-          eq(localGroupMembers.ticket, state.fact.id)
-        )
+        and(eq(localGroupMembers.copy, copy), eq(localGroupMembers.ticket, id))
       )
-    yield* writeMembers(
-      copy,
-      state.groups.map((member) => ({ ...member, ticket: state.fact.id }))
-    )
+    if (state !== null)
+      yield* writeMembers(
+        copy,
+        state.groups.map((member) => ({ ...member, ticket: id }))
+      )
     yield* deriveTouched(copy, {
-      tickets: [state.fact.id],
-      deletedTickets: [],
+      tickets: state === null ? [] : [id],
+      deletedTickets: state === null ? [id] : [],
       groups: []
     })
   })
@@ -849,6 +857,7 @@ const pendingOps = (scope: string) =>
         id: localPendingOps.id,
         edits: localPendingOps.edits,
         write: localPendingOps.write,
+        groupEdits: localPendingOps.groupEdits,
         receipt: localPendingOps.receipt
       })
       .from(localPendingOps)
@@ -858,6 +867,7 @@ const pendingOps = (scope: string) =>
       id: row.id,
       edits: decodeEdits(row.edits),
       write: decodeWrite(row.write),
+      groupEdits: decodeGroupEdits(row.groupEdits),
       receipt: row.receipt
     }))
   })
@@ -879,6 +889,13 @@ const openSprintsOf = (copy: number) =>
     )
   })
 
+const stateOf = (
+  base: typeof localPendingBase.$inferSelect
+): TicketState | null => {
+  const fact = decodeBase(base.data)
+  return fact === null ? null : { fact, groups: decodeGroups(base.groups) }
+}
+
 const unapplyPending = (copy: number) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
@@ -886,20 +903,92 @@ const unapplyPending = (copy: number) =>
       .select()
       .from(localPendingBase)
       .where(eq(localPendingBase.copy, copy))
-    for (const base of bases)
-      yield* writeState(copy, {
-        fact: decodeFact(base.data),
-        groups: decodeGroups(base.groups)
-      })
+    for (const base of bases) yield* writeState(copy, base.id, stateOf(base))
     if (bases.length > 0)
       yield* db.delete(localPendingBase).where(eq(localPendingBase.copy, copy))
+    const groupBases = yield* db
+      .select()
+      .from(localPendingGroupBase)
+      .where(eq(localPendingGroupBase.copy, copy))
+    if (groupBases.length === 0) return
+    yield* writeJson(copy, "groups", groupBases)
+    yield* db
+      .delete(localPendingGroupBase)
+      .where(eq(localPendingGroupBase.copy, copy))
+    yield* deriveTouched(copy, {
+      tickets: [],
+      deletedTickets: [],
+      groups: groupBases.map((base) => base.id)
+    })
+  })
+
+const overlayGroups = (
+  copy: number,
+  ops: ReadonlyArray<Readonly<{ groupEdits: ReadonlyArray<PendingGroupEdit> }>>
+) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const intents = new Map<string, Array<GroupIntent>>()
+    for (const op of ops)
+      for (const edit of op.groupEdits)
+        intents.set(edit.group, [
+          ...(intents.get(edit.group) ?? []),
+          ...edit.intents
+        ])
+    const bases = new Map(
+      (yield* db
+        .select()
+        .from(localPendingGroupBase)
+        .where(eq(localPendingGroupBase.copy, copy))).map((base) => [
+        base.id,
+        base.data
+      ])
+    )
+    const ids = [...new Set([...bases.keys(), ...intents.keys()])]
+    if (ids.length === 0) return
+    for (const id of ids) {
+      const where = and(
+        eq(localPendingGroupBase.copy, copy),
+        eq(localPendingGroupBase.id, id)
+      )
+      const stored = bases.get(id)
+      const [current] =
+        stored === undefined
+          ? yield* db
+              .select({ data: localGroups.data })
+              .from(localGroups)
+              .where(and(eq(localGroups.copy, copy), eq(localGroups.id, id)))
+          : [{ data: stored }]
+      if (current === undefined) continue
+      const remaining = intents.get(id) ?? []
+      if (remaining.length === 0) {
+        yield* writeJson(copy, "groups", [{ id, data: current.data }])
+        yield* db.delete(localPendingGroupBase).where(where)
+        continue
+      }
+      if (stored === undefined)
+        yield* db
+          .insert(localPendingGroupBase)
+          .values({ copy, id, data: current.data })
+      yield* writeJson(copy, "groups", [
+        {
+          id,
+          data: groupJson(
+            applyGroupIntents(decodeHeader(current.data), remaining)
+          )
+        }
+      ])
+    }
+    yield* deriveTouched(copy, { tickets: [], deletedTickets: [], groups: ids })
   })
 
 const overlayPending = (scope: string, copy: number) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
+    const ops = yield* pendingOps(scope)
+    yield* overlayGroups(copy, ops)
     const intents = new Map<string, Array<Intent>>()
-    for (const op of yield* pendingOps(scope))
+    for (const op of ops)
       for (const edit of op.edits)
         intents.set(edit.ticket, [
           ...(intents.get(edit.ticket) ?? []),
@@ -917,31 +1006,28 @@ const overlayPending = (scope: string, copy: number) =>
     for (const id of ids) {
       const stored = bases.get(id)
       const base =
-        stored === undefined
-          ? yield* visibleState(copy, id)
-          : {
-              fact: decodeFact(stored.data),
-              groups: decodeGroups(stored.groups)
-            }
-      if (base === null) continue
+        stored === undefined ? yield* visibleState(copy, id) : stateOf(stored)
       const remaining = intents.get(id) ?? []
       const where = and(
         eq(localPendingBase.copy, copy),
         eq(localPendingBase.id, id)
       )
       if (remaining.length === 0) {
-        yield* writeState(copy, base)
+        yield* writeState(copy, id, base)
         yield* db.delete(localPendingBase).where(where)
         continue
       }
-      if (stored === undefined)
+      const next = applyIntents(base, remaining, openSprints)
+      if (stored === undefined) {
+        if (base === null && next === null) continue
         yield* db.insert(localPendingBase).values({
           copy,
           id,
-          data: ticketJson(base.fact),
-          groups: encodeGroups(base.groups)
+          data: encodeBase(base?.fact ?? null),
+          groups: encodeGroups(base?.groups ?? [])
         })
-      yield* writeState(copy, applyIntents(base, remaining, openSprints))
+      }
+      yield* writeState(copy, id, next)
     }
   })
 
@@ -970,7 +1056,101 @@ export type NewEdit = Readonly<{
   id: string
   write: PendingWrite
   edits: ReadonlyArray<PendingEdit>
+  groups?: ReadonlyArray<PendingGroupEdit>
 }>
+
+const releasedChildren = (copy: number, edits: ReadonlyArray<PendingEdit>) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const deletes = edits.flatMap((edit) =>
+      edit.intents.filter(Intent.guards.delete)
+    )
+    const cascade = deletes.some((intent) => intent.cascade)
+    const seen = new Set(edits.map((edit) => edit.ticket))
+    const added: Array<PendingEdit> = []
+    let parents = edits.flatMap((edit) =>
+      edit.intents.some(Intent.guards.delete) ? [edit.ticket] : []
+    )
+    while (parents.length > 0) {
+      const children = (yield* db
+        .select({ id: localTickets.id })
+        .from(localTickets)
+        .where(
+          and(
+            eq(localTickets.copy, copy),
+            inArray(localTickets.parent, parents)
+          )
+        ))
+        .map((row) => row.id)
+        .filter((id) => !seen.has(id))
+      for (const id of children) seen.add(id)
+      added.push(
+        ...children.map((ticket) => ({
+          ticket,
+          intents: [
+            cascade
+              ? Intent.cases.delete.make({ cascade })
+              : Intent.cases.parent.make({ parent: null })
+          ]
+        }))
+      )
+      parents = cascade ? children : []
+    }
+    return [...edits, ...added]
+  })
+
+const carriedTickets = (
+  copy: number,
+  groups: ReadonlyArray<PendingGroupEdit>
+) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const completions = groups.flatMap((edit) =>
+      edit.intents
+        .filter(GroupIntent.guards.complete)
+        .map((intent) => ({ group: edit.group, to: intent.destination }))
+    )
+    if (completions.length === 0) return []
+    const finished = new Set(
+      finishedStatuses(
+        (yield* db
+          .select({ data: localStatuses.data })
+          .from(localStatuses)
+          .where(eq(localStatuses.copy, copy))).map((row) =>
+          decodeStatus(row.data)
+        )
+      )
+    )
+    const carried: Array<PendingEdit> = []
+    for (const { group, to } of completions) {
+      const members = yield* db
+        .select({ id: localTickets.id, status: localTickets.status })
+        .from(localGroupMembers)
+        .innerJoin(
+          localTickets,
+          and(
+            eq(localTickets.copy, localGroupMembers.copy),
+            eq(localTickets.id, localGroupMembers.ticket)
+          )
+        )
+        .where(
+          and(
+            eq(localGroupMembers.copy, copy),
+            eq(localGroupMembers.groupId, group)
+          )
+        )
+        .orderBy(asc(localGroupMembers.position))
+      carried.push(
+        ...members
+          .filter((member) => !finished.has(member.status))
+          .map((member) => ({
+            ticket: member.id,
+            intents: [Intent.cases.regroup.make({ from: group, to })]
+          }))
+      )
+    }
+    return carried
+  })
 
 export const recordEdit = (scope: string, edit: NewEdit) =>
   Effect.gen(function* () {
@@ -978,14 +1158,23 @@ export const recordEdit = (scope: string, edit: NewEdit) =>
     const sqlClient = yield* SqlClient.SqlClient
     return yield* sqlClient.withTransaction(
       Effect.gen(function* () {
+        const copy = yield* copyOf(scope)
+        const groups = edit.groups ?? []
+        const edits =
+          copy === null
+            ? edit.edits
+            : [
+                ...(yield* releasedChildren(copy, edit.edits)),
+                ...(yield* carriedTickets(copy, groups))
+              ]
         yield* db.insert(localPendingOps).values({
           id: edit.id,
           scope,
-          tickets: idList(edit.edits.map((change) => change.ticket)),
-          edits: encodeEdits(edit.edits),
-          write: encodeWrite(edit.write)
+          tickets: idList(edits.map((change) => change.ticket)),
+          edits: encodeEdits(edits),
+          write: encodeWrite(edit.write),
+          groupEdits: encodeGroupEdits(groups)
         })
-        const copy = yield* copyOf(scope)
         if (copy !== null) yield* overlayPending(scope, copy)
       })
     )

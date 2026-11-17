@@ -38,10 +38,8 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
-import {
-  backlogRequest,
-  quickCreateBacklogTicket
-} from "@/features/tickets/atoms/backlog"
+import { backlogRequest } from "@/features/tickets/atoms/backlog"
+import { quickCreateBacklogTicket } from "@/features/tickets/atoms/backlogCreate"
 import {
   quickCreateEpicSectionsTicket,
   type EpicSectionsRequest
@@ -79,7 +77,7 @@ type CreatedTicket = Readonly<{
 
 type CreateTicket = (
   input: QuickCreateInput
-) => Promise<Exit.Exit<CreatedTicket, Readonly<{ _tag: string }>>>
+) => Promise<Exit.Exit<CreatedTicket | void, Readonly<{ _tag: string }>>>
 
 export function SectionTicketCreator({
   snapshotReq,
@@ -136,7 +134,7 @@ function SprintSectionTicketCreator(
         ticketCreateErrorMessage,
         m.tickets_create_error_fallback
       )
-    : Result.isSuccess(state) && state.value.sprintAssignmentFailed
+    : Result.isSuccess(state) && state.value?.sprintAssignmentFailed
       ? m.tickets_create_sprint_assignment_failed()
       : null
   return (
@@ -247,6 +245,10 @@ function SectionCreatorForm({
     const submittedTitle = trimmed
     setTitle("")
     inputRef.current?.focus()
+    const attachTo =
+      assignsSprint && !isEpicType(type)
+        ? (activeSprintId ?? selectedSprint?.id ?? null)
+        : null
     const exit = await create({
       payload: {
         title: submittedTitle,
@@ -254,6 +256,7 @@ function SectionCreatorForm({
         ...creatorType.payload
       },
       parent,
+      sprint: attachTo ?? undefined,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
         createdBy: viewerId ?? "",
@@ -267,8 +270,7 @@ function SectionCreatorForm({
       setTitle(submittedTitle)
       return
     }
-    const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null && assignsSprint && !isEpicType(type)) {
+    if (attachTo !== null && exit.value !== undefined) {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }

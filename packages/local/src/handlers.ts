@@ -93,6 +93,8 @@ const touches = (changes: ProjectChanges) =>
   Object.values(changes.upserts).some((facts) => facts.length > 0) ||
   Object.values(changes.deletes).some((ids) => ids.length > 0)
 
+const OFFLINE = "offline" as const
+
 const nextTask = Effect.callback<void>((resume) => {
   const channel = new MessageChannel()
   channel.port1.addEventListener("message", () => {
@@ -308,14 +310,16 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     ) => {
       const scope = scopeOf(project)
       return sender.withPermit(writes.send(project, id, pending)).pipe(
-        Effect.flatMap((receipt) =>
-          write("confirm")(confirmEdit(scope, id, receipt)).pipe(Effect.orDie)
+        Effect.tap((sent) =>
+          write("confirm")(confirmEdit(scope, id, sent.receipt)).pipe(
+            Effect.orDie,
+            Effect.flatMap((settled) =>
+              settled ? changed(scope) : Effect.void
+            )
+          )
         ),
-        Effect.flatMap((settled) => (settled ? changed(scope) : Effect.void)),
-        Effect.as("sent" as const),
-        Effect.catchTag("SyncOffline", () =>
-          Effect.succeed("offline" as const)
-        ),
+        Effect.map((sent) => sent.created),
+        Effect.catchTag("SyncOffline", () => Effect.succeed(OFFLINE)),
         Effect.tapError(() =>
           write("reject")(rejectEdit(scope, id)).pipe(
             Effect.andThen(changed(scope)),
@@ -335,8 +339,8 @@ export const localRpcsLayer = LocalRpcs.toLayer(
             project,
             unsent.id,
             unsent.write
-          ).pipe(Effect.orElseSucceed(() => "rejected" as const))
-          if (delivered === "offline") return
+          ).pipe(Effect.orElseSucceed(() => null))
+          if (delivered === OFFLINE) return
         }
       }).pipe(
         Effect.catchCause((cause) =>
@@ -347,17 +351,19 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const edit = (
       project: LocalProject,
       pending: PendingWrite,
-      edits: NewEdit["edits"]
+      edits: NewEdit["edits"],
+      groups: NewEdit["groups"]
     ) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
         const id = yield* writes.operationId
         inFlight.add(id)
         yield* write("edit")(
-          recordEdit(scope, { id, write: pending, edits })
+          recordEdit(scope, { id, write: pending, edits, groups })
         ).pipe(Effect.orDie)
         yield* changed(scope)
-        yield* deliver(project, id, pending)
+        const delivered = yield* deliver(project, id, pending)
+        return delivered === OFFLINE ? null : delivered
       })
 
     const pull = (project: LocalProject) => {
@@ -569,7 +575,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         ).pipe(Effect.orDie),
       Edit: (request) =>
         Effect.uninterruptible(
-          edit(request.project, request.write, request.edits)
+          edit(request.project, request.write, request.edits, request.groups)
         ),
       Ticket: (request) =>
         sql

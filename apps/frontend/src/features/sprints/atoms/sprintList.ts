@@ -24,8 +24,13 @@ import { persisted } from "@/api/bootCache"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
+import { localFirst } from "@/features/local/atoms/localEdit"
 import { localGroups } from "@/features/local/atoms/localViews"
 import { readLocal } from "@/features/local/atoms/readLocal"
+import {
+  completeSprintEdit,
+  updateSprintEdit
+} from "@/features/local/lib/localIntents"
 import { bulkBatches } from "@/features/tickets/atoms/bulkTickets"
 
 import { applySprintPatch } from "./sprintPatch"
@@ -152,7 +157,7 @@ const replaceSprint = (
   update: (sprint: Group) => Group
 ) => sprints.map((sprint) => (sprint.id === groupId ? update(sprint) : sprint))
 
-export const updateSprint = Atom.family(({ req, groupId }: SprintKey) =>
+const updateOnServer = ({ req, groupId }: SprintKey) =>
   viewMutation(sprintList(req), {
     name: "updateSprint",
     predict: (sprints, patch: UpdateGroupInput) =>
@@ -168,6 +173,11 @@ export const updateSprint = Atom.family(({ req, groupId }: SprintKey) =>
       replaceSprint(sprints, groupId, () => updated),
     publish: () => [Keys.sprint(scopeOf(req), groupId)]
   })
+
+export const updateSprint = Atom.family((key: SprintKey) =>
+  localFirst(key.req.params, updateOnServer(key), (patch: UpdateGroupInput) => [
+    updateSprintEdit(key.groupId, patch)
+  ])
 )
 
 const withoutSprint = (sprints: ReadonlyArray<Group>, groupId: GroupId) =>
@@ -212,7 +222,7 @@ const applyCompleteSprintResult = (
   })
 }
 
-export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
+const completeOnServer = ({ req, groupId }: SprintKey) =>
   viewMutation(sprintList(req), {
     name: "completeSprint",
     predict: (sprints, _input: CompleteSprintInput) =>
@@ -236,6 +246,19 @@ export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
         : [])
     ]
   })
+
+export const completeSprint = Atom.family((key: SprintKey) =>
+  localFirst(
+    key.req.params,
+    completeOnServer(key),
+    (input: CompleteSprintInput) => [
+      completeSprintEdit(
+        key.groupId,
+        input,
+        DateTime.toDate(DateTime.nowUnsafe())
+      )
+    ]
+  )
 )
 
 type SprintAssignmentInput = Readonly<{

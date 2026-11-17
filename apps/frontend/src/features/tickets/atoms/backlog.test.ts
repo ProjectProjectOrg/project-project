@@ -29,9 +29,9 @@ import {
   bulkUpdateBacklogTickets,
   encodeTicketListQuery,
   loadMoreBacklog,
-  quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
+import { quickCreateBacklogTicket } from "./backlogCreate"
 
 const decodeUnknownUpdateTicketInputSync =
   Schema.decodeUnknownSync(UpdateTicketInput)

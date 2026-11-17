@@ -2,6 +2,8 @@ import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import { it } from "@effect/vitest"
 import {
   type GroupFact,
+  GroupHeader,
+  GroupId,
   type ProjectSnapshot,
   TicketFact,
   TicketId,
@@ -17,10 +19,12 @@ import { expect } from "vitest"
 import { LocalDb, localDbLayer } from "./LocalDb"
 import {
   applyIntents,
+  GroupIntent,
   Intent,
   type Membership,
   type PendingEdit,
   PendingWrite,
+  placeholderTicketId,
   type TicketState
 } from "./pending"
 import {
@@ -30,7 +34,7 @@ import {
   recordEdit,
   rejectEdit
 } from "./store"
-import { localGroupMembers, localTicketData } from "./tables"
+import { localGroupMembers, localGroups, localTicketData } from "./tables"
 import { changes, install, snapshot, ticket, direct } from "./testFacts"
 
 const TestDatabase = localDbLayer.pipe(
@@ -38,6 +42,7 @@ const TestDatabase = localDbLayer.pipe(
 )
 
 const decodeFact = Schema.decodeUnknownSync(Schema.fromJsonString(TicketFact))
+const decodeGroup = Schema.decodeUnknownSync(Schema.fromJsonString(GroupHeader))
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
 
@@ -155,6 +160,179 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
+it.effect(
+  "a created ticket shows at once and becomes the server's ticket when the sync reaches its receipt",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", snapshot("1.1", [ticket("T-1", "one")]))
+      const placeholder = placeholderTicketId("T", 0.5)
+      yield* recordEdit("a/p", {
+        id: "op-1",
+        write: PendingWrite.cases.create.make({
+          placeholder,
+          payload: { title: "new" },
+          sprint: null
+        }),
+        edits: [
+          {
+            ticket: placeholder,
+            intents: [
+              Intent.cases.create.make({ fact: ticket(placeholder, "new") })
+            ]
+          }
+        ]
+      })
+      expect([...(yield* visible).tickets.keys()].toSorted()).toEqual([
+        "T-1",
+        placeholder
+      ])
+
+      yield* confirmEdit("a/p", "op-1", "project-1.1.2")
+      yield* applyChanges(
+        "a/p",
+        "1.1",
+        changes("1.2", [ticket("T-2", "new")], []),
+        direct
+      )
+
+      expect([...(yield* visible).tickets.keys()].toSorted()).toEqual([
+        "T-1",
+        "T-2"
+      ])
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+const deleteEdit = (ticketId: string, cascade: boolean) => ({
+  id: "op-1",
+  write: PendingWrite.cases.delete.make({
+    payload: { tickets: [TicketId.make(ticketId)], cascadeSubTickets: cascade }
+  }),
+  edits: [
+    { ticket: ticketId, intents: [Intent.cases.delete.make({ cascade })] }
+  ]
+})
+
+it.effect(
+  "deleting a ticket hides it and frees its sub-tickets, and a rejection brings both back",
+  () =>
+    Effect.gen(function* () {
+      const child = { ...ticket("T-2", "child"), parent: "T-1" }
+      yield* install("a/p", snapshot("1.1", [ticket("T-1", "one"), child]))
+
+      yield* recordEdit("a/p", deleteEdit("T-1", false))
+      const deleted = yield* visible
+      expect([...deleted.tickets.keys()]).toEqual(["T-2"])
+      expect(deleted.tickets.get("T-2")?.parent).toBeNull()
+
+      yield* rejectEdit("a/p", "op-1")
+      const restored = yield* visible
+      expect([...restored.tickets.keys()].toSorted()).toEqual(["T-1", "T-2"])
+      expect(restored.tickets.get("T-2")?.parent).toBe("T-1")
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+it.effect("deleting a ticket with its sub-tickets hides every level", () =>
+  Effect.gen(function* () {
+    yield* install(
+      "a/p",
+      snapshot("1.1", [
+        ticket("T-1", "one"),
+        { ...ticket("T-2", "child"), parent: "T-1" },
+        { ...ticket("T-3", "grandchild"), parent: "T-2" },
+        ticket("T-4", "other")
+      ])
+    )
+
+    yield* recordEdit("a/p", deleteEdit("T-1", true))
+
+    expect([...(yield* visible).tickets.keys()]).toEqual(["T-4"])
+  }).pipe(Effect.provide(TestDatabase))
+)
+
+it("archiving as a duplicate records the relation and restoring drops it", () => {
+  const state: TicketState = { fact: ticket("T-2", "two"), groups: [] }
+  const archived = applyIntents(
+    state,
+    [Intent.cases.archive.make({ at, duplicateOf: "T-1" })],
+    new Set()
+  )
+  expect(archived?.fact).toMatchObject({
+    archivedAt: at,
+    relations: [{ to: "T-1", kind: "duplicate_of" }]
+  })
+  const restored = applyIntents(
+    archived,
+    [Intent.cases.restore.make({})],
+    new Set()
+  )
+  expect(restored?.fact).toMatchObject({ archivedAt: null, relations: [] })
+})
+
+const status = (slug: string, orderKey: string) => ({
+  slug,
+  label: slug,
+  icon: "circle",
+  color: "gray",
+  orderKey,
+  description: null
+})
+
+const completedAt = (id: string) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const [row] = yield* db
+      .select({ data: localGroups.data })
+      .from(localGroups)
+      .where(eq(localGroups.id, id))
+    return row === undefined ? undefined : decodeGroup(row.data).completedAt
+  })
+
+it.effect(
+  "completing a sprint carries its unfinished tickets to the next sprint until a rejection undoes it",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", {
+        ...snapshot("1.1", [
+          ticket("T-1", "open"),
+          { ...ticket("T-2", "finished"), status: "done" }
+        ]),
+        statuses: [status("todo", "a"), status("done", "c")],
+        groups: [
+          { ...sprint("G-1", false), tickets: ["T-1", "T-2"] },
+          sprint("G-2", false)
+        ]
+      })
+
+      yield* recordEdit("a/p", {
+        id: "op-1",
+        write: PendingWrite.cases.completeGroup.make({
+          group: GroupId.make("G-1"),
+          payload: {
+            destination: { kind: "sprint", groupId: GroupId.make("G-2") }
+          }
+        }),
+        edits: [],
+        groups: [
+          {
+            group: "G-1",
+            intents: [
+              GroupIntent.cases.complete.make({
+                at,
+                destination: GroupId.make("G-2")
+              })
+            ]
+          }
+        ]
+      })
+      expect(yield* completedAt("G-1")).toEqual(at)
+      expect((yield* visible).members).toEqual(["G-1/T-2", "G-2/T-1"])
+
+      yield* rejectEdit("a/p", "op-1")
+      expect(yield* completedAt("G-1")).toBeNull()
+      expect((yield* visible).members).toEqual(["G-1/T-1", "G-1/T-2"])
+    }).pipe(Effect.provide(TestDatabase))
+)
+
 it("moving a ticket into a sprint takes it out of open sprints only", () => {
   const state: TicketState = {
     fact: ticket("T-1", "one"),
@@ -168,7 +346,7 @@ it("moving a ticket into a sprint takes it out of open sprints only", () => {
     [Intent.cases.sprint.make({ sprint: "S-next" })],
     new Set(["S-open", "S-next"])
   )
-  expect(moved.groups.map((member) => member.group)).toEqual([
+  expect(moved?.groups.map((member) => member.group)).toEqual([
     "S-done",
     "S-next"
   ])
@@ -216,6 +394,7 @@ const applyToModel = (
     intents,
     OPEN
   )
+  if (next === null) return
   model.facts.set(id, next.fact)
   for (const group of model.sprints.values()) {
     const member = next.groups.some((m) => m.group === group.id)

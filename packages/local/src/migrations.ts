@@ -214,6 +214,14 @@ const descriptionCopy = Effect.gen(function* () {
     scope text primary key, stage text not null, next text, copy integer)`
 })
 
+const groupEdits = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`alter table local_pending_ops add column group_edits text not null default '[]'`
+  yield* sql`create table local_pending_group_base (
+    copy integer not null, id text not null, data text not null,
+    primary key (copy, id))`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
@@ -222,5 +230,6 @@ export const localMigrations = Migrator.fromRecord({
   "0005_pending": pending,
   "0006_descriptions": descriptions,
   "0007_sections": sections,
-  "0008_description_copy": descriptionCopy
+  "0008_description_copy": descriptionCopy,
+  "0009_group_edits": groupEdits
 })

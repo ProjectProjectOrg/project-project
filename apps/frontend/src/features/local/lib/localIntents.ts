@@ -1,6 +1,17 @@
-import { Intent } from "@pp/local"
+import { GroupIntent, Intent, PendingWrite } from "@pp/local"
+import type {
+  ArchiveTicketInput,
+  BulkArchiveTicketsInput,
+  BulkDeleteTicketsInput,
+  CompleteSprintInput,
+  GroupId,
+  TicketId,
+  UpdateGroupInput
+} from "@pp/shared"
 
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+
+import type { LocalEdit } from "../atoms/localEdit"
 
 const when = <A>(
   value: A | undefined,
@@ -30,3 +41,76 @@ export const intentsOf = (edit: TicketEdit): ReadonlyArray<Intent> => [
     Intent.cases.parent.make({ parent: parent?.id ?? null })
   )
 ]
+
+const archived = (at: Date, duplicateOf: TicketId | undefined) =>
+  Intent.cases.archive.make({ at, duplicateOf: duplicateOf ?? null })
+
+export const archiveEdit = (
+  ticket: TicketId,
+  payload: ArchiveTicketInput,
+  at: Date
+): LocalEdit => ({
+  write: PendingWrite.cases.archive.make({ ticket, payload }),
+  edits: [{ ticket, intents: [archived(at, payload.duplicateOf)] }]
+})
+
+export const bulkArchiveEdit = (
+  payload: BulkArchiveTicketsInput,
+  at: Date
+): LocalEdit => ({
+  write: PendingWrite.cases.bulkArchive.make({ payload }),
+  edits: payload.tickets.map((ticket) => ({
+    ticket,
+    intents: [archived(at, undefined)]
+  }))
+})
+
+export const restoreEdit = (ticket: TicketId): LocalEdit => ({
+  write: PendingWrite.cases.restore.make({ ticket }),
+  edits: [{ ticket, intents: [Intent.cases.restore.make({})] }]
+})
+
+export const deleteEdit = (payload: BulkDeleteTicketsInput): LocalEdit => ({
+  write: PendingWrite.cases.delete.make({ payload }),
+  edits: payload.tickets.map((ticket) => ({
+    ticket,
+    intents: [
+      Intent.cases.delete.make({ cascade: payload.cascadeSubTickets ?? false })
+    ]
+  }))
+})
+
+export const updateSprintEdit = (
+  group: GroupId,
+  payload: UpdateGroupInput
+): LocalEdit => {
+  const { body: _body, ...patch } = payload
+  return {
+    write: PendingWrite.cases.updateGroup.make({ group, payload }),
+    edits: [],
+    groups: [{ group, intents: [GroupIntent.cases.edit.make({ patch })] }]
+  }
+}
+
+export const completeSprintEdit = (
+  group: GroupId,
+  payload: CompleteSprintInput,
+  at: Date
+): LocalEdit => ({
+  write: PendingWrite.cases.completeGroup.make({ group, payload }),
+  edits: [],
+  groups: [
+    {
+      group,
+      intents: [
+        GroupIntent.cases.complete.make({
+          at,
+          destination:
+            payload.destination.kind === "sprint"
+              ? payload.destination.groupId
+              : null
+        })
+      ]
+    }
+  ]
+})

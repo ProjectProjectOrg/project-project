@@ -43,15 +43,15 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import { encodeTicketListQuery } from "./backlog"
+import { createdKeys, recordCreatedKey } from "./createdKeys"
 import { epicLoadedPages } from "./epicPages"
 import {
   bulkTicketMove,
   bulkTicketUpdate,
   coalescingTicketUpdate,
-  createdKeys,
   loadNextPage,
-  readLoadedPages,
-  recordCreatedKey
+  localFirstCreate,
+  readLoadedPages
 } from "./ticketRows"
 
 export type EpicSectionsRequest = Readonly<{
@@ -385,30 +385,34 @@ const confirmCreated = (
 
 export const quickCreateEpicSectionsTicket = Atom.family(
   ({ req, key }: Readonly<{ req: EpicSectionsRequest; key: EpicSectionKey }>) =>
-    viewMutation(epicSections(req), {
-      name: "quickCreateEpicSectionsTicket",
-      predict: (value, input: QuickCreateInput) =>
-        insertCreated(req, key, value, input),
-      call: (client, input, get) =>
-        client.tickets
-          .quickCreate({
-            params: req.params,
-            payload: quickCreatePayload(input)
-          })
-          .pipe(
-            Effect.tap((created) =>
-              Effect.sync(() =>
-                recordCreatedKey(
-                  get,
-                  scopeOf(req),
-                  created.id,
-                  input.prediction.clientId
+    localFirstCreate(
+      req.params,
+      viewMutation(epicSections(req), {
+        name: "quickCreateEpicSectionsTicket",
+        predict: (value, input: QuickCreateInput) =>
+          insertCreated(req, key, value, input),
+        call: (client, input, get) =>
+          client.tickets
+            .quickCreate({
+              params: req.params,
+              payload: quickCreatePayload(input)
+            })
+            .pipe(
+              Effect.tap((created) =>
+                Effect.sync(() =>
+                  recordCreatedKey(
+                    get,
+                    scopeOf(req),
+                    created.id,
+                    input.prediction.clientId
+                  )
                 )
               )
-            )
-          ),
-      confirm: (value, created, input) =>
-        confirmCreated(key, value, created, input),
-      publish: () => Keys.ticketsChanged(scopeOf(req))
-    })
+            ),
+        confirm: (value, created, input) =>
+          confirmCreated(key, value, created, input),
+        publish: () => Keys.ticketsChanged(scopeOf(req))
+      }),
+      (input: QuickCreateInput) => ({ ...input, sprint: input.sprint ?? null })
+    )
 )

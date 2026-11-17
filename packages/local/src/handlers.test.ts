@@ -179,7 +179,7 @@ it.effect(
         Effect.suspend(() => {
           sent.push(operationId)
           return online
-            ? Effect.succeed("project-1.1.2")
+            ? Effect.succeed({ receipt: "project-1.1.2", created: null })
             : Effect.fail(new SyncOffline())
         })
     }

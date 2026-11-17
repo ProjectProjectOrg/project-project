@@ -12,8 +12,8 @@ import type {
   BacklogValue
 } from "@/features/tickets/atoms/backlog"
 import { backlogLoadedPages } from "@/features/tickets/atoms/backlogPages"
+import { createdKeys } from "@/features/tickets/atoms/createdKeys"
 import type { CountsRequest } from "@/features/tickets/atoms/ticketCounts"
-import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { toRow, withCreatedKeys } from "@/features/tickets/lib/ticketRows"
 
 import { rememberLocalView } from "../lib/localBoot"

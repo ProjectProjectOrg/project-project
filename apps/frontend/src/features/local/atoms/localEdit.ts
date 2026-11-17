@@ -1,9 +1,14 @@
-import type { PendingEdit, PendingWrite } from "@pp/local"
+import {
+  type PendingEdit,
+  type PendingGroupEdit,
+  PendingWrite
+} from "@pp/local"
 import * as Effect from "effect/Effect"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { projectScope } from "@/api/keys"
+import { recordCreatedKey } from "@/features/tickets/atoms/createdKeys"
 
 import { LocalClient } from "../lib/localClient"
 import { localActive } from "./localActive"
@@ -16,6 +21,7 @@ import {
 export type LocalEdit = Readonly<{
   write: PendingWrite
   edits: ReadonlyArray<PendingEdit>
+  groups?: ReadonlyArray<PendingGroupEdit>
 }>
 
 export const localEditing = Atom.family((project: LocalProjectRequest) =>
@@ -31,11 +37,22 @@ export const localEditFn = <I>(
   toLocal: (input: I) => ReadonlyArray<LocalEdit>
 ) =>
   localRuntime.fn(
-    Effect.fn("localEdit")(function* (input: I) {
+    Effect.fn("localEdit")(function* (input: I, get: Atom.FnContext) {
       const client = yield* LocalClient
       yield* Effect.forEach(
         toLocal(input),
-        (edit) => client.Edit({ project, ...edit }),
+        (edit) =>
+          Effect.tap(client.Edit({ project, ...edit }), (created) =>
+            Effect.sync(() => {
+              if (created !== null && PendingWrite.guards.create(edit.write))
+                recordCreatedKey(
+                  get,
+                  projectScope(project.orgSlug, project.slug),
+                  created,
+                  edit.write.placeholder
+                )
+            })
+          ),
         { concurrency: "unbounded", discard: true }
       )
     }, Effect.uninterruptible)

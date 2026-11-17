@@ -1,4 +1,4 @@
-import { localOrderKey } from "@pp/local"
+import { Intent, localOrderKey, PendingWrite } from "@pp/local"
 import {
   CHILD_TICKET_SORT,
   TicketStatus,
@@ -16,6 +16,7 @@ import type * as Registry from "effect/reactivity/AtomRegistry"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
+import { localFirst } from "@/features/local/atoms/localEdit"
 import { localTicketList } from "@/features/local/atoms/localViews"
 import { readLocal } from "@/features/local/atoms/readLocal"
 import {
@@ -29,11 +30,11 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import { allPages } from "./allPages"
+import { createdKeys, recordCreatedKey } from "./createdKeys"
 import {
   bulkTicketUpdate,
   coalescingTicketUpdate,
-  createdKeys,
-  recordCreatedKey
+  localFirstCreate
 } from "./ticketRows"
 
 export type ChildTicketsRequest = Readonly<{
@@ -144,55 +145,59 @@ export type ChildTicketCreateInput = Readonly<{
 }>
 
 export const createChildTicket = Atom.family((req: ChildTicketsRequest) =>
-  viewMutation(childTickets(req), {
-    name: "createChildTicket",
-    predict: (rows, input: ChildTicketCreateInput) => {
-      const row = placeholderRow(
-        input,
-        rows,
-        input.payload.status ?? TicketStatus.make("todo"),
-        DateTime.toDate(DateTime.nowUnsafe())
-      )
-      const { priority, assignees, estimate } = input.payload
-      return [
-        ...rows,
-        {
-          ...row,
-          ticket: {
-            ...row.ticket,
-            priority: priority ?? row.ticket.priority,
-            assignees: assignees ?? [],
-            estimate: estimate ?? null
+  localFirstCreate(
+    req.params,
+    viewMutation(childTickets(req), {
+      name: "createChildTicket",
+      predict: (rows, input: ChildTicketCreateInput) => {
+        const row = placeholderRow(
+          input,
+          rows,
+          input.payload.status ?? TicketStatus.make("todo"),
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+        const { priority, assignees, estimate } = input.payload
+        return [
+          ...rows,
+          {
+            ...row,
+            ticket: {
+              ...row.ticket,
+              priority: priority ?? row.ticket.priority,
+              assignees: assignees ?? [],
+              estimate: estimate ?? null
+            }
           }
-        }
-      ]
-    },
-    call: (client, input, get) =>
-      client.tickets
-        .create({
-          params: req.params,
-          payload: { ...input.payload, parent: input.parent.id }
-        })
-        .pipe(
-          Effect.tap((created) =>
-            Effect.sync(() =>
-              recordCreatedKey(
-                get,
-                scopeOf(req),
-                created.id,
-                input.prediction.clientId
+        ]
+      },
+      call: (client, input, get) =>
+        client.tickets
+          .create({
+            params: req.params,
+            payload: { ...input.payload, parent: input.parent.id }
+          })
+          .pipe(
+            Effect.tap((created) =>
+              Effect.sync(() =>
+                recordCreatedKey(
+                  get,
+                  scopeOf(req),
+                  created.id,
+                  input.prediction.clientId
+                )
               )
             )
-          )
+          ),
+      confirm: (rows, created, input) =>
+        rows.map((row) =>
+          row.key === input.prediction.clientId
+            ? { ...row, ticket: created, pending: false }
+            : row
         ),
-    confirm: (rows, created, input) =>
-      rows.map((row) =>
-        row.key === input.prediction.clientId
-          ? { ...row, ticket: created, pending: false }
-          : row
-      ),
-    publish: () => Keys.ticketsChanged(scopeOf(req))
-  })
+      publish: () => Keys.ticketsChanged(scopeOf(req))
+    }),
+    (input: ChildTicketCreateInput) => ({ ...input, sprint: null })
+  )
 )
 
 type ChildTicketKey = Readonly<{ req: ChildTicketsRequest; id: TicketId }>
@@ -252,7 +257,7 @@ const attachedRow = (ticket: Ticket): TicketRow => ({
 
 type AttachInput = Readonly<{ ticket: Ticket; parent: TicketParent }>
 
-export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
+const attachOnServer = ({ req, id }: ChildTicketKey) =>
   viewMutation(childTickets(req), {
     name: "attachChildTicket",
     predict: (rows, { ticket, parent }: AttachInput) =>
@@ -271,6 +276,22 @@ export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
       rows.map((row) => (row.ticket.id === id ? { ...row, ticket } : row)),
     publish: () => Keys.ticketChanged(scopeOf(req), id)
   })
+
+export const attachChildTicket = Atom.family((key: ChildTicketKey) =>
+  localFirst(key.req.params, attachOnServer(key), ({ parent }: AttachInput) => [
+    {
+      write: PendingWrite.cases.update.make({
+        ticket: key.id,
+        payload: { parent: parent.id }
+      }),
+      edits: [
+        {
+          ticket: key.id,
+          intents: [Intent.cases.parent.make({ parent: parent.id })]
+        }
+      ]
+    }
+  ])
 )
 
 export const attachToParent = (

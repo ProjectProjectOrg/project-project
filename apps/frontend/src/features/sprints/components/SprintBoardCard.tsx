@@ -15,6 +15,7 @@ import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/Tic
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { shownTicketId } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 
 import { BoardCardChildren, useChildTicketsPreload } from "./BoardCardChildren"
@@ -93,7 +94,7 @@ function BoardCardFields({
               <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
                 <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                   <span className="shrink-0 font-mono tabular-nums">
-                    {ticket.id}
+                    {shownTicketId(ticket.id)}
                   </span>
                   {ticket.parent && !isEpic(ticket.parent) && (
                     <ParentTicketCrumb parent={ticket.parent} />
