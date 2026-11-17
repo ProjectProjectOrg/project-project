@@ -1,11 +1,20 @@
-import type { Comment, TicketId } from "@pp/shared"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import {
+  canHoldChildren,
+  isEpic,
+  type Comment,
+  type TicketId
+} from "@pp/shared"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleCheck,
   CircleDashed,
   FileText,
   Link2,
+  ListPlus,
   MoreHorizontal,
   Pencil,
+  SquarePlus,
   Trash2
 } from "lucide-react"
 import type { Ref } from "react"
@@ -21,9 +30,20 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   commentMarkdown,
+  commentPath,
   commentUrl
 } from "@/features/comments/lib/commentClipboard"
+import { ticketFromComment } from "@/features/comments/lib/ticketFromComment"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import {
+  createTicketDialog,
+  type RelatedKind
+} from "@/features/tickets/atoms/createTicketDialog"
+import {
+  ticketDetail,
+  ticketRequest
+} from "@/features/tickets/atoms/ticketDetail"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 export type CommentMenuProps = Readonly<{
@@ -78,6 +98,7 @@ export function CommentMenuItems({
           <DropdownMenuSeparator />
         </>
       )}
+      <CreateTicketItems comment={comment} ticketId={ticketId} />
       <DropdownMenuItem onClick={() => copy(url)} className="cursor-pointer">
         <Link2 className="size-4" strokeWidth={1.75} />
         {m.comments_menu_copy_link()}
@@ -105,6 +126,57 @@ export function CommentMenuItems({
           </ConfirmButton.MenuItem>
         </>
       )}
+    </>
+  )
+}
+
+function CreateTicketItems({
+  comment,
+  ticketId
+}: Readonly<{ comment: Comment; ticketId: TicketId }>) {
+  const location = useProjectRoute()
+  const { orgSlug, slug } = location
+  const canCreate = useProjectActor().call("tickets", "create")
+  const openDialog = useAtomSet(createTicketDialog)
+  const source = useAtomValue(
+    ticketDetail(ticketRequest(orgSlug, slug, ticketId))
+  )
+  if (!canCreate) return null
+  const ticket = Result.isSuccess(source) ? source.value : null
+  const open = (kind: RelatedKind) =>
+    openDialog({
+      orgSlug,
+      projectSlug: slug,
+      ...ticketFromComment(
+        comment,
+        slug,
+        ticketId,
+        commentPath(location, ticketId, comment.id)
+      ),
+      related: { kind, ticketId },
+      fromComment: { ticketId, commentId: comment.id }
+    })
+  return (
+    <>
+      <DropdownMenuItem
+        onClick={() => open("related")}
+        className="cursor-pointer"
+      >
+        <SquarePlus className="size-4" strokeWidth={1.75} />
+        {m.comments_menu_create_ticket()}
+      </DropdownMenuItem>
+      {ticket !== null && canHoldChildren(ticket, ticket.parent) && (
+        <DropdownMenuItem
+          onClick={() => open("subTicket")}
+          className="cursor-pointer"
+        >
+          <ListPlus className="size-4" strokeWidth={1.75} />
+          {isEpic(ticket)
+            ? m.comments_menu_create_epic_ticket()
+            : m.comments_menu_create_sub_ticket()}
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuSeparator />
     </>
   )
 }

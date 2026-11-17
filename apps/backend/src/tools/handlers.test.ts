@@ -758,7 +758,8 @@ describe("MCP handlers → write tools", () => {
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),
         editedAt: null,
         replyTo: null,
-        resolution: null
+        resolution: null,
+        tickets: []
       })
     }
   })
@@ -1885,7 +1886,8 @@ describe("MCP ticket discovery and history", () => {
             createdAt: "2026-05-01T00:00:00.000Z",
             editedAt: null,
             replyTo: null,
-            resolution: null
+            resolution: null,
+            tickets: []
           }
         ])
       }).pipe(
@@ -1912,7 +1914,8 @@ describe("MCP ticket discovery and history", () => {
                       createdAt: isoDate("2026-05-01T00:00:00.000Z"),
                       editedAt: null,
                       replyTo: null,
-                      resolution: null
+                      resolution: null,
+                      tickets: []
                     }
                   ]
                 })

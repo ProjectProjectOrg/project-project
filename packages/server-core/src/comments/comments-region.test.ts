@@ -1,3 +1,4 @@
+import { rewriteMentionsInMovedTicket } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import { describe, expect, it } from "vitest"
 
@@ -35,6 +36,7 @@ const sample = (): ReadonlyArray<CommentBlock> => [
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
     replyTo: "c_a",
+    tickets: ["[T-23](mention:ticket/T-23)"],
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
   }
 ]
@@ -178,5 +180,27 @@ describe("validateCommentBody", () => {
   it("rejects empty bodies", () => {
     expect(validateCommentBody("").ok).toBe(false)
     expect(validateCommentBody("   \n  ").ok).toBe(false)
+  })
+})
+
+describe("tickets created from a comment", () => {
+  it("follow the ticket into its new project when it moves", () => {
+    const region = serializeCommentsRegion([
+      {
+        ...sample()[0],
+        tickets: ["[T-23](mention:ticket/T-23)", "[T-24](mention:ticket/T-24)"]
+      }
+    ])
+
+    const moved = rewriteMentionsInMovedTicket(region, {
+      fromProject: "web",
+      toProject: "app",
+      moved: new Map([["T-23", "A-7"]])
+    })
+
+    expect(parseCommentsRegion(moved)[0]?.tickets).toEqual([
+      "[A-7](mention:ticket/A-7)",
+      "[T-24](mention:ticket/web/T-24)"
+    ])
   })
 })

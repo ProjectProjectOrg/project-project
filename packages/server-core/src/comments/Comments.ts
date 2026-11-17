@@ -3,6 +3,10 @@ import { Db } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
 import {
   type ActivityActor,
+  extractMentionLinks,
+  formatMentionHref,
+  parseTicketMentionId,
+  Slug,
   Comment,
   Conflict,
   CommentId,
@@ -11,7 +15,7 @@ import {
   type MentionInvalid,
   NotFound,
   ProjectScope,
-  type TicketId,
+  TicketId,
   type UpdateCommentInput,
   type User
 } from "@pp/shared"
@@ -127,6 +131,15 @@ export class Comments extends Context.Service<
       NotFound | Markdown.MarkdownError | TicketDocs.MalformedTicketDocument,
       ProjectScope | ActivityActor
     >
+    recordTicket: (
+      ticketId: TicketId,
+      commentId: CommentId,
+      created: TicketId
+    ) => Effect.Effect<
+      void,
+      NotFound | Markdown.MarkdownError | TicketDocs.MalformedTicketDocument,
+      ProjectScope | ActivityActor
+    >
     remove: (
       ticketId: TicketId,
       commentId: CommentId
@@ -144,6 +157,10 @@ export class Comments extends Context.Service<
 const isHistoricalCommentAuthor = Schema.is(HistoricalCommentAuthor)
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
+const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+const decodeSlug = Schema.decodeUnknownSync(Slug)
+const isTicketId = Schema.is(TicketId)
+const isSlug = Schema.is(Slug)
 
 const replyTo = (block: CommentBlock): CommentId | null =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
@@ -155,6 +172,23 @@ const resolutionOf = (
   block.resolvedBy === undefined || block.resolvedAt === undefined
     ? null
     : { by: userById.get(block.resolvedBy) ?? null, at: block.resolvedAt }
+
+const ticketsOf = (block: CommentBlock): Comment["tickets"] =>
+  (block.tickets ?? []).flatMap((link) =>
+    extractMentionLinks(link).flatMap(({ parsed }) => {
+      if (parsed?.type !== "ticket") return []
+      const target = parseTicketMentionId(parsed.id)
+      if (!isTicketId(target.ticketId)) return []
+      if (target.projectSlug !== null && !isSlug(target.projectSlug)) return []
+      return [
+        {
+          projectSlug:
+            target.projectSlug === null ? null : decodeSlug(target.projectSlug),
+          id: decodeTicketId(target.ticketId)
+        }
+      ]
+    })
+  )
 
 const withoutResolution = ({
   resolvedBy: _by,
@@ -291,7 +325,8 @@ const make = Effect.gen(function* () {
               createdAt: r.createdAt,
               editedAt: r.editedAt ?? null,
               replyTo: replyTo(block),
-              resolution: resolutionOf(block, authorById)
+              resolution: resolutionOf(block, authorById),
+              tickets: ticketsOf(block)
             }
           ]
         }
@@ -306,7 +341,8 @@ const make = Effect.gen(function* () {
             createdAt: r.createdAt,
             editedAt: r.editedAt ?? null,
             replyTo: replyTo(block),
-            resolution: resolutionOf(block, authorById)
+            resolution: resolutionOf(block, authorById),
+            tickets: ticketsOf(block)
           }
         ]
       })
@@ -395,7 +431,8 @@ const make = Effect.gen(function* () {
         createdAt: now,
         editedAt: null,
         replyTo: thread,
-        resolution: null
+        resolution: null,
+        tickets: []
       }
     }
   )
@@ -506,7 +543,8 @@ const make = Effect.gen(function* () {
       createdAt: block.createdAt,
       editedAt: block.editedAt,
       replyTo: null,
-      resolution: null
+      resolution: null,
+      tickets: []
     }))
   })
 
@@ -599,7 +637,8 @@ const make = Effect.gen(function* () {
         editedAt,
         replyTo: edited === undefined ? null : replyTo(edited),
         resolution:
-          edited === undefined ? null : resolutionOf(edited, peopleById)
+          edited === undefined ? null : resolutionOf(edited, peopleById),
+        tickets: edited === undefined ? [] : ticketsOf(edited)
       }
     }
   )
@@ -628,6 +667,27 @@ const make = Effect.gen(function* () {
     }
   )
 
+  const recordTicket: Comments["Service"]["recordTicket"] = Effect.fn(
+    "Comments.recordTicket"
+  )(function* (ticketId, commentId, created) {
+    const { orgSlug, slug } = yield* ProjectScope
+    let found = false
+    yield* updateBlocks(orgSlug, slug, ticketId, (blocks) =>
+      blocks.map((block) => {
+        if (block.id !== commentId) return block
+        found = true
+        return {
+          ...block,
+          tickets: [
+            ...(block.tickets ?? []),
+            `[${created}](${formatMentionHref("ticket", created)})`
+          ]
+        }
+      })
+    )
+    if (!found) return yield* new NotFound()
+  })
+
   const remove: Comments["Service"]["remove"] = Effect.fn("Comments.remove")(
     function* (ticketId, commentId) {
       const { orgSlug, slug } = yield* ProjectScope
@@ -645,7 +705,15 @@ const make = Effect.gen(function* () {
     }
   )
 
-  return Comments.of({ list, create, importHistorical, edit, resolve, remove })
+  return Comments.of({
+    list,
+    create,
+    importHistorical,
+    edit,
+    resolve,
+    recordTicket,
+    remove
+  })
 })
 
 export const layer = Layer.effect(Comments, make)

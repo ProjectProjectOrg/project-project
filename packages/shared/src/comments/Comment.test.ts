@@ -83,7 +83,8 @@ describe("Comment", () => {
       createdAt: "2024-02-01T10:00:00.000Z",
       editedAt: null,
       replyTo: null,
-      resolution: null
+      resolution: null,
+      tickets: []
     })
 
     expect(comment.origin).toBe("jira")

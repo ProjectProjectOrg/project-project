@@ -50,7 +50,8 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
     createdAt: "2026-09-15T10:00:01.000Z",
     editedAt: null,
     replyTo: null,
-    resolution: null
+    resolution: null,
+    tickets: []
   }
   let persisted = false
   let finish = (_response: Response) => {}

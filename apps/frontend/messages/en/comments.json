@@ -3,6 +3,7 @@
   "comments_composer_failed": "Failed to post comment.",
   "comments_composer_placeholder": "Write a comment…",
   "comments_composer_submit": "Comment",
+  "comments_created_ticket": "{name} created ticket",
   "comments_delete_confirm": "Delete this comment?",
   "comments_delete_failed": "Failed to delete comment.",
   "comments_edit_button": "Edit",
@@ -14,6 +15,9 @@
   "comments_menu_copy_link": "Copy link",
   "comments_menu_copy_markdown": "Copy as markdown",
   "comments_menu_copy_thread_markdown": "Copy thread as markdown",
+  "comments_menu_create_epic_ticket": "Create ticket in this epic from comment",
+  "comments_menu_create_sub_ticket": "Create sub-ticket from comment",
+  "comments_menu_create_ticket": "Create ticket from comment",
   "comments_menu_delete": "Delete",
   "comments_menu_resolve": "Resolve thread",
   "comments_menu_unresolve": "Reopen thread",
@@ -49,5 +53,7 @@
         "countPlural=*": "Show {count} earlier replies"
       }
     }
-  ]
+  ],
+  "comments_ticket_source": "{author} said in {source}:",
+  "comments_ticket_source_link": "a comment on {ticket}"
 }

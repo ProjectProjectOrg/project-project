@@ -1,20 +1,25 @@
 import type { Comment, CommentAuthor, TicketId } from "@pp/shared"
 
-import {
-  ticketUrl,
-  type TicketLocation
-} from "@/features/tickets/lib/ticketClipboard"
+import type { TicketLocation } from "@/features/tickets/lib/ticketClipboard"
 
 export const commentAuthorName = (author: CommentAuthor): string =>
   author.kind === "user"
     ? (author.user.name ?? author.user.email)
     : author.displayName
 
+export const commentPath = (
+  { orgSlug, slug }: TicketLocation,
+  ticketId: TicketId,
+  commentId: Comment["id"]
+): string =>
+  `/orgs/${orgSlug}/projects/${slug}/tickets/${ticketId}#${commentId}`
+
 export const commentUrl = (
   location: TicketLocation,
   ticketId: TicketId,
   commentId: Comment["id"]
-): string => `${ticketUrl(location, ticketId)}#${commentId}`
+): string =>
+  `${window.location.origin}${commentPath(location, ticketId, commentId)}`
 
 const markdownBody = (body: string): string =>
   body.replace(/^(?:[ \t]*\n)+/u, "").trimEnd()

@@ -100,6 +100,7 @@ const placeholderComment = (
   editedAt: null,
   replyTo: input.replyTo ?? null,
   resolution: null,
+  tickets: [],
   origin: "native"
 })
 

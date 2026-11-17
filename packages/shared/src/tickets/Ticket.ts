@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import { User } from "../auth/User"
+import { CommentId } from "../comments/CommentId"
 import { Estimate, ESTIMATE_MAX_MINUTES } from "../estimates/Estimate"
 import { GitState, StackLayerState } from "../github/GitState"
 import { GroupId } from "../groups/GroupId"
@@ -279,6 +280,12 @@ export const CreateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: ticketFieldDocs.relatedTo
+  }),
+  fromComment: Schema.optional(
+    Schema.Struct({ ticketId: TicketId, commentId: CommentId })
+  ).annotate({
+    description:
+      "The comment this ticket comes from, by its ticket and comment id from `list_comments`. The comment then lists the new ticket under it."
   })
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
