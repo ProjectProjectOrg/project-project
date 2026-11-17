@@ -198,6 +198,72 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
+const deleteEdit = (ticketId: string, cascade: boolean) => ({
+  id: "op-1",
+  write: PendingWrite.cases.delete.make({
+    payload: { tickets: [TicketId.make(ticketId)], cascadeSubTickets: cascade }
+  }),
+  edits: [
+    { ticket: ticketId, intents: [Intent.cases.delete.make({ cascade })] }
+  ]
+})
+
+it.effect(
+  "deleting a ticket hides it and frees its sub-tickets, and a rejection brings both back",
+  () =>
+    Effect.gen(function* () {
+      const child = { ...ticket("T-2", "child"), parent: "T-1" }
+      yield* install("a/p", snapshot("1.1", [ticket("T-1", "one"), child]))
+
+      yield* recordEdit("a/p", deleteEdit("T-1", false))
+      const deleted = yield* visible
+      expect([...deleted.tickets.keys()]).toEqual(["T-2"])
+      expect(deleted.tickets.get("T-2")?.parent).toBeNull()
+
+      yield* rejectEdit("a/p", "op-1")
+      const restored = yield* visible
+      expect([...restored.tickets.keys()].toSorted()).toEqual(["T-1", "T-2"])
+      expect(restored.tickets.get("T-2")?.parent).toBe("T-1")
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+it.effect("deleting a ticket with its sub-tickets hides every level", () =>
+  Effect.gen(function* () {
+    yield* install(
+      "a/p",
+      snapshot("1.1", [
+        ticket("T-1", "one"),
+        { ...ticket("T-2", "child"), parent: "T-1" },
+        { ...ticket("T-3", "grandchild"), parent: "T-2" },
+        ticket("T-4", "other")
+      ])
+    )
+
+    yield* recordEdit("a/p", deleteEdit("T-1", true))
+
+    expect([...(yield* visible).tickets.keys()]).toEqual(["T-4"])
+  }).pipe(Effect.provide(TestDatabase))
+)
+
+it("archiving as a duplicate records the relation and restoring drops it", () => {
+  const state: TicketState = { fact: ticket("T-2", "two"), groups: [] }
+  const archived = applyIntents(
+    state,
+    [Intent.cases.archive.make({ at, duplicateOf: "T-1" })],
+    new Set()
+  )
+  expect(archived?.fact).toMatchObject({
+    archivedAt: at,
+    relations: [{ to: "T-1", kind: "duplicate_of" }]
+  })
+  const restored = applyIntents(
+    archived,
+    [Intent.cases.restore.make({})],
+    new Set()
+  )
+  expect(restored?.fact).toMatchObject({ archivedAt: null, relations: [] })
+})
+
 it("moving a ticket into a sprint takes it out of open sprints only", () => {
   const state: TicketState = {
     fact: ticket("T-1", "one"),

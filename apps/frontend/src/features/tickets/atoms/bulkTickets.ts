@@ -5,12 +5,15 @@ import {
   type BulkUpdateTicketsInput,
   type TicketId
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { localFirst } from "@/features/local/atoms/localEdit"
+import { bulkArchiveEdit, deleteEdit } from "@/features/local/lib/localIntents"
 
 export type BulkTicketsRequest = Readonly<{ orgSlug: string; slug: string }>
 
@@ -60,7 +63,7 @@ export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
   )
 )
 
-export const bulkArchiveTickets = Atom.family((req: BulkTicketsRequest) =>
+const bulkArchiveOnServer = (req: BulkTicketsRequest) =>
   Api.runtime.fn(
     Effect.fn("bulkArchiveTickets")(function* (input: BulkArchiveTicketsInput) {
       return yield* Effect.forEach(bulkBatches(input.tickets), (tickets) =>
@@ -77,9 +80,19 @@ export const bulkArchiveTickets = Atom.family((req: BulkTicketsRequest) =>
       )
     })
   )
+
+export const bulkArchiveTickets = Atom.family((req: BulkTicketsRequest) =>
+  localFirst(req, bulkArchiveOnServer(req), (input: BulkArchiveTicketsInput) =>
+    bulkBatches(input.tickets).map((tickets) =>
+      bulkArchiveEdit(
+        { ...input, tickets },
+        DateTime.toDate(DateTime.nowUnsafe())
+      )
+    )
+  )
 )
 
-export const bulkDeleteTickets = Atom.family((req: BulkTicketsRequest) =>
+const bulkDeleteOnServer = (req: BulkTicketsRequest) =>
   Api.runtime.fn(
     Effect.fn("bulkDeleteTickets")(function* (input: BulkDeleteTicketsInput) {
       return yield* Effect.forEach(bulkBatches(input.tickets), (tickets) =>
@@ -95,5 +108,12 @@ export const bulkDeleteTickets = Atom.family((req: BulkTicketsRequest) =>
         )
       )
     })
+  )
+
+export const bulkDeleteTickets = Atom.family((req: BulkTicketsRequest) =>
+  localFirst(req, bulkDeleteOnServer(req), (input: BulkDeleteTicketsInput) =>
+    bulkBatches(input.tickets).map((tickets) =>
+      deleteEdit({ ...input, tickets })
+    )
   )
 )

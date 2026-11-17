@@ -130,7 +130,38 @@ const pendingWritesLayer = Layer.effect(
                 responseMode: "decoded-and-response"
               })
               return sent(added, created.id)
-            })
+            }),
+          archive: ({ ticket, payload }) =>
+            tickets
+              .archive({
+                params: { ...project, id: ticket },
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          bulkArchive: ({ payload }) =>
+            tickets
+              .bulkArchive({
+                params: project,
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          restore: ({ ticket }) =>
+            tickets
+              .unarchive({
+                params: { ...project, id: ticket },
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          delete: ({ payload }) =>
+            tickets
+              .bulkDelete({
+                params: project,
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response)))
         })
       }).pipe(
         Effect.catchTags({

@@ -1,5 +1,8 @@
 import {
   applyListEdit,
+  ArchiveTicketInput,
+  BulkArchiveTicketsInput,
+  BulkDeleteTicketsInput,
   BulkUpdateTicketsInput,
   Conflict,
   CreateTicketInput,
@@ -32,7 +35,13 @@ export const Intent = Schema.TaggedUnion({
   rank: { rank: Schema.String },
   sprint: { sprint: Schema.NullOr(Schema.String) },
   parent: { parent: Schema.NullOr(Schema.String) },
-  create: { fact: TicketFact }
+  create: { fact: TicketFact },
+  archive: {
+    at: Schema.DateFromString,
+    duplicateOf: Schema.NullOr(Schema.String)
+  },
+  restore: {},
+  delete: { cascade: Schema.Boolean }
 })
 export type Intent = typeof Intent.Type
 
@@ -49,7 +58,11 @@ export const PendingWrite = Schema.TaggedUnion({
     placeholder: TicketId,
     payload: CreateTicketInput,
     sprint: Schema.NullOr(GroupId)
-  }
+  },
+  archive: { ticket: TicketId, payload: ArchiveTicketInput },
+  bulkArchive: { payload: BulkArchiveTicketsInput },
+  restore: { ticket: TicketId },
+  delete: { payload: BulkDeleteTicketsInput }
 })
 export type PendingWrite = typeof PendingWrite.Type
 
@@ -142,8 +155,29 @@ const applyToFact = (fact: TicketFact, intent: Intent): TicketFact =>
     flag: ({ flag }) => ({ ...fact, flag }),
     rank: ({ rank }) => ({ ...fact, rank }),
     parent: ({ parent }) => ({ ...fact, parent }),
+    archive: ({ at, duplicateOf }) => ({
+      ...fact,
+      archivedAt: fact.archivedAt ?? at,
+      relations:
+        duplicateOf === null
+          ? fact.relations
+          : [
+              ...fact.relations.filter(
+                (relation) => relation.kind !== "duplicate_of"
+              ),
+              { to: duplicateOf, kind: "duplicate_of" }
+            ]
+    }),
+    restore: () => ({
+      ...fact,
+      archivedAt: null,
+      relations: fact.relations.filter(
+        (relation) => relation.kind !== "duplicate_of"
+      )
+    }),
     sprint: () => fact,
-    create: () => fact
+    create: () => fact,
+    delete: () => fact
   })
 
 const applyIntent = (
@@ -153,7 +187,7 @@ const applyIntent = (
 ): TicketState | null => {
   if (Intent.guards.create(intent))
     return state ?? { fact: intent.fact, groups: [] }
-  if (state === null) return null
+  if (state === null || Intent.guards.delete(intent)) return null
   if (Intent.guards.sprint(intent))
     return {
       ...state,

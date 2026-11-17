@@ -22,8 +22,14 @@ import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
+import { localFirst } from "@/features/local/atoms/localEdit"
 import { localTicketDetail } from "@/features/local/atoms/localTicket"
 import { readLocal } from "@/features/local/atoms/readLocal"
+import {
+  archiveEdit,
+  deleteEdit,
+  restoreEdit
+} from "@/features/local/lib/localIntents"
 
 import { withoutRelation } from "../lib/relationGroups"
 import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
@@ -121,7 +127,7 @@ export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   })
 )
 
-export const archiveTicket = Atom.family((req: TicketRequest) =>
+const archiveOnServer = (req: TicketRequest) =>
   viewMutation(ticketDetail(req), {
     name: "archiveTicket",
     predict: (ticket, _input: ArchiveTicketInput) =>
@@ -133,6 +139,11 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })
+
+export const archiveTicket = Atom.family((req: TicketRequest) =>
+  localFirst(req.params, archiveOnServer(req), (input: ArchiveTicketInput) => [
+    archiveEdit(req.params.id, input, DateTime.toDate(DateTime.nowUnsafe()))
+  ])
 )
 
 export const markTicket = Atom.family((req: TicketRequest) =>
@@ -166,7 +177,7 @@ export const unmarkTicket = Atom.family((req: TicketRequest) =>
   })
 )
 
-export const unarchiveTicket = Atom.family((req: TicketRequest) =>
+const unarchiveOnServer = (req: TicketRequest) =>
   viewMutation(ticketDetail(req), {
     name: "unarchiveTicket",
     predict: (ticket, _input: void) => ({ ...ticket, archivedAt: null }),
@@ -174,9 +185,14 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })
+
+export const unarchiveTicket = Atom.family((req: TicketRequest) =>
+  localFirst(req.params, unarchiveOnServer(req), (_input: void) => [
+    restoreEdit(req.params.id)
+  ])
 )
 
-export const deleteTicket = Atom.family((req: TicketRequest) =>
+const deleteOnServer = (req: TicketRequest) =>
   Api.runtime.fn(
     Effect.fn("deleteTicket")(function* (query: DeleteTicketQuery) {
       yield* Api.use((client) =>
@@ -185,6 +201,14 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
       yield* Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
     })
   )
+
+export const deleteTicket = Atom.family((req: TicketRequest) =>
+  localFirst(req.params, deleteOnServer(req), (query: DeleteTicketQuery) => [
+    deleteEdit({
+      tickets: [req.params.id],
+      cascadeSubTickets: query.cascadeSubTickets
+    })
+  ])
 )
 
 export const moveTicket = Atom.family((req: TicketRequest) =>

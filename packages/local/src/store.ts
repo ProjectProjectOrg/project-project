@@ -32,7 +32,7 @@ import {
   encodeGroups,
   encodeWrite,
   decodeWrite,
-  type Intent,
+  Intent,
   type PendingEdit,
   type PendingWrite,
   type TicketState
@@ -973,20 +973,62 @@ export type NewEdit = Readonly<{
   edits: ReadonlyArray<PendingEdit>
 }>
 
+const releasedChildren = (copy: number, edits: ReadonlyArray<PendingEdit>) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const deletes = edits.flatMap((edit) =>
+      edit.intents.filter(Intent.guards.delete)
+    )
+    const cascade = deletes.some((intent) => intent.cascade)
+    const seen = new Set(edits.map((edit) => edit.ticket))
+    const added: Array<PendingEdit> = []
+    let parents = edits
+      .filter((edit) => edit.intents.some(Intent.guards.delete))
+      .map((edit) => edit.ticket)
+    while (parents.length > 0) {
+      const children = (yield* db
+        .select({ id: localTickets.id })
+        .from(localTickets)
+        .where(
+          and(
+            eq(localTickets.copy, copy),
+            inArray(localTickets.parent, parents)
+          )
+        ))
+        .map((row) => row.id)
+        .filter((id) => !seen.has(id))
+      for (const id of children) seen.add(id)
+      added.push(
+        ...children.map((ticket) => ({
+          ticket,
+          intents: [
+            cascade
+              ? Intent.cases.delete.make({ cascade })
+              : Intent.cases.parent.make({ parent: null })
+          ]
+        }))
+      )
+      parents = cascade ? children : []
+    }
+    return [...edits, ...added]
+  })
+
 export const recordEdit = (scope: string, edit: NewEdit) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const sqlClient = yield* SqlClient.SqlClient
     return yield* sqlClient.withTransaction(
       Effect.gen(function* () {
+        const copy = yield* copyOf(scope)
+        const edits =
+          copy === null ? edit.edits : yield* releasedChildren(copy, edit.edits)
         yield* db.insert(localPendingOps).values({
           id: edit.id,
           scope,
-          tickets: idList(edit.edits.map((change) => change.ticket)),
-          edits: encodeEdits(edit.edits),
+          tickets: idList(edits.map((change) => change.ticket)),
+          edits: encodeEdits(edits),
           write: encodeWrite(edit.write)
         })
-        const copy = yield* copyOf(scope)
         if (copy !== null) yield* overlayPending(scope, copy)
       })
     )
