@@ -1,4 +1,4 @@
-export const MENTION_TYPES = ["user", "ticket"] as const
+export const MENTION_TYPES = ["user", "ticket", "comment"] as const
 export type MentionType = (typeof MENTION_TYPES)[number]
 
 export interface MentionRef {
@@ -66,13 +66,46 @@ export const formatTicketMentionId = (target: TicketMentionTarget): string =>
     ? target.ticketId
     : `${target.projectSlug}/${target.ticketId}`
 
+export type CommentMentionTarget = TicketMentionTarget &
+  Readonly<{ commentId: string }>
+
+export const parseCommentMentionId = (
+  id: string
+): CommentMentionTarget | null => {
+  const slash = id.lastIndexOf("/")
+  if (slash <= 0 || slash === id.length - 1) return null
+  return {
+    ...parseTicketMentionId(id.slice(0, slash)),
+    commentId: id.slice(slash + 1)
+  }
+}
+
+export const formatCommentMentionId = (target: CommentMentionTarget): string =>
+  `${formatTicketMentionId(target)}/${target.commentId}`
+
+export const mentionedTicket = (
+  parsed: Readonly<{ type: MentionType; id: string }>
+): string | null => {
+  if (parsed.type === "ticket") return parsed.id
+  if (parsed.type === "user") return null
+  const comment = parseCommentMentionId(parsed.id)
+  return comment === null ? null : formatTicketMentionId(comment)
+}
+
 export const rewriteTicketMentions = (
   text: string,
   rewrite: (target: TicketMentionTarget) => TicketMentionTarget | null
 ): string =>
-  text.includes("](mention:ticket/")
+  text.includes("](mention:ticket/") || text.includes("](mention:comment/")
     ? text.replace(MENTION_LINK_RE, (match, label: string, href: string) => {
         const parsed = parseMentionHref(href)
+        if (parsed?.type === "comment") {
+          const current = parseCommentMentionId(parsed.id)
+          const next = current === null ? null : rewrite(current)
+          if (current === null || next === null) return match
+          const relabelled = label === current.ticketId ? next.ticketId : label
+          return `[${relabelled}](${formatMentionHref("comment", formatCommentMentionId({ ...next, commentId: current.commentId }))})`
+        }
         if (parsed?.type !== "ticket") return match
         const current = parseTicketMentionId(parsed.id)
         const next = rewrite(current)

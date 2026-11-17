@@ -11,6 +11,7 @@
   "comments_editing_marker": "editing…",
   "comments_imported_from_jira": "Imported from Jira",
   "comments_load_failed": "Failed to load comments.",
+  "comments_mention_card_from": "Comment from {name}",
   "comments_menu_aria_label": "Comment actions",
   "comments_menu_copy_link": "Copy link",
   "comments_menu_copy_markdown": "Copy as markdown",
@@ -54,6 +55,5 @@
       }
     }
   ],
-  "comments_ticket_source": "{author} said in {source}:",
-  "comments_ticket_source_link": "a comment on {ticket}"
+  "comments_ticket_source": "{author} said in {source}:"
 }

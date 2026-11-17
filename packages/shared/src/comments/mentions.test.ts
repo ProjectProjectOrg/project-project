@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   extractMentionLinks,
   formatMentionHref,
-  parseMentionHref
+  parseMentionHref,
+  rewriteTicketMentions
 } from "./mentions"
 
 describe("formatMentionHref", () => {
@@ -86,5 +87,19 @@ describe("extractMentionLinks", () => {
         parsed: { type: "user", id: "abc" }
       }
     ])
+  })
+})
+
+describe("rewriteTicketMentions", () => {
+  it("moves the ticket part of a comment mention and keeps the comment", () => {
+    const moved = rewriteTicketMentions(
+      "Said in [T-12](mention:comment/T-12/c_01ABC).",
+      (target) =>
+        target.ticketId === "T-12"
+          ? { projectSlug: "other", ticketId: "OT-3" }
+          : null
+    )
+
+    expect(moved).toBe("Said in [OT-3](mention:comment/other/OT-3/c_01ABC).")
   })
 })
