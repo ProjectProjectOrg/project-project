@@ -67,7 +67,7 @@ export function Search() {
           items={items}
           onSelect={(item) => {
             changeOpen(false)
-            navigate(item.value)
+            void navigate(item.value)
           }}
         >
           <CommandMenuInput

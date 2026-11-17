@@ -207,6 +207,21 @@
      still: "you are typing here", not a highlight. */
   --field-hover: rgb(0 0 0 / 0.025);
   --field-focus: rgb(0 0 0 / 0.015);
+  /* A bare field's placeholder: hover and focus step it toward the text
+     colour, staying in the placeholder range. */
+  /* A comment's bubble: the page lifted toward the text colour, so a
+     comment stands out from the events around it in both themes. */
+  --comment-bubble: color-mix(in oklab, var(--page), var(--foreground) 4.5%);
+  --placeholder-hover: color-mix(
+    in oklab,
+    var(--muted-foreground) 82%,
+    var(--foreground)
+  );
+  --placeholder-focus: color-mix(
+    in oklab,
+    var(--muted-foreground) 70%,
+    var(--foreground)
+  );
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
   --prose-body: oklch(0.23 0.002 265);
@@ -321,6 +336,17 @@
   --active: rgb(255 255 255 / 0.1);
   --field-hover: rgb(255 255 255 / 0.03);
   --field-focus: rgb(255 255 255 / 0.02);
+  --comment-bubble: color-mix(in oklab, var(--page), var(--foreground) 5%);
+  --placeholder-hover: color-mix(
+    in oklab,
+    var(--muted-foreground) 82%,
+    var(--foreground)
+  );
+  --placeholder-focus: color-mix(
+    in oklab,
+    var(--muted-foreground) 70%,
+    var(--foreground)
+  );
   --tint: oklch(1 0 0 / 14%);
   --tint-hover: oklch(1 0 0 / 11%);
   --prose-body: oklch(0.918 0.002 265);
@@ -983,21 +1009,18 @@
    on before unmounting, so it outlasts that trip. The picked dot sits
    above its neighbours, so its ring is never covered. Reduced motion keeps the
    fades. */
-@layer components {
-  /* A list section's rows open and close with a height transition, unless
-     its header is pinned to the top (data-stuck): there the toggle scrolls
-     at once to keep the header in place (keepInPlace), which a moving
-     height would fight. */
-  [data-slot="list-section-header"]:not([data-stuck])
-    + [data-slot="list-section-body"] {
-    transition: grid-template-rows 220ms var(--ease-standard);
+/* A timeline run's changes come in one after another as it opens. */
+[data-slot="timeline-fold"] > * {
+  animation: timeline-row-in 220ms var(--ease-standard) both;
+  animation-delay: calc(var(--timeline-row, 0) * 40ms + 40ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="timeline-fold"] > * {
+    animation: none;
   }
-  @media (prefers-reduced-motion: reduce) {
-    [data-slot="list-section-header"] + [data-slot="list-section-body"] {
-      transition: none;
-    }
-  }
+}
 
+@layer components {
   [data-slot="color-picker"] {
     transition: translate 180ms linear;
   }
@@ -1658,4 +1681,36 @@
    frame re-layerize the page. `absolute` keeps it hidden without the layer. */
 input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
   position: absolute !important;
+}
+
+@keyframes timeline-row-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+    filter: blur(2px);
+  }
+}
+
+/* Board columns take their status's colour as --column-tone (set by
+   boardColumnTone): a wash in from the top of the well, the count's chip,
+   and the ring while a card is dragged over. The chip's text is clamped
+   dark in light and light in dark, so it holds 4.5:1 for any status. */
+@layer components {
+  .board-column-wash {
+    background-image: linear-gradient(
+      to bottom,
+      oklch(from var(--column-tone) l calc(c * 0.5) h / 0.14),
+      transparent 72px
+    );
+  }
+  .board-column-count {
+    background: oklch(from var(--column-tone) l calc(c * 0.6) h / 0.16);
+    color: oklch(from var(--column-tone) min(l, 0.46) c h);
+  }
+  .dark .board-column-count {
+    color: oklch(from var(--column-tone) max(l, 0.8) c h);
+  }
+  .board-column-wash[data-over] {
+    box-shadow: inset 0 0 0 1.5px oklch(from var(--column-tone) l c h / 0.6);
+  }
 }

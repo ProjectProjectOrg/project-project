@@ -19,9 +19,9 @@ export const meta = {
 
 ## Overview
 
-Creating a ticket that blocks another, as it opens from that ticket's "…" menu. The card holds the writing; the tray below holds everything else. Here and in the examples, each composer is shown on its own, without its trigger.
+New ticket in cmd+k (press C, or pick New ticket), in the command menu's panel: the header line holds the project it goes into and "New ticket", the card holds the writing, the tray below holds everything else. In the examples, each composer is shown on its own, without its trigger.
 
-<Demo name="create-ticket" title="Create ticket" />
+<Demo name="new-ticket" title="New ticket" />
 
 ## Usage
 
@@ -81,7 +81,7 @@ Text starts 16px in throughout: the context, the title, the body, the hint. Fiel
 
 ### Parts own their spacing
 
-Every part sets its own padding, and the title tucks up under a header on its own. Call sites never pad a part: the six composers used to patch the insets six different ways. A header that holds a control instead of text (feedback's kind tabs) passes `control`: the control's edge sits on the 16px line, 16px from the top, and the title's text lands 16px below it.
+Every part sets its own padding, and the title tucks up under a header on its own. Call sites never pad a part: the six composers used to patch the insets six different ways. A header that holds a control instead of text (feedback's kind tabs) passes `control`: the control's edge sits on the 16px line, 16px from the top, and the title's text lands 16px below it. A ghost button that opens the header (cmd+k's project picker) is sized like a field chip, 28px with 10px sides, and pulled out by those sides, so its project tile starts on the 16px line like the title and the chips below; only its hover fill reaches past it.
 
 ### Fixed order
 

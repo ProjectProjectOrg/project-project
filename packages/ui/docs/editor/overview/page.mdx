@@ -53,7 +53,7 @@ import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 | `markdown` | The starting Markdown (read once; give it a `key` to load another document) |
 | `onChange`, `onDraftChange` | Saves, debounced (`debounceMs`) and coalesced; every change, for a draft |
 | `onStatusChange` | `"idle"`, `"dirty"`, `"saving"`, `"saved"` or `"failed"` |
-| `onSubmit` | Enter submits (Shift+Enter for a new line), as in comments |
+| `onSubmit` | ⌘↵ (Ctrl+Enter off a Mac) submits; Enter stays a new line, as in comments |
 | `attachments` | The ticket uploads and Figma links belong to; turns on attachments |
 | `blocks` | The block library and mode; turns on sections, their gutter and the slash menu's Sections tab ([Sections](/editor/blocks)) |
 | `placeholder`, `autoFocus`, `compact`, `size`, `editable`, `editorRef`, `className` | |

@@ -27,6 +27,7 @@ import {
 } from "@/features/tickets/lib/ticketPatch"
 
 import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
+import { justCreatedTicket } from "./createTicket"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
@@ -161,6 +162,7 @@ export const recordCreatedKey = (
 ) => {
   const index = createdKeys(scope)
   get.set(index, new Map(get(index)).set(id, clientId))
+  get.set(justCreatedTicket, { id, at: performance.now() })
 }
 
 type Page<Item> = Readonly<{

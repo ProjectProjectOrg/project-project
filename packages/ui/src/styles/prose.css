@@ -162,12 +162,15 @@
    gallery's: a 20px squircle on --surface-2, Geist Mono at 12 on 22px lines,
    and line numbers in a 31px gutter at 65% ink. The editor's comes from
    Lexical (data-gutter), the read view's from rehype-prism-plus
-   (showLineNumbers). */
+   (showLineNumbers). It bleeds 4px past the text on both sides: its big
+   squircle corners pull the visible edge in, so a block flush with the text
+   reads as indented. */
 .prose-md pre,
 .prose-md .lexical-code {
   --code-gutter: 31px;
   position: relative;
   display: block;
+  margin-inline: -4px;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 22px;

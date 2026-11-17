@@ -75,7 +75,7 @@ function CreatedTicketLine({
           aria-hidden
         />
         {m.comments_created_ticket({
-          name: creator?.name ?? creator?.email ?? ticket.createdBy
+          name: creator?.name || creator?.email || ticket.createdBy
         })}
       </span>
       <Link

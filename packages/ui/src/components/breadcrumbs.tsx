@@ -192,7 +192,6 @@ function Breadcrumbs({ label, children, className }: BreadcrumbsProps) {
   const drop = (key: string) =>
     setLeaving((current) => current.filter((entry) => entry.key !== key))
 
-
   return (
     <nav
       aria-label={label}
@@ -215,43 +214,43 @@ function Breadcrumbs({ label, children, className }: BreadcrumbsProps) {
         className="relative flex items-center"
       >
         <FluidHoverHighlight hover={hover} className="rounded-md" />
-          {arrange(live, leaving).map((entry) => (
-            <motion.span
-              key={entry.key}
-              // No layout animation: crumbs slide along with the widths that
-              // open and close, and a measured jump (the page scrolling to the
-              // top on navigation) would fly them in from far away.
-              initial={
-                first.has(entry.key) ? false : reduce ? fadeOnly.hidden : hidden
-              }
-              animate={
-                entry.leaving
-                  ? reduce
-                    ? fadeOnly.exit
-                    : exit
-                  : reduce
-                    ? fadeOnly.enter
-                    : enter
-              }
-              onAnimationComplete={() => {
-                if (entry.leaving) drop(entry.key)
-              }}
-              inert={entry.leaving || undefined}
-              // Clips the crumb while its width opens or closes; the margin
-              // keeps a focus ring visible once it's open.
-              className="flex shrink-0 items-center overflow-clip [overflow-clip-margin:4px]"
+        {arrange(live, leaving).map((entry) => (
+          <motion.span
+            key={entry.key}
+            // No layout animation: crumbs slide along with the widths that
+            // open and close, and a measured jump (the page scrolling to the
+            // top on navigation) would fly them in from far away.
+            initial={
+              first.has(entry.key) ? false : reduce ? fadeOnly.hidden : hidden
+            }
+            animate={
+              entry.leaving
+                ? reduce
+                  ? fadeOnly.exit
+                  : exit
+                : reduce
+                  ? fadeOnly.enter
+                  : enter
+            }
+            onAnimationComplete={() => {
+              if (entry.leaving) drop(entry.key)
+            }}
+            inert={entry.leaving || undefined}
+            // Clips the crumb while its width opens or closes; the margin
+            // keeps a focus ring visible once it's open.
+            className="flex shrink-0 items-center overflow-clip [overflow-clip-margin:4px]"
+          >
+            <Slot
+              index={entry.index}
+              isLast={entry.isLast}
+              register={entry.leaving ? undefined : hover.registerItem}
             >
-              <Slot
-                index={entry.index}
-                isLast={entry.isLast}
-                register={entry.leaving ? undefined : hover.registerItem}
-              >
-                {/* Re-keyed to the crumb's identity, so the caller's own key
+              {/* Re-keyed to the crumb's identity, so the caller's own key
                     (projects, dashboard) can't remount it under the root. */}
-                {cloneElement(entry.element, { key: entry.key })}
-              </Slot>
-            </motion.span>
-          ))}
+              {cloneElement(entry.element, { key: entry.key })}
+            </Slot>
+          </motion.span>
+        ))}
       </div>
     </nav>
   )
@@ -344,18 +343,14 @@ function BreadcrumbItem({
     className:
       "focus-ring absolute inset-0 z-10 rounded-md outline-offset-0 [corner-shape:inherit]"
   }
-  const link =
-    !overlay ? null : detail === undefined ? (
-      <Crumb render={render} {...overlayProps} />
-    ) : (
-      <Tooltip>
-        <TooltipTrigger
-          render={linked ? render : <span />}
-          {...overlayProps}
-        />
-        <TooltipContent side="bottom">{detail}</TooltipContent>
-      </Tooltip>
-    )
+  const link = !overlay ? null : detail === undefined ? (
+    <Crumb render={render} {...overlayProps} />
+  ) : (
+    <Tooltip>
+      <TooltipTrigger render={linked ? render : <span />} {...overlayProps} />
+      <TooltipContent side="bottom">{detail}</TooltipContent>
+    </Tooltip>
+  )
 
   return (
     <>

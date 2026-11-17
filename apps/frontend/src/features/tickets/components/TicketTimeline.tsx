@@ -4,16 +4,18 @@ import type {
   TicketActivityActor,
   TicketId
 } from "@pp/shared"
-import { Avatar, AvatarFallback, AvatarGroup } from "@pp/ui/avatar"
-import {
-  Bot,
-  ChevronRight,
-  GitBranch,
-  Import,
-  type IconType
-} from "@pp/ui/icons"
+import { Avatar, AvatarFallback } from "@pp/ui/avatar"
+import { Bot, GitBranch, Import, type IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
+import {
+  Timeline,
+  TimelineActor,
+  TimelineEntry,
+  TimelineEvent,
+  TimelineRun,
+  TimelineSkeleton
+} from "@pp/ui/timeline"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
@@ -75,14 +77,13 @@ const agentLogo = (actor: TicketActivityActor | null) =>
       )
     : undefined
 
-// Marks next to an actor's name stay small; marks in the summary stack stand
-// without names, so they use 24px and carry initials.
-function ActorMark({
-  actor,
-  size = 20
-}: Readonly<{ actor: TicketActivityActor | null; size?: 20 | 24 }>) {
-  const box = size === 24 ? "size-6" : "size-5"
-  const glyph = size === 24 ? "size-3.5" : "size-3"
+// An actor's 20px mark: a member's avatar, an agent's logo, or a system
+// source's glyph.
+const size = 20
+const box = "size-5"
+const glyph = "size-3"
+
+function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
   if (actor?.kind === "imported")
     return (
       <MemberAvatar
@@ -137,69 +138,44 @@ const people = (lines: ReadonlyArray<TimelineLine>) => {
 function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
   if (actor === null || actor.kind === "system") {
     return (
-      <span className="font-semibold">
+      <TimelineActor>
         {actor === null
           ? m.tickets_activity_actor_unknown()
           : SYSTEM_NAMES[actor.source]()}
-      </span>
+      </TimelineActor>
     )
   }
   if (actor.kind === "imported")
-    return <span className="font-semibold">{actor.displayName}</span>
+    return <TimelineActor>{actor.displayName}</TimelineActor>
   const name = actor.user.name || actor.user.email
-  if (actor.kind === "user") {
-    return <span className="font-semibold">{name}</span>
-  }
+  if (actor.kind === "user") return <TimelineActor>{name}</TimelineActor>
   return (
-    <span className="font-semibold">
-      {name}{" "}
-      <span className="font-normal text-muted-foreground">
-        {m.tickets_activity_actor_via({ client: actor.client.name })}
-      </span>
-    </span>
-  )
-}
-
-const RAIL =
-  "before:absolute before:left-[calc(var(--ticket-box-offset)+9.5px)] before:w-px before:bg-border before:content-['']"
-
-function railClass(first: boolean, last: boolean) {
-  return cn(
-    "relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2 py-2 pl-(--ticket-box-offset)",
-    !(first && last) && [
-      RAIL,
-      first ? "before:top-1/2" : "before:top-0",
-      last ? "before:bottom-1/2" : "before:bottom-0"
-    ]
+    <TimelineActor
+      via={m.tickets_activity_actor_via({ client: actor.client.name })}
+    >
+      {name}
+    </TimelineActor>
   )
 }
 
 function EventRow({
   line: { actor, at, line },
-  lookups,
-  first,
-  last
-}: Readonly<{
-  line: TimelineLine
-  lookups: ActivityLookups
-  first: boolean
-  last: boolean
-}>) {
+  lookups
+}: Readonly<{ line: TimelineLine; lookups: ActivityLookups }>) {
   return (
-    <li className={railClass(first, last)}>
-      <span className="relative z-10 grid h-5 place-items-center">
-        <ActorMark actor={actor} />
-      </span>
-      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
-        <ActorName actor={actor} />{" "}
-        <ActivityLineView line={line} lookups={lookups} />
-        <span aria-hidden> · </span>
-        <TimelineTime at={at} />
-      </div>
-    </li>
+    <TimelineEvent
+      mark={<ActorMark actor={actor} />}
+      actor={<ActorName actor={actor} />}
+      time={<TimelineTime at={at} />}
+    >
+      <ActivityLineView line={line} lookups={lookups} />
+    </TimelineEvent>
   )
 }
 
+// A run of changes: the older ones fold into one row that opens right under
+// itself, in either order; the newest stay out (timelineRows decides how
+// many fold).
 function RunRows({
   lines,
   fold,
@@ -212,43 +188,27 @@ function RunRows({
   lookups: ActivityLookups
 }>) {
   const [open, setOpen] = useState(false)
-  const visible = open ? lines : lines.slice(fold)
-  const ordered = order === "asc" ? visible : visible.toReversed()
-  const events = ordered.map((line, index) => (
-    <EventRow
-      key={line.key}
-      line={line}
-      lookups={lookups}
-      first={index === 0 && (order === "desc" || fold === 0)}
-      last={index === ordered.length - 1 && (order === "asc" || fold === 0)}
-    />
-  ))
-  if (fold === 0) return events
+  const inOrder = (rows: ReadonlyArray<TimelineLine>) =>
+    (order === "asc" ? rows : rows.toReversed()).map((line) => (
+      <EventRow key={line.key} line={line} lookups={lookups} />
+    ))
+  if (fold === 0) return inOrder(lines)
   const folded = lines.slice(0, fold)
   const [lead = null, ...rest] = people(folded)
   const others = rest.length
   const newest = folded.at(-1)
-  const empty = visible.length === 0
-  const summary = (
-    <li
-      className={cn(
-        order === "asc" ? railClass(true, empty) : railClass(empty, true),
-        "grid-cols-[auto_minmax(0,1fr)]"
-      )}
-    >
-      <AvatarGroup className="relative z-10 h-6 items-center [--avatar-overlap:--spacing(1.5)] [--avatar-size:--spacing(6)]">
-        <ActorMark actor={lead} size={24} />
-        {rest.slice(0, 3).map((actor) => (
-          <ActorMark key={personKey(actor)} actor={actor} size={24} />
-        ))}
-      </AvatarGroup>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="group flex min-w-0 items-center gap-1 text-left text-body leading-5 text-muted-foreground"
-      >
-        <span className="min-w-0">
+  const run = (
+    <TimelineRun
+      marks={
+        <>
+          <ActorMark actor={lead} />
+          {rest.slice(0, 3).map((actor) => (
+            <ActorMark key={personKey(actor)} actor={actor} />
+          ))}
+        </>
+      }
+      label={
+        <>
           <ActorName actor={lead} />
           {others > 0 &&
             ` ${
@@ -257,32 +217,25 @@ function RunRows({
                 : m.tickets_activity_run_others_many({ count: others })
             }`}{" "}
           {m.tickets_activity_run_changes({ count: fold })}
-          {newest && (
-            <>
-              <span aria-hidden> · </span>
-              <TimelineTime at={newest.at} />
-            </>
-          )}
-        </span>
-        <ChevronRight
-          aria-hidden
-          className={cn(
-            "size-3.5 shrink-0 transition-transform group-hover:text-foreground",
-            open && "rotate-90"
-          )}
-        />
-      </button>
-    </li>
+        </>
+      }
+      time={newest && <TimelineTime at={newest.at} />}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      {inOrder(folded)}
+    </TimelineRun>
   )
+  const kept = inOrder(lines.slice(fold))
   return order === "asc" ? (
     <>
-      {summary}
-      {events}
+      {run}
+      {kept}
     </>
   ) : (
     <>
-      {events}
-      {summary}
+      {kept}
+      {run}
     </>
   )
 }
@@ -309,13 +262,7 @@ export function TicketTimeline<C>({
   const types = useTicketTypes(orgSlug, slug)
 
   if (AsyncResult.isInitial(result)) {
-    return (
-      <div role="status" aria-busy="true" className="space-y-2">
-        <span className="sr-only">{m.tickets_activity_loading()}</span>
-        <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-      </div>
-    )
+    return <TimelineSkeleton label={m.tickets_activity_loading()} />
   }
 
   const lookups: ActivityLookups = {
@@ -332,12 +279,12 @@ export function TicketTimeline<C>({
 
   return (
     <div className="space-y-3">
-      <ol>
+      <Timeline className="[--timeline-inset:var(--ticket-box-offset)]">
         {rows.map((row) =>
           row.kind === "comment" ? (
-            <li key={row.key} className="py-3 first:pt-0 last:pb-0">
+            <TimelineEntry key={row.key}>
               {renderComment(row.comment)}
-            </li>
+            </TimelineEntry>
           ) : (
             <RunRows
               key={row.key}
@@ -348,7 +295,7 @@ export function TicketTimeline<C>({
             />
           )
         )}
-      </ol>
+      </Timeline>
       {AsyncResult.isFailure(result) && (
         <p role="alert" className="text-body text-destructive">
           {m.tickets_activity_load_failed()}

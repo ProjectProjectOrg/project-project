@@ -14,17 +14,7 @@ import { Loader2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { ListSectionBody } from "@pp/ui/list-section"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  createContext,
-  useCallback,
-  use,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode
-} from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -34,6 +24,7 @@ import {
   loadMoreBacklog,
   type BacklogRequest
 } from "@/features/tickets/atoms/backlog"
+import { justCreatedTicket } from "@/features/tickets/atoms/createTicket"
 import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
 import type {
@@ -46,44 +37,12 @@ import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
+import { isFresh } from "./CreatedRow"
 import { LandingFlash, useSectionDrop } from "./ListRowDrag"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 import { AutoLoad } from "./VirtualRows"
-
-type CreatingSections = Readonly<{
-  creatingIds: ReadonlySet<string>
-  setCreating: (id: string, creating: boolean) => void
-}>
-
-const CreatingSectionContext = createContext<CreatingSections | null>(null)
-
-export function CreatingSectionsProvider({
-  children
-}: Readonly<{ children: ReactNode }>) {
-  const [creatingIds, setCreatingIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  )
-  const setCreating = useCallback(
-    (id: string, creating: boolean) =>
-      setCreatingIds((current) => {
-        if (current.has(id) === creating) return current
-        const next = new Set(current)
-        if (creating) next.add(id)
-        else next.delete(id)
-        return next
-      }),
-    []
-  )
-  const value = useMemo<CreatingSections>(
-    () => ({ creatingIds, setCreating }),
-    [creatingIds, setCreating]
-  )
-  return (
-    <CreatingSectionContext value={value}>{children}</CreatingSectionContext>
-  )
-}
 
 export function SectionList({
   status,
@@ -136,17 +95,6 @@ export function SectionList({
   const canCreateTickets = canCreate && actor.call("tickets", "quickCreate")
   const req = backlogRequest(orgSlug, slug, query)
   const [creating, setCreating] = useState(false)
-  const sectionId = useId()
-  const creatingSections = use(CreatingSectionContext)
-  const reportCreating = creatingSections?.setCreating
-  useEffect(() => {
-    reportCreating?.(sectionId, creating)
-    return () => reportCreating?.(sectionId, false)
-  }, [reportCreating, sectionId, creating])
-  const dimmed =
-    creatingSections !== null &&
-    creatingSections.creatingIds.size > 0 &&
-    !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
   const inOneSprint =
@@ -167,6 +115,16 @@ export function SectionList({
     canLeaveSprint: GroupPolicy.can(actor, "sprint", "remove_ticket")
   })
 
+  const created = useAtomValue(justCreatedTicket)
+  const holdsCreated =
+    created !== null && items.some(({ ticket }) => ticket.id === created.id)
+  const opened = useRef<typeof created>(null)
+  useEffect(() => {
+    if (!collapsed || !holdsCreated || created === opened.current) return
+    opened.current = created
+    if (created !== null && isFresh(created.at)) onToggleCollapsed()
+  }, [collapsed, holdsCreated, created, onToggleCollapsed])
+
   const onStartCreate = () => {
     if (collapsed) onToggleCollapsed()
     setCreating(true)
@@ -177,8 +135,7 @@ export function SectionList({
     <div
       ref={sectionRef}
       className={cn(
-        "relative isolate flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
-        dimmed && "opacity-35",
+        "relative isolate flex flex-col rounded-lg transition-[background-color] duration-200 ease-out",
         over && "bg-accent/40"
       )}
       data-creating={creating || undefined}

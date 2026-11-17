@@ -20,7 +20,6 @@ import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
-import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
 import { useSubTicketsSettled } from "./useSubTicketsSettled"
 
@@ -49,19 +48,17 @@ export function TicketList({
   ...props
 }: TicketListProps) {
   return (
-    <CreatorActiveScope>
-      <div className="group/list flex flex-col gap-3">
-        {creator ?? <BacklogTicketCreator query={props.query} />}
-        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
-          {toolbar}
-          <TicketListContent
-            {...props}
-            sections={sections}
-            showSections={showSections}
-          />
-        </DimWhileCreating>
+    <div className="group/list flex flex-col gap-3">
+      {creator ?? <BacklogTicketCreator query={props.query} />}
+      <div className="flex flex-col gap-3">
+        {toolbar}
+        <TicketListContent
+          {...props}
+          sections={sections}
+          showSections={showSections}
+        />
       </div>
-    </CreatorActiveScope>
+    </div>
   )
 }
 

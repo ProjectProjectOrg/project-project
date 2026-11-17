@@ -54,11 +54,7 @@ import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
-import {
-  CreatingSectionsProvider,
-  SectionList,
-  TicketPagination
-} from "./SectionList"
+import { SectionList, TicketPagination } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
@@ -147,33 +143,29 @@ export function SprintSections(props: Props) {
             query: viewQuery(active.query)
           })}
         >
-          <CreatingSectionsProvider>
-            {backlogSprintSections(groups, active.query.groupId).map(
-              (sprint) => {
-                const id = sprintSectionKey(sprint?.id ?? null)
-                const section = active.value.sections.find(
-                  (entry) => entry.key === id
-                )
-                return (
-                  <SprintSection
-                    key={id}
-                    {...props}
-                    persistKey={persistKey}
-                    query={active.query}
-                    snapshotReq={active.req}
-                    sprint={sprint}
-                    page={section?.page ?? EMPTY_PAGE}
-                    count={section?.count ?? 0}
-                    estimates={section?.estimates ?? null}
-                    waiting={waiting}
-                    activePreviewId={preview.activePreviewId}
-                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                    onPreviewOpenChange={preview.onPreviewOpenChange}
-                  />
-                )
-              }
-            )}
-          </CreatingSectionsProvider>
+          {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
+            const id = sprintSectionKey(sprint?.id ?? null)
+            const section = active.value.sections.find(
+              (entry) => entry.key === id
+            )
+            return (
+              <SprintSection
+                key={id}
+                {...props}
+                persistKey={persistKey}
+                query={active.query}
+                snapshotReq={active.req}
+                sprint={sprint}
+                page={section?.page ?? EMPTY_PAGE}
+                count={section?.count ?? 0}
+                estimates={section?.estimates ?? null}
+                waiting={waiting}
+                activePreviewId={preview.activePreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+              />
+            )
+          })}
         </TicketViewSourceContext>
       </div>
     ) : (

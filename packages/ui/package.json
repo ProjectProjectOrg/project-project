@@ -64,7 +64,7 @@
     "./editor/slash-menu/slash-menu-preview": "./src/editor/slash-menu/slash-menu-preview.tsx",
     "./editor/slash-menu/slash-menu-view": "./src/editor/slash-menu/slash-menu-view.tsx",
     "./editor/slash-menu/slash-menu": "./src/editor/slash-menu/slash-menu.tsx",
-    "./editor/submit-on-enter-plugin": "./src/editor/submit-on-enter-plugin.tsx",
+    "./editor/submit-shortcut-plugin": "./src/editor/submit-shortcut-plugin.tsx",
     "./editor/typeahead-portal": "./src/editor/typeahead-portal.tsx",
     "./editor/*": "./src/editor/*.ts",
     "./assets/*": "./src/assets/*",
@@ -80,6 +80,8 @@
     "build-gallery": "vite build --config gallery/vite.config.ts"
   },
   "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
+    "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "^2.1.5",
     "@base-ui/react": "^1.9.0",
     "@daypicker/react": "~10.0.2",
     "@hugeicons/core-free-icons": "^4.4.0",

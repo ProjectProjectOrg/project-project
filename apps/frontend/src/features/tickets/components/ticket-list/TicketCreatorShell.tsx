@@ -3,48 +3,15 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
-import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { comboboxProps, type ListboxState } from "@pp/ui/menu-listbox"
 import {
   Children,
-  createContext,
-  use,
-  useEffect,
   useId,
-  useMemo,
-  useState,
   type FormEvent,
   type ReactNode,
   type RefObject
 } from "react"
-
-import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
-import { appHotkeys } from "@/lib/appHotkeys"
-import { keyLabels } from "@/lib/keyLabels"
-
-type CreatorActive = Readonly<{
-  active: boolean
-  setActive: (active: boolean) => void
-}>
-
-const CreatorActiveContext = createContext<CreatorActive | null>(null)
-
-export function CreatorActiveScope({
-  children
-}: Readonly<{ children: ReactNode }>) {
-  const [active, setActive] = useState(false)
-  const value = useMemo<CreatorActive>(() => ({ active, setActive }), [active])
-  return <CreatorActiveContext value={value}>{children}</CreatorActiveContext>
-}
-
-export function DimWhileCreating({
-  className,
-  children
-}: Readonly<{ className?: string; children: ReactNode }>) {
-  const active = use(CreatorActiveContext)?.active ?? false
-  return <div className={cn(className, active && "opacity-35")}>{children}</div>
-}
 
 export type TicketCreatorShellProps = Readonly<{
   inputRef: RefObject<HTMLInputElement | null>
@@ -88,13 +55,6 @@ export function TicketCreatorShell({
   belowInput
 }: TicketCreatorShellProps) {
   const errorId = useId()
-  useGlobalShortcut(appHotkeys["tickets.create"], inputRef)
-
-  const setCreatorActive = use(CreatorActiveContext)?.setActive
-  useEffect(() => {
-    setCreatorActive?.(expanded)
-    return () => setCreatorActive?.(false)
-  }, [setCreatorActive, expanded])
 
   return (
     <form
@@ -139,7 +99,6 @@ export function TicketCreatorShell({
           }}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          aria-keyshortcuts={appHotkeys["tickets.create"].defaultHotkey}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           readOnly={busy}
@@ -155,15 +114,7 @@ export function TicketCreatorShell({
           >
             {error}
           </span>
-        ) : (
-          !expanded && (
-            <KbdShortcut
-              keys={appHotkeys["tickets.create"].defaultHotkey}
-              keyLabels={keyLabels()}
-              aria-hidden
-            />
-          )
-        )}
+        ) : null}
       </InputGroup>
       {belowInput}
     </form>

@@ -1,4 +1,5 @@
 import type { ProjectBannerPreset } from "@pp/shared"
+import type { BannerShaderSettings } from "@pp/ui/banner-shader"
 
 import cliff_walkThumbUrl from "@/assets/project-banners/monet-14620-thumb.webp"
 import saint_lazareThumbUrl from "@/assets/project-banners/monet-16571-thumb.webp"
@@ -11,8 +12,6 @@ import {
   bannerSource
 } from "@/features/projects/lib/bannerSource"
 import { m } from "@/paraglide/messages"
-
-import type { BannerShaderSettings } from "@pp/ui/banner-shader"
 
 export { bannerSource }
 

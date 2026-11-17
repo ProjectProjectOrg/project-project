@@ -71,16 +71,16 @@ export default function Playground() {
             />
           )}
           {!state.dashboard && state.sprint ? (
-              <BreadcrumbItem key="sprint" label="Sprint 24" render={link} />
-            ) : null}
+            <BreadcrumbItem key="sprint" label="Sprint 24" render={link} />
+          ) : null}
           {!state.dashboard && ticket !== null && state.parent ? (
-              <BreadcrumbItem
-                key="parent"
-                prefix={PARENT[0]}
-                detail={PARENT[1]}
-                render={link}
-              />
-            ) : null}
+            <BreadcrumbItem
+              key="parent"
+              prefix={PARENT[0]}
+              detail={PARENT[1]}
+              render={link}
+            />
+          ) : null}
           {state.dashboard || ticket === null ? null : (
             <BreadcrumbItem key="ticket" prefix={ticket[0]} label={ticket[1]} />
           )}
@@ -91,7 +91,10 @@ export default function Playground() {
           variant="secondary"
           size="xs"
           onClick={() =>
-            set({ dashboard: false, project: (state.project + 1) % PROJECTS.length })
+            set({
+              dashboard: false,
+              project: (state.project + 1) % PROJECTS.length
+            })
           }
         >
           Next project

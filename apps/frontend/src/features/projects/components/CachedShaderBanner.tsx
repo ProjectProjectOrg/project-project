@@ -1,3 +1,4 @@
+import type { BannerShaderSettings } from "@pp/ui/banner-shader"
 import {
   lazy,
   Suspense,
@@ -16,8 +17,6 @@ import {
   type BannerRenderKey
 } from "@/features/projects/lib/bannerRenderCache"
 import { m } from "@/paraglide/messages"
-
-import type { BannerShaderSettings } from "@pp/ui/banner-shader"
 
 const BannerShader = lazy(() =>
   import("@pp/ui/banner-shader").then((module) => ({

@@ -1,0 +1,129 @@
+export const meta = {
+  title: "Comment",
+  group: "Primitives",
+  description:
+    "A comment on a ticket's timeline: a bubble hanging off its author's mark on the rail, with its replies one step in, earlier replies folded, and a reply box that opens from Reply.",
+  sources: [
+    {
+      kind: "own",
+      name: "Comment",
+      note: "Ported from the app's comment row and thread, redesigned as bubbles on the timeline's rail"
+    }
+  ]
+}
+
+## Overview
+
+Hover a comment for its menu, open the earlier replies, and press Reply.
+
+<Demo name="overview" title="A thread on the timeline" />
+
+## Usage
+
+The app fills the parts: the body (`Markdown`, or the editor while editing), the menu, the reply editor and every string. A thread sits in a `TimelineEntry`, so its marks join the timeline's rail.
+
+```tsx
+import {
+  Comment,
+  CommentEarlier,
+  CommentReplies,
+  CommentReplyAction,
+  CommentReplyBox,
+  CommentThread
+} from "@pp/ui/comment"
+
+<CommentThread>
+  <Comment
+    mark={<MemberAvatar member={author} size={20} />}
+    author={commentAuthorName(comment.author)}
+    time={<TimelineTime at={comment.createdAt} />}
+    meta={<CommentMeta comment={comment} />}
+    actions={<CommentMenuButton {...menu} />}
+    pending={waiting}
+    targeted={targeted}
+  >
+    <Markdown>{comment.body}</Markdown>
+  </Comment>
+  <CommentReplies>
+    <CommentEarlier label={m.comments_thread_show_earlier({ count })} open={open} onOpenChange={setOpen}>
+      {earlier}
+    </CommentEarlier>
+    {replies}
+    {replying ? (
+      <CommentReplyBox mark={…} submit={<Button size="sm">{m.comments_reply_submit()}</Button>}>
+        <LexicalEditor compact autoFocus … />
+      </CommentReplyBox>
+    ) : (
+      <CommentReplyAction onClick={() => setReplying(true)}>{m.comments_reply_submit()}</CommentReplyAction>
+    )}
+  </CommentReplies>
+</CommentThread>
+```
+
+| Part | Holds |
+| --- | --- |
+| `CommentThread` | a thread: the first comment and its replies, at the timeline's 13px text |
+| `Comment` | one comment: `mark` (20px, on the rail), `author`, `time`, `meta` (edited, imported, resolved), `actions` (the menu), `pending`, `appear` (just placed: eases in), `targeted`, `failed` (not sent: a red hairline), `editActions` (Cancel and Save while editing), `footer` (an error, or `CommentFailed`), and the body |
+| `CommentFailed` | under a comment that failed to send: `message` ("Not sent.") and Retry (`retryLabel`, `onRetry`) |
+| `CommentReplies` | the replies, one step in (22px) |
+| `CommentEarlier` | earlier replies folded into one row that opens right under itself; `label`, `open`, `onOpenChange` |
+| `CommentReplyAction` | "Reply" under the last bubble, lined up with its text; `under="comment"` under a first comment |
+| `CommentReplySwap` | Reply and the reply box in one place: `open`, `under`, `action`, the box |
+| `CommentReplyBox` | the reply editor in a bubble of its own, easing in as it opens: `mark`, `author`, `time`, `submit` |
+| `CommentComposer` | writing a new comment, under the timeline: the editor and `submit` |
+
+## Rules
+
+### A bubble hanging off its author
+
+The comment is a bubble whose top-left corner is tight (4px) beside the author's mark and the rest are 14px, so it reads as said by the person on the rail. Name and time sit inside, in caption size, so the attribution travels with the text.
+
+### Squircles
+
+Every comment surface (the bubble, the reply box, the composer) is a squircle in the house corner shape (`--button-corner`).
+
+### Lifted off the page
+
+The bubble is `--comment-bubble`: the page lifted 4.5% (light) or 5% (dark) toward the text colour. The old card was `--card`, which in dark is darker than the page, so comments sank into it; a lifted fill reads as raised in both themes.
+
+### Replies one step in, on the rail
+
+Replies sit one step in (22px), and the rail bends in to them with the timeline's squircle corners and back out after the last. Earlier replies fold into one row and open right under it, with the same easing and rail animation as a run of changes.
+
+### A placed comment eases in
+
+A comment you place (or a reply) joins the timeline at once, while it's sent: its space eases open over 340ms on the house curve while it rises 8px into place and unblurs, and the rail follows it down. It pulses until it's saved. Comments already on the page don't animate; reduced motion shows it at once.
+
+### The menu holds every action
+
+The "…" button shows on hover, on focus and while its menu is open. The menu, also on right-click, holds edit (for the author), resolve or reopen the thread, create a ticket or sub-ticket from the comment, copy a link or the Markdown (the thread's, on its first comment), and delete, which confirms in place. Anything the viewer can't do is left out.
+
+### Reply opens the box in its place
+
+Reply sits under the thread's last bubble, lined up with the text. Pressing it collapses the link while the reply box eases open in its place, one step in, so the thread only grows. Under a comment with no replies yet the box starts the indent, and the rail's bend eases out with it; among replies it only lengthens the line. The box is clipped, never scrolled, so the editor can take focus while it opens; leaving it empty closes it again. A resolved thread has no Reply.
+
+### Editing happens inside the bubble
+
+Edit (in the menu, for the author) turns the comment into the editor in place: "editing…" after the name, and Cancel and Save inside the bubble at the end of the editor, the way the reply box holds its send button.
+
+### A comment that fails stays in the thread
+
+Sending never loses what you wrote. The composer or reply box clears as soon as you send, and the comment joins the thread at once. If sending fails it stays in its place, ringed by a 1px hairline in the destructive colour, with "Not sent." and Retry under the bubble, on the page (red on the bubble's fill falls short of AA). Its menu holds Edit (Save sends the new text), Copy text and Discard, which confirms in place. A failed comment has no Reply. The app keeps these in memory, so a reload drops them.
+
+### Room for the bend
+
+Replies sit 16px below their comment, not 10px, and the rail's bend lands on the top edge of the first indented mark, so the curve runs under the bubble's corner instead of along it.
+
+## Examples
+
+### Placing a comment
+
+<Demo name="placing" title="Placing a comment" />
+
+### The menu
+
+<Demo name="menu" title="The comment menu" className="min-h-[26rem] place-items-start" />
+
+### States
+
+<Demo name="states" title="States" />

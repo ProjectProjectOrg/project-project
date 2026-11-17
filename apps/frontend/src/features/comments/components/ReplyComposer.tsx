@@ -1,16 +1,24 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { CommentId, TicketId, User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { CommentReplyBox } from "@pp/ui/comment"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { MemberAvatar } from "@pp/ui/member-avatar"
+import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FocusEvent } from "react"
 
 import { me } from "@/features/auth/atoms/auth"
 import { useCommentDraft } from "@/features/comments/hooks/useCommentDraft"
+import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { m } from "@/paraglide/messages"
 
-type ReplyProps = Readonly<{ ticketId: TicketId; replyTo: CommentId }>
+type ReplyProps = Readonly<{
+  ticketId: TicketId
+  replyTo: CommentId
+  // Leaving the box empty closes it again.
+  onClose: () => void
+}>
 
 export function ReplyComposer(props: ReplyProps) {
   const viewer = useAtomValue(me())
@@ -21,56 +29,45 @@ export function ReplyComposer(props: ReplyProps) {
 function ReadyReplyComposer({
   ticketId,
   replyTo,
+  onClose,
   author
 }: ReplyProps & Readonly<{ author: User }>) {
-  const { body, setBody, editorKey, failed, submit, rootRef } = useCommentDraft(
-    { ticketId, author, replyTo }
-  )
-  const [open, setOpen] = useState(false)
+  const { body, setBody, editorKey, submit, rootRef } = useCommentDraft({
+    ticketId,
+    author,
+    replyTo
+  })
+  const [openedAt] = useState(() => DateTime.toDate(DateTime.nowUnsafe()))
   const ready = body.trim() !== ""
 
   const closeWhenEmpty = (event: FocusEvent<HTMLDivElement>) => {
     const leaving = !event.currentTarget.contains(event.relatedTarget)
-    if (leaving && !ready && !failed) setOpen(false)
+    if (leaving && !ready) onClose()
   }
 
   return (
-    <div
+    <CommentReplyBox
       ref={rootRef}
       onBlur={closeWhenEmpty}
-      className="flex items-end gap-2 rounded-b-xl border-t border-border/60 py-2.5 pr-2.5 pl-4 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      mark={<MemberAvatar member={author} size={20} />}
+      author={author.name || author.email}
+      time={<TimelineTime at={openedAt} />}
+      submit={
+        <Button size="sm" onClick={submit} disabled={!ready}>
+          {m.comments_reply_submit()}
+        </Button>
+      }
     >
-      <MemberAvatar member={author} size={20} className="mt-1.5 self-start" />
-      <div className="min-w-0 flex-1 pt-1.5 pb-0.5">
-        {open || failed ? (
-          <LexicalEditor
-            key={editorKey}
-            markdown={body}
-            onDraftChange={setBody}
-            onSubmit={submit}
-            placeholder={m.comments_reply_placeholder()}
-            // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the reply box
-            autoFocus
-            compact
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="flex min-h-6 w-full cursor-text items-start text-left text-body text-muted-foreground"
-          >
-            {m.comments_reply_placeholder()}
-          </button>
-        )}
-        {failed && (
-          <p role="alert" className="mt-1 text-body text-destructive">
-            {m.comments_composer_failed()}
-          </p>
-        )}
-      </div>
-      <Button size="sm" onClick={submit} disabled={!ready} className="mb-0.5">
-        {m.comments_reply_submit()}
-      </Button>
-    </div>
+      <LexicalEditor
+        key={editorKey}
+        markdown={body}
+        onDraftChange={setBody}
+        onSubmit={submit}
+        placeholder={m.comments_reply_placeholder()}
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click on Reply that opened the box
+        autoFocus
+        compact
+      />
+    </CommentReplyBox>
   )
 }

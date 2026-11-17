@@ -1,6 +1,7 @@
-import Scritto from "@scritto/react"
+import "@scritto/react"
+import type { Scritto as ScrittoElement } from "@scritto/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import type { ReactNode } from "react"
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
@@ -67,11 +68,7 @@ function TextSwap({
       )}
     >
       {icon != null && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
-      <Scritto
-        value={children}
-        transition={{ duration: DURATION[speed], easing: EASING }}
-        className="max-w-full min-w-0"
-      />
+      <SwapText value={children} duration={DURATION[speed]} />
     </span>
   )
   if (!announce) return swap
@@ -80,6 +77,53 @@ function TextSwap({
       <span className="sr-only">{children}</span>
       {swap}
     </span>
+  )
+}
+
+// Scritto is a custom element with its own shadow root, costly to mount by
+// the hundred (every row of a long list carries one). So a value shows as
+// plain text until it first changes; only then does Scritto take over, put
+// in with the old value and moved to the new one, so that change rolls too.
+function SwapText({
+  value,
+  duration
+}: Readonly<{ value: string; duration: number }>) {
+  const [first] = useState(value)
+  const [live, setLive] = useState(false)
+  if (!live && value === first)
+    return <span className="max-w-full min-w-0">{value}</span>
+  if (!live) setLive(true)
+  return <LiveText from={first} value={value} duration={duration} />
+}
+
+const isScritto = (element: HTMLElement | null): element is ScrittoElement =>
+  element !== null && "update" in element && "setOptions" in element
+
+function LiveText({
+  from,
+  value,
+  duration
+}: Readonly<{ from: string; value: string; duration: number }>) {
+  const ref = useRef<HTMLElement>(null)
+  const started = useRef(false)
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!isScritto(element)) return
+    element.setOptions({ transition: { duration, easing: EASING } })
+    if (!started.current) {
+      started.current = true
+      element.update(from, false)
+    }
+    element.update(value, true)
+  }, [from, value, duration])
+  return (
+    <scritto-text
+      ref={ref}
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Scritto hides its glyphs; the label is the value, as @scritto/react sets it
+      role="img"
+      aria-label={value}
+      className="max-w-full min-w-0"
+    />
   )
 }
 

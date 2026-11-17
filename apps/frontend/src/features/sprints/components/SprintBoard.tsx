@@ -1,4 +1,3 @@
-import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   RegistryContext,
   useAtomValue,
@@ -10,15 +9,19 @@ import type {
   Member,
   ProjectStatus,
   TicketId,
-  TicketListQuery,
-  TicketStatus
+  TicketListQuery
 } from "@pp/shared"
+import {
+  BoardColumns,
+  useBoardAutoScroll,
+  useBoardCardDrop
+} from "@pp/ui/board-drag"
 import { DitherShell } from "@pp/ui/dither-shell"
 import { cn } from "@pp/ui/lib/utils"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion, Reorder } from "motion/react"
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import { motion } from "motion/react"
+import { useContext, useMemo, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -38,8 +41,7 @@ import {
   BoardKeyboardContext,
   useBoardKeyboardNavigation
 } from "@/features/sprints/hooks/useBoardKeyboardNavigation"
-import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
-import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
+import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
@@ -59,18 +61,15 @@ import {
   isDropData
 } from "../lib/boardUtils"
 import { HiddenColumnsEmpty } from "./HiddenColumnsEmpty"
-import { SprintBoardColumn } from "./SprintBoardColumn"
+import { columnReorder, SprintBoardColumn } from "./SprintBoardColumn"
 
 type SprintBoardProps = {
   groupId: GroupId
   query: TicketListQuery
   members: ReadonlyArray<Member>
   isCompleted: boolean
-  reorderMode: boolean
-  onEnterReorder: () => void
-  onExitReorder: () => void
-  dragOrder: ReadonlyArray<TicketStatus> | null
-  setDragOrder: (next: ReadonlyArray<TicketStatus> | null) => void
+  // Reordering the columns by their grips; null for people who can't.
+  reorder: StatusReorder | null
 }
 
 export function SprintBoard(props: SprintBoardProps) {
@@ -126,11 +125,7 @@ function SprintBoardContent({
   query,
   members,
   isCompleted,
-  reorderMode,
-  onEnterReorder,
-  onExitReorder,
-  dragOrder,
-  setDragOrder,
+  reorder,
   board,
   statuses,
   waiting
@@ -143,12 +138,13 @@ function SprintBoardContent({
   useExpandSubTicketsCommand()
   const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
-  const groupRef = useReorderMode(reorderMode, onExitReorder)
+  const reorderMode = reorder?.reorderMode ?? false
+  const dragOrder = reorder?.dragOrder ?? null
   const actor = useProjectActor()
   const canReorder = TicketPolicy.canChange(actor, { content: true })
   const canTransition = TicketPolicy.canChange(actor, { status: true })
   const { height, hasRightOverflow } = useBoardViewport(ref)
-  useHorizontalAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
+  useBoardAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
 
   const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
@@ -183,33 +179,23 @@ function SprintBoardContent({
   const boardTicketsRef = useRef(board.tickets)
   boardTicketsRef.current = board.tickets
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el || isCompleted || reorderMode || !canReorder) return
-    return monitorForElements({
-      onDrop({ source, location }) {
-        const target = location.current.dropTargets[0]
-        if (!target) return
-        const src = source.data
-        const dst = target.data
-        if (!isDragData(src) || !isDropData(dst)) return
-        if (dst.type === "card" && dst.id === src.id) return
+  useBoardCardDrop(!isCompleted && !reorderMode && canReorder, (src, dst) => {
+    if (!isDragData(src) || !isDropData(dst)) return
+    if (dst.type === "card" && dst.id === src.id) return
 
-        const status = dst.status !== src.status ? dst.status : undefined
-        if (status !== undefined && !canTransition) return
-        const position = boardMove(
-          boardTicketsRef.current,
-          unfilteredGroupedRef.current[dst.status] ?? [],
-          src.id,
-          dst
-        )
-        const edit = boardEdit(status, position)
-        if (edit === null) return
-        registry.set(updateBoardTicket({ req, id: src.id }), edit)
-        flash(src.id)
-      }
-    })
-  }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
+    const status = dst.status !== src.status ? dst.status : undefined
+    if (status !== undefined && !canTransition) return
+    const position = boardMove(
+      boardTicketsRef.current,
+      unfilteredGroupedRef.current[dst.status] ?? [],
+      src.id,
+      dst
+    )
+    const edit = boardEdit(status, position)
+    if (edit === null) return
+    registry.set(updateBoardTicket({ req, id: src.id }), edit)
+    flash(src.id)
+  })
 
   const keyboard = useBoardKeyboardNavigation(
     ref,
@@ -238,13 +224,11 @@ function SprintBoardContent({
           {order.length === 0 && layout.hidden.length > 0 ? (
             <HiddenColumnsEmpty onShowAll={layout.showAll} />
           ) : (
-            <Reorder.Group
-              ref={groupRef}
-              as="div"
+            <BoardColumns
               role={keyboard.context ? "row" : undefined}
-              axis="x"
-              values={[...order]}
-              onReorder={(next) => setDragOrder(next)}
+              values={order}
+              reordering={reorderMode}
+              onReorder={(next) => reorder?.setDragOrder(next)}
               className="flex h-full gap-3"
             >
               {order.map((status, columnIndex) => (
@@ -260,12 +244,12 @@ function SprintBoardContent({
                   isDraggable={!isCompleted && canReorder}
                   lastFlash={lastFlash}
                   reorderMode={reorderMode}
-                  onActivateReorder={onEnterReorder}
+                  reorder={columnReorder(reorder, order, status)}
                   collapsed={layout.collapsed.includes(status)}
                   onToggleCollapsed={() => layout.toggleCollapsed(status)}
                 />
               ))}
-            </Reorder.Group>
+            </BoardColumns>
           )}
         </motion.div>
       </BoardKeyboardContext>

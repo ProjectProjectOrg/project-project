@@ -3,21 +3,24 @@ import * as React from "react"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
 
-// default: the bordered field. bare: the same field without the fill and
-// hairline. Both tint on hover and, lighter, while focused. bare has no fill
-// or border at rest, for fields
-// inside a composer that styles its own text; it still shows a hover tint and
-// a lighter tint while focused, so you can see what is editable and where you
-// are typing.
+// default: the bordered field, tinted on hover and, lighter, while focused.
+// bare: text only, for fields inside a composer that styles its own text; no
+// fill or line in any state, its placeholder steps up on hover and focus.
 type InputVariant = "default" | "bare"
 // The same heights as Button, so a field and a button sit level in a row.
 type InputSize = "sm" | "md" | "lg"
 
-// The bare field's tint: none at rest, --field-hover on hover, and the lighter
-// --field-focus while focused. Exported for app fields that edit text in
+// The bare field's states, on its placeholder only: --muted-foreground at
+// rest, --placeholder-hover on hover and --placeholder-focus while focused,
+// all in the placeholder range. Covers a native placeholder and the editor's
+// (data-slot="editor-placeholder"). Exported for app fields that edit text in
 // place (a ticket title, a sprint name) so they read like a bare Input.
-const bareFieldTintClass =
-  "rounded-[10px] transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-(--field-hover) not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
+const bareFieldStateClass = cn(
+  "cursor-text placeholder:transition-colors placeholder:duration-150 [&_[data-slot=editor-placeholder]]:transition-colors [&_[data-slot=editor-placeholder]]:duration-150",
+  "not-disabled:not-focus-within:hover:placeholder:text-(--placeholder-hover) not-disabled:not-focus-within:hover:placeholder:duration-0 not-focus-within:hover:[&_[data-slot=editor-placeholder]]:text-(--placeholder-hover) not-focus-within:hover:[&_[data-slot=editor-placeholder]]:duration-0",
+  "focus-within:placeholder:text-(--placeholder-focus) focus:placeholder:text-(--placeholder-focus) focus-within:[&_[data-slot=editor-placeholder]]:text-(--placeholder-focus)",
+  "[&_::placeholder]:transition-colors [&_::placeholder]:duration-150 focus-within:[&_::placeholder]:text-(--placeholder-focus) not-focus-within:hover:[&_::placeholder]:text-(--placeholder-hover) not-focus-within:hover:[&_::placeholder]:duration-0"
+)
 
 // The bordered field gets the same two tints, laid over its --field fill as
 // an inset shadow (a background colour would replace the fill, and a
@@ -25,10 +28,10 @@ const bareFieldTintClass =
 const fieldTintClass =
   "transition-[box-shadow] duration-150 not-disabled:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-disabled:hover:duration-0 focus-visible:shadow-[inset_0_0_0_100vmax_var(--field-focus)]"
 
-// The bare Input: the tint plus 8px of padding, cancelled by equal negative
-// margins, so the text sits exactly where an unpadded field's would and
-// nothing around it moves.
-const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1 ${bareFieldTintClass}`
+// The bare Input: the states plus 8px of padding, cancelled by equal negative
+// margins, so the click area reaches past the text and nothing around it
+// moves.
+const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1 ${bareFieldStateClass}`
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default: `border border-(--segment-line) bg-field focus-ring aria-invalid:border-destructive ${fieldTintClass}`,
@@ -67,5 +70,5 @@ function Input({
   )
 }
 
-export { Input, bareFieldClass, bareFieldTintClass, fieldTintClass }
+export { Input, bareFieldClass, bareFieldStateClass, fieldTintClass }
 export type { InputSize, InputVariant }

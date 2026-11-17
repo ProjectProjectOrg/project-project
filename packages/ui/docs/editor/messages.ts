@@ -123,7 +123,7 @@ const en = {
   editor_slash_synced: "synced",
   editor_slash_tab_all: "All",
   editor_slash_tabs_label: "Next tab",
-  editor_submit_hint: "Enter to send, Shift+Enter for a new line",
+  editor_submit_hint: "Command+Enter or Ctrl+Enter to send",
   editor_synced_customize: "Customize",
   editor_synced_detach: "Detach",
   editor_synced_edit: "Edit",

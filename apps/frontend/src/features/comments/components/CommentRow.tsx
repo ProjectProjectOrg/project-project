@@ -2,6 +2,7 @@ import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Comment as CommentBubble } from "@pp/ui/comment"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -11,7 +12,6 @@ import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { CircleCheck } from "@pp/ui/icons"
 import { InlineForm, useInlineForm } from "@pp/ui/inline-form"
-import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { useLocation } from "@tanstack/react-router"
@@ -144,14 +144,7 @@ export function CommentRow({
   return (
     <ContextMenu disabled={pending || mode === "edit"}>
       <ContextMenuTrigger
-        render={
-          <div
-            ref={card}
-            id={comment.id}
-            data-targeted={targeted ? "" : undefined}
-            className="group/reveal scroll-mt-6"
-          />
-        }
+        render={<div ref={card} id={comment.id} className="scroll-mt-6" />}
       >
         <InlineForm.Root<Mode>
           actions={["edit"]}
@@ -159,30 +152,42 @@ export function CommentRow({
           onModeChange={setMode}
           fade={false}
           variant="ghost"
-          className={cn(
-            "ticket-comment [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
-            waiting && "animate-pulse"
-          )}
+          className="ticket-comment"
         >
           <InlineForm.Idle block>
-            <CommentHeader
-              comment={comment}
-              resolution={last ? resolution : null}
-            >
-              {!pending && <CommentMenuButton ref={menuButton} {...menu} />}
-            </CommentHeader>
-            <div
-              className={cn("pt-1 pr-3 pb-3", isRoot ? "pl-3" : "pl-10")}
+            <CommentBubble
+              mark={<AuthorMark author={comment.author} />}
+              author={commentAuthorName(comment.author)}
+              time={<TimelineTime at={comment.createdAt} />}
+              meta={
+                <CommentMeta
+                  comment={comment}
+                  resolution={last ? resolution : null}
+                />
+              }
+              actions={
+                pending ? undefined : (
+                  <CommentMenuButton ref={menuButton} {...menu} />
+                )
+              }
+              pending={waiting}
+              appear={pending}
+              targeted={targeted}
               onContextMenu={keepNativeMenu}
+              footer={
+                actionError && (
+                  <p
+                    role="alert"
+                    className="mt-1 pl-3 text-body text-destructive"
+                  >
+                    {actionError}
+                  </p>
+                )
+              }
             >
               <Markdown>{comment.body}</Markdown>
               <CreatedTickets tickets={comment.tickets} />
-            </div>
-            {actionError && (
-              <p role="alert" className="px-3 pb-3 text-body text-destructive">
-                {actionError}
-              </p>
-            )}
+            </CommentBubble>
           </InlineForm.Idle>
           <InlineForm.Form action="edit">
             <EditForm comment={comment} ticketId={ticketId} />
@@ -196,45 +201,43 @@ export function CommentRow({
   )
 }
 
-function CommentHeader({
-  comment,
-  resolution = null,
-  children
-}: {
-  comment: Comment
-  resolution?: Comment["resolution"]
-  children: React.ReactNode
-}) {
-  const author = comment.author
+// The author's 20px mark on the rail: their avatar, or for an imported
+// comment an orb from the name it was imported with.
+export function AuthorMark({
+  author
+}: Readonly<{ author: Comment["author"] }>) {
   return (
-    <header className="flex min-h-7 items-center justify-between gap-2 pt-2 pr-1.5 pl-3 text-body">
-      {/* min-h-7 matches the action buttons, so the avatar sits 12px from
-          the top and left edges whether or not the buttons show. */}
-      <div className="flex min-h-7 items-center gap-2">
-        {author.kind === "user" && (
-          <MemberAvatar member={author.user} size={20} />
-        )}
-        <span className="font-semibold">{commentAuthorName(author)}</span>
-        <TimelineTime at={comment.createdAt} />
-        {comment.editedAt && (
-          <span className="text-caption text-muted-foreground">
-            {m.comments_edited_marker()}
-          </span>
-        )}
-        {comment.origin === "projectproject" && (
-          <span className="text-caption text-muted-foreground">
-            {m.comments_imported_from_projectproject()}
-          </span>
-        )}
-        {comment.origin === "jira" && (
-          <span className="text-caption text-muted-foreground">
-            {m.comments_imported_from_jira()}
-          </span>
-        )}
-        {resolution !== null && <ResolvedLabel resolution={resolution} />}
-      </div>
-      {children}
-    </header>
+    <MemberAvatar
+      member={
+        author.kind === "user"
+          ? author.user
+          : { id: `imported:${author.displayName}`, name: author.displayName }
+      }
+      size={20}
+    />
+  )
+}
+
+// After the time: edited, where it was imported from, and on a thread's last
+// comment whether the thread is resolved.
+function CommentMeta({
+  comment,
+  resolution
+}: Readonly<{
+  comment: Comment
+  resolution: Comment["resolution"]
+}>) {
+  return (
+    <>
+      {comment.editedAt && <span>{m.comments_edited_marker()}</span>}
+      {comment.origin === "projectproject" && (
+        <span>{m.comments_imported_from_projectproject()}</span>
+      )}
+      {comment.origin === "jira" && (
+        <span>{m.comments_imported_from_jira()}</span>
+      )}
+      {resolution !== null && <ResolvedLabel resolution={resolution} />}
+    </>
   )
 }
 
@@ -256,7 +259,7 @@ function ResolvedLabel({
         {resolution.by === null
           ? m.comments_resolved_at({ when })
           : m.comments_resolved_by({
-              name: resolution.by.name ?? resolution.by.email,
+              name: resolution.by.name || resolution.by.email,
               when
             })}
       </TooltipContent>
@@ -301,27 +304,28 @@ function EditForm({
   }
 
   return (
-    <>
-      <CommentHeader comment={comment}>
-        <span className="text-body text-muted-foreground">
-          {m.comments_editing_marker()}
-        </span>
-      </CommentHeader>
-      <div className="px-3 pt-1">
-        <LexicalEditor
-          markdown={body}
-          onDraftChange={setBody}
-          autoFocus
-          compact
-        />
-      </div>
-      {error && <p className="px-3 text-body text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2 p-1.5">
-        <InlineForm.Cancel>{m.common_cancel_button()}</InlineForm.Cancel>
-        <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
-          {m.comments_save_button()}
-        </Button>
-      </div>
-    </>
+    <CommentBubble
+      mark={<AuthorMark author={comment.author} />}
+      author={commentAuthorName(comment.author)}
+      meta={<span>{m.comments_editing_marker()}</span>}
+      editActions={
+        <>
+          <InlineForm.Cancel>{m.common_cancel_button()}</InlineForm.Cancel>
+          <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
+            {m.comments_save_button()}
+          </Button>
+        </>
+      }
+      footer={
+        error && <p className="mt-1 pl-3 text-body text-destructive">{error}</p>
+      }
+    >
+      <LexicalEditor
+        markdown={body}
+        onDraftChange={setBody}
+        autoFocus
+        compact
+      />
+    </CommentBubble>
   )
 }

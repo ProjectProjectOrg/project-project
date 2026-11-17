@@ -1,22 +1,28 @@
 import { FileText } from "@pp/ui/icons"
 import { Logo, Wordmark } from "@pp/ui/logo"
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 
 import { PageContext } from "./context"
+import { Loaded } from "./Loaded"
 import { mdxComponents } from "./mdxComponents"
-import { demos, markdownPathOf, pageByPath } from "./registry"
+import { demoIdOf, demos, markdownPathOf, pageByPath } from "./registry"
 import { usePath } from "./router"
 import { Search } from "./Search"
 import { Sidebar } from "./Sidebar"
 import { Sources } from "./Sources"
 import { ThemeSwitch } from "./ThemeSwitch"
 
-const DEMO_PREFIX = "/demo/"
-
 export function App() {
   const path = usePath()
-  if (path.startsWith(DEMO_PREFIX))
-    return <IsolatedDemo id={path.slice(DEMO_PREFIX.length)} />
+  useEffect(() => {
+    document.documentElement.setAttribute("data-app-ready", "")
+    const boot = document.getElementById("app-loader")
+    const remove = () => boot?.remove()
+    boot?.addEventListener("transitionend", remove, { once: true })
+    return () => boot?.removeEventListener("transitionend", remove)
+  }, [])
+  const demoId = demoIdOf(path)
+  if (demoId !== undefined) return <IsolatedDemo id={demoId} />
   return <Shell path={path} />
 }
 
@@ -27,11 +33,6 @@ function Shell({ path }: Readonly<{ path: string }>) {
       'link[rel="alternate"][type="text/markdown"]'
     )
     if (link !== null) link.href = markdownPathOf(path)
-  }, [path])
-  useEffect(() => {
-    const id = decodeURIComponent(window.location.hash.slice(1))
-    if (id !== "")
-      document.getElementById(id)?.scrollIntoView({ block: "start" })
   }, [path])
   return (
     <div className="flex min-h-dvh">
@@ -83,13 +84,32 @@ function Shell({ path }: Readonly<{ path: string }>) {
                   <Sources sources={page.meta.sources} />
                 )}
               </header>
-              <page.Content components={mdxComponents} />
+              <Suspense fallback={null}>
+                <Loaded loadable={page.Content}>
+                  {(Content) => (
+                    <>
+                      <Content components={mdxComponents} />
+                      <ScrollToHash key={path} />
+                    </>
+                  )}
+                </Loaded>
+              </Suspense>
             </PageContext>
           )}
         </article>
       </main>
     </div>
   )
+}
+
+// Runs once the page's content is in, so the heading in the hash exists.
+function ScrollToHash() {
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1))
+    if (id !== "")
+      document.getElementById(id)?.scrollIntoView({ block: "start" })
+  }, [])
+  return null
 }
 
 function NotFound() {
@@ -110,7 +130,11 @@ function IsolatedDemo({ id }: Readonly<{ id: string }>) {
       {demo === undefined ? (
         <p className="text-body text-destructive">No demo named {id}.</p>
       ) : (
-        <demo.Component />
+        <Suspense fallback={null}>
+          <Loaded loadable={demo.Component}>
+            {(Component) => <Component />}
+          </Loaded>
+        </Suspense>
       )}
     </main>
   )

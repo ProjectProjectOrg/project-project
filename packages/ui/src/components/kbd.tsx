@@ -184,15 +184,11 @@ function KbdNumber({
   ...props
 }: KbdCapsProps & Readonly<{ digit: string }>) {
   return (
-    <KbdCaps caps={[{ label: digit, key: digit, sequenceStart: false }]} {...props} />
+    <KbdCaps
+      caps={[{ label: digit, key: digit, sequenceStart: false }]}
+      {...props}
+    />
   )
 }
 
-export {
-  Kbd,
-  KbdGroup,
-  KbdNumber,
-  KbdShortcut,
-  numberKey,
-  type KeyLabels
-}
+export { Kbd, KbdGroup, KbdNumber, KbdShortcut, numberKey, type KeyLabels }

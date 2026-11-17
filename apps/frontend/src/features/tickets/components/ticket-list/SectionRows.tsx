@@ -1,9 +1,11 @@
+import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import type { Member, ParentFilter, TicketId } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
 import { listGridClassName } from "@pp/ui/list-row"
-import { useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { justCreatedTicket } from "@/features/tickets/atoms/createTicket"
 import type {
   BulkTicketUpdateAtom,
   TicketUpdates
@@ -11,6 +13,7 @@ import type {
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
+import { CreatedFlash, isFresh, RowEnter } from "./CreatedRow"
 import { useListKeyboardSection } from "./ListKeyboard"
 import {
   DraggableRow,
@@ -57,6 +60,22 @@ export function SectionRows({
         index: items.findIndex(({ ticket }) => ticket.id === ticketId)
       })
   )
+  const created = useAtomValue(justCreatedTicket)
+  const setCreated = useAtomSet(justCreatedTicket)
+  const createdIndex =
+    created === null
+      ? -1
+      : items.findIndex(
+          ({ ticket, pending }) => !pending && ticket.id === created.id
+        )
+  const scrollTo = useMemo(
+    () =>
+      created !== null && createdIndex >= 0 && isFresh(created.at)
+        ? { index: createdIndex }
+        : null,
+    [created, createdIndex]
+  )
+  const clearCreated = useCallback(() => setCreated(null), [setCreated])
   return (
     <SelectionOrder
       entries={items.flatMap(({ ticket, pending }) =>
@@ -74,38 +93,48 @@ export function SectionRows({
               ({ ticket }) => ticket.id === activePreviewId
             )}
             reveal={reveal}
+            scrollTo={scrollTo}
           >
             {(index) => {
               const { ticket, pending } = items[index]
+              const justCreated = !pending && created?.id === ticket.id
               return (
-                <div
-                  inert={pending}
-                  aria-busy={pending}
-                  className={cn(
-                    "col-span-full grid grid-cols-subgrid",
-                    pending && "pointer-events-none animate-pulse"
-                  )}
+                <RowEnter
+                  enter={pending || (justCreated && isFresh(created.at))}
+                  className="col-span-full grid grid-cols-subgrid"
                 >
-                  <DraggableRow
-                    ticket={ticket}
-                    nextId={items[index + 1]?.ticket.id ?? null}
-                    pending={pending}
-                    className="col-span-full grid grid-cols-subgrid"
+                  {justCreated && (
+                    <CreatedFlash at={created.at} onDone={clearCreated} />
+                  )}
+                  <div
+                    inert={pending}
+                    aria-busy={pending}
+                    className={cn(
+                      "col-span-full grid grid-cols-subgrid",
+                      pending && "pointer-events-none animate-pulse"
+                    )}
                   >
-                    <Row
-                      update={update}
-                      contextParent={contextParent}
-                      showSprint={showSprint}
+                    <DraggableRow
                       ticket={ticket}
-                      members={members}
+                      nextId={items[index + 1]?.ticket.id ?? null}
                       pending={pending}
-                      editable={editable}
-                      previewOpen={activePreviewId === ticket.id}
-                      onPreviewPointerEnter={onPreviewPointerEnter}
-                      onPreviewOpenChange={onPreviewOpenChange}
-                    />
-                  </DraggableRow>
-                </div>
+                      className="col-span-full grid grid-cols-subgrid"
+                    >
+                      <Row
+                        update={update}
+                        contextParent={contextParent}
+                        showSprint={showSprint}
+                        ticket={ticket}
+                        members={members}
+                        pending={pending}
+                        editable={editable}
+                        previewOpen={activePreviewId === ticket.id}
+                        onPreviewPointerEnter={onPreviewPointerEnter}
+                        onPreviewOpenChange={onPreviewOpenChange}
+                      />
+                    </DraggableRow>
+                  </div>
+                </RowEnter>
               )
             }}
           </VirtualRows>

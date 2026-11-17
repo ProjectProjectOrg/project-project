@@ -63,25 +63,35 @@ const creatorFrom = { opacity: 0, filter: "blur(6px)", x: 12 }
 const headingFrom = { opacity: 0, filter: "blur(6px)", x: -12 }
 const morphTo = { opacity: 1, filter: "blur(0px)", x: 0 }
 
-// Marks the header `data-stuck` while it's pinned to the top of the scroll
-// area (its top edge sits on the root's), for the stuck shadow and so the
-// rows under it collapse at once instead of animating (see theme.css).
+// Marks the header `data-stuck` while it's pinned, for the stuck shadow. It
+// pins at --list-sticky-top (below a pinned list toolbar, when there is one),
+// so the check reads its own sticky offset instead of the root's edge.
 function useStuck(node: HTMLDivElement | null) {
   useEffect(() => {
-    if (!node || typeof IntersectionObserver === "undefined") return undefined
-    const root = node.closest<HTMLElement>("[data-scroll-root]")
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry) return
-        const stuck =
-          entry.intersectionRatio < 1 &&
-          entry.boundingClientRect.top <= (entry.rootBounds?.top ?? 0) + 1
-        node.toggleAttribute("data-stuck", stuck)
-      },
-      { root, rootMargin: "-1px 0px 0px 0px", threshold: [1] }
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
+    const root = node?.closest<HTMLElement>("[data-scroll-root]")
+    if (!node || !root) return undefined
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const offset = Number.parseFloat(getComputedStyle(node).top) || 0
+      const stuck =
+        root.scrollTop > 0 &&
+        node.getBoundingClientRect().top <=
+          root.getBoundingClientRect().top + offset + 1
+      node.toggleAttribute("data-stuck", stuck)
+    }
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(update)
+    }
+    update()
+    const observer = new ResizeObserver(schedule)
+    observer.observe(root)
+    root.addEventListener("scroll", schedule, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      root.removeEventListener("scroll", schedule)
+    }
   }, [node])
 }
 
@@ -113,7 +123,7 @@ export function ListSectionHeader({
       data-creating={creating || undefined}
       onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
       className={cn(
-        "sticky top-0 z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
+        "sticky top-[var(--list-sticky-top,0px)] z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
         // Pinned to the top: a soft lift, so rows read as passing under it.
         "data-stuck:shadow-surface-3",
         creating
@@ -242,18 +252,9 @@ export function ListSectionBody({
       data-slot="list-section-body"
       aria-hidden={collapsed || undefined}
       inert={collapsed ? true : undefined}
-      className={cn("grid", collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}
+      className={cn("flex flex-col gap-1 pt-1", collapsed && "hidden")}
     >
-      <div className="min-h-0 overflow-hidden">
-        <div
-          className={cn(
-            "flex flex-col gap-1 pt-1 transition-opacity duration-200 ease-standard motion-reduce:transition-none",
-            collapsed && "opacity-0"
-          )}
-        >
-          {children}
-        </div>
-      </div>
+      {children}
     </div>
   )
 }

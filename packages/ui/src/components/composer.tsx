@@ -40,7 +40,9 @@ function Surface({ className, ...props }: Readonly<ComponentProps<"div">>) {
 // The context line: what the composer acts on or relates to ("Archive
 // PP-214", "Blocks PP-214"). With `control`, it holds a control instead
 // (feedback's kind tabs): the control's edge sits on the 16px text line,
-// 16px from the top, like the text below it.
+// 16px from the top, like the text below it. A ghost button opening the
+// line (cmd+k's project picker) is a field chip: 28px with 10px sides,
+// pulled out by those sides so its icon starts on the 16px line.
 function Header({
   className,
   control = false,
@@ -52,6 +54,7 @@ function Header({
       data-control={control || undefined}
       className={cn(
         "flex min-w-0 items-center gap-2 px-4 text-body text-muted-foreground",
+        "[&>[data-slot=button]:first-child]:-ml-2.5 [&>[data-slot=button]:first-child]:h-7 [&>[data-slot=button]:first-child]:rounded-[14px] [&>[data-slot=button]:first-child]:px-2.5",
         control ? "pt-4" : "pt-3.5",
         className
       )}

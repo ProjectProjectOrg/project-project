@@ -1,12 +1,10 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import {
-  COMMAND_PRIORITY_LOW,
-  INSERT_PARAGRAPH_COMMAND,
-  KEY_ENTER_COMMAND
-} from "lexical"
+import { COMMAND_PRIORITY_LOW, KEY_ENTER_COMMAND } from "lexical"
 import { useEffect } from "react"
 
-export function SubmitOnEnterPlugin({
+// ⌘↵ (Ctrl+Enter off a Mac) sends; Enter on its own stays a new line, so
+// writing a comment never sends it by accident.
+export function SubmitShortcutPlugin({
   onSubmit
 }: Readonly<{ onSubmit: () => void }>) {
   const [editor] = useLexicalComposerContext()
@@ -16,10 +14,8 @@ export function SubmitOnEnterPlugin({
         KEY_ENTER_COMMAND,
         (event) => {
           if (event === null || event.isComposing) return false
+          if (!event.metaKey && !event.ctrlKey) return false
           event.preventDefault()
-          if (event.shiftKey) {
-            return editor.dispatchCommand(INSERT_PARAGRAPH_COMMAND, undefined)
-          }
           onSubmit()
           return true
         },

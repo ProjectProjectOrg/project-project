@@ -36,7 +36,11 @@ export default function Overview() {
       <Row caption="Ticket">
         <Breadcrumbs label="Breadcrumb">
           <BreadcrumbItem key="projects" label="Projects" render={link} />
-          <BreadcrumbItem key="project" label="Atlas Mobile App" render={link} />
+          <BreadcrumbItem
+            key="project"
+            label="Atlas Mobile App"
+            render={link}
+          />
           <BreadcrumbItem
             key="ticket"
             prefix="ATL-10"
@@ -47,14 +51,22 @@ export default function Overview() {
       <Row caption="Sub-ticket">
         <Breadcrumbs label="Breadcrumb">
           <BreadcrumbItem key="projects" label="Projects" render={link} />
-          <BreadcrumbItem key="project" label="Atlas Mobile App" render={link} />
+          <BreadcrumbItem
+            key="project"
+            label="Atlas Mobile App"
+            render={link}
+          />
           <BreadcrumbItem
             key="parent"
             prefix="ATL-3"
             detail="Sync conflict resolution"
             render={link}
           />
-          <BreadcrumbItem key="ticket" prefix="ATL-12" label="Merge offline edits" />
+          <BreadcrumbItem
+            key="ticket"
+            prefix="ATL-12"
+            label="Merge offline edits"
+          />
         </Breadcrumbs>
       </Row>
       <Row caption="Hover">

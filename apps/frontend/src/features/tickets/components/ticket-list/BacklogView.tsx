@@ -8,10 +8,7 @@ import {
   useProject,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
-import {
-  ignoreReorder,
-  type StatusReorder
-} from "@/features/sprints/hooks/useStatusReorder"
+import { type StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { BacklogBoard } from "@/features/tickets/components/ticket-list/BacklogBoard"
@@ -37,8 +34,6 @@ export function BacklogView({
 }>) {
   const project = useProject()
   const canReorder = useProjectActor().call("statuses", "reorder")
-  const { reorderMode, dragOrder, enterReorder, cancelReorder, setDragOrder } =
-    reorder
   const shown = useLoadedView(grouping, view, query)
   const isBoard = shown.view === "board"
   return (
@@ -52,11 +47,7 @@ export function BacklogView({
           query={activeQuery}
           members={project.members}
           snapshot={snapshot}
-          reorderMode={reorderMode}
-          onEnterReorder={canReorder ? enterReorder : ignoreReorder}
-          onExitReorder={cancelReorder}
-          dragOrder={dragOrder}
-          setDragOrder={setDragOrder}
+          reorder={canReorder ? reorder : null}
         />
       )}
       showSections={!isBoard && shown.grouping !== "status"}

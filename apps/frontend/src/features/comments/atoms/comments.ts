@@ -11,11 +11,12 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { keepPredicted, viewMutation } from "@/api/viewMutation"
+import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
 
 export type CommentsRequest = Readonly<{
   _view: "comments"
@@ -39,7 +40,23 @@ export type CommentViewRow = Readonly<{
   comment: Comment
   key: string
   pending: boolean
+  // Sending it failed: its outbox entry, waiting for Retry, Edit or Discard.
+  failed: OutboxEntry | null
 }>
+
+// A comment that failed to send: kept, under the identity it was sent with,
+// so it stays in its place in the thread until it's sent or discarded. In
+// memory only; a reload drops it.
+export type OutboxEntry = Readonly<{
+  clientId: string
+  createdAt: Date
+  author: User
+  input: CreateCommentInput
+}>
+
+export const commentOutbox = Atom.family((_req: CommentsRequest) =>
+  Atom.make<ReadonlyArray<OutboxEntry>>([]).pipe(Atom.keepAlive)
+)
 
 const createdKeys = Atom.family((_req: CommentsRequest) =>
   Atom.make<ReadonlyMap<CommentId, string>>(new Map()).pipe(
@@ -58,15 +75,25 @@ const commentsView = (req: CommentsRequest) =>
   Atom.readable(
     (get) => {
       const identities = get(createdKeys(req))
-      return AsyncResult.map(get(commentsQuery(req)), (value) =>
-        value.map(
+      const outbox = get(commentOutbox(req))
+      return AsyncResult.map(get(commentsQuery(req)), (value) => [
+        ...value.map(
           (comment): CommentViewRow => ({
             comment,
             key: identities.get(comment.id) ?? comment.id,
-            pending: false
+            pending: false,
+            failed: null
+          })
+        ),
+        ...outbox.map(
+          (entry): CommentViewRow => ({
+            comment: placeholderComment({ req, ...entry }, entry.input),
+            key: entry.clientId,
+            pending: false,
+            failed: entry
           })
         )
-      )
+      ])
     },
     (refresh) => refresh(commentsQuery(req))
   )
@@ -112,7 +139,8 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
       {
         comment: placeholderComment(key, input),
         key: key.clientId,
-        pending: true
+        pending: true,
+        failed: null
       }
     ],
     call: (client, input, get) =>
@@ -135,7 +163,12 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
     confirm: (value, created) =>
       value.map((row) =>
         row.key === key.clientId
-          ? { comment: created, key: key.clientId, pending: false }
+          ? {
+              comment: created,
+              key: key.clientId,
+              pending: false,
+              failed: null
+            }
           : row
       ),
     publish: () => [Keys.ticketComments(scopeOf(key.req))]
@@ -229,3 +262,56 @@ export const resolveThread = Atom.family(
       publish: () => [Keys.ticketComments(scopeOf(req))]
     })
 )
+
+const withoutEntry = (
+  outbox: ReadonlyArray<OutboxEntry>,
+  clientId: string
+): ReadonlyArray<OutboxEntry> =>
+  outbox.filter((entry) => entry.clientId !== clientId)
+
+// Keeps a send that failed in the thread, as a failed comment.
+export const parkFailedComment = (
+  registry: Registry.AtomRegistry,
+  req: CommentsRequest,
+  entry: OutboxEntry
+): void => {
+  const outbox = commentOutbox(req)
+  registry.set(outbox, [
+    ...withoutEntry(registry.get(outbox), entry.clientId),
+    entry
+  ])
+}
+
+export const discardFailedComment = (
+  registry: Registry.AtomRegistry,
+  req: CommentsRequest,
+  clientId: string
+): void => {
+  const outbox = commentOutbox(req)
+  registry.set(outbox, withoutEntry(registry.get(outbox), clientId))
+}
+
+// Sends a failed comment again under the identity it was first sent with,
+// so it keeps its place; `body` sends edited text. A second failure parks it
+// again.
+export const retryFailedComment = async (
+  registry: Registry.AtomRegistry,
+  req: CommentsRequest,
+  entry: OutboxEntry,
+  body: string = entry.input.body
+): Promise<void> => {
+  const input = { ...entry.input, body }
+  discardFailedComment(registry, req, entry.clientId)
+  const result = await fireMutation(
+    registry,
+    createComment({
+      req,
+      author: entry.author,
+      clientId: entry.clientId,
+      createdAt: entry.createdAt
+    }),
+    input
+  )
+  if (!AsyncResult.isSuccess(result))
+    parkFailedComment(registry, req, { ...entry, input })
+}

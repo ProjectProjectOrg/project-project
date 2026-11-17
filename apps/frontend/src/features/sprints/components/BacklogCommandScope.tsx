@@ -8,6 +8,7 @@ import type { Command } from "@/features/command-menu/lib/commands"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView } from "@/hooks/useViewPreference"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -83,6 +84,7 @@ export function BacklogCommandScope({
     if (planned !== null) {
       commands.push({
         id: "backlog.create-ticket",
+        hotkey: appHotkeys["tickets.create-anywhere"],
         group: "create",
         label: m.tickets_command_create,
         icon: Plus,

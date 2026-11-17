@@ -1,7 +1,8 @@
 import {
   createContext,
   use,
-  useMemo,
+  useCallback,
+  useEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -9,11 +10,7 @@ import {
   type RefObject
 } from "react"
 
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "../hooks/useFluidHover"
+import type { ItemRect } from "../hooks/useFluidHover"
 import { cn } from "../lib/utils"
 import { FluidHoverHighlight } from "./fluid-hover-highlight"
 import { itemLayerClass, itemSurfaceClass } from "./item-link"
@@ -56,16 +53,33 @@ export const listRowHeight = 40
 export const listGridClassName =
   "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_minmax(0,auto)_auto_auto]"
 
-type HoverRegistry = Readonly<{
-  registerItem: UseFluidHoverReturn["registerItem"]
-  nextIndex: () => number
-}>
-
-const HoverRegistryContext = createContext<HoverRegistry | null>(null)
+const InHoverScopeContext = createContext(false)
 
 // How far past a row the pointer still holds the highlight: the 4px gap
 // between rows, but not a section header.
 const HOVER_REACH = 6
+
+type Hovered = Readonly<{ index: number; rect: ItemRect }>
+
+const sameHovered = (a: Hovered | null, b: Hovered | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.index === b.index &&
+    a.rect.top === b.rect.top &&
+    a.rect.left === b.rect.left &&
+    a.rect.width === b.rect.width &&
+    a.rect.height === b.rect.height)
+
+const rowAt = (container: HTMLElement, x: number, y: number) => {
+  for (const dy of [0, -HOVER_REACH, HOVER_REACH]) {
+    const row = document
+      .elementFromPoint(x, y + dy)
+      ?.closest<HTMLElement>('[data-slot="list-row"]')
+    if (row && container.contains(row)) return row
+  }
+  return null
+}
 
 /*
  * The gliding hover for a list, like the sidebar's: one highlight that
@@ -73,39 +87,103 @@ const HOVER_REACH = 6
  * on its own. Wrap everything that holds rows (sections included); rows
  * inside it drop their own hover fill. It hides during arrow-key
  * navigation, where the focused row shows instead.
+ * Only the row under the pointer is found and measured, at most once a
+ * frame, so rows mounting as a virtual list scrolls cost nothing here.
  */
 export function ListHoverScope({
   className,
   children
 }: Readonly<{ className?: string; children: ReactNode }>) {
   const ref = useRef<HTMLDivElement>(null)
-  const hover = useFluidHover(ref, { reach: HOVER_REACH })
-  const counter = useRef(0)
-  const registry = useMemo<HoverRegistry>(
-    () => ({
-      registerItem: hover.registerItem,
-      nextIndex: () => {
-        counter.current += 1
-        return counter.current
+  const ids = useRef(new WeakMap<Element, number>())
+  const nextId = useRef(0)
+  const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
+  const frame = useRef(0)
+  const sessionRef = useRef(0)
+  const [hovered, setHovered] = useState<Hovered | null>(null)
+
+  const track = useCallback(() => {
+    frame.current = 0
+    const container = ref.current
+    const at = point.current
+    if (!container || !at) return
+    const row = rowAt(container, at.x, at.y)
+    if (!row) {
+      setHovered(null)
+      return
+    }
+    let index = ids.current.get(row)
+    if (index === undefined) {
+      nextId.current += 1
+      index = nextId.current
+      ids.current.set(row, index)
+    }
+    const box = container.getBoundingClientRect()
+    const scale =
+      container.offsetWidth > 0 ? box.width / container.offsetWidth : 1
+    const r = row.getBoundingClientRect()
+    const next = {
+      index,
+      rect: {
+        top: (r.top - box.top) / scale,
+        left: (r.left - box.left) / scale,
+        width: r.width / scale,
+        height: r.height / scale
       }
-    }),
-    [hover.registerItem]
-  )
+    }
+    setHovered((current) => (sameHovered(current, next) ? current : next))
+  }, [])
+
+  const schedule = useCallback(() => {
+    if (frame.current === 0) frame.current = requestAnimationFrame(track)
+  }, [track])
+
+  useEffect(() => {
+    const root = ref.current?.closest("[data-scroll-root]") ?? window
+    const onScroll = () => {
+      if (point.current) schedule()
+    }
+    root.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      root.removeEventListener("scroll", onScroll)
+      cancelAnimationFrame(frame.current)
+    }
+  }, [schedule])
+
+  const itemRects: Array<ItemRect | undefined> = []
+  if (hovered !== null) itemRects[hovered.index] = hovered.rect
+  const hover = {
+    activeIndex: hovered?.index ?? null,
+    itemRects,
+    isMeasured: true,
+    sessionRef
+  }
+
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the highlight's pointer tracking; the rows are links of their own
     <div
       ref={ref}
       data-slot="list-hover-scope"
-      onMouseEnter={hover.handlers.onMouseEnter}
-      onMouseMove={hover.handlers.onMouseMove}
-      onMouseLeave={hover.handlers.onMouseLeave}
+      onMouseEnter={() => {
+        sessionRef.current += 1
+      }}
+      onMouseMove={(event) => {
+        point.current = { x: event.clientX, y: event.clientY }
+        schedule()
+      }}
+      onMouseLeave={() => {
+        point.current = null
+        cancelAnimationFrame(frame.current)
+        frame.current = 0
+        setHovered(null)
+      }}
       className={cn("relative", className)}
     >
       <FluidHoverHighlight
         hover={hover}
         className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
       />
-      <HoverRegistryContext value={registry}>{children}</HoverRegistryContext>
+      <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
   )
 }
@@ -151,20 +229,14 @@ export function ListRow({
   ref,
   ...props
 }: ListRowProps) {
-  const registry = use(HoverRegistryContext)
-  const [index] = useState(() => registry?.nextIndex())
-  const own = useRef<HTMLDivElement | null>(null)
-  useRegisterFluidHoverItem(registry?.registerItem, index, own)
   // In a ListHoverScope the gliding highlight is the hover; on its own the
   // row fills itself.
   const ownHover =
-    registry === null && "not-in-data-keyboard-navigation:hover:bg-hover"
+    !use(InHoverScopeContext) &&
+    "not-in-data-keyboard-navigation:hover:bg-hover"
   return (
     <div
-      ref={(node) => {
-        own.current = node
-        if (ref) ref.current = node
-      }}
+      ref={ref}
       data-slot="list-row"
       data-selected={selected || undefined}
       {...props}

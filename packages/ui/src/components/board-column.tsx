@@ -1,6 +1,11 @@
 import NumberFlow from "@number-flow/react"
-import { motion } from "motion/react"
-import { useState, type ComponentProps, type ReactNode } from "react"
+import {
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode
+} from "react"
 
 import { cn } from "../lib/utils"
 import { Button } from "./button"
@@ -8,10 +13,12 @@ import { FoldHorizontal, GripVertical } from "./icons"
 import { ScrollArea, type ScrollAreaProps } from "./scroll-area"
 
 /*
- * A board column: a status's tickets, top to bottom, as cards.
+ * A board column: a status's tickets, top to bottom, as cards, in a well
+ * washed with the status's colour from the top.
  *
  *   <BoardColumn
  *     title={<BoardColumnTitle icon={<StatusGlyph … />} label="In progress" />}
+ *     tone="var(--state-info)"
  *     count={4}
  *     scrollLabel="Scrollable"
  *   >
@@ -19,43 +26,50 @@ import { ScrollArea, type ScrollAreaProps } from "./scroll-area"
  *   </BoardColumn>
  *
  * The app's sprint board builds its own column from the parts (it animates
- * width, reorders and takes drops): `boardColumnClass`, `BoardColumnHeader`,
- * `BoardCollapsedColumnHeader` and `BoardCardList`.
+ * width, reorders and takes drops): `boardColumnClass` with
+ * `boardColumnTone(tone)`, `BoardColumnHeader`, `BoardCollapsedColumnHeader`
+ * and `BoardCardList`.
  */
 
+// The well: no border, the page sunk a step, and 22px squircle corners, the
+// cards' 14px plus the 8px they sit in from its edge. data-over rings it
+// while a card is dragged over.
 export const boardColumnClass =
-  "flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
+  "board-column-wash flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-[22px] bg-surface-1 [corner-shape:var(--button-corner)]"
 
 export const boardCollapsedColumnClass =
-  "flex max-h-full w-10 shrink-0 flex-col self-start overflow-hidden rounded-xl border border-border bg-surface-1"
+  "board-column-wash flex max-h-full w-10 shrink-0 flex-col self-start overflow-hidden rounded-[20px] bg-surface-1 [corner-shape:var(--button-corner)]"
+
+// The status's colour for the wash, the count and the drop ring; any CSS
+// colour (a token or a picked #rrggbb). Without one the column is grey.
+export const boardColumnTone = (
+  tone: string | null | undefined
+): CSSProperties & Record<"--column-tone", string> => ({
+  "--column-tone": tone ?? "var(--muted-foreground)"
+})
 
 export const boardColumnHeaderClass =
-  "relative flex items-center justify-between px-3.5 pt-3 pb-2 select-none"
+  "relative flex h-11 shrink-0 items-center gap-1.5 pr-2 pl-2.5 select-none"
 
-// Each card's wrapper in the list: the column's side padding and half the gap
-// between cards above and below, so drop targets meet without a dead strip.
-export const boardCardSlotClass = "relative px-3 py-1"
-
-// The grip and count crossfade when the board enters reorder mode.
-export const boardReorderFade = {
-  duration: 0.2,
-  ease: [0.32, 0.72, 0, 1]
-} as const
+// Each card's wrapper in the list: 8px in from the well's sides and half the
+// gap between cards above and below, so drop targets meet without a dead
+// strip.
+export const boardCardSlotClass = "relative px-2 py-1"
 
 export function BoardColumnTitle({
   icon,
   label
 }: Readonly<{ icon: ReactNode; label: string }>) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-body font-semibold">
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-body font-semibold">
       <span className="grid size-6 shrink-0 place-items-center">{icon}</span>
-      {label}
+      <span className="truncate">{label}</span>
     </span>
   )
 }
 
-// The number of cards. A change of one (a card moved in or out) rolls; a
-// bigger jump (a filter) swaps at once.
+// The number of cards, in a chip tinted with the column's tone. A change of
+// one (a card moved in or out) rolls; a bigger jump (a filter) swaps at once.
 export function BoardColumnCount({ value }: Readonly<{ value: number }>) {
   const [previous, setPrevious] = useState(value)
   const [animated, setAnimated] = useState(false)
@@ -64,14 +78,16 @@ export function BoardColumnCount({ value }: Readonly<{ value: number }>) {
     setAnimated(Math.abs(value - previous) === 1)
   }
   return (
-    <NumberFlow
-      value={value}
-      animated={animated}
-      transformTiming={{ duration: 180, easing: "ease-out" }}
-      spinTiming={{ duration: 180, easing: "ease-out" }}
-      opacityTiming={{ duration: 180, easing: "ease-out" }}
-      className="font-mono text-caption text-muted-foreground tabular-nums"
-    />
+    <span className="board-column-count inline-grid h-[18px] shrink-0 place-items-center rounded-[9px] px-1.5 [corner-shape:var(--button-corner)]">
+      <NumberFlow
+        value={value}
+        animated={animated}
+        transformTiming={{ duration: 180, easing: "ease-out" }}
+        spinTiming={{ duration: 180, easing: "ease-out" }}
+        opacityTiming={{ duration: 180, easing: "ease-out" }}
+        className="font-mono text-caption leading-none tabular-nums"
+      />
+    </span>
   )
 }
 
@@ -102,23 +118,25 @@ type BoardColumnHeaderProps = Omit<ComponentProps<"div">, "title"> &
   Readonly<{
     title: ReactNode
     count: number
-    // Reordering columns: the count gives way to a grip, and the header
-    // takes the drag.
-    reorderMode?: boolean
-    // The header can be held to start reordering.
-    holdable?: boolean
     // Folds the column to a narrow strip; leave out where columns can't fold.
     onCollapse?: () => void
     collapseLabel?: string
+    // The grip at the header's end, for people who may reorder the board's
+    // columns: pressing it starts the column's drag. Leave out otherwise.
+    onReorderStart?: (event: PointerEvent<HTMLButtonElement>) => void
+    // The grip's arrow keys move the column one place left or right.
+    onReorderKey?: (delta: -1 | 1) => void
+    reorderLabel?: string
   }>
 
 export function BoardColumnHeader({
   title,
   count,
-  reorderMode = false,
-  holdable = false,
   onCollapse,
   collapseLabel,
+  onReorderStart,
+  onReorderKey,
+  reorderLabel,
   className,
   ...props
 }: BoardColumnHeaderProps) {
@@ -126,50 +144,46 @@ export function BoardColumnHeader({
     <div
       data-column-header
       {...props}
-      className={cn(
-        boardColumnHeaderClass,
-        "group/reveal",
-        (holdable || reorderMode) &&
-          "cursor-grab touch-none active:cursor-grabbing",
-        className
-      )}
+      className={cn(boardColumnHeaderClass, "group/reveal", className)}
     >
       {title}
-      <span className="ml-auto flex shrink-0 items-center gap-1">
-        {onCollapse && collapseLabel && !reorderMode ? (
+      <BoardColumnCount value={count} />
+      <span className="ml-auto flex shrink-0 items-center">
+        {onCollapse && collapseLabel ? (
           <Button
             type="button"
             variant="ghost"
             size="square-7"
-            onPointerDown={(event) => event.stopPropagation()}
             onClick={onCollapse}
             aria-label={collapseLabel}
             title={collapseLabel}
-            className="opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+            className="text-muted-foreground opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
           >
             <FoldHorizontal className="size-4" strokeWidth={1.75} />
           </Button>
         ) : null}
-        <span className="grid shrink-0 place-items-center">
-          <motion.span
-            initial={false}
-            animate={{ opacity: reorderMode ? 1 : 0 }}
-            transition={boardReorderFade}
-            className="col-start-1 row-start-1 text-muted-foreground"
-            aria-hidden
+        {onReorderStart && reorderLabel ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="square-7"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return
+              onReorderStart(event)
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+                return
+              event.preventDefault()
+              onReorderKey?.(event.key === "ArrowLeft" ? -1 : 1)
+            }}
+            aria-label={reorderLabel}
+            title={reorderLabel}
+            className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
           >
             <GripVertical className="size-4" strokeWidth={1.75} />
-          </motion.span>
-          <motion.span
-            initial={false}
-            animate={{ opacity: reorderMode ? 0 : 1 }}
-            transition={boardReorderFade}
-            className="col-start-1 row-start-1"
-            aria-hidden={reorderMode}
-          >
-            <BoardColumnCount value={count} />
-          </motion.span>
-        </span>
+          </Button>
+        ) : null}
       </span>
     </div>
   )
@@ -182,21 +196,17 @@ type BoardCollapsedColumnHeaderProps = ComponentProps<"button"> &
     count: number
     // The button's name, for example "Expand In progress".
     expandLabel: string
-    // A card is dragged over the folded column.
-    highlighted?: boolean
-    reorderMode?: boolean
     onExpand?: () => void
   }>
 
 // A folded column: icon, the status's name running down, and the count. A
-// click unfolds it.
+// click unfolds it. Its well (boardCollapsedColumnClass) takes the tone and
+// the drop ring.
 export function BoardCollapsedColumnHeader({
   icon,
   label,
   count,
   expandLabel,
-  highlighted = false,
-  reorderMode = false,
   onExpand,
   className,
   ...props
@@ -206,16 +216,12 @@ export function BoardCollapsedColumnHeader({
       type="button"
       data-column-header
       {...props}
-      onClick={() => {
-        if (!reorderMode) onExpand?.()
-      }}
+      onClick={onExpand}
       // The strip shows the count, so its name carries it too.
       aria-label={`${expandLabel} ${count}`}
       title={expandLabel}
       className={cn(
-        "flex w-full flex-col items-center gap-[13px] rounded-xl px-2 py-3 text-body font-semibold transition-colors duration-150 outline-none select-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring",
-        highlighted && "bg-accent/40",
-        reorderMode && "cursor-grab touch-none active:cursor-grabbing",
+        "focus-ring flex w-full cursor-pointer flex-col items-center gap-3 rounded-[20px] pt-2.5 pb-3.5 text-body font-semibold transition-colors duration-150 outline-none select-none [corner-shape:var(--button-corner)] hover:bg-foreground/4 hover:duration-0",
         className
       )}
     >
@@ -230,12 +236,15 @@ export function BoardCollapsedColumnHeader({
 // or fold (the dashboard).
 export function BoardColumn({
   title,
+  tone,
   count,
   scrollLabel,
   className,
   children
 }: Readonly<{
   title: ReactNode
+  // The status's colour; see boardColumnTone.
+  tone?: string | null
   count: number
   scrollLabel: string
   className?: string
@@ -245,6 +254,7 @@ export function BoardColumn({
     <section
       data-slot="board-column"
       className={cn(boardColumnClass, className)}
+      style={boardColumnTone(tone)}
     >
       <div className={boardColumnHeaderClass}>
         {title}

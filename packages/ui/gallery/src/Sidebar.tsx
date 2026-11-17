@@ -88,13 +88,14 @@ function SidebarLink({
   const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey) return
     event.preventDefault()
-    navigate(page.path)
+    void navigate(page.path)
   }
   return (
     <a
       ref={ref}
       href={page.path}
       onClick={onClick}
+      onPointerEnter={() => void page.Content.load()}
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative z-10 rounded-lg px-3 py-1.5 text-body transition-[color,transform] duration-100 active:scale-[0.97]",

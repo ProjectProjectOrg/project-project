@@ -179,7 +179,11 @@ const triggerRect = (query: string, fallback: DOMRect): TriggerRect => {
   const trigger = caret.cloneRange()
   const node = caret.startContainer
   if (node.nodeType === Node.TEXT_NODE) {
-    const slashOffset = Math.max(0, caret.startOffset - query.length - 1)
+    // Find the slash itself: the query lags the caret by a keystroke.
+    const text = node.textContent ?? ""
+    const found = text.lastIndexOf("/", caret.startOffset - 1)
+    const slashOffset =
+      found === -1 ? Math.max(0, caret.startOffset - query.length - 1) : found
     trigger.setStart(node, slashOffset)
     trigger.setEnd(node, slashOffset + 1)
   }

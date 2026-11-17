@@ -1,10 +1,16 @@
+import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { useEffect, type RefObject } from "react"
 
-const edgeZone = 120
+import { isBoardCardDrag } from "../lib/boardDragData"
 
-export function useSprintEdgeScroll(
-  ref: RefObject<HTMLDivElement | null>,
+const EDGE_ZONE = 120
+
+// While a card is dragged near a column's top or bottom edge (the outer
+// 120px), its list scrolls that way, faster the closer the pointer and
+// speeding up over its first 250ms.
+export function useBoardEdgeScroll(
+  ref: RefObject<HTMLElement | null>,
   enabled: boolean
 ) {
   useEffect(() => {
@@ -37,7 +43,7 @@ export function useSprintEdgeScroll(
         pointer.clientY > rect.bottom
       )
         return stop()
-      const zone = Math.min(edgeZone, rect.height / 2)
+      const zone = Math.min(EDGE_ZONE, rect.height / 2)
       const top = Math.max(0, 1 - (pointer.clientY - rect.top) / zone)
       const bottom = Math.max(0, 1 - (rect.bottom - pointer.clientY) / zone)
       const nextDirection = bottom > 0 ? 1 : top > 0 ? -1 : 0
@@ -67,7 +73,7 @@ export function useSprintEdgeScroll(
     const updatePointer = (input: { clientX: number; clientY: number }) => {
       pointer = input
       const rect = element.getBoundingClientRect()
-      const zone = Math.min(edgeZone, rect.height / 2)
+      const zone = Math.min(EDGE_ZONE, rect.height / 2)
       if (
         input.clientX < rect.left ||
         input.clientX > rect.right ||
@@ -87,7 +93,7 @@ export function useSprintEdgeScroll(
     window.addEventListener("dragover", onDragOver, true)
     const release = monitorForElements({
       onDragStart: ({ source, location }) => {
-        if (source.data.type === "card") updatePointer(location.current.input)
+        if (isBoardCardDrag(source.data)) updatePointer(location.current.input)
       },
       onDrop: () => {
         pointer = null
@@ -99,5 +105,21 @@ export function useSprintEdgeScroll(
       window.removeEventListener("dragover", onDragOver, true)
       stop()
     }
+  }, [ref, enabled])
+}
+
+// While a card is dragged near the board's left or right edge, the board
+// scrolls sideways.
+export function useBoardAutoScroll(
+  ref: RefObject<HTMLElement | null>,
+  enabled: boolean
+) {
+  useEffect(() => {
+    const element = ref.current
+    if (!element || !enabled) return undefined
+    return autoScrollForElements({
+      element,
+      getAllowedAxis: () => "horizontal"
+    })
   }, [ref, enabled])
 }

@@ -158,7 +158,11 @@ export function SlashMenuPlugin({
       const target = event.target
       if (!(target instanceof Node)) return
       if (editor.getRootElement()?.contains(target) === true) return
-      if (target instanceof Element && target.closest("#typeahead-menu")) return
+      if (
+        target instanceof Element &&
+        target.closest("[data-slash-menu-frame]")
+      )
+        return
       editor.update(() => $setSelection(null))
     }
     document.addEventListener("pointerdown", onPointerDown, true)
@@ -197,6 +201,16 @@ export function SlashMenuPlugin({
     [editor, lookup, mode, openGallery, transformers]
   )
 
+  // Lexical's typeahead removes and re-adds its anchor element on every
+  // keystroke, which would replay the menu's opening animation and remeasure
+  // it each time; the menu places itself from the caret, so it renders into
+  // a host of its own that stays put.
+  const [host] = useState(() => document.createElement("div"))
+  useLayoutEffect(() => {
+    document.body.append(host)
+    return () => host.remove()
+  }, [host])
+
   return (
     <LexicalTypeaheadMenuPlugin<SlashMenuOption>
       commandPriority={COMMAND_PRIORITY_NORMAL}
@@ -228,7 +242,7 @@ export function SlashMenuPlugin({
                     itemProps.selectOptionAndCleanUp(option)
                 }}
               />,
-              anchorRef.current
+              host
             )
       }
     />

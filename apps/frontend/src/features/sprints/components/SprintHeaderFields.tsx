@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
   Trash2
 } from "@pp/ui/icons"
-import { bareFieldTintClass } from "@pp/ui/input"
+import { bareFieldStateClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -201,7 +201,7 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          bareFieldTintClass,
+          bareFieldStateClass,
           "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
@@ -219,7 +219,7 @@ export function SprintNameField({
         onBlur={() => void commit()}
         onKeyDown={handleKey}
         className={cn(
-          bareFieldTintClass,
+          bareFieldStateClass,
           "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
         )}
         maxLength={120}

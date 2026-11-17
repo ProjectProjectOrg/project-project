@@ -21,6 +21,9 @@ export type CreateTicketRequest = Readonly<{
   body?: string
   related?: RelatedTo
   fromComment?: NonNullable<CreateTicketInput["fromComment"]>
+  // Set by an inline new-ticket field's "Add details": the ticket lands in
+  // that list, so the page stays.
+  from?: "inline"
 }>
 
 export type RelatedKind = MarkKind | "subTicket"
@@ -44,6 +47,14 @@ export const relatedPayload = (
 // What the next "New ticket" should start from (project, sprint, a ticket
 // it relates to, a title already typed): set by a command or menu before it
 // opens the cmd+k page or the composer popover.
+// The ticket just created on this page, so its list can scroll to it and
+// flash it. `at` is a performance.now() time; lists ignore it once stale.
+export type JustCreatedTicket = Readonly<{ id: TicketId; at: number }>
+
+export const justCreatedTicket = Atom.make<JustCreatedTicket | null>(null).pipe(
+  Atom.keepAlive
+)
+
 export const newTicketRequest = Atom.make<CreateTicketRequest | null>(
   null
 ).pipe(Atom.keepAlive)

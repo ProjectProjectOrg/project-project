@@ -35,6 +35,7 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import {
   createTicketInProject,
+  justCreatedTicket,
   relatedPayload,
   type CreateTicketRequest,
   type RelatedKind
@@ -65,6 +66,13 @@ const RELATED_LABELS: Readonly<
   blocking: m.tickets_create_related_blocked_by,
   related: m.tickets_create_related_related
 }
+
+// A ticket made from an inline field, a ticket or a comment shows up where
+// it was made, so the page stays; any other new ticket opens.
+const staysOnPage = (request: CreateTicketRequest) =>
+  request.from === "inline" ||
+  request.related !== undefined ||
+  request.fromComment !== undefined
 
 // The full new-ticket composer: on cmd+k's New ticket page, and in a popover
 // from the ticket menu's "Create related" (the ticket it relates to is in the
@@ -165,7 +173,10 @@ export function CreateTicketForm({
       )
     }
     onDone()
-    if (fromComment !== undefined) return
+    if (staysOnPage(request)) {
+      registry.set(justCreatedTicket, { id, at: performance.now() })
+      return
+    }
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id },
@@ -185,6 +196,7 @@ export function CreateTicketForm({
       {inCommandMenu ? (
         <Composer.Header>
           <ProjectSelect
+            orgSlug={orgSlug}
             projects={projects}
             value={slug}
             onChange={(next) => {

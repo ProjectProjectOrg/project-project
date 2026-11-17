@@ -1,6 +1,7 @@
 import { listRowHeight } from "@pp/ui/list-row"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -21,12 +22,16 @@ export function VirtualRows({
   className,
   activeIndex,
   reveal,
+  scrollTo = null,
   children
 }: {
   rowKeys: ReadonlyArray<string>
   className: string
   activeIndex: number
   reveal: Readonly<{ index: number }> | null
+  // Brings a row into view without moving focus (a ticket just created
+  // from a field that keeps it).
+  scrollTo?: Readonly<{ index: number }> | null
   children: (index: number) => ReactNode
 }) {
   "use no memo"
@@ -37,6 +42,8 @@ export function VirtualRows({
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const revealed = useRef<Readonly<{ index: number }> | null>(null)
   const revealIndex = reveal?.index ?? -1
+  const scrolled = useRef<Readonly<{ index: number }> | null>(null)
+  const scrollIndex = scrollTo?.index ?? -1
   const getScrollElement = useCallback(
     () => listRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null,
     []
@@ -58,12 +65,24 @@ export function VirtualRows({
         const indexes = new Set(
           nearViewport ? defaultRangeExtractor(range) : []
         )
-        for (const index of [focusedIndex, activeIndex, revealIndex]) {
+        for (const index of [
+          focusedIndex,
+          activeIndex,
+          revealIndex,
+          scrollIndex
+        ]) {
           if (index >= 0 && index < rowKeys.length) indexes.add(index)
         }
         return [...indexes].toSorted((a, b) => a - b)
       },
-      [focusedIndex, activeIndex, revealIndex, rowKeys.length, nearViewport]
+      [
+        focusedIndex,
+        activeIndex,
+        revealIndex,
+        scrollIndex,
+        rowKeys.length,
+        nearViewport
+      ]
     )
   })
 
@@ -75,16 +94,25 @@ export function VirtualRows({
     let margin = 0
     let height = 0
     let viewportHeight = 0
+    let hidden = false
+    // Layout is read here, before React writes anything; reading scrollTop
+    // inside the state updater forced a layout on every scroll frame.
     const updateNearViewport = () => {
+      if (hidden) return
+      const scrollTop = root.scrollTop
       setNearViewport((current) => {
         const band = current ? UNMOUNT_MARGIN : MOUNT_MARGIN
         return (
-          margin < root.scrollTop + viewportHeight + band &&
-          margin + height > root.scrollTop - band
+          margin < scrollTop + viewportHeight + band &&
+          margin + height > scrollTop - band
         )
       })
     }
+    // A list in a collapsed (display: none) section has no box: it keeps the
+    // rows it has, so opening it again is instant, and mounts none until then.
     const measure = () => {
+      hidden = list.getClientRects().length === 0
+      if (hidden) return
       const listRect = list.getBoundingClientRect()
       const rootRect = root.getBoundingClientRect()
       margin = listRect.top - rootRect.top + root.scrollTop
@@ -115,6 +143,17 @@ export function VirtualRows({
     link.scrollIntoView({ block: "nearest" })
   })
 
+  useLayoutEffect(() => {
+    if (scrollTo === null || scrollTo === scrolled.current) return
+    const row = listRef.current?.querySelector<HTMLElement>(
+      `:scope > [aria-posinset="${scrollTo.index + 1}"]`
+    )
+    if (!row) return
+    scrolled.current = scrollTo
+    const root = getScrollElement()
+    if (root) bringIntoView(root, row)
+  })
+
   const rows = virtualizer.getVirtualItems()
   return (
     <ul
@@ -136,12 +175,46 @@ export function VirtualRows({
           aria-setsize={rowKeys.length}
           onFocusCapture={() => setFocusedIndex(row.index)}
         >
-          {children(row.index)}
+          <RowSlot index={row.index} render={children} />
         </li>
       ))}
     </ul>
   )
 }
+
+// The part of the scroll area rows can be read in: below the pinned toolbar
+// and the section header pinned under it.
+const visibleBand = (root: HTMLElement, row: HTMLElement) => {
+  const rootRect = root.getBoundingClientRect()
+  const pinned =
+    Number.parseFloat(
+      getComputedStyle(row).getPropertyValue("--list-sticky-top")
+    ) || 0
+  return {
+    top: rootRect.top + pinned + listRowHeight,
+    bottom: rootRect.bottom
+  }
+}
+
+// Jumps (no smooth scroll) so a row out of view lands about a third of the
+// way down the readable band, with room around it, rather than flush against
+// an edge.
+const bringIntoView = (root: HTMLElement, row: HTMLElement) => {
+  const band = visibleBand(root, row)
+  const rect = row.getBoundingClientRect()
+  if (rect.top >= band.top && rect.bottom <= band.bottom) return
+  const target = band.top + (band.bottom - band.top) / 3
+  root.scrollTop += rect.top - target
+}
+
+// The list re-renders on its own when its position or the viewport moves;
+// rows whose data didn't change skip that render.
+const RowSlot = memo(function RowSlot({
+  index,
+  render
+}: Readonly<{ index: number; render: (index: number) => ReactNode }>) {
+  return render(index)
+})
 
 export function AutoLoad({
   cursor,

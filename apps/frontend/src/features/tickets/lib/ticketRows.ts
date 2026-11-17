@@ -5,6 +5,7 @@ import {
   TicketId,
   TicketRank,
   type EstimationMode,
+  type GroupId,
   type QuickCreateTicketInput,
   type TicketParent,
   type TagName,
@@ -184,6 +185,9 @@ export type QuickCreatePrediction = Partial<TypePrediction> &
 export type QuickCreateInput = Readonly<{
   payload: Omit<QuickCreateTicketInput, "parent">
   parent?: TicketParent
+  // Added to this sprint before the list refetches, so the ticket shows up
+  // in its sprint straight away instead of moving there after.
+  sprint?: GroupId
   prediction: QuickCreatePrediction
 }>
 

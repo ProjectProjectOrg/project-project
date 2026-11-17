@@ -32,8 +32,7 @@ const emojiShadow = (size: number) =>
       ].join(" ")
 
 // Corners at about a quarter of the side, squircled like the house controls.
-const projectIconRadius = (size: number) =>
-  Math.max(3, Math.round(size * 0.28))
+const projectIconRadius = (size: number) => Math.max(3, Math.round(size * 0.28))
 
 type ProjectIconProps = Readonly<{
   // What the backdrop is generated from: the project's id (or slug).

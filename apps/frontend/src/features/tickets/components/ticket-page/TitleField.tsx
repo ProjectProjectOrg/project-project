@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
-import { bareFieldTintClass } from "@pp/ui/input"
+import { bareFieldStateClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
@@ -107,7 +107,7 @@ export function TitleField({
           }
         }}
         className={cn(
-          bareFieldTintClass,
+          bareFieldStateClass,
           "block w-full min-w-0 resize-none overflow-hidden rounded-[12px] bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none aria-busy:animate-pulse motion-reduce:animate-none"
         )}
       />

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { runInNewContext } from "node:vm"
 
-import type { Plugin } from "vite"
+import type { Plugin, ViteDevServer } from "vite"
 
 type Source = Readonly<{
   kind: string
@@ -27,7 +27,7 @@ const LIBRARY: Readonly<Record<string, string>> = {
   own: "ProjectProject"
 }
 
-const META_PATTERN = /export const meta = (\{[\s\S]*?\n\})\n/
+const META_PATTERN = /export const meta = (\{[\s\S]*?\n\});?\n/
 const DEMO_PATTERN = /^<Demo\s+([\s\S]*?)\/>/gm
 
 const listMdx = (dir: string): ReadonlyArray<string> =>
@@ -49,12 +49,20 @@ const sourceLine = (source: Source) => {
     : `- ${linked} (${source.note})`
 }
 
-function toMarkdown(file: string, docsRoot: string): MarkdownPage | null {
-  const raw = readFileSync(file, "utf8")
+const readMeta = (raw: string): Meta | null => {
   const metaMatch = META_PATTERN.exec(raw)
   if (metaMatch?.[1] === undefined) return null
-  const meta = runInNewContext(`(${metaMatch[1]})`) as Meta
-  const slug = relative(docsRoot, file).replace(/(\/page)?\.mdx$/, "")
+  return runInNewContext(`(${metaMatch[1]})`) as Meta
+}
+
+const slugOf = (docsRoot: string, file: string) =>
+  relative(docsRoot, file).replace(/(\/page)?\.mdx$/, "")
+
+function toMarkdown(file: string, docsRoot: string): MarkdownPage | null {
+  const raw = readFileSync(file, "utf8")
+  const meta = readMeta(raw)
+  if (meta === null) return null
+  const slug = slugOf(docsRoot, file)
   const pageDir = file.replace(/\/[^/]+\.mdx$/, "")
   const body = raw
     .replace(META_PATTERN, "")
@@ -113,6 +121,8 @@ export function markdownPages(docsRoot: string): Plugin {
         const wantsMarkdown = (req.headers.accept ?? "").includes(
           "text/markdown"
         )
+        if (!wantsMarkdown && url !== "/llms.txt" && !url.endsWith(".md"))
+          return next()
         const pages = load()
         if (url === "/llms.txt") {
           res.setHeader("Content-Type", "text/plain; charset=utf-8")
@@ -142,6 +152,48 @@ export function markdownPages(docsRoot: string): Plugin {
           fileName: markdownPathOf(page.path).slice(1),
           source: page.markdown
         })
+    }
+  }
+}
+
+const PAGES_ID = "virtual:gallery-pages"
+const RESOLVED_PAGES_ID = `\0${PAGES_ID}`
+
+// Every page's meta, read from the .mdx source on the server, so the sidebar
+// and search list all pages without loading any of them.
+export function pageIndex(docsRoot: string): Plugin {
+  const source = () =>
+    `export default ${JSON.stringify(
+      listMdx(docsRoot).flatMap((file) => {
+        const meta = readMeta(readFileSync(file, "utf8"))
+        return meta === null ? [] : [{ slug: slugOf(docsRoot, file), meta }]
+      })
+    )}`
+  let last = ""
+  const refresh = (server: ViteDevServer, file: string) => {
+    if (!file.endsWith(".mdx")) return
+    const next = source()
+    if (next === last) return
+    last = next
+    const { moduleGraph } = server.environments.client
+    const module = moduleGraph.getModuleById(RESOLVED_PAGES_ID)
+    if (module !== undefined) moduleGraph.invalidateModule(module)
+    server.ws.send({ type: "full-reload" })
+  }
+  return {
+    name: "pp-gallery-pages",
+    resolveId: (id) => (id === PAGES_ID ? RESOLVED_PAGES_ID : undefined),
+    load(id) {
+      if (id !== RESOLVED_PAGES_ID) return undefined
+      last = source()
+      return last
+    },
+    configureServer(server) {
+      // docs/ sits outside the gallery's root; watch it so new pages and
+      // demos show up without a restart.
+      server.watcher.add(docsRoot)
+      for (const event of ["add", "change", "unlink"] as const)
+        server.watcher.on(event, (file) => refresh(server, file))
     }
   }
 }

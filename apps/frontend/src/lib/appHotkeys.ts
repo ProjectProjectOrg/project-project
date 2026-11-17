@@ -58,11 +58,6 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "C",
     meta: { name: m.tickets_shortcut_new_ticket(), group: create }
   },
-  "tickets.create": {
-    hotkey: "C",
-    scope: "ticket-list",
-    meta: { name: m.tickets_shortcut_new_ticket(), group: create }
-  },
   "tickets.add-sub-ticket": {
     hotkey: "C",
     scope: "ticket",

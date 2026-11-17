@@ -206,11 +206,14 @@ export function DescriptionField({
       role="presentation"
       tabIndex={-1}
       className={cn(
-        // Same surface as a bare field: editing shows the focus tint, and an
-        // empty description (click to start writing) tints on hover.
-        "relative rounded-xl py-2 transition-colors duration-150 ease-out outline-none [corner-shape:var(--button-corner)] motion-reduce:transition-none",
-        editing && "bg-(--field-focus)",
-        !editing && empty && "hover:bg-(--field-hover) hover:duration-0"
+        // States like a bare field: an empty description's placeholder steps
+        // up on hover, and further while editing.
+        "relative py-2 outline-none [&_[data-slot=editor-placeholder]]:transition-colors [&_[data-slot=editor-placeholder]]:duration-150",
+        editing &&
+          "[&_[data-slot=editor-placeholder]]:text-(--placeholder-focus)",
+        !editing &&
+          empty &&
+          "hover:[&_[data-slot=editor-placeholder]]:text-(--placeholder-hover) hover:[&_[data-slot=editor-placeholder]]:duration-0"
       )}
     >
       <div

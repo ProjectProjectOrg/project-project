@@ -2,9 +2,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import type { GroupId, TicketListQuery } from "@pp/shared"
 import { BacklogGrouping } from "@pp/shared"
-import { transitions } from "@pp/ui/lib/springs"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -18,7 +16,6 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
-import { ReorderBoardBanner } from "@/features/sprints/components/ReorderBoardBanner"
 import {
   useStatusReorder,
   type StatusReorder
@@ -39,7 +36,7 @@ import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { ListDragOverlay } from "./ListDragOverlay"
 import { ListKeyboardProvider } from "./ListKeyboard"
 import { SprintTicketCreator } from "./SprintTicketCreator"
-import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
+import { StickyListBar } from "./StickyListBar"
 import { TicketSelectionProvider } from "./TicketSelection"
 import {
   TicketToolbar,
@@ -104,7 +101,6 @@ export function ProjectTicketLayout({
   const actor = useProjectActor()
   const canCreate = actor.call("tickets", "quickCreate")
   const canAddToSprint = GroupPolicy.can(actor, "sprint", "add_ticket")
-  const showCreator = groupId ? canAddToSprint : canCreate
   const viewerId = useAtomValue(currentUserId)
   const preferencesKey = `${viewerId ?? ""}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
@@ -143,7 +139,7 @@ export function ProjectTicketLayout({
     onSuccess: () => null
   })
   return (
-    <CreatorActiveScope>
+    <>
       <ViewFilterCommandScope
         dimensions={filterDimensions}
         query={query}
@@ -151,47 +147,16 @@ export function ProjectTicketLayout({
         onQueryPrefetch={onQueryPrefetch}
       />
       <PageContainer className="group/list gap-3">
-        <Activity mode={view === "description" ? "hidden" : "visible"}>
-          {(showCreator || reorder.reorderMode) && (
-            <div className="relative min-h-9">
-              <motion.div
-                initial={false}
-                animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
-                transition={transitions.fade}
-                inert={!reorder.reorderMode}
-                aria-hidden={!reorder.reorderMode}
-                className="absolute inset-x-0 top-1/2 -translate-y-1/2"
-              >
-                <ReorderBoardBanner
-                  onSave={reorder.saveReorder}
-                  onCancel={reorder.cancelReorder}
-                />
-              </motion.div>
-              <motion.div
-                initial={false}
-                animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
-                transition={transitions.fade}
-                inert={reorder.reorderMode}
-                aria-hidden={reorder.reorderMode}
-              >
-                {groupId
-                  ? canAddToSprint && (
-                      <SprintCreator key={groupId} groupId={groupId} />
-                    )
-                  : canCreate && <BacklogTicketCreator query={query} />}
-              </motion.div>
-            </div>
-          )}
-        </Activity>
-        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
+        <StickyListBar>
           <Activity mode={view === "description" ? "hidden" : "visible"}>
-            <motion.div
-              initial={false}
-              animate={{ opacity: reorder.reorderMode ? 0.35 : 1 }}
-              transition={transitions.fade}
-              inert={reorder.reorderMode}
-              aria-hidden={reorder.reorderMode}
-            >
+            {groupId
+              ? canAddToSprint && (
+                  <SprintCreator key={groupId} groupId={groupId} />
+                )
+              : canCreate && <BacklogTicketCreator query={query} />}
+          </Activity>
+          <Activity mode={view === "description" ? "hidden" : "visible"}>
+            <div>
               <TicketToolbar
                 scopeKey={scope}
                 query={query}
@@ -223,8 +188,10 @@ export function ProjectTicketLayout({
                   contained
                 />
               )}
-            </motion.div>
+            </div>
           </Activity>
+        </StickyListBar>
+        <div className="flex flex-col gap-3">
           <TicketSelectionProvider
             resetKey={`${orgSlug}/${slug}:${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
           >
@@ -233,9 +200,9 @@ export function ProjectTicketLayout({
               <ListDragOverlay />
             </ListKeyboardProvider>
           </TicketSelectionProvider>
-        </DimWhileCreating>
+        </div>
       </PageContainer>
-    </CreatorActiveScope>
+    </>
   )
 }
 

@@ -40,6 +40,7 @@ import { nowDate } from "@/features/sprints/lib/sprintDates"
 import { sprintNeighbours } from "@/features/sprints/lib/sprintTargets"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView, type ProjectView } from "@/hooks/useViewPreference"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { useUnfinishedCount } from "./CompleteSprintMenu"
@@ -212,6 +213,7 @@ export function useSprintActions({
     if (state !== "completed") {
       commands.push({
         id: "sprint.create-ticket",
+        hotkey: appHotkeys["tickets.create-anywhere"],
         group: "sprint",
         label: () => m.sprints_command_create_ticket({ name: sprint.name }),
         icon: Plus,

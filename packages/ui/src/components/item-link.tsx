@@ -35,7 +35,7 @@ export function ItemLink({ render, className, ...props }: ItemLinkProps) {
       "data-item-link": "",
       draggable: false,
       className: cn(
-        "absolute inset-0 z-10 rounded-[inherit] [corner-shape:inherit] outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
+        "absolute inset-0 z-10 rounded-[inherit] outline-none [corner-shape:inherit] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
         className
       )
     }

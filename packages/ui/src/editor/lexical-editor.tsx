@@ -47,8 +47,7 @@ import { ImageNode } from "../editor/image-node"
 import { LinePlaceholderPlugin } from "../editor/line-placeholder-plugin"
 import { ListTabExtension } from "../editor/list-tab-extension"
 import { registerMarkdownPaste } from "../editor/markdown-paste"
-import { SubmitOnEnterPlugin } from "../editor/submit-on-enter-plugin"
-import { CodeLanguagePlugin } from "./code-language-plugin"
+import { SubmitShortcutPlugin } from "../editor/submit-shortcut-plugin"
 import { CodeHighlightExtension, editorTheme } from "../editor/theme"
 import { cn } from "../lib/utils"
 import { AttachmentExtension } from "./attachments/attachment-extension"
@@ -59,6 +58,7 @@ import { EditorBlocksProvider } from "./blocks/editor-blocks-context"
 import { SyncedBlockExtension } from "./blocks/synced-block-node"
 import { TicketBlockExtension } from "./blocks/ticket-block-extension"
 import { TicketBlocksPlugins } from "./blocks/ticket-blocks-plugins"
+import { CodeLanguagePlugin } from "./code-language-plugin"
 import {
   AUTO_LINK_MATCHERS,
   transformersForMode,
@@ -293,7 +293,10 @@ export function LexicalEditor({
         aria-describedby={onSubmit === undefined ? undefined : submitHint}
         aria-placeholder={placeholder}
         placeholder={
-          <div className="pointer-events-none absolute top-0 left-0 text-muted-foreground select-none">
+          <div
+            data-slot="editor-placeholder"
+            className="pointer-events-none absolute top-0 left-0 text-muted-foreground select-none"
+          >
             {placeholder}
           </div>
         }
@@ -352,7 +355,7 @@ export function LexicalEditor({
           ) : null}
           {onSubmit !== undefined ? (
             <>
-              <SubmitOnEnterPlugin onSubmit={onSubmit} />
+              <SubmitShortcutPlugin onSubmit={onSubmit} />
               <span id={submitHint} className="sr-only">
                 {m.editor_submit_hint()}
               </span>

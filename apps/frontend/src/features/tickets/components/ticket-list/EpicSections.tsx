@@ -42,11 +42,7 @@ import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
-import {
-  CreatingSectionsProvider,
-  SectionList,
-  TicketPagination
-} from "./SectionList"
+import { SectionList, TicketPagination } from "./SectionList"
 import { queryHasActiveFilter } from "./SprintSections"
 import { useTicketPreview } from "./useTicketPreview"
 
@@ -114,22 +110,20 @@ export function EpicSections(props: Props) {
             query: viewQuery(active.query)
           })}
         >
-          <CreatingSectionsProvider>
-            {active.value.sections.map((section) => (
-              <EpicSection
-                key={section.key}
-                {...props}
-                persistKey={persistKey}
-                query={active.query}
-                snapshotReq={active.req}
-                section={section}
-                waiting={snapshotResult.waiting}
-                activePreviewId={preview.activePreviewId}
-                onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                onPreviewOpenChange={preview.onPreviewOpenChange}
-              />
-            ))}
-          </CreatingSectionsProvider>
+          {active.value.sections.map((section) => (
+            <EpicSection
+              key={section.key}
+              {...props}
+              persistKey={persistKey}
+              query={active.query}
+              snapshotReq={active.req}
+              section={section}
+              waiting={snapshotResult.waiting}
+              activePreviewId={preview.activePreviewId}
+              onPreviewPointerEnter={preview.onPreviewPointerEnter}
+              onPreviewOpenChange={preview.onPreviewOpenChange}
+            />
+          ))}
         </TicketViewSourceContext>
       </div>
     ) : (

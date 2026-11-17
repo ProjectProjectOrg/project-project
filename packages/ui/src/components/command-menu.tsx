@@ -874,6 +874,10 @@ const PULSE_RELEASE = {
   restDelta: 0.002
 } as const
 
+// The cmd+k panel's surface, also for showing a cmd+k page in place.
+const commandMenuPanelClass =
+  "flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none [corner-shape:var(--button-corner)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+
 function CommandMenuDialog({
   open,
   onOpenChange,
@@ -950,7 +954,8 @@ function CommandMenuDialog({
           ref={popupRef}
           data-slot="command-menu-dialog"
           className={cn(
-            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none [corner-shape:var(--button-corner)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
+            commandMenuPanelClass,
             "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
             className
           )}
@@ -1020,6 +1025,7 @@ export {
   useCommandMenu,
   CommandMenu,
   CommandMenuDialog,
+  commandMenuPanelClass,
   CommandMenuTabs,
   CommandMenuInput,
   CommandMenuList,

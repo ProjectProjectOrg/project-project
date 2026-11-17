@@ -44,7 +44,7 @@ import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
-import { CreatingSectionsProvider, SectionList } from "./SectionList"
+import { SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -198,27 +198,25 @@ export function SegmentedList({
       style={{ overflowAnchor: "none" }}
       className="flex flex-col gap-1"
     >
-      <CreatingSectionsProvider>
-        {filteredStatuses.map((status) => (
-          <StatusSection
-            key={status}
-            persistKey={persistKey}
-            searchQuery={query.q}
-            status={status}
-            statuses={statuses}
-            query={query}
-            update={update}
-            bulkUpdate={bulkUpdate}
-            bulkMove={bulkMove}
-            count={byStatus[status] ?? 0}
-            page={sections[status] ?? EMPTY_PAGE}
-            members={members}
-            activePreviewId={preview.activePreviewId}
-            onPreviewPointerEnter={preview.onPreviewPointerEnter}
-            onPreviewOpenChange={preview.onPreviewOpenChange}
-          />
-        ))}
-      </CreatingSectionsProvider>
+      {filteredStatuses.map((status) => (
+        <StatusSection
+          key={status}
+          persistKey={persistKey}
+          searchQuery={query.q}
+          status={status}
+          statuses={statuses}
+          query={query}
+          update={update}
+          bulkUpdate={bulkUpdate}
+          bulkMove={bulkMove}
+          count={byStatus[status] ?? 0}
+          page={sections[status] ?? EMPTY_PAGE}
+          members={members}
+          activePreviewId={preview.activePreviewId}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
+        />
+      ))}
     </div>
   )
 }

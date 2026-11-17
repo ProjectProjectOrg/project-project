@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketId, User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { CommentComposer as Composer } from "@pp/ui/comment"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -43,35 +44,27 @@ function ReadyCommentComposer({
   ticketId,
   author
 }: Readonly<{ ticketId: TicketId; author: User }>) {
-  const { body, setBody, editorKey, focusEditor, failed, submit, rootRef } =
+  const { body, setBody, editorKey, focusEditor, submit, rootRef } =
     useCommentDraft({ ticketId, author, onSend: keepInView })
 
   return (
-    <div
+    <Composer
       ref={rootRef}
-      className="rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
-    >
-      <div className="px-4 pt-3.5">
-        <LexicalEditor
-          key={editorKey}
-          markdown={body}
-          onDraftChange={setBody}
-          onSubmit={submit}
-          placeholder={m.comments_composer_placeholder()}
-          autoFocus={focusEditor}
-          compact
-        />
-      </div>
-      {failed && (
-        <p role="alert" className="mx-4 mt-2 text-body text-destructive">
-          {m.comments_composer_failed()}
-        </p>
-      )}
-      <div className="flex justify-end p-1.5">
+      submit={
         <Button size="sm" onClick={submit} disabled={!body.trim()}>
           {m.comments_composer_submit()}
         </Button>
-      </div>
-    </div>
+      }
+    >
+      <LexicalEditor
+        key={editorKey}
+        markdown={body}
+        onDraftChange={setBody}
+        onSubmit={submit}
+        placeholder={m.comments_composer_placeholder()}
+        autoFocus={focusEditor}
+        compact
+      />
+    </Composer>
   )
 }

@@ -19,7 +19,7 @@ import {
   MoreHorizontal,
   SlidersHorizontal
 } from "@pp/ui/icons"
-import { bareFieldTintClass } from "@pp/ui/input"
+import { bareFieldStateClass } from "@pp/ui/input"
 import { spring, transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useMatches } from "@tanstack/react-router"
@@ -347,7 +347,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          bareFieldTintClass,
+          bareFieldStateClass,
           "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
@@ -365,7 +365,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onBlur={() => void commit()}
         onKeyDown={handleKey}
         className={cn(
-          bareFieldTintClass,
+          bareFieldStateClass,
           "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
         )}
         maxLength={120}
