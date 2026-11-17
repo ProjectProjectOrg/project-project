@@ -192,7 +192,10 @@ const sections = Effect.gen(function* () {
   yield* sql`alter table local_tickets add column epic_section text`
   yield* sql`alter table local_tickets add column parent_section text`
   for (const { id } of yield* sql<{ id: number }>`select id from local_copies`)
-    yield* deriveCopy(id)
+    yield* deriveCopy(id, {
+      write: (transaction) => transaction,
+      readsWaiting: Effect.succeed(false)
+    })
   yield* sql`create index local_tickets_sprint on local_tickets (copy, archived, sprint, status)`
   yield* sql`create index local_tickets_epic_section on local_tickets (copy, archived, epic_section, status, type)`
   yield* sql`create index local_tickets_parent_section on local_tickets (copy, archived, parent_section, status, type)`

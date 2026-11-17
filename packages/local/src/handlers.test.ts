@@ -135,6 +135,39 @@ it.effect("an interrupted snapshot resumes from its next page", () => {
   }).pipe(Effect.scoped, Effect.provide(engineWith(pull)))
 })
 
+it.effect("pages fetched ahead are applied in page order", () => {
+  const asked: Array<ProjectSyncQuery> = []
+  const pages = new Map<string, ProjectSync>([
+    [
+      "page-2",
+      { ...onePage("1.1", [ticket("T-2", "two")]), start: null, next: "page-3" }
+    ],
+    ["page-3", { ...onePage("1.1", [ticket("T-3", "three")]), start: null }]
+  ])
+  const pull = (_: LocalProject, request: ProjectSyncQuery) =>
+    Effect.sync((): ProjectSync => {
+      asked.push(request)
+      if (request.after !== undefined) return changes("1.1", [], [])
+      if (request.page !== undefined)
+        return pages.get(request.page) ?? changes("1.1", [], [])
+      return { ...onePage("1.1", [ticket("T-1", "one")]), next: "page-2" }
+    })
+  return Effect.gen(function* () {
+    const client = yield* RpcTest.makeClient(LocalRpcs)
+    yield* client.Pull(project)
+    const titles = yield* client
+      .Titles(project)
+      .pipe(Stream.take(1), Stream.runCollect)
+    expect(asked).toEqual([
+      {},
+      { page: "page-2" },
+      { page: "page-3" },
+      { after: "1.1" }
+    ])
+    expect(titles[0]?.map((title) => title.id)).toEqual(["T-1", "T-2", "T-3"])
+  }).pipe(Effect.scoped, Effect.provide(engineWith(pull)))
+})
+
 it.effect(
   "an edit the server never received is sent again under its operation id on the next pull",
   () => {

@@ -31,14 +31,21 @@ import {
   recordEdit,
   rejectEdit
 } from "./store"
-import { changes, install, pageOf, snapshot, ticket } from "./testFacts"
+import {
+  changes,
+  install,
+  pageOf,
+  snapshot,
+  ticket,
+  direct,
+  directly
+} from "./testFacts"
 
 const TestDatabase = localDbLayer.pipe(
   Layer.provideMerge(SqliteClient.layerMemory({}))
 )
 
 const now = at("2026-11-16T12:00:00Z")
-const direct = <A, E, R>(transaction: Effect.Effect<A, E, R>) => transaction
 const query = Schema.decodeSync(TicketListQuery)({})
 
 const sprintView = Effect.gen(function* () {
@@ -250,9 +257,9 @@ const pagedSnapshot = (
 
 const installPaged = (pages: ReturnType<typeof pagedSnapshot>) =>
   Effect.gen(function* () {
-    yield* beginStaging("a/p", pages[0])
-    yield* applyPage("a/p", "page-2", pages[1])
-    yield* publishStaging("a/p")
+    yield* beginStaging("a/p", pages[0], directly)
+    yield* applyPage("a/p", "page-2", pages[1], directly)
+    yield* publishStaging("a/p", directly)
   })
 
 it.effect("a paged snapshot gets its sections when it is published", () =>
