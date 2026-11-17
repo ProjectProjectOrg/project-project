@@ -1072,7 +1072,8 @@ export const Tools = Toolkit.make(
       "Add a comment to a ticket, attributed to you. `body` is CommonMark " +
       "markdown, 1–20,000 characters. Use it to record what you did, for " +
       "example after opening a pull request: what changed, the PR link, " +
-      "and anything a reviewer should know. " +
+      "and anything a reviewer should know. Pass `replyTo` with a comment " +
+      "id from `list_comments` to answer in that comment's thread. " +
       MENTION_GUIDE +
       " Returns the created comment.",
     cli: {

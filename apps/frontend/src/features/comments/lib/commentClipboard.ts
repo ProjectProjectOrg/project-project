@@ -17,8 +17,18 @@ export const commentUrl = (
 ): string => `${ticketUrl(location, ticketId)}#${commentId}`
 
 export const commentMarkdown = (
-  comment: Pick<Comment, "author" | "body">,
+  [first, ...replies]: readonly [
+    Pick<Comment, "author" | "body">,
+    ...ReadonlyArray<Pick<Comment, "author" | "body">>
+  ],
   ticketId: TicketId,
   url: string
 ): string =>
-  `**${commentAuthorName(comment.author)}** · [${ticketId}](${url})\n\n${comment.body.trim()}`
+  [
+    `**${commentAuthorName(first.author)}** · [${ticketId}](${url})`,
+    first.body.trim(),
+    ...replies.flatMap((reply) => [
+      `**${commentAuthorName(reply.author)}**`,
+      reply.body.trim()
+    ])
+  ].join("\n\n")

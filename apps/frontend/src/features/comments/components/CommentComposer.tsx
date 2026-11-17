@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { TicketId, User } from "@pp/shared"
+import type { CommentId, TicketId, User } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -15,6 +15,7 @@ import {
 } from "@/features/comments/atoms/comments"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const newCommentIdentity = () => ({
@@ -45,23 +46,25 @@ const keepInView = (element: HTMLElement | null) => {
   requestAnimationFrame(tick)
 }
 
-export function CommentComposer({ ticketId }: { ticketId: TicketId }) {
+type Reply = Readonly<{ to: CommentId; onClose: () => void }>
+
+type ComposerProps = Readonly<{ ticketId: TicketId; reply?: Reply }>
+
+export function CommentComposer(props: ComposerProps) {
   const viewer = useAtomValue(me())
   if (!Result.isSuccess(viewer)) return null
-  return <ReadyCommentComposer ticketId={ticketId} author={viewer.value} />
+  return <ReadyCommentComposer {...props} author={viewer.value} />
 }
 
 function ReadyCommentComposer({
   ticketId,
+  reply,
   author
-}: {
-  ticketId: TicketId
-  author: User
-}) {
+}: ComposerProps & Readonly<{ author: User }>) {
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState("")
   const [editorVersion, setEditorVersion] = useState(0)
-  const [focusEditor, setFocusEditor] = useState(false)
+  const [focusEditor, setFocusEditor] = useState(reply !== undefined)
   const [identity, setIdentity] = useState(newCommentIdentity)
   const [failed, setFailed] = useState(false)
   const req = commentsRequest(orgSlug, slug, ticketId)
@@ -83,19 +86,25 @@ function ReadyCommentComposer({
     setFailed(false)
     reset("", true)
     setIdentity(newCommentIdentity())
-    const pending = create({ body: sent })
+    const pending = create(
+      reply === undefined ? { body: sent } : { body: sent, replyTo: reply.to }
+    )
     keepInView(rootRef.current)
     const exit = await pending
-    if (Exit.isFailure(exit)) {
-      setFailed(true)
-      reset(sent, rootRef.current?.contains(document.activeElement) ?? false)
-    }
+    if (Exit.isSuccess(exit)) return reply?.onClose()
+    setFailed(true)
+    reset(sent, rootRef.current?.contains(document.activeElement) ?? false)
   }
 
   return (
     <div
       ref={rootRef}
-      className="rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      className={cn(
+        "[--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
+        reply === undefined
+          ? "rounded-xl border border-border/60 bg-background"
+          : "border-t border-border/60"
+      )}
     >
       <div className="px-4 pt-3.5">
         <LexicalEditor
@@ -103,7 +112,11 @@ function ReadyCommentComposer({
           markdown={body}
           onDraftChange={setBody}
           onSubmit={submit}
-          placeholder={m.comments_composer_placeholder()}
+          placeholder={
+            reply === undefined
+              ? m.comments_composer_placeholder()
+              : m.comments_reply_placeholder()
+          }
           autoFocus={focusEditor}
           compact
         />
@@ -113,9 +126,16 @@ function ReadyCommentComposer({
           {m.comments_composer_failed()}
         </p>
       )}
-      <div className="flex justify-end p-1.5">
+      <div className="flex justify-end gap-2 p-1.5">
+        {reply !== undefined && (
+          <Button size="sm" variant="ghost" onClick={reply.onClose}>
+            {m.common_cancel_button()}
+          </Button>
+        )}
         <Button size="sm" onClick={submit} disabled={!body.trim()}>
-          {m.comments_composer_submit()}
+          {reply === undefined
+            ? m.comments_composer_submit()
+            : m.comments_reply_submit()}
         </Button>
       </div>
     </div>

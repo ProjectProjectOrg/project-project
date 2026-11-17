@@ -32,6 +32,7 @@ const sample = (): ReadonlyArray<CommentBlock> => [
     origin: "jira",
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
+    replyTo: "c_a",
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
   }
 ]

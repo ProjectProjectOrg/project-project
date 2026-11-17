@@ -35,7 +35,8 @@ const CommentFields = {
   projectSlug: Slug,
   body: Schema.String,
   createdAt: Schema.DateFromString,
-  editedAt: Schema.NullOr(Schema.DateFromString)
+  editedAt: Schema.NullOr(Schema.DateFromString),
+  replyTo: Schema.NullOr(CommentId)
 }
 
 export const Comment = Schema.Union([
@@ -58,6 +59,10 @@ export const CreateCommentInput = Schema.Struct({
     Schema.check(Schema.isMaxLength(20_000))
   ).annotate({
     description: "The comment as CommonMark markdown, 1 to 20,000 characters."
+  }),
+  replyTo: Schema.optionalKey(CommentId).annotate({
+    description:
+      "Reply in the thread of this comment. Replying to a reply adds to the same thread."
   })
 })
 export type CreateCommentInput = typeof CreateCommentInput.Type
