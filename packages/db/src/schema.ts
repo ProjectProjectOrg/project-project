@@ -752,6 +752,7 @@ export const ticketIndex = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     parent: text("parent"),
+    sprintId: text("sprint_id"),
     repoId: text("repo_id"),
     movedFrom: text("moved_from")
       .array()
@@ -797,6 +798,7 @@ export const ticketIndex = pgTable(
     index("ticket_index_assignees_idx").using("gin", t.assignees),
     index("ticket_index_moved_from_idx").using("gin", t.movedFrom),
     index("ticket_index_parent_idx").on(t.projectId, t.parent),
+    index("ticket_index_sprint_idx").on(t.projectId, t.sprintId),
     index("ticket_index_rank_idx").on(t.projectId, sql`${t.rank} collate "C"`)
   ]
 )

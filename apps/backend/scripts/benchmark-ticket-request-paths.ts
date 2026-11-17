@@ -402,7 +402,9 @@ const makeFakeGroups = (ticketCount: number) => {
     removeTickets: () => unexpected("Groups.removeTickets"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
+    documents: () => Effect.succeed([group]),
     ensureSprintAssignable: () => Effect.void,
+    withSprints: (use) => use(new Map()),
     setSprintMembership: () => Effect.void,
     removeTicketFromAllGroups: () => Effect.void
   } satisfies Groups.Groups["Service"])

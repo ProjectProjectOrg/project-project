@@ -89,7 +89,10 @@ The storage concept behind sprints: a markdown file under `groups/` with a kind.
 _Avoid_: Using "group" in UI copy
 
 **Sprint**:
-A group of tickets with optional start and end dates, planned by the PM and completed when it ends.
+A group of tickets with optional start and end dates, planned by the PM and completed when it ends. Each ticket names its sprint in its own frontmatter; the sprint file holds no ticket list.
+
+**Sprint snapshot**:
+The tickets a sprint held when it was completed, with the status and estimate each had then, kept in the completed sprint's file.
 
 **Backlog**:
 The tickets in no sprint.
@@ -167,8 +170,8 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 - Resending a **Pending project member** invitation is not part of the current flow.
 - Canceling a **Pending project member** removes that project grant; the underlying organization invitation is canceled only when no project grants remain.
 - A **Pending project member** is displayed by email, not by a user profile, until the invitation is accepted.
-- A **Ticket** is in at most one **Sprint**; otherwise it is in the **Backlog**.
-- A **Ticket** has exactly one **Rank**; a sprint's ticket list records membership only, not order.
+- A **Ticket** is in at most one **Sprint**, open or completed; otherwise it is in the **Backlog**.
+- A **Ticket** has exactly one **Rank**; its sprint records membership only, not order.
 - A **Ticket** has at most one parent: an **Epic**, a ticket without a parent, or a child of an **Epic**.
 - A **Ticket** can have several **linked branches**, forming **stacks**.
 - A **Ticket** can have any number of **Relations** to other tickets in its project. A blocking relation can't form a loop, and a duplicate can't point at another duplicate.

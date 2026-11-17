@@ -35,6 +35,10 @@ export const EverhourHostLive = Layer.effect(
           ),
         { concurrency: 8 }
       )
+      const project = yield* ticketIndex
+        .projectFor(orgSlug, slug)
+        .pipe(Effect.orDie)
+      const members = yield* ticketIndex.sprintTickets(project)
       return groups.flatMap((group) =>
         group !== null && group.kind === "sprint"
           ? [
@@ -42,7 +46,9 @@ export const EverhourHostLive = Layer.effect(
                 id: group.id,
                 name: group.name,
                 completed: group.completedAt !== null,
-                tickets: group.tickets
+                tickets: members.flatMap((member) =>
+                  member.sprintId === group.id ? [member.id] : []
+                )
               }
             ]
           : []

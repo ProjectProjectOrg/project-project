@@ -7,6 +7,7 @@ import {
 } from "@pp/shared"
 import * as Equal from "effect/Equal"
 
+import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
 import type * as TicketDocs from "./TicketDocs"
 import type { HierarchyChange } from "./ticketHierarchy"
 
@@ -136,34 +137,14 @@ export const batchChangeOf = (
       }
 }
 
-export type SprintGroup = Readonly<{
-  id: string
-  kind: string
-  completedAt: Date | null
-  tickets: ReadonlyArray<string>
-}>
-
-export const openSprintIdsOf = (
-  groups: ReadonlyArray<SprintGroup>,
-  ticketId: string
-): ReadonlyArray<string> =>
-  groups.flatMap((group) =>
-    group.kind === "sprint" &&
-    group.completedAt === null &&
-    group.tickets.includes(ticketId)
-      ? [group.id]
-      : []
-  )
-
 export const breaksEpicSprintRule = (
   existing: TicketDocs.TicketDocument,
   next: TicketDocs.TicketDocument,
-  sprintsBefore: ReadonlyArray<string>,
-  sprintsAfter: ReadonlyArray<string>
+  sprints: SprintFiles
 ) =>
   isEpic(next) &&
-  sprintsAfter.length > 0 &&
-  (!isEpic(existing) || sprintsAfter.some((id) => !sprintsBefore.includes(id)))
+  openSprintOf(sprints, next.sprint) !== null &&
+  (!isEpic(existing) || next.sprint !== existing.sprint)
 
 const patchableKeys = [
   "title",
@@ -176,7 +157,8 @@ const patchableKeys = [
   "assignees",
   "body",
   "flag",
-  "rank"
+  "rank",
+  "sprint"
 ] as const
 
 type PatchableKey = (typeof patchableKeys)[number]
@@ -227,7 +209,8 @@ export const revertTicketPatch = (
     tags: pick("tags"),
     assignees: pick("assignees"),
     body: pick("body"),
-    rank: pick("rank")
+    rank: pick("rank"),
+    sprint: pick("sprint")
   }
   if (current.updatedAt.getTime() !== written.updatedAt.getTime()) {
     return restored

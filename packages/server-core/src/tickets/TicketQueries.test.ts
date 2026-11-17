@@ -4,6 +4,7 @@ import {
   NotFound,
   GroupDetail,
   GroupId,
+  sprintClaims,
   TICKET_LIST_LIMIT,
   type TicketListQuery,
   TypeKey,
@@ -271,27 +272,28 @@ it.effect("list reads ticket index rows", () => {
 })
 
 it.effect(
-  "list resolves the ungrouped filter without treating it as a group id",
+  "the ungrouped filter keeps tickets outside open sprints, including those left in completed sprints",
   () => {
-    const docs = makeFakeTicketDocs(["T-1", "T-2"])
-    const activeSprint = decodeGroupSync({
-      id: "G-1",
-      name: "Sprint",
-      kind: "sprint",
-      tickets: ["T-1"],
-      color: "#123456",
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      createdBy: "user-1",
-      createdAt: "2026-04-01T00:00:00.000Z",
-      updatedAt: "2026-04-01T00:00:00.000Z"
-    })
+    const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])
+    const sprint = (id: string, completedAt: string | null) =>
+      decodeGroupSync({
+        id,
+        name: id,
+        kind: "sprint",
+        tickets: [],
+        color: "#123456",
+        startsAt: "2099-01-01T00:00:00.000Z",
+        endsAt: null,
+        completedAt,
+        createdBy: "user-1",
+        createdAt: "2026-04-01T00:00:00.000Z",
+        updatedAt: "2026-04-01T00:00:00.000Z"
+      })
     const epic = decodeGroupSync({
-      id: "G-2",
+      id: "G-3",
       name: "Epic",
       kind: "epic",
-      tickets: ["T-2"],
+      tickets: ["T-4"],
       color: "#654321",
       startsAt: null,
       endsAt: null,
@@ -300,18 +302,35 @@ it.effect(
       createdAt: "2026-04-01T00:00:00.000Z",
       updatedAt: "2026-04-01T00:00:00.000Z"
     })
+    const planned = sprint("G-1", null)
+    const completed = sprint("G-2", "2026-04-15T00:00:00.000Z")
+    const inSprint = (id: string, sprintId: GroupId) => {
+      const document = docs.documents.get(id)
+      if (document !== undefined) {
+        docs.documents.set(id, { ...document, sprint: sprintId })
+      }
+    }
+    inSprint("T-1", planned.id)
+    inSprint("T-2", completed.id)
     const groups = makeFakeGroups({
-      list: () => Effect.succeed([activeSprint, epic])
+      documents: () =>
+        Effect.succeed(
+          [planned, completed, epic].map((group) => ({ ...group, body: "" }))
+        )
     })
 
     return Effect.gen(function* () {
       const queries = yield* TicketQueries.TicketQueries
       const result = yield* queries.list({
-        sort: DEFAULT_TICKET_SORT,
+        sort: { key: "id", dir: "asc" },
         groupId: ["ungrouped"]
       })
 
-      expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
+      expect(result.items.map((row) => row.ticket.id)).toEqual([
+        "T-2",
+        "T-3",
+        "T-4"
+      ])
     }).pipe(
       Effect.provide(
         makeTicketsLayer("T", docs.layer, {
@@ -322,43 +341,6 @@ it.effect(
     )
   }
 )
-
-it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
-  const docs = makeFakeTicketDocs(["T-1", "T-2"])
-  const plannedSprint = decodeGroupSync({
-    id: "G-1",
-    name: "Planned",
-    kind: "sprint",
-    tickets: ["T-1"],
-    color: "#123456",
-    startsAt: "2099-01-01T00:00:00.000Z",
-    endsAt: "2099-01-15T00:00:00.000Z",
-    completedAt: null,
-    createdBy: "user-1",
-    createdAt: "2026-04-01T00:00:00.000Z",
-    updatedAt: "2026-04-01T00:00:00.000Z"
-  })
-  const groups = makeFakeGroups({
-    list: () => Effect.succeed([plannedSprint])
-  })
-
-  return Effect.gen(function* () {
-    const queries = yield* TicketQueries.TicketQueries
-    const result = yield* queries.list({
-      sort: DEFAULT_TICKET_SORT,
-      groupId: ["ungrouped"]
-    })
-
-    expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
-  }).pipe(
-    Effect.provide(
-      makeTicketsLayer("T", docs.layer, {
-        groups,
-        ticketIndex: makeFakeTicketIndex(docs.documents)
-      })
-    )
-  )
-})
 
 it.effect("list defaults to the manual order", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
@@ -829,11 +811,21 @@ function sprintGroup(
   }
 }
 
-function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
+function makeFakeSprintGroups(
+  sprints: ReadonlyArray<GroupDetail>,
+  documents: Map<string, TicketDocs.TicketDocument>
+) {
+  for (const [id, sprint] of sprintClaims(sprints)) {
+    const document = documents.get(id)
+    if (document !== undefined) documents.set(id, { ...document, sprint })
+  }
+  const files = sprints.map((sprint) => ({ ...sprint, tickets: [] }))
   const byId = new Map(sprints.map((sprint) => [sprint.id, sprint]))
   const isGroupId = Schema.is(GroupId)
   return Layer.succeed(Groups.Groups, {
     list: () => Effect.succeed(sprints),
+    documents: () => Effect.succeed(files),
+    withSprints: (use) => use(new Map(files.map((file) => [file.id, file]))),
     listPaged: () => unexpected("Groups.listPaged"),
     listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
     get: (id) => {
@@ -876,7 +868,7 @@ it.effect(
     const g2 = sprintGroup("G-2", [])
     const layer = makeTicketsLayer("T", docs.layer, {
       ticketIndex: makeFakeTicketIndex(documents),
-      groups: makeFakeSprintGroups([g1, g2])
+      groups: makeFakeSprintGroups([g1, g2], documents)
     })
     return Effect.gen(function* () {
       const queries = yield* TicketQueries.TicketQueries
@@ -938,7 +930,7 @@ it.effect(
     const g2 = sprintGroup("G-2", ["T-3"])
     const layer = makeTicketsLayer("T", docs.layer, {
       ticketIndex: makeFakeTicketIndex(documents),
-      groups: makeFakeSprintGroups([g1, g2])
+      groups: makeFakeSprintGroups([g1, g2], documents)
     })
     return Effect.gen(function* () {
       const queries = yield* TicketQueries.TicketQueries
@@ -982,7 +974,7 @@ it.effect("sprintSections lists sections in backlog order", () => {
   const planned = sprintGroup("G-2", [])
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents),
-    groups: makeFakeSprintGroups([completed, planned])
+    groups: makeFakeSprintGroups([completed, planned], docs.documents)
   })
   return Effect.gen(function* () {
     const queries = yield* TicketQueries.TicketQueries
@@ -1011,7 +1003,7 @@ it.effect("sprintSections assigns each ticket to one section", () => {
   const active = sprintGroup("G-2", ["T-2"])
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(documents),
-    groups: makeFakeSprintGroups([done, active])
+    groups: makeFakeSprintGroups([done, active], documents)
   })
   return Effect.gen(function* () {
     const queries = yield* TicketQueries.TicketQueries
@@ -1056,18 +1048,18 @@ it.effect("sprintSections assigns each ticket to one section", () => {
     })
     expect(
       completedOnly.sections[0]?.page.items.map(({ ticket }) => ticket.id)
-    ).toEqual(["T-1", "T-2"])
+    ).toEqual(["T-1"])
 
     const both = yield* queries.sprintSections({
       ...ungroupedQuery,
       groupId: ["ungrouped", done.id]
     })
-    expect(both.counts.total).toBe(3)
+    expect(both.counts.total).toBe(2)
     expect(
       both.sections.flatMap((section) =>
         section.page.items.map(({ ticket }) => ticket.id)
       )
-    ).toEqual(["T-3", "T-1", "T-2"])
+    ).toEqual(["T-3", "T-1"])
   }).pipe(Effect.provide(layer))
 })
 

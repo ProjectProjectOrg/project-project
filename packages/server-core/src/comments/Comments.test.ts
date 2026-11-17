@@ -119,6 +119,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   rankGap: () => unexpected("TicketIndex.rankGap"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
+  sprintTickets: () => unexpected("TicketIndex.sprintTickets"),
   existingIds: () => unexpected("TicketIndex.existingIds"),
   mentionableIds: () => unexpected("TicketIndex.mentionableIds"),
   movedTo: () => unexpected("TicketIndex.movedTo"),

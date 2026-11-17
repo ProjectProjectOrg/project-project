@@ -1,6 +1,7 @@
 import {
   type ActivityCause,
   Estimate,
+  type GroupId,
   TicketFlag,
   UserId,
   type GroupDetail,
@@ -278,7 +279,7 @@ export const groupMembershipChanges = (
   after: GroupMembershipSource | null
 ): ReadonlyArray<TicketScopedChange> => {
   const group = after ?? before
-  if (group === null) return []
+  if (group === null || group.kind === "sprint") return []
   const diff = listDiff(before?.tickets ?? [], after?.tickets ?? [])
   if (diff === null) return []
   const subject = {
@@ -295,5 +296,27 @@ export const groupMembershipChanges = (
       ticketId,
       change: { kind: "group_added" as const, ...subject }
     }))
+  ]
+}
+
+export type SprintRef = Readonly<{ id: GroupId; name: string }>
+
+export const sprintChanges = (
+  before: SprintRef | null,
+  after: SprintRef | null
+): ReadonlyArray<TicketActivityChange> => {
+  if (before?.id === after?.id) return []
+  const change = (
+    kind: "group_added" | "group_removed",
+    sprint: SprintRef
+  ): TicketActivityChange => ({
+    kind,
+    groupId: sprint.id,
+    groupKind: "sprint",
+    name: sprint.name
+  })
+  return [
+    ...(before === null ? [] : [change("group_removed", before)]),
+    ...(after === null ? [] : [change("group_added", after)])
   ]
 }

@@ -532,77 +532,91 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   )
 )
 
-it.effect("GroupDocs serializes typed group documents for disk writes", () => {
-  let written:
-    | {
-        id: string
-        frontmatter: Record<string, unknown>
-        body: string
-      }
-    | undefined
+it.effect(
+  "GroupDocs writes a sprint without a ticket list and keeps its snapshot",
+  () => {
+    let written:
+      | {
+          id: string
+          frontmatter: Record<string, unknown>
+          body: string
+        }
+      | undefined
 
-  return Effect.gen(function* () {
-    const docs = yield* GroupDocs.GroupDocs
-    yield* docs.writeIfExists("org", "project", "G-2", {
-      id: groupId("G-2"),
-      name: "Sprint 1",
-      kind: "sprint",
-      tickets: [ticketId("T-1"), ticketId("T-2")],
-      color: groupColor("#10b981"),
-      startsAt: isoDate("2026-04-01T00:00:00.000Z"),
-      endsAt: isoDate("2026-04-14T00:00:00.000Z"),
-      completedAt: null,
-      createdBy: "user-1",
-      createdAt: isoDate("2026-03-30T00:00:00.000Z"),
-      updatedAt: isoDate("2026-04-02T00:00:00.000Z"),
-      body: "# Sprint 1\n"
-    })
-
-    expect(written).toEqual({
-      id: "G-2",
-      frontmatter: {
-        id: "G-2",
+    return Effect.gen(function* () {
+      const docs = yield* GroupDocs.GroupDocs
+      yield* docs.writeIfExists("org", "project", "G-2", {
+        id: groupId("G-2"),
         name: "Sprint 1",
         kind: "sprint",
-        tickets: ["T-1", "T-2"],
-        color: "#10b981",
-        startsAt: "2026-04-01T00:00:00.000Z",
-        endsAt: "2026-04-14T00:00:00.000Z",
-        completedAt: null,
+        tickets: [ticketId("T-1"), ticketId("T-2")],
+        color: groupColor("#10b981"),
+        startsAt: isoDate("2026-04-01T00:00:00.000Z"),
+        endsAt: isoDate("2026-04-14T00:00:00.000Z"),
+        completedAt: isoDate("2026-04-14T00:00:00.000Z"),
         createdBy: "user-1",
-        createdAt: "2026-03-30T00:00:00.000Z",
-        updatedAt: "2026-04-02T00:00:00.000Z"
-      },
-      body: "# Sprint 1\n"
-    })
-  }).pipe(
-    Effect.provide(
-      GroupDocs.layer.pipe(
-        Layer.provideMerge(testActivityLayer()),
-        Layer.provide(
-          makeMarkdown({
-            readGroupFile: () =>
-              Effect.succeed({
-                data: {
-                  id: "G-2",
-                  name: "Sprint 1",
-                  color: "#10b981",
-                  createdBy: "user-1",
-                  createdAt: "2026-03-30T00:00:00.000Z",
-                  updatedAt: "2026-03-30T00:00:00.000Z"
-                },
-                body: "# Sprint 1\n"
-              }),
-            writeGroupFileIfExists: (_org, _slug, id, frontmatter, body) => {
-              written = { id, frontmatter, body }
-              return Effect.void
-            }
-          })
+        createdAt: isoDate("2026-03-30T00:00:00.000Z"),
+        updatedAt: isoDate("2026-04-02T00:00:00.000Z"),
+        snapshot: [
+          {
+            id: ticketId("T-1"),
+            status: ticketStatus("done"),
+            estimate: { unit: "points", value: 3 }
+          },
+          { id: ticketId("T-2"), status: ticketStatus("todo"), estimate: null }
+        ],
+        body: "# Sprint 1\n"
+      })
+
+      expect(written).toEqual({
+        id: "G-2",
+        frontmatter: {
+          id: "G-2",
+          name: "Sprint 1",
+          kind: "sprint",
+          color: "#10b981",
+          startsAt: "2026-04-01T00:00:00.000Z",
+          endsAt: "2026-04-14T00:00:00.000Z",
+          completedAt: "2026-04-14T00:00:00.000Z",
+          createdBy: "user-1",
+          createdAt: "2026-03-30T00:00:00.000Z",
+          updatedAt: "2026-04-02T00:00:00.000Z",
+          snapshot: [
+            { id: "T-1", status: "done", estimate: 3 },
+            { id: "T-2", status: "todo" }
+          ]
+        },
+        body: "# Sprint 1\n"
+      })
+    }).pipe(
+      Effect.provide(
+        GroupDocs.layer.pipe(
+          Layer.provideMerge(testActivityLayer()),
+          Layer.provide(
+            makeMarkdown({
+              readGroupFile: () =>
+                Effect.succeed({
+                  data: {
+                    id: "G-2",
+                    name: "Sprint 1",
+                    color: "#10b981",
+                    createdBy: "user-1",
+                    createdAt: "2026-03-30T00:00:00.000Z",
+                    updatedAt: "2026-03-30T00:00:00.000Z"
+                  },
+                  body: "# Sprint 1\n"
+                }),
+              writeGroupFileIfExists: (_org, _slug, id, frontmatter, body) => {
+                written = { id, frontmatter, body }
+                return Effect.void
+              }
+            })
+          )
         )
       )
     )
-  )
-})
+  }
+)
 
 it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
   Effect.gen(function* () {

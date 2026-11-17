@@ -19,6 +19,7 @@ import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import { CurrentUser, OrgScope, ProjectScope } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
@@ -175,7 +176,8 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
               title: "Tracked work",
               status: "todo",
               type: "bug",
-              rank: "a0"
+              rank: "a0",
+              sprint: "G-1"
             },
             ""
           )
@@ -188,13 +190,17 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
               id: "G-1",
               name: "Sprint 1",
               kind: "sprint",
-              tickets: ["T-1"],
               color: "#aaaaaa",
               startsAt: null,
               endsAt: null,
               completedAt: null
             },
             ""
+          )
+          const ticketIndex = yield* TicketIndex.TicketIndex
+          yield* ticketIndex.upsertTicket(
+            yield* ticketIndex.projectFor(orgId, "project"),
+            yield* (yield* TicketDocs.TicketDocs).read(orgId, "project", "T-1")
           )
           const host = yield* EverhourHost
           expect(yield* host.project(orgId, "project")).toEqual({

@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
-import { TicketId } from "../tickets/Ticket"
+import { Estimate } from "../estimates/Estimate"
+import { TicketId, TicketStatus } from "../tickets/Ticket"
 import { GroupId } from "./GroupId"
 
 export { GroupId }
@@ -34,9 +35,20 @@ export const Group = Schema.Struct({
 })
 export type Group = typeof Group.Type
 
+export const SprintSnapshotTicket = Schema.Struct({
+  id: TicketId,
+  status: TicketStatus,
+  estimate: Schema.NullOr(Estimate)
+})
+export type SprintSnapshotTicket = typeof SprintSnapshotTicket.Type
+
 export const GroupDetail = Schema.Struct({
   ...Group.fields,
-  body: Schema.String
+  body: Schema.String,
+  snapshot: Schema.optional(Schema.Array(SprintSnapshotTicket)).annotate({
+    description:
+      "A completed sprint's tickets when it was completed, with the status and estimate each had then."
+  })
 })
 export type GroupDetail = typeof GroupDetail.Type
 

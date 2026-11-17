@@ -135,6 +135,7 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     rankGap: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
+    sprintTickets: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
     mentionableIds: () => Effect.succeed(new Set()),
     movedTo: () => Effect.succeed(null),

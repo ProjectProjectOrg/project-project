@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import {
+  GroupId,
   TagName,
   TicketId,
   TicketStatus,
@@ -81,6 +82,7 @@ describe("ticketIndexRowsFor", () => {
           tags,
           assignees,
           parent: ticketId("T-9"),
+          sprint: GroupId.make("G-4"),
           repo: "repo-1",
           branch: "chore/T-27-index-builders",
           pr: 172,
@@ -112,6 +114,7 @@ describe("ticketIndexRowsFor", () => {
             tags: [tagName("backend"), tagName("urgent")],
             assignees: ["user-2", "user-3"],
             parent: ticketId("T-9"),
+            sprintId: "G-4",
             repoId: "repo-1",
             movedFrom: [],
             branch: "chore/T-27-index-builders",
@@ -229,11 +232,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-2",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-03T00:00:00.000Z")
           }
         ],
@@ -254,6 +259,7 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -274,6 +280,7 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -291,11 +298,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -313,11 +322,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -375,6 +386,7 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -401,11 +413,13 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -434,6 +448,7 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -468,6 +483,7 @@ describe("makeTicketIndexReconciler", () => {
                   {
                     ticketId: "T-1",
                     repoId: null,
+                    sprintId: null,
                     updatedAt: at("2026-05-02T00:00:00.000Z")
                   }
                 ]
