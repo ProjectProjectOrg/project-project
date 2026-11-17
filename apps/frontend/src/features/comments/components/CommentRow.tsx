@@ -88,7 +88,6 @@ export function CommentRow({
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
   const deleteState = useAtomValue(deleteComment(key))
-  const waiting = pending || editState.waiting || deleteState.waiting
   const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
   const viewer = useAtomValue(me())
   const resolveKey = resolveThread({
@@ -98,6 +97,8 @@ export function CommentRow({
   })
   const resolve = useAtomSet(resolveKey)
   const resolveState = useAtomValue(resolveKey)
+  const waiting =
+    pending || editState.waiting || deleteState.waiting || resolveState.waiting
   const isRoot = comment.id === thread.root.id
   const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
   const resolution = thread.root.resolution
