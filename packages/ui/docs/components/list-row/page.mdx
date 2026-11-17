@@ -86,6 +86,10 @@ The row fills on hover without a delay. While someone moves through the list wit
 
 A row is 40px: 24px fields and 8px above and below (`listRowHeight`, which the virtualized backlog uses for its row tracks). Its corners are half its height (20px) with `--button-corner`, like a button, and the hover highlight and focus ring share them. Everything but the title is quiet: chips are flat muted text with no outline (`chipClassName`), the estimate is a bare number with its unit icon, and priority is signal bars (one, two or three lit) in the priority's colour.
 
+### Tags fold before the title shrinks
+
+The title column keeps at least 10rem, and the list grid is the `list` container. Below 48rem a row's tags fold into one chip: every tag's dot and the count (`ChipDots`, `chipNarrowOnlyClass`), with the names on hover. The named chips and their "+N" carry `chipWideOnlyClass`. If the chips still don't fit, whole chips drop out rather than being cut in half.
+
 ### Placeholders wait for the hover
 
 The selection checkbox and an empty assignee only show while the row is hovered, focused or has a menu open, so a list of unassigned tickets doesn't fill a column with empty faces. Both are 24px targets (the checkbox a 16px box, the face 20px), so they meet the target size without a pseudo-element hit area.

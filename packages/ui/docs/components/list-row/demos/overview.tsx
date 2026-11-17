@@ -90,7 +90,7 @@ function Row({
       trailing={
         <>
           <span className="flex items-center gap-1.5 *:max-w-32 empty:hidden">
-            <TagChips ticket={ticket} max={3} />
+            <TagChips ticket={ticket} max={3} collapse />
           </span>
           <GitChip pr={ticket.pr} />
           <RelationChip count={ticket.links} />

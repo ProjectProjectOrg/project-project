@@ -98,3 +98,34 @@ export function ChipSeparator() {
     </span>
   )
 }
+
+/*
+ * On a narrow list, a row's tags fold into one chip: every tag's dot and how
+ * many there are, so the title keeps its room. The named chips (and their
+ * "+N") take `chipWideOnlyClass`, the folded chip `chipNarrowOnlyClass`; both
+ * measure the list grid (`listGridClassName` is the `list` container).
+ *
+ *   <button className={chipClassName({ kind: "label", className: chipNarrowOnlyClass })}>
+ *     <ChipDots colors={tags.map((tag) => tag.color)} />5
+ *   </button>
+ */
+export const chipWideOnlyClass = "hidden @3xl/list:inline-flex"
+export const chipNarrowOnlyClass = "@3xl/list:hidden"
+
+// Up to four tag dots side by side, 2px apart.
+export function ChipDots({
+  colors
+}: Readonly<{ colors: ReadonlyArray<string | null | undefined> }>) {
+  return (
+    <span aria-hidden className="flex shrink-0 items-center gap-0.5">
+      {colors.slice(0, 4).map((color, index) => (
+        <span
+          // oxlint-disable-next-line react/no-array-index-key -- dots have no identity beyond their place; colours repeat
+          key={index}
+          className="size-2 rounded-full bg-muted-foreground"
+          style={color ? { backgroundColor: color } : undefined}
+        />
+      ))}
+    </span>
+  )
+}

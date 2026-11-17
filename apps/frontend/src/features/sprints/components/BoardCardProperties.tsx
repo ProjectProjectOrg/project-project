@@ -5,7 +5,13 @@ import {
   type TicketPriority,
   isEpic
 } from "@pp/shared"
-import { ChipSeparator, chipClassName } from "@pp/ui/chip"
+import {
+  ChipDots,
+  ChipSeparator,
+  chipClassName,
+  chipNarrowOnlyClass,
+  chipWideOnlyClass
+} from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -214,14 +220,19 @@ export function ParentTicketCrumb({
   )
 }
 
+// A ticket's tags: the first `max` as chips, the rest behind "+N". With
+// `collapse` (list rows), a narrow list folds them all into one chip of
+// dots and a count (chipNarrowOnlyClass).
 export function TagChips({
   names,
   onPatch,
-  max
+  max,
+  collapse = false
 }: Readonly<{
   names: Ticket["tags"]
   onPatch?: (patch: TicketEdit) => void
   max?: number
+  collapse?: boolean
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
@@ -231,13 +242,15 @@ export function TagChips({
   )
   const shown = max === undefined ? names : names.slice(0, max)
   const hidden = names.slice(shown.length)
+  const wide = collapse ? chipWideOnlyClass : undefined
   const chip = (
     key: string,
     preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
     content: ReactNode,
-    label?: string
+    label?: string,
+    className?: string
   ) => {
-    const button = <button type="button" className={labelChip} />
+    const button = <button type="button" className={cn(labelChip, className)} />
     return onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
@@ -274,7 +287,9 @@ export function TagChips({
               style={{ backgroundColor: colors.get(name) ?? undefined }}
             />
             <span className="truncate">{name}</span>
-          </>
+          </>,
+          undefined,
+          wide
         )
       )}
       {hidden.length > 0 &&
@@ -284,7 +299,19 @@ export function TagChips({
           <span className="tabular-nums">
             {m.tags_more({ count: hidden.length })}
           </span>,
-          m.tags_more_aria_label({ count: hidden.length })
+          m.tags_more_aria_label({ count: hidden.length }),
+          wide
+        )}
+      {collapse &&
+        chip(
+          "all",
+          { kind: "tags", names },
+          <>
+            <ChipDots colors={names.map((name) => colors.get(name))} />
+            <span className="tabular-nums">{names.length}</span>
+          </>,
+          m.tags_count_aria_label({ count: names.length }),
+          chipNarrowOnlyClass
         )}
     </>
   )

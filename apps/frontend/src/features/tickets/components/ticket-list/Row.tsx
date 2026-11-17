@@ -241,6 +241,7 @@ function RowImpl({
                         names={ticket.tags}
                         onPatch={editable ? onPatch : undefined}
                         max={3}
+                        collapse
                       />
                     </span>
                   )}

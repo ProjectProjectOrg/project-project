@@ -1,4 +1,10 @@
-import { ChipSeparator, chipClassName } from "@pp/ui/chip"
+import {
+  ChipDots,
+  ChipSeparator,
+  chipClassName,
+  chipNarrowOnlyClass,
+  chipWideOnlyClass
+} from "@pp/ui/chip"
 import {
   ChevronRight,
   CircleCheck,
@@ -17,6 +23,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { StatusGlyph } from "@pp/ui/status-glyph"
+import type { ReactNode } from "react"
 
 import { RelationChip, SubTicketCount } from "./previews"
 
@@ -221,56 +228,96 @@ function TagDot({ color }: Readonly<{ color: string }>) {
 }
 
 // Tags, the first `max` as chips and the rest behind a "+N" chip that lists
-// them on hover, like the app's tag preview.
+// them on hover, like the app's tag preview. With `collapse` (rows), a
+// narrow list folds them all into one chip of dots and a count.
 export function TagChips({
   ticket,
-  max
-}: Readonly<{ ticket: SampleTicket; max?: number }>) {
+  max,
+  collapse = false
+}: Readonly<{ ticket: SampleTicket; max?: number; collapse?: boolean }>) {
   const tags = ticket.tags ?? []
   const shown = max === undefined ? tags : tags.slice(0, max)
   const hidden = tags.slice(shown.length)
+  const wide = collapse ? chipWideOnlyClass : undefined
   return (
     <>
       {shown.map((tag) => (
         <button
           key={tag.name}
           type="button"
-          className={chipClassName({ kind: "label", interaction: "press" })}
+          className={chipClassName({
+            kind: "label",
+            interaction: "press",
+            className: wide
+          })}
         >
           <TagDot color={tag.color} />
           <span className="truncate">{tag.name}</span>
         </button>
       ))}
       {hidden.length > 0 ? (
-        <Popover>
-          <PopoverTrigger
-            openOnHover
-            delay={300}
-            aria-label={`${hidden.length} more tags`}
-            className={chipClassName({
-              kind: "label",
-              interaction: "press",
-              className: "tabular-nums"
-            })}
-          >
-            +{hidden.length}
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-48 p-1">
-            <ul className="flex flex-col">
-              {hidden.map((tag) => (
-                <li
-                  key={tag.name}
-                  className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-body"
-                >
-                  <TagDot color={tag.color} />
-                  <span className="min-w-0 truncate">{tag.name}</span>
-                </li>
-              ))}
-            </ul>
-          </PopoverContent>
-        </Popover>
+        <TagList
+          tags={hidden}
+          label={`${hidden.length} more tags`}
+          className={wide}
+        >
+          +{hidden.length}
+        </TagList>
+      ) : null}
+      {collapse && tags.length > 0 ? (
+        <TagList
+          tags={tags}
+          label={tags.length === 1 ? "1 tag" : `${tags.length} tags`}
+          className={chipNarrowOnlyClass}
+        >
+          <ChipDots colors={tags.map((tag) => tag.color)} />
+          {tags.length}
+        </TagList>
       ) : null}
     </>
+  )
+}
+
+// A label chip that lists tags on hover.
+function TagList({
+  tags,
+  label,
+  className,
+  children
+}: Readonly<{
+  tags: ReadonlyArray<{ name: string; color: string }>
+  label: string
+  className?: string
+  children: ReactNode
+}>) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={300}
+        aria-label={label}
+        className={chipClassName({
+          kind: "label",
+          interaction: "press",
+          className: cn("tabular-nums", className)
+        })}
+      >
+        {children}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-48 p-1">
+        <ul className="flex flex-col">
+          {tags.map((tag) => (
+            <li
+              key={tag.name}
+              className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-body"
+            >
+              <TagDot color={tag.color} />
+              <span className="min-w-0 truncate">{tag.name}</span>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   )
 }
 
