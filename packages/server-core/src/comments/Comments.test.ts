@@ -369,10 +369,65 @@ it.effect("lists a ticket created from a comment under that comment", () => {
       ticketId("T-23")
     )
     expect(parseCommentsRegion(current.commentsRegion)[0]).toMatchObject({
-      tickets: ["T-23"]
+      tickets: ["[T-23](mention:ticket/T-23)"]
     })
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "refuses a reply when the thread is resolved between reading and writing",
+  () => {
+    const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+    const root = {
+      id: "c_root",
+      author: { kind: "user" as const, userId: "user-1" },
+      origin: "native" as const,
+      createdAt: at,
+      editedAt: null,
+      body: "Question"
+    }
+    const open = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([root])
+    }
+    const resolved = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([
+        { ...root, resolvedBy: "user-2", resolvedAt: at }
+      ])
+    }
+    let written: TicketDocs.TicketDocument | undefined
+    const layer = makeLayer(
+      makeTicketDocs({
+        read: () => Effect.succeed(open),
+        update: (_orgSlug, _slug, _ticketId, transform) =>
+          transform(resolved).pipe(
+            Effect.tap((next) =>
+              Effect.sync(() => {
+                written = next
+              })
+            )
+          )
+      })
+    )
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const reply = yield* Effect.flip(
+        comments.create(ticketId("T-1"), {
+          body: "Late",
+          replyTo: decodeCommentIdSync("c_root")
+        })
+      )
+
+      expect(reply).toMatchObject({
+        _tag: "Conflict",
+        reason: "thread_resolved"
+      })
+      expect(parseCommentsRegion(written?.commentsRegion ?? "")).toHaveLength(1)
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect(
   "resolves a thread on its first comment and refuses replies until it is reopened",

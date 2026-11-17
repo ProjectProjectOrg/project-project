@@ -21,18 +21,20 @@ describe("ticketFromComment", () => {
         author: sam,
         body: "- Won't Do should still archive the ticket\n\nOtherwise they flood the backlog."
       },
+      "web",
       ticketId("T-12")
     )
 
     expect(draft).toEqual({
       title: "Won't Do should still archive the ticket",
-      body: "**Sam de Vries** said in [T-12](mention:comment/T-12/c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood the backlog."
+      body: "**Sam de Vries** said in [T-12](mention:comment/web/T-12/c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood the backlog."
     })
   })
 
   it("cuts a long first line to a title that fits", () => {
     const { title } = ticketFromComment(
       { id: commentId("c_1"), author: sam, body: "word ".repeat(40) },
+      "web",
       ticketId("T-12")
     )
 

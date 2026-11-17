@@ -1,5 +1,7 @@
 import { formatMentionHref, type Comment, type TicketId } from "@pp/shared"
 
+import { m } from "@/paraglide/messages"
+
 import { commentAuthorName } from "./commentClipboard"
 
 const TITLE_LENGTH = 80
@@ -17,11 +19,15 @@ const titleFrom = (body: string): string => {
 
 export const ticketFromComment = (
   comment: Pick<Comment, "id" | "author" | "body">,
+  projectSlug: string,
   ticketId: TicketId
 ) => ({
   title: titleFrom(comment.body),
   body: [
-    `**${commentAuthorName(comment.author)}** said in [${ticketId}](${formatMentionHref("comment", `${ticketId}/${comment.id}`)}):`,
+    m.comments_ticket_source({
+      author: `**${commentAuthorName(comment.author)}**`,
+      source: `[${ticketId}](${formatMentionHref("comment", `${projectSlug}/${ticketId}/${comment.id}`)})`
+    }),
     comment.body
       .trim()
       .split("\n")

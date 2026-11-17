@@ -145,7 +145,7 @@ function CreateTicketItems({
     openDialog({
       orgSlug,
       projectSlug: slug,
-      ...ticketFromComment(comment, ticketId),
+      ...ticketFromComment(comment, slug, ticketId),
       related: { kind, ticketId },
       fromComment: { ticketId, commentId: comment.id }
     })
