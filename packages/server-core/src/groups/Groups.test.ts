@@ -1045,14 +1045,16 @@ it.effect("removeTicketFromAllGroups strips the id", () =>
       name: "G",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
-    yield* groups.removeTicketFromAllGroups(
-      {
-        orgSlug: "org",
-        organizationId: "org-1",
-        projectId: "project-1",
-        slug: "p"
-      },
-      "T-1"
+    yield* groups.withSprints(() =>
+      groups.removeTicketFromAllGroups(
+        {
+          orgSlug: "org",
+          organizationId: "org-1",
+          projectId: "project-1",
+          slug: "p"
+        },
+        "T-1"
+      )
     )
     const after = yield* groups.get(created.id)
     expect(after.tickets).toEqual(["T-2"])

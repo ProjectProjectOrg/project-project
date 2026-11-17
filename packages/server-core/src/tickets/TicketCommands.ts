@@ -1957,7 +1957,9 @@ const make = Effect.gen(function* () {
           return { moved, mentions }
         }).pipe(
           (effect) =>
-            withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect),
+            groups.withSprints(() =>
+              withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect)
+            ),
           Effect.uninterruptible
         )
       )
@@ -1982,7 +1984,7 @@ const make = Effect.gen(function* () {
   > {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId } = scope
-    yield* groups.removeTicketFromAllGroups(scope, id)
+    yield* groups.withSprints(() => groups.removeTicketFromAllGroups(scope, id))
     yield* withTicketDocumentLock(
       orgSlug,
       slug,

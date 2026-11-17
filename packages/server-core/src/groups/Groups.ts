@@ -1072,38 +1072,30 @@ const make = Effect.gen(function* () {
     "Groups.removeTicketFromAllGroups"
   )(function* (project: TicketProject, ticketId: string) {
     const { orgSlug, slug } = project
-    return yield* withGroupFilesLock(
-      orgSlug,
-      slug,
-      Effect.gen(function* () {
-        const ids = yield* groupDocs.listIds(orgSlug, slug)
-        yield* Effect.forEach(
-          ids,
-          (id) =>
-            Effect.gen(function* () {
-              const group = yield* groupDocs
-                .read(orgSlug, slug, id)
-                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
-              if (group === null || group.kind === "sprint") return
-              if (
-                !group.tickets.some(
-                  (groupTicketId) => groupTicketId === ticketId
-                )
-              ) {
-                return
-              }
-              const next: GroupDocs.GroupDocument = {
-                ...group,
-                tickets: group.tickets.filter((t) => t !== ticketId),
-                updatedAt: yield* DateTime.nowAsDate
-              }
-              yield* groupDocs
-                .writeIfExists(orgSlug, slug, id, next)
-                .pipe(Effect.catchTag("NotFound", () => Effect.void))
-            }),
-          { concurrency: 8 }
-        )
-      })
+    const ids = yield* groupDocs.listIds(orgSlug, slug)
+    yield* Effect.forEach(
+      ids,
+      (id) =>
+        Effect.gen(function* () {
+          const group = yield* groupDocs
+            .read(orgSlug, slug, id)
+            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
+          if (group === null || group.kind === "sprint") return
+          if (
+            !group.tickets.some((groupTicketId) => groupTicketId === ticketId)
+          ) {
+            return
+          }
+          const next: GroupDocs.GroupDocument = {
+            ...group,
+            tickets: group.tickets.filter((t) => t !== ticketId),
+            updatedAt: yield* DateTime.nowAsDate
+          }
+          yield* groupDocs
+            .writeIfExists(orgSlug, slug, id, next)
+            .pipe(Effect.catchTag("NotFound", () => Effect.void))
+        }),
+      { concurrency: 8 }
     )
   })
 
