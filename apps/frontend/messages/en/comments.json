@@ -24,16 +24,7 @@
   "comments_resolved_label": "Resolved",
   "comments_save_button": "Save",
   "comments_save_failed": "Failed to save.",
-  "comments_thread_hide_earlier": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "Hide {count} earlier reply",
-        "countPlural=*": "Hide {count} earlier replies"
-      }
-    }
-  ],
+  "comments_thread_collapse": "Collapse",
   "comments_thread_resolved_folded": [
     {
       "declarations": [

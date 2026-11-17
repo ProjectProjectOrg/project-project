@@ -66,10 +66,10 @@ export function CommentThread({
           className={foldClass}
           onClick={() => setExpanded(!open)}
         >
-          {resolved ? (
+          {open ? (
+            m.comments_thread_collapse()
+          ) : resolved ? (
             <FoldedComments comments={foldable.map((reply) => reply.comment)} />
-          ) : open ? (
-            m.comments_thread_hide_earlier({ count: foldable.length })
           ) : (
             m.comments_thread_show_earlier({ count: foldable.length })
           )}
