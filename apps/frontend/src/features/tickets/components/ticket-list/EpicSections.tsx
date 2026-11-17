@@ -104,25 +104,24 @@ export function EpicSections(props: Props) {
           )
         }
       : null
-  const renderSection = (section: EpicSectionValue) => (
-    <EpicSection
-      {...props}
-      persistKey={persistKey}
-      query={active?.query ?? props.query}
-      snapshotReq={active?.req ?? snapshotReq}
-      section={section}
-      waiting={snapshotResult.waiting}
-      activePreviewId={preview.activePreviewId}
-      onPreviewPointerEnter={preview.onPreviewPointerEnter}
-      onPreviewOpenChange={preview.onPreviewOpenChange}
-    />
-  )
-  const sections = active?.value.sections ?? []
-  const shownFirst = firstScreenSectionCount(sections)
-  const firstScreen = sections.slice(0, shownFirst)
-  const below = sections.slice(shownFirst)
-  const renderSections = () =>
-    active ? (
+  const renderList = (shown: NonNullable<typeof active>) => {
+    const renderSection = (section: EpicSectionValue) => (
+      <EpicSection
+        {...props}
+        persistKey={persistKey}
+        query={shown.query}
+        snapshotReq={shown.req}
+        section={section}
+        waiting={snapshotResult.waiting}
+        activePreviewId={preview.activePreviewId}
+        onPreviewPointerEnter={preview.onPreviewPointerEnter}
+        onPreviewOpenChange={preview.onPreviewOpenChange}
+      />
+    )
+    const { sections } = shown.value
+    const firstScreen = firstScreenSectionCount(sections)
+    const lazy = sections.length > LAZY_SECTIONS_FROM
+    return (
       <div
         ref={setListElement}
         style={{ overflowAnchor: "none" }}
@@ -131,18 +130,18 @@ export function EpicSections(props: Props) {
         <TicketViewSourceContext
           value={ticketSearchFromSource({
             kind: "sections",
-            grouping: active.req.by,
-            query: viewQuery(active.query)
+            grouping: shown.req.by,
+            query: viewQuery(shown.query)
           })}
         >
           <CreatingSectionsProvider>
-            {firstScreen.map((section) => (
+            {sections.slice(0, firstScreen).map((section) => (
               <Fragment key={section.key}>{renderSection(section)}</Fragment>
             ))}
-            {below.length > 0 && (
+            {sections.length > firstScreen && (
               <div className="contents">
-                {below.map((section) =>
-                  active.value.sections.length > LAZY_SECTIONS_FROM ? (
+                {sections.slice(firstScreen).map((section) =>
+                  lazy ? (
                     <LazySection
                       key={section.key}
                       estimatedHeight={estimatedSectionHeight(section.count)}
@@ -160,9 +159,10 @@ export function EpicSections(props: Props) {
           </CreatingSectionsProvider>
         </TicketViewSourceContext>
       </div>
-    ) : (
-      <LoaderOverlay active />
     )
+  }
+  const renderSections = () =>
+    active ? renderList(active) : <LoaderOverlay active />
   const renderFailure = (error: unknown) => (
     <>
       <ErrorPage error={error} reset={refresh} contained />

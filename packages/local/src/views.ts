@@ -99,7 +99,7 @@ export const LastView = Schema.Union([
 ])
 export type LastView = typeof LastView.Type
 
-export const encodeLastView = Schema.encodeSync(Schema.fromJsonString(LastView))
+const encodeLastView = Schema.encodeSync(Schema.fromJsonString(LastView))
 
 const readView = (view: LastView) =>
   Match.valueTags(view, {
@@ -120,7 +120,7 @@ const readView = (view: LastView) =>
       }))
   })
 
-export type ViewResult = Effect.Success<ReturnType<typeof readView>>
+type ViewResult = Effect.Success<ReturnType<typeof readView>>
 
 type Warm = Readonly<{
   key: string

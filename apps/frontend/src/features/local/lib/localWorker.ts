@@ -249,7 +249,7 @@ const engine = Layer.unwrap(
       Layer.provide(
         localDescriptionsLayer.pipe(Layer.provide(descriptionSourceLayer))
       ),
-      Layer.provideMerge(Layer.effectContext(Fiber.join(database(userId)))),
+      Layer.provide(Layer.effectContext(Fiber.join(database(userId)))),
       Layer.provide(
         Layer.effect(WarmView)(
           warm !== null && hint?.user === userId
