@@ -21,6 +21,9 @@ export const commentUrl = (
 ): string =>
   `${window.location.origin}${commentPath(location, ticketId, commentId)}`
 
+const markdownBody = (body: string): string =>
+  body.replace(/^(?:[ \t]*\n)+/u, "").trimEnd()
+
 export const commentMarkdown = (
   [first, ...replies]: readonly [
     Pick<Comment, "author" | "body">,
@@ -31,9 +34,9 @@ export const commentMarkdown = (
 ): string =>
   [
     `**${commentAuthorName(first.author)}** · [${ticketId}](${url})`,
-    first.body.trim(),
+    markdownBody(first.body),
     ...replies.flatMap((reply) => [
       `**${commentAuthorName(reply.author)}**`,
-      reply.body.trim()
+      markdownBody(reply.body)
     ])
   ].join("\n\n")
