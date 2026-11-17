@@ -66,6 +66,7 @@ import * as CommandReceipts from "@pp/server-core/sync/CommandReceipts"
 import * as ProjectFacts from "@pp/server-core/sync/ProjectFacts"
 import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as Tags from "@pp/server-core/tags/Tags"
+import * as DescriptionPages from "@pp/server-core/tickets/DescriptionPages"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -172,7 +173,9 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(FeedbackIntake.layer),
       Layer.provideMerge(SystemProjects.layer),
       Layer.provideMerge(ProjectStatuses.layer),
-      Layer.provideMerge(TicketServices.layer),
+      Layer.provideMerge(
+        Layer.merge(DescriptionPages.layer, TicketServices.layer)
+      ),
       Layer.provideMerge(TicketActivityFeed.layer),
       Layer.provideMerge(
         Layer.mergeAll(TicketSubscriptions.layer, Inbox.layer)

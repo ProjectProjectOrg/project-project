@@ -76,6 +76,8 @@ import { TicketActivityPage } from "./TicketActivity"
 import {
   TicketDescription,
   TicketDescriptionsQuery,
+  DescriptionPage,
+  DescriptionPageQuery,
   UpdateTicketDescriptionInput
 } from "./TicketDescription"
 import {
@@ -367,6 +369,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketDescriptionsQuery,
         success: Schema.Array(TicketDescription),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "descriptionPage",
+      "/orgs/:orgSlug/projects/:slug/descriptions/page",
+      {
+        params: ProjectPath,
+        query: DescriptionPageQuery,
+        success: DescriptionPage,
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
