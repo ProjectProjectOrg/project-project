@@ -45,12 +45,14 @@ export class Validation extends Schema.TaggedError<Validation>()(
 // validation. Distinct from `Validation` so MCP agents (and the frontend)
 // can switch on `kind` and report exactly what's wrong with which href.
 // `kind` is one of:
-//   - `malformed_href` — the URL doesn't match `mention:user/<id>` or
-//     `mention:ticket/<T-N>` (typo, unknown type, missing slash).
+//   - `malformed_href` — the URL doesn't match `mention:user/<id>`,
+//     `mention:ticket/<T-N>` or `mention:comment/<T-N>/<comment id>`
+//     (typo, unknown type, missing slash).
 //   - `empty_label`    — the link label between `[` and `]` is empty;
 //     mentions must always have a visible label.
 //   - `unknown_user`   — the user id isn't a member of this project.
-//   - `unknown_ticket` — the ticket id doesn't exist in this project.
+//   - `unknown_ticket` — the ticket id (of a ticket or comment mention)
+//     doesn't exist in this project.
 export const MentionInvalidKind = Schema.Literals([
   "malformed_href",
   "empty_label",

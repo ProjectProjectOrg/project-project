@@ -1717,9 +1717,10 @@ const make = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const ids = yield* ticketDocs.listIds(source.orgSlug, source.slug)
-      const needles = [...context.moved.keys()].map(
-        (id) => `](${formatMentionHref("ticket", id)})`
-      )
+      const needles = [...context.moved.keys()].flatMap((id) => [
+        `](${formatMentionHref("ticket", id)})`,
+        `](${formatMentionHref("comment", id)}/`
+      ])
       yield* Effect.forEach(
         ids,
         (id) =>

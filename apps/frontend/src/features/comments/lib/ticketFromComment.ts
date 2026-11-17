@@ -1,4 +1,4 @@
-import type { Comment, TicketId } from "@pp/shared"
+import { formatMentionHref, type Comment, type TicketId } from "@pp/shared"
 
 import { commentAuthorName } from "./commentClipboard"
 
@@ -16,13 +16,12 @@ const titleFrom = (body: string): string => {
 }
 
 export const ticketFromComment = (
-  comment: Pick<Comment, "author" | "body">,
-  ticketId: TicketId,
-  url: string
+  comment: Pick<Comment, "id" | "author" | "body">,
+  ticketId: TicketId
 ) => ({
   title: titleFrom(comment.body),
   body: [
-    `**${commentAuthorName(comment.author)}** said in [a comment on ${ticketId}](${url}):`,
+    `**${commentAuthorName(comment.author)}** said in [${ticketId}](${formatMentionHref("comment", `${ticketId}/${comment.id}`)}):`,
     comment.body
       .trim()
       .split("\n")

@@ -115,7 +115,9 @@ const MENTION_GUIDE =
   "project member (ids from `list_members`) and " +
   "`[Label](mention:ticket/<T-N>)` for a ticket in the same project, or " +
   "`[Label](mention:ticket/<project-slug>/<T-N>)` for one in another " +
-  "project of the organization; " +
+  "project of the organization, and " +
+  "`[T-N](mention:comment/<T-N>/<commentId>)` for a comment on a ticket " +
+  "(comment ids from `list_comments`); " +
   "unknown or malformed mentions fail with `MentionInvalid`."
 
 const orgSlug = Slug.annotate({

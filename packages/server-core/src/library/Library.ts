@@ -25,6 +25,7 @@ import {
   typeFor,
   extractAttachmentRefs,
   extractMentionLinks,
+  mentionedTicket,
   parseMentionHref,
   parseTicketBlocks,
   resolveLibrary,
@@ -390,7 +391,9 @@ const make = Effect.gen(function* () {
         knownTickets(
           orgSlug,
           slug,
-          links.some((link) => link.parsed?.type === "ticket")
+          links.some(
+            (link) => link.parsed !== null && link.parsed.type !== "user"
+          )
         )
       ],
       { concurrency: 2 }
@@ -426,7 +429,9 @@ const make = Effect.gen(function* () {
       const known =
         parsed !== null &&
         label.trim() !== "" &&
-        (parsed.type === "user" ? users.has(parsed.id) : tickets.has(parsed.id))
+        (parsed.type === "user"
+          ? users.has(parsed.id)
+          : tickets.has(mentionedTicket(parsed) ?? ""))
       return known ? link : plainMention(label, href)
     })
 

@@ -150,7 +150,7 @@ movedFrom:
 
 The ticket index mirrors `movedFrom`, so an old URL redirects to the ticket and an old mention still resolves. Status, tags, assignees and the estimate are kept where the destination has them, and the branch link is kept when both projects use the same repository. Only a PM of the ticket's project can move it, into a project where they can create tickets.
 
-A ticket mention is `mention:ticket/<id>` inside its own project and `mention:ticket/<project-slug>/<id>` across projects. A move rewrites the mentions in the moved ticket and the mentions of it in its old project.
+A ticket mention is `mention:ticket/<id>` inside its own project and `mention:ticket/<project-slug>/<id>` across projects. A comment mention adds the comment id after the ticket part, as in `mention:comment/<id>/<comment-id>`, and links to that comment on the ticket. A move rewrites the ticket part of both kinds in the moved ticket and the mentions of it in its old project.
 
 Relations live in the frontmatter of one ticket: the waiting ticket stores `blockedBy`, a duplicate stores `duplicateOf` (set when it is archived as a duplicate), and `relatedTo` stays on the ticket it was added from. The reverse directions ("blocking", "duplicates", the other side of "related") come from the `ticket_relation_index` table, which is rebuilt from frontmatter with the ticket index. Deleting a ticket leaves links to it in other files; reads hide them, and the next relation edit on the referencing ticket drops them.
 

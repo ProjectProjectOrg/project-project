@@ -7,19 +7,12 @@ export const commentAuthorName = (author: CommentAuthor): string =>
     ? (author.user.name ?? author.user.email)
     : author.displayName
 
-export const commentPath = (
+export const commentUrl = (
   { orgSlug, slug }: TicketLocation,
   ticketId: TicketId,
   commentId: Comment["id"]
 ): string =>
-  `/orgs/${orgSlug}/projects/${slug}/tickets/${ticketId}#${commentId}`
-
-export const commentUrl = (
-  location: TicketLocation,
-  ticketId: TicketId,
-  commentId: Comment["id"]
-): string =>
-  `${window.location.origin}${commentPath(location, ticketId, commentId)}`
+  `${window.location.origin}/orgs/${orgSlug}/projects/${slug}/tickets/${ticketId}#${commentId}`
 
 export const commentMarkdown = (
   [first, ...replies]: readonly [

@@ -1,4 +1,8 @@
-import { extractMentionLinks, MentionInvalid } from "@pp/shared"
+import {
+  extractMentionLinks,
+  mentionedTicket,
+  MentionInvalid
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 
 export const validateBodyMentions = (
@@ -27,7 +31,14 @@ export const validateBodyMentions = (
           href: link.href
         })
       }
-      if (link.parsed.type === "ticket" && !ticketIds.has(link.parsed.id)) {
+      const ticket = mentionedTicket(link.parsed)
+      if (link.parsed.type === "comment" && ticket === null) {
+        return yield* new MentionInvalid({
+          kind: "malformed_href",
+          href: link.href
+        })
+      }
+      if (ticket !== null && !ticketIds.has(ticket)) {
         return yield* new MentionInvalid({
           kind: "unknown_ticket",
           href: link.href
@@ -63,9 +74,10 @@ export const validateBodyMentionsWithLookups = <
     const links = extractMentionLinks(body)
     const referencedTicketIds = [
       ...new Set(
-        links.flatMap((link) =>
-          link.parsed?.type === "ticket" ? [link.parsed.id] : []
-        )
+        links.flatMap((link) => {
+          const ticket = link.parsed ? mentionedTicket(link.parsed) : null
+          return ticket === null ? [] : [ticket]
+        })
       )
     ]
     const hasUserMentions = links.some((link) => link.parsed?.type === "user")

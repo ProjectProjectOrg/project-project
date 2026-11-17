@@ -74,9 +74,11 @@ export class MentionNode extends DecoratorNode<ReactElement> {
   }
 
   getTextContent(): string {
-    return this.__mentionType === "user"
-      ? `@${this.__mentionLabel}`
-      : parseTicketMentionId(this.__mentionId).ticketId
+    return this.__mentionType === "ticket"
+      ? parseTicketMentionId(this.__mentionId).ticketId
+      : this.__mentionType === "user"
+        ? `@${this.__mentionLabel}`
+        : this.__mentionLabel
   }
 
   exportDOM(): DOMExportOutput {

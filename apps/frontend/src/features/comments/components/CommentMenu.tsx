@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   commentMarkdown,
-  commentPath,
   commentUrl
 } from "@/features/comments/lib/commentClipboard"
 import { ticketFromComment } from "@/features/comments/lib/ticketFromComment"
@@ -134,8 +133,7 @@ function CreateTicketItems({
   comment,
   ticketId
 }: Readonly<{ comment: Comment; ticketId: TicketId }>) {
-  const location = useProjectRoute()
-  const { orgSlug, slug } = location
+  const { orgSlug, slug } = useProjectRoute()
   const canCreate = useProjectActor().call("tickets", "create")
   const openDialog = useAtomSet(createTicketDialog)
   const source = useAtomValue(
@@ -147,11 +145,7 @@ function CreateTicketItems({
     openDialog({
       orgSlug,
       projectSlug: slug,
-      ...ticketFromComment(
-        comment,
-        ticketId,
-        commentPath(location, ticketId, comment.id)
-      ),
+      ...ticketFromComment(comment, ticketId),
       related: { kind, ticketId },
       fromComment: { ticketId, commentId: comment.id }
     })

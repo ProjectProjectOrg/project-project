@@ -86,7 +86,7 @@ const messages: Messages<ToolError> = {
   MentionInvalid: ({ kind, href }) => {
     const detail = kind && href ? `${kind}: ${href}` : (kind ?? href ?? "")
     return detail
-      ? `Mention error (${detail}). Use [label](mention:user/<id>) or [label](mention:ticket/<T-N>); discover ids via list_members and list_tickets.`
+      ? `Mention error (${detail}). Use [label](mention:user/<id>), [label](mention:ticket/<T-N>) or [T-N](mention:comment/<T-N>/<commentId>); discover ids via list_members, list_tickets and list_comments.`
       : "Mention error."
   },
   StorageNotConnected: () =>
