@@ -22,12 +22,29 @@ export type PullRequestTicketPick = Readonly<{
   ticketId: TicketId
 }>
 
+export type ResolveTicketId = (id: TicketId) => TicketId
+
+const resolveAll = (
+  ids: ReadonlySet<TicketId>,
+  resolveId: ResolveTicketId
+): ReadonlySet<TicketId> => new Set([...ids].map(resolveId))
+
 export const pullRequestTicketReferences = (
-  pr: PullRequestText
+  pr: PullRequestText,
+  resolveId: ResolveTicketId
 ): ReadonlyArray<PullRequestTicketReference> => [
-  { source: "branch", ticketIds: ticketIdsInText(pr.branch) },
-  { source: "title", ticketIds: ticketIdsInText(pr.title) },
-  { source: "body", ticketIds: closingTicketIdsInText(pr.body) }
+  {
+    source: "branch",
+    ticketIds: resolveAll(ticketIdsInText(pr.branch), resolveId)
+  },
+  {
+    source: "title",
+    ticketIds: resolveAll(ticketIdsInText(pr.title), resolveId)
+  },
+  {
+    source: "body",
+    ticketIds: resolveAll(closingTicketIdsInText(pr.body), resolveId)
+  }
 ]
 
 export const pickPullRequestTicket = (

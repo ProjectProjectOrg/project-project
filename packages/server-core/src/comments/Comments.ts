@@ -12,6 +12,7 @@ import {
   CommentId,
   type CreateCommentInput,
   Forbidden,
+  ImportedAuthor,
   type MentionInvalid,
   NotFound,
   ProjectScope,
@@ -57,11 +58,7 @@ export const HistoricalCommentAuthor = Schema.Union([
     kind: Schema.Literal("user"),
     userId: Schema.NonEmptyString
   }),
-  Schema.Struct({
-    kind: Schema.Literal("jira"),
-    displayName: Schema.NonEmptyString,
-    accountId: Schema.NonEmptyString
-  })
+  ImportedAuthor
 ])
 export type HistoricalCommentAuthor = typeof HistoricalCommentAuthor.Type
 
@@ -304,11 +301,12 @@ const make = Effect.gen(function* () {
                 const user = r.authorId ? authorById.get(r.authorId) : undefined
                 return user ? ({ kind: "user", user } as const) : null
               })()
-            : r.jiraDisplayName && r.jiraAccountId
+            : r.importedName && r.importedSource && r.importedId
               ? ({
-                  kind: "jira",
-                  displayName: r.jiraDisplayName,
-                  accountId: r.jiraAccountId
+                  kind: "imported",
+                  displayName: r.importedName,
+                  source: r.importedSource,
+                  sourceId: r.importedId
                 } as const)
               : null
         if (!author) return []
@@ -336,7 +334,7 @@ const make = Effect.gen(function* () {
             ticketId,
             projectSlug: slug,
             author,
-            origin: "jira",
+            origin: r.origin,
             body: block.body,
             createdAt: r.createdAt,
             editedAt: r.editedAt ?? null,
@@ -384,8 +382,9 @@ const make = Effect.gen(function* () {
           authorId: userId,
           authorKind: "user",
           origin: "native",
-          jiraDisplayName: null,
-          jiraAccountId: null,
+          importedName: null,
+          importedSource: null,
+          importedId: null,
           createdAt: now,
           editedAt: null
         })
@@ -506,10 +505,12 @@ const make = Effect.gen(function* () {
           origin: "jira" as const,
           authorKind: block.author.kind,
           authorId: block.author.kind === "user" ? block.author.userId : null,
-          jiraDisplayName:
-            block.author.kind === "jira" ? block.author.displayName : null,
-          jiraAccountId:
-            block.author.kind === "jira" ? block.author.accountId : null,
+          importedName:
+            block.author.kind === "imported" ? block.author.displayName : null,
+          importedSource:
+            block.author.kind === "imported" ? block.author.source : null,
+          importedId:
+            block.author.kind === "imported" ? block.author.sourceId : null,
           createdAt: block.createdAt,
           editedAt: block.editedAt
         }))
@@ -577,7 +578,7 @@ const make = Effect.gen(function* () {
       if (!row) return yield* new NotFound()
       const authorId = row.authorId
       if (
-        row.origin === "jira" ||
+        row.origin !== "native" ||
         authorId === null ||
         !allowed(scope, { authorId })
       ) {

@@ -4,6 +4,7 @@ import {
   commentIndex,
   organization,
   projectIndex,
+  projectKey,
   projectStatus,
   ticketActivity,
   ticketBranch,
@@ -11,7 +12,6 @@ import {
   ticketRelationIndex
 } from "@pp/db/schema"
 import {
-  type ActivityActor,
   type ChecksStatus,
   type PullRequestState,
   type TicketFlag,
@@ -44,7 +44,8 @@ import {
   type ParentFilter,
   type TypeFilter,
   TicketStatus,
-  EPIC_TYPE
+  EPIC_TYPE,
+  type ProjectKeys
 } from "@pp/shared"
 import {
   and,
@@ -80,7 +81,11 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { actorOf, type ActorColumns } from "../activity/actorRow"
+import {
+  actorOf,
+  type ActorColumns,
+  type StoredActor
+} from "../activity/actorRow"
 import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
@@ -227,7 +232,7 @@ export type TicketIndexOrgEntry = Readonly<{
 
 export type TicketIndexTouchedEvent = Readonly<{
   occurredAt: Date
-  actor: ActivityActor["Service"]
+  actor: StoredActor
   change: TicketActivityChange
 }>
 
@@ -395,6 +400,11 @@ export class TicketIndex extends Context.Service<
       ticketId: string
     ) => Effect.Effect<MovedTicketRow | null>
     reserveTicketNumber: (project: TicketProject) => Effect.Effect<number>
+    projectKeys: (project: TicketProject) => Effect.Effect<ProjectKeys>
+    syncFormerKeys: (
+      project: TicketProject,
+      formerKeys: ReadonlyArray<string>
+    ) => Effect.Effect<ReadonlyArray<string>>
     tagUsageCounts: (
       project: TicketProject
     ) => Effect.Effect<Readonly<Record<string, number>>>
@@ -1698,6 +1708,9 @@ const make = Effect.gen(function* () {
           actorClientId: ticketActivity.actorClientId,
           actorClientName: ticketActivity.actorClientName,
           actorSource: ticketActivity.actorSource,
+          importedName: ticketActivity.importedName,
+          importedSource: ticketActivity.importedSource,
+          importedId: ticketActivity.importedId,
           change: ticketActivity.change
         })
         .from(ticketActivity)
@@ -2069,6 +2082,66 @@ const make = Effect.gen(function* () {
     return rows[0] ?? null
   })
 
+  const projectKeys = Effect.fn("TicketIndex.projectKeys")(function* (
+    project: TicketProject
+  ) {
+    const rows = yield* db
+      .select({ key: projectKey.key, current: projectKey.current })
+      .from(projectKey)
+      .where(eq(projectKey.projectId, project.projectId))
+      .pipe(Effect.orDie)
+    return {
+      current: rows.find((row) => row.current)?.key ?? "",
+      former: rows.filter((row) => !row.current).map((row) => row.key)
+    }
+  })
+
+  const syncFormerKeys = Effect.fn("TicketIndex.syncFormerKeys")(function* (
+    project: TicketProject,
+    formerKeys: ReadonlyArray<string>
+  ) {
+    return yield* db
+      .transaction((tx) =>
+        Effect.gen(function* () {
+          yield* tx
+            .delete(projectKey)
+            .where(
+              and(
+                eq(projectKey.projectId, project.projectId),
+                eq(projectKey.current, false),
+                formerKeys.length === 0
+                  ? undefined
+                  : notInArray(projectKey.key, [...formerKeys])
+              )
+            )
+          if (formerKeys.length === 0) return []
+          yield* tx
+            .insert(projectKey)
+            .values(
+              formerKeys.map((key) => ({
+                organizationId: project.organizationId,
+                key,
+                projectId: project.projectId,
+                current: false
+              }))
+            )
+            .onConflictDoNothing()
+          const taken = yield* tx
+            .select({ key: projectKey.key })
+            .from(projectKey)
+            .where(
+              and(
+                eq(projectKey.organizationId, project.organizationId),
+                inArray(projectKey.key, [...formerKeys]),
+                ne(projectKey.projectId, project.projectId)
+              )
+            )
+          return taken.map((row) => row.key)
+        })
+      )
+      .pipe(Effect.orDie)
+  })
+
   const reserveTicketNumber = Effect.fn("TicketIndex.reserveTicketNumber")(
     function* (project: TicketProject) {
       return yield* db
@@ -2360,6 +2433,8 @@ const make = Effect.gen(function* () {
     mentionableIds,
     movedTo,
     reserveTicketNumber,
+    projectKeys,
+    syncFormerKeys,
     tagUsageCounts,
     findTicketIdsByTag,
     findTicketIdsByStatus,

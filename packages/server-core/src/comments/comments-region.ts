@@ -1,5 +1,7 @@
+import { type CommentOrigin, ImportedAuthor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
@@ -12,7 +14,7 @@ const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 export type CommentBlock = Readonly<{
   id: string
   author: CommentBlockAuthor
-  origin: "native" | "jira"
+  origin: CommentOrigin
   createdAt: Date
   editedAt: Date | null
   replyTo?: string
@@ -24,11 +26,7 @@ export type CommentBlock = Readonly<{
 
 export type CommentBlockAuthor =
   | Readonly<{ kind: "user"; userId: string }>
-  | Readonly<{
-      kind: "jira"
-      displayName: string
-      accountId: string
-    }>
+  | ImportedAuthor
 
 const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
 
@@ -58,7 +56,7 @@ const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
 })
-const JiraBlockAuthor = Schema.Struct({
+const LegacyJiraBlockAuthor = Schema.Struct({
   kind: Schema.Literal("jira"),
   displayName: Schema.NonEmptyString,
   accountId: Schema.NonEmptyString
@@ -82,9 +80,9 @@ const NativeCommentData = Schema.Struct({
   resolvedAt: ResolvedAt,
   tickets: Tickets
 })
-const LinkedJiraCommentData = Schema.Struct({
-  author: UserBlockAuthor,
-  origin: Schema.Literal("jira"),
+const ImportedCommentData = Schema.Struct({
+  author: Schema.Union([UserBlockAuthor, ImportedAuthor]),
+  origin: Schema.Literals(["jira", "projectproject"]),
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
   replyTo: ReplyTo,
@@ -92,8 +90,8 @@ const LinkedJiraCommentData = Schema.Struct({
   resolvedAt: ResolvedAt,
   tickets: Tickets
 })
-const SnapshotJiraCommentData = Schema.Struct({
-  author: JiraBlockAuthor,
+const LegacyJiraSnapshotCommentData = Schema.Struct({
+  author: LegacyJiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
@@ -105,9 +103,22 @@ const SnapshotJiraCommentData = Schema.Struct({
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
   NativeCommentData,
-  LinkedJiraCommentData,
-  SnapshotJiraCommentData
+  ImportedCommentData,
+  LegacyJiraSnapshotCommentData
 ])
+
+const blockAuthor = (
+  author: (typeof CommentBlockData.Type)["author"]
+): CommentBlockAuthor => {
+  if (Predicate.isString(author)) return { kind: "user", userId: author }
+  if (author.kind !== "jira") return author
+  return {
+    kind: "imported",
+    displayName: author.displayName,
+    source: "jira",
+    sourceId: author.accountId
+  }
+}
 
 const decodeUnknownCommentBlockDataOption =
   Schema.decodeUnknownOption(CommentBlockData)
@@ -161,19 +172,10 @@ export function parseCommentsRegion(
     const decoded = decodeUnknownCommentBlockDataOption(parsed.data)
     if (Option.isSome(decoded)) {
       const data = decoded.value
-      let author: CommentBlockAuthor
-      let origin: CommentBlock["origin"]
-      if ("origin" in data) {
-        author = data.author
-        origin = data.origin
-      } else {
-        author = { kind: "user", userId: data.author }
-        origin = "native"
-      }
       blocks.push({
         id,
-        author,
-        origin,
+        author: blockAuthor(data.author),
+        origin: "origin" in data ? data.origin : "native",
         createdAt: data.createdAt,
         editedAt: data.editedAt,
         ...(data.replyTo === null ? {} : { replyTo: data.replyTo }),

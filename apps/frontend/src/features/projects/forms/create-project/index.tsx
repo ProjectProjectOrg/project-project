@@ -15,6 +15,7 @@ import {
   createProject,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { sanitizeKey } from "@/features/projects/lib/deriveKey"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { errorMessage } from "@/lib/errorMessage"
@@ -29,12 +30,6 @@ import {
   effectiveProjectKey,
   toCreateProjectInput
 } from "./opts"
-
-const sanitizeKey = (value: string) =>
-  value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 10)
 
 export function CreateProjectRow({
   orgSlug,

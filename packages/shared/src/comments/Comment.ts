@@ -9,19 +9,25 @@ const UserCommentAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   user: User
 })
-const JiraCommentAuthor = Schema.Struct({
-  kind: Schema.Literal("jira"),
-  displayName: Schema.NonEmptyString,
-  accountId: Schema.NonEmptyString
-})
+export const ImportedSource = Schema.Literals(["jira", "projectproject"])
+export type ImportedSource = typeof ImportedSource.Type
 
-export const CommentAuthor = Schema.Union([
-  UserCommentAuthor,
-  JiraCommentAuthor
-])
+export const ImportedAuthor = Schema.Struct({
+  kind: Schema.Literal("imported"),
+  displayName: Schema.NonEmptyString,
+  source: ImportedSource,
+  sourceId: Schema.NonEmptyString
+})
+export type ImportedAuthor = typeof ImportedAuthor.Type
+
+export const CommentAuthor = Schema.Union([UserCommentAuthor, ImportedAuthor])
 export type CommentAuthor = typeof CommentAuthor.Type
 
-export const CommentOrigin = Schema.Literals(["native", "jira"])
+export const CommentOrigin = Schema.Literals([
+  "native",
+  "jira",
+  "projectproject"
+])
 export type CommentOrigin = typeof CommentOrigin.Type
 
 const CommentFields = {
@@ -49,7 +55,7 @@ export const Comment = Schema.Union([
   Schema.Struct({
     ...CommentFields,
     author: CommentAuthor,
-    origin: Schema.Literal("jira")
+    origin: Schema.Literals(["jira", "projectproject"])
   })
 ])
 export type Comment = typeof Comment.Type

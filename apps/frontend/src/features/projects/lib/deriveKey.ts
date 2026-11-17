@@ -15,3 +15,9 @@ export function deriveKey(name: string): string {
       : words[0].slice(0, 4)
   return candidate.replace(/^[0-9]+/, "").slice(0, 10)
 }
+
+export const sanitizeKey = (value: string): string =>
+  value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 10)

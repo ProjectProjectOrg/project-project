@@ -1,8 +1,11 @@
-import { it } from "@effect/vitest"
+import { describe, it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
 import { expect } from "vitest"
 
-import { validateBodyMentions } from "./BodyMentions"
+import {
+  validateBodyMentions,
+  validateBodyMentionsWithLookups
+} from "./BodyMentions"
 
 it.effect("checks a comment mention against the ticket it points at", () =>
   Effect.gen(function* () {
@@ -27,3 +30,33 @@ it.effect("checks a comment mention against the ticket it points at", () =>
     })
   })
 )
+
+const nobody = {
+  existingTicketIds: () => Effect.succeed(new Set<string>()),
+  memberIds: () => Effect.succeed(new Set<string>())
+}
+const previous = "Ask [Bob](mention:user/old-bob)."
+
+describe("validateBodyMentionsWithLookups", () => {
+  it.effect(
+    "keeps mentions the body already had, even if they no longer resolve",
+    () =>
+      validateBodyMentionsWithLookups(`${previous} Updated.`, nobody, previous)
+  )
+
+  it.effect("refuses a new mention that doesn't resolve", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        validateBodyMentionsWithLookups(
+          `${previous} And [Eve](mention:user/eve).`,
+          nobody,
+          previous
+        )
+      )
+      expect(error).toMatchObject({
+        _tag: "MentionInvalid",
+        kind: "unknown_user"
+      })
+    })
+  )
+})

@@ -258,6 +258,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   mentionableIds: () => Effect.succeed(new Set()),
   movedTo: () => Effect.succeed(null),
   reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
+  projectKeys: () => Effect.succeed({ current: "", former: [] }),
+  syncFormerKeys: () => Effect.succeed([]),
   tagUsageCounts: () => Effect.succeed({}),
   findTicketIdsByTag: () => Effect.succeed([]),
   findTicketIdsByStatus: () => Effect.succeed([]),

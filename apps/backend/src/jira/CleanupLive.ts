@@ -1,10 +1,5 @@
 import { Db } from "@pp/db"
-import {
-  attachmentIndex,
-  jiraMigration,
-  organization,
-  projectIndex
-} from "@pp/db/schema"
+import { jiraMigration, organization } from "@pp/db/schema"
 import {
   JiraMigrationCleanupFailure,
   type JiraCleanupActivities,
@@ -14,10 +9,11 @@ import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
 import type * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as HiddenProject from "@pp/server-core/projects/hiddenProject"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
-import { and, eq, isNull } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import type * as FileSystem from "effect/FileSystem"
 import * as Match from "effect/Match"
@@ -28,6 +24,15 @@ import { verifyJiraPermanentArchive } from "./PublicationLive"
 
 const cleanupFailure = (reason: string) =>
   JiraMigrationCleanupFailure.make({ reason, retryable: true })
+
+const destinationOf = (
+  state: Readonly<{ row: typeof jiraMigration.$inferSelect; orgSlug: string }>
+) => ({
+  organizationId: state.row.organizationId,
+  orgSlug: state.orgSlug,
+  projectId: state.row.destinationProjectId,
+  projectSlug: state.row.destinationProjectSlug
+})
 
 export const makeJiraCleanupActivities = Effect.gen(function* () {
   const db = yield* Db
@@ -74,23 +79,15 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const state = yield* readState(payload, executionId)
-      if (state.row.destinationProjectId === null) return state
-      const [project] = yield* db
-        .select()
-        .from(projectIndex)
-        .where(eq(projectIndex.id, state.row.destinationProjectId))
-        .limit(1)
-        .pipe(
-          Effect.mapError(() => cleanupFailure("cleanup-project-read-failed"))
-        )
-      if (
-        project &&
-        (project.organizationId !== state.row.organizationId ||
-          project.slug !== state.row.destinationProjectSlug ||
-          project.publishedAt !== null)
+      const unpublished = yield* HiddenProject.isUnpublishedDestination(
+        destinationOf(state)
+      ).pipe(
+        Effect.provideService(Db, db),
+        Effect.mapError(() => cleanupFailure("cleanup-project-read-failed"))
       )
+      if (!unpublished)
         return yield* Effect.fail(cleanupFailure("cleanup-project-conflict"))
-      return state
+      return destinationOf(state)
     })
 
   const claim = (payload: JiraMigrationCleanupPayload, executionId: string) =>
@@ -132,37 +129,27 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     executionId: string
   ) =>
     Effect.gen(function* () {
-      const { row, orgSlug } = yield* verifyUnpublishedDestination(
+      const destination = yield* verifyUnpublishedDestination(
         payload,
         executionId
       )
-      if (row.destinationProjectId === null) return
-      const attachments = yield* db
-        .select({ objectKey: attachmentIndex.objectKey })
-        .from(attachmentIndex)
-        .where(
-          and(
-            eq(attachmentIndex.organizationId, row.organizationId),
-            eq(attachmentIndex.projectId, row.destinationProjectId),
-            eq(attachmentIndex.status, "pending")
-          )
-        )
-        .pipe(
-          Effect.mapError(() =>
-            cleanupFailure("cleanup-attachment-read-failed")
-          )
-        )
-      if (attachments.length === 0) return
+      const objectKeys = yield* HiddenProject.pendingObjectKeys(
+        destination
+      ).pipe(
+        Effect.provideService(Db, db),
+        Effect.mapError(() => cleanupFailure("cleanup-attachment-read-failed"))
+      )
+      if (objectKeys.length === 0) return
       const connection = yield* orgStorage
-        .requireConnection(orgSlug)
+        .requireConnection(destination.orgSlug)
         .pipe(
           Effect.mapError(() => cleanupFailure("cleanup-storage-unavailable"))
         )
       yield* Effect.forEach(
-        attachments,
-        (attachment) =>
+        objectKeys,
+        (objectKey) =>
           s3
-            .deleteObject(connection, attachment.objectKey)
+            .deleteObject(connection, objectKey)
             .pipe(
               Effect.mapError(() =>
                 cleanupFailure("cleanup-object-delete-failed")
@@ -177,22 +164,16 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     executionId: string
   ) =>
     Effect.gen(function* () {
-      const { row } = yield* verifyUnpublishedDestination(payload, executionId)
-      if (row.destinationProjectId === null) return
-      yield* db
-        .delete(attachmentIndex)
-        .where(
-          and(
-            eq(attachmentIndex.organizationId, row.organizationId),
-            eq(attachmentIndex.projectId, row.destinationProjectId),
-            eq(attachmentIndex.status, "pending")
-          )
+      const destination = yield* verifyUnpublishedDestination(
+        payload,
+        executionId
+      )
+      yield* HiddenProject.deletePendingAttachments(destination).pipe(
+        Effect.provideService(Db, db),
+        Effect.mapError(() =>
+          cleanupFailure("cleanup-attachment-delete-failed")
         )
-        .pipe(
-          Effect.mapError(() =>
-            cleanupFailure("cleanup-attachment-delete-failed")
-          )
-        )
+      )
     })
 
   const deleteHiddenDocuments = (
@@ -200,13 +181,13 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     executionId: string
   ) =>
     Effect.gen(function* () {
-      const { row, orgSlug } = yield* verifyUnpublishedDestination(
+      const destination = yield* verifyUnpublishedDestination(
         payload,
         executionId
       )
-      if (row.destinationProjectSlug === null) return
+      if (destination.projectSlug === null) return
       yield* projectDocs
-        .removeDir(orgSlug, row.destinationProjectSlug)
+        .removeDir(destination.orgSlug, destination.projectSlug)
         .pipe(
           Effect.mapError(() =>
             cleanupFailure("cleanup-document-delete-failed")
@@ -219,20 +200,14 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     executionId: string
   ) =>
     Effect.gen(function* () {
-      const { row } = yield* verifyUnpublishedDestination(payload, executionId)
-      if (row.destinationProjectId === null) return
-      yield* db
-        .delete(projectIndex)
-        .where(
-          and(
-            eq(projectIndex.id, row.destinationProjectId),
-            eq(projectIndex.organizationId, row.organizationId),
-            isNull(projectIndex.publishedAt)
-          )
-        )
-        .pipe(
-          Effect.mapError(() => cleanupFailure("cleanup-project-delete-failed"))
-        )
+      const destination = yield* verifyUnpublishedDestination(
+        payload,
+        executionId
+      )
+      yield* HiddenProject.deleteHiddenProjectRow(destination).pipe(
+        Effect.provideService(Db, db),
+        Effect.mapError(() => cleanupFailure("cleanup-project-delete-failed"))
+      )
     })
 
   const deletePrivateStaging = (

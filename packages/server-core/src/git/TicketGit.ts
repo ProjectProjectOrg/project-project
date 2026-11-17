@@ -15,6 +15,7 @@ import {
   type TransitionRecord,
   TicketBranchEntry,
   TicketId,
+  resolveTicketId,
   ActivityActor,
   type BranchExists,
   type BranchProtected,
@@ -741,13 +742,16 @@ const make = Effect.gen(function* () {
       knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const { orgSlug, slug } = project
+      const keys = yield* ticketIndex.projectKeys(project)
+      const resolveId = (id: TicketId) => resolveTicketId(keys, id)
       const automaticLinks = planAutomaticBranchLinks(
         tickets,
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
         raw.prByBranch,
-        knownIds
+        knownIds,
+        resolveId
       )
       const automaticStacks = planAutomaticStacks(
         tickets,
@@ -756,7 +760,8 @@ const make = Effect.gen(function* () {
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
         raw.prByBranch,
-        knownIds
+        knownIds,
+        resolveId
       )
       const stackedTicketIds = tickets.flatMap((ticket) =>
         automaticStacks.has(ticket.id) ||

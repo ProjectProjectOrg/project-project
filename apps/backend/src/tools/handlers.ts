@@ -630,10 +630,27 @@ const rebuild_ticket_index = (input: {
   Effect.gen(function* () {
     const ticketIndex = yield* TicketIndex.TicketIndex
     const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
+    const docs = yield* ProjectDocs.ProjectDocs
     const project = yield* ticketIndex.projectFor(
       input.orgSlug,
       input.projectSlug
     )
+    const document = yield* docs.read(project.orgSlug, project.slug)
+    const taken = yield* ticketIndex.syncFormerKeys(
+      project,
+      document.formerKeys ?? []
+    )
+    if (taken.length > 0) {
+      yield* Effect.logWarning(
+        "former project keys are held by another project"
+      ).pipe(
+        Effect.annotateLogs({
+          orgSlug: project.orgSlug,
+          slug: project.slug,
+          keys: taken
+        })
+      )
+    }
     const summary = yield* maintenance.reconcileProject(project, {
       force: true
     })

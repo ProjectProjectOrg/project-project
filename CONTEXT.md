@@ -21,6 +21,14 @@ _Avoid_: Project admin, project owner
 A user with accepted access to a project.
 _Avoid_: Pending member, invitee
 
+**Reference to fix**:
+A mention or link in a ticket description that doesn't resolve on this instance, listed for PMs after an import. Saving a description keeps mentions it already had even if they don't resolve; only new mentions must resolve.
+_Avoid_: Broken link, dead mention
+
+**Imported author**:
+A person named on comments or activity who has no account on this instance, kept by display name, source (`jira` or `projectproject`) and their id there. Migrations and imports create them for people nobody linked; no account is created.
+_Avoid_: Ghost user, external user
+
 **Pending project member**:
 An email address with a pending invitation that will grant project access if accepted.
 _Avoid_: Member, user
@@ -33,6 +41,14 @@ A set of tickets, sprints and settings inside an org. Identified by its slug in 
 **Project key**:
 The uppercase prefix of a project's ticket ids (`PP` in `PP-12`). Older projects use `T`.
 _Avoid_: Prefix, code
+
+**Former key**:
+A key a project used before, kept in `project.md` as `formerKeys`. No other project in the org can take it, and git branches and pull requests that name it (`T-12`) still link to the ticket under the current key (`PP-12`).
+_Avoid_: Alias, old prefix
+
+**Project export**:
+One `.tar.gz` file holding a project's markdown, its Postgres rows, the people it references and its attachment bytes, without integrations or credentials. A PM or org admin downloads it to move the project to another instance.
+_Avoid_: Backup, dump
 
 **Ticket**:
 A unit of work, stored as one markdown file. Has a ticket type or no type, a status, a priority (`low`, `med`, `high`), tags, assignees and an optional estimate.

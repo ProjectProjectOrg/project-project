@@ -28,9 +28,10 @@ const sample = (): ReadonlyArray<CommentBlock> => [
   {
     id: "c_b",
     author: {
-      kind: "jira",
+      kind: "imported",
       displayName: "Former Jira User",
-      accountId: "jira-account-88"
+      source: "jira",
+      sourceId: "jira-account-88"
     },
     origin: "jira",
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
@@ -106,8 +107,19 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     ])
   })
 
+  it("reads Jira author snapshots written before imported authors as imported from Jira", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_old -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\n  accountId: jira-account-88\norigin: jira\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nFrom Jira.\n${COMMENTS_END}\n`
+
+    expect(parseCommentsRegion(region)[0]?.author).toEqual({
+      kind: "imported",
+      displayName: "Former Jira User",
+      source: "jira",
+      sourceId: "jira-account-88"
+    })
+  })
+
   it("rejects invalid author and origin combinations", () => {
-    const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
+    const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: imported\n  displayName: Former Jira User\n  source: jira\n  sourceId: jira-account-88\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
 
     expect(parseCommentsRegion(region)).toEqual([])
   })

@@ -109,6 +109,30 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     })
   )
 
+  it.effect("records synced former keys next to the current key", () =>
+    Effect.gen(function* () {
+      const index = yield* TicketIndex.TicketIndex
+      const site = yield* index.projectFor(orgs[0], "website-2")
+      yield* index.syncFormerKeys(site, ["OLD"])
+      expect(yield* index.projectKeys(site)).toStrictEqual({
+        current: "SITE",
+        former: ["OLD"]
+      })
+    }).pipe(Effect.provide(layer))
+  )
+
+  it.effect(
+    "refuses a new project whose key is another project's former key",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(create(0, "Legacy", "OLD"))
+        expect(error).toMatchObject({
+          _tag: "Conflict",
+          reason: "project_key_taken"
+        })
+      })
+  )
+
   it.effect("resolves each org's own project", () =>
     Effect.gen(function* () {
       const projects = yield* Projects.Projects

@@ -124,6 +124,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   mentionableIds: () => unexpected("TicketIndex.mentionableIds"),
   movedTo: () => unexpected("TicketIndex.movedTo"),
   reserveTicketNumber: () => unexpected("TicketIndex.reserveTicketNumber"),
+  projectKeys: () => unexpected("TicketIndex.projectKeys"),
+  syncFormerKeys: () => unexpected("TicketIndex.syncFormerKeys"),
   tagUsageCounts: () => unexpected("TicketIndex.tagUsageCounts"),
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
@@ -189,8 +191,9 @@ const commentRow = (
   input.origin ?? "native",
   input.authorKind ?? "user",
   input.authorId ?? "user-1",
-  input.jiraDisplayName ?? null,
-  input.jiraAccountId ?? null,
+  input.importedName ?? null,
+  input.importedSource ?? null,
+  input.importedId ?? null,
   (input.createdAt ?? at("2026-01-01T00:00:00.000Z")).toISOString(),
   input.editedAt?.toISOString() ?? null
 ]
@@ -517,8 +520,8 @@ it.effect(
     const database = databaseLayer(({ sql, params }) =>
       Effect.sync(() => {
         if (sql.startsWith("insert")) {
-          for (let index = 0; index < params.length; index += 10)
-            rows.push(params.slice(index, index + 10))
+          for (let index = 0; index < params.length; index += 11)
+            rows.push(params.slice(index, index + 11))
         }
         if (sql.startsWith("delete")) rows.splice(0)
         return sql.startsWith("select") ? rows : []
@@ -556,9 +559,10 @@ it.effect(
         },
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "Snapshot body",
           createdAt,
@@ -577,9 +581,10 @@ it.effect(
       })
       expect(listed[1]).toMatchObject({
         author: {
-          kind: "jira",
+          kind: "imported",
           displayName: "Former Jira User",
-          accountId: "jira-account-1"
+          source: "jira",
+          sourceId: "jira-account-1"
         },
         origin: "jira",
         body: "Snapshot body",
@@ -608,9 +613,10 @@ it.effect("rejects reserved markers without writing imported history", () => {
       comments.importHistorical(ticketId("T-1"), [
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "<!-- comments:end -->",
           createdAt: at("2021-04-02T03:04:05.678Z"),
@@ -642,9 +648,10 @@ it.effect("rejects incomplete Jira snapshot attribution", () => {
       comments.importHistorical(ticketId("T-1"), [
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "Imported body",
           createdAt: at("2021-04-02T03:04:05.678Z"),
@@ -663,8 +670,8 @@ it.effect("removes imported index rows when the markdown write fails", () => {
   const database = databaseLayer(({ sql, params }) =>
     Effect.sync(() => {
       if (sql.startsWith("insert")) {
-        for (let index = 0; index < params.length; index += 10)
-          rows.push(params.slice(index, index + 10))
+        for (let index = 0; index < params.length; index += 11)
+          rows.push(params.slice(index, index + 11))
       }
       if (sql.startsWith("delete")) rows.splice(0)
       return sql.startsWith("select") ? rows : []

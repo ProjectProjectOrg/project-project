@@ -7,7 +7,7 @@ import {
   projectIndex,
   projectIntegrationLink
 } from "@pp/db/schema"
-import { ActivityActor } from "@pp/shared"
+import { ActivityActor, resolveTicketId } from "@pp/shared"
 import type {
   GitHubPullRequestWebhookChange,
   GitHubBranchDeletionChange,
@@ -408,7 +408,10 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
     yield* logSkipped("default_branch")
     return
   }
-  const references = pullRequestTicketReferences(change)
+  const keys = yield* deps.ticketIndex.projectKeys(project)
+  const references = pullRequestTicketReferences(change, (id) =>
+    resolveTicketId(keys, id)
+  )
   const mentioned = references.flatMap(({ ticketIds }) => [...ticketIds])
   if (mentioned.length === 0) {
     yield* logSkipped("no_reference")

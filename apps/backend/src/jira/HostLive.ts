@@ -28,6 +28,20 @@ export const JiraHostLive = Layer.effect(
 )
 
 export const JiraPublicationFormatLive = Layer.succeed(JiraPublicationFormat, {
-  serializeCommentsRegion,
+  serializeCommentsRegion: (comments) =>
+    serializeCommentsRegion(
+      comments.map((comment) => ({
+        ...comment,
+        author:
+          comment.author.kind === "user"
+            ? comment.author
+            : {
+                kind: "imported" as const,
+                displayName: comment.author.displayName,
+                source: "jira" as const,
+                sourceId: comment.author.accountId
+              }
+      }))
+    ),
   attachmentObjectKey: S3Storage.attachmentObjectKey
 })

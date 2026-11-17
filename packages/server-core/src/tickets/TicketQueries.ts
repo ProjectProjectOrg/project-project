@@ -60,7 +60,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import * as Access from "../access/Access"
-import { presentActor } from "../activity/actorRow"
+import { presentActor, storedActorUserId } from "../activity/actorRow"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import type * as GroupDocs from "../groups/GroupDocs"
 import * as Groups from "../groups/Groups"
@@ -167,11 +167,10 @@ const touchedActorIds = (
 ): ReadonlyArray<string> => [
   ...new Set(
     entries.flatMap(({ assignedEvent, statusEvent }) =>
-      [assignedEvent, statusEvent].flatMap((event) =>
-        event === null || event.actor.kind === "system"
-          ? []
-          : [event.actor.userId]
-      )
+      [assignedEvent, statusEvent].flatMap((event) => {
+        const id = event === null ? null : storedActorUserId(event.actor)
+        return id === null ? [] : [id]
+      })
     )
   )
 ]

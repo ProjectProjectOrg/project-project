@@ -262,6 +262,8 @@ function makeFakeDocs(initial?: {
         new Set(ticketIds.filter((ticketId) => ticketsById.has(ticketId)))
       ),
     movedTo: () => Effect.succeed(null),
+    projectKeys: () => Effect.succeed({ current: "", former: [] }),
+    syncFormerKeys: () => Effect.succeed([]),
     reserveTicketNumber: () =>
       Effect.sync(
         () =>

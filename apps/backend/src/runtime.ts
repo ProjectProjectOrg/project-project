@@ -53,6 +53,9 @@ import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectExport from "@pp/server-core/projects/ProjectExport"
+import * as ProjectImports from "@pp/server-core/projects/ProjectImports"
+import * as ProjectReferences from "@pp/server-core/projects/ProjectReferences"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -151,7 +154,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
   oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
-  Tags.layer
+  Layer.mergeAll(Tags.layer, ProjectReferences.layer)
     .pipe(
       Layer.provideMerge(FeedbackIntake.layer),
       Layer.provideMerge(SystemProjects.layer),
@@ -170,6 +173,14 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(Comments.layer),
       Layer.provideMerge(Groups.layer),
       Layer.provideMerge(ProjectServices.layer),
+      Layer.provideMerge(ProjectExport.layer),
+      Layer.provideMerge(
+        ProjectImports.ProjectImportWorkflowLive.pipe(
+          Layer.provideMerge(ProjectImports.layer)
+        )
+      )
+    )
+    .pipe(
       Layer.provideMerge(Org.layer),
       Layer.provideMerge(Access.layer),
       Layer.provideMerge(GitHubLive),

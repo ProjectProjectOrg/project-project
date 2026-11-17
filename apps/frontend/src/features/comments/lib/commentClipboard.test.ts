@@ -7,14 +7,16 @@ import { commentMarkdown } from "./commentClipboard"
 const ticketId = Schema.decodeSync(TicketId)
 
 const sam = {
-  kind: "jira",
+  kind: "imported",
+  source: "jira",
   displayName: "Sam de Vries",
-  accountId: "jira-1"
+  sourceId: "jira-1"
 } as const
 const noor = {
-  kind: "jira",
+  kind: "imported",
+  source: "jira",
   displayName: "Noor Bakker",
-  accountId: "jira-2"
+  sourceId: "jira-2"
 } as const
 
 describe("commentMarkdown", () => {

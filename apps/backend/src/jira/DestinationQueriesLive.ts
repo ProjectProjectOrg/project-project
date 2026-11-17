@@ -1,8 +1,8 @@
 import { Db } from "@pp/db"
-import { projectIndex, ticketIndex } from "@pp/db/schema"
+import { projectIndex, projectKey, ticketIndex } from "@pp/db/schema"
 import * as Migrations from "@pp/integration-jira/Migrations"
 import { JiraError } from "@pp/shared"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
@@ -19,9 +19,10 @@ const make = Effect.gen(function* () {
           id: projectIndex.id,
           organizationId: projectIndex.organizationId,
           slug: projectIndex.slug,
-          key: projectIndex.key
+          key: drizzleSql<string>`coalesce(${projectKey.key}, ${projectIndex.key})`
         })
         .from(projectIndex)
+        .leftJoin(projectKey, eq(projectKey.projectId, projectIndex.id))
         .where(eq(projectIndex.organizationId, organizationId))
       const batches = Array.from(
         { length: Math.ceil(destinationTicketIds.length / 1000) },

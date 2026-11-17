@@ -76,6 +76,13 @@ const agentLogo = (actor: TicketActivityActor | null) =>
     : undefined
 
 function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
+  if (actor?.kind === "imported")
+    return (
+      <MemberAvatar
+        member={{ id: actor.sourceId, name: actor.displayName }}
+        size={20}
+      />
+    )
   if (actor !== null && actor.kind !== "system") {
     const logo = agentLogo(actor)
     if (logo === undefined)
@@ -100,7 +107,10 @@ function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
 }
 
 const personKey = (actor: TicketActivityActor | null) =>
-  actor === null || actor.kind === "system" || agentLogo(actor) !== undefined
+  actor === null ||
+  actor.kind === "system" ||
+  actor.kind === "imported" ||
+  agentLogo(actor) !== undefined
     ? actorKey(actor)
     : `user:${actor.user.id}`
 
@@ -123,6 +133,8 @@ function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
       </span>
     )
   }
+  if (actor.kind === "imported")
+    return <span className="font-semibold">{actor.displayName}</span>
   const name = actor.user.name || actor.user.email
   if (actor.kind === "user") {
     return <span className="font-semibold">{name}</span>

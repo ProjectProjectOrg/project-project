@@ -3,6 +3,7 @@
   "tickets_activity_actor_automation": "Automation",
   "tickets_activity_actor_github": "GitHub",
   "tickets_activity_actor_import": "Jira import",
+  "tickets_activity_actor_imported": "imported",
   "tickets_activity_actor_unknown": "Someone",
   "tickets_activity_actor_via": "via {client}",
   "tickets_activity_archived": "archived this",

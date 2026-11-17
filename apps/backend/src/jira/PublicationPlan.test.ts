@@ -1917,9 +1917,10 @@ it.effect(
         id: final.plan.indexes.comments[0].id,
         origin: "jira",
         author: {
-          kind: "jira",
-          accountId: "account-unlinked",
-          displayName: "Former User"
+          kind: "imported",
+          displayName: "Former User",
+          source: "jira",
+          sourceId: "account-unlinked"
         },
         body: "Comment text"
       })

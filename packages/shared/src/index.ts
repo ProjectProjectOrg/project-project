@@ -70,6 +70,9 @@ export * from "./pagination/Pagination"
 export * from "./pagination/cursor"
 
 export * from "./projects/Project"
+export * from "./projects/ProjectExport"
+export * from "./projects/ProjectImport"
+export * from "./projects/ProjectReferences"
 export * from "./projects/ProjectEvent"
 export * from "./projects/identity"
 

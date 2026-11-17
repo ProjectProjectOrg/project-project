@@ -1,7 +1,12 @@
-import type { TicketActivityOutboxRow } from "@pp/db/schema"
-import { ActivityActor, type TicketActivityActor, type User } from "@pp/shared"
+import type { ticketActivity, TicketActivityOutboxRow } from "@pp/db/schema"
+import {
+  ActivityActor,
+  type ImportedAuthor,
+  type TicketActivityActor,
+  type User
+} from "@pp/shared"
 
-export type ActorColumns = Readonly<
+export type WrittenActorColumns = Readonly<
   Pick<
     TicketActivityOutboxRow,
     | "actorKind"
@@ -12,7 +17,25 @@ export type ActorColumns = Readonly<
   >
 >
 
-export const actorColumns = (actor: ActivityActor["Service"]): ActorColumns => {
+export type ActorColumns = Readonly<
+  Pick<
+    typeof ticketActivity.$inferSelect,
+    | "actorKind"
+    | "actorUserId"
+    | "actorClientId"
+    | "actorClientName"
+    | "actorSource"
+    | "importedName"
+    | "importedSource"
+    | "importedId"
+  >
+>
+
+export type StoredActor = ActivityActor["Service"] | ImportedAuthor
+
+export const actorColumns = (
+  actor: ActivityActor["Service"]
+): WrittenActorColumns => {
   if (actor.kind === "system") {
     return {
       actorKind: "system",
@@ -31,7 +54,15 @@ export const actorColumns = (actor: ActivityActor["Service"]): ActorColumns => {
   }
 }
 
-export const actorOf = (row: ActorColumns): ActivityActor["Service"] => {
+export const actorOf = (row: ActorColumns): StoredActor => {
+  if (row.actorKind === "imported") {
+    return {
+      kind: "imported",
+      displayName: row.importedName ?? "",
+      source: row.importedSource ?? "projectproject",
+      sourceId: row.importedId ?? ""
+    }
+  }
   if (row.actorKind === "agent") {
     return ActivityActor.agent(row.actorUserId ?? "", {
       id: row.actorClientId ?? "",
@@ -42,11 +73,14 @@ export const actorOf = (row: ActorColumns): ActivityActor["Service"] => {
   return ActivityActor.system(row.actorSource ?? "automation")
 }
 
+export const storedActorUserId = (actor: StoredActor): string | null =>
+  actor.kind === "system" || actor.kind === "imported" ? null : actor.userId
+
 export const presentActor = (
-  actor: ActivityActor["Service"],
+  actor: StoredActor,
   users: ReadonlyMap<string, User>
 ): TicketActivityActor | null => {
-  if (actor.kind === "system") return actor
+  if (actor.kind === "system" || actor.kind === "imported") return actor
   const user = users.get(actor.userId)
   if (user === undefined) return null
   return actor.kind === "user"

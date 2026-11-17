@@ -422,13 +422,18 @@ const make = Effect.gen(function* () {
 
   const validateBody = (
     body: string,
-    project: TicketProject
+    project: TicketProject,
+    previousBody = ""
   ): Effect.Effect<void, NotFound | MentionInvalid, ProjectScope> =>
-    validateBodyMentionsWithLookups(body, {
-      existingTicketIds: (ticketIds) =>
-        ticketIndex.mentionableIds(project, ticketIds),
-      memberIds: () => projectMembers.memberIds()
-    })
+    validateBodyMentionsWithLookups(
+      body,
+      {
+        existingTicketIds: (ticketIds) =>
+          ticketIndex.mentionableIds(project, ticketIds),
+        memberIds: () => projectMembers.memberIds()
+      },
+      previousBody
+    )
 
   const validateAssigneesAreMembers = (
     assignees: ReadonlyArray<string>
@@ -881,13 +886,11 @@ const make = Effect.gen(function* () {
               : validateBody(input.flag.reason, scope),
             input.body === undefined
               ? Effect.succeed(undefined)
-              : library
-                  .resolveSynced(
-                    orgSlug,
-                    slug,
-                    normalizeLineEndings(input.body)
-                  )
-                  .pipe(Effect.tap((body) => validateBody(body, scope))),
+              : library.resolveSynced(
+                  orgSlug,
+                  slug,
+                  normalizeLineEndings(input.body)
+                ),
             input.position === undefined
               ? Effect.succeed(undefined)
               : rankAt(scope, id, input.position)
@@ -921,6 +924,8 @@ const make = Effect.gen(function* () {
             (existing) =>
               Effect.gen(function* () {
                 yield* checkExpected(existing)
+                if (body !== undefined)
+                  yield* validateBody(body, scope, existing.body)
                 const nextSprint =
                   sprint === undefined || sprints === null
                     ? existing.sprint

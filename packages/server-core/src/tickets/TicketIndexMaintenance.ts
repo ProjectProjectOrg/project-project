@@ -49,10 +49,12 @@ const commentIndexRowsForDocument = (
     origin: comment.origin,
     authorKind: comment.author.kind,
     authorId: comment.author.kind === "user" ? comment.author.userId : null,
-    jiraDisplayName:
-      comment.author.kind === "jira" ? comment.author.displayName : null,
-    jiraAccountId:
-      comment.author.kind === "jira" ? comment.author.accountId : null,
+    importedName:
+      comment.author.kind === "imported" ? comment.author.displayName : null,
+    importedSource:
+      comment.author.kind === "imported" ? comment.author.source : null,
+    importedId:
+      comment.author.kind === "imported" ? comment.author.sourceId : null,
     createdAt: comment.createdAt,
     editedAt: comment.editedAt
   }))

@@ -39,6 +39,7 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  ProjectImport,
   LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
@@ -77,6 +78,28 @@ import {
 export * from "./auth-schema"
 import { invitation, member, organization, user } from "./auth-schema"
 import * as authSchema from "./auth-schema"
+
+export type ProjectImportFile = Readonly<{ path: string; content: string }>
+
+export type ProjectImportConfiguration = Readonly<{
+  types: ProjectImport["types"]
+  name: string
+  slug: string
+  key: string
+  formerKeys: ReadonlyArray<string>
+  people: ReadonlyArray<
+    Readonly<{ sourceUserId: string; userId: string | null }>
+  >
+}>
+
+export type ProjectImportAttachment = Readonly<{
+  sourceId: string
+  id: string
+  objectKey: string
+  byteSize: number
+  contentType: string
+  contentHash: string
+}>
 
 export type OrgIntegrationConfig = OrgEverhourConfig | Record<string, never>
 
@@ -124,6 +147,27 @@ export const projectIndex = pgTable(
       table.organizationId,
       table.slug
     )
+  ]
+)
+
+export const projectKey = pgTable(
+  "project_key",
+  {
+    organizationId: text("organization_id").notNull(),
+    key: text("key").notNull(),
+    projectId: uuid("project_id").notNull(),
+    current: boolean("current").notNull()
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.key] }),
+    foreignKey({
+      name: "project_key_project_fkey",
+      columns: [table.projectId, table.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    uniqueIndex("project_key_current_uidx")
+      .on(table.projectId)
+      .where(sql`${table.current}`)
   ]
 )
 
@@ -859,11 +903,16 @@ export const commentIndex = pgTable(
       .notNull()
       .references(() => projectIndex.id, { onDelete: "cascade" }),
     ticketId: text("ticket_id").notNull(),
-    origin: text("origin", { enum: ["native", "jira"] }).notNull(),
-    authorKind: text("author_kind", { enum: ["user", "jira"] }).notNull(),
+    origin: text("origin", {
+      enum: ["native", "jira", "projectproject"]
+    }).notNull(),
+    authorKind: text("author_kind", { enum: ["user", "imported"] }).notNull(),
     authorId: text("author_id").references(() => user.id),
-    jiraDisplayName: text("jira_display_name"),
-    jiraAccountId: text("jira_account_id"),
+    importedName: text("imported_name"),
+    importedSource: text("imported_source", {
+      enum: ["jira", "projectproject"]
+    }),
+    importedId: text("imported_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -875,18 +924,20 @@ export const commentIndex = pgTable(
       sql`(
         ${t.authorKind} = 'user'
         and ${t.authorId} is not null
-        and ${t.jiraDisplayName} is null
-        and ${t.jiraAccountId} is null
+        and ${t.importedName} is null
+        and ${t.importedSource} is null
+        and ${t.importedId} is null
       ) or (
-        ${t.authorKind} = 'jira'
+        ${t.authorKind} = 'imported'
         and ${t.authorId} is null
-        and ${t.jiraDisplayName} is not null
-        and ${t.jiraAccountId} is not null
+        and ${t.importedName} is not null
+        and ${t.importedSource} is not null
+        and ${t.importedId} is not null
       )`
     ),
     check(
       "comment_index_origin_check",
-      sql`${t.origin} = 'jira' or (${t.origin} = 'native' and ${t.authorKind} = 'user')`
+      sql`${t.origin} <> 'native' or ${t.authorKind} = 'user'`
     ),
     index("comment_index_ticket_idx").on(t.projectId, t.ticketId, t.createdAt),
     index("comment_index_author_idx").on(t.authorId, t.projectId, t.ticketId)
@@ -904,7 +955,7 @@ export const ticketActivity = pgTable(
     ticketId: text("ticket_id").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     actorKind: text("actor_kind", {
-      enum: ["user", "agent", "system"]
+      enum: ["user", "agent", "system", "imported"]
     }).notNull(),
     actorUserId: text("actor_user_id").references(() => user.id, {
       onDelete: "cascade"
@@ -914,6 +965,11 @@ export const ticketActivity = pgTable(
     actorSource: text("actor_source", {
       enum: ["github", "automation", "import"]
     }),
+    importedName: text("imported_name"),
+    importedSource: text("imported_source", {
+      enum: ["jira", "projectproject"]
+    }),
+    importedId: text("imported_id"),
     cause: text("cause", {
       enum: [
         "status_removed",
@@ -947,6 +1003,20 @@ export const ticketActivity = pgTable(
         and ${t.actorClientId} is null
         and ${t.actorClientName} is null
         and ${t.actorSource} is not null
+      ) or (
+        ${t.actorKind} = 'imported'
+        and ${t.actorUserId} is null
+        and ${t.actorClientId} is null
+        and ${t.actorClientName} is null
+        and ${t.actorSource} is null
+      )`
+    ),
+    check(
+      "ticket_activity_imported_actor_check",
+      sql`(${t.actorKind} = 'imported') = (
+        ${t.importedName} is not null
+        and ${t.importedSource} is not null
+        and ${t.importedId} is not null
       )`
     ),
     index("ticket_activity_ticket_idx").on(
@@ -988,13 +1058,13 @@ export const ticketSubscription = pgTable(
 )
 
 export type TicketActivityRow = typeof ticketActivity.$inferInsert
-export type TicketActivityOutboxActor = Pick<
-  TicketActivityRow,
-  | "actorKind"
-  | "actorUserId"
-  | "actorClientId"
-  | "actorClientName"
-  | "actorSource"
+export type TicketActivityOutboxActor = Readonly<
+  Pick<
+    TicketActivityRow,
+    "actorUserId" | "actorClientId" | "actorClientName" | "actorSource"
+  > & {
+    actorKind: Exclude<TicketActivityRow["actorKind"], "imported">
+  }
 >
 
 export type InboxResolution =
@@ -1055,8 +1125,12 @@ export const inboxRow = pgTable(
     index("inbox_row_user_idx").on(t.userId, t.state, t.latestAt)
   ]
 )
-export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
-  Readonly<{ occurredAt: string }>
+export type TicketActivityOutboxRow = Readonly<
+  Omit<TicketActivityRow, "occurredAt" | "actorKind"> & {
+    occurredAt: string
+    actorKind: TicketActivityOutboxActor["actorKind"]
+  }
+>
 
 export const organizationSlackIntegration = pgTable(
   "organization_slack_integration",
@@ -1452,6 +1526,47 @@ export const userJiraOauthState = pgTable(
       .defaultNow()
   },
   (t) => [index("user_jira_oauth_state_user_idx").on(t.userId)]
+)
+
+export const projectImport = pgTable(
+  "project_import",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").notNull(),
+    status: text("status", {
+      enum: [
+        "uploading",
+        "ready",
+        "importing",
+        "failed",
+        "cancelled",
+        "succeeded"
+      ]
+    }).notNull(),
+    attempt: integer("attempt").notNull().default(0),
+    manifest: jsonb("manifest"),
+    files: jsonb("files").$type<ReadonlyArray<ProjectImportFile>>(),
+    attachments:
+      jsonb("attachments").$type<ReadonlyArray<ProjectImportAttachment>>(),
+    configuration: jsonb("configuration").$type<ProjectImportConfiguration>(),
+    destinationProjectId: uuid("destination_project_id"),
+    destinationProjectSlug: text("destination_project_slug"),
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    retainedUntil: timestamp("retained_until", { withTimezone: true })
+  },
+  (t) => [
+    index("project_import_org_idx").on(t.organizationId, t.createdAt),
+    index("project_import_retention_idx").on(t.retainedUntil)
+  ]
 )
 
 export const jiraMigration = pgTable(

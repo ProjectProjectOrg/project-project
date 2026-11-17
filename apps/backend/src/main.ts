@@ -70,9 +70,10 @@ import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { SprintMigrationLive } from "@pp/server-core/groups/SprintMigration"
 import { LibraryMigrationLive } from "@pp/server-core/library/LibraryMigrationLive"
+import * as ProjectImports from "@pp/server-core/projects/ProjectImports"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { TicketRankBackfillLive } from "@pp/server-core/tickets/TicketRankBackfill"
-import { AppApi } from "@pp/shared"
+import { AppApi, PROJECT_IMPORT_MAX_BYTES } from "@pp/shared"
 import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
@@ -124,6 +125,8 @@ import { OrgEmailHandlerLive } from "./organizations/EmailHandlers"
 import { OrgHandlerLive } from "./organizations/Handlers"
 import { InvitationsHandlerLive } from "./organizations/InvitationHandlers"
 import { ProjectsHandlerLive } from "./projects/Handlers"
+import { ProjectImportsHandlerLive } from "./projects/ImportHandlers"
+import { ProjectReferencesHandlerLive } from "./projects/ReferenceHandlers"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { SlackHandlerLive } from "./slack/Handlers"
 import { slackOAuthRoutes } from "./slack/OAuthRoutes"
@@ -186,7 +189,13 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(AuthHandlerLive),
   Layer.provide(OrgHandlerLive),
   Layer.provide(InvitationsHandlerLive),
-  Layer.provide(ProjectsHandlerLive),
+  Layer.provide(
+    Layer.mergeAll(
+      ProjectsHandlerLive,
+      ProjectImportsHandlerLive,
+      ProjectReferencesHandlerLive
+    )
+  ),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(
     Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive, LinkPreviewsHandlerLive)
@@ -571,6 +580,11 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
+const ImportRetentionLive = ProjectImports.ProjectImportRetentionLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
 const FeedbackDispatchLive = FeedbackDispatcherLive.pipe(
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
@@ -610,6 +624,7 @@ const AppLive = Layer.mergeAll(
   ServerLive,
   ReconcilerLive,
   ReaperLive,
+  ImportRetentionLive,
   FeedbackDispatchLive
 ).pipe(Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive)))
 
@@ -632,7 +647,11 @@ if (import.meta.main) {
               const hostname = yield* Config.String("HOST").pipe(
                 Config.withDefault("0.0.0.0")
               )
-              return BunHttpServer.layer({ port, hostname })
+              return BunHttpServer.layer({
+                port,
+                hostname,
+                maxRequestBodySize: PROJECT_IMPORT_MAX_BYTES
+              })
             })
           )
         )

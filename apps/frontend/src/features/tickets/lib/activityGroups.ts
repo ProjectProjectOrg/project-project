@@ -22,6 +22,8 @@ export type ActivityDay = Readonly<{
 export const actorKey = (actor: TicketActivityActor | null): string => {
   if (actor === null) return "unknown"
   if (actor.kind === "system") return `system:${actor.source}`
+  if (actor.kind === "imported")
+    return `imported:${actor.source}:${actor.sourceId}`
   if (actor.kind === "agent") return `agent:${actor.user.id}:${actor.client.id}`
   return `user:${actor.user.id}`
 }
