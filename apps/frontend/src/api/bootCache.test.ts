@@ -18,7 +18,11 @@ const stubStorage = (initial: Record<string, string>) => {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
-      removeItem: (key: string) => void store.delete(key)
+      removeItem: (key: string) => void store.delete(key),
+      key: (index: number) => [...store.keys()][index] ?? null,
+      get length() {
+        return store.size
+      }
     }
   })
   return store
@@ -96,4 +100,58 @@ it.effect(
         waiting: true
       })
     })
+)
+
+it.effect(
+  "keeps values from earlier sessions this session did not show, after its own",
+  () =>
+    Effect.gen(function* () {
+      const store = stubStorage({ "pp:boot": '{"older":"kept"}' })
+      const { persisted, saveBoot } = yield* Effect.promise(
+        () => import("./bootCache")
+      )
+      const greeting = Atom.make(Effect.succeed("live")).pipe(
+        persisted("greeting", Schema.String)
+      )
+      const registry = Registry.make()
+      const unmount = registry.mount(greeting)
+
+      saveBoot(registry)
+      expect(store.get("pp:boot")).toBe('{"greeting":"live","older":"kept"}')
+      unmount()
+    })
+)
+
+it.effect("drops the oldest values once the saved text is too long", () =>
+  Effect.gen(function* () {
+    const store = stubStorage({
+      "pp:boot": `{"older":"${"x".repeat(999_990)}"}`
+    })
+    const { persisted, saveBoot } = yield* Effect.promise(
+      () => import("./bootCache")
+    )
+    const greeting = Atom.make(Effect.succeed("live")).pipe(
+      persisted("greeting", Schema.String)
+    )
+    const registry = Registry.make()
+    const unmount = registry.mount(greeting)
+
+    saveBoot(registry)
+    expect(store.get("pp:boot")).toBe('{"greeting":"live"}')
+    unmount()
+  })
+)
+
+it.effect("clearing forgets every startup value, and nothing else", () =>
+  Effect.gen(function* () {
+    const store = stubStorage({
+      "pp:boot": "{}",
+      "pp:boot:local-user": "user-1",
+      "projectproject:theme": "dark"
+    })
+    const { clearBoot } = yield* Effect.promise(() => import("./bootCache"))
+
+    clearBoot()
+    expect([...store.keys()]).toEqual(["projectproject:theme"])
+  })
 )

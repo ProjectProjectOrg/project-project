@@ -18,6 +18,7 @@ import { Inbox } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
@@ -44,6 +45,7 @@ import {
 } from "@/features/tickets/atoms/sprintSections"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { sprintSectionAnchor } from "@/features/tickets/lib/sprintSectionAnchor"
+import { sprintCollapsedByDefault } from "@/features/tickets/lib/sprintSectionRows"
 import {
   viewQuery,
   type TicketRowPage
@@ -176,10 +178,7 @@ export function SprintSections(props: Props) {
         </TicketViewSourceContext>
       </div>
     ) : (
-      <div
-        aria-busy="true"
-        className="h-32 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-      />
+      <LoaderOverlay active />
     )
   const refresh = () => {
     refreshGroups()
@@ -237,7 +236,7 @@ function SprintSection({
     persistKey,
     id,
     props.query.q,
-    !props.query.q && sprint !== null && sprintState(sprint) !== "planned"
+    sprintCollapsedByDefault(sprint, props.query.q)
   )
   const { members } = props
   const query = {

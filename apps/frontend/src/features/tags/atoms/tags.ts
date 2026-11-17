@@ -3,7 +3,7 @@ import {
   TagColor,
   type ListEdit,
   type CreateTagInput,
-  type Tag,
+  Tag,
   type TagName,
   type TicketId,
   type UpdateTagInput
@@ -14,9 +14,12 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
+import { localTags } from "@/features/local/atoms/localProjectFacts"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import {
   ticketSource,
   ticketRequest
@@ -42,8 +45,16 @@ const tagsQuery = (req: TagsRequest) =>
     reactivityKeys: [Keys.tags(scopeOf(req))]
   })
 
+const tagsSource = (req: TagsRequest) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localTags(req.params)) ??
+      get(tagsQuery(req)),
+    (refresh) => refresh(tagsQuery(req))
+  ).pipe(persisted(`tags/${scopeOf(req)}`, Schema.Array(Tag)))
+
 export const tagsFor = Atom.family((req: TagsRequest) =>
-  Atom.optimistic(tagsQuery(req))
+  Atom.optimistic(tagsSource(req))
 )
 
 const tagUsageQuery = (req: TagsRequest) =>
@@ -96,7 +107,7 @@ const ticketRequestOf = (req: TagEditorRequest) =>
   ticketRequest(req.params.orgSlug, req.params.slug, req.params.id)
 
 const tagEditorQuery = (req: TagEditorRequest) => {
-  const tags = tagsQuery(tagsRequestOf(req))
+  const tags = tagsSource(tagsRequestOf(req))
   const ticket = ticketSource(ticketRequestOf(req))
   return Atom.readable(
     (get) =>

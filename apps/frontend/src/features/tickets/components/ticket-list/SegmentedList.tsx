@@ -12,6 +12,7 @@ import { FilterX, ListChecks } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -137,12 +138,7 @@ export function SegmentedList({
         result={statusesResult}
         contained
         reset={refreshStatuses}
-        onInitial={() => (
-          <div
-            aria-busy="true"
-            className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-          />
-        )}
+        onInitial={() => <LoaderOverlay active />}
         onSuccess={() => null}
       />
     )

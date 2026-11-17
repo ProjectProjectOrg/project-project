@@ -1,6 +1,7 @@
-import type { GroupId, UpdateGroupInput } from "@pp/shared"
+import { GroupDetail, type GroupId, type UpdateGroupInput } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
@@ -33,7 +34,11 @@ export const sprintQuery = (req: SprintRequest) =>
   })
 
 export const sprintDetail = Atom.family((req: SprintRequest) =>
-  Atom.optimistic(sprintQuery(req))
+  Atom.optimistic(
+    sprintQuery(req).pipe(
+      persisted(`sprint/${scopeOf(req)}/${req.params.id}`, GroupDetail)
+    )
+  )
 )
 
 export const updateSprintDetail = Atom.family((req: SprintRequest) =>

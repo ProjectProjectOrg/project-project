@@ -20,6 +20,8 @@ import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, viewMutation } from "@/api/viewMutation"
+import { localStatuses } from "@/features/local/atoms/localProjectFacts"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import { compareByOrderKey } from "@/lib/orderKey"
 
 export type StatusesRequest = Readonly<{
@@ -43,10 +45,18 @@ const statusesQuery = (req: StatusesRequest) =>
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [Keys.statuses(scopeOf(req))]
-  }).pipe(persisted(`statuses/${scopeOf(req)}`, Schema.Array(ProjectStatus)))
+  })
+
+const statusesSource = (req: StatusesRequest) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localStatuses(req.params)) ??
+      get(statusesQuery(req)),
+    (refresh) => refresh(statusesQuery(req))
+  ).pipe(persisted(`statuses/${scopeOf(req)}`, Schema.Array(ProjectStatus)))
 
 export const statusesFor = Atom.family((req: StatusesRequest) =>
-  Atom.optimistic(statusesQuery(req))
+  Atom.optimistic(statusesSource(req))
 )
 
 type StatusKey = Readonly<{

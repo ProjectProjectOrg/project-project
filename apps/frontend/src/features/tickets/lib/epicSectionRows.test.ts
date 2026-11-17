@@ -12,11 +12,13 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
+  firstScreenEpicSections,
   patchEpicSectionsRow,
   replaceEpicSectionsRow,
   type EpicSectionsValue,
   type EpicSectionValue
 } from "./epicSectionRows"
+import { FIRST_SCREEN_ROWS } from "./ticketRows"
 
 const ticketId = Schema.decodeSync(TicketId)
 const epicId = ticketId("T-9")
@@ -141,4 +143,14 @@ describe("epic grouping rows", () => {
       { key: EPIC_SECTION_NONE, count: 0, ids: [] }
     ])
   })
+})
+
+it("keeps the first screen's lines, counting each section's header", () => {
+  const sections = Array.from({ length: FIRST_SCREEN_ROWS }, (_, index) =>
+    section(ticketId(`T-${100 + index}`), [ticket, ticket, ticket])
+  )
+  const kept = firstScreenEpicSections(grouped(sections)).sections
+  expect(kept.map((shown) => shown.page.items.length)).toEqual(
+    Array.from({ length: FIRST_SCREEN_ROWS / 4 }, () => 3)
+  )
 })

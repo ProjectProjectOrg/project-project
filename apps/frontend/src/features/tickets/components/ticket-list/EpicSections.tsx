@@ -17,6 +17,7 @@ import { Inbox, ListTree } from "lucide-react"
 import { Fragment, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import {
@@ -32,9 +33,10 @@ import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
-import type {
-  EpicSectionsValue,
-  EpicSectionValue
+import {
+  firstScreenSectionCount,
+  type EpicSectionsValue,
+  type EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
@@ -102,8 +104,24 @@ export function EpicSections(props: Props) {
           )
         }
       : null
-  const renderSections = () =>
-    active ? (
+  const renderList = (shown: NonNullable<typeof active>) => {
+    const renderSection = (section: EpicSectionValue) => (
+      <EpicSection
+        {...props}
+        persistKey={persistKey}
+        query={shown.query}
+        snapshotReq={shown.req}
+        section={section}
+        waiting={snapshotResult.waiting}
+        activePreviewId={preview.activePreviewId}
+        onPreviewPointerEnter={preview.onPreviewPointerEnter}
+        onPreviewOpenChange={preview.onPreviewOpenChange}
+      />
+    )
+    const { sections } = shown.value
+    const firstScreen = firstScreenSectionCount(sections)
+    const lazy = sections.length > LAZY_SECTIONS_FROM
+    return (
       <div
         ref={setListElement}
         style={{ overflowAnchor: "none" }}
@@ -112,45 +130,39 @@ export function EpicSections(props: Props) {
         <TicketViewSourceContext
           value={ticketSearchFromSource({
             kind: "sections",
-            grouping: active.req.by,
-            query: viewQuery(active.query)
+            grouping: shown.req.by,
+            query: viewQuery(shown.query)
           })}
         >
           <CreatingSectionsProvider>
-            {active.value.sections.map((section) => {
-              const content = (
-                <EpicSection
-                  {...props}
-                  persistKey={persistKey}
-                  query={active.query}
-                  snapshotReq={active.req}
-                  section={section}
-                  waiting={snapshotResult.waiting}
-                  activePreviewId={preview.activePreviewId}
-                  onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                  onPreviewOpenChange={preview.onPreviewOpenChange}
-                />
-              )
-              return active.value.sections.length > LAZY_SECTIONS_FROM ? (
-                <LazySection
-                  key={section.key}
-                  estimatedHeight={estimatedSectionHeight(section.count)}
-                >
-                  {content}
-                </LazySection>
-              ) : (
-                <Fragment key={section.key}>{content}</Fragment>
-              )
-            })}
+            {sections.slice(0, firstScreen).map((section) => (
+              <Fragment key={section.key}>{renderSection(section)}</Fragment>
+            ))}
+            {sections.length > firstScreen && (
+              <div className="contents">
+                {sections.slice(firstScreen).map((section) =>
+                  lazy ? (
+                    <LazySection
+                      key={section.key}
+                      estimatedHeight={estimatedSectionHeight(section.count)}
+                    >
+                      {renderSection(section)}
+                    </LazySection>
+                  ) : (
+                    <Fragment key={section.key}>
+                      {renderSection(section)}
+                    </Fragment>
+                  )
+                )}
+              </div>
+            )}
           </CreatingSectionsProvider>
         </TicketViewSourceContext>
       </div>
-    ) : (
-      <div
-        aria-busy="true"
-        className="h-32 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-      />
     )
+  }
+  const renderSections = () =>
+    active ? renderList(active) : <LoaderOverlay active />
   const renderFailure = (error: unknown) => (
     <>
       <ErrorPage error={error} reset={refresh} contained />

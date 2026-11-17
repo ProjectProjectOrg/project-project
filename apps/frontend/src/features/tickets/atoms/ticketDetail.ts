@@ -5,7 +5,7 @@ import {
   type MoveTicketInput,
   NotFound,
   type SplitTicketInput,
-  type TicketDetail,
+  TicketDetail,
   type TicketId
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
@@ -18,6 +18,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
@@ -64,7 +65,7 @@ export const ticketSource = (req: TicketRequest) =>
       readLocal(get, req.params, () => localTicketDetail(req)) ??
       get(ticketQuery(req)),
     (refresh) => refresh(ticketQuery(req))
-  )
+  ).pipe(persisted(`ticket/${scopeOf(req)}/${req.params.id}`, TicketDetail))
 
 export const ticketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimistic(ticketSource(req))
