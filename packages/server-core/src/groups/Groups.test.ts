@@ -1432,6 +1432,7 @@ it.effect(
   "lets developers and clients add to a sprint but not take tickets out",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups.Groups
       const pm = Effect.provideService(ProjectScope, asScope("member", "pm"))
       const developer = Effect.provideService(
@@ -1447,6 +1448,11 @@ it.effect(
         .pipe(pm)
       const other = yield* groups
         .create({ name: "O", kind: "sprint", tickets: [ticketId("T-4")] })
+        .pipe(pm)
+      yield* groups
+        .update(other.id, {
+          completedAt: isoDate("2026-04-02T00:00:00.000Z")
+        })
         .pipe(pm)
 
       yield* groups.addTickets(sprint.id, [ticketId("T-2")]).pipe(developer)

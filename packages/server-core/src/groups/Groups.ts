@@ -708,19 +708,13 @@ const make = Effect.gen(function* () {
       const wanted = new Set<string>(nextTickets)
       const additions = nextTickets.filter((id) => !kept.has(id))
       const removals = current.filter((id) => !wanted.has(id))
-      const [joining, sprints] = yield* Effect.all(
-        [readTickets(orgSlug, slug, additions), readAll(orgSlug, slug)],
-        { concurrency: 2 }
-      )
+      const joining = yield* readTickets(orgSlug, slug, additions)
       yield* rejectEpics(joining)
-      const files = sprintFilesOf(sprints)
       yield* requireGroupPolicy((actor) =>
         GroupPolicy.canChangeTickets(actor, "sprint", {
           current,
           next: nextTickets,
-          evicts: joining.some(
-            (ticket) => openSprintOf(files, ticket.sprint) !== null
-          )
+          evicts: joining.some((ticket) => ticket.sprint !== undefined)
         })
       )
       const joined = yield* moveTickets(scope, additions, sprint.id)

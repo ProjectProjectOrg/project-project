@@ -925,19 +925,26 @@ const make = Effect.gen(function* () {
                   sprint === undefined || sprints === null
                     ? existing.sprint
                     : (sprint ?? undefined)
-                const leaving =
-                  sprints === null
-                    ? null
-                    : openSprintOf(sprints, existing.sprint)
-                if (leaving !== null && leaving !== nextSprint) {
+                if (
+                  existing.sprint !== undefined &&
+                  existing.sprint !== nextSprint
+                ) {
                   yield* requirePolicy((scope) =>
                     GroupPolicy.can(scope, "sprint", "remove_ticket")
                   )
                 }
                 if (!touchesTicket) {
-                  return nextSprint === existing.sprint
-                    ? existing
-                    : { ...existing, sprint: nextSprint }
+                  const next =
+                    nextSprint === existing.sprint
+                      ? existing
+                      : { ...existing, sprint: nextSprint }
+                  if (
+                    sprints !== null &&
+                    breaksEpicSprintRule(existing, next, sprints)
+                  ) {
+                    return yield* new Validation({ reason: "epic_in_sprint" })
+                  }
+                  return next
                 }
                 const now = yield* DateTime.nowAsDate
                 const patched = {
@@ -2154,10 +2161,11 @@ const make = Effect.gen(function* () {
         }
         if (
           sprints !== null &&
-          originals.some((existing, index) => {
-            const leaving = openSprintOf(sprints, existing.sprint)
-            return leaving !== null && leaving !== patched[index].sprint
-          })
+          originals.some(
+            (existing, index) =>
+              existing.sprint !== undefined &&
+              existing.sprint !== patched[index].sprint
+          )
         ) {
           yield* requirePolicy((scope) =>
             GroupPolicy.can(scope, "sprint", "remove_ticket")

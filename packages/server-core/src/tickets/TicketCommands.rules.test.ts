@@ -796,7 +796,7 @@ it.effect(
 )
 
 it.effect(
-  "bulkUpdate rejects planning an epic into a sprint it isn't in",
+  "update and bulkUpdate reject planning an epic into a sprint it isn't in",
   () => {
     const otherSprint = { ...inSprint(["T-1"]), id: groupId("G-2") }
     const { layer } = makeSprintFixture(
@@ -808,6 +808,9 @@ it.effect(
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
+      const single = yield* tickets
+        .update("T-2", { sprint: bulkSprint.id })
+        .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
       const moved = yield* tickets
         .bulkUpdate({
           tickets: [ticketId("T-1")],
@@ -821,6 +824,10 @@ it.effect(
         })
         .pipe(Effect.flip)
 
+      expect(single).toMatchObject({
+        _tag: "Validation",
+        reason: "epic_in_sprint"
+      })
       expect(moved).toMatchObject({
         _tag: "Validation",
         reason: "epic_in_sprint"
@@ -950,7 +957,7 @@ it.effect(
   () => {
     const { docs, layer } = makeSprintFixture(
       [makeTicketDocument("T-1")],
-      [inSprint(["T-1"])]
+      [inSprint(["T-1"], isoDate("2026-04-02T00:00:00.000Z"))]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
@@ -960,6 +967,14 @@ it.effect(
 
       expect(error._tag).toBe("Forbidden")
       expect(docs.documents.get("T-1")?.status).toBe("todo")
+      const bulkError = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1")],
+          patch: { sprint: null }
+        })
+        .pipe(as(scopeAs("member", "developer", "user-1")), Effect.flip)
+      expect(bulkError._tag).toBe("Forbidden")
+      expect(docs.documents.get("T-1")?.sprint).toBe("G-1")
     }).pipe(Effect.provide(layer))
   }
 )
