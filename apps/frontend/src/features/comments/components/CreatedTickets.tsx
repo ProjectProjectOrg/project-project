@@ -1,9 +1,10 @@
-import { useAtomValue } from "@effect/atom-react"
-import type { Comment } from "@pp/shared"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import type { Comment, TicketDetail } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { CornerDownRight } from "lucide-react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   useProject,
   useProjectRoute
@@ -39,13 +40,34 @@ function CreatedTicket({ created: ref }: Readonly<{ created: CreatedRef }>) {
   const orgSlug = route.orgSlug
   const slug = ref.projectSlug ?? route.slug
   const id = ref.id
-  const { members } = useProject()
-  const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
-  if (!Result.isSuccess(result)) return null
-  const ticket = result.value
-  const creator = members.find((member) => member.id === ticket.createdBy)
+  const atom = ticketDetail(ticketRequest(orgSlug, slug, id))
+  const result = useAtomValue(atom)
+  const refresh = useAtomRefresh(atom)
   return (
     <li className="flex flex-col gap-0.5">
+      <AsyncView
+        result={result}
+        onInitial={() => null}
+        onFailure={(failure) => (
+          <ReadFailure failure={failure} onRetry={refresh} />
+        )}
+        onSuccess={({ value: ticket }) => (
+          <CreatedTicketLine ticket={ticket} orgSlug={orgSlug} slug={slug} />
+        )}
+      />
+    </li>
+  )
+}
+
+function CreatedTicketLine({
+  ticket,
+  orgSlug,
+  slug
+}: Readonly<{ ticket: TicketDetail; orgSlug: string; slug: string }>) {
+  const { members } = useProject()
+  const creator = members.find((member) => member.id === ticket.createdBy)
+  return (
+    <>
       <span className="flex items-center gap-1.5 text-muted-foreground">
         <CornerDownRight className="size-3.5" strokeWidth={1.75} aria-hidden />
         {m.comments_created_ticket({
@@ -54,7 +76,7 @@ function CreatedTicket({ created: ref }: Readonly<{ created: CreatedRef }>) {
       </span>
       <Link
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-        params={{ orgSlug, slug, id }}
+        params={{ orgSlug, slug, id: ticket.id }}
         className="flex min-w-0 items-center gap-1.5 rounded-md text-foreground transition-colors hover:text-muted-foreground"
       >
         <TicketStatusIcon
@@ -71,6 +93,6 @@ function CreatedTicket({ created: ref }: Readonly<{ created: CreatedRef }>) {
         </span>
         <TimelineTime at={ticket.createdAt} className="shrink-0" />
       </Link>
-    </li>
+    </>
   )
 }

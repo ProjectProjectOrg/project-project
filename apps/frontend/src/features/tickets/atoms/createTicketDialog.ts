@@ -64,9 +64,9 @@ export const createTicketInProject = Api.runtime.fn(
     const scope = projectScope(input.orgSlug, input.slug)
     yield* Reactivity.invalidate(
       input.payload.fromComment === undefined
-        ? [Keys.ticketsChanged(scope)]
+        ? Keys.ticketsChanged(scope)
         : [
-            Keys.ticketsChanged(scope),
+            ...Keys.ticketsChanged(scope),
             Keys.comments(scope, input.payload.fromComment.ticketId)
           ]
     )

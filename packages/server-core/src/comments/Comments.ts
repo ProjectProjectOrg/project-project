@@ -159,6 +159,8 @@ const isHistoricalCommentAuthor = Schema.is(HistoricalCommentAuthor)
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeSlug = Schema.decodeUnknownSync(Slug)
+const isTicketId = Schema.is(TicketId)
+const isSlug = Schema.is(Slug)
 
 const replyTo = (block: CommentBlock): CommentId | null =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
@@ -176,6 +178,8 @@ const ticketsOf = (block: CommentBlock): Comment["tickets"] =>
     extractMentionLinks(link).flatMap(({ parsed }) => {
       if (parsed?.type !== "ticket") return []
       const target = parseTicketMentionId(parsed.id)
+      if (!isTicketId(target.ticketId)) return []
+      if (target.projectSlug !== null && !isSlug(target.projectSlug)) return []
       return [
         {
           projectSlug:
