@@ -1145,7 +1145,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "native",
           body: "Native body",
           createdAt: nativeCreatedAt,
-          editedAt: null
+          editedAt: null,
+          replyTo: null,
+          resolution: null
         },
         {
           id: linkedId,
@@ -1155,7 +1157,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "jira",
           body: largeBody,
           createdAt: linkedCreatedAt,
-          editedAt: linkedEditedAt
+          editedAt: linkedEditedAt,
+          replyTo: null,
+          resolution: null
         },
         {
           id: snapshotId,
@@ -1169,7 +1173,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "jira",
           body: "Snapshot body",
           createdAt: snapshotCreatedAt,
-          editedAt: snapshotEditedAt
+          editedAt: snapshotEditedAt,
+          replyTo: null,
+          resolution: null
         }
       ])
     }).pipe(Effect.provide(indexLayer))
