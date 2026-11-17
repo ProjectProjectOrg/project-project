@@ -92,6 +92,10 @@ let failUpsertAfter = Number.POSITIVE_INFINITY
 let upserts = 0
 let beforeSprintAssignment: Effect.Effect<void, never, ActivityActor> =
   Effect.void
+let afterSprintAssignment: (
+  id: string,
+  sprint: GroupId | null
+) => Effect.Effect<void> = () => Effect.void
 
 const FakeProjects = Layer.mergeAll(
   Layer.succeed(Projects.Projects, {
@@ -148,7 +152,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
         body: ""
       }))
     ),
-  withSprints: () => unexpected("Groups.withSprints"),
+  withSprints: (use) => use(new Map()),
   listPaged: () => unexpected("Groups.listPaged"),
   listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
   get: () => unexpected("Groups.get"),
@@ -196,7 +200,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
               ticketId
             ])
           }
-          return Effect.void
+          return afterSprintAssignment(ticketId, sprintId)
         }
       )
     }),
@@ -263,6 +267,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
       if (upserts > failUpsertAfter)
         return Effect.die(new Error("index write failed"))
       indexed.set(document.id, document)
+      if (document.sprint === undefined) sprintMemberships.delete(document.id)
+      else sprintMemberships.set(document.id, document.sprint)
       return Effect.void
     }),
   relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
@@ -387,6 +393,7 @@ const resetFakes = Effect.sync(() => {
   failUpsertAfter = Number.POSITIVE_INFINITY
   indexed.clear()
   beforeSprintAssignment = Effect.void
+  afterSprintAssignment = () => Effect.void
 })
 
 const ticketFile = (root: string, path: Path.Path, id: string) =>
@@ -683,6 +690,47 @@ it.effect(
       expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
       expect(splitActivity()).toEqual([])
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "failed split restores completed membership after moving its retained ticket",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* TicketCommands.TicketCommands
+      const docs = yield* TicketDocs.TicketDocs
+      const original = yield* seedOriginal
+      const source = decodeGroupId("G-1")
+      const destination = decodeGroupId("G-2")
+      yield* putInSprint(original.id, source)
+      sprintTicketOrders.set(source, [original.id])
+      sprintTicketOrders.set(destination, [])
+      completedSprints.add(source)
+      afterSprintAssignment = (id, sprint) =>
+        Effect.gen(function* () {
+          const current = yield* docs.read("org", "p", id)
+          const next = { ...current, sprint: sprint ?? undefined }
+          yield* docs.write("org", "p", id, next)
+          indexed.set(id, next)
+        }).pipe(Effect.orDie)
+      failSprintAssignmentAt = 2
+      const outcome = yield* tickets
+        .split(original.id, {
+          results: [
+            { ...result("Retained", "feat"), sprintId: destination },
+            { ...result("New", "feat"), sprintId: destination }
+          ]
+        })
+        .pipe(Effect.result)
+      expect(outcome).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "MarkdownError" }
+      })
+      const restored = yield* docs.read("org", "p", original.id)
+      expect(restored.title).toBe(original.title)
+      expect(restored.sprint).toBe(source)
+      expect(indexed.get(original.id)?.sprint).toBe(source)
     }).pipe(Effect.provide(TestLayer))
 )
 

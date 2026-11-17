@@ -70,7 +70,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
-import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
+import type { SprintFiles } from "../groups/sprintMembership"
 import { lockTickets } from "../inbox/inboxRows"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
@@ -1215,12 +1215,7 @@ const make = Effect.gen(function* () {
     ) {
       return yield* new Validation({ reason: "epic_in_sprint" })
     }
-    const originalSprintId = openSprintOf(
-      new Map(
-        (yield* groups.documents()).map((group) => [group.id, group] as const)
-      ),
-      source.sprint
-    )
+    const originalSprintId = source.sprint ?? null
     const retainedMoves = retainedInput.sprintId !== originalSprintId
     if (
       source.sprint !== undefined &&
@@ -1377,9 +1372,22 @@ const make = Effect.gen(function* () {
           Effect.andThen(
             retainedMoves
               ? groups
-                  .setSprintMembership(originalId, originalSprintId, {
-                    from: retainedInput.sprintId
-                  })
+                  .withSprints(() =>
+                    ticketDocs.update(
+                      orgSlug,
+                      slug,
+                      originalId,
+                      (current) =>
+                        Effect.succeed(
+                          current.sprint ===
+                            (retainedInput.sprintId ?? undefined)
+                            ? { ...current, sprint: written.original.sprint }
+                            : current
+                        ),
+                      (next) => ticketIndex.upsertTicket(scope, next),
+                      { silent: true }
+                    )
+                  )
                   .pipe(
                     Effect.catchCause((cause) =>
                       Effect.logError("split: sprint rollback failed", cause)

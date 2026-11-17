@@ -44,7 +44,7 @@ import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 import * as GroupDocs from "./GroupDocs"
-import { openSprintOf, type SprintFiles } from "./sprintMembership"
+import type { SprintFiles } from "./sprintMembership"
 
 export type SprintMembershipOptions = Readonly<{
   from?: GroupId | null
@@ -1061,7 +1061,7 @@ const make = Effect.gen(function* () {
                 Effect.gen(function* () {
                   if (
                     options?.from !== undefined &&
-                    openSprintOf(sprints, document.sprint) !== options.from
+                    (document.sprint ?? null) !== options.from
                   ) {
                     return yield* new Conflict({
                       reason: "sprint_membership_changed"
