@@ -868,6 +868,51 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
+it.effect(
+  "split preserves completed membership when the retained result has no open sprint",
+  () =>
+    Effect.gen(function* () {
+      for (const role of ["pm", "developer"] as const) {
+        yield* resetFakes
+        const tickets = yield* TicketCommands.TicketCommands
+        const docs = yield* TicketDocs.TicketDocs
+        const original = yield* seedOriginal
+        const sprint = decodeGroupId("G-1")
+        yield* putInSprint(original.id, sprint)
+        sprintTicketOrders.set(sprint, [original.id])
+        completedSprints.add(sprint)
+        afterSprintAssignment = (id, sprintId) =>
+          Effect.gen(function* () {
+            const current = yield* docs.read("org", "p", id)
+            const next = { ...current, sprint: sprintId ?? undefined }
+            yield* docs.write("org", "p", id, next)
+            indexed.set(id, next)
+          }).pipe(Effect.orDie)
+        yield* tickets
+          .split(original.id, {
+            results: [
+              result("Retained", "feat", ["user-1"]),
+              result("New", "feat")
+            ]
+          })
+          .pipe(
+            Effect.provideService(
+              ProjectScope,
+              projectScope("member", role, {
+                userId: "user-2",
+                orgSlug: "org",
+                slug: "p",
+                projectId: "p",
+                organizationId: "org"
+              })
+            )
+          )
+        expect((yield* docs.read("org", "p", original.id)).sprint).toBe(sprint)
+        expect(indexed.get(original.id)?.sprint).toBe(sprint)
+      }
+    }).pipe(Effect.provide(TestLayer))
+)
+
 it.effect("split requires removal permission to leave a completed sprint", () =>
   Effect.gen(function* () {
     yield* resetFakes

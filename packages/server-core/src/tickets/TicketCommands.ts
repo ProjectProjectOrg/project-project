@@ -70,7 +70,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
-import type { SprintFiles } from "../groups/sprintMembership"
+import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
 import { lockTickets } from "../inbox/inboxRows"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
@@ -1215,12 +1215,14 @@ const make = Effect.gen(function* () {
     ) {
       return yield* new Validation({ reason: "epic_in_sprint" })
     }
-    const originalSprintId = source.sprint ?? null
+    const originalSprintId = openSprintOf(
+      new Map(
+        (yield* groups.documents()).map((group) => [group.id, group] as const)
+      ),
+      source.sprint
+    )
     const retainedMoves = retainedInput.sprintId !== originalSprintId
-    if (
-      source.sprint !== undefined &&
-      retainedInput.sprintId !== source.sprint
-    ) {
+    if (source.sprint !== undefined && retainedMoves) {
       yield* requirePolicy((scope) =>
         GroupPolicy.can(scope, "sprint", "remove_ticket")
       )
@@ -1340,7 +1342,7 @@ const make = Effect.gen(function* () {
             {
               ticketId: originalId,
               sprintId: retainedInput.sprintId,
-              from: originalSprintId
+              from: source.sprint ?? null
             }
           ]
         : []),
