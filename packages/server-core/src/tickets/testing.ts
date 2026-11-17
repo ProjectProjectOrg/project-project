@@ -44,6 +44,8 @@ import { gitAutomationTestLayer } from "../git/automationTesting"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
+import type * as PullRequestSnapshots from "../github/PullRequestSnapshots"
+import { pullRequestSnapshotsTestLayer } from "../github/pullRequestSnapshotsTesting"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as Markdown from "../markdown/Markdown"
@@ -1049,6 +1051,7 @@ export type TicketsLayerOptions = Readonly<{
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >
   attachments?: Layer.Layer<Attachments.Attachments>
+  pullRequestSnapshots?: Layer.Layer<PullRequestSnapshots.PullRequestSnapshots>
   figmaLinks?: Layer.Layer<FigmaLinks.FigmaLinks>
   scope?: ProjectScope["Service"]
   gitAutomation?: GitAutomationConfig
@@ -1075,6 +1078,9 @@ export function makeTicketsLayer(
     Layer.provide(options.figmaLinks ?? makeFakeFigmaLinks()),
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
+    Layer.provide(
+      options.pullRequestSnapshots ?? pullRequestSnapshotsTestLayer()
+    ),
     Layer.provide(FakeDb),
     Layer.provide(FinishedStatuses.baseline),
     Layer.provideMerge(testInfra(options.scope))

@@ -30,6 +30,7 @@ import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as GitHubTicketEvents from "./GitHubTicketEvents"
+import * as PullRequestSnapshots from "./PullRequestSnapshots"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
@@ -1163,7 +1164,8 @@ describe.skipIf(!databaseUrl)("GitHubTicketEvents tracing", () => {
         Layer.mock(TicketIndex.TicketIndex, {}),
         Layer.mock(TicketBranchIndex.TicketBranchIndex, {}),
         Layer.mock(TicketDocumentLock.TicketDocumentLock, {}),
-        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {})
+        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
+        PullRequestSnapshots.layer
       )
     ),
     Layer.provide(

@@ -15,6 +15,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHub from "@pp/server-core/github/GitHub"
 import * as ProjectGithub from "@pp/server-core/github/ProjectGithub"
+import * as PullRequestSnapshots from "@pp/server-core/github/PullRequestSnapshots"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
@@ -483,6 +484,7 @@ const BenchmarkLive = (options: Options) =>
         DatabaseLive,
         IndexLive,
         TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
+        PullRequestSnapshots.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,
         Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs.ProjectDocs, {

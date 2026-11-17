@@ -54,6 +54,7 @@ import {
   reconcilePullRequestChange,
   rememberPullRequest
 } from "./pullRequestReconciliation"
+import * as PullRequestSnapshots from "./PullRequestSnapshots"
 
 export class GitHubTicketEvents extends Context.Service<
   GitHubTicketEvents,
@@ -513,6 +514,7 @@ const make = Effect.gen(function* () {
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
   const gitAutomation = yield* ProjectGitAutomation.ProjectGitAutomation
+  const pullRequestSnapshots = yield* PullRequestSnapshots.PullRequestSnapshots
   const earlierLink = alias(projectIntegrationLink, "earlier_link")
   const activeProjectLinksForRepository = Effect.fn(
     "GitHubWebhooks.activeProjectLinksForRepository"
@@ -603,6 +605,20 @@ const make = Effect.gen(function* () {
         return
       }
       if (!(yield* rememberPullRequest(db, change))) return
+      yield* pullRequestSnapshots.record([
+        {
+          repositoryId: change.repositoryId,
+          number: change.number,
+          branch: change.branch,
+          base: change.baseBranch,
+          state: change.state,
+          draft: change.draft,
+          title: change.title,
+          mergedAt: change.mergedAt ?? null,
+          checks: null,
+          observedAt: yield* DateTime.nowAsDate
+        }
+      ])
       const merged = yield* mergedPullRequestsForRepository(
         db,
         change.repositoryId

@@ -39,6 +39,7 @@ import { gitAutomationTestLayer } from "../git/automationTesting"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
+import { pullRequestSnapshotsTestLayer } from "../github/pullRequestSnapshotsTesting"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as LibraryDocs from "../library/LibraryDocs"
@@ -280,7 +281,7 @@ const TestLayer = Layer.unwrap(
         Layer.provide(FakeUsers),
         Layer.provide(FakeGitHub),
         Layer.provide(Layer.mergeAll(FakeTicketIndex, FakeTicketBranchIndex)),
-        Layer.provide(FakeDb),
+        Layer.provide(Layer.mergeAll(FakeDb, pullRequestSnapshotsTestLayer())),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
