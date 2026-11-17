@@ -1,5 +1,6 @@
 import type { Comment, TicketId } from "@pp/shared"
 import { useLocation } from "@tanstack/react-router"
+import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
 import { useState } from "react"
 
 import type { CommentViewRow } from "@/features/comments/atoms/comments"
@@ -37,15 +38,14 @@ export function CommentThread({
   ticketId: TicketId
   canReply: boolean
 }>) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState<boolean | null>(null)
   const hash = useLocation({ select: (location) => location.hash })
   const resolved = root.comment.resolution !== null
-  const candidates = hiddenReplies(replies, resolved)
-  const hidden =
-    expanded || candidates.some((reply) => reply.comment.id === hash)
-      ? []
-      : candidates
+  const foldable = hiddenReplies(replies, resolved)
+  const open = expanded ?? foldable.some((reply) => reply.comment.id === hash)
+  const hidden = open ? [] : foldable
   const shown = replies.slice(hidden.length)
+  const FoldIcon = open ? ChevronsDownUp : ChevronsUpDown
   const thread = {
     root: root.comment,
     replies: replies.map((reply) => reply.comment)
@@ -59,17 +59,21 @@ export function CommentThread({
         pending={root.pending}
         ticketId={ticketId}
       />
-      {hidden.length > 0 && (
+      {foldable.length > 0 && (
         <button
           type="button"
+          aria-expanded={open}
           className={foldClass}
-          onClick={() => setExpanded(true)}
+          onClick={() => setExpanded(!open)}
         >
           {resolved ? (
-            <FoldedComments comments={hidden.map((reply) => reply.comment)} />
+            <FoldedComments comments={foldable.map((reply) => reply.comment)} />
+          ) : open ? (
+            m.comments_thread_hide_earlier({ count: foldable.length })
           ) : (
-            m.comments_thread_show_earlier({ count: hidden.length })
+            m.comments_thread_show_earlier({ count: foldable.length })
           )}
+          <FoldIcon className="ml-auto size-4" strokeWidth={1.75} aria-hidden />
         </button>
       )}
       {shown.map((reply) => (
