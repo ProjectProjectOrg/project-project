@@ -15,19 +15,19 @@ import { Button } from "@pp/ui/button"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Copy } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { PreviewCardContent } from "@pp/ui/preview-card"
+import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import {
   createRef,
+  Fragment,
   useContext,
   useEffect,
-  type ComponentProps,
-  type ReactNode
+  type ComponentProps
 } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -170,8 +170,9 @@ export function TicketPreviewRoot() {
 
 const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
   ticket: "w-80",
-  relations: "w-72 p-1.5",
-  subTickets: "w-72 p-1.5",
+  // Ticket lists are menu rows, so the popup pads like a menu's.
+  relations: "w-72 p-1",
+  subTickets: "w-72 p-1",
   flag: "w-72 p-1.5",
   tag: "w-64 p-0",
   tags: "w-56 p-1.5"
@@ -235,13 +236,20 @@ function RelationsPreview({
     finished
   )
   if (groups.length === 0) return <PreviewEmpty />
-  return groups.map((group) => (
-    <PreviewList key={group.key} label={RELATION_PREVIEW_LABELS[group.key]()}>
-      {group.tickets.map((ticket) => (
-        <PreviewTicketRow key={ticket.id} ticket={ticket} />
+  return (
+    <TicketLines>
+      {groups.map((group) => (
+        <Fragment key={group.key}>
+          <TicketLinesLabel>
+            {RELATION_PREVIEW_LABELS[group.key]()}
+          </TicketLinesLabel>
+          {group.tickets.map((ticket) => (
+            <PreviewTicketRow key={ticket.id} ticket={ticket} />
+          ))}
+        </Fragment>
       ))}
-    </PreviewList>
-  ))
+    </TicketLines>
+  )
 }
 
 function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
@@ -365,7 +373,8 @@ function SubTicketsPreview({
   )
   if (!Result.isSuccess(rows)) return <ListSkeleton />
   return (
-    <PreviewList label={label}>
+    <TicketLines>
+      <TicketLinesLabel>{label}</TicketLinesLabel>
       {rows.value.map(({ key, ticket }) => (
         <PreviewTicketRow
           key={key}
@@ -374,24 +383,11 @@ function SubTicketsPreview({
           search={search}
         />
       ))}
-    </PreviewList>
+    </TicketLines>
   )
 }
 
-function PreviewList({
-  label,
-  children
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return (
-    <div className="flex flex-col">
-      <div className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
-        {label}
-      </div>
-      {children}
-    </div>
-  )
-}
-
+// A previewed ticket: a menu row (TicketLine) that opens the ticket.
 function PreviewTicketRow({
   ticket,
   current = false,
@@ -402,40 +398,28 @@ function PreviewTicketRow({
   search?: TicketDetailSearch
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const className =
-    "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-body text-muted-foreground"
-  const content = (
-    <>
-      <TicketStatusIcon status={ticket.status} orgSlug={orgSlug} slug={slug} />
-      <span className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-caption tabular-nums">
-          {ticket.id}
-        </span>
-        <span className="min-w-0 truncate text-foreground">{ticket.title}</span>
-      </span>
-    </>
-  )
-  if (current) {
-    return (
-      <div aria-current="page" className={cn(className, "bg-active")}>
-        {content}
-      </div>
-    )
-  }
   return (
-    <Link
-      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-      params={{ orgSlug, slug, id: ticket.id }}
-      search={search ?? {}}
-      preload="intent"
+    <TicketLine
+      status={
+        <TicketStatusIcon
+          status={ticket.status}
+          orgSlug={orgSlug}
+          slug={slug}
+        />
+      }
+      ticketKey={ticket.id}
+      title={ticket.title}
+      current={current}
       onClick={closePreviewNow}
-      className={cn(
-        className,
-        "transition-colors outline-none hover:bg-hover focus-visible:bg-hover"
-      )}
-    >
-      {content}
-    </Link>
+      render={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+          params={{ orgSlug, slug, id: ticket.id }}
+          search={search ?? {}}
+          preload="intent"
+        />
+      }
+    />
   )
 }
 

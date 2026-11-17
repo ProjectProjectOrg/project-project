@@ -7,14 +7,14 @@ export const meta = {
     {
       kind: "own",
       name: "BoardCard",
-      note: "Ported from the app's sprint board card; polish pass still to come"
+      note: "Ported from the app's sprint board card and polished (direction A, Tidy)"
     }
   ]
 }
 
 ## Overview
 
-Cards as a board column holds them: interactive ones first, then a pinned hover, a sub-ticket with its parent in the top line, and a long title clamped to two lines. The fields are stand-ins; in the app they are menus.
+Cards as a board column holds them: interactive ones first, then a pinned hover, a sub-ticket with its parent in the top line, a card with its sub-tickets expanded (Show 2 more toggles the rest) and one still loading them, and a long title clamped to two lines. The fields are stand-ins; in the app they are menus.
 
 <Demo name="overview" title="All states" />
 
@@ -55,6 +55,37 @@ import { TicketKey } from "@pp/ui/ticket-key"
 | `properties` | `ReactNode` | The chip row; hidden when every chip in it renders nothing |
 | `children` | `ReactNode` | Anything under the chips, such as the expanded sub-ticket list |
 
+Sub-tickets go in `children`, built from the list parts in the same module:
+
+```tsx
+import {
+  BoardCardSubTicket,
+  BoardCardSubTickets,
+  BoardCardSubTicketsMore,
+  BoardCardSubTicketsNote
+} from "@pp/ui/board-card"
+
+<BoardCardSubTickets>
+  {rows.map(({ ticket }) => (
+    <BoardCardSubTicket
+      key={ticket.id}
+      status={<TicketStatusIcon status={ticket.status} … />}
+      ticketKey={ticket.id}
+      keyWidth={idWidth}
+      title={ticket.title}
+      render={<Link to="/orgs/$orgSlug/projects/$slug/tickets/$id" params={…} />}
+    />
+  ))}
+  <BoardCardSubTicketsMore onClick={toggle}>
+    {m.tickets_sub_tickets_show_more({ count: hidden })}
+  </BoardCardSubTicketsMore>
+</BoardCardSubTickets>
+```
+
+`BoardCardSubTicketsNote` stands in for the lines while they load (`loading`) or when they fail.
+
+The lines are `TicketLines` and `TicketLine` from `@pp/ui/ticket-lines` (`BoardCardSubTicket` is `TicketLine`). The popovers that preview tickets (a card's progress and links, a row's sub-tickets) use the same parts, with `TicketLinesLabel` for group headings ("Blocked by"), so every list of tickets in a card or a popover is one kind of menu row with one gliding highlight.
+
 Chips use `chipClassName` from `@pp/ui/chip`: `interaction` is `"none"` for a static count, `"hover"` for one that previews on hover and `"press"` for one that opens a menu or link; `shape` is `"label"`, `"icon"` (a 24px circle) or `"count"`.
 
 ## Rules
@@ -62,6 +93,30 @@ Chips use `chipClassName` from `@pp/ui/chip`: `interaction` is `"none"` for a st
 ### Every card in a column is one height
 
 The title always takes two lines of room, even when it fits on one, so a column of cards reads as an even stack and a card doesn't jump when its title is renamed. Longer titles clamp at two lines.
+
+### One language for the chips
+
+Every chip is one of two kinds (`chipClassName({ kind })`). **Data** is a 12px icon and the shortest value, plain: the estimate as its unit icon and a number (8, not "8 points"), progress as 2/5, links as 3, the pull request as #141; priority and flag carry no value, so they are the icon alone. **Labels** are names (the epic, tags and "+N") in a quiet filled pill (`--chip-label`), so a name never reads as a number. The order is fixed: priority and flag, a hairline (`ChipSeparator`, which hides when no number follows), the numbers, then the labels, which wrap last. A card shows two tags; the rest fold into "+N", which lists them on hover.
+
+### A flag warms the card
+
+A flagged card (`flagged`) gets a wash of the warning tone (`--flag-wash`) that fades out under its key and title, on top of its fill, so it still lifts on hover. The flag chip stays in the row as well; the wash is what makes it findable in a full column.
+
+### The row's polish, on a card
+
+Cards share the list row's choices: flat chips (`chipClassName`), priority as signal bars leading the chip row, and a 20px assignee face in a 24px target. An unassigned card shows no face until the card is hovered, focused or has a menu open (`group/card`), so a column of unassigned work isn't a column of empty circles. Corners are 14px with `--button-corner`.
+
+### Sub-tickets are menu rows
+
+Each sub-ticket line is a dropdown menu row, literally: `menuItemClass` and the menu's gliding `MenuHighlight`, so the 36px rows, the muted text that turns to foreground, the thicker icon stroke and the hover and press fills are the menu's own. A line marks itself `data-highlighted` while the pointer is on it or it has keyboard focus, as Base UI does for menu items. The list bleeds 8px into the card's padding, so the highlight sits 4px from the card's edge, like a menu row in its popup. Status icons sit in a 24px column at the card's edge, like the priority chip above them, so the priority and status icons share one centre; "Show N more" is centred.
+
+### Every chip answers a hover
+
+Progress and links preview their tickets on hover, like tags preview theirs, also while the card lists its sub-tickets, so no chip on a card is dead to the pointer.
+
+### A long list folds, but never to hide one
+
+A card lists its first three sub-tickets and folds the rest behind a "Show N more" line, but only when that hides two or more: a "Show 1 more" line is as tall as the ticket it hides, so four sub-tickets just show all four (`subTicketsShown`).
 
 ### The card lifts on hover
 

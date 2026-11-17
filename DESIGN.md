@@ -206,6 +206,8 @@ A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled t
 Hover, pressed, and the secondary button are **translucent overlays**, not opaque greys, so they read correctly on any surface — the page, a settings group, a board card, a menu. `--overlay` direction flips per theme: black on light, white on dark.
 
 - **Hover** (`--hover`, 4% black / 4% white): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
+- **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `chipClassName({ kind: "label" })`. Data chips (icon and value) stay unfilled.
+- **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
 - **Field hover and focus** (`--field-hover` 2.5% / 3%, `--field-focus` 1.5% / 2%): every field: Input and InputGroup, Select and other `field` buttons (over their `--field` fill, as an inset shadow), and bare fields in running text (composer titles and descriptions, the ticket title, in-place names). Lighter than a control's `--hover`, and focus (or an open picker) lighter still, so it reads as "you are here".
 - **Tint** (`--tint` 8% / 14%, `--tint-hover` 6.5% / 11%): the see-through secondary button fill.

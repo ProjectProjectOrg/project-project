@@ -1,11 +1,13 @@
-import { chipClassName } from "@pp/ui/chip"
+import { ChipSeparator, chipClassName } from "@pp/ui/chip"
 import {
   ChevronRight,
   CircleCheck,
   CircleDashed,
   CircleDot,
+  Flag,
+  Gauge,
   GitPullRequest,
-  Link2,
+  Layers,
   PriorityHigh,
   PriorityLow,
   PriorityMedium,
@@ -13,8 +15,10 @@ import {
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { ProgressCount } from "@pp/ui/progress-count"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { StatusGlyph } from "@pp/ui/status-glyph"
+
+import { RelationChip, SubTicketCount } from "./previews"
 
 /*
  * Stand-ins for the app's ticket fields, for the list and board demos. The
@@ -36,6 +40,8 @@ export type SampleTicket = Readonly<{
   pr?: string
   estimate?: number
   assignee?: Readonly<{ id: string; name: string }>
+  flagged?: boolean
+  epic?: string
 }>
 
 export const INVITED: SampleTicket = {
@@ -80,6 +86,29 @@ export const CRASH: SampleTicket = {
   ],
   estimate: 1,
   assignee: { id: "u1", name: "Wouter Missler" }
+}
+
+// A ticket with every property set, to see a full card and row.
+export const EVERYTHING: SampleTicket = {
+  id: "ATL-31",
+  title: "Offline checklist sync drops edits made during a reconnect",
+  status: "progress",
+  priority: "urgent",
+  parent: "Offline mode",
+  epic: "Field reliability",
+  flagged: true,
+  subTickets: { done: 2, total: 5 },
+  links: 3,
+  pr: "#141",
+  estimate: 8,
+  assignee: { id: "u2", name: "Sam Rivera" },
+  tags: [
+    { name: "offline", color: "oklch(0.7 0.13 250)" },
+    { name: "sync", color: "oklch(0.72 0.14 190)" },
+    { name: "data loss", color: "oklch(0.65 0.2 25)" },
+    { name: "android", color: "oklch(0.72 0.15 140)" },
+    { name: "ios", color: "oklch(0.7 0.02 260)" }
+  ]
 }
 
 export const TICKETS: ReadonlyArray<SampleTicket> = [
@@ -170,7 +199,8 @@ export function AssigneeField({
         <MemberAvatar member={assignee} size={size} />
       ) : (
         <span
-          className="grid place-items-center rounded-full bg-muted text-muted-foreground"
+          // Like the app: the empty face waits for the row's or card's hover.
+          className="grid place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 group-hover/card:opacity-100 group-hover/reveal:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-data-[force~=hover]/card:opacity-100 group-data-[force~=hover]/reveal:opacity-100"
           style={{ width: size, height: size }}
         >
           <User className="size-3.5" strokeWidth={1.75} />
@@ -180,39 +210,121 @@ export function AssigneeField({
   )
 }
 
-export function TagChips({ ticket }: Readonly<{ ticket: SampleTicket }>) {
+function TagDot({ color }: Readonly<{ color: string }>) {
+  return (
+    <span
+      aria-hidden
+      className="size-2 shrink-0 rounded-full"
+      style={{ backgroundColor: color }}
+    />
+  )
+}
+
+// Tags, the first `max` as chips and the rest behind a "+N" chip that lists
+// them on hover, like the app's tag preview.
+export function TagChips({
+  ticket,
+  max
+}: Readonly<{ ticket: SampleTicket; max?: number }>) {
+  const tags = ticket.tags ?? []
+  const shown = max === undefined ? tags : tags.slice(0, max)
+  const hidden = tags.slice(shown.length)
   return (
     <>
-      {(ticket.tags ?? []).map((tag) => (
+      {shown.map((tag) => (
         <button
           key={tag.name}
           type="button"
-          className={chipClassName({ interaction: "press" })}
+          className={chipClassName({ kind: "label", interaction: "press" })}
         >
-          <span
-            aria-hidden
-            className="size-2 shrink-0 rounded-full"
-            style={{ backgroundColor: tag.color }}
-          />
+          <TagDot color={tag.color} />
           <span className="truncate">{tag.name}</span>
         </button>
       ))}
+      {hidden.length > 0 ? (
+        <Popover>
+          <PopoverTrigger
+            openOnHover
+            delay={300}
+            aria-label={`${hidden.length} more tags`}
+            className={chipClassName({
+              kind: "label",
+              interaction: "press",
+              className: "tabular-nums"
+            })}
+          >
+            +{hidden.length}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-48 p-1">
+            <ul className="flex flex-col">
+              {hidden.map((tag) => (
+                <li
+                  key={tag.name}
+                  className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-body"
+                >
+                  <TagDot color={tag.color} />
+                  <span className="min-w-0 truncate">{tag.name}</span>
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
+      ) : null}
     </>
   )
 }
 
-export function RelationChip({ count }: Readonly<{ count?: number }>) {
-  if (!count) return null
+export function FlagChip({ flagged }: Readonly<{ flagged?: boolean }>) {
+  if (!flagged) return null
   return (
     <span
-      aria-label={`${count} linked tickets`}
-      className={chipClassName({ interaction: "hover", shape: "count" })}
+      className={chipClassName({
+        interaction: "hover",
+        shape: "icon",
+        className: "[&_svg]:size-3"
+      })}
     >
-      <Link2 strokeWidth={1.75} />
-      <span className="tabular-nums">{count}</span>
+      <Flag aria-hidden className="text-state-warning" strokeWidth={1.75} />
+      <span className="sr-only">Flagged</span>
     </span>
   )
 }
+
+export function EpicChip({ epic }: Readonly<{ epic?: string }>) {
+  if (!epic) return null
+  return (
+    <a
+      href="#epic"
+      onClick={(event) => event.preventDefault()}
+      className={chipClassName({ kind: "label", interaction: "press" })}
+    >
+      <Layers className="size-3 shrink-0" strokeWidth={1.75} />
+      <span className="truncate">{epic}</span>
+    </a>
+  )
+}
+
+// A card's chips in the one order and language every card uses: the state
+// icons (priority, flag), a hairline, the numbers as icon and value
+// (estimate, progress, links, git), then the names as label pills (epic,
+// tags, +N), which wrap last.
+export function CardProperties({ ticket }: Readonly<{ ticket: SampleTicket }>) {
+  return (
+    <>
+      <PriorityChip priority={ticket.priority} />
+      <FlagChip flagged={ticket.flagged} />
+      <ChipSeparator />
+      <EstimateChip estimate={ticket.estimate} />
+      <SubTicketCount ticket={ticket} />
+      <RelationChip count={ticket.links} />
+      <GitChip pr={ticket.pr} />
+      <EpicChip epic={ticket.epic} />
+      <TagChips ticket={ticket} max={2} />
+    </>
+  )
+}
+
+export { RelationChip, SubTicketCount }
 
 export function GitChip({ pr }: Readonly<{ pr?: string }>) {
   if (!pr) return null
@@ -227,21 +339,17 @@ export function GitChip({ pr }: Readonly<{ pr?: string }>) {
 export function EstimateChip({ estimate }: Readonly<{ estimate?: number }>) {
   if (estimate === undefined) return null
   return (
-    <button type="button" className={chipClassName({ interaction: "press" })}>
-      {estimate === 1 ? "1 point" : `${estimate} points`}
+    <button
+      type="button"
+      aria-label={estimate === 1 ? "1 point" : `${estimate} points`}
+      className={chipClassName({
+        interaction: "press",
+        className: "tabular-nums"
+      })}
+    >
+      <Gauge className="size-3" strokeWidth={1.75} />
+      {estimate}
     </button>
-  )
-}
-
-export function SubTicketCount({ ticket }: Readonly<{ ticket: SampleTicket }>) {
-  if (!ticket.subTickets) return null
-  const { done, total } = ticket.subTickets
-  return (
-    <ProgressCount
-      done={done}
-      total={total}
-      label={`${done} of ${total} sub-tickets done`}
-    />
   )
 }
 

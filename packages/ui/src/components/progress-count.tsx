@@ -6,7 +6,10 @@ import { cn } from "../lib/utils"
  *   <ProgressCount done={3} total={5} label="3 of 5 sub-tickets done" />
  */
 
-const RADIUS = 5
+// Drawn to sit with the 12px stroke icons beside it (priority, links, the
+// estimate): a 12px pie with a ~1.1px ring, not a heavier badge.
+const RADIUS = 5.6
+const STROKE = 1.3
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 export function ProgressPie({
@@ -19,14 +22,14 @@ export function ProgressPie({
     <svg
       viewBox="0 0 14 14"
       aria-hidden
-      className={cn("size-3.5 shrink-0 -rotate-90", className)}
+      className={cn("size-3 shrink-0 -rotate-90", className)}
     >
       <circle
         cx="7"
         cy="7"
         r={RADIUS}
         fill="none"
-        strokeWidth="2"
+        strokeWidth={STROKE}
         className="stroke-border"
       />
       <circle
@@ -34,7 +37,7 @@ export function ProgressPie({
         cy="7"
         r={RADIUS}
         fill="none"
-        strokeWidth="2"
+        strokeWidth={STROKE}
         strokeDasharray={`${share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
         className="stroke-muted-foreground"
       />

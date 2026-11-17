@@ -6,6 +6,7 @@ import {
   type EstimateSummary,
   type Group
 } from "@pp/shared"
+import { chipClassName } from "@pp/ui/chip"
 import { CircleDashed, Shirt } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { PreviewCardContent } from "@pp/ui/preview-card"
@@ -48,11 +49,18 @@ export function SprintProgress({
   if (isEmptyEstimateSummary(summary)) return null
   const estimate = sprintEstimate(sprint, summary)
   return (
-    <span className="flex items-center gap-3.5 tabular-nums">
+    <>
       {estimate !== null && (
         <PreviewCard.Root>
           <PreviewCard.Trigger
-            render={<span className="flex items-center gap-1.5" />}
+            render={
+              <span
+                className={chipClassName({
+                  interaction: "hover",
+                  className: "tabular-nums"
+                })}
+              />
+            }
             delay={PREVIEW_DELAY_MS}
           >
             {estimate}
@@ -71,7 +79,7 @@ export function SprintProgress({
           onShow={onShowUnestimated}
         />
       )}
-    </span>
+    </>
   )
 }
 
@@ -81,7 +89,7 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
     if (sizes.length === 0) return null
     return (
       <>
-        <Shirt className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <Shirt className="size-3 shrink-0" strokeWidth={1.75} />
         {sizes.map((size) => (
           <span key={size}>
             <span className="font-semibold text-foreground">{size}</span>
@@ -96,7 +104,7 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
     const Icon = ESTIMATE_UNIT_ICON[summary.unit]
     return (
       <>
-        <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <Icon className="size-3 shrink-0" strokeWidth={1.75} />
         <span className="text-foreground">
           {formatEstimateAmount(summary.unit, summary.committed)}
         </span>
@@ -150,7 +158,7 @@ function UnestimatedChip({
 }: Readonly<{ count: number; onShow: (() => void) | undefined }>) {
   const content = (
     <>
-      <CircleDashed className="size-3.5 shrink-0" strokeWidth={2} />
+      <CircleDashed className="size-3 shrink-0" strokeWidth={2} />
       {count}
     </>
   )
@@ -166,10 +174,18 @@ function UnestimatedChip({
                 event.stopPropagation()
                 onShow()
               }}
-              className="-my-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pr-1.5 pl-1 text-state-warning transition-all duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              className={chipClassName({
+                interaction: "press",
+                className:
+                  "text-state-warning tabular-nums hover:text-state-warning active:scale-[0.97]"
+              })}
             />
           ) : (
-            <span className="inline-flex items-center gap-1 text-state-warning" />
+            <span
+              className={chipClassName({
+                className: "text-state-warning tabular-nums"
+              })}
+            />
           )
         }
       >

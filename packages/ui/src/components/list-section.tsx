@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from "motion/react"
-import type { ReactNode, Ref } from "react"
+import { useEffect, useState, type ReactNode, type RefObject } from "react"
 
 import { keepInPlace } from "../lib/keepInPlace"
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
-import { Badge } from "./badge"
 import { Hitbox } from "./hitbox"
 import { ChevronDown, Plus } from "./icons"
+import { TextSwap } from "./text-swap"
 
 /*
  * A group of ticket rows (a status, a sprint, an epic) with a sticky header
@@ -41,7 +41,7 @@ type SectionCreate = Readonly<{
 }>
 
 type ListSectionHeaderProps = Readonly<{
-  ref?: Ref<HTMLDivElement>
+  ref?: RefObject<HTMLDivElement | null>
   icon: ReactNode
   label: string
   count: number
@@ -57,8 +57,33 @@ type ListSectionHeaderProps = Readonly<{
   create?: SectionCreate
 }>
 
-const morphFrom = { opacity: 0, filter: "blur(8px)" }
-const morphTo = { opacity: 1, filter: "blur(0px)" }
+// The heading and the creator trade places with a short blur crossfade; the
+// creator comes in from the "+" side and the heading leaves the other way.
+const creatorFrom = { opacity: 0, filter: "blur(6px)", x: 12 }
+const headingFrom = { opacity: 0, filter: "blur(6px)", x: -12 }
+const morphTo = { opacity: 1, filter: "blur(0px)", x: 0 }
+
+// Marks the header `data-stuck` while it's pinned to the top of the scroll
+// area (its top edge sits on the root's), for the stuck shadow and so the
+// rows under it collapse at once instead of animating (see theme.css).
+function useStuck(node: HTMLDivElement | null) {
+  useEffect(() => {
+    if (!node || typeof IntersectionObserver === "undefined") return undefined
+    const root = node.closest<HTMLElement>("[data-scroll-root]")
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return
+        const stuck =
+          entry.intersectionRatio < 1 &&
+          entry.boundingClientRect.top <= (entry.rootBounds?.top ?? 0) + 1
+        node.toggleAttribute("data-stuck", stuck)
+      },
+      { root, rootMargin: "-1px 0px 0px 0px", threshold: [1] }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [node])
+}
 
 export function ListSectionHeader({
   ref,
@@ -76,15 +101,30 @@ export function ListSectionHeader({
   // The header stays where it is on screen while the rows under it open or
   // close, instead of the page jumping by their height.
   const toggle = (anchor: Element) => keepInPlace(anchor, onToggleCollapsed)
+  const [node, setNode] = useState<HTMLDivElement | null>(null)
+  useStuck(node)
   return (
     <div
-      ref={ref}
+      ref={(element) => {
+        setNode(element)
+        if (ref) ref.current = element
+      }}
       data-slot="list-section-header"
+      data-creating={creating || undefined}
       onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
       className={cn(
-        "sticky top-0 z-10 flex items-center gap-(--list-lead-gap) rounded-lg bg-muted py-2 pr-3 pl-(--list-pad-start) transition-colors",
-        !creating &&
-          "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
+        "sticky top-0 z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
+        // Pinned to the top: a soft lift, so rows read as passing under it.
+        "data-stuck:shadow-surface-3",
+        creating
+          ? // Typing a ticket: the bar becomes the field it holds.
+            "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
+          : cn(
+              "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)] hover:duration-0",
+              // Pressed: one step darker, unless the press is on one of
+              // the header's own controls (a chip, the chevron, the "+").
+              "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
+            )
       )}
     >
       <button
@@ -118,9 +158,9 @@ export function ListSectionHeader({
           {creating ? (
             <motion.div
               key="creator"
-              initial={morphFrom}
+              initial={creatorFrom}
               animate={morphTo}
-              exit={morphFrom}
+              exit={creatorFrom}
               transition={transitions.presence}
               className="min-w-0 self-center [grid-area:1/1]"
             >
@@ -129,9 +169,9 @@ export function ListSectionHeader({
           ) : (
             <motion.div
               key="header"
-              initial={morphFrom}
+              initial={headingFrom}
               animate={morphTo}
-              exit={morphFrom}
+              exit={headingFrom}
               transition={transitions.presence}
               className="self-center [grid-area:1/1]"
             >
@@ -142,11 +182,22 @@ export function ListSectionHeader({
                 <span className="truncate text-body font-semibold">
                   {label}
                 </span>
-                <span className="flex" aria-label={countLabel}>
-                  <Badge variant="count">{count}</Badge>
+                {/* A plain number, like the rows' values; it rolls when
+                    tickets move in or out. */}
+                <span
+                  aria-label={countLabel}
+                  className="flex font-mono text-caption text-muted-foreground tabular-nums"
+                >
+                  <TextSwap>{String(count)}</TextSwap>
                 </span>
                 {detail ? (
-                  <span className="ml-auto hidden text-caption text-muted-foreground sm:block">
+                  // Chips (chipClassName): dates, estimates, capacity, each
+                  // with its own hover. Clicks on them don't toggle.
+                  // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops a pointer click on a chip from toggling the section; the chips are controls of their own
+                  <span
+                    onClick={(event) => event.stopPropagation()}
+                    className="ml-auto hidden items-center gap-1 text-caption text-muted-foreground sm:flex"
+                  >
                     {detail}
                   </span>
                 ) : null}
@@ -197,7 +248,14 @@ export function ListSectionBody({
       className={cn("grid", collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}
     >
       <div className="min-h-0 overflow-hidden">
-        <div className="flex flex-col gap-1 pt-1">{children}</div>
+        <div
+          className={cn(
+            "flex flex-col gap-1 pt-1 transition-opacity duration-200 ease-standard motion-reduce:transition-none",
+            collapsed && "opacity-0"
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   )

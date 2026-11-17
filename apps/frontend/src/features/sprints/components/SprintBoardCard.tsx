@@ -73,6 +73,7 @@ function BoardCardFields({
         <BoardCard
           {...pointAt}
           data-board-card={ticket.id}
+          flagged={ticket.flag !== null}
           onPointerEnter={(event) => {
             pointAt.onPointerEnter(event)
             preloadChildren()

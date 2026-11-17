@@ -600,7 +600,7 @@
   "tickets_sub_tickets_heading": "Sub-tickets",
   "tickets_sub_tickets_load_failed": "Couldn't load sub-tickets",
   "tickets_sub_tickets_loading": "Loading sub-tickets…",
-  "tickets_sub_tickets_progress": "{done} of {total} sub-tickets done",
+  "tickets_sub_tickets_progress": "{done}/{total} sub-tickets done",
   "tickets_sub_tickets_show_less": "Show less",
   "tickets_sub_tickets_show_more": "Show {count} more",
   "tickets_title_aria_label": "Ticket title",

@@ -1,4 +1,5 @@
-import { Flag, Inbox } from "@pp/ui/icons"
+import { chipClassName } from "@pp/ui/chip"
+import { CalendarRange, Flag, Gauge, Inbox } from "@pp/ui/icons"
 import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle, listGridClassName } from "@pp/ui/list-row"
 import { ListSectionBody, ListSectionHeader } from "@pp/ui/list-section"
@@ -117,7 +118,23 @@ export default function Overview() {
       <Section
         icon={<Flag className="size-4" strokeWidth={1.75} />}
         label="Sprint 25"
-        detail="Nov 23 – Dec 7 · 12 pts"
+        detail={
+          <>
+            <span className={chipClassName()}>
+              <CalendarRange className="size-3 shrink-0" strokeWidth={1.75} />
+              Nov 23 – Dec 7
+            </span>
+            <span
+              className={chipClassName({
+                interaction: "hover",
+                className: "tabular-nums"
+              })}
+            >
+              <Gauge className="size-3 shrink-0" strokeWidth={1.75} />
+              12
+            </span>
+          </>
+        }
         tickets={[INVITED, CRASH]}
       />
       <Section

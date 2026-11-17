@@ -9,7 +9,8 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
-import { Inbox } from "@pp/ui/icons"
+import { chipClassName } from "@pp/ui/chip"
+import { Inbox, CalendarRange } from "@pp/ui/icons"
 import { useLocation } from "@tanstack/react-router"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
@@ -286,8 +287,16 @@ function SprintSection({
             />
           ),
           detail: sprint ? (
-            <span className="flex items-center gap-3.5">
-              {dates && <span>{dates}</span>}
+            <>
+              {dates && (
+                <span className={chipClassName()}>
+                  <CalendarRange
+                    className="size-3 shrink-0"
+                    strokeWidth={1.75}
+                  />
+                  {dates}
+                </span>
+              )}
               {estimates && (
                 <SprintProgress
                   sprint={sprint}
@@ -308,7 +317,7 @@ function SprintSection({
                   }
                 />
               )}
-            </span>
+            </>
           ) : undefined
         }}
         canCreate={state !== "completed"}

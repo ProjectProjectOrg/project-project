@@ -96,14 +96,16 @@ function TriggerVisual({
     )
   }
   if (variant === "card") {
+    // Like the row's: the empty face waits for the card's hover, focus or
+    // open menu.
     return (
       <>
         {empty && (
-          <span className="grid size-6 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] transition-colors corner-squircle hitbox-hover:bg-hover hitbox-hover:text-foreground">
-            <UserRound className="size-3.5" strokeWidth={1.75} />
+          <span className="grid size-5 place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-[opacity,color,background-color] duration-150 group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 hitbox-hover:bg-hover hitbox-hover:text-foreground">
+            <UserRound className="size-3" strokeWidth={1.75} />
           </span>
         )}
-        <Avatars resolved={resolved} size={24} />
+        <Avatars resolved={resolved} size={20} />
       </>
     )
   }

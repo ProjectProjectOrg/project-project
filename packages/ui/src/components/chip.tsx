@@ -7,6 +7,11 @@ import { cn } from "../lib/utils"
  * previews, links) and take it as their className.
  *
  *   <button className={chipClassName({ interaction: "press" })}>…</button>
+ *
+ * Two kinds, one language: `data` chips are a 12px icon and the shortest
+ * value (8, 2/5, 3, #141), plain; `label` chips are names (the epic, tags,
+ * "+N") in a quiet filled pill, so names never read as numbers. Priority and
+ * flag are data with no value: the icon alone.
  */
 
 type ChipInteraction =
@@ -16,6 +21,12 @@ type ChipInteraction =
   | "hover"
   // Hover and a pointer: opens a menu or follows a link.
   | "press"
+
+type ChipKind =
+  // A value: an icon and the shortest form of it (8, 2/5, 3), plain.
+  | "data"
+  // A name (epic, tag, +N): a quiet filled pill, so it reads as a label.
+  | "label"
 
 type ChipShape =
   // Icon and text.
@@ -33,6 +44,12 @@ const base =
 const hover =
   "transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover data-[popup-open]:text-foreground"
 
+const kindClass: Readonly<Record<ChipKind, string>> = {
+  data: "chip-data",
+  label:
+    "chip-label bg-(--chip-label) px-2 hover:bg-(--chip-label-hover) data-[popup-open]:bg-(--chip-label-hover)"
+}
+
 const interactionClass: Readonly<Record<ChipInteraction, string>> = {
   none: "",
   hover,
@@ -46,15 +63,38 @@ const shapeClass: Readonly<Record<ChipShape, string>> = {
 }
 
 export function chipClassName({
+  kind = "data",
   interaction = "none",
   shape = "label",
   className
 }: Readonly<{
+  kind?: ChipKind
   interaction?: ChipInteraction
   shape?: ChipShape
   className?: string
 }> = {}) {
-  return cn(base, interactionClass[interaction], shapeClass[shape], className)
+  return cn(
+    base,
+    interactionClass[interaction],
+    shapeClass[shape],
+    kindClass[kind],
+    className
+  )
 }
 
-export type { ChipInteraction, ChipShape }
+export type { ChipInteraction, ChipKind, ChipShape }
+
+// The hairline between the state icons (priority, flag) and the numbers.
+// It hides itself when no data chip follows, so it never dangles. (A child
+// span keeps it from counting as an empty chip.)
+export function ChipSeparator() {
+  return (
+    <span
+      aria-hidden
+      data-chip-sep=""
+      className="mx-0.5 flex h-6 items-center [&:not(:has(+:is(.chip-data,fieldset)))]:hidden"
+    >
+      <span className="block h-3 w-px bg-border" />
+    </span>
+  )
+}

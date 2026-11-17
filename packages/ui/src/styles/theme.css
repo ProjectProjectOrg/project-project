@@ -172,6 +172,13 @@
   --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
   --hover: rgb(0 0 0 / 0.04);
+  /* Label chips (epic, tags, +N on cards and rows): a quiet filled pill, so
+     names read as labels next to the plain icon-and-value data chips. */
+  --chip-label: oklch(0 0 0 / 5%);
+  --chip-label-hover: oklch(0 0 0 / 9%);
+  /* A flagged card's wash: the warning tone, fading out under its key and
+     title. */
+  --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
   --avatar-edge: oklch(0.145 0 0 / 0.1);
   --segment-line: oklch(0 0 0 / 5%);
   --kbd-glow: oklch(1 0 0 / 70%);
@@ -296,6 +303,9 @@
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
   --hover: rgb(255 255 255 / 0.04);
+  --chip-label: oklch(1 0 0 / 5%);
+  --chip-label-hover: oklch(1 0 0 / 9%);
+  --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
   --kbd-glow: oklch(1 0 0 / 9%);
@@ -974,6 +984,20 @@
    above its neighbours, so its ring is never covered. Reduced motion keeps the
    fades. */
 @layer components {
+  /* A list section's rows open and close with a height transition, unless
+     its header is pinned to the top (data-stuck): there the toggle scrolls
+     at once to keep the header in place (keepInPlace), which a moving
+     height would fight. */
+  [data-slot="list-section-header"]:not([data-stuck])
+    + [data-slot="list-section-body"] {
+    transition: grid-template-rows 220ms var(--ease-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="list-section-header"] + [data-slot="list-section-body"] {
+      transition: none;
+    }
+  }
+
   [data-slot="color-picker"] {
     transition: translate 180ms linear;
   }

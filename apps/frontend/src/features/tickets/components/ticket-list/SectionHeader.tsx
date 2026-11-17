@@ -1,7 +1,7 @@
 import type { ProjectStatus, TicketStatus } from "@pp/shared"
 import { ListSectionHeader } from "@pp/ui/list-section"
 import { StatusGlyph } from "@pp/ui/status-glyph"
-import type { ReactNode, Ref } from "react"
+import type { ReactNode, RefObject } from "react"
 
 import {
   statusLabelFor,
@@ -28,7 +28,7 @@ type HeadingSource =
     }
 
 type SectionHeaderProps = HeadingSource & {
-  ref?: Ref<HTMLDivElement>
+  ref?: RefObject<HTMLDivElement | null>
   count: number
   collapsed: boolean
   creating: boolean

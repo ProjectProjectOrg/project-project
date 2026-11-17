@@ -2,6 +2,13 @@ import type { ComponentProps, ReactNode } from "react"
 
 import { cn } from "../lib/utils"
 import { itemSurfaceClass } from "./item-link"
+import { menuItemClass } from "./menu-styles"
+import {
+  TicketLine,
+  TicketLines,
+  useRowHighlight,
+  type TicketLineProps
+} from "./ticket-lines"
 
 /*
  * A ticket on a board: a raised card with its key (and parent) on top, the
@@ -17,7 +24,8 @@ import { itemSurfaceClass } from "./item-link"
  *     {sub-tickets}
  *   </BoardCard>
  *
- * The title always takes two lines of room, so every card in a column is one
+ * Like the list row: flat chips, priority bars, and an empty assignee that
+ * waits for the card's hover (`group/card`). The title always takes two lines of room, so every card in a column is one
  * height and the column reads as a grid. Anything after the properties (the
  * sub-ticket list) goes in `children`.
  */
@@ -33,6 +41,8 @@ type BoardCardProps = Omit<ComponentProps<"div">, "title"> &
     title: ReactNode
     // The chip row; hidden when every chip in it renders nothing.
     properties?: ReactNode
+    // Flagged: a wash of the warning tone fades out under the key and title.
+    flagged?: boolean
   }>
 
 export function BoardCard({
@@ -41,6 +51,7 @@ export function BoardCard({
   assignee,
   title,
   properties,
+  flagged = false,
   className,
   children,
   ...props
@@ -50,10 +61,14 @@ export function BoardCard({
       data-slot="board-card"
       {...props}
       className={cn(
-        "relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover",
+        "group/card relative isolate flex flex-col rounded-[14px] bg-surface-3 px-3 pt-2.5 pb-1.5 text-left shadow-surface-1 transition outline-none [corner-shape:var(--button-corner)] not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover",
         itemSurfaceClass,
+        // Over the fill as an image, so the hover's lift still shows.
+        flagged &&
+          "bg-[image:linear-gradient(to_bottom,var(--flag-wash),transparent_64px)]",
         className
       )}
+      data-flagged={flagged || undefined}
     >
       {link}
       <div className="flex min-w-0 flex-col gap-2.5 pb-1">
@@ -63,8 +78,8 @@ export function BoardCard({
               {meta}
             </span>
             {assignee ? (
-              // -mr-0.5 sets the 24px avatar 8px from the card's top and
-              // right edges alike.
+              // A 24px target around a 20px face; -mr-0.5 sets the face
+              // as far from the card's right edge as from its top.
               <span className="-mr-0.5 ml-auto flex shrink-0 items-center">
                 {assignee}
               </span>
@@ -82,6 +97,99 @@ export function BoardCard({
       </div>
       {children}
     </div>
+  )
+}
+
+/*
+ * A card's sub-tickets, listed under its chips:
+ *
+ *   <BoardCardSubTickets>
+ *     <BoardCardSubTicket
+ *       status={<TicketStatusIcon … />}
+ *       ticketKey="ATL-24"
+ *       keyWidth="6ch"
+ *       title="Announce focus changes"
+ *       render={<Link to="…" />}
+ *     />
+ *     <BoardCardSubTicketsMore onClick={…}>Show 2 more</BoardCardSubTicketsMore>
+ *   </BoardCardSubTickets>
+ *
+ * Each line is a menu row, literally: `menuItemClass` and the menu's gliding
+ * `MenuHighlight`, so sub-tickets hover, press and read like the items of a
+ * dropdown (36px rows, the title in body text, muted until highlighted).
+ */
+
+export function BoardCardSubTickets({
+  className,
+  children,
+  ...props
+}: ComponentProps<"ul">) {
+  return (
+    <div
+      data-slot="board-card-sub-tickets"
+      className={cn("border-t border-border/60 pt-1.5", className)}
+    >
+      {/* The rows bleed into the card's padding, like a menu's into its
+          popup's: the highlight sits 4px from the card's edge. */}
+      <TicketLines className="-mx-2" {...props}>
+        {children}
+      </TicketLines>
+    </div>
+  )
+}
+
+// A sub-ticket on the card: a TicketLine.
+export const BoardCardSubTicket = TicketLine
+export type BoardCardSubTicketProps = TicketLineProps
+
+// How many sub-tickets a collapsed list shows: the first `preview`, unless
+// that would hide just one; a "Show 1 more" line is as tall as the ticket it
+// hides, so then every line shows.
+export const subTicketsShown = (total: number, preview = 3) =>
+  total - preview >= 2 ? preview : total
+
+// The row that shows the rest of a long list ("Show 3 more").
+export function BoardCardSubTicketsMore({
+  className,
+  onClick,
+  children,
+  ...props
+}: ComponentProps<"button">) {
+  const highlight = useRowHighlight()
+  return (
+    <li className="z-20 col-span-full grid">
+      <button
+        type="button"
+        draggable={false}
+        {...highlight}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick?.(event)
+        }}
+        className={cn(menuItemClass, "justify-center", className)}
+        {...props}
+      >
+        {children}
+      </button>
+    </li>
+  )
+}
+
+// A note in place of the lines: loading, or failed to load.
+export function BoardCardSubTicketsNote({
+  loading = false,
+  children
+}: Readonly<{ loading?: boolean; children: ReactNode }>) {
+  return (
+    <li
+      className={cn(
+        "col-span-full px-2 py-2 text-caption text-muted-foreground",
+        loading && "animate-pulse"
+      )}
+    >
+      {children}
+    </li>
   )
 }
 

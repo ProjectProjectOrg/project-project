@@ -12,6 +12,8 @@ import { useState } from "react"
 import {
   AssigneeField,
   EstimateChip,
+  EVERYTHING,
+  FlagChip,
   GitChip,
   ParentPrefix,
   PriorityField,
@@ -74,8 +76,12 @@ function Row({
       }
       title={
         <>
+          {ticket.epic ? <ParentPrefix title={ticket.epic} /> : null}
           {ticket.parent ? <ParentPrefix title={ticket.parent} /> : null}
           <ListRowTitle>{ticket.title}</ListRowTitle>
+          <span className="ml-1 flex items-center">
+            <FlagChip flagged={ticket.flagged} />
+          </span>
           <span className="ml-1 flex items-center">
             <SubTicketCount ticket={ticket} />
           </span>
@@ -84,7 +90,7 @@ function Row({
       trailing={
         <>
           <span className="flex items-center gap-1.5 *:max-w-32 empty:hidden">
-            <TagChips ticket={ticket} />
+            <TagChips ticket={ticket} max={3} />
           </span>
           <GitChip pr={ticket.pr} />
           <RelationChip count={ticket.links} />
@@ -138,6 +144,8 @@ export default function Overview() {
         <Row ticket={AUDIT} selected />
         <Caption>Being created: the number rolls in once saved</Caption>
         <Row ticket={{ ...FOCUS, id: "ATL-25" }} pending />
+        <Caption>Everything on it: tags past three fold into +N</Caption>
+        <Row ticket={EVERYTHING} />
         <Caption>Read only: the fields are disabled</Caption>
         <Row ticket={CRASH} disabled />
       </div>

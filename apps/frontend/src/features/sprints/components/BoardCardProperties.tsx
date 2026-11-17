@@ -1,12 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
-  hasSubTickets,
   type Ticket,
   type TicketParent,
   type TicketPriority,
   isEpic
 } from "@pp/shared"
-import { chipClassName } from "@pp/ui/chip"
+import { ChipSeparator, chipClassName } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,6 @@ import {
 import { ChevronRight, Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
-import { ProgressCount } from "@pp/ui/progress-count"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ComponentProps, type ReactNode } from "react"
@@ -33,7 +31,6 @@ import {
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
 import {
   PRIORITY_LABELS,
@@ -45,6 +42,7 @@ import { m } from "@/paraglide/messages"
 import { BoardCardGit } from "./BoardCardGit"
 
 const pressChip = chipClassName({ interaction: "press" })
+const labelChip = chipClassName({ kind: "label", interaction: "press" })
 
 export function BoardCardProperties({
   ticket,
@@ -59,8 +57,16 @@ export function BoardCardProperties({
 }>) {
   const estimation = useEstimationMode()
   const { shows } = useDisplayProperties()
+  // One order on every card: the fixed-width chips first, so they stand at
+  // the same spot on every card, then the ones as long as their text (epic,
+  // tags), which wrap last. Tags past two fold into "+N", previewed on hover.
   return (
     <>
+      <PriorityChip
+        priority={ticket.priority}
+        editable={editable}
+        onChange={(priority) => onPatch({ priority })}
+      />
       <FlagChip
         ticket={ticket}
         className={chipClassName({
@@ -69,28 +75,7 @@ export function BoardCardProperties({
           className: "w-[22px] [&_svg]:size-3"
         })}
       />
-      <PriorityChip
-        priority={ticket.priority}
-        editable={editable}
-        onChange={(priority) => onPatch({ priority })}
-      />
-      <BoardSubTicketsChip ticket={ticket} />
-      {shows("tags") && (
-        <TagChips
-          names={ticket.tags}
-          onPatch={editable ? onPatch : undefined}
-        />
-      )}
-      {shows("git") && (
-        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
-      )}
-      <RelationChips
-        ticket={ticket}
-        className={chipClassName({ interaction: "hover", shape: "count" })}
-      />
-      {isEpic(ticket.parent) && shows("epic") && (
-        <EpicChip epic={ticket.parent} />
-      )}
+      <ChipSeparator />
       {ticket.estimate !== null &&
         estimation !== "off" &&
         shows("estimate") && (
@@ -99,10 +84,29 @@ export function BoardCardProperties({
               ticket={ticket}
               mode={estimation}
               onPatch={onPatch}
+              variant="compact"
               className={pressChip}
             />
           </fieldset>
         )}
+      <BoardSubTicketsChip ticket={ticket} />
+      <RelationChips
+        ticket={ticket}
+        className={chipClassName({ interaction: "hover", shape: "count" })}
+      />
+      {shows("git") && (
+        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
+      )}
+      {isEpic(ticket.parent) && shows("epic") && (
+        <EpicChip epic={ticket.parent} />
+      )}
+      {shows("tags") && (
+        <TagChips
+          names={ticket.tags}
+          onPatch={editable ? onPatch : undefined}
+          max={2}
+        />
+      )}
       {failure}
     </>
   )
@@ -145,29 +149,17 @@ function PriorityChip({
   )
 }
 
+// Progress previews the sub-tickets on hover, like links preview theirs, also
+// while the card lists them, so every chip on the card answers a hover.
 function BoardSubTicketsChip({
   ticket
 }: Readonly<{
   ticket: Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
 }>) {
-  const [expanded] = useSubTicketsExpanded()
-  if (!expanded) {
-    return (
-      <SubTicketsChip
-        ticket={ticket}
-        className={chipClassName({ interaction: "hover" })}
-      />
-    )
-  }
-  if (!hasSubTickets(ticket)) return null
-  const done = ticket.subTicketDoneCount ?? 0
-  const total = ticket.subTicketCount ?? 0
   return (
-    <ProgressCount
-      done={done}
-      total={total}
-      label={m.tickets_sub_tickets_progress({ done, total })}
-      className={chipClassName()}
+    <SubTicketsChip
+      ticket={ticket}
+      className={chipClassName({ interaction: "hover" })}
     />
   )
 }
@@ -183,7 +175,7 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
           params={{ orgSlug, slug, id: epic.id }}
           preload="intent"
           draggable={false}
-          className={pressChip}
+          className={labelChip}
         />
       }
     >
@@ -245,7 +237,7 @@ export function TagChips({
     content: ReactNode,
     label?: string
   ) => {
-    const button = <button type="button" className={pressChip} />
+    const button = <button type="button" className={labelChip} />
     return onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
