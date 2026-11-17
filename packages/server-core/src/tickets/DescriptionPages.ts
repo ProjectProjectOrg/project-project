@@ -22,7 +22,7 @@ import type * as TicketDocs from "./TicketDocs"
 
 export const DescriptionPageLimit = Context.Reference<number>(
   "@pp/server-core/tickets/DescriptionPages/DescriptionPageLimit",
-  { defaultValue: () => 500 }
+  { defaultValue: () => 250 }
 )
 
 const PHASES = ["unfinished", "finished", "archived"] as const
