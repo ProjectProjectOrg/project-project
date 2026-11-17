@@ -1,18 +1,25 @@
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
+import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useState } from "react"
+import { useEffect, useRef, useState, type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@/components/ui/context-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
   commentsRequest,
   deleteComment,
   editComment
 } from "@/features/comments/atoms/comments"
+import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
@@ -24,7 +31,20 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { CommentMenuButton, CommentMenuItems } from "./CommentMenu"
+
 type Mode = "idle" | "edit"
+
+const keepNativeMenu = (event: MouseEvent<HTMLElement>) => {
+  const selection = window.getSelection()
+  const selecting =
+    selection !== null &&
+    !selection.isCollapsed &&
+    selection.containsNode(event.currentTarget, true)
+  const onLink =
+    event.target instanceof Element && event.target.closest("a") !== null
+  if (selecting || onLink) event.stopPropagation()
+}
 
 export function CommentRow({
   comment,
@@ -59,59 +79,86 @@ export function CommentRow({
     m.comments_delete_failed
   )
 
+  const [mode, setMode] = useState<Mode>("idle")
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const targeted =
+    useLocation({ select: (location) => location.hash }) === comment.id
+  useEffect(() => {
+    if (!targeted) return undefined
+    const frame = requestAnimationFrame(() =>
+      card.current?.scrollIntoView({ block: "center", behavior: "smooth" })
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [targeted])
+  const menu = {
+    comment,
+    ticketId,
+    canEdit,
+    canDelete,
+    onEdit: () => setMode("edit")
+  }
+
   return (
-    <InlineForm.Root<Mode>
-      actions={["edit"]}
-      fade={false}
-      className={cn(
-        "ticket-comment rounded-xl border-border/60 p-0 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
-        waiting && "animate-pulse"
-      )}
-    >
-      <InlineForm.Idle block>
-        <CommentHeader comment={comment}>
-          {(canEdit || canDelete) && (
-            <div className="flex items-center gap-1">
-              {canEdit && (
-                <InlineForm.Trigger<Mode>
-                  action="edit"
-                  size="sm"
-                  variant="ghost"
+    <ConfirmButton.Root bare>
+      <ContextMenu disabled={pending || mode === "edit"}>
+        <ContextMenuTrigger
+          render={
+            <div
+              ref={card}
+              id={comment.id}
+              data-targeted={targeted ? "" : undefined}
+              className="group/reveal scroll-mt-6"
+            />
+          }
+        >
+          <InlineForm.Root<Mode>
+            actions={["edit"]}
+            mode={mode}
+            onModeChange={setMode}
+            fade={false}
+            className={cn(
+              "ticket-comment rounded-xl border-border/60 p-0 transition-colors [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] group-data-targeted/reveal:border-ring",
+              waiting && "animate-pulse"
+            )}
+          >
+            <InlineForm.Idle block>
+              <CommentHeader comment={comment}>
+                {!pending && <CommentMenuButton ref={menuButton} {...menu} />}
+              </CommentHeader>
+              <div className="px-4 pt-1 pb-3.5" onContextMenu={keepNativeMenu}>
+                <Markdown>{comment.body}</Markdown>
+              </div>
+              {deleteError && (
+                <p
+                  role="alert"
+                  className="px-4 pb-3.5 text-body text-destructive"
                 >
-                  {m.comments_edit_button()}
-                </InlineForm.Trigger>
+                  {deleteError}
+                </p>
               )}
-              {canDelete && (
-                <ConfirmButton.Root>
-                  <ConfirmButton.DeleteTrigger
-                    aria-label={m.comments_delete_aria_label()}
-                  />
-                  <ConfirmButton.Confirm>
-                    <ConfirmButton.Action
-                      prompt={m.comments_delete_confirm()}
-                      label={m.common_delete_confirm_button()}
-                      busyLabel={m.common_deleting_button()}
-                      onConfirm={() => remove()}
-                    />
-                  </ConfirmButton.Confirm>
-                </ConfirmButton.Root>
-              )}
-            </div>
-          )}
-        </CommentHeader>
-        <div className="px-4 pt-1 pb-3.5">
-          <Markdown>{comment.body}</Markdown>
-        </div>
-        {deleteError && (
-          <p role="alert" className="px-4 pb-3.5 text-body text-destructive">
-            {deleteError}
-          </p>
-        )}
-      </InlineForm.Idle>
-      <InlineForm.Form action="edit">
-        <EditForm comment={comment} ticketId={ticketId} />
-      </InlineForm.Form>
-    </InlineForm.Root>
+            </InlineForm.Idle>
+            <InlineForm.Form action="edit">
+              <EditForm comment={comment} ticketId={ticketId} />
+            </InlineForm.Form>
+          </InlineForm.Root>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52">
+          <CommentMenuItems {...menu} />
+        </ContextMenuContent>
+      </ContextMenu>
+      {canDelete && (
+        <ConfirmButton.Popover anchor={menuButton} className="w-72">
+          <ConfirmButton.Action
+            layout="stacked"
+            prompt={m.comments_delete_confirm()}
+            label={m.common_delete_confirm_button()}
+            busyLabel={m.common_deleting_button()}
+            onConfirm={() => remove()}
+          />
+        </ConfirmButton.Popover>
+      )}
+    </ConfirmButton.Root>
   )
 }
 
@@ -129,11 +176,7 @@ function CommentHeader({
         {author.kind === "user" && (
           <MemberAvatar member={author.user} size={20} />
         )}
-        <span className="font-semibold">
-          {author.kind === "user"
-            ? (author.user.name ?? author.user.email)
-            : author.displayName}
-        </span>
+        <span className="font-semibold">{commentAuthorName(author)}</span>
         <TimelineTime at={comment.createdAt} />
         {comment.editedAt && (
           <span className="text-caption text-muted-foreground">
