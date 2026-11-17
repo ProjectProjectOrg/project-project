@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { GroupId, Member, TicketListQuery } from "@pp/shared"
+import { ListHoverScope } from "@pp/ui/list-row"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -72,17 +73,22 @@ export function TicketListContent({
   const statusShown = useShownOnce(!showSections)
   const sectionsShown = useShownOnce(showSections)
   const statusSections = <StatusSections {...props} />
-  return sections ? (
-    <>
-      <Activity mode={showSections ? "hidden" : "visible"}>
-        {statusShown && statusSections}
-      </Activity>
-      <Activity mode={showSections ? "visible" : "hidden"}>
-        {sectionsShown && sections}
-      </Activity>
-    </>
-  ) : (
-    statusSections
+  // One gliding hover across every section's rows.
+  return (
+    <ListHoverScope>
+      {sections ? (
+        <>
+          <Activity mode={showSections ? "hidden" : "visible"}>
+            {statusShown && statusSections}
+          </Activity>
+          <Activity mode={showSections ? "visible" : "hidden"}>
+            {sectionsShown && sections}
+          </Activity>
+        </>
+      ) : (
+        statusSections
+      )}
+    </ListHoverScope>
   )
 }
 

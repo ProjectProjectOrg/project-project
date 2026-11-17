@@ -82,7 +82,7 @@ export function ListSectionHeader({
       data-slot="list-section-header"
       onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
       className={cn(
-        "sticky top-0 z-10 flex items-center gap-(--list-lead-gap) rounded-lg bg-muted px-3 py-2 transition-colors",
+        "sticky top-0 z-10 flex items-center gap-(--list-lead-gap) rounded-lg bg-muted py-2 pr-3 pl-(--list-pad-start) transition-colors",
         !creating &&
           "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
       )}

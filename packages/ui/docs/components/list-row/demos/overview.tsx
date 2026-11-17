@@ -1,6 +1,11 @@
 import { Checkbox } from "@pp/ui/checkbox"
 import { ItemLink } from "@pp/ui/item-link"
-import { ListRow, ListRowTitle, listGridClassName } from "@pp/ui/list-row"
+import {
+  ListHoverScope,
+  ListRow,
+  ListRowTitle,
+  listGridClassName
+} from "@pp/ui/list-row"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { useState } from "react"
 
@@ -86,7 +91,7 @@ function Row({
         </>
       }
       estimate={<EstimateChip estimate={ticket.estimate} />}
-      assignee={<AssigneeField assignee={ticket.assignee} />}
+      assignee={<AssigneeField assignee={ticket.assignee} size={20} />}
     />
   )
 }
@@ -115,8 +120,8 @@ export default function Overview() {
       className="@container w-full rounded-xl bg-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
-      <div className={listGridClassName}>
-        <Caption>Rows: hover one, click the checkbox to select</Caption>
+      <ListHoverScope className={listGridClassName}>
+        <Caption>Rows: move down the list, click a checkbox to select</Caption>
         {TICKETS.map((ticket) => (
           <Row
             key={ticket.id}
@@ -125,6 +130,8 @@ export default function Overview() {
             onSelect={toggle(ticket.id)}
           />
         ))}
+      </ListHoverScope>
+      <div className={listGridClassName}>
         <Caption>Hover</Caption>
         <Row ticket={INVITED} force="hover" />
         <Caption>Selected</Caption>

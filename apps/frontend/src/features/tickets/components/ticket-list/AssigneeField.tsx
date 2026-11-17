@@ -14,6 +14,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
 import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
 import * as Match from "effect/Match"
 import type { ReactNode } from "react"
@@ -106,14 +107,16 @@ function TriggerVisual({
       </>
     )
   }
+  // In a row the empty face waits for the row's hover (or focus, or its
+  // open menu), so unassigned rows don't fill the column with placeholders.
   return (
     <span className="inline-flex items-center text-muted-foreground transition-colors hitbox-hover:text-foreground">
       {empty && (
-        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-foreground/15 corner-squircle">
-          <UserRound className="size-3.5" strokeWidth={1.75} />
+        <span className="grid size-5 shrink-0 place-items-center rounded-full opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100">
+          <UserRound className="size-3" strokeWidth={1.75} />
         </span>
       )}
-      <Avatars resolved={resolved} size={24} />
+      <Avatars resolved={resolved} size={20} />
     </span>
   )
 }
@@ -155,7 +158,8 @@ function Trigger({
           margin="2"
           onClick={(e) => e.stopPropagation()}
           aria-label={label}
-          className={className}
+          // A 24px target around the 20px face in rows.
+          className={cn("min-h-6 min-w-6 justify-center", className)}
         >
           {children}
         </Hitbox>

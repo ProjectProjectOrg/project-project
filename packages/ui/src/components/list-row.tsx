@@ -1,6 +1,21 @@
-import type { ComponentProps, ReactNode } from "react"
+import {
+  createContext,
+  use,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type RefObject
+} from "react"
 
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "../hooks/useFluidHover"
 import { cn } from "../lib/utils"
+import { FluidHoverHighlight } from "./fluid-hover-highlight"
 import { itemLayerClass, itemSurfaceClass } from "./item-link"
 
 /*
@@ -30,11 +45,71 @@ import { itemLayerClass, itemSurfaceClass } from "./item-link"
  * list) keeps keys of different lengths one width.
  */
 
+// A row's height in px, for lists that lay rows out themselves (the
+// virtualized backlog): 24px fields and 8px above and below.
+export const listRowHeight = 40
+
 export const listGridClassName =
   "grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
 
-type ListRowProps = Omit<ComponentProps<"div">, "title"> &
+type HoverRegistry = Readonly<{
+  registerItem: UseFluidHoverReturn["registerItem"]
+  nextIndex: () => number
+}>
+
+const HoverRegistryContext = createContext<HoverRegistry | null>(null)
+
+// How far past a row the pointer still holds the highlight: the 4px gap
+// between rows, but not a section header.
+const HOVER_REACH = 6
+
+/*
+ * The gliding hover for a list, like the sidebar's: one highlight that
+ * slides from row to row under the pointer instead of each row lighting up
+ * on its own. Wrap everything that holds rows (sections included); rows
+ * inside it drop their own hover fill. It hides during arrow-key
+ * navigation, where the focused row shows instead.
+ */
+export function ListHoverScope({
+  className,
+  children
+}: Readonly<{ className?: string; children: ReactNode }>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(ref, { reach: HOVER_REACH })
+  const counter = useRef(0)
+  const registry = useMemo<HoverRegistry>(
+    () => ({
+      registerItem: hover.registerItem,
+      nextIndex: () => {
+        counter.current += 1
+        return counter.current
+      }
+    }),
+    [hover.registerItem]
+  )
+  return (
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the highlight's pointer tracking; the rows are links of their own
+    <div
+      ref={ref}
+      data-slot="list-hover-scope"
+      onMouseEnter={hover.handlers.onMouseEnter}
+      onMouseMove={hover.handlers.onMouseMove}
+      onMouseLeave={hover.handlers.onMouseLeave}
+      className={cn("relative", className)}
+    >
+      <FluidHoverHighlight
+        hover={hover}
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
+      />
+      <HoverRegistryContext value={registry}>{children}</HoverRegistryContext>
+    </div>
+  )
+}
+
+type ListRowProps = Omit<ComponentProps<"div">, "title" | "ref"> &
   Readonly<{
+    // The row's element, for anchoring popups to it.
+    ref?: RefObject<HTMLDivElement | null>
     // An ItemLink stretched over the row, so a click anywhere opens it.
     link?: ReactNode
     lead?: ReactNode
@@ -69,18 +144,32 @@ export function ListRow({
   variant = "standalone",
   disabled = false,
   className,
+  ref,
   ...props
 }: ListRowProps) {
+  const registry = use(HoverRegistryContext)
+  const [index] = useState(() => registry?.nextIndex())
+  const own = useRef<HTMLDivElement | null>(null)
+  useRegisterFluidHoverItem(registry?.registerItem, index, own)
+  // In a ListHoverScope the gliding highlight is the hover; on its own the
+  // row fills itself.
+  const ownHover =
+    registry === null && "not-in-data-keyboard-navigation:hover:bg-hover"
   return (
     <div
+      ref={(node) => {
+        own.current = node
+        if (ref) ref.current = node
+      }}
       data-slot="list-row"
       data-selected={selected || undefined}
       {...props}
       className={cn(
-        "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 py-2.5 text-left outline-none",
+        "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) py-2 pr-3 pl-(--list-pad-start) text-left outline-none",
         itemSurfaceClass,
+        variant === "standalone" && ownHover,
         variant === "standalone" &&
-          "isolate rounded-lg transition-colors not-in-data-keyboard-navigation:hover:bg-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover",
+          "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover",
         // The link reaches into the gap between rows, so the rows have no
         // dead strip between them.
         "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",

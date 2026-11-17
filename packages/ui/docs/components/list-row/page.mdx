@@ -7,7 +7,7 @@ export const meta = {
     {
       kind: "own",
       name: "ListRow",
-      note: "Ported from the app's backlog row; polish pass still to come"
+      note: "Ported from the app's backlog row and polished (direction A, Tidy)"
     }
   ]
 }
@@ -72,11 +72,23 @@ A click anywhere on the row opens the ticket, through one `ItemLink` stretched u
 
 ### One grid for the whole list
 
-Rows are subgrids of the list's grid, so a long key or a wide estimate in one row widens that column for every row, and the columns never zigzag. The leading widths are CSS variables (`--list-lead`, `--list-icon`, `--list-row-gap`, `--list-lead-gap`) so section headers can line up with the rows under them.
+Rows are subgrids of the list's grid, so a long key or a wide estimate in one row widens that column for every row, and the columns never zigzag. The leading widths are CSS variables (`--list-lead`, `--list-icon`, `--list-row-gap`, `--list-lead-gap`) so section headers can line up with the rows under them. `--list-pad-start` (5px) sets the start padding of rows and headers so the lead column (checkbox, chevron) centres on the icons of the fields above the list, the composer and search, which sit 17px in.
+
+### One highlight glides between rows
+
+Inside a `ListHoverScope` (the backlog wraps all its sections in one) the hover is a single highlight that slides from row to row under the pointer, like the sidebar's, instead of each row lighting up on its own. It holds across the 4px gap between rows but drops over a section header, so a header never lights the row next to it. Outside a scope (a sub-ticket list, the dashboard) a row fills itself.
 
 ### Hover is instant, keyboard navigation has no fade
 
 The row fills on hover without a delay. While someone moves through the list with the arrow keys (`data-keyboard-navigation` on the list) the hover is off and the fill moves without a transition, so it follows the keys instead of trailing behind.
+
+### 40px rows, the title leads
+
+A row is 40px: 24px fields and 8px above and below (`listRowHeight`, which the virtualized backlog uses for its row tracks). Its corners are half its height (20px) with `--button-corner`, like a button, and the hover highlight and focus ring share them. Everything but the title is quiet: chips are flat muted text with no outline (`chipClassName`), the estimate is a bare number with its unit icon, and priority is signal bars (one, two or three lit) in the priority's colour.
+
+### Placeholders wait for the hover
+
+The selection checkbox and an empty assignee only show while the row is hovered, focused or has a menu open, so a list of unassigned tickets doesn't fill a column with empty faces. Both are 24px targets (the checkbox a 16px box, the face 20px), so they meet the target size without a pseudo-element hit area.
 
 ### A new ticket's number rolls in
 

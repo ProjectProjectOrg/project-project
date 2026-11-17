@@ -1,3 +1,4 @@
+import { listRowHeight } from "@pp/ui/list-row"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import {
   useCallback,
@@ -47,7 +48,7 @@ export function VirtualRows({
     count: rowKeys.length,
     getScrollElement,
     getItemKey,
-    estimateSize: () => 52,
+    estimateSize: () => listRowHeight,
     gap: 4,
     overscan,
     enabled: scrollMargin !== null,
@@ -122,7 +123,9 @@ export function VirtualRows({
       data-virtual-rows
       data-loaded-rows={rowKeys.length}
       data-mounted-rows={rows.length}
-      style={{ gridTemplateRows: `repeat(${rowKeys.length}, 52px)` }}
+      style={{
+        gridTemplateRows: `repeat(${rowKeys.length}, ${listRowHeight}px)`
+      }}
     >
       {rows.map((row) => (
         <li

@@ -1,6 +1,11 @@
 import type { TicketPriority } from "@pp/shared"
 import type { BadgeTone } from "@pp/ui/badge"
-import { ChevronDown, ChevronUp, Minus, type IconType } from "@pp/ui/icons"
+import {
+  PriorityHigh,
+  PriorityLow,
+  PriorityMedium,
+  type IconType
+} from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 
@@ -16,21 +21,21 @@ export const PRIORITY_META: Record<
 > = {
   low: {
     label: "Low",
-    icon: ChevronDown,
+    icon: PriorityLow,
     className: "text-muted-foreground",
     tone: "muted",
     ordinal: 0
   },
   med: {
     label: "Med",
-    icon: Minus,
+    icon: PriorityMedium,
     className: "text-state-warning",
     tone: "amber",
     ordinal: 1
   },
   high: {
     label: "High",
-    icon: ChevronUp,
+    icon: PriorityHigh,
     className: "text-state-danger",
     tone: "red",
     ordinal: 2

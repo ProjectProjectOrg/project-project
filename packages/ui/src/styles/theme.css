@@ -68,6 +68,10 @@
   --list-lead-gap: 0.75rem;
   --list-icon: 1.5rem;
   --list-row-gap: 0.25rem;
+  /* The row's and section header's start padding: it centres the lead
+     column (checkbox, chevron) on the icons of the fields above the list
+     (composer, search), which sit 17px in. */
+  --list-pad-start: 5px;
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
      Pages sit one step up on --page, cards and popups one more on --card.
      The sidebar's icon rail sits one step below, on --rail. */

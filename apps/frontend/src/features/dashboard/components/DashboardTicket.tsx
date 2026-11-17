@@ -91,7 +91,7 @@ export function DashboardRow({
           onPreviewOpenChange={onPreviewOpenChange}
         />
         {below !== undefined && (
-          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 pb-2.5">
+          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) pr-3 pb-2.5 pl-(--list-pad-start)">
             {below}
           </div>
         )}

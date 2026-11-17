@@ -36,10 +36,15 @@ type Axis = "x" | "y" | "xy"
 type UseFluidHoverOptions = Readonly<{
   axis?: Axis
   isItemDisabled?: (element: HTMLElement) => boolean
+  // How far outside an item (px) the pointer still picks the nearest one.
+  // Unlimited by default, so gaps never drop the highlight; a list with
+  // headers between its items sets a few px, so a header lights nothing.
+  reach?: number
 }>
 
 type PickNearestInput = Readonly<{
   axis: Axis
+  reach: number
   point: Readonly<{ x: number; y: number }>
   rects: ReadonlyArray<ItemRect | undefined>
   container: HTMLElement
@@ -48,6 +53,7 @@ type PickNearestInput = Readonly<{
 
 const pickNearest = ({
   axis,
+  reach,
   point,
   rects,
   container,
@@ -61,6 +67,8 @@ const pickNearest = ({
   let closestIndex: number | null = null
   let closestDistance = Infinity
   let containingIndex: number | null = null
+  // The pointer's distance outside the nearest item's box, for `reach`.
+  let closestGap = Infinity
 
   for (let index = 0; index < rects.length; index++) {
     const r = rects[index]
@@ -83,10 +91,13 @@ const pickNearest = ({
     if (distance < closestDistance) {
       closestDistance = distance
       closestIndex = index
+      const gapX = Math.max(0, Math.abs(dx) - width / 2)
+      const gapY = Math.max(0, Math.abs(dy) - height / 2)
+      closestGap = { xy: Math.hypot(gapX, gapY), x: gapX, y: gapY }[axis]
     }
   }
 
-  return containingIndex ?? closestIndex
+  return containingIndex ?? (closestGap <= reach ? closestIndex : null)
 }
 
 const ACTIVE_ATTR = "data-fluid-hover-active"
@@ -155,7 +166,7 @@ const sameRects = (
 
 export function useFluidHover<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
-  { axis = "y", isItemDisabled }: UseFluidHoverOptions = {}
+  { axis = "y", isItemDisabled, reach = Infinity }: UseFluidHoverOptions = {}
 ): UseFluidHoverReturn {
   const itemsRef = useRef(new Map<number, HTMLElement>())
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
@@ -270,6 +281,7 @@ export function useFluidHover<T extends HTMLElement>(
         setActiveIndex(
           pickNearest({
             axis,
+            reach,
             point,
             rects: itemRectsRef.current,
             container,
@@ -283,7 +295,7 @@ export function useFluidHover<T extends HTMLElement>(
         )
       })
     },
-    [axis, containerRef, isItemDisabled]
+    [axis, containerRef, isItemDisabled, reach]
   )
 
   const handleMouseEnter = useCallback(() => {

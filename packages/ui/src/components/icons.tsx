@@ -735,3 +735,51 @@ export const X = icon(Cancel01Icon, "X")
 export const XCircle = icon(CancelCircleIcon, "XCircle")
 export const XIcon = icon(Cancel01Icon, "XIcon")
 export const Zap = icon(FlashIcon, "Zap")
+
+// Priority as signal bars: one, two or three of three lit, in the priority's
+// colour, the unlit ones at a quarter. Filled shapes, so drawn directly
+// rather than through the stroke set; `strokeWidth` is accepted and ignored.
+function priorityBars(lit: 1 | 2 | 3, name: string): IconType {
+  function PriorityBars({
+    size = 24,
+    strokeWidth: _strokeWidth,
+    absoluteStrokeWidth: _absolute,
+    ...props
+  }: IconProps) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 16 16"
+        width={size}
+        height={size}
+        fill="currentColor"
+        data-icon=""
+        {...props}
+      >
+        <rect x="2.5" y="9" width="2.5" height="4.5" rx="0.8" />
+        <rect
+          x="6.75"
+          y="6"
+          width="2.5"
+          height="7.5"
+          rx="0.8"
+          opacity={lit >= 2 ? 1 : 0.25}
+        />
+        <rect
+          x="11"
+          y="3"
+          width="2.5"
+          height="10.5"
+          rx="0.8"
+          opacity={lit >= 3 ? 1 : 0.25}
+        />
+      </svg>
+    )
+  }
+  PriorityBars.displayName = name
+  return PriorityBars
+}
+
+export const PriorityLow = priorityBars(1, "PriorityLow")
+export const PriorityMedium = priorityBars(2, "PriorityMedium")
+export const PriorityHigh = priorityBars(3, "PriorityHigh")

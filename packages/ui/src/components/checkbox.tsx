@@ -6,9 +6,15 @@ import { cn } from "../lib/utils"
 const variants = {
   default:
     "size-4 [--cb-r:4.5px] supports-[corner-shape:squircle]:[--cb-r:6.5px] shadow-[inset_0_0_0_1.5px_var(--checkbox-ring)]",
+  // The list row's checkbox: a 16px box in a 24px target, so it meets the
+  // target size without a pseudo-element hit area. The box is drawn by the
+  // inner span (quietBoxClass).
   quiet:
-    "size-4.5 [--cb-r:5px] supports-[corner-shape:squircle]:[--cb-r:7px] shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-quiet)]"
+    "size-6 rounded-[9px] [--cb-r:4.5px] supports-[corner-shape:squircle]:[--cb-r:6.5px]"
 }
+
+const quietBoxClass =
+  "relative grid size-4 place-items-center rounded-(--cb-r) shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-quiet)] transition-[box-shadow] duration-150 ease-standard corner-squircle group-[:hover:not([data-disabled],[data-readonly])]/checkbox:shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-hover)] group-[:hover:not([data-disabled],[data-readonly])]/checkbox:duration-[0ms]"
 
 const interactive =
   "[&:not([data-disabled],[data-readonly])]:hover:shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-hover)] [&:not([data-disabled],[data-readonly])]:hover:duration-[0ms,120ms] [&:not([data-disabled],[data-readonly])]:active:scale-[0.97]"
@@ -29,9 +35,11 @@ export const markClass =
 // items, editor/checklist-item-node.ts).
 export const checkboxClass = (variant: keyof typeof variants = "default") =>
   cn(
-    "group/checkbox relative inline-grid shrink-0 cursor-pointer place-items-center rounded-(--cb-r) align-middle transition-[box-shadow,scale] duration-[150ms,120ms] ease-standard outline-none corner-squircle before:absolute before:-inset-2 before:content-[''] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[readonly]:cursor-default motion-reduce:transition-none",
-    variants[variant],
-    interactive
+    "group/checkbox relative inline-grid shrink-0 cursor-pointer place-items-center rounded-(--cb-r) align-middle transition-[box-shadow,scale] duration-[150ms,120ms] ease-standard outline-none corner-squircle data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[readonly]:cursor-default motion-reduce:transition-none",
+    variant === "default"
+      ? cn("before:absolute before:-inset-2 before:content-['']", interactive)
+      : "[&:not([data-disabled],[data-readonly])]:active:scale-[0.97]",
+    variants[variant]
   )
 
 export const checkboxFillClass = fillClass
@@ -53,6 +61,21 @@ function Checkbox({
       className={cn(checkboxClass(variant), focusRing, className)}
       {...props}
     >
+      {variant === "quiet" ? (
+        <span aria-hidden className={quietBoxClass}>
+          <Box />
+        </span>
+      ) : (
+        <Box />
+      )}
+    </CheckboxPrimitive.Root>
+  )
+}
+
+// The fill and the mark, drawn over the box.
+function Box() {
+  return (
+    <>
       <span aria-hidden className={fillClass} />
       <svg
         aria-hidden
@@ -69,7 +92,7 @@ function Checkbox({
           )}
         />
       </svg>
-    </CheckboxPrimitive.Root>
+    </>
   )
 }
 

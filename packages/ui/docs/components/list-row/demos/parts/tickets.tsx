@@ -1,13 +1,14 @@
 import { chipClassName } from "@pp/ui/chip"
 import {
-  ArrowUp,
   ChevronRight,
   CircleCheck,
   CircleDashed,
   CircleDot,
   GitPullRequest,
   Link2,
-  Minus,
+  PriorityHigh,
+  PriorityLow,
+  PriorityMedium,
   User
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
@@ -104,9 +105,13 @@ const STATUS = {
 } as const
 
 const PRIORITY = {
-  urgent: { icon: ArrowUp, label: "Urgent", className: "text-rose-600" },
-  medium: { icon: Minus, label: "Medium", className: "text-amber-600" },
-  low: { icon: Minus, label: "Low", className: "text-muted-foreground" }
+  urgent: { icon: PriorityHigh, label: "High", className: "text-state-danger" },
+  medium: {
+    icon: PriorityMedium,
+    label: "Medium",
+    className: "text-state-warning"
+  },
+  low: { icon: PriorityLow, label: "Low", className: "text-muted-foreground" }
 } as const
 
 const fieldButton =
@@ -159,7 +164,7 @@ export function AssigneeField({
     <button
       type="button"
       aria-label={assignee ? `Assignee: ${assignee.name}` : "Assign"}
-      className="grid cursor-pointer place-items-center rounded-full"
+      className="grid min-h-6 min-w-6 cursor-pointer place-items-center rounded-full"
     >
       {assignee ? (
         <MemberAvatar member={assignee} size={size} />
