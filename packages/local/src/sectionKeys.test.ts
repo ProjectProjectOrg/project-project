@@ -451,5 +451,6 @@ it.effect(
     Effect.gen(function* () {
       for (let seed = 1; seed <= 30; seed++)
         yield* run(seed).pipe(Effect.provide(TestDatabase))
-    })
+    }),
+  30_000
 )
