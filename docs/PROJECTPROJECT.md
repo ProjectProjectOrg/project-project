@@ -27,6 +27,10 @@ This file describes the system as it is. Keep it current in the same PR as the c
 
 ---
 
+## Local verification
+
+`bun run dev:agent` starts an isolated worktree environment: a database and non-superuser owner on a dedicated shared agent-only Postgres 16 container, independent markdown and secrets, a synthetic PM fixture, and a Portless HTTPS origin. The existing development Compose project is separate. Lifecycle metadata lives under the shared Git directory in `pp-agent/registry.json`; setup/migration/cleanup are serialized, restarts preserve edits, and cleanup is explicit. See [local agent verification](agent-development.md) for commands, ownership checks and recovery.
+
 ## Workspaces
 
 Frontend Paraglide generation uses `src/paraglide` for Vite dev/build, `.cache/paraglide/typecheck` for typecheck and `.cache/paraglide/test` for tests. Compiler options live in `apps/frontend/project.inlang/paraglide.config.ts`; checks use separate outputs so they do not overwrite a running dev server's messages.
