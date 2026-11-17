@@ -5,6 +5,7 @@ import path from "node:path"
 import type { Subprocess } from "bun"
 import * as Schema from "effect/Schema"
 
+import { databaseName } from "./database"
 import { seedContent, seedIdentity, fixturePath } from "./fixture"
 import {
   exists,
@@ -40,10 +41,11 @@ export function childEnvironment(
       "DOCKER_CONTEXT"
     ].flatMap((key) => (process.env[key] ? [[key, process.env[key]]] : []))
   )
+  const name = databaseName(environment)
   return {
     ...inherited,
     NODE_ENV: "development",
-    DATABASE_URL: `postgres://pp_agent_${environment.id}:${secrets.password}@127.0.0.1:${port}/pp_agent_${environment.id}`,
+    DATABASE_URL: `postgres://${name}:${secrets.password}@127.0.0.1:${port}/${name}`,
     PROJECTS_DIR: path.join(environment.worktree, ".agent.local", "projects"),
     BETTER_AUTH_URL: secrets.origin,
     BETTER_AUTH_SECRET: secrets.auth,

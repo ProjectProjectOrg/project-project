@@ -29,7 +29,7 @@ This file describes the system as it is. Keep it current in the same PR as the c
 
 ## Local verification
 
-`bun run dev:agent` starts an isolated worktree environment: a database and non-superuser owner on a dedicated shared agent-only Postgres 16 container, independent markdown and secrets, a synthetic PM fixture, and a Portless HTTPS origin. The existing development Compose project is separate. Lifecycle metadata lives under the shared Git directory in `pp-agent/registry.json`; setup/migration/cleanup are serialized, restarts preserve edits, and cleanup is explicit. See [local agent verification](agent-development.md) for commands, ownership checks and recovery.
+`bun run dev:agent` starts an isolated worktree environment: a database and non-superuser owner on a dedicated shared agent-only Postgres 16 container, independent markdown and secrets, a synthetic PM fixture, and a Portless HTTPS origin. New resource names include the branch label and a short collision suffix, persisted for the environment's lifetime. The existing development Compose project is separate. Lifecycle metadata lives under the shared Git directory in `pp-agent/registry.json`; setup/migration/cleanup are serialized, restarts preserve edits, and cleanup is explicit. See [local agent verification](agent-development.md) for commands, ownership checks and recovery.
 
 ## Workspaces
 

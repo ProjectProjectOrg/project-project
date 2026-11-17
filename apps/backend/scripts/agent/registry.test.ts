@@ -3,8 +3,14 @@ import { mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 
-import { checkHistory } from "./database"
-import { AgentRegistry, Environment, command } from "./registry"
+import { checkHistory, databaseName } from "./database"
+import {
+  AgentRegistry,
+  Environment,
+  command,
+  createEnvironmentId,
+  decodeEnvironment
+} from "./registry"
 import { childEnvironment } from "./runtime"
 
 const entry = Environment.make({
@@ -113,5 +119,26 @@ test("cleanup is repeatable in a worktree with no agent environment", async () =
     }
   } finally {
     await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test("environment names identify the branch and fit SQL and hostname limits", () => {
+  for (const [branch, label] of [
+    ["feat/Readable-Names", "feat-readable-names"],
+    ["fix/quotes'-and_underscores", "fix-quotes-and-underscores"],
+    ["x".repeat(100), "x".repeat(40)],
+    ["", "worktree"],
+    ["修復", "worktree"]
+  ]) {
+    const environment = decodeEnvironment({
+      ...entry,
+      id: createEnvironmentId(branch)
+    })
+    expect(environment.id).toMatch(new RegExp(`^${label}-[a-f0-9]{8}$`))
+    expect(databaseName(environment)).toBe(
+      `pp_agent_${label.replaceAll("-", "_")}_${environment.id.slice(-8)}`
+    )
+    expect(databaseName(environment).length).toBeLessThanOrEqual(63)
+    expect(`pp-${environment.id}`.length).toBeLessThanOrEqual(63)
   }
 })

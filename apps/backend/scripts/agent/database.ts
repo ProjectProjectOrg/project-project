@@ -167,7 +167,7 @@ export async function server(
 }
 
 export function databaseName(environment: Environment): string {
-  return `pp_agent_${environment.id}`
+  return `pp_agent_${environment.id.replaceAll("-", "_")}`
 }
 export function adminPool(port: string): Pool {
   return new Pool({

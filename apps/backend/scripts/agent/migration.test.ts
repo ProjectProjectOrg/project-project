@@ -15,7 +15,12 @@ import {
   waitForDatabase
 } from "./database"
 import { fixtureVersion } from "./fixture"
-import { AgentRegistry, command, decodeEnvironment } from "./registry"
+import {
+  AgentRegistry,
+  command,
+  decodeEnvironment,
+  createEnvironmentId
+} from "./registry"
 import { childEnvironment } from "./runtime"
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../../..")
@@ -38,7 +43,7 @@ async function fixture(
   const pool = adminPool(infrastructure.port)
   const registry = new AgentRegistry(path.join(root, ".git", "pp-agent"))
   const environment = decodeEnvironment({
-    id: randomBytes(12).toString("hex"),
+    id: createEnvironmentId("test/migration-regression"),
     worktree: root,
     state: "ready",
     migrations: await migrationHistory(sourceRoot),
