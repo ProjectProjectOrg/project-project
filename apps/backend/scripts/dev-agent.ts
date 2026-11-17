@@ -245,7 +245,22 @@ async function serve(): Promise<void> {
       } else {
         await verifyOwnership(pool, environment)
       }
+      await registry.save(
+        (await registry.read()).map((entry) =>
+          entry.id === environment.id
+            ? Object.assign({}, entry, {
+                state: "provisioning" satisfies Environment["state"]
+              })
+            : entry
+        )
+      )
       await migrateDatabase(root, env.DATABASE_URL)
+      environment = { ...environment, migrations: current }
+      await registry.save(
+        (await registry.read()).map((entry) =>
+          entry.id === environment.id ? environment : entry
+        )
+      )
       if (fresh) await seedIdentity(env.DATABASE_URL)
     } finally {
       await pool.end()
@@ -256,8 +271,7 @@ async function serve(): Promise<void> {
         (await registry.read()).map((entry) =>
           entry.id === environment.id
             ? Object.assign({}, entry, {
-                state: "ready" satisfies Environment["state"],
-                migrations: current
+                state: "ready" satisfies Environment["state"]
               })
             : entry
         )

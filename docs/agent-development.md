@@ -34,7 +34,7 @@ Restarting preserves edits and does not reseed. Ctrl-C stops the servers. From a
 bun run dev:agent:stop
 ```
 
-Startup applies this checkout's migrations before starting its single backend/workflow runner. Applied migration names and hashes must remain an unchanged prefix of the checkout's history. Divergent or older history, changed fixture versions, and incomplete initial setup block startup. Rebuild explicitly; there is no automatic destructive reset. Bump `fixtureVersion` in `apps/backend/scripts/agent/fixture.ts` when changes require rebuilding the paired fixture or markdown format.
+Startup marks the environment incomplete before applying migrations, then records the successfully applied history before starting its single backend/workflow runner. A migration failure or interruption leaves startup blocked for explicit recovery; a later server startup failure retains the new history. Applied migration names and hashes must remain an unchanged prefix of the checkout's history. Divergent or older history, changed fixture versions, and incomplete initial setup block startup. Rebuild explicitly; there is no automatic destructive reset. Bump `fixtureVersion` in `apps/backend/scripts/agent/fixture.ts` when changes require rebuilding the paired fixture or markdown format.
 
 ## Cleanup
 
@@ -90,4 +90,4 @@ A shared `registry.lock` serializes setup, migration and cleanup until an enviro
 
 For recovery, inspect the recorded host, PID and process start/command identity. Stop any remaining servers belonging to that environment. Remove a stale lock or `running.json` only after establishing that its owner and children have exited, then retry explicit cleanup. Never remove another host's lock or infer ownership solely from a PID, an age or a database prefix. An interrupted provision with missing ownership markers requires manual inspection; cleanup intentionally refuses to adopt it. This first version favors preserving data over automatic stale-process recovery.
 
-Run the focused lifecycle tests with `bun run test:agent`. They are also included in `test:all`.
+Run the focused lifecycle tests with `bun run test:agent`. The migration regressions use temporary databases on the dedicated agent-only Postgres server, starting it if needed; they remove their own databases and files afterward. The tests are also included in `test:all`.
