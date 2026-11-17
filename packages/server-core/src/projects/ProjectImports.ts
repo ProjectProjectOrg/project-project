@@ -376,6 +376,7 @@ const make = Effect.gen(function* () {
     let connection: S3Storage.S3Connection | null = null
     const files: Array<ProjectImportFile> = []
     const staged: Array<ProjectImportAttachment> = []
+    const entryNames = new Set<string>()
 
     const limited = body.pipe(
       Stream.mapError(() => invalid("upload_interrupted")),
@@ -417,6 +418,8 @@ const make = Effect.gen(function* () {
         yield* Effect.promise(() => entry.body.cancel())
         return
       }
+      if (entryNames.has(name)) return yield* invalid("unexpected_entry")
+      entryNames.add(name)
       if (manifest === null) {
         if (name !== PROJECT_EXPORT_MANIFEST_PATH)
           return yield* invalid("manifest_must_come_first")

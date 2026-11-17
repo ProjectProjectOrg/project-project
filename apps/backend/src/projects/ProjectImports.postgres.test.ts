@@ -825,6 +825,61 @@ describe.skipIf(!databaseUrl)("project import", () => {
   )
 
   it.live(
+    "rejects repeated file paths even when they span document batches",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({
+            prefix: "pp-import-duplicate-"
+          })
+          yield* Effect.gen(function* () {
+            yield* writeSource
+            const imports = yield* ProjectImports.ProjectImports
+            const uploaded = yield* imports
+              .upload(yield* exported)
+              .pipe(asImporter)
+            const {
+              rows: [row]
+            } = yield* Effect.promise(() =>
+              pool.query<{ manifest: string }>(
+                "SELECT manifest::text AS manifest FROM project_import WHERE id = $1",
+                [uploaded.id]
+              )
+            )
+            yield* imports.cancel(uploaded.id).pipe(asImporter)
+            const encoder = new TextEncoder()
+            const repeated = {
+              name: "project/project.md",
+              bytes: encoder.encode("Source project")
+            }
+            const archive = tarGz(
+              Stream.fromIterable([
+                {
+                  name: "manifest.json",
+                  bytes: encoder.encode(row.manifest)
+                },
+                repeated,
+                ...Array.from({ length: 50 }, (_, i) => ({
+                  name: `project/notes/${i}.md`,
+                  bytes: encoder.encode(`Note ${i}`)
+                })),
+                repeated
+              ])
+            )
+            const error = yield* Effect.flip(
+              imports.upload(archive).pipe(asImporter)
+            )
+            expect(error).toMatchObject({
+              _tag: "Validation",
+              reason: "unexpected_entry"
+            })
+          }).pipe(Effect.provide(layer()))
+        })
+      ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live(
     "refuses a file from a newer export format, naming both versions",
     () =>
       Effect.gen(function* () {
