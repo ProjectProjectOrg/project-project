@@ -35,6 +35,7 @@ const sample = (): ReadonlyArray<CommentBlock> => [
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
     replyTo: "c_a",
+    tickets: ["T-23"],
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
   }
 ]

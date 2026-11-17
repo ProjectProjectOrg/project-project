@@ -9,6 +9,7 @@ import { DbLive, migrationsFolder } from "@pp/db"
 import * as Access from "@pp/server-core/access/Access"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
+import * as Comments from "@pp/server-core/comments/Comments"
 import * as Figma from "@pp/server-core/figma/Figma"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
@@ -262,6 +263,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         Layer.provideMerge(
           Layer.mergeAll(
             Layer.mock(TicketCommands.TicketCommands, {}),
+            Layer.mock(Comments.Comments, {}),
             Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {})
           )

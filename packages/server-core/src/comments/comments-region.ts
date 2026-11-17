@@ -18,6 +18,7 @@ export type CommentBlock = Readonly<{
   replyTo?: string
   resolvedBy?: string
   resolvedAt?: Date
+  tickets?: ReadonlyArray<string>
   body: string
 }>
 
@@ -49,6 +50,10 @@ const ResolvedAt = Schema.NullOr(CommentBlockDate).pipe(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
   Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
 )
+const Tickets = Schema.Array(Schema.NonEmptyString).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some([]))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+)
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
@@ -64,7 +69,8 @@ const LegacyCommentData = Schema.Struct({
   editedAt: EditedAt,
   replyTo: ReplyTo,
   resolvedBy: ResolvedBy,
-  resolvedAt: ResolvedAt
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
@@ -73,7 +79,8 @@ const NativeCommentData = Schema.Struct({
   editedAt: EditedAt,
   replyTo: ReplyTo,
   resolvedBy: ResolvedBy,
-  resolvedAt: ResolvedAt
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const LinkedJiraCommentData = Schema.Struct({
   author: UserBlockAuthor,
@@ -82,7 +89,8 @@ const LinkedJiraCommentData = Schema.Struct({
   editedAt: EditedAt,
   replyTo: ReplyTo,
   resolvedBy: ResolvedBy,
-  resolvedAt: ResolvedAt
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const SnapshotJiraCommentData = Schema.Struct({
   author: JiraBlockAuthor,
@@ -91,7 +99,8 @@ const SnapshotJiraCommentData = Schema.Struct({
   editedAt: EditedAt,
   replyTo: ReplyTo,
   resolvedBy: ResolvedBy,
-  resolvedAt: ResolvedAt
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
@@ -171,6 +180,7 @@ export function parseCommentsRegion(
         ...(data.resolvedBy === null || data.resolvedAt === null
           ? {}
           : { resolvedBy: data.resolvedBy, resolvedAt: data.resolvedAt }),
+        ...(data.tickets.length === 0 ? {} : { tickets: data.tickets }),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -196,6 +206,7 @@ export function serializeCommentsRegion(
       fm.resolvedBy = b.resolvedBy
       fm.resolvedAt = b.resolvedAt.toISOString()
     }
+    if (b.tickets && b.tickets.length > 0) fm.tickets = b.tickets
     out.push(`<!-- comment:${b.id} -->`)
     out.push(
       markdownFileContent(fm, b.body.replace(/\s+$/, "") + "\n").trimEnd()

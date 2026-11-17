@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "../http/dieOnMarkdown"
+import { createTicket } from "./createTicket"
 
 export const TicketsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -80,9 +81,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("create", ({ payload }) =>
-        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
-          commands.create(payload)
-        ).pipe(dieOnMarkdown)
+        createTicket(payload).pipe(dieOnMarkdown)
       )
       .handle("clearStaleEstimates", () =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>

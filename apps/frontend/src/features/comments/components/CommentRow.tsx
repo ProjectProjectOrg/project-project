@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CommentMenuButton, CommentMenuItems } from "./CommentMenu"
+import { CreatedTickets } from "./CreatedTickets"
 
 type Mode = "idle" | "edit"
 
@@ -165,6 +166,7 @@ export function CommentRow({
                 onContextMenu={keepNativeMenu}
               >
                 <Markdown>{comment.body}</Markdown>
+                <CreatedTickets tickets={comment.tickets} />
               </div>
               {deleteError && (
                 <p

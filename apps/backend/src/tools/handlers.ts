@@ -59,6 +59,7 @@ import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 
+import { createTicket } from "../tickets/createTicket"
 import { toolRunner } from "./runTool"
 
 const DEFAULT_LIMIT = 50
@@ -349,9 +350,8 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const commands = yield* TicketCommands.TicketCommands
     const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...payload } = input
-    const created = yield* commands.create(
+    const created = yield* createTicket(
       payload.body === undefined
         ? payload
         : { ...payload, body: yield* sanitizeMcpBody(payload.body) }

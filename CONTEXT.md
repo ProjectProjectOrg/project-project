@@ -58,7 +58,7 @@ A marker that a ticket needs attention, with an optional markdown reason and who
 _Avoid_: Blocked (for a flag), impediment
 
 **Thread**:
-A top-level comment and its **replies**. Replies are one level deep: replying to a reply adds to the same thread, and each reply stores `replyTo` with the id of the thread's first comment. When the first comment is deleted, each reply stands as a comment on its own. Anyone who can comment can **resolve** a thread from any of its comments: its first comment records who and when, the replies between the first and last comment fold away, and the thread takes no replies until it is **reopened**.
+A top-level comment and its **replies**. Replies are one level deep: replying to a reply adds to the same thread, and each reply stores `replyTo` with the id of the thread's first comment. When the first comment is deleted, each reply stands as a comment on its own. Anyone who can comment can **resolve** a thread from any of its comments: its first comment records who and when, the replies between the first and last comment fold away, and the thread takes no replies until it is **reopened**. A ticket created from a comment is listed under that comment (`tickets` in its frontmatter) and, unless it's a sub-ticket, related to the ticket it came from.
 _Avoid_: Conversation, nested comments
 
 **Subscribe**:

@@ -3,12 +3,9 @@ import * as Schema from "effect/Schema"
 import { User } from "../auth/User"
 import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
+import { CommentId } from "./CommentId"
 
-export const CommentId = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/u)),
-  Schema.brand("CommentId")
-)
-export type CommentId = typeof CommentId.Type
+export { CommentId } from "./CommentId"
 
 const UserCommentAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
@@ -39,7 +36,8 @@ const CommentFields = {
   replyTo: Schema.NullOr(CommentId),
   resolution: Schema.NullOr(
     Schema.Struct({ by: Schema.NullOr(User), at: Schema.DateFromString })
-  )
+  ),
+  tickets: Schema.Array(TicketId)
 }
 
 export const Comment = Schema.Union([

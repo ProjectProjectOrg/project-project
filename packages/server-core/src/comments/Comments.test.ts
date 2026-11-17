@@ -332,6 +332,48 @@ it.effect("adds a reply to a reply to the first comment's thread", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("lists a ticket created from a comment under that comment", () => {
+  const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+  let current: TicketDocs.TicketDocument = {
+    ...document,
+    commentsRegion: serializeCommentsRegion([
+      {
+        id: "c_root",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        body: "Won't Do should still archive the ticket"
+      }
+    ])
+  }
+  const layer = makeLayer(
+    makeTicketDocs({
+      read: () => Effect.succeed(current),
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(current).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              current = next
+            })
+          )
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    yield* comments.recordTicket(
+      ticketId("T-1"),
+      decodeCommentIdSync("c_root"),
+      ticketId("T-23")
+    )
+    expect(parseCommentsRegion(current.commentsRegion)[0]).toMatchObject({
+      tickets: ["T-23"]
+    })
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "resolves a thread on its first comment and refuses replies until it is reopened",
   () => {
