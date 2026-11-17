@@ -149,6 +149,7 @@ function CreateTicketItems({
       projectSlug: slug,
       ...ticketFromComment(
         comment,
+        slug,
         ticketId,
         commentPath(location, ticketId, comment.id)
       ),

@@ -1,4 +1,4 @@
-import type { Comment, TicketId } from "@pp/shared"
+import { rewriteTicketMentions, type Comment, type TicketId } from "@pp/shared"
 
 import { m } from "@/paraglide/messages"
 
@@ -19,6 +19,7 @@ const titleFrom = (body: string): string => {
 
 export const ticketFromComment = (
   comment: Pick<Comment, "author" | "body">,
+  projectSlug: string,
   ticketId: TicketId,
   url: string
 ) => ({
@@ -28,8 +29,9 @@ export const ticketFromComment = (
       author: `**${commentAuthorName(comment.author)}**`,
       source: `[${m.comments_ticket_source_link({ ticket: ticketId })}](${url})`
     }),
-    comment.body
-      .trim()
+    rewriteTicketMentions(comment.body.trim(), (target) =>
+      target.projectSlug === null ? { ...target, projectSlug } : null
+    )
       .split("\n")
       .map((line) => (line === "" ? ">" : `> ${line}`))
       .join("\n")

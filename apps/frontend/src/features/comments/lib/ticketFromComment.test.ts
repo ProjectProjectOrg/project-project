@@ -13,25 +13,27 @@ const sam = {
 } as const
 
 describe("ticketFromComment", () => {
-  it("titles the ticket with the comment's first line and quotes the comment under a link back", () => {
+  it("titles the ticket with the comment's first line and quotes the comment, ticket mentions pinned to its project", () => {
     const draft = ticketFromComment(
       {
         author: sam,
-        body: "- Won't Do should still archive the ticket\n\nOtherwise they flood the backlog."
+        body: "- Won't Do should still archive the ticket\n\nOtherwise they flood [T-3](mention:ticket/T-3)."
       },
+      "web",
       ticketId("T-12"),
       "https://pp.test/t/T-12#c_1"
     )
 
     expect(draft).toEqual({
       title: "Won't Do should still archive the ticket",
-      body: "**Sam de Vries** said in [a comment on T-12](https://pp.test/t/T-12#c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood the backlog."
+      body: "**Sam de Vries** said in [a comment on T-12](https://pp.test/t/T-12#c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood [T-3](mention:ticket/web/T-3)."
     })
   })
 
   it("cuts a long first line to a title that fits", () => {
     const { title } = ticketFromComment(
       { author: sam, body: "word ".repeat(40) },
+      "web",
       ticketId("T-12"),
       "https://pp.test/t/T-12#c_1"
     )
