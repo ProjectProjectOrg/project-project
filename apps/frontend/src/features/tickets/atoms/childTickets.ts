@@ -1,4 +1,4 @@
-import { localOrderKey } from "@pp/local"
+import { Intent, localOrderKey, PendingWrite } from "@pp/local"
 import {
   CHILD_TICKET_SORT,
   TicketStatus,
@@ -16,6 +16,7 @@ import type * as Registry from "effect/reactivity/AtomRegistry"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
+import { localFirst } from "@/features/local/atoms/localEdit"
 import { localTicketList } from "@/features/local/atoms/localViews"
 import { readLocal } from "@/features/local/atoms/readLocal"
 import {
@@ -256,7 +257,7 @@ const attachedRow = (ticket: Ticket): TicketRow => ({
 
 type AttachInput = Readonly<{ ticket: Ticket; parent: TicketParent }>
 
-export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
+const attachOnServer = ({ req, id }: ChildTicketKey) =>
   viewMutation(childTickets(req), {
     name: "attachChildTicket",
     predict: (rows, { ticket, parent }: AttachInput) =>
@@ -275,6 +276,22 @@ export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
       rows.map((row) => (row.ticket.id === id ? { ...row, ticket } : row)),
     publish: () => Keys.ticketChanged(scopeOf(req), id)
   })
+
+export const attachChildTicket = Atom.family((key: ChildTicketKey) =>
+  localFirst(key.req.params, attachOnServer(key), ({ parent }: AttachInput) => [
+    {
+      write: PendingWrite.cases.update.make({
+        ticket: key.id,
+        payload: { parent: parent.id }
+      }),
+      edits: [
+        {
+          ticket: key.id,
+          intents: [Intent.cases.parent.make({ parent: parent.id })]
+        }
+      ]
+    }
+  ])
 )
 
 export const attachToParent = (

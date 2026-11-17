@@ -32,7 +32,7 @@ import {
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
 
-import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
+import { bulkBatches, bulkChangedKeys, bulkEdits } from "./bulkTickets"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
@@ -90,20 +90,7 @@ export const bulkTicketUpdate = <V, VE>(
         input.patch.sprint !== undefined
       )
   })
-  return localFirst(update.path, server, (input: BulkUpdateTicketsInput) => {
-    const edit = fromBulkPatch(input.patch)
-    const intents = intentsOf(
-      input.patch.sprint === undefined
-        ? edit
-        : { ...edit, sprint: input.patch.sprint }
-    )
-    return bulkBatches(input.tickets).map((tickets) => ({
-      write: PendingWrite.cases.bulk.make({
-        payload: { tickets, patch: input.patch }
-      }),
-      edits: tickets.map((ticket) => ({ ticket, intents }))
-    }))
-  })
+  return localFirst(update.path, server, bulkEdits)
 }
 
 export type BulkTicketMoveAtom = Atom.AtomResultFn<BulkDrop, unknown, unknown>

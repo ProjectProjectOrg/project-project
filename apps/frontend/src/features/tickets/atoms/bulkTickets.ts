@@ -1,3 +1,4 @@
+import { PendingWrite } from "@pp/local"
 import {
   BULK_TICKETS_MAX,
   type BulkArchiveTicketsInput,
@@ -12,8 +13,13 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
-import { localFirst } from "@/features/local/atoms/localEdit"
-import { bulkArchiveEdit, deleteEdit } from "@/features/local/lib/localIntents"
+import { type LocalEdit, localFirst } from "@/features/local/atoms/localEdit"
+import {
+  bulkArchiveEdit,
+  deleteEdit,
+  intentsOf
+} from "@/features/local/lib/localIntents"
+import { fromBulkPatch } from "@/features/tickets/lib/ticketPatch"
 
 export type BulkTicketsRequest = Readonly<{ orgSlug: string; slug: string }>
 
@@ -38,7 +44,24 @@ export const bulkChangedKeys = (
   ]
 }
 
-export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
+export const bulkEdits = (
+  input: BulkUpdateTicketsInput
+): ReadonlyArray<LocalEdit> => {
+  const edit = fromBulkPatch(input.patch)
+  const intents = intentsOf(
+    input.patch.sprint === undefined
+      ? edit
+      : { ...edit, sprint: input.patch.sprint }
+  )
+  return bulkBatches(input.tickets).map((tickets) => ({
+    write: PendingWrite.cases.bulk.make({
+      payload: { tickets, patch: input.patch }
+    }),
+    edits: tickets.map((ticket) => ({ ticket, intents }))
+  }))
+}
+
+const bulkUpdateOnServer = (req: BulkTicketsRequest) =>
   Api.runtime.fn(
     Effect.fn("bulkUpdateTickets")(function* (input: BulkUpdateTicketsInput) {
       return yield* Effect.forEach(bulkBatches(input.tickets), (tickets) =>
@@ -61,6 +84,9 @@ export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
       )
     })
   )
+
+export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
+  localFirst(req, bulkUpdateOnServer(req), bulkEdits)
 )
 
 const bulkArchiveOnServer = (req: BulkTicketsRequest) =>
