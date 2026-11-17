@@ -1,4 +1,9 @@
-import { formatMentionHref, type Comment, type TicketId } from "@pp/shared"
+import {
+  formatMentionHref,
+  rewriteTicketMentions,
+  type Comment,
+  type TicketId
+} from "@pp/shared"
 
 import { m } from "@/paraglide/messages"
 
@@ -28,8 +33,9 @@ export const ticketFromComment = (
       author: `**${commentAuthorName(comment.author)}**`,
       source: `[${ticketId}](${formatMentionHref("comment", `${projectSlug}/${ticketId}/${comment.id}`)})`
     }),
-    comment.body
-      .trim()
+    rewriteTicketMentions(comment.body.trim(), (target) =>
+      target.projectSlug === null ? { ...target, projectSlug } : null
+    )
       .split("\n")
       .map((line) => (line === "" ? ">" : `> ${line}`))
       .join("\n")

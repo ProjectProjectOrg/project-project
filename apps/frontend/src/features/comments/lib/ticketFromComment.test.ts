@@ -19,7 +19,7 @@ describe("ticketFromComment", () => {
       {
         id: commentId("c_1"),
         author: sam,
-        body: "- Won't Do should still archive the ticket\n\nOtherwise they flood the backlog."
+        body: "- Won't Do should still archive the ticket\n\nOtherwise they flood [T-3](mention:ticket/T-3)."
       },
       "web",
       ticketId("T-12")
@@ -27,7 +27,7 @@ describe("ticketFromComment", () => {
 
     expect(draft).toEqual({
       title: "Won't Do should still archive the ticket",
-      body: "**Sam de Vries** said in [T-12](mention:comment/web/T-12/c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood the backlog."
+      body: "**Sam de Vries** said in [T-12](mention:comment/web/T-12/c_1):\n\n> - Won't Do should still archive the ticket\n>\n> Otherwise they flood [T-3](mention:ticket/web/T-3)."
     })
   })
 
