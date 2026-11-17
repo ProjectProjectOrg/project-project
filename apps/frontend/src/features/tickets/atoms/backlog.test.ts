@@ -1,7 +1,15 @@
-import type { TicketListQuery } from "@pp/shared"
+import { type TicketListQuery, TypeKey } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { describe, expect, it } from "vitest"
 
+import { stubFetch } from "@/api/testFetch"
+import { localBacklog } from "@/features/local/atoms/localBacklog"
+
 import { backlog, backlogRequest, encodeTicketListQuery } from "./backlog"
+import { quickCreateBacklogTicketOnServer } from "./backlogCreate"
+
+const fetchStub = stubFetch()
 
 describe("backlog", () => {
   it("shares one atom between structurally equal requests", () => {
@@ -25,6 +33,57 @@ describe("backlog", () => {
     expect(backlog(a)).toBe(backlog(b))
     expect(a.query).not.toHaveProperty("view")
     expect(b.query).not.toHaveProperty("view")
+  })
+
+  it("shows the composer's new ticket on the local list while the server creates it", () => {
+    fetchStub.set(() => new Promise<Response>(() => {}))
+    const req = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const registry = AtomRegistry.make({
+      initialValues: [
+        [
+          localBacklog(req),
+          AsyncResult.success({
+            counts: { total: 0, byStatus: {} },
+            sections: {}
+          })
+        ]
+      ]
+    })
+    const view = backlog(req)
+    const create = quickCreateBacklogTicketOnServer(req)
+    registry.mount(view)
+    registry.mount(create)
+    try {
+      registry.set(create, {
+        payload: { title: "Login loops", type: TypeKey.make("bug") },
+        prediction: {
+          clientId: "creation-1",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
+      })
+      expect(registry.get(view)).toMatchObject({
+        value: {
+          counts: { total: 1 },
+          sections: {
+            todo: {
+              items: [
+                {
+                  key: "creation-1",
+                  pending: true,
+                  ticket: { title: "Login loops" }
+                }
+              ]
+            }
+          }
+        }
+      })
+    } finally {
+      registry.dispose()
+    }
   })
 })
 
