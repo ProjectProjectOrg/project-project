@@ -17,7 +17,7 @@ import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { encodeSyncCursor } from "../sync/ProjectFacts"
 import * as SyncLog from "../sync/SyncLog"
-import { makeDescriber } from "./TicketDescriptions"
+import * as TicketDescriber from "./TicketDescriber"
 import type * as TicketDocs from "./TicketDocs"
 
 export const DescriptionPageLimit = Context.Reference<number>(
@@ -56,7 +56,7 @@ const make = Effect.gen(function* () {
   const groupDocs = yield* GroupDocs.GroupDocs
   const finishedStatuses = yield* FinishedStatuses
   const syncLog = yield* SyncLog.SyncLog
-  const describe = yield* makeDescriber
+  const describe = yield* TicketDescriber.TicketDescriber
 
   const groups = Effect.fn("DescriptionPages.groups")(function* (
     scope: ProjectScope["Service"]

@@ -24,6 +24,7 @@ import * as Library from "../library/Library"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as SyncLog from "../sync/SyncLog"
 import * as DescriptionPages from "./DescriptionPages"
+import * as TicketDescriber from "./TicketDescriber"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
@@ -100,6 +101,7 @@ const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const TestLayer = DescriptionPages.layer.pipe(
   Layer.provideMerge(TicketIndexServices.layer),
   Layer.provideMerge(SyncLog.layer),
+  Layer.provide(TicketDescriber.layer),
   Layer.provide(Docs),
   Layer.provide(
     Layer.mergeAll(

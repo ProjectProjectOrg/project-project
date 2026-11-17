@@ -174,7 +174,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(SystemProjects.layer),
       Layer.provideMerge(ProjectStatuses.layer),
       Layer.provideMerge(
-        Layer.merge(DescriptionPages.layer, TicketServices.layer)
+        DescriptionPages.layer.pipe(Layer.provideMerge(TicketServices.layer))
       ),
       Layer.provideMerge(TicketActivityFeed.layer),
       Layer.provideMerge(
