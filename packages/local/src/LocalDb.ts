@@ -19,6 +19,15 @@ export class LocalDb extends Context.Service<
   EffectSQLiteWasmDatabase
 >()("@pp/local/LocalDb") {}
 
+export type Write = <A, E, R>(
+  transaction: Effect.Effect<A, E, R>
+) => Effect.Effect<A, E, R>
+
+export type Writer = Readonly<{
+  write: Write
+  readsWaiting: Effect.Effect<boolean>
+}>
+
 export const LocalTimings = Context.Reference<boolean>(
   "@pp/local/LocalTimings",
   { defaultValue: () => false }

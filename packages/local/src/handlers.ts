@@ -1,11 +1,13 @@
 import {
   type ProjectChanges,
+  type ProjectSync,
   type SnapshotPage,
   snapshotFromPages
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
+import * as Latch from "effect/Latch"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -51,7 +53,7 @@ import {
   syncOf,
   unsentEdits
 } from "./store"
-import { SyncSource } from "./SyncSource"
+import { type SyncDenied, type SyncOffline, SyncSource } from "./SyncSource"
 import { localTicketList, repositoryFrom } from "./ticketList"
 import { localTitles } from "./titles"
 
@@ -89,6 +91,16 @@ const touches = (changes: ProjectChanges) =>
   Object.values(changes.upserts).some((facts) => facts.length > 0) ||
   Object.values(changes.deletes).some((ids) => ids.length > 0)
 
+const nextTask = Effect.callback<void>((resume) => {
+  const channel = new MessageChannel()
+  channel.port1.addEventListener("message", () => {
+    channel.port1.close()
+    resume(Effect.void)
+  })
+  channel.port1.start()
+  channel.port2.postMessage(null)
+})
+
 export const localRpcsLayer = LocalRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
@@ -97,12 +109,33 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const writes = yield* PendingWrites
     const sender = yield* Semaphore.make(1)
     const inFlight = new Set<string>()
-    const writer = yield* Semaphore.make(1)
+    const writing = yield* Semaphore.make(1)
     const loops = new Map<string, Semaphore.Semaphore>()
+    const noReads = yield* Latch.make(true)
+    let reads = 0
+    const reading = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.acquireUseRelease(
+        Effect.sync(() => {
+          reads += 1
+          noReads.closeUnsafe()
+        }),
+        () => effect,
+        () =>
+          Effect.sync(() => {
+            reads -= 1
+            if (reads === 0) noReads.openUnsafe()
+          })
+      )
     const write =
       (label: string) =>
       <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        writer.withPermit(timed(`write ${label}`)(effect))
+        writing.withPermit(
+          Effect.andThen(noReads.await, timed(`write ${label}`)(effect))
+        )
+    const writer = (label: string) => ({
+      write: write(label),
+      readsWaiting: Effect.map(nextTask, () => reads > 0)
+    })
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
     const descriptions = yield* LocalDescriptions
@@ -162,26 +195,58 @@ export const localRpcsLayer = LocalRpcs.toLayer(
 
     const restart = (scope: string, page: SnapshotPage) =>
       Effect.gen(function* () {
-        const abandoned = yield* write("begin")(beginStaging(scope, page))
-        if (abandoned !== null) yield* retire(abandoned)
+        const abandoned = yield* beginStaging(scope, page, writer("begin"))
+        for (const copy of abandoned) yield* retire(copy)
       })
 
-    const step = (project: LocalProject) =>
+    type Ahead = Readonly<{
+      token: string
+      fiber: Fiber.Fiber<ProjectSync, SyncDenied | SyncOffline>
+    }>
+
+    const pagesOf = (project: LocalProject) => {
+      let ahead: Ahead | null = null
+      const fetch = (token: string) =>
+        Effect.gen(function* () {
+          const taken = ahead
+          ahead = null
+          if (taken?.token === token) return yield* Fiber.join(taken.fiber)
+          if (taken !== null) yield* Fiber.interrupt(taken.fiber)
+          return yield* source.pull(project, { page: token })
+        })
+      const prefetch = (page: SnapshotPage) =>
+        Effect.gen(function* () {
+          if (page.next === null) return
+          ahead = {
+            token: page.next,
+            fiber: yield* Effect.forkScoped(
+              source.pull(project, { page: page.next }),
+              { startImmediately: true }
+            )
+          }
+        })
+      return { fetch, prefetch }
+    }
+
+    type Pages = ReturnType<typeof pagesOf>
+
+    const step = (project: LocalProject, pages: Pages) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
         const staging = yield* stagingOf(scope)
         if (staging !== null) {
           if (staging.next === null) {
-            const published = yield* write("publish")(publishStaging(scope))
+            const published = yield* publishStaging(scope, writer("publish"))
             yield* changed(scope)
             if (published?.retired != null) yield* retire(published.retired)
             return "again" as const
           }
-          const page = yield* source.pull(project, { page: staging.next })
+          const page = yield* pages.fetch(staging.next)
           if (page.kind !== "snapshot")
             return yield* Effect.die(new Error("expected a snapshot page"))
+          yield* pages.prefetch(page)
           if (page.start !== null) yield* restart(scope, page)
-          else yield* write("page")(applyPage(scope, staging.next, page))
+          else yield* applyPage(scope, staging.next, page, writer("page"))
           return "again" as const
         }
         const current = yield* syncOf(scope)
@@ -190,6 +255,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           current === null ? {} : { after: current.cursor }
         )
         if (response.kind === "snapshot") {
+          yield* pages.prefetch(response)
           yield* restart(scope, response)
           return "again" as const
         }
@@ -222,8 +288,13 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const pullUntilCaughtUp = (project: LocalProject) =>
       Effect.flatMap(loopFor(scopeOf(project)), (loop) =>
         loop.withPermit(
-          step(project).pipe(
-            Effect.repeat({ until: (state) => state === "caughtUp" })
+          Effect.scoped(
+            Effect.suspend(() => {
+              const pages = pagesOf(project)
+              return step(project, pages).pipe(
+                Effect.repeat({ until: (state) => state === "caughtUp" })
+              )
+            })
           )
         )
       )
@@ -363,9 +434,11 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       read: (copy: number) => Effect.Effect<A | null, E, R>
     ) =>
       timed(`read ${label}`)(
-        sql.withTransaction(
-          Effect.flatMap(copyOf(scopeOf(project)), (copy) =>
-            copy === null ? Effect.succeed(null) : read(copy)
+        reading(
+          sql.withTransaction(
+            Effect.flatMap(copyOf(scopeOf(project)), (copy) =>
+              copy === null ? Effect.succeed(null) : read(copy)
+            )
           )
         )
       )

@@ -18,7 +18,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { LocalDb } from "./LocalDb"
+import { LocalDb, type Write, type Writer } from "./LocalDb"
 import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
   applyIntents,
@@ -57,6 +57,10 @@ import {
 } from "./tables"
 
 const CHUNK = 500
+
+const SLICE_TICKETS = 250
+
+const SLICE_MEMBERS = 5000
 
 const idList = Schema.encodeSync(
   Schema.fromJsonString(Schema.Array(Schema.String))
@@ -241,7 +245,7 @@ const writeTickets = (
           })
     )
     yield* chunked(
-      facts.map((fact) => ({ copy, id: fact.id, data: ticketJson(fact) })),
+      facts.map((fact) => ({ copy, id: fact.id, data: JSON.stringify(fact) })),
       (rows) =>
         db
           .insert(localTicketData)
@@ -320,7 +324,18 @@ const writeMembers = (copy: number, members: ReadonlyArray<GroupMemberFact>) =>
         ticket: member.ticket,
         position: member.position
       })),
-      (rows) => db.insert(localGroupMembers).values(rows).onConflictDoNothing()
+      (rows) =>
+        db
+          .insert(localGroupMembers)
+          .values(rows)
+          .onConflictDoUpdate({
+            target: [
+              localGroupMembers.copy,
+              localGroupMembers.groupId,
+              localGroupMembers.ticket
+            ],
+            set: { position: sql.raw("excluded.position") }
+          })
     )
   })
 
@@ -407,7 +422,7 @@ const setProject = (copy: number, data: string) =>
       .onConflictDoUpdate({ target: localProjects.copy, set: { data } })
   })
 
-const DROP_BATCH = 5000
+const DROP_BATCH = 1000
 
 export const dropCopyBatch = (copy: number) =>
   Effect.gen(function* () {
@@ -457,87 +472,193 @@ export const stagingOf = stagingRow
 
 export const syncOf = syncRow
 
-export const beginStaging = (scope: string, page: SnapshotPage) =>
+type Slice = Readonly<{
+  tickets: ReadonlyArray<TicketFact>
+  members: ReadonlyArray<GroupMemberFact>
+}>
+
+const slicesOf = (page: SnapshotPage): ReadonlyArray<Slice> => {
+  const slices = [
+    ...Arr.chunksOf(page.tickets, SLICE_TICKETS).map((tickets) => ({
+      tickets,
+      members: []
+    })),
+    ...Arr.chunksOf(page.groupMembers, SLICE_MEMBERS).map((members) => ({
+      tickets: [],
+      members
+    }))
+  ]
+  return slices.length === 0 ? [{ tickets: [], members: [] }] : slices
+}
+
+const holdsTicket = (copy: number, id: string) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const [row] = yield* db
+      .select({ id: localTickets.id })
+      .from(localTickets)
+      .where(and(eq(localTickets.copy, copy), eq(localTickets.id, id)))
+    return row !== undefined
+  })
+
+const writeSlices = (
+  copy: number,
+  slices: ReadonlyArray<Slice>,
+  from: number,
+  readsWaiting: Writer["readsWaiting"]
+) =>
+  Effect.gen(function* () {
+    let reached = from
+    for (const slice of slices.slice(from)) {
+      const first = slice.tickets[0]
+      const fresh = first === undefined || !(yield* holdsTicket(copy, first.id))
+      yield* writeTickets(copy, slice.tickets, fresh)
+      yield* writeMembers(copy, slice.members)
+      reached += 1
+      if (yield* readsWaiting) break
+    }
+    return reached
+  })
+
+const unpublishedCopies = (scope: string) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const published = yield* copyOf(scope)
+    return (yield* db
+      .select({ id: localCopies.id })
+      .from(localCopies)
+      .where(eq(localCopies.scope, scope)))
+      .map((row) => row.id)
+      .filter((id) => id !== published)
+  })
+
+export const beginStaging = (
+  scope: string,
+  page: SnapshotPage,
+  writer: Writer
+) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const sqlClient = yield* SqlClient.SqlClient
     const { start } = page
     if (start === null)
       return yield* Effect.die(new Error("a snapshot starts with a start page"))
-    return yield* sqlClient.withTransaction(
-      Effect.gen(function* () {
-        const previous = yield* stagingRow(scope)
-        const copy = yield* newCopy(scope)
-        const json = jsonRowsOf(start)
-        yield* setProject(copy, projectJson(start.project))
-        for (const kind of JSON_KINDS) yield* writeJson(copy, kind, json[kind])
-        yield* writeTickets(copy, page.tickets, true)
-        yield* writeMembers(copy, page.groupMembers)
-        const row = {
-          scope,
-          copy,
-          base: page.base,
-          next: page.next,
-          git: page.git ? 1 : 0
-        }
-        yield* db
-          .insert(localStaging)
-          .values(row)
-          .onConflictDoUpdate({ target: localStaging.scope, set: row })
-        return previous?.copy ?? null
-      })
+    const begun = yield* writer.write(
+      sqlClient.withTransaction(
+        Effect.gen(function* () {
+          const abandoned = yield* unpublishedCopies(scope)
+          const copy = yield* newCopy(scope)
+          const json = jsonRowsOf(start)
+          yield* setProject(copy, projectJson(start.project))
+          for (const kind of JSON_KINDS)
+            yield* writeJson(copy, kind, json[kind])
+          return { copy, abandoned }
+        })
+      )
     )
+    const slices = slicesOf(page)
+    let reached = 0
+    while (reached < slices.length)
+      reached = yield* writer.write(
+        sqlClient.withTransaction(
+          Effect.gen(function* () {
+            const next = yield* writeSlices(
+              begun.copy,
+              slices,
+              reached,
+              writer.readsWaiting
+            )
+            if (next < slices.length) return next
+            const row = {
+              scope,
+              copy: begun.copy,
+              base: page.base,
+              next: page.next,
+              git: page.git ? 1 : 0
+            }
+            yield* db
+              .insert(localStaging)
+              .values(row)
+              .onConflictDoUpdate({ target: localStaging.scope, set: row })
+            return next
+          })
+        )
+      )
+    return begun.abandoned
   })
 
 export const applyPage = (
   scope: string,
   requested: string,
-  page: SnapshotPage
+  page: SnapshotPage,
+  writer: Writer
 ) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const sqlClient = yield* SqlClient.SqlClient
-    return yield* sqlClient.withTransaction(
-      Effect.gen(function* () {
-        const staging = yield* stagingRow(scope)
-        if (staging === null || staging.next !== requested)
-          return "stale" satisfies Applied
-        yield* writeTickets(staging.copy, page.tickets, true)
-        yield* writeMembers(staging.copy, page.groupMembers)
-        yield* db
-          .update(localStaging)
-          .set({ next: page.next })
-          .where(eq(localStaging.scope, scope))
-        return "applied" satisfies Applied
-      })
-    )
+    const slices = slicesOf(page)
+    let reached = 0
+    while (reached < slices.length) {
+      const next = yield* writer.write(
+        sqlClient.withTransaction(
+          Effect.gen(function* () {
+            const staging = yield* stagingRow(scope)
+            if (staging === null || staging.next !== requested) return null
+            const next = yield* writeSlices(
+              staging.copy,
+              slices,
+              reached,
+              writer.readsWaiting
+            )
+            if (next === slices.length)
+              yield* db
+                .update(localStaging)
+                .set({ next: page.next })
+                .where(eq(localStaging.scope, scope))
+            return next
+          })
+        )
+      )
+      if (next === null) return "stale" satisfies Applied
+      reached = next
+    }
+    return "applied" satisfies Applied
   })
 
-export const publishStaging = (scope: string) =>
+export const publishStaging = (scope: string, writer: Writer) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const sqlClient = yield* SqlClient.SqlClient
-    return yield* sqlClient.withTransaction(
-      Effect.gen(function* () {
-        const staging = yield* stagingRow(scope)
-        if (staging === null || staging.next !== null) return null
-        const current = yield* syncRow(scope)
-        const row = {
-          scope,
-          copy: staging.copy,
-          cursor: staging.base,
-          git: staging.git
-        }
-        yield* db
-          .insert(localSync)
-          .values(row)
-          .onConflictDoUpdate({ target: localSync.scope, set: row })
-        yield* db.delete(localStaging).where(eq(localStaging.scope, scope))
-        yield* deriveCopy(staging.copy)
-        yield* settlePending(scope, staging.copy, staging.base)
-        yield* overlayPending(scope, staging.copy)
-        return { retired: current?.copy ?? null }
-      })
+    const staged = yield* stagingRow(scope)
+    if (staged === null || staged.next !== null) return null
+    yield* deriveCopy(staged.copy, writer)
+    return yield* writer.write(
+      sqlClient.withTransaction(
+        Effect.gen(function* () {
+          const staging = yield* stagingRow(scope)
+          if (
+            staging === null ||
+            staging.next !== null ||
+            staging.copy !== staged.copy
+          )
+            return null
+          const current = yield* syncRow(scope)
+          const row = {
+            scope,
+            copy: staging.copy,
+            cursor: staging.base,
+            git: staging.git
+          }
+          yield* db
+            .insert(localSync)
+            .values(row)
+            .onConflictDoUpdate({ target: localSync.scope, set: row })
+          yield* db.delete(localStaging).where(eq(localStaging.scope, scope))
+          yield* settlePending(scope, staging.copy, staging.base)
+          yield* overlayPending(scope, staging.copy)
+          return { retired: current?.copy ?? null }
+        })
+      )
     )
   })
 
@@ -571,9 +692,7 @@ export const applyChanges = (
   scope: string,
   base: SyncCursor,
   changes: ProjectChanges,
-  write: <A, E, R>(
-    transaction: Effect.Effect<A, E, R>
-  ) => Effect.Effect<A, E, R>
+  write: Write
 ) =>
   Effect.gen(function* () {
     const sqlClient = yield* SqlClient.SqlClient

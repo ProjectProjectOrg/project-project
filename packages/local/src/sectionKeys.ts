@@ -2,6 +2,8 @@ import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import type { Writer } from "./LocalDb"
+
 const CHUNK = 500
 
 const PARENT_SECTIONS = `epic_section = (select case when p.type = 'epic' then p.id else p.parent end
@@ -46,18 +48,48 @@ const updateByIds = (copy: number, set: string, ids: Iterable<string>) =>
       )
   })
 
-export const deriveCopy = (copy: number) =>
+const DERIVE_PART = 2000
+
+const deriveRange = (copy: number, after: string, upto: string | null) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
+    const range = upto === null ? "id > ?2" : "id > ?2 and id <= ?3"
+    const values = upto === null ? [copy, after] : [copy, after, upto]
     yield* sql.unsafe(
-      `update local_tickets set ${PARENT_SECTIONS} where copy = ? and parent is not null`,
-      [copy]
+      `update local_tickets set ${PARENT_SECTIONS} where copy = ?1 and ${range} and parent is not null`,
+      values
     )
     yield* sql.unsafe(
-      `update local_tickets set ${SPRINT_CLAIM} where copy = ?1
+      `update local_tickets set ${SPRINT_CLAIM} where copy = ?1 and ${range}
         and id in (select ticket from local_group_members where copy = ?1)`,
-      [copy]
+      values
     )
+  })
+
+export const deriveCopy = (copy: number, writer: Writer) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    let after: string | null = ""
+    while (after !== null) {
+      let from: string = after
+      after = yield* writer.write(
+        sql.withTransaction(
+          Effect.gen(function* () {
+            for (;;) {
+              const [bound] = yield* sql.unsafe<{ id: string }>(
+                `select id from local_tickets where copy = ? and id > ? order by id limit 1 offset ${DERIVE_PART - 1}`,
+                [copy, from]
+              )
+              const upto = bound?.id ?? null
+              yield* deriveRange(copy, from, upto)
+              if (upto === null) return null
+              from = upto
+              if (yield* writer.readsWaiting) return upto
+            }
+          })
+        )
+      )
+    }
   })
 
 export type Touched = Readonly<{

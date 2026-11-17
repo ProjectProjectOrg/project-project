@@ -55,8 +55,8 @@ export const SyncPageLimits = Context.Reference<
   Readonly<{ tickets: number; members: number; facts: number; entries: number }>
 >("@pp/server-core/sync/ProjectFacts/SyncPageLimits", {
   defaultValue: () => ({
-    tickets: 1000,
-    members: 5000,
+    tickets: 5000,
+    members: 25000,
     facts: 2000,
     entries: 20000
   })

@@ -31,13 +31,11 @@ import {
   rejectEdit
 } from "./store"
 import { localGroupMembers, localTicketData } from "./tables"
-import { changes, install, snapshot, ticket } from "./testFacts"
+import { changes, install, snapshot, ticket, direct } from "./testFacts"
 
 const TestDatabase = localDbLayer.pipe(
   Layer.provideMerge(SqliteClient.layerMemory({}))
 )
-
-const direct = <A, E, R>(transaction: Effect.Effect<A, E, R>) => transaction
 
 const decodeFact = Schema.decodeUnknownSync(Schema.fromJsonString(TicketFact))
 

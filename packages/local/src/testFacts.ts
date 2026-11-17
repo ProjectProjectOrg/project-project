@@ -113,8 +113,19 @@ export const onePage = (
   tickets: ReadonlyArray<TicketFact>
 ): SnapshotPage => pageOf(snapshot(base, tickets))
 
+export const direct = <A, E, R>(transaction: Effect.Effect<A, E, R>) =>
+  transaction
+
+export const directly = {
+  write: direct,
+  readsWaiting: Effect.succeed(false)
+}
+
 export const install = (scope: string, full: ProjectSnapshot) =>
-  Effect.andThen(beginStaging(scope, pageOf(full)), publishStaging(scope))
+  Effect.andThen(
+    beginStaging(scope, pageOf(full), directly),
+    publishStaging(scope, directly)
+  )
 
 export const noDescriptions = localDescriptionsLayer.pipe(
   Layer.provide(
