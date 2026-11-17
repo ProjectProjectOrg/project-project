@@ -170,6 +170,7 @@ export const appManifest = (
         default_events: [
           "pull_request",
           "repository",
+          "create",
           "delete",
           "check_suite",
           "status"

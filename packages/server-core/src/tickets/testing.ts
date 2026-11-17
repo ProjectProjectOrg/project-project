@@ -41,10 +41,11 @@ import * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import type { GitAutomationConfig } from "../git/automation"
 import { gitAutomationTestLayer } from "../git/automationTesting"
+import type * as GitSyncSchedule from "../git/GitSyncSchedule"
+import { gitSyncScheduleTestLayer } from "../git/gitSyncScheduleTesting"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
-import type * as PullRequestSnapshots from "../github/PullRequestSnapshots"
 import { pullRequestSnapshotsTestLayer } from "../github/pullRequestSnapshotsTesting"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
@@ -1051,7 +1052,7 @@ export type TicketsLayerOptions = Readonly<{
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >
   attachments?: Layer.Layer<Attachments.Attachments>
-  pullRequestSnapshots?: Layer.Layer<PullRequestSnapshots.PullRequestSnapshots>
+  gitSyncSchedule?: Layer.Layer<GitSyncSchedule.GitSyncSchedule>
   figmaLinks?: Layer.Layer<FigmaLinks.FigmaLinks>
   scope?: ProjectScope["Service"]
   gitAutomation?: GitAutomationConfig
@@ -1079,7 +1080,10 @@ export function makeTicketsLayer(
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(
-      options.pullRequestSnapshots ?? pullRequestSnapshotsTestLayer()
+      Layer.mergeAll(
+        pullRequestSnapshotsTestLayer(),
+        options.gitSyncSchedule ?? gitSyncScheduleTestLayer()
+      )
     ),
     Layer.provide(FakeDb),
     Layer.provide(FinishedStatuses.baseline),

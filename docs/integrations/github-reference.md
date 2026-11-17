@@ -58,11 +58,11 @@ it through ProjectProject. Forks with the same branch name are excluded.
 
 ## Branches created outside ProjectProject
 
-The project's background sync also discovers pushed branches in the connected
-repository. While the project is visible, the frontend reads git state every 15
-seconds and on focus, and each read starts a sync at most every 30 seconds, so a
-pushed branch appears within about a minute. Local-only branches become
-discoverable after a push.
+The project's sync also discovers pushed branches in the connected repository.
+A pushed branch's `create` webhook asks for a sync, so it appears within about a
+minute; without the webhook, the sweep finds it within half an hour. Apps
+registered before the `create` event was added need it enabled in their GitHub
+App settings. Local-only branches become discoverable after a push.
 
 An unlinked, active ticket can acquire a branch containing its ID, such as
 `feat/PP-123-add-search`. Matching is case-insensitive, so branches created
@@ -103,11 +103,29 @@ webhook, which carries no checks, keeps the stored ones. Losing the table costs
 one sync per project. A pull request without a stored row shows as pending
 until a sync stores it.
 
-Reading a project's git state returns the stored state and starts a background
-sync of that project, at most one at a time and at most every 30 seconds per
-backend process. `sync_git_state` waits for a sync, joining one already
-running. Token, repository and rate-limit problems in a response are those of
-the project's last sync in this process.
+Reading git state never starts a sync. A sweep does: a cluster `Singleton`
+(`GitStateSweep`) that runs once a minute on one runner and syncs up to 25 due
+projects. `github_project_sync` holds each project's next sync time, last
+outcome and failure count:
+
+- open pull requests, or merges waiting to land: every minute while there was
+  activity in the last 30 minutes, otherwise every 5 minutes;
+- branches without pull requests, or tickets that could still get one: every
+  30 minutes;
+- everything else: hourly.
+
+Failures back off from one minute, doubling up to 30 minutes, and never retry
+before GitHub's rate-limit reset. A connected project without a row is due at
+once. Pull request, branch, check and status webhooks, and creating, attaching
+or stacking a branch or opening a pull request in ProjectProject, make the
+project due now, so the next sweep picks it up. `sync_git_state` syncs at once,
+joining a sync already running for the project. Token, repository and
+rate-limit problems in a response are those of the project's last sync.
+
+A sync skips tickets whose pull request merged and landed once its details are
+stored, unless a stacked layer is still open; their state comes from
+`github_pull_request`. A deleted branch on such a ticket is handled by the
+`delete` webhook.
 
 Project-state reads share a bounded 15-second cache and in-flight requests.
 Repository mutations and GitHub App webhooks invalidate the affected cache.

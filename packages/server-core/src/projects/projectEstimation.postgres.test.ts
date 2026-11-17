@@ -25,6 +25,7 @@ import * as Attachments from "../attachments/Attachments"
 import * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import { gitAutomationTestLayer } from "../git/automationTesting"
+import * as GitSyncSchedule from "../git/GitSyncSchedule"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as PullRequestSnapshots from "../github/PullRequestSnapshots"
@@ -129,7 +130,12 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         Layer.provide(testActivityLayer(id)),
         Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
         Layer.provide(TicketBranchIndex.layer.pipe(Layer.provide(db))),
-        Layer.provide(PullRequestSnapshots.layer.pipe(Layer.provide(db))),
+        Layer.provide(
+          Layer.mergeAll(
+            PullRequestSnapshots.layer,
+            GitSyncSchedule.layer
+          ).pipe(Layer.provide(db))
+        ),
         Layer.provide(db),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(accessLayer({})),

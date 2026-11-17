@@ -48,6 +48,7 @@ import {
   gitAutomationTestLayer,
   gitAutomationTestService
 } from "./automationTesting"
+import { gitSyncScheduleTestLayer } from "./gitSyncScheduleTesting"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketGit from "./TicketGit"
 
@@ -97,7 +98,12 @@ it.effect("syncGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(makeFakeTicketIndex(docs.documents)),
     Layer.provide(FakeDb),
-    Layer.provide(pullRequestSnapshotsTestLayer()),
+    Layer.provide(
+      Layer.mergeAll(
+        pullRequestSnapshotsTestLayer(),
+        gitSyncScheduleTestLayer()
+      )
+    ),
     Layer.provide(FinishedStatuses.baseline),
     Layer.provideMerge(testInfra())
   )
@@ -195,8 +201,12 @@ it.effect(
         })
       ),
       Layer.provide(FakeDb),
-      Layer.provide(pullRequestSnapshotsTestLayer()),
-      Layer.provide(pullRequestSnapshotsTestLayer()),
+      Layer.provide(
+        Layer.mergeAll(
+          pullRequestSnapshotsTestLayer(),
+          gitSyncScheduleTestLayer()
+        )
+      ),
       Layer.provide(FinishedStatuses.baseline),
       Layer.provideMerge(testInfra())
     )
@@ -378,47 +388,96 @@ it.effect("listGitStates serves the pull request a sync stored", () => {
   }).pipe(Effect.provide(layer))
 })
 
-it.effect(
-  "listGitStates answers from storage and starts one background sync",
-  () => {
-    const docs = makeFakeTicketDocs(["T-1"])
-    const started = Deferred.makeUnsafe<void>()
-    const release = Deferred.makeUnsafe<void>()
-    let fetches = 0
-    const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T"),
-      projectGithub: makeFakeProjectGithub({
-        integration: () => Effect.succeed(githubIntegration)
-      }),
-      ticketIndex: makeFakeTicketIndex(docs.documents),
-      github: makeFakeGitHub({
-        fetchInstallationProjectStates: () =>
-          Effect.gen(function* () {
-            fetches += 1
-            yield* Deferred.succeed(started, undefined)
-            yield* Deferred.await(release)
-            return {
-              defaultBranch: "main",
-              openPullRequestText: new Map(),
-              mergedPrsByBranch: new Map(),
-              fetchedAt: isoDate("2026-04-01T00:00:00Z"),
-              existingBranches: new Set<string>(),
-              prByBranch: new Map()
-            }
-          })
-      })
+it.effect("syncGitStates leaves landed tickets to storage", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1-done",
+      pr: 7,
+      prState: "merged",
+      lastTransitionedPr: 7
     })
-    return Effect.gen(function* () {
-      const git = yield* TicketGit.TicketGit
-      const first = yield* git.listGitStates()
-      expect(first.states["T-1"]).toMatchObject({ tag: "no_branch" })
-      yield* Deferred.await(started)
-      yield* git.listGitStates()
-      expect(fetches).toBe(1)
-      yield* Deferred.succeed(release, undefined)
-    }).pipe(Effect.provide(layer))
-  }
-)
+  )
+  docs.documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { branch: "feat/T-2-wip" })
+  )
+  const requested: Array<ReadonlyArray<string>> = []
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      fetchInstallationProjectStates: (
+        _installation,
+        _owner,
+        _name,
+        branches
+      ) =>
+        Effect.sync(() => {
+          requested.push(branches)
+          return {
+            defaultBranch: "main",
+            openPullRequestText: new Map(),
+            mergedPrsByBranch: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(["feat/T-1-done", "feat/T-2-wip"]),
+            prByBranch: new Map([
+              [
+                "feat/T-1-done",
+                {
+                  headRefName: "feat/T-1-done",
+                  baseRefName: "main",
+                  state: "merged",
+                  draft: false,
+                  number: 7,
+                  url: "https://github.com/acme/app/pull/7",
+                  title: "Done work",
+                  mergedAt: isoDate("2026-03-30T00:00:00Z"),
+                  checks: "passing"
+                }
+              ]
+            ])
+          }
+        })
+    })
+  })
+  return Effect.gen(function* () {
+    const git = yield* TicketGit.TicketGit
+    yield* git.syncGitStates()
+    const second = yield* git.syncGitStates()
+    expect(requested[0]).toContain("feat/T-1-done")
+    expect(requested[1]).toEqual(["feat/T-2-wip"])
+    expect(second.states["T-1"]).toMatchObject({
+      tag: "pr_merged",
+      title: "Done work"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("attachBranch asks for a sync of the project", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const requested: Array<string> = []
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      branchExistsInstallation: () => Effect.succeed(true)
+    }),
+    gitSyncSchedule: gitSyncScheduleTestLayer(requested)
+  })
+  return Effect.gen(function* () {
+    const git = yield* TicketGit.TicketGit
+    yield* git.attachBranch("T-1", { name: "feat/T-1" })
+    expect(requested).toEqual([(yield* ProjectScope).projectId])
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("syncGitStates links an external branch and its existing PR", () => {
   const docs = makeFakeTicketDocs(["T-1"])
@@ -1344,7 +1403,9 @@ it.effect(
               openPullRequestText: new Map(),
               mergedPrsByBranch: new Map(),
               existingBranches: new Set(),
-              prByBranch: new Map([["feat/T-1", mergedPullRequest("main")]]),
+              prByBranch: new Map([
+                ["feat/T-1", { ...mergedPullRequest("main"), state: "open" }]
+              ]),
               fetchedAt: DateTime.toDate(
                 DateTime.makeUnsafe("2026-06-01T00:00:00Z")
               )

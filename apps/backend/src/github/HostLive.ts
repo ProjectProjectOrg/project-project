@@ -155,6 +155,7 @@ export const GitHubHostLive = Layer.effect(
             )
           ),
       checkStateChanged: events.checkStateChanged,
+      branchCreated: events.branchCreated,
       requireInstallPermission,
       installationRedirect,
       installationChoiceRedirect,

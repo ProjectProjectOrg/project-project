@@ -2,7 +2,7 @@ import type {
   Forbidden,
   GitHubError,
   GitHubPullRequestWebhookChange,
-  GitHubBranchDeletionChange,
+  GitHubBranchChange,
   GitHubCheckWebhookChange,
   GitHubTokenExpired,
   NotFound,
@@ -51,7 +51,11 @@ export class GitHubHost extends Context.Service<
       deliveryId: string | null
     ) => Effect.Effect<void, GitHubError>
     branchDeleted: (
-      change: GitHubBranchDeletionChange,
+      change: GitHubBranchChange,
+      deliveryId: string | null
+    ) => Effect.Effect<void, GitHubError>
+    branchCreated: (
+      change: GitHubBranchChange,
       deliveryId: string | null
     ) => Effect.Effect<void, GitHubError>
     checkStateChanged: (

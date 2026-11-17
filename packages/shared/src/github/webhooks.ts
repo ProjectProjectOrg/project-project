@@ -24,7 +24,7 @@ export type GitHubRepositoryMetadataChange = Readonly<{
   defaultBranch: string
 }>
 
-export type GitHubBranchDeletionChange = Readonly<{
+export type GitHubBranchChange = Readonly<{
   installationId: string
   repositoryId: string
   branch: string
