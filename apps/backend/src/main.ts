@@ -68,6 +68,7 @@ import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActiv
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
+import { SprintMigrationLive } from "@pp/server-core/groups/SprintMigration"
 import { LibraryMigrationLive } from "@pp/server-core/library/LibraryMigrationLive"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { TicketRankBackfillLive } from "@pp/server-core/tickets/TicketRankBackfill"
@@ -538,7 +539,13 @@ const LibraryMigrationBootLive = LibraryMigrationLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
+const SprintMigrationBootLive = SprintMigrationLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
 const RankBackfillLive = TicketRankBackfillLive.pipe(
+  Layer.provide(SprintMigrationBootLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
 )
