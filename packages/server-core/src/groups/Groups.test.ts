@@ -83,6 +83,7 @@ function makeFakeDocs(initial?: {
   epicIds?: ReadonlyArray<string>
   groups?: Record<string, GroupDetail>
   failingTicketWrites?: ReadonlyArray<string>
+  failingGroupRemovals?: ReadonlyArray<string>
 }) {
   const groups = new Map<string, GroupDocs.GroupDocument>(
     Object.entries(initial?.groups ?? {})
@@ -146,6 +147,13 @@ function makeFakeDocs(initial?: {
       return Effect.void
     },
     remove: (_org: string, _slug: string, id: string) => {
+      if (initial?.failingGroupRemovals?.includes(id))
+        return Effect.fail(
+          new Markdown.MarkdownError({
+            cause: "remove failed",
+            message: "remove failed"
+          })
+        )
       if (!groups.has(id)) return Effect.fail(new NotFound())
       groups.delete(id)
       return Effect.void
@@ -1378,6 +1386,27 @@ it.effect("deleting a sprint takes its tickets out of it", () => {
       [...fake.state.ticketsById.values()].map((ticket) => ticket.sprint)
     ).toEqual([undefined, undefined])
     expect(fake.state.groups.has(sprint.id)).toBe(false)
+  }).pipe(Effect.provide(Layer.merge(fake.layer, scopeLayer("pm"))))
+})
+
+it.effect("failed sprint deletion restores its ticket memberships", () => {
+  const fake = fakeGroups({
+    ticketIds: ["T-1", "T-2"],
+    failingGroupRemovals: ["G-1"]
+  })
+  return Effect.gen(function* () {
+    const groups = yield* Groups.Groups
+    const sprint = yield* groups.create({
+      name: "Sprint",
+      kind: "sprint",
+      tickets: [ticketId("T-1"), ticketId("T-2")]
+    })
+    const error = yield* groups.remove(sprint.id).pipe(Effect.flip)
+    expect(error._tag).toBe("MarkdownError")
+    expect((yield* groups.get(sprint.id)).tickets).toEqual(["T-1", "T-2"])
+    expect(
+      [...fake.state.ticketsById.values()].map((ticket) => ticket.sprint)
+    ).toEqual([sprint.id, sprint.id])
   }).pipe(Effect.provide(Layer.merge(fake.layer, scopeLayer("pm"))))
 })
 

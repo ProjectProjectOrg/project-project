@@ -561,6 +561,47 @@ it.effect(
   }
 )
 
+it.effect("bulk publication preserves a later sprint write", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const indexed = new Map(docs.documents)
+  const layer = makeTicketsLayer(
+    "T",
+    Layer.succeed(TicketDocs.TicketDocs, {
+      ...docs.service,
+      update: (...args) =>
+        docs.service.update(...args).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              const current = docs.documents.get("T-1")
+              if (current !== undefined) {
+                const moved = { ...current, sprint: groupId("G-2") }
+                docs.documents.set("T-1", moved)
+                indexed.set("T-1", moved)
+              }
+            })
+          )
+        )
+    }),
+    {
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        upsertTicket: (_project, document) =>
+          Effect.sync(() => {
+            indexed.set(document.id, document)
+          })
+      })
+    }
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets.bulkUpdate({
+      tickets: [ticketId("T-1")],
+      patch: { priority: "high" }
+    })
+    expect(docs.documents.get("T-1")?.sprint).toBe("G-2")
+    expect(indexed.get("T-1")?.sprint).toBe("G-2")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
   const { docs, layer } = makeBulkFixture()
   return Effect.gen(function* () {

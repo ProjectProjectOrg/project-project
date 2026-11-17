@@ -78,6 +78,7 @@ const sprintAssignments: Array<{
 }> = []
 const sprintMemberships = new Map<string, string>()
 const sprintTicketOrders = new Map<string, Array<string>>()
+const completedSprints = new Set<string>()
 const indexed = new Map<string, TicketDocs.TicketDocument>()
 const groupTimestamp = DateTime.toDate(
   DateTime.makeUnsafe("2026-09-13T00:00:00.000Z")
@@ -140,7 +141,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
         tickets: [],
         startsAt: null,
         endsAt: null,
-        completedAt: null,
+        completedAt: completedSprints.has(sprintId) ? groupTimestamp : null,
         createdBy: "user-1",
         createdAt: groupTimestamp,
         updatedAt: groupTimestamp,
@@ -377,6 +378,7 @@ const resetFakes = Effect.sync(() => {
   sprintAssignments.length = 0
   sprintMemberships.clear()
   sprintTicketOrders.clear()
+  completedSprints.clear()
   sprintAssignable = true
   failSprintAssignmentAt = Number.POSITIVE_INFINITY
   sprintAssignmentAttempts = 0
@@ -816,6 +818,30 @@ it.effect(
         .pipe(developer)
       expect(sprintMemberships.get(original.id)).toBe(sprintId)
     }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("split requires removal permission to leave a completed sprint", () =>
+  Effect.gen(function* () {
+    yield* resetFakes
+    const tickets = yield* TicketCommands.TicketCommands
+    const original = yield* seedOriginal
+    const source = decodeGroupId("G-1")
+    const destination = decodeGroupId("G-2")
+    yield* putInSprint(original.id, source)
+    sprintTicketOrders.set(source, [original.id])
+    sprintTicketOrders.set(destination, [])
+    completedSprints.add(source)
+    const error = yield* tickets
+      .split(original.id, {
+        results: [
+          { ...result("Retained", "feat", ["user-1"]), sprintId: destination },
+          result("New", "feat")
+        ]
+      })
+      .pipe(scopedAs("developer", "user-2"), Effect.flip)
+    expect(error._tag).toBe("Forbidden")
+    expect(sprintAssignments).toEqual([])
+  }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect(

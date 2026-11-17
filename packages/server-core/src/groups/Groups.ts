@@ -970,16 +970,33 @@ const make = Effect.gen(function* () {
         const { orgSlug, slug } = scope
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireGroupAction(existing.kind, "manage")
-        if (existing.kind === "sprint") {
-          const members = yield* sprintMembers(scope, existing.id)
-          yield* moveTickets(
-            scope,
-            members.map((member) => member.id),
-            undefined,
-            { cause: "group_deleted", from: existing.id }
+        const moved =
+          existing.kind === "sprint"
+            ? yield* sprintMembers(scope, existing.id).pipe(
+                Effect.flatMap((members) =>
+                  moveTickets(
+                    scope,
+                    members.map((member) => member.id),
+                    undefined,
+                    { cause: "group_deleted", from: existing.id }
+                  )
+                )
+              )
+            : []
+        yield* groupDocs.remove(orgSlug, slug, id).pipe(
+          Effect.onError(() =>
+            moveTickets(
+              scope,
+              moved.map((ticket) => ticket.id),
+              existing.id,
+              { cause: "group_deleted" }
+            ).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError("sprint delete: rollback failed", cause)
+              )
+            )
           )
-        }
-        yield* groupDocs.remove(orgSlug, slug, id)
+        )
       })
     )
   })

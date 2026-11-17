@@ -1222,7 +1222,10 @@ const make = Effect.gen(function* () {
       source.sprint
     )
     const retainedMoves = retainedInput.sprintId !== originalSprintId
-    if (retainedMoves && originalSprintId !== null) {
+    if (
+      source.sprint !== undefined &&
+      retainedInput.sprintId !== source.sprint
+    ) {
       yield* requirePolicy((scope) =>
         GroupPolicy.can(scope, "sprint", "remove_ticket")
       )
@@ -2234,21 +2237,23 @@ const make = Effect.gen(function* () {
                     ? { ...next, sprint: current.sprint }
                     : next
                 ),
-              undefined,
+              (saved) =>
+                Effect.gen(function* () {
+                  nexts[index] = saved
+                  written.push({
+                    original:
+                      sprint === undefined
+                        ? { ...original, sprint: saved.sprint }
+                        : original,
+                    next: saved
+                  })
+                  yield* ticketIndex.upsertTicket(scope, saved)
+                }),
               { settleLater: true }
             )
-            nexts[index] = saved
-            written.push({
-              original:
-                sprint === undefined
-                  ? { ...original, sprint: saved.sprint }
-                  : original,
-              next: saved
-            })
             if (saved.body !== original.body) {
               yield* reconcileBodyLinks(scope, saved)
             }
-            yield* ticketIndex.upsertTicket(scope, saved)
           }
         }).pipe(Effect.onError(() => revertWritten))
         return { originals, nexts }
