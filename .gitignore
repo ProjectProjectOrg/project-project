@@ -51,3 +51,5 @@ opensrc/
 .benchmark-results/
 docs/history/benchmarks/*.json
 docs/history/benchmarks/*.jsonl
+
+.agent.local/

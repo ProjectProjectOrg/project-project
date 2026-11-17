@@ -56,6 +56,10 @@ bun run build         # Frontend production build
 (`bun --watch`) dev scripts in parallel. Postgres stays up after you exit;
 stop it with `bun run dev:stop`.
 
+## Agent verification
+
+For isolated worktree verification, run `bun run dev:agent`, then open the printed magic link. Each worktree gets its own database, markdown and PM fixture. See [local agent verification](docs/agent-development.md) for login, persistence and cleanup.
+
 ## Tooling
 
 Bun, Turborepo, and the standalone frontend tools split the work:

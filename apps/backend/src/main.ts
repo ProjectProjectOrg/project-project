@@ -615,7 +615,21 @@ if (import.meta.main) {
   const BunRuntime = await import("@effect/platform-bun/BunRuntime")
   BunRuntime.runMain(
     Layer.launch(
-      AppLive.pipe(Layer.provide(BunHttpServer.layer({ port: 3000 })))
+      AppLive.pipe(
+        Layer.provide(
+          Layer.unwrap(
+            Effect.gen(function* () {
+              const port = yield* Config.Port("PORT").pipe(
+                Config.withDefault(3000)
+              )
+              const hostname = yield* Config.String("HOST").pipe(
+                Config.withDefault("0.0.0.0")
+              )
+              return BunHttpServer.layer({ port, hostname })
+            })
+          )
+        )
+      )
     )
   )
 }

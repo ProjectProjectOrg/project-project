@@ -237,6 +237,10 @@ New services, and services you split or substantially rewrite, follow one shape.
 
 Reference: `packages/server-core/src/tickets/` and t3code's `docs/internals/effect-services.md` in `opensrc/`.
 
+## Local agent verification
+
+Use `bun run dev:agent` for browser verification in a worktree. It provisions isolated agent resources and prints the app URL and a magic link for a seeded project PM. Open that link in the verification browser; run `bun run dev:login` for another. Keep the process running while verifying. Do not copy the normal checkout's `.env`, database or storage. `bun run dev:agent:stop` preserves edits; `bun run dev:agent:clean` explicitly deletes this worktree's fixture. Prune lists orphans by default and requires `--yes` to delete them. The local T3 project runs cleanup when a worktree thread is settled; link the PR to its thread so merging automatically settles it, or settle manually when its fixture data is no longer needed. Cleanup leaves source changes and the Git worktree in place. See `docs/agent-development.md` for details and interrupted-operation recovery.
+
 ## Repo orientation
 
 - **Architecture:** `docs/PROJECTPROJECT.md` — workspaces and what each owns.

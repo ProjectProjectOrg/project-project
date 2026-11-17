@@ -130,17 +130,29 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    allowedHosts: process.env.AGENT_PUBLIC_URL
+      ? [new URL(process.env.AGENT_PUBLIC_URL).hostname]
+      : [],
     proxy: {
       "/api": {
-        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
+        target:
+          process.env.AGENT_API_TARGET ??
+          process.env.JIRA_BROWSER_API_TARGET ??
+          "http://localhost:3000",
         changeOrigin: true
       },
       "/mcp": {
-        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
+        target:
+          process.env.AGENT_API_TARGET ??
+          process.env.JIRA_BROWSER_API_TARGET ??
+          "http://localhost:3000",
         changeOrigin: true
       },
       "/.well-known/": {
-        target: process.env.JIRA_BROWSER_API_TARGET ?? "http://localhost:3000",
+        target:
+          process.env.AGENT_API_TARGET ??
+          process.env.JIRA_BROWSER_API_TARGET ??
+          "http://localhost:3000",
         changeOrigin: true
       }
     }
