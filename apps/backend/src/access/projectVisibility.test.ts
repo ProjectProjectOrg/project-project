@@ -22,6 +22,7 @@ import * as Projects from "@pp/server-core/projects/Projects"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SyncLog from "@pp/server-core/sync/SyncLog"
+import * as DescriptionPages from "@pp/server-core/tickets/DescriptionPages"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDescriptions from "@pp/server-core/tickets/TicketDescriptions"
@@ -268,6 +269,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           Layer.mergeAll(
             Layer.mock(TicketCommands.TicketCommands, {}),
             Layer.mock(TicketDescriptions.TicketDescriptions, {}),
+            Layer.mock(DescriptionPages.DescriptionPages, {}),
             Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {})
           )

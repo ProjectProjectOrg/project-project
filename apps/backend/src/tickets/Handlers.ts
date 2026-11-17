@@ -1,6 +1,7 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in TicketQueries, TicketCommands and TicketGit.
 
 import * as TicketGit from "@pp/server-core/git/TicketGit"
+import * as DescriptionPages from "@pp/server-core/tickets/DescriptionPages"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDescriptions from "@pp/server-core/tickets/TicketDescriptions"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
@@ -98,6 +99,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("descriptions", ({ query }) =>
         Effect.flatMap(TicketDescriptions.TicketDescriptions, (descriptions) =>
           descriptions.read(query.ids)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("descriptionPage", ({ query }) =>
+        Effect.flatMap(DescriptionPages.DescriptionPages, (pages) =>
+          pages.page(query.page)
         ).pipe(dieOnMarkdown)
       )
       .handle("updateDescription", ({ params, payload }) =>

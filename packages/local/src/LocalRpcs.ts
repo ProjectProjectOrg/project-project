@@ -1,6 +1,7 @@
 import {
   EstimationMode,
   Group,
+  GroupDetail,
   GroupId,
   Ticket,
   TicketCountQuery,
@@ -161,14 +162,6 @@ export const DescriptionRequest = Schema.Struct({
 })
 export type DescriptionRequest = typeof DescriptionRequest.Type
 
-export const PrefetchDescriptionsRequest = Schema.Struct({
-  project: LocalProject,
-  ids: Schema.Array(Schema.String),
-  sprint: Schema.Boolean
-})
-export type PrefetchDescriptionsRequest =
-  typeof PrefetchDescriptionsRequest.Type
-
 export const SaveDescriptionRequest = Schema.Struct({
   project: LocalProject,
   id: Schema.String,
@@ -272,7 +265,6 @@ export class LocalRpcs extends RpcGroup.make(
     success: Schema.NullOr(LocalDescription),
     stream: true
   }),
-  Rpc.make("PrefetchDescriptions", { payload: PrefetchDescriptionsRequest }),
   Rpc.make("SaveDescription", { payload: SaveDescriptionRequest }),
   Rpc.make("ResolveDescription", { payload: ResolveDescriptionRequest }),
   Rpc.make("CachedTicketData", {
@@ -285,6 +277,11 @@ export class LocalRpcs extends RpcGroup.make(
   Rpc.make("ProjectFacts", {
     payload: LocalProject,
     success: Schema.NullOr(LocalProjectFacts),
+    stream: true
+  }),
+  Rpc.make("GroupDetail", {
+    payload: Schema.Struct({ project: LocalProject, id: Schema.String }),
+    success: Schema.NullOr(GroupDetail),
     stream: true
   })
 ) {}

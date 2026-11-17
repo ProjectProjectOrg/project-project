@@ -16,7 +16,12 @@ import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
 import { localSprintBoard } from "./board"
-import { descriptionKey, LocalDescriptions } from "./descriptions"
+import {
+  descriptionKey,
+  groupDescriptionKey,
+  LocalDescriptions,
+  localGroupDetail
+} from "./descriptions"
 import { localGroupList } from "./groups"
 import { type LocalDb, timed } from "./LocalDb"
 import {
@@ -269,8 +274,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           write("changes")
         )
         if (applied === "applied" && touches(response)) yield* changed(scope)
-        if (applied === "applied")
-          yield* descriptions.notice(scope, response.upserts.tickets)
+        if (applied === "applied") yield* descriptions.notice(project, response)
         return applied === "stale" || response.more
           ? ("again" as const)
           : ("caughtUp" as const)
@@ -361,10 +365,12 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       return resend(project).pipe(
         Effect.andThen(pullUntilCaughtUp(project)),
         Effect.andThen(refreshAtNextSprintStart(scope)),
+        Effect.andThen(descriptions.start(project, writer("descriptions"))),
         Effect.as<LocalStatus>({ kind: "ready", sync: "live" }),
         Effect.catchTags({
           SyncDenied: () =>
             forgetCopies(scope).pipe(
+              Effect.andThen(descriptions.forget(scope)),
               Effect.as<LocalStatus>({ kind: "denied" })
             ),
           SyncOffline: () => unavailable(scope, "offline")
@@ -587,8 +593,6 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           )
           .pipe(Stream.orDie)
       },
-      PrefetchDescriptions: (request) =>
-        descriptions.prefetch(request).pipe(Effect.orDie),
       SaveDescription: (request) =>
         descriptions.save(request).pipe(Effect.orDie),
       ResolveDescription: (request) =>
@@ -603,7 +607,18 @@ export const localRpcsLayer = LocalRpcs.toLayer(
             [projectKey(scopeOf(project))],
             readCopy("ProjectFacts", project, localProjectFacts)
           )
+          .pipe(Stream.orDie),
+      GroupDetail: (request) => {
+        const scope = scopeOf(request.project)
+        return sql
+          .reactive(
+            [projectKey(scope), groupDescriptionKey(scope, request.id)],
+            readCopy("GroupDetail", request.project, (copy) =>
+              localGroupDetail(scope, copy, request.id)
+            )
+          )
           .pipe(Stream.orDie)
+      }
     }
   })
 )

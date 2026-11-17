@@ -19,6 +19,7 @@ import {
 } from "@pp/local"
 import {
   AppApi,
+  GroupId,
   OPERATION_ID_HEADER,
   SYNC_RECEIPT_HEADER,
   TicketId
@@ -136,6 +137,11 @@ const descriptionSourceLayer = Layer.effect(
               ),
         baseUrl: "/api"
       })
+    const groups = HttpApiClient.group(AppApi, {
+      group: "groups",
+      httpClient,
+      baseUrl: "/api"
+    })
     return {
       fetch: (project, ids) =>
         tickets(null).pipe(
@@ -149,6 +155,40 @@ const descriptionSourceLayer = Layer.effect(
             Conflict: Effect.die,
             Validation: Effect.die,
             NotFound: () => new SyncDenied(),
+            Forbidden: () => new SyncDenied(),
+            HttpClientError: () => new SyncOffline(),
+            Unauthorized: () => new SyncOffline(),
+            SchemaError: Effect.die
+          })
+        ),
+      page: (project, token) =>
+        tickets(null).pipe(
+          Effect.flatMap((client) =>
+            client.descriptionPage({
+              params: project,
+              query: token === null ? {} : { page: token }
+            })
+          ),
+          Effect.catchTags({
+            Conflict: Effect.die,
+            Validation: Effect.die,
+            NotFound: () => new SyncDenied(),
+            Forbidden: () => new SyncDenied(),
+            HttpClientError: () => new SyncOffline(),
+            Unauthorized: () => new SyncOffline(),
+            SchemaError: Effect.die
+          })
+        ),
+      group: (project, id) =>
+        groups.pipe(
+          Effect.flatMap((client) =>
+            client.get({ params: { ...project, id: GroupId.make(id) } })
+          ),
+          Effect.map((group): string | null => group.body),
+          Effect.catchTags({
+            Conflict: Effect.die,
+            Validation: Effect.die,
+            NotFound: () => Effect.succeed(null),
             Forbidden: () => new SyncDenied(),
             HttpClientError: () => new SyncOffline(),
             Unauthorized: () => new SyncOffline(),

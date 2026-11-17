@@ -131,6 +131,8 @@ export const noDescriptions = localDescriptionsLayer.pipe(
   Layer.provide(
     Layer.succeed(DescriptionSource, {
       fetch: () => Effect.succeed([]),
+      page: () => Effect.succeed({ descriptions: [], groups: [], next: null }),
+      group: () => Effect.succeed(null),
       save: () => Effect.succeed(SaveOutcome.Rejected({ reason: "test" }))
     })
   )

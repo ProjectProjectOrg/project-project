@@ -180,11 +180,28 @@ export const localDescriptions = sqliteTable(
     id: text("id").notNull(),
     body: text("body").notNull(),
     revision: text("revision").notNull(),
-    missing: text("missing").notNull(),
-    used: integer("used").notNull()
+    missing: text("missing").notNull()
   },
   (t) => [primaryKey({ columns: [t.scope, t.id] })]
 )
+
+export const localGroupDescriptions = sqliteTable(
+  "local_group_descriptions",
+  {
+    scope: text("scope").notNull(),
+    id: text("id").notNull(),
+    body: text("body").notNull(),
+    revision: text("revision").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.id] })]
+)
+
+export const localDescriptionSync = sqliteTable("local_description_sync", {
+  scope: text("scope").primaryKey(),
+  stage: text("stage", { enum: ["pages", "reconcile", "done"] }).notNull(),
+  next: text("next"),
+  copy: integer("copy")
+})
 
 export const localDescriptionEdits = sqliteTable(
   "local_description_edits",

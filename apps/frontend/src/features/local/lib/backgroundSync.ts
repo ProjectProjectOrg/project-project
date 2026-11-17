@@ -9,7 +9,7 @@ export const BACKGROUND_LIMIT = 5
 export const LARGE_PROJECT_TICKETS = 50_000
 export const RECENTLY_OPENED_MS = 14 * 24 * 60 * 60 * 1000
 export const RESYNC_AFTER_MS = 10 * 60 * 1000
-export const BYTES_PER_TICKET = 1_500
+export const BYTES_PER_TICKET = 2_500
 export const MIN_FREE_BYTES = 200 * 1024 * 1024
 
 export type OpenedProject = Readonly<{

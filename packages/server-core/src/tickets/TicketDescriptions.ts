@@ -50,14 +50,11 @@ export class TicketDescriptions extends Context.Service<
   }>
 >()("@pp/server-core/tickets/TicketDescriptions") {}
 
-const make = Effect.gen(function* () {
-  const db = yield* Db
+export const makeDescriber = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const library = yield* Library.Library
   const attachments = yield* Attachments.Attachments
-  const commands = yield* TicketCommands.TicketCommands
-
-  const describe = Effect.fnUntraced(function* (
+  return Effect.fnUntraced(function* (
     scope: ProjectScope["Service"],
     id: string,
     revision: string
@@ -81,6 +78,12 @@ const make = Effect.gen(function* () {
       missingAttachments
     } satisfies TicketDescription
   })
+})
+
+const make = Effect.gen(function* () {
+  const db = yield* Db
+  const describe = yield* makeDescriber
+  const commands = yield* TicketCommands.TicketCommands
 
   const read = Effect.fn("TicketDescriptions.read")(function* (
     ids: ReadonlyArray<string>

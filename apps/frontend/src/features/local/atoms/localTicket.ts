@@ -84,16 +84,6 @@ export const localTicketDetail = Atom.family((req: TicketRequest) =>
   })
 )
 
-export const prefetchDescriptions = Atom.family(
-  (request: LocalProjectRequest) =>
-    localRuntime.atom((get) => {
-      if (get(localReady(request)) !== true) return Effect.void
-      return Effect.flatMap(LocalClient, (client) =>
-        client.PrefetchDescriptions({ project: request, ids: [], sprint: true })
-      ).pipe(Effect.ignore)
-    })
-)
-
 export const saveDescription = localRuntime.fn(
   Effect.fn("saveDescription")(function* (
     request: Parameters<LocalClient["Service"]["SaveDescription"]>[0]
