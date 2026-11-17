@@ -1407,6 +1407,30 @@ it.effect(
     )
 )
 
+it.effect(
+  "setSprintMembership rejects completed and deleted destinations",
+  () =>
+    Effect.gen(function* () {
+      yield* setTestNow
+      const groups = yield* Groups.Groups
+      const sprint = yield* groups.create({ name: "Sprint", kind: "sprint" })
+      yield* groups.update(sprint.id, {
+        completedAt: isoDate("2026-04-02T00:00:00.000Z")
+      })
+      const completed = yield* groups
+        .setSprintMembership(ticketId("T-1"), sprint.id, { from: null })
+        .pipe(Effect.flip)
+      expect(completed._tag).toBe("SprintCompletedImmutable")
+      yield* groups.remove(sprint.id)
+      const deleted = yield* groups
+        .setSprintMembership(ticketId("T-1"), sprint.id, { from: null })
+        .pipe(Effect.flip)
+      expect(deleted._tag).toBe("NotFound")
+    }).pipe(
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "pm" }))
+    )
+)
+
 it.effect("lets a client read groups but not create or change them", () =>
   Effect.gen(function* () {
     const groups = yield* Groups.Groups

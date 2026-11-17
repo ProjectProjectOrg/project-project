@@ -32,7 +32,7 @@ import {
   as
 } from "./testing"
 import * as TicketCommands from "./TicketCommands"
-import type * as TicketDocs from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketQueries from "./TicketQueries"
 
 it.effect(
@@ -527,6 +527,39 @@ const makeBulkFixture = (sprint: Group = bulkSprint) =>
     ],
     [sprint]
   )
+
+it.effect(
+  "bulk field edits preserve a sprint change that lands before their write",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const layer = makeTicketsLayer(
+      "T",
+      Layer.succeed(TicketDocs.TicketDocs, {
+        ...docs.service,
+        update: (...args) =>
+          Effect.gen(function* () {
+            const current = docs.documents.get("T-1")
+            if (current !== undefined) {
+              docs.documents.set("T-1", { ...current, sprint: groupId("G-2") })
+            }
+            return yield* docs.service.update(...args)
+          })
+      }),
+      { ticketIndex: makeFakeTicketIndex(docs.documents) }
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      yield* tickets.bulkUpdate({
+        tickets: [ticketId("T-1")],
+        patch: { priority: "high" }
+      })
+      expect(docs.documents.get("T-1")).toMatchObject({
+        priority: "high",
+        sprint: "G-2"
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
   const { docs, layer } = makeBulkFixture()

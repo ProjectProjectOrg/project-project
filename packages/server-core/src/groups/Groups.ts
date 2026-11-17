@@ -170,7 +170,11 @@ export class Groups extends Context.Service<
       options?: SprintMembershipOptions
     ) => Effect.Effect<
       void,
-      Conflict | NotFound | Markdown.MarkdownError,
+      | Conflict
+      | Forbidden
+      | NotFound
+      | SprintCompletedImmutable
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     removeTicketFromAllGroups: (
@@ -1029,34 +1033,37 @@ const make = Effect.gen(function* () {
     ) {
       const scope = yield* ProjectScope
       return yield* withSprints((sprints) =>
-        ticketDocs
-          .update(
-            scope.orgSlug,
-            scope.slug,
-            ticketId,
-            (document) =>
-              Effect.gen(function* () {
-                if (
-                  options?.from !== undefined &&
-                  openSprintOf(sprints, document.sprint) !== options.from
-                ) {
-                  return yield* new Conflict({
-                    reason: "sprint_membership_changed"
-                  })
-                }
-                const sprint = sprintId ?? undefined
-                return sprint === document.sprint
-                  ? document
-                  : { ...document, sprint }
-              }),
-            (next) => ticketIndex.upsertTicket(scope, next)
-          )
-          .pipe(
-            Effect.asVoid,
-            Effect.catchTag("MalformedTicketDocument", () =>
-              Effect.fail(new NotFound())
+        Effect.gen(function* () {
+          if (sprintId !== null) yield* assignable(sprints, [sprintId])
+          return yield* ticketDocs
+            .update(
+              scope.orgSlug,
+              scope.slug,
+              ticketId,
+              (document) =>
+                Effect.gen(function* () {
+                  if (
+                    options?.from !== undefined &&
+                    openSprintOf(sprints, document.sprint) !== options.from
+                  ) {
+                    return yield* new Conflict({
+                      reason: "sprint_membership_changed"
+                    })
+                  }
+                  const sprint = sprintId ?? undefined
+                  return sprint === document.sprint
+                    ? document
+                    : { ...document, sprint }
+                }),
+              (next) => ticketIndex.upsertTicket(scope, next)
             )
-          )
+            .pipe(
+              Effect.asVoid,
+              Effect.catchTag("MalformedTicketDocument", () =>
+                Effect.fail(new NotFound())
+              )
+            )
+        })
       )
     }
   )
@@ -1069,23 +1076,6 @@ const make = Effect.gen(function* () {
       orgSlug,
       slug,
       Effect.gen(function* () {
-        yield* ticketDocs
-          .update(
-            orgSlug,
-            slug,
-            ticketId,
-            (document) =>
-              Effect.succeed(
-                document.sprint === undefined
-                  ? document
-                  : { ...document, sprint: undefined }
-              ),
-            (next) => ticketIndex.upsertTicket(project, next)
-          )
-          .pipe(
-            Effect.catchTag("NotFound", () => Effect.void),
-            Effect.catchTag("MalformedTicketDocument", () => Effect.void)
-          )
         const ids = yield* groupDocs.listIds(orgSlug, slug)
         yield* Effect.forEach(
           ids,

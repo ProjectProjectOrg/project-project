@@ -1452,6 +1452,15 @@ it.effect(
         []
       )
       expect(result.plan.groups.map((group) => group.kind)).toEqual(["sprint"])
+      expect(
+        result.plan.indexes.tickets.map(({ ticketId, sprintId }) => ({
+          ticketId,
+          sprintId
+        }))
+      ).toEqual([
+        { ticketId: "APP-1", sprintId: "G-1" },
+        { ticketId: "APP-4", sprintId: null }
+      ])
       expect(result.plan.archive.categories.customFields).toEqual([
         {
           id: "custom",

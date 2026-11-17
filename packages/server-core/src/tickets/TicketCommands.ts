@@ -2213,19 +2213,31 @@ const make = Effect.gen(function* () {
           for (const [index, next] of nexts.entries()) {
             const original = originals[index]
             if (next === original) continue
-            yield* ticketDocs.update(
+            const saved = yield* ticketDocs.update(
               orgSlug,
               slug,
               next.id,
-              () => Effect.succeed(next),
+              (current) =>
+                Effect.succeed(
+                  sprint === undefined
+                    ? { ...next, sprint: current.sprint }
+                    : next
+                ),
               undefined,
               { settleLater: true }
             )
-            written.push({ original, next })
-            if (next.body !== original.body) {
-              yield* reconcileBodyLinks(scope, next)
+            nexts[index] = saved
+            written.push({
+              original:
+                sprint === undefined
+                  ? { ...original, sprint: saved.sprint }
+                  : original,
+              next: saved
+            })
+            if (saved.body !== original.body) {
+              yield* reconcileBodyLinks(scope, saved)
             }
-            yield* ticketIndex.upsertTicket(scope, next)
+            yield* ticketIndex.upsertTicket(scope, saved)
           }
         }).pipe(Effect.onError(() => revertWritten))
         return { originals, nexts }
