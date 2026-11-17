@@ -3,20 +3,18 @@ import type { TicketListQuery } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  backlogRequest,
-  quickCreateBacklogTicket
-} from "@/features/tickets/atoms/backlog"
+import { backlogRequest } from "@/features/tickets/atoms/backlog"
+import { quickCreateBacklogTicketOnServer } from "@/features/tickets/atoms/backlogCreate"
 
 import { TicketComposer } from "./TicketComposer"
 
 export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = backlogRequest(orgSlug, slug, query)
-  const create = useAtomSet(quickCreateBacklogTicket(req), {
+  const create = useAtomSet(quickCreateBacklogTicketOnServer(req), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateBacklogTicket(req))
+  const createState = useAtomValue(quickCreateBacklogTicketOnServer(req))
   const navigate = useNavigate()
 
   return (

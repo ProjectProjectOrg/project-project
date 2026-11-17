@@ -29,11 +29,11 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import { allPages } from "./allPages"
+import { createdKeys, recordCreatedKey } from "./createdKeys"
 import {
   bulkTicketUpdate,
   coalescingTicketUpdate,
-  createdKeys,
-  recordCreatedKey
+  localFirstCreate
 } from "./ticketRows"
 
 export type ChildTicketsRequest = Readonly<{
@@ -144,55 +144,59 @@ export type ChildTicketCreateInput = Readonly<{
 }>
 
 export const createChildTicket = Atom.family((req: ChildTicketsRequest) =>
-  viewMutation(childTickets(req), {
-    name: "createChildTicket",
-    predict: (rows, input: ChildTicketCreateInput) => {
-      const row = placeholderRow(
-        input,
-        rows,
-        input.payload.status ?? TicketStatus.make("todo"),
-        DateTime.toDate(DateTime.nowUnsafe())
-      )
-      const { priority, assignees, estimate } = input.payload
-      return [
-        ...rows,
-        {
-          ...row,
-          ticket: {
-            ...row.ticket,
-            priority: priority ?? row.ticket.priority,
-            assignees: assignees ?? [],
-            estimate: estimate ?? null
+  localFirstCreate(
+    req.params,
+    viewMutation(childTickets(req), {
+      name: "createChildTicket",
+      predict: (rows, input: ChildTicketCreateInput) => {
+        const row = placeholderRow(
+          input,
+          rows,
+          input.payload.status ?? TicketStatus.make("todo"),
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+        const { priority, assignees, estimate } = input.payload
+        return [
+          ...rows,
+          {
+            ...row,
+            ticket: {
+              ...row.ticket,
+              priority: priority ?? row.ticket.priority,
+              assignees: assignees ?? [],
+              estimate: estimate ?? null
+            }
           }
-        }
-      ]
-    },
-    call: (client, input, get) =>
-      client.tickets
-        .create({
-          params: req.params,
-          payload: { ...input.payload, parent: input.parent.id }
-        })
-        .pipe(
-          Effect.tap((created) =>
-            Effect.sync(() =>
-              recordCreatedKey(
-                get,
-                scopeOf(req),
-                created.id,
-                input.prediction.clientId
+        ]
+      },
+      call: (client, input, get) =>
+        client.tickets
+          .create({
+            params: req.params,
+            payload: { ...input.payload, parent: input.parent.id }
+          })
+          .pipe(
+            Effect.tap((created) =>
+              Effect.sync(() =>
+                recordCreatedKey(
+                  get,
+                  scopeOf(req),
+                  created.id,
+                  input.prediction.clientId
+                )
               )
             )
-          )
+          ),
+      confirm: (rows, created, input) =>
+        rows.map((row) =>
+          row.key === input.prediction.clientId
+            ? { ...row, ticket: created, pending: false }
+            : row
         ),
-    confirm: (rows, created, input) =>
-      rows.map((row) =>
-        row.key === input.prediction.clientId
-          ? { ...row, ticket: created, pending: false }
-          : row
-      ),
-    publish: () => Keys.ticketsChanged(scopeOf(req))
-  })
+      publish: () => Keys.ticketsChanged(scopeOf(req))
+    }),
+    (input: ChildTicketCreateInput) => ({ ...input, sprint: null })
+  )
 )
 
 type ChildTicketKey = Readonly<{ req: ChildTicketsRequest; id: TicketId }>

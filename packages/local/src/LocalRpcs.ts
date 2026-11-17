@@ -253,6 +253,7 @@ export class LocalRpcs extends RpcGroup.make(
       write: PendingWrite,
       edits: Schema.Array(PendingEdit)
     }),
+    success: Schema.NullOr(TicketId),
     error: EditRejected
   }),
   Rpc.make("Ticket", {

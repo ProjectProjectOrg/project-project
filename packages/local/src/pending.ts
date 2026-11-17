@@ -2,8 +2,10 @@ import {
   applyListEdit,
   BulkUpdateTicketsInput,
   Conflict,
+  CreateTicketInput,
   Estimate,
   Forbidden,
+  GroupId,
   ListEdit,
   MentionInvalid,
   NotFound,
@@ -29,7 +31,8 @@ export const Intent = Schema.TaggedUnion({
   flag: { flag: Schema.NullOr(TicketFlag) },
   rank: { rank: Schema.String },
   sprint: { sprint: Schema.NullOr(Schema.String) },
-  parent: { parent: Schema.NullOr(Schema.String) }
+  parent: { parent: Schema.NullOr(Schema.String) },
+  create: { fact: TicketFact }
 })
 export type Intent = typeof Intent.Type
 
@@ -41,7 +44,12 @@ export type PendingEdit = typeof PendingEdit.Type
 
 export const PendingWrite = Schema.TaggedUnion({
   update: { ticket: TicketId, payload: UpdateTicketInput },
-  bulk: { payload: BulkUpdateTicketsInput }
+  bulk: { payload: BulkUpdateTicketsInput },
+  create: {
+    placeholder: TicketId,
+    payload: CreateTicketInput,
+    sprint: Schema.NullOr(GroupId)
+  }
 })
 export type PendingWrite = typeof PendingWrite.Type
 
@@ -70,6 +78,22 @@ export const decodeWrite = Schema.decodeUnknownSync(
 export const decodeFact = Schema.decodeUnknownSync(
   Schema.fromJsonString(TicketFact)
 )
+export const encodeBase = Schema.encodeSync(
+  Schema.fromJsonString(Schema.NullOr(TicketFact))
+)
+export const decodeBase = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.NullOr(TicketFact))
+)
+
+const PLACEHOLDER_FLOOR = 1e15
+
+export const placeholderTicketId = (prefix: string, random: number): TicketId =>
+  TicketId.make(
+    `${prefix}-${PLACEHOLDER_FLOOR + Math.floor(random * PLACEHOLDER_FLOOR)}`
+  )
+
+export const isPlaceholderTicket = (id: string): boolean =>
+  Number(id.slice(id.lastIndexOf("-") + 1)) >= PLACEHOLDER_FLOOR
 
 export type Membership = Readonly<{ group: string; position: number }>
 
@@ -118,22 +142,35 @@ const applyToFact = (fact: TicketFact, intent: Intent): TicketFact =>
     flag: ({ flag }) => ({ ...fact, flag }),
     rank: ({ rank }) => ({ ...fact, rank }),
     parent: ({ parent }) => ({ ...fact, parent }),
-    sprint: () => fact
+    sprint: () => fact,
+    create: () => fact
   })
 
+const applyIntent = (
+  state: TicketState | null,
+  intent: Intent,
+  openSprints: ReadonlySet<string>
+): TicketState | null => {
+  if (Intent.guards.create(intent))
+    return state ?? { fact: intent.fact, groups: [] }
+  if (state === null) return null
+  if (Intent.guards.sprint(intent))
+    return {
+      ...state,
+      groups: intoSprint(state.groups, intent.sprint, openSprints)
+    }
+  return { ...state, fact: applyToFact(state.fact, intent) }
+}
+
 export const applyIntents = (
-  state: TicketState,
+  state: TicketState | null,
   intents: ReadonlyArray<Intent>,
   openSprints: ReadonlySet<string>
-): TicketState => {
-  let fact = state.fact
-  let groups = state.groups
-  for (const intent of intents)
-    if (Intent.guards.sprint(intent))
-      groups = intoSprint(groups, intent.sprint, openSprints)
-    else fact = applyToFact(fact, intent)
-  return { fact, groups }
-}
+): TicketState | null =>
+  intents.reduce(
+    (current, intent) => applyIntent(current, intent, openSprints),
+    state
+  )
 
 const position = (part: string) => {
   const [generation, sequence] = part.split(".").map(Number)

@@ -15,7 +15,14 @@ export {
 export { localOrderKey, type Orderable } from "./orderKey"
 export { sectionDifferences } from "./sectionDifferences"
 export { SyncDenied, SyncOffline, SyncSource } from "./SyncSource"
-export { EditRejected, Intent, PendingEdit, PendingWrite } from "./pending"
+export {
+  EditRejected,
+  Intent,
+  isPlaceholderTicket,
+  PendingEdit,
+  PendingWrite,
+  placeholderTicketId
+} from "./pending"
 export { PendingWrites } from "./pendingWrites"
 export { DescriptionSource, SaveOutcome } from "./DescriptionSource"
 export { mergeDescriptions, type MergeConflict } from "./descriptionMerge"

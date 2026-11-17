@@ -23,9 +23,11 @@ import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
   applyIntents,
   covers,
+  decodeBase,
   decodeEdits,
   decodeFact,
   decodeGroups,
+  encodeBase,
   encodeEdits,
   encodeGroups,
   encodeWrite,
@@ -818,25 +820,24 @@ const visibleState = (copy: number, id: string) =>
     return { fact: decodeFact(row.data), groups } satisfies TicketState
   })
 
-const writeState = (copy: number, state: TicketState) =>
+const writeState = (copy: number, id: string, state: TicketState | null) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
-    yield* writeTickets(copy, [state.fact], false)
+    if (state === null) yield* removeFacts(copy, "tickets", [id])
+    else yield* writeTickets(copy, [state.fact], false)
     yield* db
       .delete(localGroupMembers)
       .where(
-        and(
-          eq(localGroupMembers.copy, copy),
-          eq(localGroupMembers.ticket, state.fact.id)
-        )
+        and(eq(localGroupMembers.copy, copy), eq(localGroupMembers.ticket, id))
       )
-    yield* writeMembers(
-      copy,
-      state.groups.map((member) => ({ ...member, ticket: state.fact.id }))
-    )
+    if (state !== null)
+      yield* writeMembers(
+        copy,
+        state.groups.map((member) => ({ ...member, ticket: id }))
+      )
     yield* deriveTouched(copy, {
-      tickets: [state.fact.id],
-      deletedTickets: [],
+      tickets: state === null ? [] : [id],
+      deletedTickets: state === null ? [id] : [],
       groups: []
     })
   })
@@ -879,6 +880,13 @@ const openSprintsOf = (copy: number) =>
     )
   })
 
+const stateOf = (
+  base: typeof localPendingBase.$inferSelect
+): TicketState | null => {
+  const fact = decodeBase(base.data)
+  return fact === null ? null : { fact, groups: decodeGroups(base.groups) }
+}
+
 const unapplyPending = (copy: number) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
@@ -886,11 +894,7 @@ const unapplyPending = (copy: number) =>
       .select()
       .from(localPendingBase)
       .where(eq(localPendingBase.copy, copy))
-    for (const base of bases)
-      yield* writeState(copy, {
-        fact: decodeFact(base.data),
-        groups: decodeGroups(base.groups)
-      })
+    for (const base of bases) yield* writeState(copy, base.id, stateOf(base))
     if (bases.length > 0)
       yield* db.delete(localPendingBase).where(eq(localPendingBase.copy, copy))
   })
@@ -917,31 +921,28 @@ const overlayPending = (scope: string, copy: number) =>
     for (const id of ids) {
       const stored = bases.get(id)
       const base =
-        stored === undefined
-          ? yield* visibleState(copy, id)
-          : {
-              fact: decodeFact(stored.data),
-              groups: decodeGroups(stored.groups)
-            }
-      if (base === null) continue
+        stored === undefined ? yield* visibleState(copy, id) : stateOf(stored)
       const remaining = intents.get(id) ?? []
       const where = and(
         eq(localPendingBase.copy, copy),
         eq(localPendingBase.id, id)
       )
       if (remaining.length === 0) {
-        yield* writeState(copy, base)
+        yield* writeState(copy, id, base)
         yield* db.delete(localPendingBase).where(where)
         continue
       }
-      if (stored === undefined)
+      const next = applyIntents(base, remaining, openSprints)
+      if (stored === undefined) {
+        if (base === null && next === null) continue
         yield* db.insert(localPendingBase).values({
           copy,
           id,
-          data: ticketJson(base.fact),
-          groups: encodeGroups(base.groups)
+          data: encodeBase(base?.fact ?? null),
+          groups: encodeGroups(base?.groups ?? [])
         })
-      yield* writeState(copy, applyIntents(base, remaining, openSprints))
+      }
+      yield* writeState(copy, id, next)
     }
   })
 

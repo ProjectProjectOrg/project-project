@@ -21,6 +21,7 @@ import {
   type Membership,
   type PendingEdit,
   PendingWrite,
+  placeholderTicketId,
   type TicketState
 } from "./pending"
 import {
@@ -155,6 +156,48 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
+it.effect(
+  "a created ticket shows at once and becomes the server's ticket when the sync reaches its receipt",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", snapshot("1.1", [ticket("T-1", "one")]))
+      const placeholder = placeholderTicketId("T", 0.5)
+      yield* recordEdit("a/p", {
+        id: "op-1",
+        write: PendingWrite.cases.create.make({
+          placeholder,
+          payload: { title: "new" },
+          sprint: null
+        }),
+        edits: [
+          {
+            ticket: placeholder,
+            intents: [
+              Intent.cases.create.make({ fact: ticket(placeholder, "new") })
+            ]
+          }
+        ]
+      })
+      expect([...(yield* visible).tickets.keys()].toSorted()).toEqual([
+        "T-1",
+        placeholder
+      ])
+
+      yield* confirmEdit("a/p", "op-1", "project-1.1.2")
+      yield* applyChanges(
+        "a/p",
+        "1.1",
+        changes("1.2", [ticket("T-2", "new")], []),
+        direct
+      )
+
+      expect([...(yield* visible).tickets.keys()].toSorted()).toEqual([
+        "T-1",
+        "T-2"
+      ])
+    }).pipe(Effect.provide(TestDatabase))
+)
+
 it("moving a ticket into a sprint takes it out of open sprints only", () => {
   const state: TicketState = {
     fact: ticket("T-1", "one"),
@@ -168,7 +211,7 @@ it("moving a ticket into a sprint takes it out of open sprints only", () => {
     [Intent.cases.sprint.make({ sprint: "S-next" })],
     new Set(["S-open", "S-next"])
   )
-  expect(moved.groups.map((member) => member.group)).toEqual([
+  expect(moved?.groups.map((member) => member.group)).toEqual([
     "S-done",
     "S-next"
   ])
@@ -216,6 +259,7 @@ const applyToModel = (
     intents,
     OPEN
   )
+  if (next === null) return
   model.facts.set(id, next.fact)
   for (const group of model.sprints.values()) {
     const member = next.groups.some((m) => m.group === group.id)

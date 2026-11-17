@@ -5,7 +5,9 @@ import type {
   TicketSort,
   TicketUpdateResult
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Random from "effect/Random"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
@@ -19,6 +21,7 @@ import {
   type OptimisticView
 } from "@/api/viewMutation"
 import { localFirst } from "@/features/local/atoms/localEdit"
+import { createEdit, type LocalCreate } from "@/features/local/lib/localCreate"
 import { intentsOf } from "@/features/local/lib/localIntents"
 import type { BulkDrop } from "@/features/tickets/lib/listDrop"
 import {
@@ -175,21 +178,21 @@ const serverTicketMove = <V, VE>(
       )
   })
 
-export const createdKeys = Atom.family((_scope: string) =>
-  Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
-    Atom.setIdleTTL("2 minutes")
-  )
-)
-
-export const recordCreatedKey = (
-  get: Atom.FnContext,
-  scope: string,
-  id: TicketId,
-  clientId: string
-) => {
-  const index = createdKeys(scope)
-  get.set(index, new Map(get(index)).set(id, clientId))
-}
+export const localFirstCreate = <I, A, E>(
+  project: Readonly<{ orgSlug: string; slug: string }>,
+  server: Atom.Writable<
+    AsyncResult.AsyncResult<A, E>,
+    I | Atom.Reset | Atom.Interrupt
+  >,
+  toCreate: (input: I) => LocalCreate
+) =>
+  localFirst(project, server, (input: I) => [
+    createEdit(
+      toCreate(input),
+      Effect.runSync(Random.next),
+      DateTime.toDate(DateTime.nowUnsafe())
+    )
+  ])
 
 type Page<Item> = Readonly<{
   items: ReadonlyArray<Item>

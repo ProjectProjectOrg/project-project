@@ -1,6 +1,7 @@
-import { localOrderKey } from "@pp/local"
+import { isPlaceholderTicket, localOrderKey } from "@pp/local"
 import {
   EPIC_TYPE,
+  type GroupId,
   TicketId,
   TicketRank,
   type EstimationMode,
@@ -95,8 +96,11 @@ export const toRow = (row: TicketListRow): TicketRow => ({
   ticket: row.ticket,
   key: row.ticket.id,
   orderKey: row.orderKey,
-  pending: false
+  pending: isPlaceholderTicket(row.ticket.id)
 })
+
+export const shownTicketId = (id: TicketId): string =>
+  isPlaceholderTicket(id) ? id.slice(0, id.lastIndexOf("-") + 1) : id
 
 export const dedupeById = (
   rows: ReadonlyArray<TicketRow>
@@ -181,6 +185,7 @@ export type QuickCreatePrediction = Partial<TypePrediction> &
 export type QuickCreateInput = Readonly<{
   payload: Omit<QuickCreateTicketInput, "parent">
   parent?: TicketParent
+  sprint?: GroupId
   prediction: QuickCreatePrediction
 }>
 
@@ -190,7 +195,7 @@ export const quickCreatePayload = ({
 }: QuickCreateInput): QuickCreateTicketInput =>
   parent === undefined ? payload : { ...payload, parent: parent.id }
 
-const PREDICTED_TOP_RANK = TicketRank.make(" ")
+export const PREDICTED_TOP_RANK = TicketRank.make(" ")
 
 export const predictedTicket = (
   input: QuickCreateInput,

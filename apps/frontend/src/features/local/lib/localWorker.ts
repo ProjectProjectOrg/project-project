@@ -73,35 +73,65 @@ const pendingWritesLayer = Layer.effect(
   PendingWrites,
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient
+    const clients = (operationId: string) => {
+      const options = {
+        httpClient: HttpClient.mapRequest(
+          httpClient,
+          HttpClientRequest.setHeader(OPERATION_ID_HEADER, operationId)
+        ),
+        baseUrl: "/api"
+      }
+      return Effect.all({
+        tickets: HttpApiClient.group(AppApi, { group: "tickets", ...options }),
+        groups: HttpApiClient.group(AppApi, { group: "groups", ...options })
+      })
+    }
+    const sent = (
+      response: HttpClientResponse.HttpClientResponse,
+      created: TicketId | null = null
+    ) => ({ receipt: receiptOf(response), created })
     const send: PendingWrites["Service"]["send"] = (
       project,
       operationId,
       write
     ) =>
       Effect.gen(function* () {
-        const client = yield* HttpApiClient.group(AppApi, {
-          group: "tickets",
-          httpClient: HttpClient.mapRequest(
-            httpClient,
-            HttpClientRequest.setHeader(OPERATION_ID_HEADER, operationId)
-          ),
-          baseUrl: "/api"
+        const { tickets } = yield* clients(operationId)
+        return yield* PendingWrite.match(write, {
+          update: ({ ticket, payload }) =>
+            tickets
+              .update({
+                params: { ...project, id: ticket },
+                query: {},
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          bulk: ({ payload }) =>
+            tickets
+              .bulkUpdate({
+                params: project,
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          create: ({ payload, sprint }) =>
+            Effect.gen(function* () {
+              const [created, response] = yield* tickets.create({
+                params: project,
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              if (sprint === null) return sent(response, created.id)
+              const { groups } = yield* clients(`${operationId}-sprint`)
+              const [, added] = yield* groups.addTickets({
+                params: { ...project, id: sprint },
+                payload: { tickets: [created.id] },
+                responseMode: "decoded-and-response"
+              })
+              return sent(added, created.id)
+            })
         })
-        if (PendingWrite.guards.update(write)) {
-          const [, response] = yield* client.update({
-            params: { ...project, id: write.ticket },
-            query: {},
-            payload: write.payload,
-            responseMode: "decoded-and-response"
-          })
-          return receiptOf(response)
-        }
-        const [, response] = yield* client.bulkUpdate({
-          params: project,
-          payload: write.payload,
-          responseMode: "decoded-and-response"
-        })
-        return receiptOf(response)
       }).pipe(
         Effect.catchTags({
           Conflict: (conflict) =>
