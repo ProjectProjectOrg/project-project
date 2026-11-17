@@ -74,6 +74,7 @@ export function CommentsSection({
             comments={commentThreads(rows).map((thread) => ({
               key: thread.root.key,
               at: thread.root.comment.createdAt,
+              lastAt: (thread.replies.at(-1) ?? thread.root).comment.createdAt,
               value: thread
             }))}
             renderComment={({ value: thread }) => (

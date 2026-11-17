@@ -51,13 +51,15 @@ export function CommentRow({
   replies,
   pending,
   reply,
-  ticketId
+  ticketId,
+  onEditingChange
 }: Readonly<{
   comment: Comment
   replies: ReadonlyArray<Comment>
   pending: boolean
   reply: boolean
   ticketId: TicketId
+  onEditingChange: (editing: boolean) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
@@ -82,7 +84,11 @@ export function CommentRow({
     m.comments_delete_failed
   )
 
-  const [mode, setMode] = useState<Mode>("idle")
+  const [mode, setModeState] = useState<Mode>("idle")
+  const setMode = (next: Mode) => {
+    setModeState(next)
+    onEditingChange(next === "edit")
+  }
   const menuButton = useRef<HTMLButtonElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const targeted =
