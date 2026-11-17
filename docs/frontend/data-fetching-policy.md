@@ -6,7 +6,13 @@ Wouter's approval comment on T-139 and the link from T-137 remain pending.
 ## Ownership and route readiness
 
 Routes initiate reads through canonical resource atoms in the shared registry.
-Atoms own cached server state and per-view optimistic updates as defined in
+Project views read the project's local copy through the atoms in
+`features/local/atoms`; there is no server fallback, and while the copy runs its
+first sync the project shows the full-screen loader (see
+`docs/frontend/data-layer.md`). Server reads serve MCP, the CLI and org-wide
+surfaces (dashboard, My Work, inbox, hover cards, `TicketPeek`), and what the
+copy doesn't hold. Atoms own cached server state and per-view optimistic updates
+as defined in
 [the native atom design](../history/specs/2026-09-11-native-atom-data-layer-design.md).
 Components subscribe and render. Loaders must not create a second owner by
 calling the same API outside that cache.
@@ -33,15 +39,16 @@ section; a failed refresh must remain visible even when retaining previous data.
 
 | Surface | Policy |
 | --- | --- |
-| Backlog sections | Eagerly load the first page for matching statuses, including collapsed sections. Further pages load on demand. |
+| Backlog sections | Read from the local copy. The worker answers counts and the first page of every matching section together, including collapsed sections; further pages deepen the same query on demand. |
 | Small, frequently used picker datasets | Load statuses, tags, and members early and reuse their canonical caches. |
 | Remote search | Prefetch initial suggestions on hover/focus; opening or activating a control must also work without a prior hover. Debounce typed searches and prevent superseded results from replacing current results. Interrupt superseded work where supported. |
 | Occasional administrative data | Fetch on intent toward, or opening of, the relevant management control. Tag usage counts belong here. |
 
-The current backlog already returns counts and first pages together through
-`tickets.sections`, including collapsed statuses. Preserve this behaviour; no
-separate visible-versus-collapsed scheduling mechanism is required. The earlier
-T-137 audit describes an older per-section loading implementation.
+The local `Sections` query returns counts and first pages together, including
+collapsed statuses. Preserve this behaviour; no separate visible-versus-collapsed
+scheduling mechanism is required. The earlier T-137 audit describes an older
+per-section server loading implementation, and the server `tickets.sections`
+endpoint that replaced it is gone (T-394).
 
 Prefetch only the destination's relevant view: sprint description does not need
 board tickets. Closed controls do not justify fetching every possible search
@@ -50,14 +57,16 @@ candidate or optional integration dataset.
 ## Retention, freshness, and loader lifetime
 
 Idle TTL governs retention of unused atom nodes. It is not a freshness policy and
-does not periodically refetch mounted data. Keep freshness explicit: mutations
-settle through their optimistic wrapper and publish affected query keys, existing
-polling updates live integration state, and failed sections expose retry. Do not
+does not periodically refetch mounted data. Keep freshness explicit: local views
+update whenever their project's copy changes (a pull, a local edit, a live
+event), server mutations settle through their optimistic wrapper and publish
+affected query keys, existing polling updates live integration state, and failed
+sections expose retry. Do not
 add blanket refetching on navigation or global keep-alive. Reuse retained
 results and in-flight reads through shared keys.
 
-Declare idle TTL and reactivity subscriptions on `Api.query`. Mutation modules
-publish keys for all affected views, including every affected source of a composed
+Declare idle TTL and reactivity subscriptions on `Api.query`. Server mutation
+modules publish keys for all affected server views, including every affected source of a composed
 view. Shared-key invalidation may also refresh the initiating view; correctness
 comes before avoiding a redundant request. Batch operations that can partially
 succeed refresh server truth on failure too. Keys are built in

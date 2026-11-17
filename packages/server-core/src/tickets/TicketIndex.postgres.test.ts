@@ -1631,83 +1631,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         byStatus: { todo: 1, in_progress: 1 }
       })
 
-      const summarize = (sections: TicketIndex.TicketIndexSections) =>
-        Object.fromEntries(
-          [...sections].map(([key, section]) => [
-            key,
-            {
-              ...section.counts,
-              ids: section.entries.map(({ entry }) => entry.id)
-            }
-          ])
-        )
-
-      const titleSort = { key: "title", dir: "asc" } as const
-      const byStatus = yield* index.querySections(
-        project,
-        { sort: titleSort, status: [ticketStatus("todo")] },
-        { viewerId: "viewer", limit: 2, sections: "status" }
-      )
-      // Each status is limited on its own; counts ignore the status filter.
-      expect(summarize(byStatus)).toEqual({
-        todo: { total: 3, byStatus: { todo: 3 }, ids: ["T-13", "T-14"] },
-        in_progress: { total: 2, byStatus: { in_progress: 2 }, ids: [] }
-      })
-      // Same entries as a plain query, so "load more" can continue from them.
-      expect(byStatus.get("todo")?.entries).toEqual(
-        yield* index.query(
-          project,
-          {
-            sort: titleSort,
-            status: [ticketStatus("todo")],
-            section: { status: [ticketStatus("todo")] }
-          },
-          { viewerId: "viewer", limit: 2 }
-        )
-      )
-
-      const bySprint = yield* index.querySections(
-        project,
-        { sort: { key: "id", dir: "asc" } },
-        {
-          viewerId: "viewer",
-          limit: 10,
-          sections: [
-            { key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] },
-            { key: "ungrouped" }
-          ]
-        }
-      )
-      expect(summarize(bySprint)).toEqual({
-        "G-1": {
-          total: 2,
-          byStatus: { todo: 1, in_progress: 1 },
-          ids: ["T-2", "T-11"]
-        },
-        ungrouped: {
-          total: 3,
-          byStatus: { todo: 2, in_progress: 1 },
-          ids: ["T-10", "T-13", "T-14"]
-        }
-      })
-
-      const selectedOnly = yield* index.querySections(
-        project,
-        { sort: { key: "id", dir: "asc" } },
-        {
-          viewerId: "viewer",
-          limit: 10,
-          sections: [{ key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] }]
-        }
-      )
-      expect(summarize(selectedOnly)).toEqual({
-        "G-1": {
-          total: 2,
-          byStatus: { todo: 1, in_progress: 1 },
-          ids: ["T-2", "T-11"]
-        }
-      })
-
       const archived = yield* index.query(
         project,
         {
@@ -1717,81 +1640,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         { viewerId: "viewer", limit: 10 }
       )
       expect(archived.map(({ entry }) => entry.id)).toEqual(["T-12"])
-    }).pipe(Effect.provide(TestLayer))
-  )
-
-  it.effect("groups tickets by epic in one pass", () =>
-    Effect.gen(function* () {
-      const suffix = randomUUID()
-      const organizationId = `ticket-index-parent-${suffix}`
-      const orgSlug = `ticket-index-parent-${suffix}`
-      const projectSlug = `ticket-index-parent-${suffix}`
-      const projectId = randomUUID()
-      yield* withClient(async (client) => {
-        await client.query(
-          `insert into organization (id, name, slug, created_at)
-             values ($1, 'Ticket index parent', $2, now())`,
-          [organizationId, orgSlug]
-        )
-        await client.query(
-          `insert into project_index
-               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
-             values ($1, $2, $3, 'T', 'Ticket index parent', 'folder', 'blue', 'test-user', now())`,
-          [projectId, projectSlug, organizationId]
-        )
-      })
-      yield* Effect.addFinalizer(() =>
-        withClient((client) =>
-          client.query("delete from organization where id = $1", [
-            organizationId
-          ])
-        )
-      )
-
-      const index = yield* TicketIndex.TicketIndex
-      const project = yield* index.projectFor(orgSlug, projectSlug)
-      const epic = ticketId("T-1")
-      yield* Effect.forEach(
-        [
-          indexedDocument("T-1", { type: TypeKey.make("epic") }),
-          indexedDocument("T-2", { parent: epic }),
-          indexedDocument("T-3", {
-            parent: epic,
-            status: ticketStatus("in_progress")
-          }),
-          indexedDocument("T-4", { parent: epic }),
-          indexedDocument("T-5", {})
-        ],
-        (document) => index.upsertTicket(project, document)
-      )
-
-      const grouped = yield* index.querySections(
-        project,
-        {
-          type: [
-            TypeKey.make("feat"),
-            TypeKey.make("bug"),
-            TypeKey.make("chore"),
-            "none"
-          ],
-          parent: [epic, "none"],
-          sort: { key: "id", dir: "asc" }
-        },
-        { viewerId: "viewer", limit: 2, sections: "parent" }
-      )
-
-      const idsUnder = (key: string) =>
-        grouped.get(key)?.entries.map(({ entry }) => entry.id)
-      expect(grouped.get(epic)?.counts).toEqual({
-        total: 3,
-        byStatus: { in_progress: 1, todo: 2 }
-      })
-      expect(grouped.get("none")?.counts).toEqual({
-        total: 1,
-        byStatus: { todo: 1 }
-      })
-      expect(idsUnder(epic)).toEqual(["T-2", "T-3"])
-      expect(idsUnder("none")).toEqual(["T-5"])
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -1822,10 +1670,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         sort: { key: "id", dir: "asc" }
       } as const
       const options = { viewerId: "viewer", limit: 10 }
-      const grouped = yield* index.querySections(project, query, {
-        ...options,
-        sections: "ticketParent"
-      })
       const page = (key: ParentFilter) =>
         index
           .query(
@@ -1835,12 +1679,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           )
           .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
 
-      expect(grouped.get(parent)?.entries.map(({ entry }) => entry.id)).toEqual(
-        ["T-3"]
-      )
-      expect(grouped.get("none")?.entries.map(({ entry }) => entry.id)).toEqual(
-        ["T-2", "T-4"]
-      )
       expect(yield* page(parent)).toEqual(["T-3"])
       expect(yield* page("none")).toEqual(["T-2", "T-4"])
     }).pipe(Effect.provide(TestLayer))
@@ -1955,18 +1793,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         expect(
           yield* index.count(project, { excludeType: [EPIC_TYPE] }, options)
         ).toEqual({ total: 4, byStatus: { in_progress: 1, todo: 3 } })
-
-        const sections = yield* index.querySections(
-          project,
-          { excludeType: [EPIC_TYPE], sort },
-          { ...options, sections: "ticketParent" }
-        )
-        expect(
-          sections.get("none")?.entries.map(({ entry }) => entry.id)
-        ).toEqual(["T-2", "T-3", "T-5"])
-        expect(
-          sections.get("T-2")?.entries.map(({ entry }) => entry.id)
-        ).toEqual(["T-4"])
       }).pipe(Effect.provide(TestLayer))
   )
 
@@ -2001,21 +1827,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         sort: { key: "id", dir: "asc" }
       } as const
       const options = { viewerId: "viewer", limit: 10 }
-      const grouped = yield* index.querySections(project, mine, {
-        ...options,
-        sections: "parent"
-      })
       const page = (key: ParentFilter) =>
         index
           .query(project, { ...mine, section: { parent: [key] } }, options)
           .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
 
-      expect(grouped.get(epic)?.entries.map(({ entry }) => entry.id)).toEqual([
-        "T-3"
-      ])
-      expect(grouped.get("none")?.entries.map(({ entry }) => entry.id)).toEqual(
-        ["T-4"]
-      )
       expect(yield* page(epic)).toEqual(["T-3"])
       expect(yield* page("none")).toEqual(["T-4"])
     }).pipe(Effect.provide(TestLayer))
@@ -2106,34 +1922,17 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(yield* doneSection("nested")).toEqual(["T-5"])
       expect(yield* doneSection("flat")).toEqual(["T-5"])
 
-      const todoSection = yield* index
-        .query(
-          project,
-          {
-            subTickets: "nested",
-            section: { status: [ticketStatus("todo")] },
-            sort: { key: "id", dir: "asc" }
-          },
-          { viewerId: "viewer", limit: 10 }
-        )
-        .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
-      expect(todoSection).toEqual(["T-1", "T-2"])
-
-      const byStatus = yield* index.querySections(
+      const todoSection = yield* index.query(
         project,
-        { subTickets: "nested", sort: { key: "id", dir: "asc" } },
-        { viewerId: "viewer", limit: 10, sections: "status" }
+        {
+          subTickets: "nested",
+          section: { status: [ticketStatus("todo")] },
+          sort: { key: "id", dir: "asc" }
+        },
+        { viewerId: "viewer", limit: 10 }
       )
       expect(
-        byStatus.get("todo")?.entries.map(({ entry }) => entry.id)
-      ).toEqual(["T-1", "T-2"])
-      expect(
-        byStatus.get("done")?.entries.map(({ entry }) => entry.id)
-      ).toEqual(["T-5"])
-      expect(
-        byStatus
-          .get("todo")
-          ?.entries.map(({ entry }) => [entry.id, entry.subTicketsInSection])
+        todoSection.map(({ entry }) => [entry.id, entry.subTicketsInSection])
       ).toEqual([
         ["T-1", 1],
         ["T-2", 1]
@@ -3085,7 +2884,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         ])
       }).pipe(Effect.provide(TestLayer))
   )
-  describe("sequence", () => {
+  describe("ranks", () => {
     const seedStatusProject = (ranks: Readonly<Record<string, string>> = {}) =>
       Effect.gen(function* () {
         const organizationId = `neighbors-${randomUUID()}`
@@ -3138,104 +2937,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         return { index, project }
       })
 
-    const byId = { sort: { key: "id", dir: "asc" } } as const
-    const sortById = { sort: byId.sort }
-    const ids = (tickets: ReadonlyArray<Readonly<{ id: string }>>) =>
-      tickets.map((ticket) => ticket.id)
-
-    it.effect(
-      "orders status sections in status order, then the view's sort",
-      () =>
-        Effect.gen(function* () {
-          const { index, project } = yield* seedStatusProject()
-          const found = yield* index.sequence(project, byId, {
-            viewerId: "viewer",
-            sections: { kind: "status" },
-            within: sortById
-          })
-          expect(found).toEqual([
-            { id: "T-2", title: "T-2" },
-            { id: "T-3", title: "T-3" },
-            { id: "T-1", title: "T-1" },
-            { id: "T-4", title: "T-4" }
-          ])
-        }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect("orders explicit sections by their position in the list", () =>
-      Effect.gen(function* () {
-        const { index, project } = yield* seedStatusProject()
-        const found = yield* index.sequence(project, byId, {
-          viewerId: "viewer",
-          sections: {
-            kind: "explicit",
-            sections: [{ key: "G-2", ticketIds: ["T-3"] }, { key: "ungrouped" }]
-          },
-          within: sortById
-        })
-        expect(ids(found)).toEqual(["T-3", "T-1", "T-2", "T-4"])
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect(
-      "orders manual sections by rank in byte order, then by ticket id",
-      () =>
-        Effect.gen(function* () {
-          const { index, project } = yield* seedStatusProject({
-            "T-1": "a0",
-            "T-4": "Zz"
-          })
-          const found = yield* index.sequence(project, byId, {
-            viewerId: "viewer",
-            sections: { kind: "status" },
-            within: { sort: { key: "manual", dir: "asc" } }
-          })
-          expect(ids(found)).toEqual(["T-2", "T-3", "T-4", "T-1"])
-        }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect(
-      "nests manual board children across statuses without hiding children of filtered parents",
-      () =>
-        Effect.gen(function* () {
-          const { index, project } = yield* seedStatusProject({
-            "T-1": "a0",
-            "T-2": "a2",
-            "T-4": "a3",
-            "T-3": "a4"
-          })
-          yield* index.upsertTicket(
-            project,
-            indexedDocument("T-5", {
-              parent: ticketId("T-1"),
-              type: TypeKey.make("bug"),
-              status: ticketStatus("todo"),
-              rank: TicketRank.make("a1")
-            })
-          )
-          const find = (status?: TicketFilter["status"]) =>
-            index.sequence(
-              project,
-              { ...byId, subTickets: "nested", status },
-              {
-                viewerId: "viewer",
-                ticketIds: ["T-1", "T-2", "T-3", "T-4", "T-5"],
-                sections: { kind: "status" },
-                within: {
-                  sort: { key: "manual", dir: "asc" },
-                  nestAcrossSections: true
-                }
-              }
-            )
-          expect(ids(yield* find())).toEqual(["T-2", "T-3", "T-1", "T-4"])
-          expect(ids(yield* find([ticketStatus("todo")]))).toEqual([
-            "T-5",
-            "T-2",
-            "T-3"
-          ])
-        }).pipe(Effect.provide(TestLayer))
-    )
-
     it.effect("topRank is the lowest rank in byte order", () =>
       Effect.gen(function* () {
         const { index, project } = yield* seedStatusProject({
@@ -3270,22 +2971,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             null
           ])
         }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect("leaves out tickets the view filters out", () =>
-      Effect.gen(function* () {
-        const { index, project } = yield* seedStatusProject()
-        const found = yield* index.sequence(
-          project,
-          { ...byId, status: [ticketStatus("todo")] },
-          {
-            viewerId: "viewer",
-            sections: { kind: "status" },
-            within: sortById
-          }
-        )
-        expect(ids(found)).toEqual(["T-2", "T-3"])
-      }).pipe(Effect.provide(TestLayer))
     )
   })
   it.effect(

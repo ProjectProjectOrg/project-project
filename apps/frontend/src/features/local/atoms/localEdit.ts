@@ -32,11 +32,17 @@ export const localEditing = Atom.family((project: LocalProjectRequest) =>
   )
 )
 
+const projectOf = ({ orgSlug, slug }: LocalProjectRequest) => ({
+  orgSlug,
+  slug
+})
+
 export const localEditFn = <I>(
-  project: LocalProjectRequest,
+  path: LocalProjectRequest,
   toLocal: (input: I) => ReadonlyArray<LocalEdit>
-) =>
-  localRuntime.fn(
+) => {
+  const project = projectOf(path)
+  return localRuntime.fn(
     Effect.fn("localEdit")(function* (input: I, get: Atom.FnContext) {
       const client = yield* LocalClient
       yield* Effect.forEach(
@@ -57,15 +63,17 @@ export const localEditFn = <I>(
       )
     }, Effect.uninterruptible)
   )
+}
 
 export const localFirst = <I, A, E>(
-  project: LocalProjectRequest,
+  path: LocalProjectRequest,
   server: Atom.Writable<
     AsyncResult.AsyncResult<A, E>,
     I | Atom.Reset | Atom.Interrupt
   >,
   toLocal: (input: I) => ReadonlyArray<LocalEdit>
 ) => {
+  const project = projectOf(path)
   const local = localEditFn(project, toLocal)
   return Atom.writable(
     (get): AsyncResult.AsyncResult<A | void, E | Atom.Failure<typeof local>> =>

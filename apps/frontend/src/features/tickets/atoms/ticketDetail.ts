@@ -24,7 +24,7 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 import { localFirst } from "@/features/local/atoms/localEdit"
 import { localTicketDetail } from "@/features/local/atoms/localTicket"
-import { readLocal } from "@/features/local/atoms/readLocal"
+import { localRead } from "@/features/local/atoms/readLocal"
 import {
   archiveEdit,
   deleteEdit,
@@ -33,6 +33,7 @@ import {
 
 import { withoutRelation } from "../lib/relationGroups"
 import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
+import { createdKeys } from "./createdKeys"
 import { coalescingTicketUpdate } from "./ticketRows"
 
 export type TicketRequest = Readonly<{
@@ -65,11 +66,24 @@ export const ticketQuery = (req: TicketRequest) =>
     ]
   })
 
+const localTicketSource = (get: Atom.AtomContext, req: TicketRequest) =>
+  AsyncResult.flatMap(
+    get(localTicketDetail(req)),
+    (ticket, previous): AsyncResult.AsyncResult<TicketDetail, NotFound> => {
+      if (ticket !== null) return AsyncResult.success(ticket, previous)
+      return previous.waiting ||
+        get(createdKeys(scopeOf(req))).has(req.params.id)
+        ? AsyncResult.initial(true)
+        : AsyncResult.fail(new NotFound())
+    }
+  )
+
 export const ticketSource = (req: TicketRequest) =>
   Atom.readable(
     (get) =>
-      readLocal(get, req.params, () => localTicketDetail(req)) ??
-      get(ticketQuery(req)),
+      localRead(get, req.params)
+        ? localTicketSource(get, req)
+        : get(ticketQuery(req)),
     (refresh) => refresh(ticketQuery(req))
   ).pipe(persisted(`ticket/${scopeOf(req)}/${req.params.id}`, TicketDetail))
 
@@ -109,7 +123,7 @@ const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   const contentOnly = fields.every((f) => f === "title" || f === "body")
   const own = Keys.ticket(scope, req.params.id)
   if (!contentOnly) return [...Keys.ticketsChanged(scope), own]
-  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope), own]
+  const keys = [Keys.ticketsIn(scope), own]
   if (patch.title !== undefined) {
     keys.push(Keys.ticketTitleQuery(scope))
   }

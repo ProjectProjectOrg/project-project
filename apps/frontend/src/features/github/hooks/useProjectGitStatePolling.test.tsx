@@ -1,4 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
+import { TicketId } from "@pp/shared"
 import { cleanup, renderHook, waitFor, act } from "@testing-library/react"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
@@ -6,7 +7,10 @@ import { afterEach, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
-import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import {
+  childTickets,
+  childTicketsRequest
+} from "@/features/tickets/atoms/childTickets"
 
 import { useProjectGitStatePolling } from "./useProjectGitStatePolling"
 
@@ -135,22 +139,20 @@ it("invalidates the project's tickets when a poll changes a git state", async ()
         Response.json(gitStateCalls === 1 ? branchState : prState)
       )
     }
-    if (path.endsWith("/tickets/sections")) {
-      return Promise.resolve(
-        Response.json({ counts: { total: 0, byStatus: {} }, sections: {} })
-      )
+    if (path.endsWith("/tickets")) {
+      return Promise.resolve(Response.json({ items: [], nextCursor: null }))
     }
     return new Promise<Response>(() => {})
   })
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible")
   const view = projectGitStates(projectRequest("org", "project"))
-  const sections = backlog(
-    backlogRequest("org", "project", { sort: { key: "id", dir: "asc" } })
+  const tickets = childTickets(
+    childTicketsRequest("org", "project", TicketId.make("T-1"))
   )
-  const sectionCalls = () =>
-    paths.filter((path) => path.endsWith("/tickets/sections")).length
+  const listCalls = () =>
+    paths.filter((path) => path.endsWith("/tickets")).length
   registry.mount(view)
-  registry.mount(sections)
+  registry.mount(tickets)
   try {
     await waitFor(() =>
       expect(registry.get(view)).toMatchObject({
@@ -158,7 +160,7 @@ it("invalidates the project's tickets when a poll changes a git state", async ()
         waiting: false
       })
     )
-    await waitFor(() => expect(sectionCalls()).toBe(1))
+    await waitFor(() => expect(listCalls()).toBe(1))
     renderHook(() => useProjectGitStatePolling("org", "project", true), {
       wrapper: ({ children }) => (
         <RegistryContext.Provider value={registry}>
@@ -169,7 +171,7 @@ it("invalidates the project's tickets when a poll changes a git state", async ()
     await act(async () => {
       window.dispatchEvent(new Event("focus"))
     })
-    await waitFor(() => expect(sectionCalls()).toBe(2), { timeout: 3000 })
+    await waitFor(() => expect(listCalls()).toBe(2), { timeout: 3000 })
   } finally {
     cleanup()
     registry.dispose()
@@ -187,21 +189,19 @@ it("invalidates tickets when the first git-states response reports changes", asy
         Response.json({ ...branchState, changedTicketIds: ["T-1"] })
       )
     }
-    if (path.endsWith("/tickets/sections")) {
-      return Promise.resolve(
-        Response.json({ counts: { total: 0, byStatus: {} }, sections: {} })
-      )
+    if (path.endsWith("/tickets")) {
+      return Promise.resolve(Response.json({ items: [], nextCursor: null }))
     }
     return new Promise<Response>(() => {})
   })
   const view = projectGitStates(projectRequest("org", "project"))
-  const sections = backlog(
-    backlogRequest("org", "project", { sort: { key: "id", dir: "asc" } })
+  const tickets = childTickets(
+    childTicketsRequest("org", "project", TicketId.make("T-1"))
   )
-  const sectionCalls = () =>
-    paths.filter((path) => path.endsWith("/tickets/sections")).length
+  const listCalls = () =>
+    paths.filter((path) => path.endsWith("/tickets")).length
   registry.mount(view)
-  registry.mount(sections)
+  registry.mount(tickets)
   try {
     await waitFor(() =>
       expect(registry.get(view)).toMatchObject({
@@ -209,7 +209,7 @@ it("invalidates tickets when the first git-states response reports changes", asy
         waiting: false
       })
     )
-    await waitFor(() => expect(sectionCalls()).toBe(1))
+    await waitFor(() => expect(listCalls()).toBe(1))
     renderHook(() => useProjectGitStatePolling("org", "project", true), {
       wrapper: ({ children }) => (
         <RegistryContext.Provider value={registry}>
@@ -217,7 +217,7 @@ it("invalidates tickets when the first git-states response reports changes", asy
         </RegistryContext.Provider>
       )
     })
-    await waitFor(() => expect(sectionCalls()).toBe(2), { timeout: 3000 })
+    await waitFor(() => expect(listCalls()).toBe(2), { timeout: 3000 })
   } finally {
     cleanup()
     registry.dispose()

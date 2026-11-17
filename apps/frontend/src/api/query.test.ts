@@ -13,7 +13,7 @@ import {
   vi
 } from "vitest"
 
-import { tagsFor, tagsRequest, updateTag } from "@/features/tags/atoms/tags"
+import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 
 import { Api } from "./Api"
 import { Keys, projectScope } from "./keys"
@@ -235,7 +235,7 @@ describe("query revalidation", () => {
     let finish = (_response: Response) => {}
     const gets = serving(() => [tag])
     fetchStub.set((_input, init) => {
-      if (init?.method === "PATCH") {
+      if (init?.method === "POST") {
         return new Promise<Response>((resolve) => {
           finish = resolve
         })
@@ -245,7 +245,7 @@ describe("query revalidation", () => {
     const registry = AtomRegistry.make()
     const req = tagsRequest("acme", "optimistic")
     const view = tagsFor(req)
-    const mutation = updateTag({ req, name: before })
+    const mutation = createTag(req)
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -255,18 +255,21 @@ describe("query revalidation", () => {
           waiting: false
         })
       )
-      registry.set(mutation, { name: after })
-      const shown: Array<string> = []
+      registry.set(mutation, { name: after, color: tag.color })
+      const shown: Array<number> = []
       registry.subscribe(view, (result) => {
-        if (AsyncResult.isSuccess(result)) shown.push(result.value[0].name)
+        if (AsyncResult.isSuccess(result)) shown.push(result.value.length)
       })
       elapse(31_000)
       returnToTab()
       await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
-      expect(shown).not.toContain(before)
+      expect(shown).not.toContain(1)
       const current = registry.get(view)
       if (!AsyncResult.isSuccess(current)) throw new Error("lost the view")
-      expect(current.value[0].name).toBe(after)
+      expect(current.value.map((shownTag) => shownTag.name)).toEqual([
+        before,
+        after
+      ])
       finish(Response.json(encode({ ...tag, name: after })))
     } finally {
       registry.dispose()

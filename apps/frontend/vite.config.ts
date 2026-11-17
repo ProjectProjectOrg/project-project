@@ -32,8 +32,7 @@ const domTests = [
   "src/features/tickets/components/ticket-page/useTemplateSwap.test.ts",
   "src/hooks/**/*.test.{ts,tsx}",
   "src/lib/form.test.ts",
-  "src/lib/keepInPlace.test.ts",
-  "src/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/-routeReads.test.ts"
+  "src/lib/keepInPlace.test.ts"
 ]
 
 const packages = (names: ReadonlyArray<string>) =>

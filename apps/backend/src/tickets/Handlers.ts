@@ -31,26 +31,6 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.recent()
         ).pipe(dieOnMarkdown)
       )
-      .handle("sections", ({ query }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.sections(query)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("sprintSections", ({ query }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.sprintSections(query)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("epicSections", ({ query }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.epicSections(query)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("parentSections", ({ query }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.parentSections(query)
-        ).pipe(dieOnMarkdown)
-      )
       .handle("list", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.list(query)
@@ -59,11 +39,6 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("search", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.search(query)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("titles", () =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.titles()
         ).pipe(dieOnMarkdown)
       )
       .handle("textSearch", ({ query }) =>
@@ -113,11 +88,6 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           dieOnMarkdown,
           Effect.catchTag("SprintCompletedImmutable", Effect.die)
         )
-      )
-      .handle("sequence", ({ params, query }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.sequence(params.id, query.from)
-        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload, query }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>

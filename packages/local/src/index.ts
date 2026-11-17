@@ -13,7 +13,6 @@ export {
   type SectionsRequest
 } from "./LocalRpcs"
 export { localOrderKey, type Orderable } from "./orderKey"
-export { sectionDifferences } from "./sectionDifferences"
 export { SyncDenied, SyncOffline, SyncSource } from "./SyncSource"
 export {
   EditRejected,

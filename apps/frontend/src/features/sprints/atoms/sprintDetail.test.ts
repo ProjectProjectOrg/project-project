@@ -1,15 +1,16 @@
-import { Group, GroupDetail, GroupId } from "@pp/shared"
+import { Group, GroupDetail, GroupId, NotFound } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
-import { Keys, projectScope } from "@/api/keys"
 import { stubFetch } from "@/api/testFetch"
+import { localSprintDetail } from "@/features/local/atoms/localSprint"
+import { localGroups } from "@/features/local/atoms/localViews"
 
 import { sprintDetail, sprintRequest, updateSprintDetail } from "./sprintDetail"
-import { sprintListRequest, updateSprint } from "./sprintList"
 
 const groupId = Schema.decodeSync(GroupId)("G-1")
 
@@ -28,75 +29,42 @@ const sprintDetailValue: GroupDetail = {
   body: "Before"
 }
 
-const encode = Schema.encodeSync(GroupDetail)
 const req = sprintRequest("acme", "web", groupId)
 
 const fetchStub = stubFetch()
 
 describe("sprintDetail", () => {
-  it("reads groups.get and includes body", async () => {
-    fetchStub.set(() =>
-      Promise.resolve(Response.json(encode(sprintDetailValue)))
-    )
-    const registry = AtomRegistry.make()
-    const view = sprintDetail(req)
-    registry.mount(view)
-    try {
-      await vi.waitFor(() => {
-        const result = registry.get(view)
-        if (!AsyncResult.isSuccess(result)) throw new Error("not ready")
-        expect(result.value.body).toBe("Before")
-      })
-    } finally {
-      registry.dispose()
-    }
-  })
-
   it("shares one atom between structurally equal requests", () => {
     const a = sprintRequest("acme", "web", groupId)
     const b = sprintRequest("acme", "web", groupId)
     expect(sprintDetail(a)).toBe(sprintDetail(b))
   })
 
-  it("refetches once updateSprint publishes this sprint's key", async () => {
-    let served = sprintDetailValue
-    let finishPatch = (_r: Response) => {}
-    fetchStub.set((_input, init) => {
-      if (init?.method === "PATCH") {
-        return new Promise<Response>((resolve) => {
-          finishPatch = resolve
-        })
-      }
-      return Promise.resolve(Response.json(encode(served)))
+  const withCopy = (groups: ReadonlyArray<GroupDetail>) =>
+    AtomRegistry.make({
+      initialValues: [
+        [localSprintDetail(req), AsyncResult.success(null)],
+        [
+          localGroups({ orgSlug: "acme", slug: "web" }),
+          AsyncResult.success(groups)
+        ]
+      ]
     })
-    const registry = AtomRegistry.make()
-    const view = sprintDetail(req)
-    const listReq = sprintListRequest("acme", "web")
-    const mutation = updateSprint({ req: listReq, groupId })
-    registry.mount(view)
-    registry.mount(mutation)
+
+  it("is NotFound when the copy has no such sprint", () => {
+    const registry = withCopy([])
     try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false,
-          value: { body: "Before" }
-        })
-      )
+      const error = AsyncResult.error(registry.get(sprintDetail(req)))
+      expect(Option.getOrUndefined(error)).toBeInstanceOf(NotFound)
+    } finally {
+      registry.dispose()
+    }
+  })
 
-      registry.set(mutation, { body: "After" })
-      served = { ...sprintDetailValue, body: "After" }
-      finishPatch(
-        Response.json(encode({ ...sprintDetailValue, body: "After" }))
-      )
-      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          waiting: false,
-          value: { body: "After" }
-        })
-      )
+  it("waits while the copy has the sprint but not its description", () => {
+    const registry = withCopy([sprintDetailValue])
+    try {
+      expect(AsyncResult.isInitial(registry.get(sprintDetail(req)))).toBe(true)
     } finally {
       registry.dispose()
     }
@@ -104,58 +72,26 @@ describe("sprintDetail", () => {
 })
 
 describe("updateSprintDetail", () => {
-  it("paints a body edit instantly, before the request resolves", async () => {
-    let served = sprintDetailValue
-    let finish = (_r: Response) => {}
-    fetchStub.set((_input, init) => {
-      if (init?.method === "PATCH") {
-        return new Promise<Response>((resolve) => {
-          finish = resolve
-        })
-      }
-      return Promise.resolve(Response.json(encode(served)))
+  it("paints a body edit instantly, before the request resolves", () => {
+    fetchStub.set(() => new Promise<Response>(() => {}))
+    const registry = AtomRegistry.make({
+      initialValues: [
+        [localSprintDetail(req), AsyncResult.success(sprintDetailValue)]
+      ]
     })
-    const registry = AtomRegistry.make()
     const view = sprintDetail(req)
     const mutation = updateSprintDetail(req)
     registry.mount(view)
     registry.mount(mutation)
     try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false,
-          value: { body: "Before" }
-        })
-      )
-
+      expect(registry.get(view)).toMatchObject({ value: { body: "Before" } })
       registry.set(mutation, { body: "After" })
-      const optimistic = registry.get(view)
-      if (!AsyncResult.isSuccess(optimistic)) {
-        throw new Error("no optimistic value")
-      }
-      expect(optimistic.waiting).toBe(true)
-      expect(optimistic.value.body).toBe("After")
-
-      served = { ...sprintDetailValue, body: "After" }
-      finish(Response.json(encode(served)))
-      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          waiting: false,
-          value: { body: "After" }
-        })
-      )
+      expect(registry.get(view)).toMatchObject({
+        waiting: true,
+        value: { body: "After" }
+      })
     } finally {
       registry.dispose()
     }
-  })
-})
-
-describe("Keys.sprint", () => {
-  it("scopes by project and sprint id", () => {
-    expect(Keys.sprint(projectScope("acme", "web"), groupId)).toBe(
-      `sprint/acme/web/${groupId}`
-    )
   })
 })

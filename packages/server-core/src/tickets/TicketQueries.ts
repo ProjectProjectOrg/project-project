@@ -1,15 +1,9 @@
 import { TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import {
-  CHILD_TICKET_SORT,
   DEFAULT_TICKET_SORT,
-  EPIC_SECTION_NONE,
-  type EpicSectionKey,
-  estimationUnit,
   type Forbidden,
-  type GroupId,
   type GroupIdFilter,
-  backlogSprintSections,
   MY_TICKETS_DONE_WINDOW_DAYS,
   MY_TICKETS_PAGE_SIZE,
   MY_TICKETS_PER_PROJECT,
@@ -26,16 +20,11 @@ import {
   RECENT_TICKETS_LIMIT,
   type RecentTicketActivity,
   type RecentTicketRow,
-  sprintSectionKey,
   sprintState,
-  summarizeEstimates,
   type Ticket,
   type TicketCountQuery,
   type TicketCounts,
   type TicketDetail,
-  type TicketEpicSection,
-  type TicketParent,
-  type TicketEpicSections,
   TICKET_LIST_LIMIT,
   type TicketListPage,
   type TicketListQuery,
@@ -44,14 +33,8 @@ import {
   type TicketTextHit,
   type TicketTextSearchQuery,
   type TicketTitle,
-  type TicketListSource,
-  type TicketSequence,
-  type TicketSections,
-  type TicketSort,
-  type TicketSprintSections,
   type User,
   UserId,
-  EPIC_TYPE,
   isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -68,12 +51,10 @@ import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import { parseMarkdownFile } from "../markdown/fileContent"
 import type * as Markdown from "../markdown/Markdown"
-import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as SyncLog from "../sync/SyncLog"
 import * as Users from "../users/Users"
-import { compareByRank } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import {
@@ -91,8 +72,6 @@ import {
 import * as TicketView from "./TicketView"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
-const EPIC_SECTION_SORT: TicketSort = { key: "title", dir: "asc" }
-const EPIC_SECTIONS_LIMIT = 200
 
 type RecentCandidate = Readonly<{
   at: Date
@@ -213,42 +192,6 @@ export class TicketQueries extends Context.Service<
       OrgScope
     >
     recent: () => Effect.Effect<ReadonlyArray<RecentTicketRow>, never, OrgScope>
-    sections: (
-      query: TicketListQuery
-    ) => Effect.Effect<
-      TicketSections,
-      Forbidden | NotFound | Markdown.MarkdownError,
-      ProjectScope
-    >
-    sprintSections: (
-      query: TicketListQuery
-    ) => Effect.Effect<
-      TicketSprintSections,
-      Forbidden | NotFound | Markdown.MarkdownError,
-      ProjectScope
-    >
-    epicSections: (
-      query: TicketListQuery
-    ) => Effect.Effect<
-      TicketEpicSections,
-      Forbidden | NotFound | Markdown.MarkdownError,
-      ProjectScope
-    >
-    parentSections: (
-      query: TicketListQuery
-    ) => Effect.Effect<
-      TicketEpicSections,
-      Forbidden | NotFound | Markdown.MarkdownError,
-      ProjectScope
-    >
-    sequence: (
-      ticketId: string,
-      source: TicketListSource | undefined
-    ) => Effect.Effect<
-      TicketSequence | null,
-      Forbidden | NotFound | Markdown.MarkdownError,
-      ProjectScope
-    >
     list: (
       query: TicketPageQuery,
       limit?: number
@@ -271,19 +214,11 @@ export class TicketQueries extends Context.Service<
       NotFound | Markdown.MarkdownError,
       ProjectScope
     >
-    titles: () => Effect.Effect<ReadonlyArray<TicketTitle>, never, ProjectScope>
     textSearch: (
       options: TicketTextSearchQuery
     ) => Effect.Effect<
       ReadonlyArray<TicketTextHit>,
       Markdown.MarkdownError,
-      ProjectScope
-    >
-    listInGroup: (
-      groupId: string
-    ) => Effect.Effect<
-      ReadonlyArray<Ticket>,
-      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     tagUsageCounts: () => Effect.Effect<
@@ -320,7 +255,6 @@ const make = Effect.gen(function* () {
   const db = yield* Db
   const syncLog = yield* SyncLog.SyncLog
   const projectDocs = yield* ProjectDocs.ProjectDocs
-  const finishedStatuses = yield* FinishedStatuses
   const library = yield* Library.Library
   const access = yield* Access.Access
   const users = yield* Users.Users
@@ -564,20 +498,6 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const listInGroup = Effect.fn("TicketQueries.listInGroup")(function* (
-    groupId: string
-  ) {
-    const scope = yield* ProjectScope
-    const [group, view] = yield* Effect.all([groups.get(groupId), gitView], {
-      concurrency: 2
-    })
-    const entries = yield* ticketIndex.list(scope, group.tickets)
-    return entries
-      .filter((entry) => entry.archivedAt === null)
-      .toSorted(compareByRank)
-      .map((entry) => indexEntryToTicket(entry, view))
-  })
-
   const SEARCH_DEFAULT_LIMIT = 24
   const SEARCH_MAX_LIMIT = 100
 
@@ -626,15 +546,6 @@ const make = Effect.gen(function* () {
       }
     )
     return queryEntries.map(({ entry }) => indexEntryToTicket(entry, view))
-  })
-
-  const titles = Effect.fn("TicketQueries.titles")(function* () {
-    const scope = yield* ProjectScope
-    const entries = yield* ticketIndex.list(scope)
-    return entries.flatMap(
-      (entry): ReadonlyArray<TicketTitle> =>
-        entry.archivedAt === null ? [{ id: entry.id, title: entry.title }] : []
-    )
   })
 
   const TEXT_SEARCH_DEFAULT_LIMIT = 20
@@ -752,513 +663,6 @@ const make = Effect.gen(function* () {
     }
   })
 
-  const sections = Effect.fn("TicketQueries.sections")(function* (
-    query: TicketListQuery
-  ) {
-    const scope = yield* queryable(query)
-    const { userId } = scope
-    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
-    const options = {
-      viewerId: userId,
-      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
-    }
-    const [bySection, view] = yield* Effect.all(
-      [
-        ticketIndex.querySections(
-          scope,
-          { ...query, cursor: undefined },
-          { ...options, limit: TICKET_LIST_LIMIT + 1, sections: "status" }
-        ),
-        gitView
-      ],
-      { concurrency: 2 }
-    )
-    const byStatus: Record<string, number> = {}
-    let total = 0
-    for (const [status, section] of bySection) {
-      byStatus[status] = section.counts.total
-      total += section.counts.total
-    }
-    const counts = { total, byStatus }
-    const pages = Object.keys(byStatus)
-      .filter(
-        (status) =>
-          !query.status?.length ||
-          query.status.some((requested) => requested === status)
-      )
-      .map(
-        (status) =>
-          [
-            status,
-            ticketPage(
-              bySection.get(status)?.entries ?? [],
-              query,
-              view,
-              TICKET_LIST_LIMIT
-            )
-          ] as const
-      )
-    return { counts, sections: Object.fromEntries(pages) }
-  })
-
-  const sprintSectionMembers = Effect.fnUntraced(function* (
-    scope: TicketProject,
-    query: TicketListQuery
-  ) {
-    const allGroups = yield* groups.list()
-    const now = yield* DateTime.nowAsDate
-    const sprints = allGroups.filter((group) => group.kind === "sprint")
-    const sectionIds = backlogSprintSections(sprints, query.groupId, now).map(
-      (sprint): GroupIdFilter => sprint?.id ?? "ungrouped"
-    )
-    const selectedSections = new Set(sectionIds)
-    const claimed = new Set<string>()
-    const bySprint = new Map<GroupId, Array<string>>()
-    const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
-      const ids: Array<string> = []
-      for (const id of tickets) {
-        if (claimed.has(id)) continue
-        claimed.add(id)
-        ids.push(id)
-      }
-      return ids
-    }
-    for (const sprint of sprints) {
-      if (sprint.completedAt === null && selectedSections.has(sprint.id)) {
-        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
-      }
-    }
-    for (const sprint of sprints) {
-      if (sprint.completedAt !== null && selectedSections.has(sprint.id)) {
-        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
-      }
-    }
-    const ungroupedMembers = query.groupId?.includes("ungrouped")
-      ? yield* resolveGroupMembers(scope, ["ungrouped"])
-      : null
-    return sectionIds.map((groupId) => ({
-      key: groupId,
-      ticketIds:
-        groupId === "ungrouped"
-          ? ungroupedMembers === null
-            ? undefined
-            : [...ungroupedMembers].filter((id) => !claimed.has(id))
-          : (bySprint.get(groupId) ?? [])
-    }))
-  })
-
-  const sprintSections = Effect.fn("TicketQueries.sprintSections")(function* (
-    query: TicketListQuery
-  ) {
-    const scope = yield* queryable(query)
-    const { userId } = scope
-    const [members, projectDocument, view] = yield* Effect.all(
-      [
-        sprintSectionMembers(scope, query),
-        readProjectDocument({ db, syncLog, docs: projectDocs, project: scope }),
-        gitView
-      ],
-      { concurrency: "unbounded" }
-    )
-    const unit = estimationUnit(projectDocument.estimation)
-    const estimatedIds =
-      unit === null
-        ? []
-        : members.flatMap(({ key, ticketIds }) =>
-            key === "ungrouped" || ticketIds === undefined ? [] : ticketIds
-          )
-    const [bySection, estimatedList, phaseOf] = yield* Effect.all(
-      [
-        ticketIndex.querySections(
-          scope,
-          { ...query, groupId: undefined, cursor: undefined },
-          {
-            viewerId: userId,
-            limit: TICKET_LIST_LIMIT + 1,
-            sections: members
-          }
-        ),
-        estimatedIds.length === 0
-          ? Effect.succeed([])
-          : ticketIndex.list(scope, estimatedIds),
-        unit === null
-          ? Effect.succeed(null)
-          : finishedStatuses.phasesForProject(scope.orgSlug, scope.slug)
-      ],
-      { concurrency: "unbounded" }
-    )
-    const estimatedEntries = new Map(
-      estimatedList.map((entry): [string, typeof entry] => [entry.id, entry])
-    )
-    const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
-    const pages = members.map(({ key: groupId, ticketIds }) => {
-      const result = bySection.get(groupId)
-      const counts = result?.counts ?? emptyCounts
-      const estimates =
-        unit === null ||
-        phaseOf === null ||
-        groupId === "ungrouped" ||
-        ticketIds === undefined
-          ? null
-          : summarizeEstimates(
-              ticketIds.flatMap((id) => {
-                const entry = estimatedEntries.get(id)
-                return entry === undefined || entry.archivedAt !== null
-                  ? []
-                  : [entry]
-              }),
-              unit,
-              phaseOf
-            )
-      return {
-        section: {
-          key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
-          count: query.status?.length
-            ? [...new Set(query.status)].reduce(
-                (sum, status) => sum + (counts.byStatus[status] ?? 0),
-                0
-              )
-            : counts.total,
-          page: ticketPage(
-            result?.entries ?? [],
-            query,
-            view,
-            TICKET_LIST_LIMIT
-          ),
-          estimates
-        },
-        counts
-      }
-    })
-    const byStatus: Record<string, number> = {}
-    for (const { counts } of pages) {
-      for (const [status, count] of Object.entries(counts.byStatus)) {
-        byStatus[status] = (byStatus[status] ?? 0) + count
-      }
-    }
-    const sections = pages.map(({ section }) => section)
-    return {
-      total: sections.reduce((sum, section) => sum + section.count, 0),
-      counts: {
-        total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
-        byStatus
-      },
-      sections
-    }
-  })
-
-  const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
-    ...query,
-    type: query.type?.length ? query.type : undefined,
-    excludeType: [...(query.excludeType ?? []), EPIC_TYPE],
-    parent: undefined,
-    groupId: undefined,
-    cursor: undefined
-  })
-
-  const parentSectionsOf = Effect.fn("TicketQueries.parentSectionsOf")(
-    function* (
-      scope: Effect.Success<ReturnType<typeof queryable>>,
-      query: TicketListQuery,
-      sections: "parent" | "ticketParent",
-      groupMemberSet: ReadonlySet<string> | null
-    ) {
-      return yield* ticketIndex.querySections(
-        scope,
-        parentSectionQuery(query),
-        {
-          viewerId: scope.userId,
-          ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
-          limit: TICKET_LIST_LIMIT + 1,
-          sections
-        }
-      )
-    }
-  )
-
-  const toParentSections = (
-    sectionsWanted: ReadonlyArray<
-      Readonly<{ key: EpicSectionKey; parent: TicketParent | null }>
-    >,
-    bySection: TicketIndex.TicketIndexSections,
-    query: TicketListQuery,
-    view: Effect.Success<typeof gitView>,
-    keep: (section: TicketEpicSection) => boolean
-  ): TicketEpicSections => {
-    const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
-    const pages = sectionsWanted.map(({ key, parent }) => {
-      const result = bySection.get(key)
-      const counts = result?.counts ?? emptyCounts
-      return {
-        section: {
-          key,
-          parent,
-          count: query.status?.length
-            ? [...new Set(query.status)].reduce(
-                (sum, status) => sum + (counts.byStatus[status] ?? 0),
-                0
-              )
-            : counts.total,
-          page: ticketPage(
-            result?.entries ?? [],
-            query,
-            view,
-            TICKET_LIST_LIMIT
-          )
-        },
-        counts
-      }
-    })
-    const byStatus: Record<string, number> = {}
-    for (const { counts } of pages) {
-      for (const [status, count] of Object.entries(counts.byStatus)) {
-        byStatus[status] = (byStatus[status] ?? 0) + count
-      }
-    }
-    const sections = pages.map(({ section }) => section).filter(keep)
-    return {
-      total: sections.reduce((sum, section) => sum + section.count, 0),
-      counts: {
-        total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
-        byStatus
-      },
-      sections
-    }
-  }
-
-  const byTitle = (
-    entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>
-  ): ReadonlyArray<Readonly<{ key: EpicSectionKey; parent: TicketParent }>> =>
-    entries
-      .map(({ entry }) => ({
-        key: entry.id,
-        parent: { id: entry.id, title: entry.title, type: entry.type }
-      }))
-      .toSorted((a, b) => a.parent.title.localeCompare(b.parent.title))
-
-  const NO_PARENT_SECTION = { key: EPIC_SECTION_NONE, parent: null } as const
-
-  const epicSectionsWanted = Effect.fnUntraced(function* (
-    scope: ProjectScope["Service"]
-  ) {
-    const epicOptions = { viewerId: scope.userId, limit: EPIC_SECTIONS_LIMIT }
-    const [openEpics, archivedEpics] = yield* Effect.all(
-      [
-        ticketIndex.query(
-          scope,
-          { type: [EPIC_TYPE], sort: EPIC_SECTION_SORT },
-          epicOptions
-        ),
-        ticketIndex.query(
-          scope,
-          { type: [EPIC_TYPE], archived: true, sort: EPIC_SECTION_SORT },
-          epicOptions
-        )
-      ],
-      { concurrency: "unbounded" }
-    )
-    return {
-      wanted: [...byTitle([...openEpics, ...archivedEpics]), NO_PARENT_SECTION],
-      archivedIds: new Set<string>(archivedEpics.map(({ entry }) => entry.id))
-    }
-  })
-
-  const epicSections = Effect.fn("TicketQueries.epicSections")(function* (
-    query: TicketListQuery
-  ) {
-    const scope = yield* queryable(query)
-    const [groupMemberSet, { wanted, archivedIds }, view] = yield* Effect.all(
-      [
-        resolveGroupMembers(scope, query.groupId),
-        epicSectionsWanted(scope),
-        gitView
-      ],
-      { concurrency: "unbounded" }
-    )
-    const bySection = yield* parentSectionsOf(
-      scope,
-      query,
-      "parent",
-      groupMemberSet
-    )
-    return toParentSections(
-      wanted,
-      bySection,
-      query,
-      view,
-      (section) => section.count > 0 || !archivedIds.has(section.key)
-    )
-  })
-
-  const parentSectionsWanted = Effect.fnUntraced(function* (
-    scope: ProjectScope["Service"],
-    bySection: TicketIndex.TicketIndexSections
-  ) {
-    const parentIds = [...bySection.keys()].filter(
-      (key) => key !== EPIC_SECTION_NONE
-    )
-    const parentOptions = {
-      viewerId: scope.userId,
-      ticketIds: parentIds,
-      limit: parentIds.length
-    }
-    const [openParents, archivedParents] =
-      parentIds.length === 0
-        ? [[], []]
-        : yield* Effect.all(
-            [
-              ticketIndex.query(
-                scope,
-                { sort: EPIC_SECTION_SORT },
-                parentOptions
-              ),
-              ticketIndex.query(
-                scope,
-                { archived: true, sort: EPIC_SECTION_SORT },
-                parentOptions
-              )
-            ],
-            { concurrency: "unbounded" }
-          )
-    return [...byTitle([...openParents, ...archivedParents]), NO_PARENT_SECTION]
-  })
-
-  const parentSections = Effect.fn("TicketQueries.parentSections")(function* (
-    query: TicketListQuery
-  ) {
-    const scope = yield* queryable(query)
-    const [groupMemberSet, view] = yield* Effect.all(
-      [resolveGroupMembers(scope, query.groupId), gitView],
-      { concurrency: "unbounded" }
-    )
-    const bySection = yield* parentSectionsOf(
-      scope,
-      query,
-      "ticketParent",
-      groupMemberSet
-    )
-    return toParentSections(
-      yield* parentSectionsWanted(scope, bySection),
-      bySection,
-      query,
-      view,
-      (section) => section.count > 0 || section.key === EPIC_SECTION_NONE
-    )
-  })
-
-  const viewSequence = Effect.fn("TicketQueries.viewSequence")(function* (
-    source: TicketListSource
-  ) {
-    const scope = yield* queryable(source.query)
-    const query = { ...source.query, cursor: undefined }
-    const find = (
-      ticketQuery: TicketListQuery,
-      options: Omit<TicketIndex.TicketIndexSequenceOptions, "viewerId">
-    ) =>
-      ticketIndex.sequence(scope, ticketQuery, {
-        ...options,
-        viewerId: scope.userId
-      })
-    if (source.kind === "sprintBoard") {
-      const group = yield* groups.get(source.groupId)
-      return yield* find(
-        {
-          ...query,
-          groupId: undefined,
-          archived: undefined,
-          subTickets: "nested"
-        },
-        {
-          ticketIds: group.tickets,
-          sections: { kind: "status" },
-          within: {
-            sort: { key: "manual", dir: "asc" },
-            nestAcrossSections: true
-          }
-        }
-      )
-    }
-    const within = { sort: query.sort }
-    switch (source.grouping) {
-      case "status": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
-        return yield* find(query, {
-          ticketIds: members === null ? undefined : [...members],
-          sections: { kind: "status" },
-          within
-        })
-      }
-      case "sprint": {
-        const members = yield* sprintSectionMembers(scope, query)
-        return yield* find(
-          { ...query, groupId: undefined },
-          { sections: { kind: "explicit", sections: members }, within }
-        )
-      }
-      case "epic": {
-        const [members, { wanted }] = yield* Effect.all(
-          [
-            resolveGroupMembers(scope, query.groupId),
-            epicSectionsWanted(scope)
-          ],
-          { concurrency: "unbounded" }
-        )
-        return yield* find(parentSectionQuery(query), {
-          ticketIds: members === null ? undefined : [...members],
-          sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
-          within
-        })
-      }
-      case "parent": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
-        const wanted = yield* parentSectionsWanted(
-          scope,
-          yield* parentSectionsOf(scope, query, "ticketParent", members)
-        )
-        return yield* find(parentSectionQuery(query), {
-          ticketIds: members === null ? undefined : [...members],
-          sections: {
-            kind: "ticketParent",
-            keys: wanted.map(({ key }) => key)
-          },
-          within
-        })
-      }
-    }
-  })
-
-  const childSequence = Effect.fn("TicketQueries.childSequence")(function* (
-    ticketId: string
-  ) {
-    const [entry] = yield* ticketIndex.list(yield* ProjectScope, [ticketId])
-    const parent = entry?.parent ?? null
-    if (parent === null) return null
-    const query = { parent: [parent.id], sort: CHILD_TICKET_SORT }
-    const scope = yield* queryable(query)
-    const tickets = yield* ticketIndex.sequence(scope, query, {
-      viewerId: scope.userId,
-      sections: { kind: "explicit", sections: [{ key: parent.id }] },
-      within: { sort: CHILD_TICKET_SORT }
-    })
-    return {
-      within: isEpic(parent) ? "epic" : "parent",
-      tickets
-    } satisfies TicketSequence
-  })
-
-  const sequence = Effect.fn("TicketQueries.sequence")(function* (
-    ticketId: string,
-    source: TicketListSource | undefined
-  ) {
-    if (source !== undefined) {
-      const tickets = yield* viewSequence(source)
-      if (tickets.some((ticket) => ticket.id === ticketId)) {
-        return { within: "view", tickets } satisfies TicketSequence
-      }
-    }
-    return yield* childSequence(ticketId)
-  })
-
   const get = Effect.fn("TicketQueries.get")(function* (id: string) {
     const scope = yield* ProjectScope
     const { orgSlug, slug } = scope
@@ -1305,17 +709,10 @@ const make = Effect.gen(function* () {
     mine,
     mineByProject,
     recent,
-    sections,
-    sprintSections,
-    epicSections,
-    parentSections,
-    sequence,
     list,
     count,
     search,
-    titles,
     textSearch,
-    listInGroup,
     tagUsageCounts,
     get
   })

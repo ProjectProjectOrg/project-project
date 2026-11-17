@@ -14,6 +14,7 @@ import {
   localRuntime
 } from "./localProject"
 import { localViewContext } from "./localProjectFacts"
+import { localValue, withDefects } from "./readLocal"
 
 const projectOf = (req: TicketRequest): LocalProjectRequest => ({
   orgSlug: req.params.orgSlug,
@@ -69,19 +70,19 @@ const toDetail = (
 })
 
 export const localTicketDetail = Atom.family((req: TicketRequest) =>
-  Atom.make((get): AsyncResult.AsyncResult<TicketDetail | null> => {
-    const fields = get(localTicket(req))
-    if (AsyncResult.isInitial(fields)) return AsyncResult.initial(true)
-    if (!AsyncResult.isSuccess(fields) || fields.value === null)
-      return AsyncResult.success(null, {
-        waiting: AsyncResult.isSuccess(fields) && fields.waiting
-      })
-    const description = get(localDescription(req))
-    if (AsyncResult.isFailure(description)) return AsyncResult.success(null)
-    if (!AsyncResult.isSuccess(description) || description.value === null)
-      return AsyncResult.initial(true)
-    return AsyncResult.success(toDetail(fields.value, description.value))
-  })
+  Atom.make(
+    (get): AsyncResult.AsyncResult<TicketDetail | null> =>
+      AsyncResult.flatMap(
+        withDefects(get(localTicket(req))),
+        (fields, previous): AsyncResult.AsyncResult<TicketDetail | null> =>
+          fields === null
+            ? AsyncResult.success(null, previous)
+            : AsyncResult.map(
+                localValue(get(localDescription(req))),
+                (description) => toDetail(fields, description)
+              )
+      )
+  )
 )
 
 export const saveDescription = localRuntime.fn(

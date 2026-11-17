@@ -7,6 +7,7 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useProjectGitStatePolling } from "@/features/github/hooks/useProjectGitStatePolling"
+import { LocalCopyGate } from "@/features/local/components/LocalCopyGate"
 import { LocalProjectCopy } from "@/features/local/components/LocalProjectCopy"
 import {
   project,
@@ -73,26 +74,28 @@ export function ProjectLayout() {
       <ProjectContext.Provider value={req}>
         <ProjectGitStatePolling enabled={value.github !== null} />
         <LocalProjectCopy />
-        <div
-          key={`${orgSlug}/${slug}`}
-          data-page-banner={value.banner ? "" : undefined}
-          className={cn(
-            "relative isolate flex flex-1 flex-col gap-3",
-            !inSettings && "pp-context-in"
-          )}
-          style={{ "--ticket-key-width": ticketKeyWidth(value) }}
-        >
-          <ProjectBanner
-            orgSlug={orgSlug}
-            slug={slug}
-            banner={value.banner}
-            waiting={waiting && projectUpdate.waiting}
-            pageBackdrop
-            cover={onAbout}
-          />
-          <Outlet />
-          <RetainedProjectViews key={`${orgSlug}/${slug}`} />
-        </div>
+        <LocalCopyGate>
+          <div
+            key={`${orgSlug}/${slug}`}
+            data-page-banner={value.banner ? "" : undefined}
+            className={cn(
+              "relative isolate flex flex-1 flex-col gap-3",
+              !inSettings && "pp-context-in"
+            )}
+            style={{ "--ticket-key-width": ticketKeyWidth(value) }}
+          >
+            <ProjectBanner
+              orgSlug={orgSlug}
+              slug={slug}
+              banner={value.banner}
+              waiting={waiting && projectUpdate.waiting}
+              pageBackdrop
+              cover={onAbout}
+            />
+            <Outlet />
+            <RetainedProjectViews key={`${orgSlug}/${slug}`} />
+          </div>
+        </LocalCopyGate>
       </ProjectContext.Provider>
     )
   })

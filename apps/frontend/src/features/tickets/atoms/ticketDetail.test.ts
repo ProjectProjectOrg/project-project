@@ -11,6 +11,7 @@ import {
   TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Reactivity from "effect/reactivity/Reactivity"
@@ -21,8 +22,12 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
+import { localActive } from "@/features/local/atoms/localActive"
+import { localProject } from "@/features/local/atoms/localProject"
+import { localTicketDetail } from "@/features/local/atoms/localTicket"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
+import { createdKeys } from "./createdKeys"
 import {
   lastKnownBeforeNotFound,
   ticketDetail,
@@ -269,23 +274,14 @@ const probe = (name: string, key: string) =>
     reactivityKeys: [key]
   })
 
-const probeNames = [
-  "ticketsIn",
-  "ticketLists",
-  "ticketPages",
-  "titleQuery",
-  "updatedQuery",
-  "self"
-] as const
+const probeNames = ["ticketsIn", "ticketLists", "titleQuery", "self"] as const
 
 type ProbeName = (typeof probeNames)[number]
 
 const probes: Readonly<Record<ProbeName, ReturnType<typeof probe>>> = {
   ticketsIn: probe("ticketsIn", Keys.ticketsIn(scope)),
   ticketLists: probe("ticketLists", Keys.ticketLists(scope)),
-  ticketPages: probe("ticketPages", Keys.ticketPages(scope)),
   titleQuery: probe("titleQuery", Keys.ticketTitleQuery(scope)),
-  updatedQuery: probe("updatedQuery", Keys.ticketUpdatedQuery(scope)),
   self: probe("self", Keys.ticket(scope, ticket.id))
 }
 
@@ -352,27 +348,21 @@ describe("ticket detail invalidation keys", () => {
     try {
       const published = await publishedBy({ title: "After" }, [
         "ticketsIn",
-        "titleQuery",
-        "updatedQuery"
+        "titleQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery", "self"])
+        new Set<ProbeName>(["ticketsIn", "titleQuery", "self"])
       )
     } finally {
       registry.dispose()
     }
   })
 
-  it("publishes the ticket list, updated query and the ticket's own key for a body-only edit", async () => {
+  it("publishes the ticket list and the ticket's own key for a body-only edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
-      const published = await publishedBy({ body: "After" }, [
-        "ticketsIn",
-        "updatedQuery"
-      ])
-      expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "updatedQuery", "self"])
-      )
+      const published = await publishedBy({ body: "After" }, ["ticketsIn"])
+      expect(published).toEqual(new Set<ProbeName>(["ticketsIn", "self"]))
     } finally {
       registry.dispose()
     }
@@ -383,11 +373,10 @@ describe("ticket detail invalidation keys", () => {
     try {
       const published = await publishedBy({ priority: "high" }, [
         "ticketsIn",
-        "ticketLists",
-        "ticketPages"
+        "ticketLists"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages", "self"])
+        new Set<ProbeName>(["ticketsIn", "ticketLists", "self"])
       )
     } finally {
       registry.dispose()
@@ -454,6 +443,42 @@ describe("an open ticket and changes elsewhere in its project", () => {
       registry.set(invalidate, Keys.ticketChanged(scope, ticket.id))
       await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
       expect(gets).toHaveBeenCalledTimes(2)
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("a ticket the project's ready copy doesn't hold", () => {
+  const withCopy = (created: ReadonlyMap<TicketId, string>) =>
+    AtomRegistry.make({
+      initialValues: [
+        [localActive(projectScope("acme", "web")), true],
+        [
+          localProject({ orgSlug: "acme", slug: "web" }),
+          AsyncResult.success({ kind: "ready", sync: "live" })
+        ],
+        [localTicketDetail(req), AsyncResult.success(null)],
+        [createdKeys(projectScope("acme", "web")), created]
+      ]
+    })
+
+  it("is NotFound without asking the server", () => {
+    fetchStub.set(() => Promise.reject(new Error("asked the server")))
+    const registry = withCopy(new Map())
+    try {
+      const error = AsyncResult.error(registry.get(ticketDetail(req)))
+      expect(Option.getOrUndefined(error)).toBeInstanceOf(NotFound)
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("waits for the copy when this session just created it", () => {
+    fetchStub.set(() => Promise.reject(new Error("asked the server")))
+    const registry = withCopy(new Map([[ticket.id, "client-key"]]))
+    try {
+      expect(AsyncResult.isInitial(registry.get(ticketDetail(req)))).toBe(true)
     } finally {
       registry.dispose()
     }

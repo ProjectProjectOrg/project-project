@@ -41,7 +41,7 @@ import {
   bulkUpdateSprintSectionsTickets,
   type SprintSectionsRequest,
   type SprintSectionValue,
-  type SprintSectionsValue
+  type SprintSectionsData
 } from "@/features/tickets/atoms/sprintSections"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { sprintSectionAnchor } from "@/features/tickets/lib/sprintSectionAnchor"
@@ -103,7 +103,7 @@ export function SprintSections(props: Props) {
   const [previous, setPrevious] = useState<Readonly<{
     req: SprintSectionsRequest
     query: TicketListQuery
-    value: SprintSectionsValue
+    value: SprintSectionsData
   }> | null>(null)
   if (
     Result.isSuccess(snapshotResult) &&
@@ -357,7 +357,7 @@ function SprintSectionPagination({
   collapsed
 }: {
   req: SprintSectionsRequest
-  sectionKey: SprintSectionsValue["sections"][number]["key"]
+  sectionKey: SprintSectionsData["sections"][number]["key"]
   count: number
   loaded: number
   nextCursor: string | null

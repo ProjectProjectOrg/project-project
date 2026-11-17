@@ -1,12 +1,18 @@
-import { GroupDetail, type GroupId, type UpdateGroupInput } from "@pp/shared"
+import {
+  GroupDetail,
+  type GroupId,
+  NotFound,
+  type UpdateGroupInput
+} from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
-import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 import { localSprintDetail } from "@/features/local/atoms/localSprint"
-import { readLocal } from "@/features/local/atoms/readLocal"
+import { localGroups } from "@/features/local/atoms/localViews"
+import { localValue, withDefects } from "@/features/local/atoms/readLocal"
 
 import { applySprintDetailPatch } from "./sprintPatch"
 
@@ -28,19 +34,23 @@ export const sprintRequest = (
 const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export const sprintQuery = (req: SprintRequest) =>
-  query("groups", "get", {
-    params: req.params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [Keys.sprint(scopeOf(req), req.params.id)]
-  })
-
 const sprintSource = (req: SprintRequest) =>
-  Atom.readable(
-    (get) =>
-      readLocal(get, req.params, () => localSprintDetail(req)) ??
-      get(sprintQuery(req)),
-    (refresh) => refresh(sprintQuery(req))
+  Atom.make((get) =>
+    AsyncResult.flatMap(
+      withDefects(get(localSprintDetail(req))),
+      (sprint, previous): AsyncResult.AsyncResult<GroupDetail, NotFound> => {
+        if (sprint !== null) return AsyncResult.success(sprint, previous)
+        const groups = localValue(
+          get(
+            localGroups({ orgSlug: req.params.orgSlug, slug: req.params.slug })
+          )
+        )
+        return AsyncResult.isSuccess(groups) &&
+          !groups.value.some((group) => group.id === req.params.id)
+          ? AsyncResult.fail(new NotFound())
+          : AsyncResult.initial(true)
+      }
+    )
   )
 
 export const sprintDetail = Atom.family((req: SprintRequest) =>

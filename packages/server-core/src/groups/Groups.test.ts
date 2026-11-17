@@ -209,9 +209,6 @@ function makeFakeDocs(initial?: {
           .map((ticket) => entryFromDocument(ticket))
       }),
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
-    querySections: () =>
-      Effect.die(new Error("unexpected TicketIndex.querySections")),
-    sequence: () => Effect.die(new Error("unexpected TicketIndex.sequence")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
     topRank: () => Effect.die(new Error("unexpected TicketIndex.topRank")),
