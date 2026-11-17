@@ -58,6 +58,7 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -2096,6 +2097,7 @@ const make = Effect.gen(function* () {
         next: TicketDocs.TicketDocument
       }>
     > = []
+    const restored = new Set<string>()
     const revertWritten = Effect.suspend(() =>
       Effect.forEach(
         written,
@@ -2105,6 +2107,7 @@ const make = Effect.gen(function* () {
             const reverted = revertTicketPatch(original, next, current)
             if (reverted !== null) {
               yield* ticketDocs.write(orgSlug, slug, next.id, reverted)
+              restored.add(next.id)
               yield* ticketIndex.upsertTicket(scope, reverted)
             }
           }).pipe(Effect.ignore),
@@ -2206,8 +2209,13 @@ const make = Effect.gen(function* () {
           for (const [index, next] of nexts.entries()) {
             const original = originals[index]
             if (next === original) continue
-            yield* ticketDocs.update(orgSlug, slug, next.id, () =>
-              Effect.succeed(next)
+            yield* ticketDocs.update(
+              orgSlug,
+              slug,
+              next.id,
+              () => Effect.succeed(next),
+              undefined,
+              { settleLater: true }
             )
             written.push({ original, next })
             if (next.body !== original.body) {
@@ -2231,6 +2239,20 @@ const make = Effect.gen(function* () {
               return yield* write(sprints)
             })
           )
+    ).pipe(
+      Effect.onExit((exit) =>
+        Effect.forEach(
+          ids,
+          (id) =>
+            ticketActivity.release(
+              orgSlug,
+              slug,
+              { kind: "ticket", id },
+              Exit.isFailure(exit) && restored.has(id) ? "discard" : "commit"
+            ),
+          { discard: true }
+        )
+      )
     )
     const { originals, nexts } = yield* position === undefined
       ? writeAll
