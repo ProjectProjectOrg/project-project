@@ -9,6 +9,7 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
+import { Button } from "@/components/ui/button"
 import {
   LexicalEditor,
   type SaveStatus
@@ -39,6 +40,7 @@ export function ProjectGeneralSettings() {
   const actor = useProjectActor()
   const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
   const canEditBody = ProjectPolicy.canUpdate(actor, { body: true })
+  const canExport = actor.call("projects", "export")
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   return (
@@ -107,6 +109,31 @@ export function ProjectGeneralSettings() {
           </SettingsRow>
         </SettingsGroup>
       </SettingsSection>
+
+      {canExport ? (
+        <SettingsSection>
+          <SettingsGroup>
+            <SettingsRow
+              label={m.project_settings_export_heading()}
+              description={m.project_settings_export_description()}
+            >
+              <Button
+                variant="tertiary"
+                size="sm"
+                render={
+                  <a
+                    aria-label={m.project_settings_export_button()}
+                    href={`/api/orgs/${orgSlug}/projects/${project.slug}/export`}
+                    download
+                  />
+                }
+              >
+                {m.project_settings_export_button()}
+              </Button>
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
+      ) : null}
       {actor.call("projects", "delete") ? (
         <ProjectDangerZone
           orgSlug={orgSlug}

@@ -895,6 +895,8 @@ export const makeFakeTicketIndex = (
       ),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
+    projectKeys: () => Effect.succeed({ current: "", former: [] }),
+    syncFormerKeys: () => Effect.succeed([]),
     tagUsageCounts: () =>
       Effect.sync(() => {
         const counts: Record<string, number> = {}

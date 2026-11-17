@@ -14,6 +14,7 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
+  StorageError,
   Unauthorized,
   Validation
 } from "../errors"
@@ -113,6 +114,17 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       error: [Unauthorized, NotFound, Forbidden]
     })
       .annotate(RequiresProject, { project: ["delete"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get("export", "/orgs/:orgSlug/projects/:slug/export", {
+      params: ProjectPath,
+      success: HttpApiSchema.StreamUint8Array({
+        contentType: "application/gzip"
+      }),
+      error: [Unauthorized, NotFound, Forbidden, StorageError]
+    })
+      .annotate(RequiresProject, { project: ["export"] })
       .middleware(ProjectAccess)
   )
   .add(

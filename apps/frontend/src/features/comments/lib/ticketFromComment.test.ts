@@ -8,9 +8,10 @@ const ticketId = Schema.decodeSync(TicketId)
 const commentId = Schema.decodeSync(CommentId)
 
 const sam = {
-  kind: "jira",
+  kind: "imported",
+  source: "jira",
   displayName: "Sam de Vries",
-  accountId: "jira-1"
+  sourceId: "jira-1"
 } as const
 
 describe("ticketFromComment", () => {

@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Users from "../users/Users"
-import { presentActor } from "./actorRow"
+import { presentActor, storedActorUserId } from "./actorRow"
 import { coalesceActivity } from "./coalesce"
 import * as TicketActivity from "./TicketActivity"
 
@@ -84,9 +84,10 @@ const make = Effect.gen(function* () {
     const hasMore = rows.length > TICKET_ACTIVITY_PAGE_SIZE
     const page = rows.slice(0, TICKET_ACTIVITY_PAGE_SIZE)
     const visible = coalesceActivity(page)
-    const actorIds = visible.flatMap((entry) =>
-      entry.actor.kind === "system" ? [] : [entry.actor.userId]
-    )
+    const actorIds = visible.flatMap((entry) => {
+      const id = storedActorUserId(entry.actor)
+      return id === null ? [] : [id]
+    })
     const mentionedIds = visible.flatMap((entry) =>
       entry.change.kind === "assignees_changed"
         ? [...entry.change.added, ...entry.change.removed]

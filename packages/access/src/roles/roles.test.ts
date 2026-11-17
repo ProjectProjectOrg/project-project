@@ -41,8 +41,8 @@ const orgMatrix: ReadonlyArray<Row<Org.OrgResources, Org.OrgRoleName>> = [
     ["owner", "admin"]
   ],
   [
-    "see all projects, manage their members, archive and delete them",
-    { project: ["list_all", "manage_members", "archive", "delete"] },
+    "see all projects, manage their members, archive, export and delete them",
+    { project: ["list_all", "manage_members", "archive", "export", "delete"] },
     ["owner", "admin"]
   ],
   [
@@ -112,7 +112,11 @@ const projectMatrix: ReadonlyArray<
   ],
   ["manage project members", { members: ["manage"] }, ["pm"]],
   ["invite an outside email as client", { members: ["invite_client"] }, ["pm"]],
-  ["archive or delete the project", { project: ["archive", "delete"] }, ["pm"]]
+  [
+    "archive, export or delete the project",
+    { project: ["archive", "export", "delete"] },
+    ["pm"]
+  ]
 ]
 
 const checkMatrix = <S extends Statement.Resources, Name extends string>(

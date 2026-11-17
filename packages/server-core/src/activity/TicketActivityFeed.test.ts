@@ -160,6 +160,31 @@ describe("TicketActivityFeed", () => {
     }).pipe(Effect.provide(feedLayer(projectScope("member", "pm"), history)))
   )
 
+  it.effect("presents an imported actor by name without an account", () =>
+    Effect.gen(function* () {
+      const imported = {
+        kind: "imported",
+        displayName: "Ada from the old instance",
+        source: "projectproject",
+        sourceId: "old-user-1"
+      } as const
+      const page = yield* list().pipe(
+        Effect.provide(
+          feedLayer(projectScope("member", "pm"), [
+            stored(
+              1,
+              "2026-10-01T10:00:00Z",
+              { kind: "description_edited" },
+              imported
+            )
+          ])
+        )
+      )
+      expect(page.items[0]).toMatchObject({ kind: "change", actor: imported })
+      expect(page.people.map((person) => person.id)).not.toContain("old-user-1")
+    })
+  )
+
   it.effect("asks for git activity only when the viewer can read GitHub", () =>
     Effect.gen(function* () {
       gitRequests.length = 0

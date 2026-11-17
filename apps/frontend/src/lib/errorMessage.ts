@@ -11,6 +11,7 @@ import type {
 import type { OrgEmailError } from "@pp/shared"
 import {
   FigmaAuthInvalid,
+  ImportFormatUnsupported,
   FigmaError,
   FigmaFileNotFound,
   FigmaNotConnected,
@@ -110,6 +111,7 @@ export type AppError =
   | JiraRateLimited
   | JiraError
   | JiraMigrationUnavailable
+  | ImportFormatUnsupported
   | Validation
 
 const invitationNotAcceptableMessage = (
@@ -402,6 +404,12 @@ export const errorMessage = Match.type<unknown>()
       reason === "storage_unavailable"
         ? m.jira_import_error_storage()
         : m.jira_import_error_worker()
+    ),
+    Match.when(Schema.is(ImportFormatUnsupported), (error) =>
+      m.project_import_error_format_unsupported({
+        fileVersion: String(error.fileVersion),
+        supportedVersion: String(error.supportedVersion)
+      })
     ),
     Match.when(isValidationDetail, (error) => validationMessage(error.reason)),
     Match.orElse(() => m.error_unknown())

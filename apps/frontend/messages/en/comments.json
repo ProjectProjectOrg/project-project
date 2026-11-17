@@ -10,6 +10,7 @@
   "comments_edited_marker": "(edited)",
   "comments_editing_marker": "editing…",
   "comments_imported_from_jira": "Imported from Jira",
+  "comments_imported_from_projectproject": "Imported from another ProjectProject",
   "comments_load_failed": "Failed to load comments.",
   "comments_mention_card_from": "Comment from {name}",
   "comments_menu_aria_label": "Comment actions",

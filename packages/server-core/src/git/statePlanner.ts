@@ -4,13 +4,15 @@ import type {
   TicketId,
   TicketStatus
 } from "@pp/shared"
+import { identity } from "effect/Function"
 import * as Option from "effect/Option"
 
 import type * as GitHub from "../github/GitHub"
 import {
   pickPullRequestTicket,
   pullRequestTicketReferences,
-  type PullRequestTicketPick
+  type PullRequestTicketPick,
+  type ResolveTicketId
 } from "./pullRequestReference"
 import {
   planLayerPullRequest,
@@ -30,13 +32,17 @@ const noPullRequestText: GitHub.RawPullRequestText = { title: "", body: "" }
 const pickBranchTicket = (
   branch: string,
   knownIds: ReadonlySet<string>,
-  openPullRequestText: ReadonlyMap<string, GitHub.RawPullRequestText>
+  openPullRequestText: ReadonlyMap<string, GitHub.RawPullRequestText>,
+  resolveId: ResolveTicketId
 ): Option.Option<PullRequestTicketPick> =>
   pickPullRequestTicket(
-    pullRequestTicketReferences({
-      branch,
-      ...(openPullRequestText.get(branch) ?? noPullRequestText)
-    }),
+    pullRequestTicketReferences(
+      {
+        branch,
+        ...(openPullRequestText.get(branch) ?? noPullRequestText)
+      },
+      resolveId
+    ),
     knownIds
   )
 
@@ -60,7 +66,8 @@ export function planAutomaticBranchLinks(
     GitHub.RawPullRequestText
   > = new Map(),
   prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
-  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id))
+  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id)),
+  resolveId: ResolveTicketId = identity
 ): ReadonlyMap<TicketId, string> {
   const attachedBranches = new Set(
     tickets.flatMap((ticket) => [...ticketBranches(ticket)])
@@ -74,7 +81,12 @@ export function planAutomaticBranchLinks(
 
   for (const branch of branches) {
     if (branch === defaultBranch || attachedBranches.has(branch)) continue
-    const pick = pickBranchTicket(branch, knownIds, openPullRequestText)
+    const pick = pickBranchTicket(
+      branch,
+      knownIds,
+      openPullRequestText,
+      resolveId
+    )
     if (Option.isNone(pick)) continue
     const ignored = eligible.get(pick.value.ticketId)
     if (ignored === undefined || ignored.includes(branch)) continue
@@ -101,7 +113,8 @@ export function planAutomaticStacks(
     GitHub.RawPullRequestText
   > = new Map(),
   prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
-  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id))
+  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id)),
+  resolveId: ResolveTicketId = identity
 ): ReadonlyMap<TicketId, ReadonlyArray<TicketBranchEntry>> {
   const byId = new Map(tickets.map((ticket) => [ticket.id, ticket]))
   const attached = new Set([
@@ -110,7 +123,12 @@ export function planAutomaticStacks(
   ])
   const stacks = new Map<TicketId, Array<TicketBranchEntry>>()
   const attach = (branch: string): boolean => {
-    const pick = pickBranchTicket(branch, knownIds, openPullRequestText)
+    const pick = pickBranchTicket(
+      branch,
+      knownIds,
+      openPullRequestText,
+      resolveId
+    )
     if (Option.isNone(pick)) return false
     const ticket = byId.get(pick.value.ticketId)
     const own = ticket?.branch ?? ownLinks.get(pick.value.ticketId) ?? null

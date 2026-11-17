@@ -239,6 +239,11 @@ function CommentHeader({
             {m.comments_edited_marker()}
           </span>
         )}
+        {comment.origin === "projectproject" && (
+          <span className="text-caption text-muted-foreground">
+            {m.comments_imported_from_projectproject()}
+          </span>
+        )}
         {comment.origin === "jira" && (
           <span className="text-caption text-muted-foreground">
             {m.comments_imported_from_jira()}

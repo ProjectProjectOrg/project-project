@@ -28,6 +28,7 @@ export type ProjectDocument = Readonly<{
   org?: Slug
   slug: Slug
   key?: ProjectKey
+  formerKeys?: ReadonlyArray<ProjectKey>
   name: string
   icon: string
   color: string
@@ -45,6 +46,7 @@ export type ProjectDocumentWrite = Readonly<{
   org: string
   slug: string
   key: ProjectKey
+  formerKeys?: ReadonlyArray<ProjectKey>
   name: string
   icon: string
   color: string
@@ -143,6 +145,7 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
   org: Schema.optional(Slug),
   slug: Slug,
   key: Schema.optional(ProjectKey),
+  formerKeys: Schema.optional(Schema.Array(ProjectKey)),
   name: Schema.String,
   icon: Schema.optional(Schema.String),
   color: Schema.optional(Schema.String),
@@ -202,6 +205,15 @@ const ProjectFrontmatter = ProjectFrontmatterOnDisk.pipe(
 )
 
 const decodeProjectFrontmatter = Schema.decodeUnknownEffect(ProjectFrontmatter)
+
+const decodeFormerKeys = Schema.decodeUnknownOption(
+  Schema.Struct({ formerKeys: Schema.Array(ProjectKey) })
+)
+
+const formerKeysFrom = (data: Record<string, unknown>) =>
+  Option.getOrUndefined(
+    Option.map(decodeFormerKeys(data), (decoded) => decoded.formerKeys)
+  )
 const encodeProjectFrontmatter = Schema.encodeSync(ProjectFrontmatter)
 
 const annotateProjectDoc = <A, E, R>(
@@ -261,13 +273,27 @@ const make = Effect.gen(function* () {
       slug,
       Effect.gen(function* () {
         const existing = yield* markdown.readProjectFile(orgSlug, slug).pipe(
-          Effect.map((file) => systemRoleFrom(file.data)),
-          Effect.catchTag("NotFound", () => Effect.succeed(Option.none()))
+          Effect.map((file) => ({
+            system: systemRoleFrom(file.data),
+            formerKeys: formerKeysFrom(file.data)
+          })),
+          Effect.catchTag("NotFound", () =>
+            Effect.succeed({
+              system: Option.none(),
+              formerKeys: undefined
+            })
+          )
         )
+        const formerKeys = document.formerKeys ?? existing.formerKeys
         yield* markdown.writeProjectFile(
           orgSlug,
           slug,
-          withSystemRole(encodeProjectFrontmatter(document), existing),
+          withSystemRole(
+            encodeProjectFrontmatter(
+              formerKeys === undefined ? document : { ...document, formerKeys }
+            ),
+            existing.system
+          ),
           document.body
         )
       })

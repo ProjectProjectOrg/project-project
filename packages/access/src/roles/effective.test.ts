@@ -24,7 +24,7 @@ const orgAdminExtras: Grants = {
   time: ["read"],
   figma: ["read"],
   members: ["manage"],
-  project: ["archive", "delete"]
+  project: ["archive", "export", "delete"]
 }
 
 describe("roleOnProject", () => {

@@ -1,11 +1,13 @@
-import { TicketId } from "@pp/shared"
+import { it } from "@effect/vitest"
+import { PROJECT_IMPORT_MAX_BYTES, TicketId } from "@pp/shared"
+import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, vi } from "vitest"
 
-import { Api } from "./Api"
+import { Api, uploadProjectArchive } from "./Api"
 import { Keys, projectScope } from "./keys"
-import { stubFetch } from "./testFetch"
+import { stubFetch, type FetchHandler } from "./testFetch"
 
 const fetch = stubFetch()
 
@@ -37,6 +39,23 @@ describe("Api", () => {
     }
   })
 })
+
+it.effect("rejects oversized project exports before sending their bytes", () =>
+  Effect.gen(function* () {
+    const handler = vi.fn<FetchHandler>()
+    fetch.set(handler)
+    const file = new File([], "project.tar.gz")
+    Object.defineProperty(file, "size", { value: PROJECT_IMPORT_MAX_BYTES + 1 })
+    const error = yield* Effect.flip(
+      uploadProjectArchive({ orgSlug: "acme", file })
+    )
+    expect(error).toMatchObject({
+      _tag: "Validation",
+      reason: "archive_too_large"
+    })
+    expect(handler).not.toHaveBeenCalled()
+  })
+)
 
 describe("keys", () => {
   it("builds project-scoped key strings", () => {

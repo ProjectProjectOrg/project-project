@@ -190,8 +190,9 @@ Missing author
             origin: "native",
             authorKind: "user",
             authorId: "user-1",
-            jiraDisplayName: null,
-            jiraAccountId: null,
+            importedName: null,
+            importedSource: null,
+            importedId: null,
             createdAt: at("2026-05-01T01:02:03.000Z"),
             editedAt: null
           },
@@ -202,8 +203,9 @@ Missing author
             origin: "jira",
             authorKind: "user",
             authorId: "user-2",
-            jiraDisplayName: null,
-            jiraAccountId: null,
+            importedName: null,
+            importedSource: null,
+            importedId: null,
             createdAt: at("2026-05-02T02:03:04.000Z"),
             editedAt: at("2026-05-03T03:04:05.000Z")
           },
@@ -212,10 +214,11 @@ Missing author
             projectId: "project-1",
             ticketId: ticketId("T-28"),
             origin: "jira",
-            authorKind: "jira",
+            authorKind: "imported",
             authorId: null,
-            jiraDisplayName: "Former Jira User",
-            jiraAccountId: "jira-account-1",
+            importedName: "Former Jira User",
+            importedSource: "jira",
+            importedId: "jira-account-1",
             createdAt: at("2026-05-04T04:05:06.000Z"),
             editedAt: null
           }

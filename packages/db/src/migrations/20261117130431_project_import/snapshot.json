@@ -1,0 +1,1000 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "673218b0-aadd-4e9b-9a3f-b468898992c8",
+  "prevIds": [
+    "b5aa0a0f-305c-4dd4-8382-c03df8748973"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_import"
+      ],
+      "writes": [
+        "s|tbl|public.project_import",
+        "n|tbl|public.project_import",
+        "e|tbl|public.project_import",
+        "n|rel|public.project_import",
+        "n|type|public.project_import",
+        "n|rel|public.project_import_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_key"
+      ],
+      "writes": [
+        "s|tbl|public.project_key",
+        "n|tbl|public.project_key",
+        "e|tbl|public.project_key",
+        "n|rel|public.project_key",
+        "n|type|public.project_key",
+        "n|rel|public.project_key_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "comment_index",
+        "imported_name"
+      ],
+      "writes": [
+        "s|col|public.comment_index.imported_name",
+        "n|col|public.comment_index.imported_name",
+        "e|col|public.comment_index.imported_name"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "comment_index",
+        "imported_source"
+      ],
+      "writes": [
+        "s|col|public.comment_index.imported_source",
+        "n|col|public.comment_index.imported_source",
+        "e|col|public.comment_index.imported_source"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "comment_index",
+        "imported_id"
+      ],
+      "writes": [
+        "s|col|public.comment_index.imported_id",
+        "n|col|public.comment_index.imported_id",
+        "e|col|public.comment_index.imported_id"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity",
+        "imported_name"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity.imported_name",
+        "n|col|public.ticket_activity.imported_name",
+        "e|col|public.ticket_activity.imported_name"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity",
+        "imported_source"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity.imported_source",
+        "n|col|public.ticket_activity.imported_source",
+        "e|col|public.ticket_activity.imported_source"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity",
+        "imported_id"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity.imported_id",
+        "n|col|public.ticket_activity.imported_id",
+        "e|col|public.ticket_activity.imported_id"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "comment_index",
+        "jira_display_name"
+      ],
+      "writes": [
+        "s|col|public.comment_index.jira_display_name",
+        "n|col|public.comment_index.jira_display_name",
+        "e|col|public.comment_index.jira_display_name"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "comment_index",
+        "jira_account_id"
+      ],
+      "writes": [
+        "s|col|public.comment_index.jira_account_id",
+        "n|col|public.comment_index.jira_account_id",
+        "e|col|public.comment_index.jira_account_id"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_import",
+        "project_import_org_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_import_org_idx",
+        "n|idx|public.project_import_org_idx",
+        "e|idx|public.project_import_org_idx",
+        "n|rel|public.project_import_org_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_import",
+        "n|sch|public",
+        "n|col|public.project_import.organization_id",
+        "n|col|public.project_import.created_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_import",
+        "project_import_retention_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_import_retention_idx",
+        "n|idx|public.project_import_retention_idx",
+        "e|idx|public.project_import_retention_idx",
+        "n|rel|public.project_import_retention_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_import",
+        "n|sch|public",
+        "n|col|public.project_import.retained_until"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_key",
+        "project_key_current_uidx"
+      ],
+      "writes": [
+        "s|idx|public.project_key_current_uidx",
+        "n|idx|public.project_key_current_uidx",
+        "e|idx|public.project_key_current_uidx",
+        "n|rel|public.project_key_current_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.project_key",
+        "n|sch|public",
+        "n|col|public.project_key.project_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_import"
+      ],
+      "writes": [
+        "s|fk|public.project_import.project_import_organization_id_organization_id_fkey",
+        "n|fk|public.project_import.project_import_organization_id_organization_id_fkey",
+        "e|fk|public.project_import.project_import_organization_id_organization_id_fkey",
+        "n|con|public.project_import.project_import_organization_id_organization_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_import",
+        "n|sch|public",
+        "n|tbl|public.organization",
+        "n|sch|public",
+        "n|col|public.project_import.organization_id",
+        "n|col|public.organization.id",
+        "e|uniqueness|public.organization.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_key"
+      ],
+      "writes": [
+        "s|fk|public.project_key.project_key_project_fkey",
+        "n|fk|public.project_key.project_key_project_fkey",
+        "e|fk|public.project_key.project_key_project_fkey",
+        "n|con|public.project_key.project_key_project_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_key",
+        "n|sch|public",
+        "n|tbl|public.project_index",
+        "n|sch|public",
+        "n|col|public.project_key.project_id",
+        "n|col|public.project_key.organization_id",
+        "n|col|public.project_index.id",
+        "n|col|public.project_index.organization_id",
+        "e|uniqueness|public.project_index.id.organization_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_activity"
+      ],
+      "writes": [
+        "s|ck|public.ticket_activity.ticket_activity_imported_actor_check",
+        "n|ck|public.ticket_activity.ticket_activity_imported_actor_check",
+        "e|ck|public.ticket_activity.ticket_activity_imported_actor_check",
+        "n|con|public.ticket_activity.ticket_activity_imported_actor_check"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public",
+        "n|col|public.ticket_activity.actor_kind",
+        "n|col|public.ticket_activity.imported_name",
+        "n|col|public.ticket_activity.imported_source",
+        "n|col|public.ticket_activity.imported_id"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "comment_index"
+      ],
+      "writes": [
+        "s|ck|public.comment_index.comment_index_attribution_check"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public",
+        "n|col|public.comment_index.author_kind",
+        "n|col|public.comment_index.author_id",
+        "n|col|public.comment_index.imported_name",
+        "n|col|public.comment_index.imported_source",
+        "n|col|public.comment_index.imported_id",
+        "e|col|public.comment_index.author_kind",
+        "e|col|public.comment_index.author_id"
+      ],
+      "sqlHash": "ed4c91e05a395827"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "comment_index"
+      ],
+      "writes": [
+        "s|ck|public.comment_index.comment_index_origin_check"
+      ],
+      "reads": [
+        "n|tbl|public.comment_index",
+        "n|sch|public",
+        "n|col|public.comment_index.origin",
+        "n|col|public.comment_index.author_kind",
+        "e|col|public.comment_index.origin",
+        "e|col|public.comment_index.author_kind"
+      ],
+      "sqlHash": "2294e92456c60daa"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_activity"
+      ],
+      "writes": [
+        "s|ck|public.ticket_activity.ticket_activity_actor_check"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity",
+        "n|sch|public",
+        "n|col|public.ticket_activity.actor_kind",
+        "n|col|public.ticket_activity.actor_user_id",
+        "n|col|public.ticket_activity.actor_client_id",
+        "n|col|public.ticket_activity.actor_client_name",
+        "n|col|public.ticket_activity.actor_source",
+        "e|col|public.ticket_activity.actor_kind",
+        "e|col|public.ticket_activity.actor_user_id",
+        "e|col|public.ticket_activity.actor_client_id",
+        "e|col|public.ticket_activity.actor_client_name",
+        "e|col|public.ticket_activity.actor_source"
+      ],
+      "sqlHash": "79da14a143286e0e"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "project_import",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "project_key",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "comment_index",
+        "name": "imported_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "comment_index",
+        "name": "imported_source",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "comment_index",
+        "name": "imported_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "organization_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "created_by",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "attempt",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "manifest",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "files",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "attachments",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "configuration",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "destination_project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "destination_project_slug",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "failure_reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "retained_until",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "organization_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "current",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "imported_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "imported_source",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "imported_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "project_import_org_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "organization_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "project_import_retention_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "retained_until",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "project_key_current_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": "\"current\"",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "project_import_organization_id_organization_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "organization_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "organization",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "project_key_project_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "organization_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_index",
+        "columnsTo": [
+          "id",
+          "organization_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_key",
+        "name": "project_key_pkey",
+        "columns": [
+          "organization_id",
+          "key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_import",
+        "name": "project_import_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity",
+        "name": "ticket_activity_imported_actor_check",
+        "value": "(\"actor_kind\" = 'imported') = (\n        \"imported_name\" is not null\n        and \"imported_source\" is not null\n        and \"imported_id\" is not null\n      )",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"comment_index\",\"jira_display_name\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"comment_index\",\"jira_account_id\"]"
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"comment_index\",\"comment_index_attribution_check\"]",
+      "set": {
+        "value": "(\n        \"author_kind\" = 'user'\n        and \"author_id\" is not null\n        and \"imported_name\" is null\n        and \"imported_source\" is null\n        and \"imported_id\" is null\n      ) or (\n        \"author_kind\" = 'imported'\n        and \"author_id\" is null\n        and \"imported_name\" is not null\n        and \"imported_source\" is not null\n        and \"imported_id\" is not null\n      )"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"comment_index\",\"comment_index_origin_check\"]",
+      "set": {
+        "value": "\"origin\" <> 'native' or \"author_kind\" = 'user'"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"ticket_activity\",\"ticket_activity_actor_check\"]",
+      "set": {
+        "value": "(\n        \"actor_kind\" = 'user'\n        and \"actor_user_id\" is not null\n        and \"actor_client_id\" is null\n        and \"actor_client_name\" is null\n        and \"actor_source\" is null\n      ) or (\n        \"actor_kind\" = 'agent'\n        and \"actor_user_id\" is not null\n        and \"actor_client_id\" is not null\n        and \"actor_client_name\" is not null\n        and \"actor_source\" is null\n      ) or (\n        \"actor_kind\" = 'system'\n        and \"actor_user_id\" is null\n        and \"actor_client_id\" is null\n        and \"actor_client_name\" is null\n        and \"actor_source\" is not null\n      ) or (\n        \"actor_kind\" = 'imported'\n        and \"actor_user_id\" is null\n        and \"actor_client_id\" is null\n        and \"actor_client_name\" is null\n        and \"actor_source\" is null\n      )"
+      }
+    }
+  ]
+}

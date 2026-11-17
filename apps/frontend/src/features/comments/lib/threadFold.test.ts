@@ -46,7 +46,12 @@ describe("threadFold", () => {
 })
 
 const author = (displayName: string) => ({
-  author: { kind: "jira" as const, displayName, accountId: displayName }
+  author: {
+    kind: "imported" as const,
+    source: "jira" as const,
+    displayName,
+    sourceId: displayName
+  }
 })
 
 describe("foldedAuthors", () => {

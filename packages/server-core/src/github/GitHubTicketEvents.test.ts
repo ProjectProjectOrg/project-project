@@ -140,6 +140,8 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     mentionableIds: () => Effect.succeed(new Set()),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.succeed(1),
+    projectKeys: () => Effect.succeed({ current: "", former: [] }),
+    syncFormerKeys: () => Effect.succeed([]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
@@ -607,6 +609,27 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
     )
   }
+
+  it.effect(
+    "links a pull request on a branch named after a former key to the ticket under the current key",
+    () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(
+          [unlinked({ id: ticketId("PP-12") })],
+          { branch: "feat/T-12-x" },
+          {
+            projectKeys: () => Effect.succeed({ current: "PP", former: ["T"] })
+          }
+        )
+
+        expect(docs.writes).toEqual([
+          {
+            id: "PP-12",
+            document: expect.objectContaining({ branch: "feat/T-12-x", pr: 80 })
+          }
+        ])
+      })
+  )
 
   for (const { name, documents, change, indexOverrides } of [
     {

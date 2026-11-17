@@ -293,7 +293,8 @@ const make = Effect.gen(function* () {
               .where(
                 and(
                   eq(commentIndex.projectId, project.projectId),
-                  inArray(commentIndex.jiraAccountId, [...accounts])
+                  eq(commentIndex.importedSource, "jira"),
+                  inArray(commentIndex.importedId, [...accounts])
                 )
               )
               .pipe(Effect.orDie)
@@ -313,8 +314,9 @@ const make = Effect.gen(function* () {
             (existing) => {
               const blocks = parseCommentsRegion(existing.commentsRegion)
               const claimedBlocks = blocks.map((block) =>
-                block.author.kind === "jira" &&
-                accounts.has(block.author.accountId)
+                block.author.kind === "imported" &&
+                block.author.source === "jira" &&
+                accounts.has(block.author.sourceId)
                   ? {
                       ...block,
                       author: { kind: "user" as const, userId: claim.userId }
@@ -370,13 +372,15 @@ const make = Effect.gen(function* () {
         .set({
           authorKind: "user",
           authorId: claim.userId,
-          jiraDisplayName: null,
-          jiraAccountId: null
+          importedName: null,
+          importedSource: null,
+          importedId: null
         })
         .where(
           and(
             eq(commentIndex.projectId, project.projectId),
-            inArray(commentIndex.jiraAccountId, [...accounts]),
+            eq(commentIndex.importedSource, "jira"),
+            inArray(commentIndex.importedId, [...accounts]),
             failed.length === 0
               ? undefined
               : notInArray(commentIndex.ticketId, failed)

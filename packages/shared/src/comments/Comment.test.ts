@@ -47,25 +47,22 @@ describe("CommentAuthor", () => {
     if (author.kind === "user") expect(author.user.id).toBe("user-1")
   })
 
-  it("decodes Jira author snapshots", () => {
-    expect(
-      decodeCommentAuthorSync({
-        kind: "jira",
-        displayName: "Former Jira User",
-        accountId: "jira-account-1"
-      })
-    ).toEqual({
-      kind: "jira",
+  it("decodes imported author snapshots", () => {
+    const imported = {
+      kind: "imported",
       displayName: "Former Jira User",
-      accountId: "jira-account-1"
-    })
+      source: "jira",
+      sourceId: "jira-account-1"
+    } as const
+    expect(decodeCommentAuthorSync(imported)).toEqual(imported)
   })
 
-  it("rejects incomplete Jira author snapshots", () => {
+  it("rejects imported authors without a source id", () => {
     expect(() =>
       decodeUnknownCommentAuthorSync({
-        kind: "jira",
-        displayName: "Former Jira User"
+        kind: "imported",
+        displayName: "Former Jira User",
+        source: "jira"
       })
     ).toThrow()
   })
@@ -91,16 +88,17 @@ describe("Comment", () => {
     expect(comment.author.kind).toBe("user")
   })
 
-  it("rejects Jira author snapshots on native comments", () => {
+  it("rejects imported authors on native comments", () => {
     expect(() =>
       decodeUnknownCommentSync({
         id: "c_invalid",
         ticketId: "T-1",
         projectSlug: "project",
         author: {
-          kind: "jira",
+          kind: "imported",
           displayName: "Former Jira User",
-          accountId: "jira-account-1"
+          source: "jira",
+          sourceId: "jira-account-1"
         },
         origin: "native",
         body: "Invalid attribution",

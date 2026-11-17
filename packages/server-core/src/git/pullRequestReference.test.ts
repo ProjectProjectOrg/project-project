@@ -1,3 +1,4 @@
+import { identity } from "effect/Function"
 import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest"
 
@@ -10,12 +11,15 @@ import {
 const pick = (pr: Partial<PullRequestText>, existing: ReadonlyArray<string>) =>
   Option.getOrNull(
     pickPullRequestTicket(
-      pullRequestTicketReferences({
-        branch: "fix-login",
-        title: "Fix login",
-        body: "",
-        ...pr
-      }),
+      pullRequestTicketReferences(
+        {
+          branch: "fix-login",
+          title: "Fix login",
+          body: "",
+          ...pr
+        },
+        identity
+      ),
       new Set(existing)
     )
   )

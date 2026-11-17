@@ -20,10 +20,12 @@ const SYSTEM_NAMES: Readonly<
 }
 
 const isViewer = (actor: TicketActivityActor, viewerId: string | undefined) =>
-  actor.kind !== "system" && actor.user.id === viewerId
+  (actor.kind === "user" || actor.kind === "agent") &&
+  actor.user.id === viewerId
 
 const actorName = (actor: TicketActivityActor): string => {
   if (actor.kind === "system") return SYSTEM_NAMES[actor.source]()
+  if (actor.kind === "imported") return actor.displayName
   const name = actor.user.name || actor.user.email
   return actor.kind === "agent"
     ? m.org_dashboard_activity_actor_agent({ name, client: actor.client.name })

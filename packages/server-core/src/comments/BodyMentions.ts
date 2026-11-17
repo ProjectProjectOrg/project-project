@@ -8,10 +8,13 @@ import * as Effect from "effect/Effect"
 export const validateBodyMentions = (
   body: string,
   memberIds: ReadonlySet<string>,
-  ticketIds: ReadonlySet<string>
+  ticketIds: ReadonlySet<string>,
+  tolerated: ReadonlySet<string> = new Set()
 ): Effect.Effect<void, MentionInvalid> =>
   Effect.gen(function* () {
-    const links = extractMentionLinks(body)
+    const links = extractMentionLinks(body).filter(
+      (link) => !tolerated.has(link.href)
+    )
     for (const link of links) {
       if (!link.parsed) {
         return yield* new MentionInvalid({
@@ -63,7 +66,8 @@ export const validateBodyMentionsWithLookups = <
       MemberError,
       MemberContext
     >
-  }
+  },
+  previousBody = ""
 ): Effect.Effect<
   void,
   MentionInvalid | TicketError | MemberError,
@@ -90,6 +94,9 @@ export const validateBodyMentionsWithLookups = <
       ],
       { concurrency: 2 }
     )
-    yield* validateBodyMentions(body, memberIds, ticketIds)
+    const tolerated = new Set(
+      extractMentionLinks(previousBody).map((link) => link.href)
+    )
+    yield* validateBodyMentions(body, memberIds, ticketIds, tolerated)
   })
 }

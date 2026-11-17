@@ -1020,9 +1020,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         {
           id: snapshotId,
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           origin: "jira",
           createdAt: snapshotCreatedAt,
@@ -1123,13 +1124,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: string
           author_kind: string
           author_id: string | null
-          jira_display_name: string | null
-          jira_account_id: string | null
+          imported_name: string | null
+          imported_source: string | null
+          imported_id: string | null
           created_at: Date
           edited_at: Date | null
         }>(
-          `select id, origin, author_kind, author_id, jira_display_name,
-                    jira_account_id, created_at, edited_at
+          `select id, origin, author_kind, author_id, imported_name,
+                    imported_source, imported_id, created_at, edited_at
              from comment_index
              where project_id = $1 and ticket_id = $2
              order by created_at`,
@@ -1142,8 +1144,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "native",
           author_kind: "user",
           author_id: userId,
-          jira_display_name: null,
-          jira_account_id: null,
+          imported_name: null,
+          imported_source: null,
+          imported_id: null,
           created_at: nativeCreatedAt,
           edited_at: null
         },
@@ -1152,18 +1155,20 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "jira",
           author_kind: "user",
           author_id: userId,
-          jira_display_name: null,
-          jira_account_id: null,
+          imported_name: null,
+          imported_source: null,
+          imported_id: null,
           created_at: linkedCreatedAt,
           edited_at: linkedEditedAt
         },
         {
           id: snapshotId,
           origin: "jira",
-          author_kind: "jira",
+          author_kind: "imported",
           author_id: null,
-          jira_display_name: "Former Jira User",
-          jira_account_id: "jira-account-1",
+          imported_name: "Former Jira User",
+          imported_source: "jira",
+          imported_id: "jira-account-1",
           created_at: snapshotCreatedAt,
           edited_at: snapshotEditedAt
         }
@@ -1217,9 +1222,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           ticketId: rebuildDocument.id,
           projectSlug,
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           origin: "jira",
           body: "Snapshot body",

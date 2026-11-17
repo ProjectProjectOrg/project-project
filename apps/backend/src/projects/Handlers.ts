@@ -8,10 +8,12 @@ import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as ProjectGithub from "@pp/server-core/github/ProjectGithub"
+import * as ProjectExport from "@pp/server-core/projects/ProjectExport"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
+import { HttpServerResponse } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "../http/dieOnMarkdown"
@@ -52,6 +54,19 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const projects = yield* Projects.Projects
           const attachments = yield* Attachments.Attachments
           yield* attachments.orphanProject(orgSlug, slug, projects.remove())
+        }).pipe(dieOnMarkdown)
+      )
+      .handleRaw("export", () =>
+        Effect.gen(function* () {
+          const projectExport = yield* ProjectExport.ProjectExport
+          const { filename, stream } = yield* projectExport.archive()
+          return HttpServerResponse.stream(stream, {
+            contentType: "application/gzip",
+            headers: {
+              "content-disposition": `attachment; filename="${filename}"`,
+              "cache-control": "private, no-store"
+            }
+          })
         }).pipe(dieOnMarkdown)
       )
       .handle("githubIntegration", () =>
