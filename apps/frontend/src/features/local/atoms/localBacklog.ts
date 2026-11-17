@@ -1,15 +1,12 @@
-import { type LocalRepositories, sectionDifferences } from "@pp/local"
+import { sectionDifferences } from "@pp/local"
 import { TICKET_LIST_LIMIT } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Stream from "effect/Stream"
 
 import { Api } from "@/api/Api"
 import { projectScope } from "@/api/keys"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { connectedRepos } from "@/features/github/lib/repos"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
 import type {
   BacklogRequest,
   BacklogValue
@@ -22,6 +19,7 @@ import { toRow, withCreatedKeys } from "@/features/tickets/lib/ticketRows"
 import { LocalClient } from "../lib/localClient"
 import { localShadowChecks } from "../lib/localShadow"
 import { localReady, localRuntime } from "./localProject"
+import { localViewContext } from "./localProjectFacts"
 
 const compareWithServer = (
   req: BacklogRequest,
@@ -47,32 +45,13 @@ const compareWithServer = (
     )
   )
 
-type ProjectRepos = Parameters<typeof connectedRepos>[0]
-
-const repository = (
-  repo: NonNullable<ProjectRepos["github"]>
-): LocalRepositories["byId"][string] => ({
-  repoOwner: repo.repoOwner,
-  repoName: repo.repoName,
-  defaultBaseBranch: repo.defaultBaseBranch
-})
-
-export const repositories = (detail: ProjectRepos): LocalRepositories => ({
-  fallback: detail.github === null ? null : repository(detail.github),
-  byId: Object.fromEntries(
-    connectedRepos(detail).map((repo) => [repo.repoId, repository(repo)])
-  )
-})
-
 export const localBacklog = Atom.family((req: BacklogRequest) =>
   localRuntime.atom((get) => {
     const ready = get(localReady(req.params))
     if (ready === undefined) return Stream.never
     if (!ready) return Stream.make(null)
-    const detail = get(
-      project(projectRequest(req.params.orgSlug, req.params.slug))
-    )
-    if (!AsyncResult.isSuccess(detail)) return Stream.never
+    const context = get(localViewContext(req.params))
+    if (context === undefined) return Stream.never
     const loaded = get(backlogLoadedPages(req))
     const scope = projectScope(req.params.orgSlug, req.params.slug)
     const created = get(createdKeys(scope))
@@ -83,8 +62,8 @@ export const localBacklog = Atom.family((req: BacklogRequest) =>
             project: req.params,
             query: req.query,
             viewerId: get(currentUserId),
-            estimation: detail.value.estimation,
-            repositories: repositories(detail.value),
+            estimation: context.estimation,
+            repositories: context.repositories,
             pages: loaded,
             pageSize: TICKET_LIST_LIMIT
           })
@@ -125,17 +104,15 @@ export const localCounts = Atom.family((req: CountsRequest) =>
     const ready = get(localReady(req.params))
     if (ready === undefined) return Stream.never
     if (!ready) return Stream.make(null)
-    const detail = get(
-      project(projectRequest(req.params.orgSlug, req.params.slug))
-    )
-    if (!AsyncResult.isSuccess(detail)) return Stream.never
+    const context = get(localViewContext(req.params))
+    if (context === undefined) return Stream.never
     return Stream.unwrap(
       Effect.map(LocalClient, (client) =>
         client.Counts({
           project: req.params,
           query: req.query,
           viewerId: get(currentUserId),
-          estimation: detail.value.estimation
+          estimation: context.estimation
         })
       )
     )

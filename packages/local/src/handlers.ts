@@ -28,6 +28,7 @@ import { localTicket } from "./localTicket"
 import { localParentSections } from "./parents"
 import type { PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
+import { localProjectFacts } from "./projectFacts"
 import { localCounts, localSections } from "./sections"
 import { localSequence } from "./sequence"
 import { groupMembership, localSprintSections } from "./sprints"
@@ -519,7 +520,14 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       CachedTicketData: (request) =>
         descriptions.cached(request).pipe(Effect.orDie),
       CacheTicketData: (request) =>
-        descriptions.cache(request).pipe(Effect.orDie)
+        descriptions.cache(request).pipe(Effect.orDie),
+      ProjectFacts: (project) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(project))],
+            readCopy("ProjectFacts", project, localProjectFacts)
+          )
+          .pipe(Stream.orDie)
     }
   })
 )

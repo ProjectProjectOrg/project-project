@@ -17,6 +17,7 @@ import {
   TicketStatus
 } from "@pp/shared"
 import { SyncCursor, TicketParentState, TicketRelations } from "@pp/shared"
+import { MemberFact, ProjectFact, ProjectStatus, Tag } from "@pp/shared"
 import { Rpc, RpcGroup } from "effect/rpc"
 import * as Schema from "effect/Schema"
 
@@ -197,6 +198,14 @@ export const TicketDataRequest = Schema.Struct({
 })
 export type TicketDataRequest = typeof TicketDataRequest.Type
 
+export const LocalProjectFacts = Schema.Struct({
+  project: ProjectFact,
+  statuses: Schema.Array(ProjectStatus),
+  tags: Schema.Array(Tag),
+  members: Schema.Array(MemberFact)
+})
+export type LocalProjectFacts = typeof LocalProjectFacts.Type
+
 export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Hydrated", { payload: LocalProject, success: Schema.Boolean }),
   Rpc.make("Pull", { payload: LocalProject, success: LocalStatus }),
@@ -272,6 +281,11 @@ export class LocalRpcs extends RpcGroup.make(
   }),
   Rpc.make("CacheTicketData", {
     payload: Schema.Struct({ ...TicketDataRequest.fields, data: Schema.String })
+  }),
+  Rpc.make("ProjectFacts", {
+    payload: LocalProject,
+    success: Schema.NullOr(LocalProjectFacts),
+    stream: true
   })
 ) {}
 

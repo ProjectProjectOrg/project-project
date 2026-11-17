@@ -5,16 +5,15 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Stream from "effect/Stream"
 
-import { project, projectRequest } from "@/features/projects/atoms/projects"
 import type { TicketRequest } from "@/features/tickets/atoms/ticketDetail"
 
 import { LocalClient } from "../lib/localClient"
-import { repositories } from "./localBacklog"
 import {
   type LocalProjectRequest,
   localReady,
   localRuntime
 } from "./localProject"
+import { localViewContext } from "./localProjectFacts"
 
 const projectOf = (req: TicketRequest): LocalProjectRequest => ({
   orgSlug: req.params.orgSlug,
@@ -26,16 +25,14 @@ export const localTicket = Atom.family((req: TicketRequest) =>
     const ready = get(localReady(projectOf(req)))
     if (ready === undefined) return Stream.never
     if (!ready) return Stream.make(null)
-    const detail = get(
-      project(projectRequest(req.params.orgSlug, req.params.slug))
-    )
-    if (!AsyncResult.isSuccess(detail)) return Stream.never
+    const context = get(localViewContext(projectOf(req)))
+    if (context === undefined) return Stream.never
     return Stream.unwrap(
       Effect.map(LocalClient, (client) =>
         client.Ticket({
           project: projectOf(req),
           id: req.params.id,
-          repositories: repositories(detail.value)
+          repositories: context.repositories
         })
       )
     )
