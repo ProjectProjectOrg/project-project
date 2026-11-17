@@ -1,10 +1,15 @@
+import { randomBytes } from "node:crypto"
 import { mkdir, open, readFile, realpath, rename, rm } from "node:fs/promises"
 import { hostname } from "node:os"
 import path from "node:path"
 
 import * as Schema from "effect/Schema"
 
-const Id = Schema.String.check(Schema.isPattern(/^[a-f0-9]{24}$/))
+const Id = Schema.String.check(
+  Schema.isPattern(
+    /^(?:[a-f0-9]{24}|[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?-[a-f0-9]{8})$/
+  )
+)
 const Migration = Schema.Struct({ name: Schema.String, hash: Schema.String })
 export const Environment = Schema.Struct({
   id: Id,
@@ -32,6 +37,17 @@ export const decodeRunning = Schema.decodeUnknownSync(Running)
 export const decodeEnvironment = Schema.decodeUnknownSync(Environment)
 const decodeRegistry = Schema.decodeUnknownSync(Registry)
 const decodeLock = Schema.decodeUnknownSync(Lock)
+
+export function createEnvironmentId(branch: string): string {
+  const label =
+    branch
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40)
+      .replace(/-+$/g, "") || "worktree"
+  return `${label}-${randomBytes(4).toString("hex")}`
+}
 
 export async function command(
   args: ReadonlyArray<string>,

@@ -21,6 +21,7 @@ import {
   Environment,
   decodeRunning,
   decodeEnvironment,
+  createEnvironmentId,
   command,
   exists,
   isRunning,
@@ -152,7 +153,9 @@ async function start(): Promise<void> {
       return existing
     }
     const entry = decodeEnvironment({
-      id: randomBytes(12).toString("hex"),
+      id: createEnvironmentId(
+        await command(["git", "branch", "--show-current"], root)
+      ),
       worktree: root,
       state: "provisioning",
       migrations: [],
