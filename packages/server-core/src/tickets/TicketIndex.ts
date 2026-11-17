@@ -1267,11 +1267,11 @@ const make = Effect.gen(function* () {
         : (row) => sectionExpression(sections, row)
     const whereOptions = { ...options, nestWithin }
     const explicitIds =
-      typeof options.sections !== "string" &&
-      options.sections.every((entry) => entry.members !== undefined)
+      typeof sections !== "string" &&
+      sections.every((entry) => entry.members !== undefined)
         ? [
             or(
-              ...options.sections.flatMap((entry) =>
+              ...sections.flatMap((entry) =>
                 entry.members === undefined
                   ? []
                   : [membersCondition(entry.members)]
@@ -1281,38 +1281,75 @@ const make = Effect.gen(function* () {
         : []
     const expression = ticketSortExpression(ticketQuery.sort)
     const ascending = ticketQuery.sort.dir === "asc"
-    const ranked = db
-      .select({
-        ...entryColumns,
-        sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
-        subTicketsInSection: subTicketsInSection(nestWithin),
-        section: drizzleSql<string | null>`${section}`.as("section"),
-        position: drizzleSql<number>`row_number() over (
-          partition by ${section}
-          order by ${expression} ${ascending ? drizzleSql`asc` : drizzleSql`desc`},
-            ${ticketIndex.ticketId} ${ascending ? drizzleSql`asc` : drizzleSql`desc`}
-        )`
-          .mapWith(Number)
-          .as("position")
-      })
-      .from(ticketIndex)
-      .where(
-        and(
-          ...ticketWhereConditions(project, ticketQuery, whereOptions),
-          ...explicitIds
-        )
-      )
-      .as("ranked")
-    const rows = db
-      .select()
-      .from(ranked)
-      .where(
-        and(
-          isNotNull(ranked.section),
-          lte(ranked.position, Math.max(1, options.limit))
-        )
-      )
-      .orderBy(asc(ranked.section), asc(ranked.position))
+    const limit = Math.max(1, options.limit)
+    const where = and(
+      ...ticketWhereConditions(project, ticketQuery, whereOptions),
+      ...explicitIds
+    )
+    const pages =
+      typeof sections === "string"
+        ? Effect.gen(function* () {
+            const ranked = db
+              .select({
+                ticketId: ticketIndex.ticketId,
+                section: drizzleSql<string | null>`${section}`.as("section"),
+                position: drizzleSql<number>`row_number() over (
+                  partition by ${section}
+                  order by ${expression} ${ascending ? drizzleSql`asc` : drizzleSql`desc`},
+                    ${ticketIndex.ticketId} ${ascending ? drizzleSql`asc` : drizzleSql`desc`}
+                )`
+                  .mapWith(Number)
+                  .as("position")
+              })
+              .from(ticketIndex)
+              .where(where)
+              .as("ranked")
+            const rows = yield* db
+              .select({ ticketId: ranked.ticketId, section: ranked.section })
+              .from(ranked)
+              .where(
+                and(isNotNull(ranked.section), lte(ranked.position, limit))
+              )
+              .orderBy(asc(ranked.section), asc(ranked.position))
+            const bySection = new Map<string, Array<string>>()
+            for (const row of rows) {
+              if (row.section === null) continue
+              bySection.set(row.section, [
+                ...(bySection.get(row.section) ?? []),
+                row.ticketId
+              ])
+            }
+            return [...bySection]
+          })
+        : Effect.forEach(
+            sections,
+            (entry) =>
+              db
+                .select({ ticketId: ticketIndex.ticketId })
+                .from(ticketIndex)
+                .where(
+                  and(
+                    where,
+                    ...(entry.members === undefined
+                      ? []
+                      : [membersCondition(entry.members)]),
+                    drizzleSql`${section} = ${entry.key}`
+                  )
+                )
+                .orderBy(
+                  ...(ascending
+                    ? [asc(expression), asc(ticketIndex.ticketId)]
+                    : [desc(expression), desc(ticketIndex.ticketId)])
+                )
+                .limit(limit)
+                .pipe(
+                  Effect.map(
+                    (rows) =>
+                      [entry.key, rows.map((row) => row.ticketId)] as const
+                  )
+                ),
+            { concurrency: "unbounded" }
+          )
     const counts = db
       .select({
         section: drizzleSql<string | null>`${section}`,
@@ -1331,36 +1368,56 @@ const make = Effect.gen(function* () {
         )
       )
       .groupBy(drizzleSql`1`, drizzleSql`2`)
-    return yield* Effect.all([rows, counts], { concurrency: 2 }).pipe(
-      Effect.map(([rows, counts]) => {
-        const out = new Map<
-          string,
-          {
-            counts: { total: number; byStatus: Record<string, number> }
-            entries: Array<TicketIndexQueryEntry>
-          }
-        >()
-        const at = (key: string) => {
-          let current = out.get(key)
-          if (current === undefined) {
-            current = { counts: { total: 0, byStatus: {} }, entries: [] }
-            out.set(key, current)
-          }
-          return current
+    return yield* Effect.gen(function* () {
+      const [pageIds, countRows] = yield* Effect.all([pages, counts], {
+        concurrency: 2
+      })
+      const ids = pageIds.flatMap(([, ids]) => ids)
+      const rows =
+        ids.length === 0
+          ? []
+          : yield* db
+              .select({
+                ...entryColumns,
+                sortValue: drizzleSql<string | Date>`${expression}`.as(
+                  "sort_value"
+                ),
+                subTicketsInSection: subTicketsInSection(nestWithin)
+              })
+              .from(ticketIndex)
+              .where(
+                and(
+                  eq(ticketIndex.projectId, project.projectId),
+                  ticketIdsCondition(ids)
+                )
+              )
+      const byId = new Map(rows.map((row) => [row.ticketId, row]))
+      const out = new Map<
+        string,
+        {
+          counts: { total: number; byStatus: Record<string, number> }
+          entries: Array<TicketIndexQueryEntry>
         }
-        for (const row of counts) {
-          if (row.section === null) continue
-          const current = at(row.section)
-          current.counts.byStatus[row.status] = row.total
-          current.counts.total += row.total
+      >()
+      const at = (key: string) => {
+        let current = out.get(key)
+        if (current === undefined) {
+          current = { counts: { total: 0, byStatus: {} }, entries: [] }
+          out.set(key, current)
         }
-        for (const {
-          sortValue,
-          section: key,
-          position: _position,
-          ...row
-        } of rows) {
-          if (key === null) continue
+        return current
+      }
+      for (const row of countRows) {
+        if (row.section === null) continue
+        const current = at(row.section)
+        current.counts.byStatus[row.status] = row.total
+        current.counts.total += row.total
+      }
+      for (const [key, sectionIds] of pageIds) {
+        for (const id of sectionIds) {
+          const found = byId.get(id)
+          if (found === undefined) continue
+          const { sortValue, ...row } = found
           const value = sortValueText(sortValue)
           at(key).entries.push({
             entry: toEntry(row),
@@ -1368,10 +1425,9 @@ const make = Effect.gen(function* () {
             orderKey: toOrderKey(value, row.ticketId)
           })
         }
-        return out
-      }),
-      Effect.orDie
-    )
+      }
+      return out
+    }).pipe(Effect.orDie)
   })
 
   const sequence = Effect.fn("TicketIndex.sequence")(function* (
