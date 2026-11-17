@@ -202,6 +202,18 @@ const sections = Effect.gen(function* () {
   yield* sql`create index local_tickets_epics on local_tickets (copy, archived, order_title) where type = 'epic'`
 })
 
+const descriptionCopy = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`drop index local_descriptions_used`
+  yield* sql`alter table local_descriptions drop column used`
+  yield* sql`create table local_group_descriptions (
+    scope text not null, id text not null, body text not null,
+    revision text not null,
+    primary key (scope, id))`
+  yield* sql`create table local_description_sync (
+    scope text primary key, stage text not null, next text, copy integer)`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
@@ -209,5 +221,6 @@ export const localMigrations = Migrator.fromRecord({
   "0004_staging": staging,
   "0005_pending": pending,
   "0006_descriptions": descriptions,
-  "0007_sections": sections
+  "0007_sections": sections,
+  "0008_description_copy": descriptionCopy
 })

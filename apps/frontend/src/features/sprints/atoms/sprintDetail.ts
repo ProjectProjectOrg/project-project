@@ -4,6 +4,8 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
+import { localSprintDetail } from "@/features/local/atoms/localSprint"
+import { readLocal } from "@/features/local/atoms/readLocal"
 
 import { applySprintDetailPatch } from "./sprintPatch"
 
@@ -32,8 +34,16 @@ export const sprintQuery = (req: SprintRequest) =>
     reactivityKeys: [Keys.sprint(scopeOf(req), req.params.id)]
   })
 
+const sprintSource = (req: SprintRequest) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localSprintDetail(req)) ??
+      get(sprintQuery(req)),
+    (refresh) => refresh(sprintQuery(req))
+  )
+
 export const sprintDetail = Atom.family((req: SprintRequest) =>
-  Atom.optimistic(sprintQuery(req))
+  Atom.optimistic(sprintSource(req))
 )
 
 export const updateSprintDetail = Atom.family((req: SprintRequest) =>

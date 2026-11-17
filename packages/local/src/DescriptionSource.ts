@@ -1,4 +1,5 @@
 import type {
+  DescriptionPage,
   TicketDescription,
   UpdateTicketDescriptionInput
 } from "@pp/shared"
@@ -28,6 +29,14 @@ export class DescriptionSource extends Context.Service<
       ReadonlyArray<TicketDescription>,
       SyncDenied | SyncOffline
     >
+    page: (
+      project: LocalProject,
+      token: string | null
+    ) => Effect.Effect<DescriptionPage, SyncDenied | SyncOffline>
+    group: (
+      project: LocalProject,
+      id: string
+    ) => Effect.Effect<string | null, SyncDenied | SyncOffline>
     save: (
       project: LocalProject,
       id: string,

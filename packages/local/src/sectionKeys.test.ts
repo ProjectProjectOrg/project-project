@@ -298,7 +298,11 @@ it.effect("the migration gives an existing copy its sections", () =>
       yield* sql.unsafe(`drop index ${index}`)
     for (const column of ["sprint", "epic_section", "parent_section"])
       yield* sql.unsafe(`alter table local_tickets drop column ${column}`)
-    yield* sql`delete from effect_sql_migrations where migration_id = 7`
+    yield* sql`drop table local_group_descriptions`
+    yield* sql`drop table local_description_sync`
+    yield* sql`alter table local_descriptions add column used integer not null default 0`
+    yield* sql`create index local_descriptions_used on local_descriptions (used)`
+    yield* sql`delete from effect_sql_migrations where migration_id >= 7`
 
     yield* SqliteMigrator.run({ loader: localMigrations })
 
