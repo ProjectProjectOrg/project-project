@@ -18,9 +18,10 @@ const entry = (id: string, time: string): TicketActivityEntry => ({
   change: { kind: "description_edited" }
 })
 
-const comment = (key: string, time: string) => ({
+const comment = (key: string, time: string, lastTime = time) => ({
   key,
   at: at(time),
+  lastAt: at(lastTime),
   value: key
 })
 
@@ -67,6 +68,12 @@ describe("timeline", () => {
         true
       )
     ).toEqual(["b:0", "new"])
+  })
+
+  it("keeps an old thread whose latest reply is within the loaded activity", () => {
+    expect(
+      shape([entry("b", "10:10")], [comment("thread", "09:00", "10:20")], true)
+    ).toEqual(["thread", "b:0"])
   })
 
   it("folds older runs whole and the newest run up to its last two changes", () => {

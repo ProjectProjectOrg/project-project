@@ -64,12 +64,14 @@ export function CommentRow({
   comment,
   thread,
   pending,
-  ticketId
+  ticketId,
+  onEditingChange
 }: Readonly<{
   comment: Comment
   thread: CommentThreadOf
   pending: boolean
   ticketId: TicketId
+  onEditingChange: (editing: boolean) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
@@ -89,23 +91,35 @@ export function CommentRow({
   const waiting = pending || editState.waiting || deleteState.waiting
   const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
   const viewer = useAtomValue(me())
-  const resolve = useAtomSet(
-    resolveThread({
-      req,
-      rootId: thread.root.id,
-      viewer: AsyncResult.isSuccess(viewer) ? viewer.value : null
-    })
-  )
+  const resolveKey = resolveThread({
+    req,
+    rootId: thread.root.id,
+    viewer: AsyncResult.isSuccess(viewer) ? viewer.value : null
+  })
+  const resolve = useAtomSet(resolveKey)
+  const resolveState = useAtomValue(resolveKey)
   const isRoot = comment.id === thread.root.id
   const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
   const resolution = thread.root.resolution
-  const deleteError = mutationErrorText(
-    deleteState,
-    () => m.comments_delete_failed(),
-    m.comments_delete_failed
-  )
+  const actionError =
+    mutationErrorText(
+      deleteState,
+      () => m.comments_delete_failed(),
+      m.comments_delete_failed
+    ) ??
+    (isRoot
+      ? mutationErrorText(
+          resolveState,
+          () => m.comments_resolve_failed(),
+          m.comments_resolve_failed
+        )
+      : null)
 
-  const [mode, setMode] = useState<Mode>("idle")
+  const [mode, setModeState] = useState<Mode>("idle")
+  const setMode = (next: Mode) => {
+    setModeState(next)
+    onEditingChange(next === "edit")
+  }
   const menuButton = useRef<HTMLButtonElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const targeted =
@@ -166,12 +180,12 @@ export function CommentRow({
               >
                 <Markdown>{comment.body}</Markdown>
               </div>
-              {deleteError && (
+              {actionError && (
                 <p
                   role="alert"
                   className="px-4 pb-3.5 text-body text-destructive"
                 >
-                  {deleteError}
+                  {actionError}
                 </p>
               )}
             </InlineForm.Idle>

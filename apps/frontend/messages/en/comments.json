@@ -19,6 +19,7 @@
   "comments_menu_unresolve": "Reopen thread",
   "comments_reply_placeholder": "Leave a reply…",
   "comments_reply_submit": "Reply",
+  "comments_resolve_failed": "Couldn't update the thread.",
   "comments_resolved_at": "Resolved {when}",
   "comments_resolved_by": "Resolved by {name} · {when}",
   "comments_resolved_label": "Resolved",

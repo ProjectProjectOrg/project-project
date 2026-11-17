@@ -364,10 +364,13 @@ const make = Effect.gen(function* () {
         ...(thread === null ? {} : { replyTo: thread }),
         body: input.body
       }
-      yield* updateBlocks(orgSlug, slug, ticketId, (blocks) => [
-        ...blocks,
-        next
-      ]).pipe(
+      let resolvedMeanwhile = false
+      yield* updateBlocks(orgSlug, slug, ticketId, (blocks) => {
+        resolvedMeanwhile = blocks.some(
+          (block) => block.id === thread && block.resolvedBy !== undefined
+        )
+        return resolvedMeanwhile ? blocks : [...blocks, next]
+      }).pipe(
         Effect.onError(() =>
           db
             .delete(commentIndex)
@@ -375,6 +378,13 @@ const make = Effect.gen(function* () {
             .pipe(Effect.orDie)
         )
       )
+      if (resolvedMeanwhile) {
+        yield* db
+          .delete(commentIndex)
+          .where(eq(commentIndex.id, id))
+          .pipe(Effect.orDie)
+        return yield* new Conflict({ reason: "thread_resolved" })
+      }
       return {
         id,
         ticketId,

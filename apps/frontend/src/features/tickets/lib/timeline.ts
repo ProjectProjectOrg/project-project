@@ -4,7 +4,12 @@ import * as Schema from "effect/Schema"
 import { activityItems, type ActivityItem } from "./activityGroups"
 import { activityLines, type ActivityLine } from "./activityLines"
 
-export type TimelineComment<C> = Readonly<{ key: string; at: Date; value: C }>
+export type TimelineComment<C> = Readonly<{
+  key: string
+  at: Date
+  lastAt: Date
+  value: C
+}>
 
 export type TimelineEvent<C> =
   | Readonly<{ kind: "activity"; at: Date; entry: TicketActivityEntry }>
@@ -51,7 +56,9 @@ export const timelineEvents = <C>({
       })
     ),
     ...comments
-      .filter((comment) => floor === undefined || comment.at.getTime() >= floor)
+      .filter(
+        (comment) => floor === undefined || comment.lastAt.getTime() >= floor
+      )
       .map(
         (comment): TimelineEvent<C> => ({
           kind: "comment",
