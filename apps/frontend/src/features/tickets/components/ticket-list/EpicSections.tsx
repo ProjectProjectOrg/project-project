@@ -17,6 +17,7 @@ import { Inbox, ListTree } from "lucide-react"
 import { Fragment, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import {
@@ -146,10 +147,7 @@ export function EpicSections(props: Props) {
         </TicketViewSourceContext>
       </div>
     ) : (
-      <div
-        aria-busy="true"
-        className="h-32 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-      />
+      <LoaderOverlay active />
     )
   const renderFailure = (error: unknown) => (
     <>

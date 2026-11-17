@@ -1,7 +1,9 @@
-import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import { type GroupId, Ticket, type TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import * as Schema from "effect/Schema"
 
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation } from "@/api/viewMutation"
@@ -11,6 +13,7 @@ import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
 import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
+import { firstScreenCards } from "../lib/boardUtils"
 import { sprintQuery, sprintRequest } from "./sprintDetail"
 
 export type BoardRequest = Readonly<{
@@ -31,10 +34,11 @@ export const boardRequest = (
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type BoardValue = Readonly<{
-  tickets: ReadonlyArray<Ticket>
-  completedAt: Date | null
-}>
+export const BoardValue = Schema.Struct({
+  tickets: Schema.Array(Ticket),
+  completedAt: Schema.NullOr(Schema.DateFromString)
+})
+export type BoardValue = typeof BoardValue.Type
 
 const ticketsQuery = (req: BoardRequest) =>
   query("groups", "listTickets", {
@@ -68,6 +72,15 @@ const boardView = (req: BoardRequest) => {
       refresh(sprint)
       refresh(ticketsQuery(req))
     }
+  ).pipe(
+    persisted(
+      `board/${scopeOf(req)}/${req.params.id}`,
+      BoardValue,
+      (value) => ({
+        ...value,
+        tickets: firstScreenCards(value.tickets)
+      })
+    )
   )
 }
 

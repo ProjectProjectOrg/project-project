@@ -2,10 +2,11 @@ import { TicketId, TicketRank, TicketStatus } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { boardMove } from "./boardUtils"
+import { boardMove, FIRST_SCREEN_CARDS, firstScreenCards } from "./boardUtils"
 
 const id = Schema.decodeSync(TicketId)
 const todo = Schema.decodeSync(TicketStatus)("todo")
+const done = Schema.decodeSync(TicketStatus)("done")
 
 const card = (ticketId: string, rank: string) => ({
   id: id(ticketId),
@@ -56,4 +57,19 @@ describe("boardMove", () => {
       })
     ).toBeUndefined()
   })
+})
+
+it("keeps each column's first screen of cards", () => {
+  const cards = [
+    ...Array.from({ length: FIRST_SCREEN_CARDS + 5 }, (_, i) => ({
+      id: `T-${i}`,
+      status: todo
+    })),
+    { id: "T-done", status: done }
+  ]
+  const kept = firstScreenCards(cards).map((kept) => kept.id)
+  expect(kept).toEqual([
+    ...cards.slice(0, FIRST_SCREEN_CARDS).map((card) => card.id),
+    "T-done"
+  ])
 })

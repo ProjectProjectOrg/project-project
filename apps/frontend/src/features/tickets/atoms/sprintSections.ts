@@ -42,8 +42,11 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import {
   createInSprint,
-  sprintAssignmentKeys
+  sprintAssignmentKeys,
+  sprintList,
+  sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { firstScreenSprintPages } from "@/features/tickets/lib/sprintSectionRows"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
@@ -55,7 +58,6 @@ import {
   type QuickCreateInput,
   type TicketRow,
   TicketRowPage,
-  firstScreenPages,
   viewQuery,
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
@@ -109,8 +111,19 @@ const SprintSectionsData = Schema.Struct({
 })
 type SprintSectionsData = typeof SprintSectionsData.Type
 
-const firstScreen = (data: SprintSectionsData): SprintSectionsData => {
-  const pages = firstScreenPages(data.sections.map((section) => section.page))
+const firstScreen = (
+  req: SprintSectionsRequest,
+  data: SprintSectionsData,
+  get: Atom.AtomContext
+): SprintSectionsData => {
+  const sprints = get(
+    sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+  )
+  const pages = firstScreenSprintPages(
+    data.sections,
+    AsyncResult.isSuccess(sprints) ? sprints.value : [],
+    req.query.q
+  )
   return {
     total: data.total,
     counts: data.counts,
@@ -254,7 +267,7 @@ const sprintSectionsView = (req: SprintSectionsRequest) => {
     persisted(
       `view/${scopeOf(req)}/sprint/${encodeTicketListQuery(req.query)}`,
       SprintSectionsData,
-      firstScreen
+      (value, get) => firstScreen(req, value, get)
     )
   )
   return Atom.readable(

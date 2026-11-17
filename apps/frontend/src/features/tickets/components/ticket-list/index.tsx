@@ -6,6 +6,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { Activity, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlog,
@@ -165,10 +166,7 @@ function StatusSections({
         )}
       </TicketViewSourceContext>
     ) : (
-      <div
-        aria-busy="true"
-        className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-      />
+      <LoaderOverlay active />
     )
 
   const renderFailure = (error: unknown) => (

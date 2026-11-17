@@ -97,3 +97,43 @@ it.effect(
       })
     })
 )
+
+it.effect(
+  "keeps values from earlier sessions this session did not show, after its own",
+  () =>
+    Effect.gen(function* () {
+      const store = stubStorage({ "pp:boot": '{"older":"kept"}' })
+      const { persisted, saveBoot } = yield* Effect.promise(
+        () => import("./bootCache")
+      )
+      const greeting = Atom.make(Effect.succeed("live")).pipe(
+        persisted("greeting", Schema.String)
+      )
+      const registry = Registry.make()
+      const unmount = registry.mount(greeting)
+
+      saveBoot(registry)
+      expect(store.get("pp:boot")).toBe('{"greeting":"live","older":"kept"}')
+      unmount()
+    })
+)
+
+it.effect("drops the oldest values once the saved text is too long", () =>
+  Effect.gen(function* () {
+    const store = stubStorage({
+      "pp:boot": `{"older":"${"x".repeat(999_990)}"}`
+    })
+    const { persisted, saveBoot } = yield* Effect.promise(
+      () => import("./bootCache")
+    )
+    const greeting = Atom.make(Effect.succeed("live")).pipe(
+      persisted("greeting", Schema.String)
+    )
+    const registry = Registry.make()
+    const unmount = registry.mount(greeting)
+
+    saveBoot(registry)
+    expect(store.get("pp:boot")).toBe('{"greeting":"live"}')
+    unmount()
+  })
+)

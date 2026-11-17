@@ -5,12 +5,12 @@ import type * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
 const STORAGE_KEY = "pp:boot"
+const SAVED_CHARACTERS = 1_000_000
 
 const Saved = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Unknown)
 )
 const decodeSaved = Schema.decodeUnknownOption(Saved)
-const encodeSaved = Schema.encodeSync(Saved)
 
 const storage = () => {
   try {
@@ -38,11 +38,16 @@ const latestIn = (registry: Registry.AtomRegistry) => {
   return created
 }
 
+const remember = <V>(latest: Map<string, V>, key: string, value: V) => {
+  latest.delete(key)
+  latest.set(key, value)
+}
+
 export const persisted =
   <A, I>(
     key: string,
     success: Schema.Codec<A, I>,
-    trim: (value: A) => A = (value) => value
+    trim: (value: A, get: Atom.AtomContext) => A = (value) => value
   ) =>
   <E>(
     self: Atom.Atom<AsyncResult.AsyncResult<A, E>>
@@ -54,8 +59,8 @@ export const persisted =
         const latest = latestIn(get.registry)
         const live = get(self)
         if (AsyncResult.isSuccess(live)) {
-          Option.map(encode(trim(live.value)), (value) =>
-            latest.set(key, value)
+          Option.map(encode(trim(live.value, get)), (value) =>
+            remember(latest, key, value)
           )
           return live
         }
@@ -64,7 +69,7 @@ export const persisted =
         return Option.match(decode(kept), {
           onNone: () => live,
           onSome: (value) => {
-            latest.set(key, kept)
+            remember(latest, key, kept)
             return AsyncResult.success<A, E>(value, { waiting: true })
           }
         })
@@ -73,12 +78,28 @@ export const persisted =
     )
   }
 
+const json = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
+
+const newestFirst = (registry: Registry.AtomRegistry) => {
+  const latest = latestIn(registry)
+  const candidates = [
+    ...[...latest].toReversed(),
+    ...[...saved].filter(([key]) => !latest.has(key))
+  ]
+  const entries: Array<string> = []
+  let budget = SAVED_CHARACTERS
+  for (const [key, value] of candidates) {
+    const entry = `${json(key)}:${json(value)}`
+    if (entry.length > budget) continue
+    budget -= entry.length + 1
+    entries.push(entry)
+  }
+  return `{${entries.join(",")}}`
+}
+
 export const saveBoot = (registry: Registry.AtomRegistry) => {
   try {
-    storage()?.setItem(
-      STORAGE_KEY,
-      encodeSaved(Object.fromEntries(latestIn(registry)))
-    )
+    storage()?.setItem(STORAGE_KEY, newestFirst(registry))
   } catch {
     storage()?.removeItem(STORAGE_KEY)
   }

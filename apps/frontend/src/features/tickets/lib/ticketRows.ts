@@ -54,11 +54,14 @@ export const firstScreenSections = (
 }
 
 export const firstScreenPages = (
-  pages: ReadonlyArray<TicketRowPage>
+  pages: ReadonlyArray<TicketRowPage>,
+  expanded: (index: number) => boolean = () => true
 ): ReadonlyArray<TicketRowPage> => {
   let budget = FIRST_SCREEN_ROWS
-  return pages.map((page) => {
-    const items = page.items.slice(0, Math.max(0, budget))
+  return pages.map((page, index) => {
+    const items = expanded(index)
+      ? page.items.slice(0, Math.max(0, budget))
+      : []
     budget -= items.length
     return { items, nextCursor: null }
   })

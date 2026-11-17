@@ -61,6 +61,19 @@ export function groupTicketsByStatus(
   return out
 }
 
+export const FIRST_SCREEN_CARDS = 20
+
+export function firstScreenCards<T extends Pick<Ticket, "status">>(
+  tickets: ReadonlyArray<T>
+): ReadonlyArray<T> {
+  const shown = new Map<string, number>()
+  return tickets.filter((ticket) => {
+    const count = shown.get(ticket.status) ?? 0
+    shown.set(ticket.status, count + 1)
+    return count < FIRST_SCREEN_CARDS
+  })
+}
+
 type RankedCard = Pick<Ticket, "id" | "rank">
 
 export function boardMove(

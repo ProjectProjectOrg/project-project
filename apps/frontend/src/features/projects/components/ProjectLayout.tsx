@@ -4,8 +4,8 @@ import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
+import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
-import { PageContainer } from "@/components/shell/Page"
 import { useProjectGitStatePolling } from "@/features/github/hooks/useProjectGitStatePolling"
 import { LocalProjectCopy } from "@/features/local/components/LocalProjectCopy"
 import {
@@ -42,11 +42,7 @@ export function ProjectLayout() {
     }) !== undefined
 
   return Result.matchWithError(projectResult, {
-    onInitial: () => (
-      <PageContainer>
-        <Skeleton />
-      </PageContainer>
-    ),
+    onInitial: () => <LoaderOverlay active />,
     onError: (error) =>
       Match.value(error).pipe(
         Match.tag("NotFound", () => (
@@ -106,14 +102,4 @@ function ProjectGitStatePolling({ enabled }: { enabled: boolean }) {
   const { orgSlug, slug } = useProjectRoute()
   useProjectGitStatePolling(orgSlug, slug, enabled)
   return null
-}
-
-function Skeleton() {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="skeleton h-12 rounded-lg bg-muted/60" />
-      <div className="skeleton h-9 rounded-lg bg-muted/60" />
-      <div className="skeleton h-40 rounded-xl bg-muted/60" />
-    </div>
-  )
 }
