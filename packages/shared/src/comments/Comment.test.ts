@@ -82,7 +82,8 @@ describe("Comment", () => {
       body: "Imported body",
       createdAt: "2024-02-01T10:00:00.000Z",
       editedAt: null,
-      replyTo: null
+      replyTo: null,
+      resolution: null
     })
 
     expect(comment.origin).toBe("jira")

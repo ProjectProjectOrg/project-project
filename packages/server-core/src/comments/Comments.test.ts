@@ -333,6 +333,85 @@ it.effect("adds a reply to a reply to the first comment's thread", () => {
 })
 
 it.effect(
+  "resolves a thread on its first comment and refuses replies until it is reopened",
+  () => {
+    const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+    let current: TicketDocs.TicketDocument = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([
+        {
+          id: "c_root",
+          author: { kind: "user", userId: "user-1" },
+          origin: "native",
+          createdAt: at,
+          editedAt: null,
+          body: "Question"
+        },
+        {
+          id: "c_reply",
+          author: { kind: "user", userId: "user-1" },
+          origin: "native",
+          createdAt: at,
+          editedAt: null,
+          replyTo: "c_root",
+          body: "Answer"
+        }
+      ])
+    }
+    const layer = makeLayer(
+      makeTicketDocs({
+        read: () => Effect.succeed(current),
+        update: (_orgSlug, _slug, _ticketId, transform) =>
+          transform(current).pipe(
+            Effect.tap((next) =>
+              Effect.sync(() => {
+                current = next
+              })
+            )
+          )
+      }),
+      databaseLayer(({ sql }) =>
+        Effect.succeed(
+          sql.startsWith("select") ? [commentRow({ id: "c_root" })] : []
+        )
+      )
+    )
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const resolved = yield* comments.resolve(
+        ticketId("T-1"),
+        decodeCommentIdSync("c_reply"),
+        true
+      )
+      expect(resolved.id).toBe("c_root")
+      expect(resolved.resolution?.by?.id).toBe("user-1")
+
+      const reply = yield* Effect.flip(
+        comments.create(ticketId("T-1"), {
+          body: "One more thing",
+          replyTo: decodeCommentIdSync("c_root")
+        })
+      )
+      expect(reply).toMatchObject({
+        _tag: "Conflict",
+        reason: "thread_resolved"
+      })
+
+      const reopened = yield* comments.resolve(
+        ticketId("T-1"),
+        decodeCommentIdSync("c_root"),
+        false
+      )
+      expect(reopened.resolution).toBeNull()
+      expect(parseCommentsRegion(current.commentsRegion)[0]).not.toHaveProperty(
+        "resolvedBy"
+      )
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
   "imports Jira history with complete bodies and exact timestamps",
   () => {
     const rows: Array<ReadonlyArray<unknown>> = []

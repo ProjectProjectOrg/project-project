@@ -36,7 +36,10 @@ const CommentFields = {
   body: Schema.String,
   createdAt: Schema.DateFromString,
   editedAt: Schema.NullOr(Schema.DateFromString),
-  replyTo: Schema.NullOr(CommentId)
+  replyTo: Schema.NullOr(CommentId),
+  resolution: Schema.NullOr(
+    Schema.Struct({ by: Schema.NullOr(User), at: Schema.DateFromString })
+  )
 }
 
 export const Comment = Schema.Union([
@@ -74,3 +77,10 @@ export const UpdateCommentInput = Schema.Struct({
   )
 })
 export type UpdateCommentInput = typeof UpdateCommentInput.Type
+
+export const ResolveCommentInput = Schema.Struct({
+  resolved: Schema.Boolean.annotate({
+    description: "true resolves the comment's thread, false reopens it."
+  })
+})
+export type ResolveCommentInput = typeof ResolveCommentInput.Type

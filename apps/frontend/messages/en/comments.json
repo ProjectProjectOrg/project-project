@@ -15,10 +15,29 @@
   "comments_menu_copy_markdown": "Copy as markdown",
   "comments_menu_copy_thread_markdown": "Copy thread as markdown",
   "comments_menu_delete": "Delete",
+  "comments_menu_resolve": "Resolve thread",
+  "comments_menu_unresolve": "Reopen thread",
   "comments_reply_placeholder": "Leave a reply…",
   "comments_reply_submit": "Reply",
+  "comments_resolved_at": "Resolved {when}",
+  "comments_resolved_by": "Resolved by {name} · {when}",
+  "comments_resolved_label": "Resolved",
   "comments_save_button": "Save",
   "comments_save_failed": "Failed to save.",
+  "comments_thread_resolved_folded": [
+    {
+      "declarations": [
+        "input count",
+        "input names",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} comment from {names}",
+        "countPlural=*": "{count} comments from {names}"
+      }
+    }
+  ],
   "comments_thread_show_earlier": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

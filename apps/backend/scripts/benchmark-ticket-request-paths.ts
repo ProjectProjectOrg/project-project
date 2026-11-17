@@ -424,6 +424,7 @@ const FakeComments = Layer.succeed(Comments.Comments, {
   create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
+  resolve: () => unexpected("Comments.resolve"),
   remove: () => unexpected("Comments.remove")
 } satisfies Comments.Comments["Service"])
 

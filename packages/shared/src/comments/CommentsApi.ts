@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import {
+  Conflict,
   Forbidden,
   MentionInvalid,
   NotFound,
@@ -47,7 +48,14 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         params: TicketPath,
         payload: CreateCommentInput,
         success: Comment,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          Conflict
+        ]
       }
     ).annotate(RequiresProject, { comment: ["create"] })
   )
@@ -62,6 +70,28 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     ).annotate(RequiresProject, "membership")
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "resolve",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId/resolution",
+      {
+        params: TicketCommentPath,
+        success: Comment,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    ).annotate(RequiresProject, { comment: ["create"] })
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "unresolve",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId/resolution",
+      {
+        params: TicketCommentPath,
+        success: Comment,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    ).annotate(RequiresProject, { comment: ["create"] })
   )
   .add(
     HttpApiEndpoint.delete(

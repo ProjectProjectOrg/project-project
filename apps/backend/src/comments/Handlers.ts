@@ -35,6 +35,16 @@ export const CommentsHandlerLive = HttpApiBuilder.group(
           dieOnMarkdown
         )
       )
+      .handle("resolve", ({ params }) =>
+        Effect.flatMap(Comments.Comments, (comments) =>
+          comments.resolve(params.id, params.commentId, true)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("unresolve", ({ params }) =>
+        Effect.flatMap(Comments.Comments, (comments) =>
+          comments.resolve(params.id, params.commentId, false)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("delete", ({ params }) =>
         Effect.flatMap(Comments.Comments, (comments) =>
           comments.remove(params.id, params.commentId)

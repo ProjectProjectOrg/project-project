@@ -757,7 +757,8 @@ describe("MCP handlers → write tools", () => {
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),
         editedAt: null,
-        replyTo: null
+        replyTo: null,
+        resolution: null
       })
     }
   })
@@ -1883,7 +1884,8 @@ describe("MCP ticket discovery and history", () => {
             body: "Try **retrying** the upload.",
             createdAt: "2026-05-01T00:00:00.000Z",
             editedAt: null,
-            replyTo: null
+            replyTo: null,
+            resolution: null
           }
         ])
       }).pipe(
@@ -1909,7 +1911,8 @@ describe("MCP ticket discovery and history", () => {
                       body: "Try **retrying** the upload.",
                       createdAt: isoDate("2026-05-01T00:00:00.000Z"),
                       editedAt: null,
-                      replyTo: null
+                      replyTo: null,
+                      resolution: null
                     }
                   ]
                 })
