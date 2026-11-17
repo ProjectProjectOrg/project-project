@@ -17,9 +17,11 @@ export { sectionDifferences } from "./sectionDifferences"
 export { SyncDenied, SyncOffline, SyncSource } from "./SyncSource"
 export {
   EditRejected,
+  GroupIntent,
   Intent,
   isPlaceholderTicket,
   PendingEdit,
+  PendingGroupEdit,
   PendingWrite,
   placeholderTicketId
 } from "./pending"

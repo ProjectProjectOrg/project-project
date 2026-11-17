@@ -96,7 +96,7 @@ const pendingWritesLayer = Layer.effect(
       write
     ) =>
       Effect.gen(function* () {
-        const { tickets } = yield* clients(operationId)
+        const { tickets, groups } = yield* clients(operationId)
         return yield* PendingWrite.match(write, {
           update: ({ ticket, payload }) =>
             tickets
@@ -123,8 +123,8 @@ const pendingWritesLayer = Layer.effect(
                 responseMode: "decoded-and-response"
               })
               if (sprint === null) return sent(response, created.id)
-              const { groups } = yield* clients(`${operationId}-sprint`)
-              const [, added] = yield* groups.addTickets({
+              const sprintStep = yield* clients(`${operationId}-sprint`)
+              const [, added] = yield* sprintStep.groups.addTickets({
                 params: { ...project, id: sprint },
                 payload: { tickets: [created.id] },
                 responseMode: "decoded-and-response"
@@ -158,6 +158,22 @@ const pendingWritesLayer = Layer.effect(
             tickets
               .bulkDelete({
                 params: project,
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          updateGroup: ({ group, payload }) =>
+            groups
+              .update({
+                params: { ...project, id: group },
+                payload,
+                responseMode: "decoded-and-response"
+              })
+              .pipe(Effect.map(([, response]) => sent(response))),
+          completeGroup: ({ group, payload }) =>
+            groups
+              .complete({
+                params: { ...project, id: group },
                 payload,
                 responseMode: "decoded-and-response"
               })

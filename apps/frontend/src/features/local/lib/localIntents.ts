@@ -1,9 +1,12 @@
-import { Intent, PendingWrite } from "@pp/local"
+import { GroupIntent, Intent, PendingWrite } from "@pp/local"
 import type {
   ArchiveTicketInput,
   BulkArchiveTicketsInput,
   BulkDeleteTicketsInput,
-  TicketId
+  CompleteSprintInput,
+  GroupId,
+  TicketId,
+  UpdateGroupInput
 } from "@pp/shared"
 
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
@@ -75,4 +78,39 @@ export const deleteEdit = (payload: BulkDeleteTicketsInput): LocalEdit => ({
       Intent.cases.delete.make({ cascade: payload.cascadeSubTickets ?? false })
     ]
   }))
+})
+
+export const updateSprintEdit = (
+  group: GroupId,
+  payload: UpdateGroupInput
+): LocalEdit => {
+  const { body: _body, ...patch } = payload
+  return {
+    write: PendingWrite.cases.updateGroup.make({ group, payload }),
+    edits: [],
+    groups: [{ group, intents: [GroupIntent.cases.edit.make({ patch })] }]
+  }
+}
+
+export const completeSprintEdit = (
+  group: GroupId,
+  payload: CompleteSprintInput,
+  at: Date
+): LocalEdit => ({
+  write: PendingWrite.cases.completeGroup.make({ group, payload }),
+  edits: [],
+  groups: [
+    {
+      group,
+      intents: [
+        GroupIntent.cases.complete.make({
+          at,
+          destination:
+            payload.destination.kind === "sprint"
+              ? payload.destination.groupId
+              : null
+        })
+      ]
+    }
+  ]
 })

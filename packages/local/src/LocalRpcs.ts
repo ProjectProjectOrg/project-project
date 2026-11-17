@@ -22,7 +22,12 @@ import { MemberFact, ProjectFact, ProjectStatus, Tag } from "@pp/shared"
 import { Rpc, RpcGroup } from "effect/rpc"
 import * as Schema from "effect/Schema"
 
-import { EditRejected, PendingEdit, PendingWrite } from "./pending"
+import {
+  EditRejected,
+  PendingEdit,
+  PendingGroupEdit,
+  PendingWrite
+} from "./pending"
 
 export const LocalSyncState = Schema.Literals([
   "live",
@@ -251,7 +256,8 @@ export class LocalRpcs extends RpcGroup.make(
     payload: Schema.Struct({
       project: LocalProject,
       write: PendingWrite,
-      edits: Schema.Array(PendingEdit)
+      edits: Schema.Array(PendingEdit),
+      groups: Schema.optional(Schema.Array(PendingGroupEdit))
     }),
     success: Schema.NullOr(TicketId),
     error: EditRejected

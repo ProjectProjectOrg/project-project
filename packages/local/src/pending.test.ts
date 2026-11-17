@@ -2,6 +2,8 @@ import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import { it } from "@effect/vitest"
 import {
   type GroupFact,
+  GroupHeader,
+  GroupId,
   type ProjectSnapshot,
   TicketFact,
   TicketId,
@@ -17,6 +19,7 @@ import { expect } from "vitest"
 import { LocalDb, localDbLayer } from "./LocalDb"
 import {
   applyIntents,
+  GroupIntent,
   Intent,
   type Membership,
   type PendingEdit,
@@ -31,7 +34,7 @@ import {
   recordEdit,
   rejectEdit
 } from "./store"
-import { localGroupMembers, localTicketData } from "./tables"
+import { localGroupMembers, localGroups, localTicketData } from "./tables"
 import { changes, install, snapshot, ticket, direct } from "./testFacts"
 
 const TestDatabase = localDbLayer.pipe(
@@ -39,6 +42,7 @@ const TestDatabase = localDbLayer.pipe(
 )
 
 const decodeFact = Schema.decodeUnknownSync(Schema.fromJsonString(TicketFact))
+const decodeGroup = Schema.decodeUnknownSync(Schema.fromJsonString(GroupHeader))
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
 
@@ -263,6 +267,71 @@ it("archiving as a duplicate records the relation and restoring drops it", () =>
   )
   expect(restored?.fact).toMatchObject({ archivedAt: null, relations: [] })
 })
+
+const status = (slug: string, orderKey: string) => ({
+  slug,
+  label: slug,
+  icon: "circle",
+  color: "gray",
+  orderKey,
+  description: null
+})
+
+const completedAt = (id: string) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    const [row] = yield* db
+      .select({ data: localGroups.data })
+      .from(localGroups)
+      .where(eq(localGroups.id, id))
+    return row === undefined ? undefined : decodeGroup(row.data).completedAt
+  })
+
+it.effect(
+  "completing a sprint carries its unfinished tickets to the next sprint until a rejection undoes it",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", {
+        ...snapshot("1.1", [
+          ticket("T-1", "open"),
+          { ...ticket("T-2", "finished"), status: "done" }
+        ]),
+        statuses: [status("todo", "a"), status("done", "c")],
+        groups: [
+          { ...sprint("G-1", false), tickets: ["T-1", "T-2"] },
+          sprint("G-2", false)
+        ]
+      })
+
+      yield* recordEdit("a/p", {
+        id: "op-1",
+        write: PendingWrite.cases.completeGroup.make({
+          group: GroupId.make("G-1"),
+          payload: {
+            destination: { kind: "sprint", groupId: GroupId.make("G-2") }
+          }
+        }),
+        edits: [],
+        groups: [
+          {
+            group: "G-1",
+            intents: [
+              GroupIntent.cases.complete.make({
+                at,
+                destination: GroupId.make("G-2")
+              })
+            ]
+          }
+        ]
+      })
+      expect(yield* completedAt("G-1")).toEqual(at)
+      expect((yield* visible).members).toEqual(["G-1/T-2", "G-2/T-1"])
+
+      yield* rejectEdit("a/p", "op-1")
+      expect(yield* completedAt("G-1")).toBeNull()
+      expect((yield* visible).members).toEqual(["G-1/T-1", "G-1/T-2"])
+    }).pipe(Effect.provide(TestDatabase))
+)
 
 it("moving a ticket into a sprint takes it out of open sprints only", () => {
   const state: TicketState = {

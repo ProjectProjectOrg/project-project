@@ -351,14 +351,15 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const edit = (
       project: LocalProject,
       pending: PendingWrite,
-      edits: NewEdit["edits"]
+      edits: NewEdit["edits"],
+      groups: NewEdit["groups"]
     ) =>
       Effect.gen(function* () {
         const scope = scopeOf(project)
         const id = yield* writes.operationId
         inFlight.add(id)
         yield* write("edit")(
-          recordEdit(scope, { id, write: pending, edits })
+          recordEdit(scope, { id, write: pending, edits, groups })
         ).pipe(Effect.orDie)
         yield* changed(scope)
         const delivered = yield* deliver(project, id, pending)
@@ -574,7 +575,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         ).pipe(Effect.orDie),
       Edit: (request) =>
         Effect.uninterruptible(
-          edit(request.project, request.write, request.edits)
+          edit(request.project, request.write, request.edits, request.groups)
         ),
       Ticket: (request) =>
         sql

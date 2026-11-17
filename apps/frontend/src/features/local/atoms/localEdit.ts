@@ -1,4 +1,8 @@
-import { type PendingEdit, PendingWrite } from "@pp/local"
+import {
+  type PendingEdit,
+  type PendingGroupEdit,
+  PendingWrite
+} from "@pp/local"
 import * as Effect from "effect/Effect"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -17,6 +21,7 @@ import {
 export type LocalEdit = Readonly<{
   write: PendingWrite
   edits: ReadonlyArray<PendingEdit>
+  groups?: ReadonlyArray<PendingGroupEdit>
 }>
 
 export const localEditing = Atom.family((project: LocalProjectRequest) =>

@@ -302,6 +302,8 @@ it.effect("the migration gives an existing copy its sections", () =>
     yield* sql`drop table local_description_sync`
     yield* sql`alter table local_descriptions add column used integer not null default 0`
     yield* sql`create index local_descriptions_used on local_descriptions (used)`
+    yield* sql`drop table local_pending_group_base`
+    yield* sql`alter table local_pending_ops drop column group_edits`
     yield* sql`delete from effect_sql_migrations where migration_id >= 7`
 
     yield* SqliteMigrator.run({ loader: localMigrations })

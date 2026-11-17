@@ -159,6 +159,7 @@ export const localPendingOps = sqliteTable("local_pending_ops", {
   tickets: text("tickets").notNull(),
   edits: text("edits").notNull(),
   write: text("write").notNull(),
+  groupEdits: text("group_edits").notNull().default("[]"),
   receipt: text("receipt")
 })
 
@@ -169,6 +170,16 @@ export const localPendingBase = sqliteTable(
     id: text("id").notNull(),
     data: text("data").notNull(),
     groups: text("groups").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.copy, t.id] })]
+)
+
+export const localPendingGroupBase = sqliteTable(
+  "local_pending_group_base",
+  {
+    copy: integer("copy").notNull(),
+    id: text("id").notNull(),
+    data: text("data").notNull()
   },
   (t) => [primaryKey({ columns: [t.copy, t.id] })]
 )

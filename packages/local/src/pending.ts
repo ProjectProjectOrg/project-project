@@ -4,6 +4,7 @@ import {
   BulkArchiveTicketsInput,
   BulkDeleteTicketsInput,
   BulkUpdateTicketsInput,
+  CompleteSprintInput,
   Conflict,
   CreateTicketInput,
   Estimate,
@@ -18,10 +19,13 @@ import {
   TicketFlag,
   TicketId,
   TicketPriority,
+  type GroupHeader,
+  UpdateGroupInput,
   UpdateTicketInput,
   Validation
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
+import * as Struct from "effect/Struct"
 
 export const Intent = Schema.TaggedUnion({
   title: { title: Schema.String },
@@ -41,9 +45,24 @@ export const Intent = Schema.TaggedUnion({
     duplicateOf: Schema.NullOr(Schema.String)
   },
   restore: {},
-  delete: { cascade: Schema.Boolean }
+  delete: { cascade: Schema.Boolean },
+  regroup: { from: Schema.String, to: Schema.NullOr(Schema.String) }
 })
 export type Intent = typeof Intent.Type
+
+export const GroupIntent = Schema.TaggedUnion({
+  edit: {
+    patch: Schema.Struct(Struct.omit(UpdateGroupInput.fields, ["body"]))
+  },
+  complete: { at: Schema.DateFromString, destination: Schema.NullOr(GroupId) }
+})
+export type GroupIntent = typeof GroupIntent.Type
+
+export const PendingGroupEdit = Schema.Struct({
+  group: Schema.String,
+  intents: Schema.Array(GroupIntent)
+})
+export type PendingGroupEdit = typeof PendingGroupEdit.Type
 
 export const PendingEdit = Schema.Struct({
   ticket: Schema.String,
@@ -62,7 +81,9 @@ export const PendingWrite = Schema.TaggedUnion({
   archive: { ticket: TicketId, payload: ArchiveTicketInput },
   bulkArchive: { payload: BulkArchiveTicketsInput },
   restore: { ticket: TicketId },
-  delete: { payload: BulkDeleteTicketsInput }
+  delete: { payload: BulkDeleteTicketsInput },
+  updateGroup: { group: GroupId, payload: UpdateGroupInput },
+  completeGroup: { group: GroupId, payload: CompleteSprintInput }
 })
 export type PendingWrite = typeof PendingWrite.Type
 
@@ -81,6 +102,12 @@ export const encodeEdits = Schema.encodeSync(
 )
 export const decodeEdits = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Array(PendingEdit))
+)
+export const encodeGroupEdits = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Array(PendingGroupEdit))
+)
+export const decodeGroupEdits = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Array(PendingGroupEdit))
 )
 export const encodeWrite = Schema.encodeSync(
   Schema.fromJsonString(PendingWrite)
@@ -176,9 +203,48 @@ const applyToFact = (fact: TicketFact, intent: Intent): TicketFact =>
       )
     }),
     sprint: () => fact,
+    regroup: () => fact,
     create: () => fact,
     delete: () => fact
   })
+
+const regrouped = (
+  groups: ReadonlyArray<Membership>,
+  from: string,
+  to: string | null
+) => {
+  const kept = groups.filter((member) => member.group !== from)
+  return to === null || kept.some((member) => member.group === to)
+    ? kept
+    : [...kept, { group: to, position: APPENDED }]
+}
+
+export const applyGroupIntents = (
+  header: GroupHeader,
+  intents: ReadonlyArray<GroupIntent>
+): GroupHeader =>
+  intents.reduce(
+    (current, intent) =>
+      GroupIntent.match(intent, {
+        edit: ({ patch }) => ({
+          ...current,
+          name: patch.name ?? current.name,
+          color: patch.color ?? current.color,
+          startsAt:
+            patch.startsAt === undefined ? current.startsAt : patch.startsAt,
+          endsAt: patch.endsAt === undefined ? current.endsAt : patch.endsAt,
+          completedAt:
+            patch.completedAt === undefined
+              ? current.completedAt
+              : patch.completedAt
+        }),
+        complete: ({ at }) => ({
+          ...current,
+          completedAt: current.completedAt ?? at
+        })
+      }),
+    header
+  )
 
 const applyIntent = (
   state: TicketState | null,
@@ -192,6 +258,11 @@ const applyIntent = (
     return {
       ...state,
       groups: intoSprint(state.groups, intent.sprint, openSprints)
+    }
+  if (Intent.guards.regroup(intent))
+    return {
+      ...state,
+      groups: regrouped(state.groups, intent.from, intent.to)
     }
   return { ...state, fact: applyToFact(state.fact, intent) }
 }
