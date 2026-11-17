@@ -6,12 +6,15 @@ import {
   createRouter,
   RouterProvider
 } from "@tanstack/react-router"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
 import { saveBoot } from "./api/bootCache"
+import { me } from "./features/auth/atoms/auth"
 import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { localRuntime } from "./features/local/atoms/localProject"
+import { releaseEarlyWorker } from "./features/local/lib/localBoot"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { routeTree } from "./routeTree.gen"
@@ -44,6 +47,10 @@ const sessions = createSessionCache((registry) => {
   })
 })
 
+sessions.subscribe(() => {
+  if (AsyncResult.isFailure(sessions.getSnapshot().registry.get(me())))
+    releaseEarlyWorker()
+})
 authClient.$store.atoms.$sessionSignal.listen(sessions.refreshIdentity)
 window.addEventListener("focus", sessions.refreshIdentity)
 window.addEventListener("pagehide", () =>

@@ -18,7 +18,11 @@ const stubStorage = (initial: Record<string, string>) => {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
-      removeItem: (key: string) => void store.delete(key)
+      removeItem: (key: string) => void store.delete(key),
+      key: (index: number) => [...store.keys()][index] ?? null,
+      get length() {
+        return store.size
+      }
     }
   })
   return store
@@ -135,5 +139,19 @@ it.effect("drops the oldest values once the saved text is too long", () =>
     saveBoot(registry)
     expect(store.get("pp:boot")).toBe('{"greeting":"live"}')
     unmount()
+  })
+)
+
+it.effect("clearing forgets every startup value, and nothing else", () =>
+  Effect.gen(function* () {
+    const store = stubStorage({
+      "pp:boot": "{}",
+      "pp:boot:local-user": "user-1",
+      "projectproject:theme": "dark"
+    })
+    const { clearBoot } = yield* Effect.promise(() => import("./bootCache"))
+
+    clearBoot()
+    expect([...store.keys()]).toEqual(["projectproject:theme"])
   })
 )

@@ -6,6 +6,8 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
+import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -21,17 +23,15 @@ import {
   LocalRpcs,
   type LocalStatus,
   type LocalSyncState,
-  scopeOf,
-  type SectionsRequest
+  scopeOf
 } from "./LocalRpcs"
 import { localTicket } from "./localTicket"
-import { localParentSections } from "./parents"
 import type { PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
 import { localProjectFacts } from "./projectFacts"
-import { localCounts, localSections } from "./sections"
+import { localCounts } from "./sections"
 import { localSequence } from "./sequence"
-import { groupMembership, localSprintSections } from "./sprints"
+import { groupMembership } from "./sprints"
 import {
   type NewEdit,
   applyChanges,
@@ -55,19 +55,17 @@ import {
 import { SyncSource } from "./SyncSource"
 import { localTicketList, repositoryFrom } from "./ticketList"
 import { localTitles } from "./titles"
-
-const sectionsRequest = (request: SectionsRequest, copy: number) => ({
-  copy,
-  query: request.query,
-  viewerId: request.viewerId,
-  estimation: request.estimation,
-  repository: (repoId: string | null) =>
-    repoId === null
-      ? request.repositories.fallback
-      : (request.repositories.byId[repoId] ?? null),
-  perStatus: (status: string) =>
-    request.pageSize * (1 + (request.pages[status] ?? 0))
-})
+import {
+  ParentSectionsView,
+  projectKey,
+  readParentSections,
+  readSections,
+  readSprintSections,
+  SectionsView,
+  servedFirst,
+  SprintSectionsView,
+  WarmView
+} from "./views"
 
 const countsRequest = (request: CountsRequest, copy: number) => ({
   copy,
@@ -82,8 +80,6 @@ const unavailable = (scope: string, state: LocalSyncState) =>
     (cursor): LocalStatus =>
       cursor === null ? { kind: "failed" } : { kind: "ready", sync: state }
   )
-
-const projectKey = (scope: string) => `local-project:${scope}`
 
 const touches = (changes: ProjectChanges) =>
   changes.project !== null ||
@@ -107,6 +103,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
     const descriptions = yield* LocalDescriptions
+    const warm = yield* WarmView
 
     const sprintStarts = new Map<string, Fiber.Fiber<void>>()
     const refreshAtNextSprintStart = (
@@ -383,8 +380,15 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy("Sections", request.project, (copy) =>
-              localSections(sectionsRequest(request, copy))
+            servedFirst(
+              warm,
+              SectionsView.make({ request }),
+              readSections(request),
+              Match.valueTags({
+                Sections: ({ value }) => Option.some(value),
+                SprintSections: () => Option.none(),
+                ParentSections: () => Option.none()
+              })
             )
           )
           .pipe(Stream.orDie),
@@ -392,15 +396,15 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy("SprintSections", request.project, (copy) =>
-              Effect.flatMap(DateTime.nowAsDate, (now) =>
-                localSprintSections({
-                  ...sectionsRequest(request, copy),
-                  pages: request.pages,
-                  pageSize: request.pageSize,
-                  now
-                })
-              )
+            servedFirst(
+              warm,
+              SprintSectionsView.make({ request }),
+              readSprintSections(request),
+              Match.valueTags({
+                Sections: () => Option.none(),
+                SprintSections: ({ value }) => Option.some(value),
+                ParentSections: () => Option.none()
+              })
             )
           )
           .pipe(Stream.orDie),
@@ -408,16 +412,15 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             [projectKey(scopeOf(request.project))],
-            readCopy(`ParentSections ${request.by}`, request.project, (copy) =>
-              Effect.flatMap(DateTime.nowAsDate, (now) =>
-                localParentSections({
-                  ...sectionsRequest(request, copy),
-                  by: request.by,
-                  pages: request.pages,
-                  pageSize: request.pageSize,
-                  now
-                })
-              )
+            servedFirst(
+              warm,
+              ParentSectionsView.make({ request }),
+              readParentSections(request),
+              Match.valueTags({
+                Sections: () => Option.none(),
+                SprintSections: () => Option.none(),
+                ParentSections: ({ value }) => Option.some(value)
+              })
             )
           )
           .pipe(Stream.orDie),

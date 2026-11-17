@@ -33,9 +33,10 @@ import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
-import type {
-  EpicSectionsValue,
-  EpicSectionValue
+import {
+  firstScreenSectionCount,
+  type EpicSectionsValue,
+  type EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
@@ -103,6 +104,23 @@ export function EpicSections(props: Props) {
           )
         }
       : null
+  const renderSection = (section: EpicSectionValue) => (
+    <EpicSection
+      {...props}
+      persistKey={persistKey}
+      query={active?.query ?? props.query}
+      snapshotReq={active?.req ?? snapshotReq}
+      section={section}
+      waiting={snapshotResult.waiting}
+      activePreviewId={preview.activePreviewId}
+      onPreviewPointerEnter={preview.onPreviewPointerEnter}
+      onPreviewOpenChange={preview.onPreviewOpenChange}
+    />
+  )
+  const sections = active?.value.sections ?? []
+  const shownFirst = firstScreenSectionCount(sections)
+  const firstScreen = sections.slice(0, shownFirst)
+  const below = sections.slice(shownFirst)
   const renderSections = () =>
     active ? (
       <div
@@ -118,31 +136,27 @@ export function EpicSections(props: Props) {
           })}
         >
           <CreatingSectionsProvider>
-            {active.value.sections.map((section) => {
-              const content = (
-                <EpicSection
-                  {...props}
-                  persistKey={persistKey}
-                  query={active.query}
-                  snapshotReq={active.req}
-                  section={section}
-                  waiting={snapshotResult.waiting}
-                  activePreviewId={preview.activePreviewId}
-                  onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                  onPreviewOpenChange={preview.onPreviewOpenChange}
-                />
-              )
-              return active.value.sections.length > LAZY_SECTIONS_FROM ? (
-                <LazySection
-                  key={section.key}
-                  estimatedHeight={estimatedSectionHeight(section.count)}
-                >
-                  {content}
-                </LazySection>
-              ) : (
-                <Fragment key={section.key}>{content}</Fragment>
-              )
-            })}
+            {firstScreen.map((section) => (
+              <Fragment key={section.key}>{renderSection(section)}</Fragment>
+            ))}
+            {below.length > 0 && (
+              <div className="contents">
+                {below.map((section) =>
+                  active.value.sections.length > LAZY_SECTIONS_FROM ? (
+                    <LazySection
+                      key={section.key}
+                      estimatedHeight={estimatedSectionHeight(section.count)}
+                    >
+                      {renderSection(section)}
+                    </LazySection>
+                  ) : (
+                    <Fragment key={section.key}>
+                      {renderSection(section)}
+                    </Fragment>
+                  )
+                )}
+              </div>
+            )}
           </CreatingSectionsProvider>
         </TicketViewSourceContext>
       </div>

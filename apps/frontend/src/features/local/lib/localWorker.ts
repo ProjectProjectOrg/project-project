@@ -2,6 +2,7 @@ import * as BrowserRuntime from "@effect/platform-browser/BrowserRuntime"
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner"
 import {
   DescriptionSource,
+  LastView,
   localDescriptionsLayer,
   LocalRpcs,
   localRpcsLayer,
@@ -9,10 +10,12 @@ import {
   LocalWorkerInit,
   PendingWrite,
   PendingWrites,
+  prefetchView,
   SaveOutcome,
   SyncDenied,
   SyncOffline,
-  SyncSource
+  SyncSource,
+  WarmView
 } from "@pp/local"
 import {
   AppApi,
@@ -20,7 +23,9 @@ import {
   SYNC_RECEIPT_HEADER,
   TicketId
 } from "@pp/shared"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import { HttpApiClient } from "effect/http-api"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as HttpClient from "effect/http/HttpClient"
@@ -28,7 +33,10 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest"
 import type * as HttpClientResponse from "effect/http/HttpClientResponse"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import { RpcServer, RpcWorker } from "effect/rpc"
+import * as Schema from "effect/Schema"
+import * as Scope from "effect/Scope"
 
 import { browserCrypto } from "@/lib/browserCrypto"
 
@@ -186,6 +194,53 @@ const descriptionSourceLayer = Layer.effect(
   })
 ).pipe(Layer.provide(FetchHttpClient.layer))
 
+const Hint = Schema.fromJsonString(
+  Schema.Struct({ user: Schema.String, view: Schema.NullOr(LastView) })
+)
+
+const hintText = () => {
+  try {
+    return decodeURIComponent(self.location.hash.slice(1))
+  } catch {
+    return ""
+  }
+}
+
+const hint = Option.getOrNull(Schema.decodeUnknownOption(Hint)(hintText()))
+
+const workerScope = Scope.makeUnsafe()
+
+const opened = new Map<
+  string,
+  Fiber.Fiber<
+    Context.Context<Layer.Success<ReturnType<typeof localDatabaseLayer>>>,
+    Layer.Error<ReturnType<typeof localDatabaseLayer>>
+  >
+>()
+
+const database = (userId: string) => {
+  const existing = opened.get(userId)
+  if (existing !== undefined) return existing
+  const opening = Effect.runFork(
+    Layer.buildWithScope(localDatabaseLayer(userId), workerScope)
+  )
+  opened.set(userId, opening)
+  return opening
+}
+
+const prefetch = (userId: string, view: LastView) =>
+  Effect.runFork(
+    Fiber.join(database(userId)).pipe(
+      Effect.flatMap((context) =>
+        prefetchView(view).pipe(Effect.provideContext(context))
+      ),
+      Effect.orElseSucceed(() => null)
+    )
+  )
+
+const warm =
+  hint === null || hint.view === null ? null : prefetch(hint.user, hint.view)
+
 const engine = Layer.unwrap(
   Effect.map(RpcWorker.initialMessage(LocalWorkerInit), ({ userId, timings }) =>
     localRpcsLayer.pipe(
@@ -194,7 +249,14 @@ const engine = Layer.unwrap(
       Layer.provide(
         localDescriptionsLayer.pipe(Layer.provide(descriptionSourceLayer))
       ),
-      Layer.provide(localDatabaseLayer(userId)),
+      Layer.provideMerge(Layer.effectContext(Fiber.join(database(userId)))),
+      Layer.provide(
+        Layer.effect(WarmView)(
+          warm !== null && hint?.user === userId
+            ? Fiber.join(warm)
+            : Effect.succeed(null)
+        )
+      ),
       Layer.provide(Layer.succeed(LocalTimings)(timings))
     )
   )

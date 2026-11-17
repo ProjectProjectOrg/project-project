@@ -107,5 +107,12 @@ export const saveBoot = (registry: Registry.AtomRegistry) => {
 
 export const clearBoot = () => {
   saved = new Map()
-  storage()?.removeItem(STORAGE_KEY)
+  const store = storage()
+  if (store === null) return
+  const keys = Array.from({ length: store.length }, (_, index) =>
+    store.key(index)
+  )
+  for (const key of keys)
+    if (key === STORAGE_KEY || key?.startsWith(`${STORAGE_KEY}:`))
+      store.removeItem(key)
 }

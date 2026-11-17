@@ -5,7 +5,7 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -61,6 +61,24 @@ const chunkGroups = [
   }
 ]
 
+const earlyLocalWorker = (): Plugin => ({
+  name: "pp:early-local-worker",
+  apply: "build",
+  enforce: "post",
+  generateBundle(_options, bundle) {
+    const worker = Object.keys(bundle).find((file) =>
+      /localWorker-[\w-]+\.js$/.test(file)
+    )
+    const html = bundle["index.html"]
+    if (worker === undefined || html?.type !== "asset")
+      this.error("the local worker or index.html is missing")
+    else
+      html.source = html.source
+        .toString()
+        .replace("__PP_LOCAL_WORKER__", `/${worker}`)
+  }
+})
+
 export default defineConfig(({ mode }) => ({
   root: __dirname,
   resolve: {
@@ -94,7 +112,7 @@ export default defineConfig(({ mode }) => ({
           })
         ]),
     react({ compiler: mode === "test" ? false : { target: "19" } }),
-    ...(mode === "test" ? [] : [tailwindcss()]),
+    ...(mode === "test" ? [] : [tailwindcss(), earlyLocalWorker()]),
     paraglideVitePlugin({
       project: path.resolve(__dirname, "project.inlang"),
       outdir: path.resolve(

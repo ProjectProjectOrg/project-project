@@ -1,4 +1,4 @@
-import { sectionDifferences } from "@pp/local"
+import { sectionDifferences, SectionsView } from "@pp/local"
 import { TICKET_LIST_LIMIT } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
@@ -16,6 +16,7 @@ import type { CountsRequest } from "@/features/tickets/atoms/ticketCounts"
 import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { toRow, withCreatedKeys } from "@/features/tickets/lib/ticketRows"
 
+import { rememberLocalView } from "../lib/localBoot"
 import { LocalClient } from "../lib/localClient"
 import { localShadowChecks } from "../lib/localShadow"
 import { localReady, localRuntime } from "./localProject"
@@ -55,45 +56,42 @@ export const localBacklog = Atom.family((req: BacklogRequest) =>
     const loaded = get(backlogLoadedPages(req))
     const scope = projectScope(req.params.orgSlug, req.params.slug)
     const created = get(createdKeys(scope))
+    const request = {
+      project: req.params,
+      query: req.query,
+      viewerId: get(currentUserId),
+      estimation: context.estimation,
+      repositories: context.repositories,
+      pages: loaded,
+      pageSize: TICKET_LIST_LIMIT
+    }
+    rememberLocalView(SectionsView.make({ request }))
     return Stream.unwrap(
       Effect.map(LocalClient, (client) =>
-        client
-          .Sections({
-            project: req.params,
-            query: req.query,
-            viewerId: get(currentUserId),
-            estimation: context.estimation,
-            repositories: context.repositories,
-            pages: loaded,
-            pageSize: TICKET_LIST_LIMIT
-          })
-          .pipe(
-            Stream.zipWithIndex,
-            Stream.tap(([value, index]) =>
-              index === 0 && value !== null && localShadowChecks()
-                ? Effect.forkDetach(compareWithServer(req, value))
-                : Effect.void
-            ),
-            Stream.map(([value]): BacklogValue | null =>
-              value === null
-                ? null
-                : {
-                    counts: value.counts,
-                    sections: Object.fromEntries(
-                      Object.entries(value.sections).map(([key, page]) => [
-                        key,
-                        {
-                          items: withCreatedKeys(
-                            page.items.map(toRow),
-                            created
-                          ),
-                          nextCursor: page.nextCursor
-                        }
-                      ])
-                    )
-                  }
-            )
+        client.Sections(request).pipe(
+          Stream.zipWithIndex,
+          Stream.tap(([value, index]) =>
+            index === 0 && value !== null && localShadowChecks()
+              ? Effect.forkDetach(compareWithServer(req, value))
+              : Effect.void
+          ),
+          Stream.map(([value]): BacklogValue | null =>
+            value === null
+              ? null
+              : {
+                  counts: value.counts,
+                  sections: Object.fromEntries(
+                    Object.entries(value.sections).map(([key, page]) => [
+                      key,
+                      {
+                        items: withCreatedKeys(page.items.map(toRow), created),
+                        nextCursor: page.nextCursor
+                      }
+                    ])
+                  )
+                }
           )
+        )
       )
     )
   })

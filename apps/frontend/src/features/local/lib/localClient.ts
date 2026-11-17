@@ -5,17 +5,21 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { RpcClient, RpcWorker } from "effect/rpc"
 
+import { rememberLocalUser, takeEarlyWorker } from "./localBoot"
 import { localShadowChecks } from "./localShadow"
 
 const OPEN_REQUESTS_PER_WORKER = 1024
 
 const makeClient = RpcClient.make(LocalRpcs)
 
-const spawn = () => {
-  const worker = new Worker(new URL("./localWorker.ts", import.meta.url), {
-    type: "module",
-    name: "pp-local"
-  })
+const spawn = (userId: string) => () => {
+  rememberLocalUser(userId)
+  const worker =
+    takeEarlyWorker(userId) ??
+    new Worker(new URL("./localWorker.ts", import.meta.url), {
+      type: "module",
+      name: "pp-local"
+    })
   addEventListener("pagehide", (event) => {
     if (!event.persisted) worker.terminate()
   })
@@ -41,5 +45,5 @@ export const localClientLayer = (userId: string) =>
         Effect.succeed({ userId, timings: localShadowChecks() })
       )
     ),
-    Layer.provide(BrowserWorker.layer(spawn))
+    Layer.provide(BrowserWorker.layer(spawn(userId)))
   )

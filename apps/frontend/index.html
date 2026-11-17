@@ -48,6 +48,50 @@
         } catch (_) {}
       })()
     </script>
+    <script>
+      ;(function () {
+        try {
+          var url = "__PP_LOCAL_WORKER__"
+          var user = localStorage.getItem("pp:boot:local-user")
+          if (url.indexOf("__") === 0 || !user) return
+          var views = JSON.parse(
+            localStorage.getItem("pp:boot:local-views") || "{}"
+          )
+          var here = location.pathname + location.search
+          var view = null
+          for (var scope in views)
+            if (views[scope].path === here) view = views[scope].view
+          var worker = new Worker(
+            url +
+              "#" +
+              encodeURIComponent(JSON.stringify({ user: user, view: view })),
+            { type: "module", name: "pp-local" }
+          )
+          var early = []
+          var keep = function (event) {
+            early.push(event)
+          }
+          var listen = worker.addEventListener
+          worker.addEventListener("message", keep)
+          worker.addEventListener = function (type, listener, options) {
+            listen.call(worker, type, listener, options)
+            if (type !== "message" || early === null) return
+            var replay = early
+            early = null
+            worker.removeEventListener("message", keep)
+            Promise.resolve().then(function () {
+              for (var i = 0; i < replay.length; i++)
+                listener.call(worker, replay[i])
+            })
+          }
+          addEventListener("pagehide", function (event) {
+            if (!event.persisted) worker.terminate()
+          })
+          window.__ppLocalWorker = worker
+          window.__ppLocalUser = user
+        } catch (_) {}
+      })()
+    </script>
     <style>
       @property --pp-sweep {
         syntax: "<number>";
