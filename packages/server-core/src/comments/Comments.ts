@@ -4,6 +4,7 @@ import { commentIndex } from "@pp/db/schema"
 import {
   type ActivityActor,
   Comment,
+  Conflict,
   CommentId,
   type CreateCommentInput,
   Forbidden,
@@ -11,7 +12,8 @@ import {
   NotFound,
   ProjectScope,
   type TicketId,
-  type UpdateCommentInput
+  type UpdateCommentInput,
+  type User
 } from "@pp/shared"
 import { eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -81,6 +83,7 @@ export class Comments extends Context.Service<
       input: CreateCommentInput
     ) => Effect.Effect<
       Comment,
+      | Conflict
       | NotFound
       | InvalidCommentBody
       | MentionInvalid
@@ -115,6 +118,15 @@ export class Comments extends Context.Service<
       | TicketDocs.MalformedTicketDocument,
       ProjectScope | ActivityActor
     >
+    resolve: (
+      ticketId: TicketId,
+      commentId: CommentId,
+      resolved: boolean
+    ) => Effect.Effect<
+      Comment,
+      NotFound | Markdown.MarkdownError | TicketDocs.MalformedTicketDocument,
+      ProjectScope | ActivityActor
+    >
     remove: (
       ticketId: TicketId,
       commentId: CommentId
@@ -135,6 +147,20 @@ const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 
 const replyTo = (block: CommentBlock): CommentId | null =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
+
+const resolutionOf = (
+  block: CommentBlock,
+  userById: ReadonlyMap<string, User>
+): Comment["resolution"] =>
+  block.resolvedBy === undefined || block.resolvedAt === undefined
+    ? null
+    : { by: userById.get(block.resolvedBy) ?? null, at: block.resolvedAt }
+
+const withoutResolution = ({
+  resolvedBy: _by,
+  resolvedAt: _at,
+  ...block
+}: CommentBlock): CommentBlock => block
 
 const make = Effect.gen(function* () {
   const db = yield* Db
@@ -205,8 +231,7 @@ const make = Effect.gen(function* () {
       const blocks = parseCommentsRegion(document.commentsRegion)
       const target = blocks.find((block) => block.id === commentId)
       if (target === undefined) return yield* new NotFound()
-      const root = blocks.find((block) => block.id === target.replyTo)
-      return decodeCommentId(root?.id ?? target.id)
+      return blocks.find((block) => block.id === target.replyTo) ?? target
     })
 
   const list: Comments["Service"]["list"] = Effect.fn("Comments.list")(
@@ -224,18 +249,16 @@ const make = Effect.gen(function* () {
           orderBy: (c, { asc }) => [asc(c.createdAt)]
         })
         .pipe(Effect.orDie)
-      const [document, authors] = yield* Effect.all(
-        [
-          ticketDocs.read(orgSlug, slug, ticketId),
-          users.fullByIds(
-            rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId]))
-          )
-        ],
-        { concurrency: 2 }
-      )
+      const document = yield* ticketDocs.read(orgSlug, slug, ticketId)
       const blocks = parseCommentsRegion(document.commentsRegion)
       const blockById = new Map(blocks.map((b) => [b.id, b]))
-      const authorById = new Map<string, (typeof authors)[number]>(
+      const authors = yield* users.fullByIds([
+        ...rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId])),
+        ...blocks.flatMap((b) =>
+          b.resolvedBy === undefined ? [] : [b.resolvedBy]
+        )
+      ])
+      const authorById = new Map<string, User>(
         authors.map((user) => [user.id, user])
       )
       return rows.flatMap((r): Comment[] => {
@@ -267,7 +290,8 @@ const make = Effect.gen(function* () {
               body: block.body,
               createdAt: r.createdAt,
               editedAt: r.editedAt ?? null,
-              replyTo: replyTo(block)
+              replyTo: replyTo(block),
+              resolution: resolutionOf(block, authorById)
             }
           ]
         }
@@ -281,7 +305,8 @@ const make = Effect.gen(function* () {
             body: block.body,
             createdAt: r.createdAt,
             editedAt: r.editedAt ?? null,
-            replyTo: replyTo(block)
+            replyTo: replyTo(block),
+            resolution: resolutionOf(block, authorById)
           }
         ]
       })
@@ -303,10 +328,14 @@ const make = Effect.gen(function* () {
         ],
         { concurrency: 2 }
       )
-      const thread =
+      const root =
         input.replyTo === undefined
           ? null
           : yield* threadOf(orgSlug, slug, ticketId, input.replyTo)
+      if (root?.resolvedBy !== undefined) {
+        return yield* new Conflict({ reason: "thread_resolved" })
+      }
+      const thread = root === null ? null : decodeCommentId(root.id)
       const id = yield* newCommentId
       const now = yield* DateTime.nowAsDate
 
@@ -335,10 +364,13 @@ const make = Effect.gen(function* () {
         ...(thread === null ? {} : { replyTo: thread }),
         body: input.body
       }
-      yield* updateBlocks(orgSlug, slug, ticketId, (blocks) => [
-        ...blocks,
-        next
-      ]).pipe(
+      let resolvedMeanwhile = false
+      yield* updateBlocks(orgSlug, slug, ticketId, (blocks) => {
+        resolvedMeanwhile = blocks.some(
+          (block) => block.id === thread && block.resolvedBy !== undefined
+        )
+        return resolvedMeanwhile ? blocks : [...blocks, next]
+      }).pipe(
         Effect.onError(() =>
           db
             .delete(commentIndex)
@@ -346,6 +378,13 @@ const make = Effect.gen(function* () {
             .pipe(Effect.orDie)
         )
       )
+      if (resolvedMeanwhile) {
+        yield* db
+          .delete(commentIndex)
+          .where(eq(commentIndex.id, id))
+          .pipe(Effect.orDie)
+        return yield* new Conflict({ reason: "thread_resolved" })
+      }
       return {
         id,
         ticketId,
@@ -355,7 +394,8 @@ const make = Effect.gen(function* () {
         body: input.body,
         createdAt: now,
         editedAt: null,
-        replyTo: thread
+        replyTo: thread,
+        resolution: null
       }
     }
   )
@@ -465,7 +505,8 @@ const make = Effect.gen(function* () {
       body: block.body,
       createdAt: block.createdAt,
       editedAt: block.editedAt,
-      replyTo: null
+      replyTo: null,
+      resolution: null
     }))
   })
 
@@ -522,7 +563,7 @@ const make = Effect.gen(function* () {
       )
       yield* validateBody(scope, input.body)
       const editedAt = yield* DateTime.nowAsDate
-      let thread: CommentId | null = null
+      let edited: CommentBlock | undefined
       yield* updateBlocks(
         orgSlug,
         slug,
@@ -530,8 +571,8 @@ const make = Effect.gen(function* () {
         (blocks) =>
           blocks.map((block) => {
             if (block.id !== commentId) return block
-            thread = replyTo(block)
-            return { ...block, body: input.body, editedAt }
+            edited = { ...block, body: input.body, editedAt }
+            return edited
           }),
         db
           .update(commentIndex)
@@ -539,9 +580,14 @@ const make = Effect.gen(function* () {
           .where(eq(commentIndex.id, commentId))
           .pipe(Effect.asVoid, Effect.orDie)
       )
-      const author = yield* users
-        .fullByIds([meta.authorId])
-        .pipe(Effect.map((xs) => xs[0]))
+      const people = yield* users.fullByIds([
+        meta.authorId,
+        ...(edited?.resolvedBy === undefined ? [] : [edited.resolvedBy])
+      ])
+      const peopleById = new Map<string, User>(
+        people.map((user) => [user.id, user])
+      )
+      const author = peopleById.get(meta.authorId)!
       return {
         id: commentId,
         ticketId,
@@ -551,8 +597,34 @@ const make = Effect.gen(function* () {
         body: input.body,
         createdAt: meta.createdAt,
         editedAt,
-        replyTo: thread
+        replyTo: edited === undefined ? null : replyTo(edited),
+        resolution:
+          edited === undefined ? null : resolutionOf(edited, peopleById)
       }
+    }
+  )
+
+  const resolve: Comments["Service"]["resolve"] = Effect.fn("Comments.resolve")(
+    function* (ticketId, commentId, resolved) {
+      const { orgSlug, slug, userId } = yield* ProjectScope
+      const root = yield* threadOf(orgSlug, slug, ticketId, commentId)
+      const at = yield* DateTime.nowAsDate
+      yield* updateBlocks(orgSlug, slug, ticketId, (blocks) =>
+        blocks.map((block) =>
+          block.id !== root.id
+            ? block
+            : !resolved
+              ? withoutResolution(block)
+              : block.resolvedBy === undefined
+                ? { ...block, resolvedBy: userId, resolvedAt: at }
+                : block
+        )
+      )
+      const comment = (yield* list(ticketId)).find(
+        (candidate) => candidate.id === root.id
+      )
+      if (comment === undefined) return yield* new NotFound()
+      return comment
     }
   )
 
@@ -573,7 +645,7 @@ const make = Effect.gen(function* () {
     }
   )
 
-  return Comments.of({ list, create, importHistorical, edit, remove })
+  return Comments.of({ list, create, importHistorical, edit, resolve, remove })
 })
 
 export const layer = Layer.effect(Comments, make)

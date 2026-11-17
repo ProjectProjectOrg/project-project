@@ -521,6 +521,13 @@ const create_comment = (
     )
   )
 
+const resolve_comment = (
+  input: typeof Tools.tools.resolve_comment.parametersSchema.Type
+) =>
+  Effect.flatMap(Comments.Comments, (comments) =>
+    comments.resolve(input.ticketId, input.commentId, input.resolved)
+  )
+
 const attach_branch = (
   input: {
     orgSlug: string
@@ -704,6 +711,7 @@ export const ToolHandlersLive = Tools.toLayer(
         prepare_ticket_attachment
       ),
       create_comment: run.project({ comment: ["create"] }, create_comment),
+      resolve_comment: run.project({ comment: ["create"] }, resolve_comment),
       attach_branch: run.project({ github: ["write"] }, attach_branch),
       stack_branch: run.project({ github: ["write"] }, stack_branch),
       unstack_branch: run.project({ github: ["write"] }, unstack_branch),

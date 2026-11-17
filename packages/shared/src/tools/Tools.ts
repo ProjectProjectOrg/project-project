@@ -8,7 +8,12 @@ import {
   PrepareAttachmentInput,
   PrepareAttachmentResult
 } from "../attachments/Attachment"
-import { Comment, CreateCommentInput } from "../comments/Comment"
+import {
+  Comment,
+  CommentId,
+  CreateCommentInput,
+  ResolveCommentInput
+} from "../comments/Comment"
 import {
   AttachmentTooLarge,
   AttachmentTypeRejected,
@@ -1086,6 +1091,34 @@ export const Tools = Toolkit.make(
       projectSlug,
       ticketId,
       ...CreateCommentInput.fields
+    }),
+    success: Comment
+  }),
+  defineTool("resolve_comment", {
+    title: "Resolve comment thread",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Resolve or reopen the thread a comment belongs to. `commentId` can be " +
+      "any comment in the thread from `list_comments`; the thread's first " +
+      "comment records who resolved it and when. A resolved thread takes no " +
+      "replies until it is reopened. Resolve a thread once what it asked " +
+      "for is done. Returns the thread's first comment.",
+    cli: {
+      command: ["tickets", "resolve-comment"],
+      args: ["ticketId", "commentId"],
+      summary: "Resolve or reopen a comment thread."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      ticketId,
+      commentId: CommentId,
+      ...ResolveCommentInput.fields
     }),
     success: Comment
   }),

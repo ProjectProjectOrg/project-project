@@ -49,7 +49,8 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
     body: "Immediate comment",
     createdAt: "2026-09-15T10:00:01.000Z",
     editedAt: null,
-    replyTo: null
+    replyTo: null,
+    resolution: null
   }
   let persisted = false
   let finish = (_response: Response) => {}

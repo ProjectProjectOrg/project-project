@@ -20,6 +20,8 @@ const sample = (): ReadonlyArray<CommentBlock> => [
     origin: "native",
     createdAt: isoDate("2026-05-07T10:00:00.000Z"),
     editedAt: isoDate("2026-05-07T10:04:00.000Z"),
+    resolvedBy: "github_88",
+    resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
     body: "Looks good. cc [Wouter](mention:user/github_88)."
   },
   {

@@ -16,6 +16,8 @@ export type CommentBlock = Readonly<{
   createdAt: Date
   editedAt: Date | null
   replyTo?: string
+  resolvedBy?: string
+  resolvedAt?: Date
   body: string
 }>
 
@@ -39,6 +41,14 @@ const ReplyTo = Schema.NullOr(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
   Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
 )
+const ResolvedBy = Schema.NullOr(Schema.NonEmptyString).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const ResolvedAt = Schema.NullOr(CommentBlockDate).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
@@ -52,28 +62,36 @@ const LegacyCommentData = Schema.Struct({
   author: Schema.NonEmptyString,
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
-  replyTo: ReplyTo
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("native"),
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
-  replyTo: ReplyTo
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt
 })
 const LinkedJiraCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
-  replyTo: ReplyTo
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt
 })
 const SnapshotJiraCommentData = Schema.Struct({
   author: JiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
   editedAt: EditedAt,
-  replyTo: ReplyTo
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
@@ -150,6 +168,9 @@ export function parseCommentsRegion(
         createdAt: data.createdAt,
         editedAt: data.editedAt,
         ...(data.replyTo === null ? {} : { replyTo: data.replyTo }),
+        ...(data.resolvedBy === null || data.resolvedAt === null
+          ? {}
+          : { resolvedBy: data.resolvedBy, resolvedAt: data.resolvedAt }),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -171,6 +192,10 @@ export function serializeCommentsRegion(
     }
     if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
     if (b.replyTo) fm.replyTo = b.replyTo
+    if (b.resolvedBy && b.resolvedAt) {
+      fm.resolvedBy = b.resolvedBy
+      fm.resolvedAt = b.resolvedAt.toISOString()
+    }
     out.push(`<!-- comment:${b.id} -->`)
     out.push(
       markdownFileContent(fm, b.body.replace(/\s+$/, "") + "\n").trimEnd()

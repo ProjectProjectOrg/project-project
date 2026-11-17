@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { threadFold } from "./threadFold"
+import { foldedAuthors, threadFold } from "./threadFold"
 
 const replies = Array.from({ length: 5 }, (_, index) => ({
   comment: { id: `c_${index + 1}` }
@@ -11,21 +11,28 @@ const fold = (
 ): ReturnType<typeof threadFold> =>
   threadFold({
     replies,
+    resolved: false,
     manual: null,
     target: "",
     editing: new Set(),
     ...input
   })
 
+const foldedIds = (input: Partial<Parameters<typeof threadFold>[0]>) =>
+  fold(input).foldable.map((reply) => reply.comment.id)
+
 describe("threadFold", () => {
-  it("folds all but the last two replies once a thread has more than three", () => {
-    expect(fold({ replies: replies.slice(0, 3) }).foldable).toEqual([])
-    expect(fold({}).foldable.map((reply) => reply.comment.id)).toEqual([
-      "c_1",
-      "c_2",
-      "c_3"
-    ])
+  it("folds all but the last two replies once an open thread has more than three", () => {
+    expect(foldedIds({ replies: replies.slice(0, 3) })).toEqual([])
+    expect(foldedIds({})).toEqual(["c_1", "c_2", "c_3"])
     expect(fold({}).open).toBe(false)
+  })
+
+  it("folds everything but the last reply once the thread is resolved", () => {
+    expect(foldedIds({ replies: replies.slice(0, 2), resolved: true })).toEqual(
+      ["c_1"]
+    )
+    expect(foldedIds({ resolved: true })).toEqual(["c_1", "c_2", "c_3", "c_4"])
   })
 
   it("opens for a linked reply until it is collapsed by hand", () => {
@@ -35,5 +42,20 @@ describe("threadFold", () => {
 
   it("stays open while a folded reply is being edited, even when collapsed", () => {
     expect(fold({ editing: new Set(["c_2"]), manual: false }).open).toBe(true)
+  })
+})
+
+const author = (displayName: string) => ({
+  author: { kind: "jira" as const, displayName, accountId: displayName }
+})
+
+describe("foldedAuthors", () => {
+  it("names each author once in a readable list", () => {
+    expect(
+      foldedAuthors(
+        [author("Sam"), author("Noor"), author("Sam"), author("Luuk")],
+        "en"
+      ).names
+    ).toBe("Sam, Noor, and Luuk")
   })
 })

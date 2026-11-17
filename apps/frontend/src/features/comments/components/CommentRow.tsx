@@ -4,6 +4,7 @@ import type { Comment, TicketId } from "@pp/shared"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { CircleCheck } from "lucide-react"
 import { useEffect, useRef, useState, type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -15,9 +16,16 @@ import {
 } from "@/components/ui/context-menu"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import { me } from "@/features/auth/atoms/auth"
+import {
   commentsRequest,
   deleteComment,
-  editComment
+  editComment,
+  resolveThread
 } from "@/features/comments/atoms/comments"
 import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
@@ -28,6 +36,7 @@ import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
+import { formatRelative } from "@/lib/relativeTime"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -46,18 +55,21 @@ const keepNativeMenu = (event: MouseEvent<HTMLElement>) => {
   if (selecting || onLink) event.stopPropagation()
 }
 
+export type CommentThreadOf = Readonly<{
+  root: Comment
+  replies: ReadonlyArray<Comment>
+}>
+
 export function CommentRow({
   comment,
-  replies,
+  thread,
   pending,
-  reply,
   ticketId,
   onEditingChange
 }: Readonly<{
   comment: Comment
-  replies: ReadonlyArray<Comment>
+  thread: CommentThreadOf
   pending: boolean
-  reply: boolean
   ticketId: TicketId
   onEditingChange: (editing: boolean) => void
 }>) {
@@ -76,13 +88,33 @@ export function CommentRow({
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
   const deleteState = useAtomValue(deleteComment(key))
-  const waiting = pending || editState.waiting || deleteState.waiting
   const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
-  const deleteError = mutationErrorText(
-    deleteState,
-    () => m.comments_delete_failed(),
-    m.comments_delete_failed
-  )
+  const viewer = useAtomValue(me())
+  const resolveKey = resolveThread({
+    req,
+    rootId: thread.root.id,
+    viewer: AsyncResult.isSuccess(viewer) ? viewer.value : null
+  })
+  const resolve = useAtomSet(resolveKey)
+  const resolveState = useAtomValue(resolveKey)
+  const waiting =
+    pending || editState.waiting || deleteState.waiting || resolveState.waiting
+  const isRoot = comment.id === thread.root.id
+  const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
+  const resolution = thread.root.resolution
+  const actionError =
+    mutationErrorText(
+      deleteState,
+      () => m.comments_delete_failed(),
+      m.comments_delete_failed
+    ) ??
+    (isRoot
+      ? mutationErrorText(
+          resolveState,
+          () => m.comments_resolve_failed(),
+          m.comments_resolve_failed
+        )
+      : null)
 
   const [mode, setModeState] = useState<Mode>("idle")
   const setMode = (next: Mode) => {
@@ -102,11 +134,14 @@ export function CommentRow({
   }, [targeted])
   const menu = {
     comment,
-    replies,
+    replies: isRoot ? thread.replies : [],
     ticketId,
     canEdit,
     canDelete,
-    onEdit: () => setMode("edit")
+    onEdit: () => setMode("edit"),
+    resolved: resolution !== null,
+    onResolve:
+      !pending && actor.call("ticketComments", "resolve") ? resolve : undefined
   }
 
   return (
@@ -134,21 +169,24 @@ export function CommentRow({
             )}
           >
             <InlineForm.Idle block>
-              <CommentHeader comment={comment}>
+              <CommentHeader
+                comment={comment}
+                resolution={last ? resolution : null}
+              >
                 {!pending && <CommentMenuButton ref={menuButton} {...menu} />}
               </CommentHeader>
               <div
-                className={cn("pt-1 pr-4 pb-3.5", reply ? "pl-11" : "pl-4")}
+                className={cn("pt-1 pr-4 pb-3.5", isRoot ? "pl-4" : "pl-11")}
                 onContextMenu={keepNativeMenu}
               >
                 <Markdown>{comment.body}</Markdown>
               </div>
-              {deleteError && (
+              {actionError && (
                 <p
                   role="alert"
                   className="px-4 pb-3.5 text-body text-destructive"
                 >
-                  {deleteError}
+                  {actionError}
                 </p>
               )}
             </InlineForm.Idle>
@@ -178,9 +216,11 @@ export function CommentRow({
 
 function CommentHeader({
   comment,
+  resolution = null,
   children
 }: {
   comment: Comment
+  resolution?: Comment["resolution"]
   children: React.ReactNode
 }) {
   const author = comment.author
@@ -202,9 +242,36 @@ function CommentHeader({
             {m.comments_imported_from_jira()}
           </span>
         )}
+        {resolution !== null && <ResolvedLabel resolution={resolution} />}
       </div>
       {children}
     </header>
+  )
+}
+
+function ResolvedLabel({
+  resolution
+}: Readonly<{ resolution: NonNullable<Comment["resolution"]> }>) {
+  const when = formatRelative(resolution.at)
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="inline-flex items-center gap-1 text-caption text-state-success" />
+        }
+      >
+        <CircleCheck className="size-3.5" strokeWidth={2} />
+        {m.comments_resolved_label()}
+      </TooltipTrigger>
+      <TooltipContent>
+        {resolution.by === null
+          ? m.comments_resolved_at({ when })
+          : m.comments_resolved_by({
+              name: resolution.by.name ?? resolution.by.email,
+              when
+            })}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

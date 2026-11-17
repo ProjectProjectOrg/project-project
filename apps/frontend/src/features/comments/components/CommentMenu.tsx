@@ -1,5 +1,13 @@
 import type { Comment, TicketId } from "@pp/shared"
-import { FileText, Link2, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import {
+  CircleCheck,
+  CircleDashed,
+  FileText,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Trash2
+} from "lucide-react"
 import type { Ref } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -25,6 +33,8 @@ export type CommentMenuProps = Readonly<{
   canEdit: boolean
   canDelete: boolean
   onEdit: () => void
+  resolved: boolean
+  onResolve: ((resolved: boolean) => void) | undefined
 }>
 
 const copy = (text: string) => void navigator.clipboard.writeText(text)
@@ -35,7 +45,9 @@ export function CommentMenuItems({
   ticketId,
   canEdit,
   canDelete,
-  onEdit
+  onEdit,
+  resolved,
+  onResolve
 }: CommentMenuProps) {
   const location = useProjectRoute()
   const url = commentUrl(location, ticketId, comment.id)
@@ -46,6 +58,22 @@ export function CommentMenuItems({
           <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
             <Pencil className="size-4" strokeWidth={1.75} />
             {m.comments_edit_button()}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      )}
+      {onResolve !== undefined && (
+        <>
+          <DropdownMenuItem
+            onClick={() => onResolve(!resolved)}
+            className="cursor-pointer"
+          >
+            {resolved ? (
+              <CircleDashed className="size-4" strokeWidth={1.75} />
+            ) : (
+              <CircleCheck className="size-4" strokeWidth={1.75} />
+            )}
+            {resolved ? m.comments_menu_unresolve() : m.comments_menu_resolve()}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
         </>
