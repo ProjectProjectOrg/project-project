@@ -87,8 +87,8 @@ const awaitingGitHub = (
   landed: boolean
 ) => state === "open" || (state === "merged" && !landed)
 
-const settled = (ticket: StackedTicketEntry, snapshotStored: boolean) =>
-  snapshotStored &&
+const settled = (ticket: StackedTicketEntry, snapshotMerged: boolean) =>
+  snapshotMerged &&
   ticket.prState === "merged" &&
   ticket.lastTransitionedPr === ticket.pr &&
   ticket.stack.every(
@@ -1285,7 +1285,8 @@ const make = Effect.gen(function* () {
         ticket,
         repository !== null &&
           ticket.pr !== null &&
-          stored.has(snapshotKey(repository.repoId, ticket.pr))
+          stored.get(snapshotKey(repository.repoId, ticket.pr))?.state ===
+            "merged"
       )
     })
     const orphaned = active.filter(

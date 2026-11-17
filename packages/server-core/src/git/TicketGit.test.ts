@@ -459,6 +459,68 @@ it.effect("syncGitStates leaves landed tickets to storage", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect(
+  "syncGitStates refetches a landed ticket whose stored pull request is still open",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        branch: "feat/T-1-done",
+        pr: 7,
+        prState: "merged",
+        lastTransitionedPr: 7
+      })
+    )
+    const requested: Array<ReadonlyArray<string>> = []
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      pullRequestSnapshots: pullRequestSnapshotsTestLayer([
+        {
+          repositoryId: githubIntegration.repoId,
+          number: 7,
+          branch: "feat/T-1-done",
+          base: "main",
+          state: "open",
+          draft: false,
+          title: "Done work",
+          mergedAt: null,
+          checks: null,
+          observedAt: isoDate("2026-04-01T00:00:00Z")
+        }
+      ]),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (
+          _installation,
+          _owner,
+          _name,
+          branches
+        ) =>
+          Effect.sync(() => {
+            requested.push(branches)
+            return {
+              defaultBranch: "main",
+              openPullRequestText: new Map(),
+              mergedPrsByBranch: new Map(),
+              fetchedAt: isoDate("2026-04-01T00:01:00Z"),
+              existingBranches: new Set<string>(),
+              prByBranch: new Map()
+            }
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      yield* git.syncGitStates()
+      expect(requested[0]).toContain("feat/T-1-done")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("syncGitStates checks back soon after linking a pull request", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const outcomes: Array<GitSyncSchedule.SyncOutcome> = []
