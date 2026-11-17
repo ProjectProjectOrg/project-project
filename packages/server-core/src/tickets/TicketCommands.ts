@@ -1130,8 +1130,15 @@ const make = Effect.gen(function* () {
     original: TicketDocs.TicketDocument
   ) =>
     ticketDocs
-      .write(project.orgSlug, project.slug, id, original)
-      .pipe(Effect.andThen(ticketIndex.upsertTicket(project, original)))
+      .update(
+        project.orgSlug,
+        project.slug,
+        id,
+        (current) => Effect.succeed({ ...original, sprint: current.sprint }),
+        (next) => ticketIndex.upsertTicket(project, next),
+        { silent: true }
+      )
+      .pipe(Effect.asVoid)
 
   const discardSplitResult = (
     project: TicketProject,
@@ -1367,7 +1374,9 @@ const make = Effect.gen(function* () {
           Effect.andThen(
             retainedMoves
               ? groups
-                  .setSprintMembership(originalId, originalSprintId)
+                  .setSprintMembership(originalId, originalSprintId, {
+                    from: retainedInput.sprintId
+                  })
                   .pipe(
                     Effect.catchCause((cause) =>
                       Effect.logError("split: sprint rollback failed", cause)

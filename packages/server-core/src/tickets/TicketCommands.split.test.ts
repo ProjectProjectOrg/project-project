@@ -3,6 +3,8 @@ import { it } from "@effect/vitest"
 import { BUILTIN_TYPE_KEYS, EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   Forbidden,
+  Conflict,
+  ActivityActor,
   GroupColor,
   GroupId,
   type Group,
@@ -87,6 +89,8 @@ let sprintAssignmentAttempts = 0
 let nextTicketNumber = 1
 let failUpsertAfter = Number.POSITIVE_INFINITY
 let upserts = 0
+let beforeSprintAssignment: Effect.Effect<void, never, ActivityActor> =
+  Effect.void
 
 const FakeProjects = Layer.mergeAll(
   Layer.succeed(Projects.Projects, {
@@ -156,31 +160,44 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () =>
     Effect.suspend(() => (sprintAssignable ? Effect.void : new Forbidden())),
-  setSprintMembership: (ticketId, sprintId) =>
-    Effect.suspend(() => {
-      sprintAssignmentAttempts += 1
-      if (sprintAssignmentAttempts === failSprintAssignmentAt) {
-        return new Markdown.MarkdownError({
-          cause: new Error("sprint write failed"),
-          message: "sprint write failed"
-        })
-      }
-      sprintAssignments.push({ ticketId, sprintId })
-      for (const [id, tickets] of sprintTicketOrders) {
-        sprintTicketOrders.set(
-          id,
-          tickets.filter((candidate) => candidate !== ticketId)
-        )
-      }
-      if (sprintId === null) sprintMemberships.delete(ticketId)
-      else {
-        sprintMemberships.set(ticketId, sprintId)
-        sprintTicketOrders.set(sprintId, [
-          ...(sprintTicketOrders.get(sprintId) ?? []),
-          ticketId
-        ])
-      }
-      return Effect.void
+  setSprintMembership: (ticketId, sprintId, options) =>
+    Effect.gen(function* () {
+      const before = beforeSprintAssignment
+      beforeSprintAssignment = Effect.void
+      yield* before
+      return yield* Effect.suspend(
+        (): Effect.Effect<void, Conflict | Markdown.MarkdownError> => {
+          if (
+            options?.from !== undefined &&
+            (sprintMemberships.get(ticketId) ?? null) !== options.from
+          ) {
+            return new Conflict({ reason: "sprint_membership_changed" })
+          }
+          sprintAssignmentAttempts += 1
+          if (sprintAssignmentAttempts === failSprintAssignmentAt) {
+            return new Markdown.MarkdownError({
+              cause: new Error("sprint write failed"),
+              message: "sprint write failed"
+            })
+          }
+          sprintAssignments.push({ ticketId, sprintId })
+          for (const [id, tickets] of sprintTicketOrders) {
+            sprintTicketOrders.set(
+              id,
+              tickets.filter((candidate) => candidate !== ticketId)
+            )
+          }
+          if (sprintId === null) sprintMemberships.delete(ticketId)
+          else {
+            sprintMemberships.set(ticketId, sprintId)
+            sprintTicketOrders.set(sprintId, [
+              ...(sprintTicketOrders.get(sprintId) ?? []),
+              ticketId
+            ])
+          }
+          return Effect.void
+        }
+      )
     }),
   removeTicketFromAllGroups: () => Effect.void
 } satisfies Groups.Groups["Service"])
@@ -367,6 +384,7 @@ const resetFakes = Effect.sync(() => {
   upserts = 0
   failUpsertAfter = Number.POSITIVE_INFINITY
   indexed.clear()
+  beforeSprintAssignment = Effect.void
 })
 
 const ticketFile = (root: string, path: Path.Path, id: string) =>
@@ -664,6 +682,53 @@ it.effect(
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
       expect(splitActivity()).toEqual([])
     }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("split rollback preserves concurrent sprint carryover", () =>
+  Effect.gen(function* () {
+    for (const retainedMoves of [false, true]) {
+      yield* resetFakes
+      const tickets = yield* TicketCommands.TicketCommands
+      const docs = yield* TicketDocs.TicketDocs
+      const original = yield* seedOriginal
+      const originalIds = yield* docs.listIds("org", "p")
+      const sourceSprint = decodeGroupId("G-1")
+      const carryoverSprint = decodeGroupId("G-2")
+      yield* putInSprint(original.id, sourceSprint)
+      beforeSprintAssignment = docs
+        .update(
+          "org",
+          "p",
+          original.id,
+          (current) => Effect.succeed({ ...current, sprint: carryoverSprint }),
+          (next) =>
+            Effect.sync(() => {
+              sprintMemberships.set(original.id, carryoverSprint)
+              indexed.set(original.id, next)
+            })
+        )
+        .pipe(Effect.asVoid, Effect.orDie)
+      failSprintAssignmentAt = 1
+      const attempt = yield* tickets
+        .split(original.id, {
+          results: [
+            {
+              ...result("Retained", "feat"),
+              sprintId: retainedMoves ? null : sourceSprint
+            },
+            { ...result("New", "feat"), sprintId: sourceSprint }
+          ]
+        })
+        .pipe(Effect.result)
+      expect(attempt._tag).toBe("Failure")
+      const restored = yield* docs.read("org", "p", original.id)
+      expect(restored.title).toBe(original.title)
+      expect(restored.sprint).toBe(carryoverSprint)
+      expect(indexed.get(original.id)?.sprint).toBe(carryoverSprint)
+      expect(sprintMemberships.get(original.id)).toBe(carryoverSprint)
+      expect(yield* docs.listIds("org", "p")).toEqual(originalIds)
+    }
+  }).pipe(Effect.provide(TestLayer))
 )
 
 const scopedAs = (role: "developer" | "client", userId: string) =>
