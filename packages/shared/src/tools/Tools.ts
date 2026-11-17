@@ -359,8 +359,10 @@ export const Tools = Toolkit.make(
     hints: reads,
     description:
       "Fetch one group (sprint, epic or milestone) by id (`G-N`): its " +
-      "kind, dates, member ticket ids (`tickets`) and markdown `body`. To " +
-      "read those tickets, call `list_tickets` with `groupId`.",
+      "kind, dates, member ticket ids (`tickets`) and markdown `body`. A " +
+      "completed sprint also has `snapshot`: every ticket it held when it " +
+      "was completed, with the status and estimate each had then. To " +
+      "read the tickets, call `list_tickets` with `groupId`.",
     cli: {
       command: ["groups", "get"],
       args: ["id"],
@@ -612,8 +614,10 @@ export const Tools = Toolkit.make(
     hints: reads,
     description:
       "Raw source of a group's markdown file: YAML frontmatter and body, " +
-      "exactly as stored. `get_group` returns the same data parsed; use " +
-      "this when you need the file verbatim.",
+      "exactly as stored. A sprint's file has no ticket list: each ticket " +
+      "names its sprint in its own frontmatter (`sprint`). `get_group` " +
+      "returns the parsed data with the sprint's tickets; use this when " +
+      "you need the file verbatim.",
     cli: {
       command: ["groups", "doc"],
       args: ["id"],

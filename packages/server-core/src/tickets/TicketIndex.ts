@@ -22,6 +22,7 @@ import {
   ESTIMATE_SIZES,
   EPIC_SECTION_NONE,
   Estimate,
+  GroupId,
   estimateRank,
   formatMovedFrom,
   parseTicketMentionId,
@@ -89,11 +90,26 @@ import {
   type RelationRow
 } from "./ticketRelations"
 
+export type TicketIndexMembers = Readonly<{
+  sprints: ReadonlyArray<string>
+  tickets: ReadonlyArray<string>
+  outsideSprints: ReadonlyArray<string> | null
+}>
+
+export type TicketIndexSprintTicket = Readonly<{
+  id: TicketId
+  sprintId: GroupId
+  status: TicketStatus
+  estimate: Estimate | null
+  archived: boolean
+}>
+
 export interface TicketIndexQueryOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
+  readonly members?: TicketIndexMembers
   readonly excludeTicketIds?: ReadonlyArray<string>
-  readonly sectionTicketIds?: ReadonlyArray<string>
+  readonly sectionMembers?: TicketIndexMembers
   readonly attachableTo?: TicketIndexAttachable
   readonly limit: number
 }
@@ -106,6 +122,7 @@ export type TicketIndexAttachable = Readonly<{
 export interface TicketIndexCountOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
+  readonly members?: TicketIndexMembers
   readonly excludeTicketIds?: ReadonlyArray<string>
 }
 
@@ -156,10 +173,10 @@ export type TicketRankGap = Readonly<{
   upper: TicketRank | null
 }>
 
-/** A section with `ticketIds` holds exactly those tickets; one without catches the rest. */
+/** A section with `members` holds exactly those tickets; one without catches the rest. */
 export type TicketIndexSection = Readonly<{
   key: string
-  ticketIds?: ReadonlyArray<string>
+  members?: TicketIndexMembers
 }>
 
 export type TicketIndexSectionsOptions = TicketIndexCountOptions &
@@ -361,6 +378,10 @@ export class TicketIndex extends Context.Service<
       options: TicketIndexCountOptions
     ) => Effect.Effect<TicketIndexCounts>
     listIds: (project: TicketProject) => Effect.Effect<ReadonlyArray<string>>
+    sprintTickets: (
+      project: TicketProject,
+      sprintIds?: ReadonlyArray<string>
+    ) => Effect.Effect<ReadonlyArray<TicketIndexSprintTicket>>
     existingIds: (
       project: TicketProject,
       ticketIds: ReadonlyArray<string>
@@ -404,6 +425,7 @@ export class TicketIndex extends Context.Service<
 >()("@pp/server-core/tickets/TicketIndex") {}
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeGroupId = Schema.decodeUnknownSync(GroupId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const decodeEstimate = Schema.decodeUnknownOption(Estimate)
 const decodeActivityChange = Schema.decodeUnknownSync(TicketActivityChange)
@@ -454,6 +476,7 @@ export const ticketIndexRowFor = (
   tags: [...document.tags],
   assignees: [...document.assignees],
   parent: document.parent ?? null,
+  sprintId: document.sprint ?? null,
   repoId: document.branch === null ? null : (document.repo ?? null),
   movedFrom: [...(document.movedFrom ?? [])],
   branch: document.branch,
@@ -848,9 +871,36 @@ const parentCondition = (parents: ReadonlyArray<ParentFilter>): SQL => {
 const ticketIdsCondition = (ticketIds: ReadonlyArray<string>): SQL =>
   drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([...ticketIds])}::text[])`
 
+const membersCondition = (
+  members: TicketIndexMembers,
+  row: SQL = parentRow
+): SQL => {
+  const sprintId = columnOf(row, ticketIndex.sprintId)
+  const parts = [
+    ...(members.sprints.length === 0
+      ? []
+      : [
+          drizzleSql`${sprintId} = any(${drizzleSql.param([...members.sprints])}::text[])`
+        ]),
+    ...(members.tickets.length === 0
+      ? []
+      : [
+          drizzleSql`${columnOf(row, ticketIndex.ticketId)} = any(${drizzleSql.param([...members.tickets])}::text[])`
+        ]),
+    ...(members.outsideSprints === null
+      ? []
+      : [
+          drizzleSql`(${sprintId} is null or ${sprintId} <> all(${drizzleSql.param([...members.outsideSprints])}::text[]))`
+        ])
+  ]
+  return parts.length === 0
+    ? drizzleSql`false`
+    : drizzleSql`(${drizzleSql.join(parts, drizzleSql` or `)})`
+}
+
 const sectionConditions = (
   section: TicketSection | undefined,
-  sectionTicketIds: ReadonlyArray<string> | undefined
+  sectionMembers: TicketIndexMembers | undefined
 ): ReadonlyArray<SQL> => [
   ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
   ...(section?.parent === undefined
@@ -859,14 +909,13 @@ const sectionConditions = (
   ...(section?.ticketParent === undefined
     ? []
     : [ticketParentSectionCondition(section.ticketParent)]),
-  ...(sectionTicketIds === undefined
-    ? []
-    : [ticketIdsCondition(sectionTicketIds)])
+  ...(sectionMembers === undefined ? [] : [membersCondition(sectionMembers)])
 ]
 
 interface TicketWhereOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
+  readonly members?: TicketIndexMembers
   readonly excludeTicketIds?: ReadonlyArray<string>
   readonly nestWithin?: NestWithin
 }
@@ -878,14 +927,13 @@ const nestKey = (within: NestWithin, row: SQL): SQL =>
 
 const pageNestWithin = (
   section: TicketSection | undefined,
-  sectionTicketIds: ReadonlyArray<string> | undefined
+  sectionMembers: TicketIndexMembers | undefined
 ): NestWithin | undefined => {
   if (section?.status !== undefined) {
     return (row) => columnOf(row, ticketIndex.status)
   }
-  if (section?.groupId !== undefined && sectionTicketIds !== undefined) {
-    return (row) =>
-      drizzleSql`${columnOf(row, ticketIndex.ticketId)} = any(${drizzleSql.param([...sectionTicketIds])}::text[])`
+  if (section?.groupId !== undefined && sectionMembers !== undefined) {
+    return (row) => membersCondition(sectionMembers, row)
   }
   return undefined
 }
@@ -911,6 +959,9 @@ const ticketWhereConditions = (
   ]
   if (options.ticketIds !== undefined) {
     conditions.push(ticketIdsCondition(options.ticketIds))
+  }
+  if (options.members !== undefined) {
+    conditions.push(membersCondition(options.members))
   }
   if (options.excludeTicketIds && options.excludeTicketIds.length > 0) {
     conditions.push(
@@ -1140,14 +1191,14 @@ const make = Effect.gen(function* () {
     const expression = ticketSortExpression(ticketQuery.sort)
     const nestWithin = pageNestWithin(
       ticketQuery.section,
-      options.sectionTicketIds
+      options.sectionMembers
     )
     const conditions = [
       ...ticketWhereConditions(project, ticketQuery, {
         ...options,
         nestWithin
       }),
-      ...sectionConditions(ticketQuery.section, options.sectionTicketIds),
+      ...sectionConditions(ticketQuery.section, options.sectionMembers),
       ...attachableConditions(options.attachableTo),
       ticketCursorCondition(ticketQuery, expression)
     ].filter((condition) => condition !== undefined)
@@ -1187,14 +1238,12 @@ const make = Effect.gen(function* () {
     if (sections === "status") return columnOf(row, ticketIndex.status)
     if (sections === "parent") return epicSection
     if (sections === "ticketParent") return ticketParentSection
-    const rest = sections.find((section) => section.ticketIds === undefined)
+    const rest = sections.find((section) => section.members === undefined)
     const branches = sections.flatMap((section) =>
-      section.ticketIds === undefined
+      section.members === undefined
         ? []
         : [
-            drizzleSql`when ${columnOf(row, ticketIndex.ticketId)} = any(${drizzleSql.param(
-              [...section.ticketIds]
-            )}::text[]) then ${section.key}::text`
+            drizzleSql`when ${membersCondition(section.members, row)} then ${section.key}::text`
           ]
     )
     const fallback =
@@ -1219,11 +1268,15 @@ const make = Effect.gen(function* () {
     const whereOptions = { ...options, nestWithin }
     const explicitIds =
       typeof options.sections !== "string" &&
-      options.sections.every((entry) => entry.ticketIds !== undefined)
+      options.sections.every((entry) => entry.members !== undefined)
         ? [
-            drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param(
-              options.sections.flatMap((entry) => entry.ticketIds ?? [])
-            )}::text[])`
+            or(
+              ...options.sections.flatMap((entry) =>
+                entry.members === undefined
+                  ? []
+                  : [membersCondition(entry.members)]
+              )
+            ) ?? drizzleSql`false`
           ]
         : []
     const expression = ticketSortExpression(ticketQuery.sort)
@@ -1783,6 +1836,56 @@ const make = Effect.gen(function* () {
       )
   })
 
+  const sprintTickets = Effect.fn("TicketIndex.sprintTickets")(function* (
+    project: TicketProject,
+    sprintIds?: ReadonlyArray<string>
+  ) {
+    if (sprintIds !== undefined && sprintIds.length === 0) return []
+    return yield* db
+      .select({
+        ticketId: ticketIndex.ticketId,
+        sprintId: ticketIndex.sprintId,
+        status: ticketIndex.status,
+        estimateUnit: ticketIndex.estimateUnit,
+        estimateValue: ticketIndex.estimateValue,
+        archivedAt: ticketIndex.archivedAt
+      })
+      .from(ticketIndex)
+      .where(
+        and(
+          eq(ticketIndex.projectId, project.projectId),
+          sprintIds === undefined
+            ? isNotNull(ticketIndex.sprintId)
+            : inArray(ticketIndex.sprintId, [...sprintIds])
+        )
+      )
+      .orderBy(
+        drizzleSql`${ticketIndex.rank} collate "C"`,
+        asc(ticketIndex.ticketId)
+      )
+      .pipe(
+        Effect.map((rows) =>
+          rows.flatMap((row) =>
+            row.sprintId === null
+              ? []
+              : [
+                  {
+                    id: makeTicketId(row.ticketId),
+                    sprintId: makeGroupId(row.sprintId),
+                    status: TicketStatus.make(row.status),
+                    estimate: estimateFromIndex(
+                      row.estimateUnit,
+                      row.estimateValue
+                    ),
+                    archived: row.archivedAt !== null
+                  }
+                ]
+          )
+        ),
+        Effect.orDie
+      )
+  })
+
   const listIds = Effect.fn("TicketIndex.listIds")(function* (
     project: TicketProject
   ) {
@@ -2196,6 +2299,7 @@ const make = Effect.gen(function* () {
     rankGap,
     count,
     listIds,
+    sprintTickets,
     existingIds,
     mentionableIds,
     movedTo,

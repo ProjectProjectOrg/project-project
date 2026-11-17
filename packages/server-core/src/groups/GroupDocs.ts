@@ -1,12 +1,15 @@
 import {
   type ActivityActor,
   type ActivityCause,
+  estimateToken,
   type GroupDetail,
   GroupId,
   NotFound,
   Group,
   GroupKind,
-  TicketId
+  parseEstimateToken,
+  TicketId,
+  TicketStatus
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -90,6 +93,17 @@ const GroupFrontmatter = Schema.Struct({
   ),
   completedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  snapshot: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        id: TicketId,
+        status: TicketStatus,
+        estimate: Schema.optionalKey(
+          Schema.Union([Schema.Finite, Schema.String])
+        )
+      })
+    )
   )
 })
 
@@ -98,10 +112,47 @@ const encodeFrontmatter = Schema.encodeSync(GroupFrontmatter)
 const decodeGroupId = Schema.decodeUnknownEffect(GroupId)
 
 function toDocument(
-  group: typeof GroupFrontmatter.Type,
+  { snapshot, ...group }: typeof GroupFrontmatter.Type,
   body: string
 ): GroupDetail {
-  return { ...group, body }
+  return {
+    ...group,
+    ...(group.kind === "sprint" ? { tickets: [] } : {}),
+    ...(snapshot === undefined
+      ? {}
+      : {
+          snapshot: snapshot.map((ticket) => ({
+            id: ticket.id,
+            status: ticket.status,
+            estimate:
+              ticket.estimate === undefined
+                ? null
+                : parseEstimateToken(ticket.estimate)
+          }))
+        }),
+    body
+  }
+}
+
+const groupFrontmatter = ({
+  snapshot,
+  ...document
+}: GroupDocument): Record<string, unknown> => {
+  const { tickets, ...data } = encodeFrontmatter({
+    ...document,
+    ...(snapshot === undefined
+      ? {}
+      : {
+          snapshot: snapshot.map((ticket) => ({
+            id: ticket.id,
+            status: ticket.status,
+            ...(ticket.estimate === null
+              ? {}
+              : { estimate: estimateToken(ticket.estimate) })
+          }))
+        })
+  })
+  return document.kind === "sprint" ? data : { ...data, tickets }
 }
 
 const annotateGroupDoc = <A, E, R>(
@@ -188,7 +239,7 @@ const make = Effect.gen(function* () {
         content:
           after === null
             ? null
-            : markdownFileContent(encodeFrontmatter(after), after.body)
+            : markdownFileContent(groupFrontmatter(after), after.body)
       },
       groupMembershipChanges(before, after),
       activity.cause ?? null,
@@ -217,7 +268,7 @@ const make = Effect.gen(function* () {
           orgSlug,
           slug,
           document.id,
-          encodeFrontmatter(document),
+          groupFrontmatter(document),
           document.body
         )
       )
@@ -249,7 +300,7 @@ const make = Effect.gen(function* () {
             orgSlug,
             slug,
             id,
-            encodeFrontmatter(document),
+            groupFrontmatter(document),
             document.body
           )
         )
@@ -283,7 +334,7 @@ const make = Effect.gen(function* () {
             orgSlug,
             slug,
             id,
-            encodeFrontmatter(document),
+            groupFrontmatter(document),
             document.body
           )
         )

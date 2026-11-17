@@ -56,7 +56,8 @@ const backfillProject = (project: TicketProject, ids: ReadonlyArray<string>) =>
       groups,
       unranked.map(({ id, parts }) => ({
         id,
-        createdAt: timeOf(parts.data.createdAt)
+        createdAt: timeOf(parts.data.createdAt),
+        sprint: typeof parts.data.sprint === "string" ? parts.data.sprint : null
       })),
       yield* DateTime.nowAsDate
     )

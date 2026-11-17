@@ -126,6 +126,24 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
         })
       )
     }),
+  documents: () =>
+    Effect.sync(() =>
+      [...sprintTicketOrders.keys()].map((sprintId) => ({
+        id: decodeGroupId(sprintId),
+        name: sprintId,
+        kind: "sprint" as const,
+        color: decodeGroupColor("#777777"),
+        tickets: [],
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        createdBy: "user-1",
+        createdAt: groupTimestamp,
+        updatedAt: groupTimestamp,
+        body: ""
+      }))
+    ),
+  withSprints: () => unexpected("Groups.withSprints"),
   listPaged: () => unexpected("Groups.listPaged"),
   listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
   get: () => unexpected("Groups.get"),
@@ -138,7 +156,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () =>
     Effect.suspend(() => (sprintAssignable ? Effect.void : new Forbidden())),
-  setSprintMembership: (_orgSlug, _slug, ticketId, sprintId) =>
+  setSprintMembership: (ticketId, sprintId) =>
     Effect.suspend(() => {
       sprintAssignmentAttempts += 1
       if (sprintAssignmentAttempts === failSprintAssignmentAt) {
@@ -213,6 +231,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   ...fakeRanks(indexed),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
+  sprintTickets: () => Effect.succeed([]),
   existingIds: () => Effect.succeed(new Set()),
   mentionableIds: () => Effect.succeed(new Set()),
   movedTo: () => Effect.succeed(null),
@@ -365,6 +384,14 @@ const result = (
   sprintId: null,
   assignees
 })
+
+const putInSprint = (id: string, sprintId: GroupId) =>
+  Effect.gen(function* () {
+    const docs = yield* TicketDocs.TicketDocs
+    const document = yield* docs.read("org", "p", id)
+    yield* docs.write("org", "p", id, { ...document, sprint: sprintId })
+    sprintMemberships.set(id, sprintId)
+  })
 
 const seedOriginal = Effect.gen(function* () {
   const tickets = yield* TicketCommands.TicketCommands
@@ -607,7 +634,7 @@ it.effect(
       const root = yield* Config.String("PROJECTS_DIR")
       const original = yield* seedOriginal
       const originalSprintId = decodeGroupId("G-1")
-      sprintMemberships.set(original.id, originalSprintId)
+      yield* putInSprint(original.id, originalSprintId)
       sprintTicketOrders.set(originalSprintId, ["T-10", original.id, "T-9"])
       failSprintAssignmentAt = 2
 
@@ -671,7 +698,7 @@ it.effect(
       const tickets = yield* TicketCommands.TicketCommands
       const original = yield* seedOriginal
       const sprintId = decodeGroupId("G-1")
-      sprintMemberships.set(original.id, sprintId)
+      yield* putInSprint(original.id, sprintId)
       sprintTicketOrders.set(sprintId, [original.id])
 
       const outcome = yield* tickets
@@ -697,7 +724,7 @@ it.effect(
       const tickets = yield* TicketCommands.TicketCommands
       const original = yield* seedOriginal
       const sprintId = decodeGroupId("G-1")
-      sprintMemberships.set(original.id, sprintId)
+      yield* putInSprint(original.id, sprintId)
       sprintTicketOrders.set(sprintId, [original.id])
       const developer = scopedAs("developer", "user-2")
 

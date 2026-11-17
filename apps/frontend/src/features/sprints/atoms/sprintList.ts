@@ -310,7 +310,6 @@ export const addTicketsToSprint = Atom.family(
               updatedAt: now
             }
           }
-          if (sprint.completedAt !== null) return sprint
           if (!sprint.tickets.includes(ticketId)) return sprint
           return {
             ...sprint,
@@ -352,7 +351,6 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
             updatedAt: now
           }
         }
-        if (sprint.completedAt !== null) return sprint
         if (!sprint.tickets.some((id) => input.tickets.includes(id))) {
           return sprint
         }
