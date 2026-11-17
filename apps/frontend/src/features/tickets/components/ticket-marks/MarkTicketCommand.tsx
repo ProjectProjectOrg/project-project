@@ -13,12 +13,12 @@ import {
   type CommandEmpty
 } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import { markDuplicateDialog } from "@/features/tickets/atoms/markDuplicateDialog"
 import {
   recentTickets,
   recentTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import {
-  archiveTicket,
   markTicket,
   ticketDetail,
   ticketRequest
@@ -74,7 +74,7 @@ export function MarkTicketCommand({
     ? detail.value.relations
     : EMPTY_TICKET_RELATIONS
   const mark = useAtomSet(markTicket(req), { mode: "promiseExit" })
-  const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
+  const openDuplicate = useAtomSet(markDuplicateDialog)
   const [search, setSearch] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -132,12 +132,14 @@ export function MarkTicketCommand({
 
   const pick = async (target: Ticket) => {
     if (pending) return
+    if (kind === "duplicateOf") {
+      onDone()
+      openDuplicate({ orgSlug, slug, ticketId, originalId: target.id })
+      return
+    }
     setPending(true)
     setFailure(null)
-    const exit =
-      kind === "duplicateOf"
-        ? await archive({ duplicateOf: target.id })
-        : await mark({ kind, target: target.id })
+    const exit = await mark({ kind, target: target.id })
     setPending(false)
     if (Exit.isSuccess(exit)) onDone()
     else setFailure(errorMessage(Cause.squash(exit.cause)))
