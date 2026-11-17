@@ -11,24 +11,15 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
 import {
-  epicSections,
-  epicSectionsRequest
-} from "@/features/tickets/atoms/epicSections"
-import {
-  sprintSections,
-  sprintSectionsRequest
-} from "@/features/tickets/atoms/sprintSections"
-import {
-  readBacklogGrouping,
-  writeBacklogGrouping
-} from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
+  backlogFirstScreen,
+  backlogGroupingFor
+} from "@/features/tickets/atoms/backlogFirstScreen"
+import { writeBacklogGrouping } from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
 import {
   BacklogSearch,
   ticketQueryFromSearch
 } from "@/features/tickets/lib/ticketSearch"
-import { readViewPreference } from "@/hooks/useViewPreference"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
@@ -63,27 +54,18 @@ export const Route = createFileRoute(
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    const viewerId = registry.get(currentUserId)
-    const view = search.view ?? readViewPreference(orgSlug, slug, "backlog")
-    const grouping =
-      view === "board"
-        ? "status"
-        : viewerId === undefined
-          ? undefined
-          : readBacklogGrouping(viewerId, orgSlug, slug)
-    if (grouping !== "sprint") {
-      registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
-    }
-    if (grouping === "sprint") {
-      registry.mount(
-        sprintSections(sprintSectionsRequest(orgSlug, slug, query))
-      )()
-    }
-    if (grouping === "epic" || grouping === "parent") {
-      registry.mount(
-        epicSections(epicSectionsRequest(orgSlug, slug, query, grouping))
-      )()
-    }
+    for (const atom of backlogFirstScreen(
+      orgSlug,
+      slug,
+      query,
+      backlogGroupingFor(
+        registry.get(currentUserId),
+        orgSlug,
+        slug,
+        search.view
+      )
+    ))
+      registry.mount(atom)()
   },
   validateSearch: Schema.toStandardSchemaV1(BacklogSearch)
 })

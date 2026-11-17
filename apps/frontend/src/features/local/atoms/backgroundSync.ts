@@ -29,23 +29,16 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
 import {
-  epicSections,
-  epicSectionsRequest
-} from "@/features/tickets/atoms/epicSections"
-import {
-  sprintSections,
-  sprintSectionsRequest
-} from "@/features/tickets/atoms/sprintSections"
-import { readBacklogGrouping } from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
+  backlogFirstScreen,
+  backlogGroupingFor
+} from "@/features/tickets/atoms/backlogFirstScreen"
 import { ticketQueryFromSearch } from "@/features/tickets/lib/ticketSearch"
 import {
   createLocalStorageCodec,
   readLocalStorage,
   writeLocalStorage
 } from "@/hooks/useLocalStorageState"
-import { readViewPreference } from "@/hooks/useViewPreference"
 
 import {
   backgroundCandidates,
@@ -160,28 +153,12 @@ const warmFirstScreen = (
   { orgSlug, slug }: LocalProject
 ) => {
   registry.set(localActive(scopeOf({ orgSlug, slug })), true)
-  const query = ticketQueryFromSearch({})
-  const grouping =
-    readViewPreference(orgSlug, slug, "backlog") === "board"
-      ? "status"
-      : readBacklogGrouping(viewerId, orgSlug, slug)
-  const view =
-    grouping === "sprint"
-      ? [
-          settle(
-            registry,
-            sprintSections(sprintSectionsRequest(orgSlug, slug, query))
-          )
-        ]
-      : grouping === "epic" || grouping === "parent"
-        ? [
-            settle(registry, backlog(backlogRequest(orgSlug, slug, query))),
-            settle(
-              registry,
-              epicSections(epicSectionsRequest(orgSlug, slug, query, grouping))
-            )
-          ]
-        : [settle(registry, backlog(backlogRequest(orgSlug, slug, query)))]
+  const view = backlogFirstScreen(
+    orgSlug,
+    slug,
+    ticketQueryFromSearch({}),
+    backlogGroupingFor(viewerId, orgSlug, slug)
+  ).map((atom) => settle(registry, atom))
   return Effect.all(
     [
       settle(registry, project(projectRequest(orgSlug, slug))),
