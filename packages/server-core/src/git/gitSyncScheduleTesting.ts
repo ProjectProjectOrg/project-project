@@ -1,9 +1,16 @@
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import { GitSyncSchedule, type SyncStatus } from "./GitSyncSchedule"
+import {
+  GitSyncSchedule,
+  type SyncOutcome,
+  type SyncStatus
+} from "./GitSyncSchedule"
 
-export const gitSyncScheduleTestLayer = (requested: Array<string> = []) => {
+export const gitSyncScheduleTestLayer = (
+  requested: Array<string> = [],
+  outcomes: Array<SyncOutcome> = []
+) => {
   const statuses = new Map<string, SyncStatus>()
   return Layer.succeed(GitSyncSchedule, {
     requestSync: (projectIds) =>
@@ -13,6 +20,7 @@ export const gitSyncScheduleTestLayer = (requested: Array<string> = []) => {
     due: () => Effect.succeed([]),
     recordSync: (projectId, outcome) =>
       Effect.sync(() => {
+        outcomes.push(outcome)
         statuses.set(projectId, outcome.status)
       }),
     recordFailure: () => Effect.void,

@@ -1307,6 +1307,9 @@ const make = Effect.gen(function* () {
       { concurrency: 1 }
     )
     const merged = mergeGitStates(results)
+    const changed =
+      merged.transitioned.length > 0 ||
+      (merged.changedTicketIds?.length ?? 0) > 0
     yield* syncSchedule.recordSync(scope.projectId, {
       startedAt,
       status: Struct.pick(merged, [
@@ -1315,10 +1318,8 @@ const make = Effect.gen(function* () {
         "refreshStatus",
         "retryAt"
       ]),
-      load: syncLoad(active),
-      changed:
-        merged.transitioned.length > 0 ||
-        (merged.changedTicketIds?.length ?? 0) > 0
+      load: changed ? "open_pull_requests" : syncLoad(active),
+      changed
     })
     const stateNow = yield* readGitStates()
     return {

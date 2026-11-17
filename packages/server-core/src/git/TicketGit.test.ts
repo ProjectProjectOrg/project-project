@@ -48,6 +48,7 @@ import {
   gitAutomationTestLayer,
   gitAutomationTestService
 } from "./automationTesting"
+import type * as GitSyncSchedule from "./GitSyncSchedule"
 import { gitSyncScheduleTestLayer } from "./gitSyncScheduleTesting"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketGit from "./TicketGit"
@@ -455,6 +456,52 @@ it.effect("syncGitStates leaves landed tickets to storage", () => {
       tag: "pr_merged",
       title: "Done work"
     })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("syncGitStates checks back soon after linking a pull request", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const outcomes: Array<GitSyncSchedule.SyncOutcome> = []
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    github: makeFakeGitHub({
+      fetchInstallationProjectStates: () =>
+        Effect.succeed({
+          defaultBranch: "main",
+          openPullRequestText: new Map(),
+          mergedPrsByBranch: new Map(),
+          fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+          existingBranches: new Set(["feat/T-1-external"]),
+          prByBranch: new Map([
+            [
+              "feat/T-1-external",
+              {
+                headRefName: "feat/T-1-external",
+                baseRefName: "main",
+                state: "open",
+                draft: false,
+                number: 42,
+                url: "https://github.com/acme/app/pull/42",
+                title: "External change",
+                mergedAt: null,
+                checks: "passing"
+              }
+            ]
+          ])
+        })
+    }),
+    gitSyncSchedule: gitSyncScheduleTestLayer([], outcomes)
+  })
+  return Effect.gen(function* () {
+    const git = yield* TicketGit.TicketGit
+    yield* git.syncGitStates()
+    expect(outcomes.map((outcome) => outcome.load)).toEqual([
+      "open_pull_requests"
+    ])
   }).pipe(Effect.provide(layer))
 })
 
