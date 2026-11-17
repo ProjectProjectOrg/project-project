@@ -24,7 +24,6 @@ import { inList } from "./sections"
 import {
   claimTickets,
   groupMembership,
-  groupRestriction,
   type Membership,
   sprintHeaders
 } from "./sprints"
@@ -179,34 +178,35 @@ export const localSequence = (request: LocalSequenceRequest) =>
       restriction: SQL | undefined,
       sort: TicketSort
     ) =>
-      Effect.gen(function* () {
-        const conditions = compileFilter(
-          db,
-          { ...query, groupId: undefined, subTickets: undefined },
-          {
-            viewerId: request.viewerId,
-            estimation: request.estimation,
-            finished
-          }
+      db
+        .select({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          type: t.type,
+          parent: t.parent,
+          sprint: t.sprint,
+          epicSection: t.epicSection,
+          parentSection: t.parentSection
+        })
+        .from(t)
+        .where(
+          and(
+            eq(t.copy, copy),
+            restriction,
+            ...compileFilter(
+              db,
+              { ...query, subTickets: undefined },
+              {
+                copy,
+                viewerId: request.viewerId,
+                estimation: request.estimation,
+                finished
+              }
+            )
+          )
         )
-        if (conditions === null) return null
-        const direction = sort.dir === "desc" ? desc : asc
-        const rows: ReadonlyArray<Candidate> = yield* db
-          .select({
-            id: t.id,
-            title: t.title,
-            status: t.status,
-            type: t.type,
-            parent: t.parent,
-            sprint: t.sprint,
-            epicSection: t.epicSection,
-            parentSection: t.parentSection
-          })
-          .from(t)
-          .where(and(eq(t.copy, copy), restriction, ...conditions))
-          .orderBy(direction(orderColumns[sort.key]))
-        return rows
-      })
+        .orderBy((sort.dir === "desc" ? desc : asc)(orderColumns[sort.key]))
 
     const titled = (condition: SQL | undefined, limit: number) =>
       db
@@ -223,25 +223,28 @@ export const localSequence = (request: LocalSequenceRequest) =>
           const group = yield* groupOf(copy, source.groupId)
           if (group === null) return null
           const rows = yield* candidates(
-            { ...query, archived: undefined },
+            { ...query, groupId: undefined, archived: undefined },
             inList(group.tickets),
             DEFAULT_TICKET_SORT
           )
-          return rows === null
-            ? null
-            : arrange(rows, statusRank(statuses), undefined, true)
+          return arrange(rows, statusRank(statuses), undefined, true)
         }
         const nested = query.subTickets === "nested"
-        const members = yield* groupRestriction(copy, query.groupId, now)
         if (source.grouping === "status") {
-          const rows = yield* candidates(query, members, query.sort)
-          return rows === null
-            ? null
-            : arrange(rows, statusRank(statuses), (row) => row.status, nested)
+          const rows = yield* candidates(query, undefined, query.sort)
+          return arrange(
+            rows,
+            statusRank(statuses),
+            (row) => row.status,
+            nested
+          )
         }
         if (source.grouping === "sprint") {
-          const rows = yield* candidates(query, undefined, query.sort)
-          if (rows === null) return null
+          const rows = yield* candidates(
+            { ...query, groupId: undefined },
+            undefined,
+            query.sort
+          )
           const sections =
             (query.groupId?.length ?? 0) > 0
               ? selectedSprintSections(
@@ -259,10 +262,9 @@ export const localSequence = (request: LocalSequenceRequest) =>
         }
         const rows = yield* candidates(
           parentSectionQuery(query),
-          members,
+          undefined,
           query.sort
         )
-        if (rows === null) return null
         if (source.grouping === "epic") {
           const epics = [
             ...(yield* titled(
@@ -322,7 +324,6 @@ export const localSequence = (request: LocalSequenceRequest) =>
         undefined,
         CHILD_TICKET_SORT
       )
-      if (rows === null) return null
       return {
         sequence: {
           within,

@@ -20,7 +20,7 @@ import { and, asc, count, eq, type SQL, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { compileFilter } from "./filter"
+import { compileFilter, type NestWithin, type Row } from "./filter"
 import {
   type KeyedCounts,
   keyedCounts,
@@ -129,23 +129,6 @@ export const incompleteSprintTickets = (
     .filter((sprint) => sprintState(sprint, now) !== "completed")
     .flatMap((sprint) => ticketsOf.get(sprint.id) ?? [])
 
-export const groupRestriction = (
-  copy: number,
-  groupIds: ReadonlyArray<string> | undefined,
-  now: Date
-) =>
-  Effect.gen(function* () {
-    if (groupIds === undefined || groupIds.length === 0) return undefined
-    const membership = yield* groupMembership(copy)
-    const named = groupIds.flatMap((id) =>
-      id === "ungrouped" ? [] : (membership.ticketsOf.get(id) ?? [])
-    )
-    const outside = notInList(incompleteSprintTickets(membership, now))
-    return groupIds.includes("ungrouped")
-      ? sql`(${inList(named)} or ${outside})`
-      : inList(named)
-  })
-
 export type LocalSprintSectionsRequest = Readonly<{
   copy: number
   query: TicketListQuery
@@ -200,13 +183,20 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
       .from(localStatuses)
       .where(eq(localStatuses.copy, copy))).map((row) => decodeStatus(row.data))
     const finished = finishedStatuses(statuses)
-    const conditions = compileFilter(
-      db,
-      { ...query, groupId: undefined },
-      { viewerId: request.viewerId, estimation: request.estimation, finished }
-    )
-    if (conditions === null) return null
-    const filter = and(...conditions)
+    const filterWithin = (nestWithin: NestWithin) =>
+      and(
+        ...compileFilter(
+          db,
+          { ...query, groupId: undefined },
+          {
+            copy,
+            viewerId: request.viewerId,
+            estimation: request.estimation,
+            finished,
+            nestWithin
+          }
+        )
+      )
     const unit = estimationUnit(request.estimation)
 
     const amount = sql<number>`cast(${t.orderEstimate} as integer)`
@@ -226,6 +216,9 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
     type EstimateRow = Effect.Success<ReturnType<typeof estimateRows>>[number]
 
     const allSprints = Effect.gen(function* () {
+      const filter = filterWithin(
+        (parent, row) => sql`${parent.sprint} is ${row.sprint}`
+      )
       const shown = backlogSprintSections(
         yield* sprintHeaders(copy),
         undefined,
@@ -275,17 +268,20 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
       )
       const inIncompleteSprint = incompleteSprintTickets(membership, now)
       const wantsUngrouped = query.groupId?.includes("ungrouped") ?? false
-      const restrictionOf = (sprint: Sprint | null) =>
+      const restrictionOf = (sprint: Sprint | null, row: Row = t) =>
         sprint === null
           ? and(
-              notInList([...owner.keys()]),
-              wantsUngrouped ? notInList(inIncompleteSprint) : undefined
+              notInList([...owner.keys()], row.id),
+              wantsUngrouped ? notInList(inIncompleteSprint, row.id) : undefined
             )
           : inList(
               (membership.ticketsOf.get(sprint.id) ?? []).filter(
                 (id) => owner.get(id) === sprint.id
-              )
+              ),
+              row.id
             )
+      const filterOf = (sprint: Sprint | null) =>
+        filterWithin((parent) => restrictionOf(sprint, parent))
       const counts = new Map<string, Map<string, number>>()
       for (const sprint of shown)
         counts.set(
@@ -294,7 +290,9 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
             (yield* db
               .select({ status: t.status, n: count() })
               .from(t)
-              .where(and(eq(t.copy, copy), restrictionOf(sprint), filter))
+              .where(
+                and(eq(t.copy, copy), restrictionOf(sprint), filterOf(sprint))
+              )
               .groupBy(t.status)).map((row) => [row.status, row.n])
           )
         )
@@ -311,7 +309,7 @@ export const localSprintSections = (request: LocalSprintSectionsRequest) =>
               db,
               copy,
               restrictionOf(sprint),
-              filter,
+              filterOf(sprint),
               query,
               finished,
               limit

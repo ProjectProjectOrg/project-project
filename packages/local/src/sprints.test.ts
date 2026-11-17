@@ -152,3 +152,30 @@ it.effect("a section past the row budget gets its rows once asked for", () =>
     })
   }).pipe(Effect.provide(TestDatabase))
 )
+
+it.effect(
+  "a nested sub-ticket stays listed when its parent is in another sprint section",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", {
+        ...snapshot("1.1", [
+          ticket("T-1", "parent"),
+          { ...ticket("T-2", "same sprint"), parent: "T-1" },
+          { ...ticket("T-3", "unscheduled"), parent: "T-1" }
+        ]),
+        groups: [sprint("G-1", ["T-1", "T-2"], null)]
+      })
+      const expected = [
+        { key: "unscheduled", count: 1, ids: ["T-3"] },
+        { key: "G-1", count: 1, ids: ["T-1"] }
+      ]
+
+      expect(yield* sectionsFor({ subTickets: "nested" })).toEqual(expected)
+      expect(
+        yield* sectionsFor({
+          subTickets: "nested",
+          groupId: ["G-1", "ungrouped"]
+        })
+      ).toEqual(expected)
+    }).pipe(Effect.provide(TestDatabase))
+)

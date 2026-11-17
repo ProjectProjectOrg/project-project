@@ -1,7 +1,9 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import { it } from "@effect/vitest"
 import {
+  EPIC_TYPE,
   type EstimationMode,
+  type GroupFact,
   matchesTicketQuery,
   type ProjectSnapshot,
   type StatusFact,
@@ -18,7 +20,7 @@ import { expect } from "vitest"
 
 import { localDbLayer } from "./LocalDb"
 import { localOrderKey } from "./orderKey"
-import { localSections } from "./sections"
+import { localCounts, localSections } from "./sections"
 import { copyOf } from "./store"
 import { install } from "./testFacts"
 import { finishedStatuses } from "./ticketRows"
@@ -54,7 +56,7 @@ const STATUSES: ReadonlyArray<StatusFact> = [
 }))
 const USERS = ["u1", "u2", "u3"]
 const TAGS = ["bug", "ui", "api"]
-const TYPES = [null, "feat", "bug", "chore"]
+const TYPES = [null, "feat", "bug", "chore", EPIC_TYPE]
 const SIZES = ["XS", "S", "M", "L", "XL"] as const
 
 const generate = (size: number, seed: number): ReadonlyArray<TicketFact> => {
@@ -68,7 +70,7 @@ const generate = (size: number, seed: number): ReadonlyArray<TicketFact> => {
     const roll = next()
     return {
       id,
-      title: `${pick(["Fix", "Add", "Ship"])} ${pick(["login", "Board", "api"])} ${n}`,
+      title: `${pick(["Fix", "Add", "Ship", "Über"])} ${pick(["login", "Board", "api", "CAFÉ", "日本"])} ${n}`,
       status: pick(STATUSES).slug,
       type: pick(TYPES),
       priority: pick(["low", "med", "high"] as const),
@@ -118,6 +120,39 @@ const generate = (size: number, seed: number): ReadonlyArray<TicketFact> => {
   })
 }
 
+const group = (
+  id: string,
+  kind: GroupFact["kind"],
+  tickets: ReadonlyArray<string>,
+  completedAt: Date | null
+): GroupFact => ({
+  id,
+  kind,
+  name: id,
+  color: "blue",
+  startsAt: day(0),
+  endsAt: null,
+  completedAt,
+  tickets,
+  createdBy: "u1",
+  createdAt: day(0),
+  updatedAt: day(0)
+})
+
+const groupsOf = (
+  facts: ReadonlyArray<TicketFact>,
+  seed: number
+): ReadonlyArray<GroupFact> => {
+  const next = random(seed)
+  const some = () => facts.flatMap((fact) => (next() < 0.2 ? [fact.id] : []))
+  return [
+    group("G-1", "sprint", some(), null),
+    group("G-2", "sprint", some(), day(3)),
+    group("G-3", "epic", some(), null),
+    group("G-4", "milestone", some(), null)
+  ]
+}
+
 const decodeQuery = Schema.decodeUnknownSync(TicketListQuery)
 
 const randomQuery = (next: () => number): TicketListQuery => {
@@ -140,7 +175,16 @@ const randomQuery = (next: () => number): TicketListQuery => {
     archived: next() < 0.1 ? true : undefined,
     blocked: maybe(() => next() < 0.5),
     flagged: maybe(() => next() < 0.5),
-    q: maybe(() => ["fix", "BOARD", "t-1", "api 1"][Math.floor(next() * 4)]),
+    groupId: maybe(() =>
+      subset(["G-1", "G-2", "G-3", "G-4", "G-9", "ungrouped"])
+    ),
+    subTickets: maybe(() => "nested"),
+    q: maybe(
+      () =>
+        ["fix", "BOARD", "t-1", "api 1", "über", "café", "日本 1"][
+          Math.floor(next() * 7)
+        ]
+    ),
     sort: {
       key: [
         "manual",
@@ -156,12 +200,13 @@ const randomQuery = (next: () => number): TicketListQuery => {
   })
 }
 
-const reference = (
+const referenceMatches = (
   facts: ReadonlyArray<TicketFact>,
+  groups: ReadonlyArray<GroupFact>,
   query: TicketListQuery,
   viewer: string,
   estimation: EstimationMode,
-  limit: number
+  sameSection: (parent: TicketFact, child: TicketFact) => boolean
 ) => {
   const finished = new Set(finishedStatuses(STATUSES))
   const byId = new Map(facts.map((f) => [f.id, f]))
@@ -173,30 +218,73 @@ const reference = (
       !finished.has(other.status)
     )
   }
-  const matching = facts.filter((fact) =>
-    matchesTicketQuery(
-      {
-        id: fact.id,
-        title: fact.title,
-        status: TicketStatus.make(fact.status),
-        type: fact.type,
-        tags: fact.tags,
-        branch: fact.git?.branch ?? null,
-        pr: fact.git?.pr ?? null,
-        assignees: fact.assignees,
-        estimate: fact.estimate,
-        parent: fact.parent === null ? null : { id: fact.parent },
-        openBlockerCount: fact.relations.filter(
-          (r) => r.kind === "blocked_by" && open(r.to)
-        ).length,
-        flag: fact.flag,
-        archivedAt: fact.archivedAt,
-        updatedAt: fact.updatedAt
-      },
-      query,
-      UserId.make(viewer),
-      estimation
+  const groupIds = query.groupId ?? []
+  const named = new Set(
+    groups.flatMap((g) => (groupIds.some((id) => id === g.id) ? g.tickets : []))
+  )
+  const inUnfinishedSprint = new Set(
+    groups.flatMap((g) =>
+      g.kind === "sprint" && g.completedAt === null ? g.tickets : []
     )
+  )
+  const inGroups = (fact: TicketFact) =>
+    groupIds.length === 0 ||
+    named.has(fact.id) ||
+    (groupIds.includes("ungrouped") && !inUnfinishedSprint.has(fact.id))
+  const flat = facts.filter(
+    (fact) =>
+      inGroups(fact) &&
+      matchesTicketQuery(
+        {
+          id: fact.id,
+          title: fact.title,
+          status: TicketStatus.make(fact.status),
+          type: fact.type,
+          tags: fact.tags,
+          branch: fact.git?.branch ?? null,
+          pr: fact.git?.pr ?? null,
+          assignees: fact.assignees,
+          estimate: fact.estimate,
+          parent: fact.parent === null ? null : { id: fact.parent },
+          openBlockerCount: fact.relations.filter(
+            (r) => r.kind === "blocked_by" && open(r.to)
+          ).length,
+          flag: fact.flag,
+          archivedAt: fact.archivedAt,
+          updatedAt: fact.updatedAt
+        },
+        query,
+        UserId.make(viewer),
+        estimation
+      )
+  )
+  if (query.subTickets !== "nested") return flat
+  const flatById = new Map(flat.map((fact) => [fact.id, fact]))
+  return flat.filter((fact) => {
+    const parent = fact.parent === null ? undefined : flatById.get(fact.parent)
+    return (
+      parent === undefined ||
+      parent.type === EPIC_TYPE ||
+      !sameSection(parent, fact)
+    )
+  })
+}
+
+const reference = (
+  facts: ReadonlyArray<TicketFact>,
+  groups: ReadonlyArray<GroupFact>,
+  query: TicketListQuery,
+  viewer: string,
+  estimation: EstimationMode,
+  limit: number
+) => {
+  const matching = referenceMatches(
+    facts,
+    groups,
+    query,
+    viewer,
+    estimation,
+    (parent, child) => parent.status === child.status
   )
   const counts: Record<string, number> = {}
   const sections: Record<string, ReadonlyArray<string>> = {}
@@ -228,7 +316,8 @@ const reference = (
 
 const snapshot = (
   tickets: ReadonlyArray<TicketFact>,
-  estimation: EstimationMode
+  estimation: EstimationMode,
+  groups: ReadonlyArray<GroupFact> = []
 ): ProjectSnapshot => ({
   kind: "snapshot",
   cursor: "1.1",
@@ -241,7 +330,7 @@ const snapshot = (
     estimation
   },
   tickets,
-  groups: [],
+  groups,
   statuses: STATUSES,
   tags: [],
   members: []
@@ -258,7 +347,8 @@ it.effect(
         [3, "off"]
       ] as const) {
         const facts = generate(300, seed)
-        yield* install(`a/${seed}`, snapshot(facts, estimation))
+        const groups = groupsOf(facts, seed)
+        yield* install(`a/${seed}`, snapshot(facts, estimation, groups))
         const copy = (yield* copyOf(`a/${seed}`)) ?? -1
         for (let i = 0; i < 60; i++) {
           const query = randomQuery(next)
@@ -270,12 +360,11 @@ it.effect(
             repository: () => null,
             perStatus: () => 20
           })
-          const expected = reference(facts, query, "u1", estimation, 20)
-          expect(local).not.toBeNull()
+          const expected = reference(facts, groups, query, "u1", estimation, 20)
           expect({
-            counts: local?.counts.byStatus,
+            counts: local.counts.byStatus,
             sections: Object.fromEntries(
-              Object.entries(local?.sections ?? {}).map(([status, page]) => [
+              Object.entries(local.sections).map(([status, page]) => [
                 status,
                 page.items.map((row) => `${row.ticket.id}@${row.orderKey}`)
               ])
@@ -286,17 +375,34 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
-it.effect("leaves sprint filters to the server", () =>
-  Effect.gen(function* () {
-    yield* install("a/p", snapshot(generate(10, 1), "off"))
-    const result = yield* localSections({
-      copy: (yield* copyOf("a/p")) ?? -1,
-      query: decodeQuery({ groupId: ["G-1"] }),
-      viewerId: "u1",
-      estimation: "off",
-      repository: () => null,
-      perStatus: () => 20
-    })
-    expect(result).toBeNull()
-  }).pipe(Effect.provide(TestDatabase))
+it.effect(
+  "local counts leave out a sub-ticket whose parent matches in any status",
+  () =>
+    Effect.gen(function* () {
+      const next = random(7)
+      const facts = generate(300, 4)
+      const groups = groupsOf(facts, 4)
+      yield* install("a/p", snapshot(facts, "off", groups))
+      const copy = (yield* copyOf("a/p")) ?? -1
+      for (let i = 0; i < 60; i++) {
+        const query = { ...randomQuery(next), subTickets: "nested" as const }
+        const expected: Record<string, number> = {}
+        for (const fact of referenceMatches(
+          facts,
+          groups,
+          query,
+          "u1",
+          "off",
+          () => true
+        ))
+          expected[fact.status] = (expected[fact.status] ?? 0) + 1
+        const local = yield* localCounts({
+          copy,
+          query,
+          viewerId: "u1",
+          estimation: "off"
+        })
+        expect(local.byStatus).toEqual(expected)
+      }
+    }).pipe(Effect.provide(TestDatabase))
 )

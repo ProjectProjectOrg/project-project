@@ -1,4 +1,5 @@
 import {
+  EPIC_TYPE,
   type EstimationMode,
   NO_TYPE_FILTER,
   type TicketCountQuery
@@ -22,13 +23,14 @@ import { alias, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 
 import type { LocalDb } from "./LocalDb"
 import {
+  localGroupMembers,
+  localGroups,
   localRelations,
   localTicketAssignees,
   localTickets,
   localTicketTags
 } from "./tables"
 
-const t = localTickets
 export const never = sql`0`
 
 const any = (conditions: ReadonlyArray<SQL | undefined>) => {
@@ -36,12 +38,11 @@ const any = (conditions: ReadonlyArray<SQL | undefined>) => {
   return present.length === 0 ? never : (or(...present) ?? never)
 }
 
-const isAscii = (value: string) => /^[ -~]*$/u.test(value)
+export type Row = Readonly<
+  Record<keyof typeof localTickets.$inferSelect, AnySQLiteColumn>
+>
 
-const escapeLike = (value: string) =>
-  value.replaceAll(/[\\%_]/gu, (c) => `\\${c}`)
-
-const typeOf = sql<string>`coalesce(${t.type}, ${NO_TYPE_FILTER})`
+export type NestWithin = (parent: Row, row: Row) => SQL | undefined
 
 export const open = (
   ticket: Readonly<{ archived: AnySQLiteColumn; status: AnySQLiteColumn }>,
@@ -53,20 +54,52 @@ export const open = (
   )
 
 export type LocalQueryContext = Readonly<{
+  copy: number
   viewerId: string | undefined
   estimation: EstimationMode
   finished: ReadonlyArray<string>
+  nestWithin?: NestWithin
 }>
+
+const nestParent = alias(localTickets, "nest_parent")
 
 export const compileFilter = (
   db: LocalDb["Service"],
   query: TicketCountQuery,
-  context: LocalQueryContext
-): ReadonlyArray<SQL | undefined> | null => {
-  if ((query.groupId?.length ?? 0) > 0 || query.subTickets === "nested")
-    return null
+  context: LocalQueryContext,
+  t: Row = localTickets
+): ReadonlyArray<SQL | undefined> => {
   const q = query.q?.trim().toLowerCase() ?? ""
-  if (!isAscii(q)) return null
+  const typeOf = sql<string>`coalesce(${t.type}, ${NO_TYPE_FILTER})`
+  const groupIds = query.groupId ?? []
+  const named = groupIds.filter((id) => id !== "ungrouped")
+  const byMembers = named.length > 0 && !groupIds.includes("ungrouped")
+  const members = db
+    .select({ ticket: localGroupMembers.ticket })
+    .from(localGroupMembers)
+    .where(
+      and(
+        eq(localGroupMembers.copy, context.copy),
+        inArray(localGroupMembers.groupId, named)
+      )
+    )
+  const inUnfinishedSprint = db
+    .select({ ticket: localGroupMembers.ticket })
+    .from(localGroupMembers)
+    .innerJoin(
+      localGroups,
+      and(
+        eq(localGroups.copy, localGroupMembers.copy),
+        eq(localGroups.id, localGroupMembers.groupId)
+      )
+    )
+    .where(
+      and(
+        eq(localGroupMembers.copy, context.copy),
+        sql`${localGroups.data} ->> 'kind' = 'sprint'`,
+        sql`${localGroups.data} ->> 'completedAt' is null`
+      )
+    )
   const assignees = (users: ReadonlyArray<string>) =>
     db
       .select({ one: sql`1` })
@@ -106,7 +139,10 @@ export const compileFilter = (
     return context.viewerId === undefined ? [] : [context.viewerId]
   })
   return [
-    eq(t.archived, query.archived === true ? 1 : 0),
+    eq(
+      byMembers ? sql`+${t.archived}` : sql`${t.archived}`,
+      query.archived === true ? 1 : 0
+    ),
     query.status === undefined
       ? undefined
       : query.status.length === 0
@@ -146,6 +182,14 @@ export const compileFilter = (
                 )
               )
           ),
+    groupIds.length === 0
+      ? undefined
+      : any([
+          named.length === 0 ? undefined : inArray(t.id, members),
+          groupIds.includes("ungrouped")
+            ? notInArray(t.id, inUnfinishedSprint)
+            : undefined
+        ]),
     query.hasBranch === undefined
       ? undefined
       : eq(t.hasBranch, query.hasBranch ? 1 : 0),
@@ -186,11 +230,32 @@ export const compileFilter = (
       : query.blocked
         ? exists(blockers)
         : notExists(blockers),
+    query.subTickets === "nested"
+      ? notExists(
+          db
+            .select({ one: sql`1` })
+            .from(nestParent)
+            .where(
+              and(
+                eq(nestParent.copy, t.copy),
+                eq(nestParent.id, t.parent),
+                sql`${nestParent.type} is not ${EPIC_TYPE}`,
+                ...compileFilter(
+                  db,
+                  { ...query, subTickets: "flat" },
+                  context,
+                  nestParent
+                ),
+                context.nestWithin?.(nestParent, t)
+              )
+            )
+        )
+      : undefined,
     q.length === 0
       ? undefined
       : or(
-          sql`lower(${t.title}) like ${`%${escapeLike(q)}%`} escape '\\'`,
-          sql`lower(${t.id}) like ${`%${escapeLike(q)}%`} escape '\\'`
+          sql`instr(${t.orderTitle}, ${q}) > 0`,
+          sql`instr(lower(${t.id}), ${q}) > 0`
         )
   ]
 }

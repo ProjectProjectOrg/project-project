@@ -20,7 +20,6 @@ import { keyedCounts, keyedRows } from "./keyedSections"
 import { LocalDb } from "./LocalDb"
 import { readOrderKey } from "./orderKey"
 import { inList } from "./sections"
-import { groupRestriction } from "./sprints"
 import { localStatuses, localTickets } from "./tables"
 import { decodeStatus, finishedStatuses, toTicket } from "./ticketRows"
 
@@ -35,7 +34,6 @@ export type LocalParentSectionsRequest = Readonly<{
   repository: (repoId: string | null) => GitRepository | null
   pages: Readonly<Record<string, number>>
   pageSize: number
-  now: Date
 }>
 
 const EPIC_SECTIONS_LIMIT = 200
@@ -64,18 +62,15 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
       ...query,
       type: query.type?.length ? query.type : undefined,
       excludeType: [...(query.excludeType ?? []), TypeKey.make(EPIC_TYPE)],
-      parent: undefined,
-      groupId: undefined
+      parent: undefined
     }
-    const conditions = compileFilter(db, sectionQuery, {
-      viewerId: request.viewerId,
-      estimation: request.estimation,
-      finished
-    })
-    if (conditions === null) return null
     const filter = and(
-      ...conditions,
-      yield* groupRestriction(copy, query.groupId, request.now)
+      ...compileFilter(db, sectionQuery, {
+        copy,
+        viewerId: request.viewerId,
+        estimation: request.estimation,
+        finished
+      })
     )
     const column = by === "epic" ? t.epicSection : t.parentSection
     const countsOf = yield* keyedCounts(

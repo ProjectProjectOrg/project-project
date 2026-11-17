@@ -71,15 +71,12 @@ export const readParentSections = (
   request: typeof ParentSectionsRequest.Type
 ) =>
   readCopy(`ParentSections ${request.by}`, request.project, (copy) =>
-    Effect.flatMap(DateTime.nowAsDate, (now) =>
-      localParentSections({
-        ...sectionsRequest(request, copy),
-        by: request.by,
-        pages: request.pages,
-        pageSize: request.pageSize,
-        now
-      })
-    )
+    localParentSections({
+      ...sectionsRequest(request, copy),
+      by: request.by,
+      pages: request.pages,
+      pageSize: request.pageSize
+    })
   )
 
 export const SectionsView = Schema.TaggedStruct("Sections", {

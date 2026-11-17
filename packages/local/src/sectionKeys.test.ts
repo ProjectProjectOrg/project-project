@@ -76,11 +76,10 @@ const epicView = Effect.gen(function* () {
     estimation: "off",
     repository: () => null,
     pages: {},
-    pageSize: 50,
-    now
+    pageSize: 50
   })
   return Object.fromEntries(
-    (result?.sections ?? []).map((section) => [
+    result.sections.map((section) => [
       section.key,
       section.page.items.map((item) => item.ticket.id)
     ])

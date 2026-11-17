@@ -21,7 +21,7 @@ import { alias, union } from "drizzle-orm/sqlite-core"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { compileFilter, open } from "./filter"
+import { compileFilter, type NestWithin, open, type Row } from "./filter"
 import { LocalDb } from "./LocalDb"
 import { readOrderKey } from "./orderKey"
 import {
@@ -44,11 +44,11 @@ const idList = Schema.encodeSync(
   Schema.fromJsonString(Schema.Array(Schema.String))
 )
 
-export const inList = (ids: ReadonlyArray<string>) =>
-  sql`${t.id} in (select value from json_each(${idList(ids)}))`
+export const inList = (ids: ReadonlyArray<string>, id: Row["id"] = t.id) =>
+  sql`${id} in (select value from json_each(${idList(ids)}))`
 
-export const notInList = (ids: ReadonlyArray<string>) =>
-  sql`${t.id} not in (select value from json_each(${idList(ids)}))`
+export const notInList = (ids: ReadonlyArray<string>, id: Row["id"] = t.id) =>
+  sql`${id} not in (select value from json_each(${idList(ids)}))`
 
 export type LocalSectionsRequest = Readonly<{
   copy: number
@@ -212,7 +212,12 @@ export type LocalCountsRequest = Readonly<{
   estimation: EstimationMode
 }>
 
-export const filtered = (request: LocalCountsRequest) =>
+const sameStatus: NestWithin = (parent, row) => eq(parent.status, row.status)
+
+export const filtered = (
+  request: LocalCountsRequest,
+  nestWithin?: NestWithin
+) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const statuses = (yield* db
@@ -222,13 +227,15 @@ export const filtered = (request: LocalCountsRequest) =>
       decodeStatus(row.data)
     )
     const finished = finishedStatuses(statuses)
-    const conditions = compileFilter(db, request.query, {
-      viewerId: request.viewerId,
-      estimation: request.estimation,
-      finished
-    })
-    if (conditions === null) return null
-    const filter = and(...conditions)
+    const filter = and(
+      ...compileFilter(db, request.query, {
+        copy: request.copy,
+        viewerId: request.viewerId,
+        estimation: request.estimation,
+        finished,
+        nestWithin
+      })
+    )
     const counted = yield* db
       .select({ status: t.status, n: count() })
       .from(t)
@@ -249,13 +256,14 @@ export const filtered = (request: LocalCountsRequest) =>
   })
 
 export const localCounts = (request: LocalCountsRequest) =>
-  Effect.map(filtered(request), (result) => result?.counts ?? null)
+  Effect.map(filtered(request), (result) => result.counts)
 
 export const localSections = (request: LocalSectionsRequest) =>
   Effect.gen(function* () {
-    const result = yield* filtered(request)
-    if (result === null) return null
-    const { db, filter, finished, counted, counts } = result
+    const { db, filter, finished, counted, counts } = yield* filtered(
+      request,
+      sameStatus
+    )
     const sections: Record<TicketStatus, TicketListPage> = {}
     for (const { status, n } of counted) {
       const rows: ReadonlyArray<SectionRow> = yield* sectionPage(

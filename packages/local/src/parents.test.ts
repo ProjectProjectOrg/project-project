@@ -29,10 +29,9 @@ const sectionsBy = (by: ParentGrouping) =>
       estimation: "off",
       repository: () => null,
       pages: {},
-      pageSize: 50,
-      now
+      pageSize: 50
     })
-    return result?.sections.map((section) => ({
+    return result.sections.map((section) => ({
       key: section.key,
       count: section.count,
       ids: section.page.items.map((item) => item.ticket.id)

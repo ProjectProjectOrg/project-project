@@ -43,17 +43,18 @@ export const localTicketList = (request: LocalTicketListRequest) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const finished = finishedStatuses(yield* statusesOf(request.copy))
-    const conditions = compileFilter(db, request.query, {
-      viewerId: request.viewerId,
-      estimation: request.estimation,
-      finished
-    })
-    if (conditions === null) return null
     const rows = yield* sectionPage(
       db,
       request.copy,
       undefined,
-      and(...conditions),
+      and(
+        ...compileFilter(db, request.query, {
+          copy: request.copy,
+          viewerId: request.viewerId,
+          estimation: request.estimation,
+          finished
+        })
+      ),
       request.query,
       finished,
       -1
