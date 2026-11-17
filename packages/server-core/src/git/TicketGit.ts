@@ -1262,9 +1262,11 @@ const make = Effect.gen(function* () {
     ProjectScope
   > {
     const scope = yield* ProjectScope
+    const startedAt = yield* DateTime.nowAsDate
     const repositories = yield* projectGithubLinks.integrations()
     if (repositories.length === 0) {
       yield* syncSchedule.recordSync(scope.projectId, {
+        startedAt,
         status: Struct.pick(notConnected, ["tokenStatus", "repoStatus"]),
         load: "settled",
         changed: false
@@ -1306,6 +1308,7 @@ const make = Effect.gen(function* () {
     )
     const merged = mergeGitStates(results)
     yield* syncSchedule.recordSync(scope.projectId, {
+      startedAt,
       status: Struct.pick(merged, [
         "tokenStatus",
         "repoStatus",

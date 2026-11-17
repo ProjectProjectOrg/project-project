@@ -6,6 +6,7 @@ import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
@@ -71,7 +72,7 @@ describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
     }
   })
 
-  it.effect(
+  it.live(
     "lists connected projects until synced and again once asked for",
     () =>
       Effect.gen(function* () {
@@ -83,6 +84,7 @@ describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
         expect(yield* dueIds).not.toContain(projectIds[1])
 
         yield* schedule.recordSync(projectIds[0], {
+          startedAt: yield* DateTime.nowAsDate,
           status: {
             tokenStatus: "ok",
             repoStatus: "ok",
@@ -101,5 +103,50 @@ describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
         yield* schedule.requestSync([projectIds[0]])
         expect(yield* dueIds).toContain(projectIds[0])
       }).pipe(Effect.provide(layer))
+  )
+
+  it.live("keeps a project due when asked for during its sync", () =>
+    Effect.gen(function* () {
+      const schedule = yield* GitSyncSchedule.GitSyncSchedule
+      const startedAt = DateTime.toDate(
+        DateTime.subtract(yield* DateTime.now, { seconds: 5 })
+      )
+      yield* schedule.requestSync([projectIds[0]])
+      yield* schedule.recordSync(projectIds[0], {
+        startedAt,
+        status: { tokenStatus: "ok", repoStatus: "ok", refreshStatus: "fresh" },
+        load: "settled",
+        changed: false
+      })
+      const due = yield* schedule.due(100)
+      expect(due.map((project) => project.projectId)).toContain(projectIds[0])
+    }).pipe(Effect.provide(layer))
+  )
+
+  it.live("waits for GitHub's rate-limit reset, given in seconds", () =>
+    Effect.gen(function* () {
+      const schedule = yield* GitSyncSchedule.GitSyncSchedule
+      const now = yield* DateTime.now
+      const retryAt = Math.floor(DateTime.toEpochMillis(now) / 1000) + 3600
+      yield* schedule.recordSync(projectIds[0], {
+        startedAt: DateTime.toDate(now),
+        status: {
+          tokenStatus: "ok",
+          repoStatus: "ok",
+          refreshStatus: "rate_limited",
+          retryAt
+        },
+        load: "open_pull_requests",
+        changed: true
+      })
+      const [row] = yield* Effect.promise(() =>
+        pool.query<{ minutes: number }>(
+          "SELECT extract(epoch FROM next_sync_at - now()) / 60 AS minutes FROM github_project_sync WHERE project_id = $1",
+          [projectIds[0]]
+        )
+      ).pipe(Effect.map((result) => result.rows))
+      expect(Number(row?.minutes)).toBeGreaterThan(55)
+      expect((yield* schedule.status(projectIds[0]))?.retryAt).toBe(retryAt)
+    }).pipe(Effect.provide(layer))
   )
 })

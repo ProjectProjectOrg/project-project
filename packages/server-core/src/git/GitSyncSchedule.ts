@@ -28,6 +28,7 @@ export type DueProject = Readonly<{
 }>
 
 export type SyncOutcome = Readonly<{
+  startedAt: Date
   status: SyncStatus
   load: SyncLoad
   changed: boolean
@@ -162,8 +163,8 @@ const make = Effect.gen(function* () {
     const retryAt =
       outcome.status.retryAt === undefined
         ? null
-        : DateTime.toDate(DateTime.makeUnsafe(outcome.status.retryAt))
-    yield* write(projectId, {
+        : DateTime.toDate(DateTime.makeUnsafe(outcome.status.retryAt * 1000))
+    const values = {
       nextSyncAt: nextSyncAt({
         now,
         load: outcome.load,
@@ -178,7 +179,19 @@ const make = Effect.gen(function* () {
       repoStatus: outcome.status.repoStatus,
       refreshStatus: outcome.status.refreshStatus ?? null,
       retryAt
-    })
+    }
+    yield* db
+      .insert(githubProjectSync)
+      .values({ projectId, ...values })
+      .onConflictDoUpdate({
+        target: githubProjectSync.projectId,
+        set: {
+          ...values,
+          nextSyncAt: sql`case when ${githubProjectSync.lastActivityAt} > ${outcome.startedAt.toISOString()}::timestamptz then ${githubProjectSync.nextSyncAt} else excluded.next_sync_at end`,
+          lastActivityAt: sql`greatest(${githubProjectSync.lastActivityAt}, excluded.last_activity_at)`
+        }
+      })
+      .pipe(Effect.orDie)
   })
 
   const recordFailure = Effect.fn("GitSyncSchedule.recordFailure")(function* (
@@ -211,7 +224,7 @@ const make = Effect.gen(function* () {
     return Object.assign(
       result,
       row.refreshStatus === null ? null : { refreshStatus: row.refreshStatus },
-      row.retryAt === null ? null : { retryAt: row.retryAt.getTime() }
+      row.retryAt === null ? null : { retryAt: row.retryAt.getTime() / 1000 }
     )
   })
 
