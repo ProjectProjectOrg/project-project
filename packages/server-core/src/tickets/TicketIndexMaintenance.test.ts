@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import {
+  GroupId,
   TagName,
   TicketId,
   TicketStatus,
@@ -81,6 +82,7 @@ describe("ticketIndexRowsFor", () => {
           tags,
           assignees,
           parent: ticketId("T-9"),
+          sprint: GroupId.make("G-4"),
           repo: "repo-1",
           branch: "chore/T-27-index-builders",
           pr: 172,
@@ -112,6 +114,7 @@ describe("ticketIndexRowsFor", () => {
             tags: [tagName("backend"), tagName("urgent")],
             assignees: ["user-2", "user-3"],
             parent: ticketId("T-9"),
+            sprintId: "G-4",
             repoId: "repo-1",
             movedFrom: [],
             branch: "chore/T-27-index-builders",
@@ -187,8 +190,9 @@ Missing author
             origin: "native",
             authorKind: "user",
             authorId: "user-1",
-            jiraDisplayName: null,
-            jiraAccountId: null,
+            importedName: null,
+            importedSource: null,
+            importedId: null,
             createdAt: at("2026-05-01T01:02:03.000Z"),
             editedAt: null
           },
@@ -199,8 +203,9 @@ Missing author
             origin: "jira",
             authorKind: "user",
             authorId: "user-2",
-            jiraDisplayName: null,
-            jiraAccountId: null,
+            importedName: null,
+            importedSource: null,
+            importedId: null,
             createdAt: at("2026-05-02T02:03:04.000Z"),
             editedAt: at("2026-05-03T03:04:05.000Z")
           },
@@ -209,10 +214,11 @@ Missing author
             projectId: "project-1",
             ticketId: ticketId("T-28"),
             origin: "jira",
-            authorKind: "jira",
+            authorKind: "imported",
             authorId: null,
-            jiraDisplayName: "Former Jira User",
-            jiraAccountId: "jira-account-1",
+            importedName: "Former Jira User",
+            importedSource: "jira",
+            importedId: "jira-account-1",
             createdAt: at("2026-05-04T04:05:06.000Z"),
             editedAt: null
           }
@@ -229,11 +235,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-2",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-03T00:00:00.000Z")
           }
         ],
@@ -254,6 +262,7 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -274,6 +283,7 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -291,11 +301,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -313,11 +325,13 @@ describe("detectTicketIndexDrift", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ],
@@ -375,6 +389,7 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -401,11 +416,13 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           },
           {
             ticketId: "T-9",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -434,6 +451,7 @@ describe("makeTicketIndexReconciler", () => {
           {
             ticketId: "T-1",
             repoId: null,
+            sprintId: null,
             updatedAt: at("2026-05-02T00:00:00.000Z")
           }
         ]
@@ -468,6 +486,7 @@ describe("makeTicketIndexReconciler", () => {
                   {
                     ticketId: "T-1",
                     repoId: null,
+                    sprintId: null,
                     updatedAt: at("2026-05-02T00:00:00.000Z")
                   }
                 ]

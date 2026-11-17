@@ -41,6 +41,7 @@ import {
   tryDecodeCursor,
   type AttachBranchInput,
   type CompleteSprintInput,
+  type CreateCommentInput,
   type CreateGroupInput,
   type CreateTicketInput,
   type GroupFilter,
@@ -58,6 +59,7 @@ import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 
+import { createTicket } from "../tickets/createTicket"
 import { toolRunner } from "./runTool"
 
 const DEFAULT_LIMIT = 50
@@ -277,12 +279,12 @@ type GitStateInput = Readonly<{
 
 const get_git_state = (input: GitStateInput) =>
   Effect.flatMap(TicketGit.TicketGit, (git) =>
-    git.getGitState(input.ticketId, { reconcile: false })
+    git.getGitState(input.ticketId, { sync: false })
   )
 
 const sync_git_state = (input: GitStateInput) =>
   Effect.flatMap(TicketGit.TicketGit, (git) =>
-    git.getGitState(input.ticketId, { reconcile: true })
+    git.getGitState(input.ticketId, { sync: true })
   )
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
@@ -348,9 +350,8 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const commands = yield* TicketCommands.TicketCommands
     const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...payload } = input
-    const created = yield* commands.create(
+    const created = yield* createTicket(
       payload.body === undefined
         ? payload
         : { ...payload, body: yield* sanitizeMcpBody(payload.body) }
@@ -505,18 +506,26 @@ const prepare_ticket_attachment = (
     }
   })
 
-const create_comment = (input: {
-  orgSlug: string
-  projectSlug: string
-  ticketId: TicketId
-  body: string
-}) =>
+const create_comment = (
+  input: CreateCommentInput & {
+    orgSlug: string
+    projectSlug: string
+    ticketId: TicketId
+  }
+) =>
   Effect.flatMap(Comments.Comments, (comments) =>
-    comments.create(input.ticketId, { body: input.body })
+    comments.create(input.ticketId, input)
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
       Effect.fail(new Validation({ reason: error.reason }))
     )
+  )
+
+const resolve_comment = (
+  input: typeof Tools.tools.resolve_comment.parametersSchema.Type
+) =>
+  Effect.flatMap(Comments.Comments, (comments) =>
+    comments.resolve(input.ticketId, input.commentId, input.resolved)
   )
 
 const attach_branch = (
@@ -621,10 +630,27 @@ const rebuild_ticket_index = (input: {
   Effect.gen(function* () {
     const ticketIndex = yield* TicketIndex.TicketIndex
     const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
+    const docs = yield* ProjectDocs.ProjectDocs
     const project = yield* ticketIndex.projectFor(
       input.orgSlug,
       input.projectSlug
     )
+    const document = yield* docs.read(project.orgSlug, project.slug)
+    const taken = yield* ticketIndex.syncFormerKeys(
+      project,
+      document.formerKeys ?? []
+    )
+    if (taken.length > 0) {
+      yield* Effect.logWarning(
+        "former project keys are held by another project"
+      ).pipe(
+        Effect.annotateLogs({
+          orgSlug: project.orgSlug,
+          slug: project.slug,
+          keys: taken
+        })
+      )
+    }
     const summary = yield* maintenance.reconcileProject(project, {
       force: true
     })
@@ -702,6 +728,7 @@ export const ToolHandlersLive = Tools.toLayer(
         prepare_ticket_attachment
       ),
       create_comment: run.project({ comment: ["create"] }, create_comment),
+      resolve_comment: run.project({ comment: ["create"] }, resolve_comment),
       attach_branch: run.project({ github: ["write"] }, attach_branch),
       stack_branch: run.project({ github: ["write"] }, stack_branch),
       unstack_branch: run.project({ github: ["write"] }, unstack_branch),

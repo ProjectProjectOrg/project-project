@@ -1,15 +1,8 @@
 import { it } from "@effect/vitest"
 import { Project } from "@pp/access/roles"
-import {
-  ActivityActor,
-  ProjectScope,
-  SprintCompletedImmutable,
-  TypeKey,
-  TicketRank
-} from "@pp/shared"
+import { type Group, TypeKey, TicketRank } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
@@ -25,6 +18,7 @@ import {
   makeTicketDocument,
   makeFakeTicketDocs,
   makeFakeGroups,
+  makeSprintGroups,
   makeRecordingFigmaLinks,
   makeRecordingAttachments,
   entryFromDocument,
@@ -38,7 +32,7 @@ import {
   as
 } from "./testing"
 import * as TicketCommands from "./TicketCommands"
-import type * as TicketDocs from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketQueries from "./TicketQueries"
 
 it.effect(
@@ -468,24 +462,10 @@ it.effect("deleting with cascadeSubTickets deletes the whole subtree", () => {
 })
 
 it.effect("a ticket in an open sprint can't become an epic", () => {
-  const docs = makeFakeTicketDocs(["T-1"])
-  const sprint = decodeGroupSync({
-    id: "G-1",
-    name: "Sprint",
-    kind: "sprint",
-    tickets: ["T-1"],
-    color: "#123456",
-    startsAt: null,
-    endsAt: null,
-    completedAt: null,
-    createdBy: "user-1",
-    createdAt: "2026-04-01T00:00:00.000Z",
-    updatedAt: "2026-04-01T00:00:00.000Z"
-  })
-  const layer = makeTicketsLayer("T", docs.layer, {
-    ticketIndex: makeFakeTicketIndex(docs.documents),
-    groups: makeFakeGroups({ list: () => Effect.succeed([sprint]) })
-  })
+  const { layer } = makeSprintFixture(
+    [makeTicketDocument("T-1")],
+    [inSprint(["T-1"])]
+  )
   return Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
@@ -513,35 +493,117 @@ const bulkSprint = decodeGroupSync({
   updatedAt: "2026-04-01T00:00:00.000Z"
 })
 
-const makeBulkFixture = (
-  addTickets: Groups.Groups["Service"]["addTickets"]
+const inSprint = (
+  ids: ReadonlyArray<string>,
+  completedAt: Date | null = null
+) => ({
+  ...bulkSprint,
+  tickets: ids.map((id) => ticketId(id)),
+  completedAt
+})
+
+const makeSprintFixture = (
+  documents: ReadonlyArray<TicketDocs.TicketDocument>,
+  sprints: ReadonlyArray<Group>
 ) => {
-  const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
-  docs.documents.set(
-    "T-3",
-    makeTicketDocument("T-3", {
-      type: TypeKey.make("epic"),
-      title: "Estimation"
-    })
-  )
+  const docs = makeFakeTicketDocs([])
+  for (const document of documents) docs.documents.set(document.id, document)
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents),
-    groups: makeFakeGroups({ list: () => Effect.succeed([]), addTickets })
+    groups: makeSprintGroups(docs.documents, sprints)
   })
   return { docs, layer }
 }
 
-it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
-  const added: Array<ReadonlyArray<string>> = []
-  const { docs, layer } = makeBulkFixture((_id, ids) =>
-    Effect.sync(() => {
-      added.push(ids)
-      return {
-        target: { ...bulkSprint, tickets: [...ids], body: "" },
-        evicted: []
-      }
-    })
+const makeBulkFixture = (sprint: Group = bulkSprint) =>
+  makeSprintFixture(
+    [
+      makeTicketDocument("T-1"),
+      makeTicketDocument("T-2"),
+      makeTicketDocument("T-3", {
+        type: TypeKey.make("epic"),
+        title: "Estimation"
+      })
+    ],
+    [sprint]
   )
+
+it.effect(
+  "bulk field edits preserve a sprint change that lands before their write",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const layer = makeTicketsLayer(
+      "T",
+      Layer.succeed(TicketDocs.TicketDocs, {
+        ...docs.service,
+        update: (...args) =>
+          Effect.gen(function* () {
+            const current = docs.documents.get("T-1")
+            if (current !== undefined) {
+              docs.documents.set("T-1", { ...current, sprint: groupId("G-2") })
+            }
+            return yield* docs.service.update(...args)
+          })
+      }),
+      { ticketIndex: makeFakeTicketIndex(docs.documents) }
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      yield* tickets.bulkUpdate({
+        tickets: [ticketId("T-1")],
+        patch: { priority: "high" }
+      })
+      expect(docs.documents.get("T-1")).toMatchObject({
+        priority: "high",
+        sprint: "G-2"
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("bulk publication preserves a later sprint write", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const indexed = new Map(docs.documents)
+  const layer = makeTicketsLayer(
+    "T",
+    Layer.succeed(TicketDocs.TicketDocs, {
+      ...docs.service,
+      update: (...args) =>
+        docs.service.update(...args).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              const current = docs.documents.get("T-1")
+              if (current !== undefined) {
+                const moved = { ...current, sprint: groupId("G-2") }
+                docs.documents.set("T-1", moved)
+                indexed.set("T-1", moved)
+              }
+            })
+          )
+        )
+    }),
+    {
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        upsertTicket: (_project, document) =>
+          Effect.sync(() => {
+            indexed.set(document.id, document)
+          })
+      })
+    }
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets.bulkUpdate({
+      tickets: [ticketId("T-1")],
+      patch: { priority: "high" }
+    })
+    expect(docs.documents.get("T-1")?.sprint).toBe("G-2")
+    expect(indexed.get("T-1")?.sprint).toBe("G-2")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
+  const { docs, layer } = makeBulkFixture()
   return Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const result = yield* tickets.bulkUpdate({
@@ -558,7 +620,11 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
       "high"
     ])
     expect(docs.documents.get("T-2")?.parent).toBe("T-3")
-    expect(added).toEqual([["T-1", "T-2"]])
+    expect(["T-1", "T-2"].map((id) => docs.documents.get(id)?.sprint)).toEqual([
+      "G-1",
+      "G-1"
+    ])
+    expect(result.sprint?.target.tickets).toEqual(["T-1", "T-2"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -579,15 +645,6 @@ const transitionOnly = {
   ...scopeAs("member", "developer", "user-1"),
   permissions: Project.projectStatement.role({ ticket: ["read", "transition"] })
 }
-
-const inSprint = (
-  ids: ReadonlyArray<string>,
-  completedAt: Date | null = null
-) => ({
-  ...bulkSprint,
-  tickets: ids.map((id) => ticketId(id)),
-  completedAt
-})
 
 it.effect(
   "update and bulkUpdate both keep a former member who is still assigned",
@@ -649,9 +706,9 @@ it.effect(
 it.effect(
   "update and bulkUpdate both edit an epic already in an open sprint",
   () => {
-    const { docs, layer } = makeRulesFixture(
+    const { docs, layer } = makeSprintFixture(
       [makeTicketDocument("T-1", { type: TypeKey.make("epic") })],
-      { list: () => Effect.succeed([inSprint(["T-1"])]) }
+      [inSprint(["T-1"])]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
@@ -749,9 +806,10 @@ it.effect(
 it.effect(
   "bulkUpdate rejects turning a ticket that stays in an open sprint into an epic",
   () => {
-    const { docs, layer } = makeRulesFixture([makeTicketDocument("T-1")], {
-      list: () => Effect.succeed([inSprint(["T-1"])])
-    })
+    const { docs, layer } = makeSprintFixture(
+      [makeTicketDocument("T-1")],
+      [inSprint(["T-1"])]
+    )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
       const error = yield* tickets
@@ -773,24 +831,21 @@ it.effect(
 it.effect(
   "bulkUpdate turns a ticket into an epic while taking it out of its sprint",
   () => {
-    const removed: Array<ReadonlyArray<string>> = []
-    const { docs, layer } = makeRulesFixture([makeTicketDocument("T-1")], {
-      list: () => Effect.succeed([inSprint(["T-1"])]),
-      removeTickets: (_id, ids) =>
-        Effect.sync(() => {
-          removed.push(ids)
-          return { target: { ...inSprint([]), body: "" }, evicted: [] }
-        })
-    })
+    const { docs, layer } = makeSprintFixture(
+      [makeTicketDocument("T-1")],
+      [inSprint(["T-1"])]
+    )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
-      yield* tickets.bulkUpdate({
-        tickets: [ticketId("T-1")],
-        patch: { type: TypeKey.make("epic"), sprint: null }
-      })
+      yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1")],
+          patch: { type: TypeKey.make("epic"), sprint: null }
+        })
+        .pipe(as(scopeAs("member", "pm", "user-1")))
 
       expect(docs.documents.get("T-1")?.type).toBe("epic")
-      expect(removed).toEqual([["T-1"]])
+      expect(docs.documents.get("T-1")?.sprint).toBeUndefined()
     }).pipe(Effect.provide(layer))
   }
 )
@@ -798,17 +853,9 @@ it.effect(
 it.effect(
   "bulkUpdate re-selects the sprint an epic is already in without rejecting it",
   () => {
-    const added: Array<ReadonlyArray<string>> = []
-    const { layer } = makeRulesFixture(
+    const { docs, layer } = makeSprintFixture(
       [makeTicketDocument("T-1", { type: TypeKey.make("epic") })],
-      {
-        list: () => Effect.succeed([inSprint(["T-1"])]),
-        addTickets: (_id, ids) =>
-          Effect.sync(() => {
-            added.push(ids)
-            return { target: { ...inSprint(ids), body: "" }, evicted: [] }
-          })
-      }
+      [inSprint(["T-1"])]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
@@ -817,33 +864,33 @@ it.effect(
         patch: { sprint: bulkSprint.id }
       })
 
-      expect(added).toEqual([["T-1"]])
+      expect(docs.documents.get("T-1")?.sprint).toBe("G-1")
     }).pipe(Effect.provide(layer))
   }
 )
 
 it.effect(
-  "bulkUpdate rejects planning an epic into a sprint it isn't in",
+  "update and bulkUpdate reject planning an epic into a sprint it isn't in",
   () => {
     const otherSprint = { ...inSprint(["T-1"]), id: groupId("G-2") }
-    const { layer } = makeRulesFixture(
+    const { layer } = makeSprintFixture(
       [
         makeTicketDocument("T-1", { type: TypeKey.make("epic") }),
         makeTicketDocument("T-2", { type: TypeKey.make("epic") })
       ],
-      {
-        list: () => Effect.succeed([inSprint([]), otherSprint]),
-        addTickets: () => unexpected("Groups.addTickets")
-      }
+      [inSprint([]), otherSprint]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
+      const single = yield* tickets
+        .update("T-2", { sprint: bulkSprint.id })
+        .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
       const moved = yield* tickets
         .bulkUpdate({
           tickets: [ticketId("T-1")],
           patch: { sprint: bulkSprint.id }
         })
-        .pipe(Effect.flip)
+        .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
       const planned = yield* tickets
         .bulkUpdate({
           tickets: [ticketId("T-2")],
@@ -851,6 +898,10 @@ it.effect(
         })
         .pipe(Effect.flip)
 
+      expect(single).toMatchObject({
+        _tag: "Validation",
+        reason: "epic_in_sprint"
+      })
       expect(moved).toMatchObject({
         _tag: "Validation",
         reason: "epic_in_sprint"
@@ -866,10 +917,10 @@ it.effect(
 it.effect(
   "a completed sprint doesn't stop a ticket from becoming an epic",
   () => {
-    const { docs, layer } = makeRulesFixture([makeTicketDocument("T-1")], {
-      list: () =>
-        Effect.succeed([inSprint(["T-1"], isoDate("2026-04-02T00:00:00.000Z"))])
-    })
+    const { docs, layer } = makeSprintFixture(
+      [makeTicketDocument("T-1")],
+      [inSprint(["T-1"], isoDate("2026-04-02T00:00:00.000Z"))]
+    )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
       yield* tickets.bulkUpdate({
@@ -883,7 +934,7 @@ it.effect(
 )
 
 it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
-  const { docs, layer } = makeBulkFixture(() => unexpected("Groups.addTickets"))
+  const { docs, layer } = makeBulkFixture()
   return Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
@@ -898,203 +949,79 @@ it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
       reason: "epic_in_sprint"
     })
     expect(docs.documents.get("T-1")?.priority).toBe("med")
+    expect(docs.documents.get("T-1")?.sprint).toBeUndefined()
   }).pipe(Effect.provide(layer))
 })
 
-it.effect("bulkUpdate restores the ranks when planning fails", () => {
-  const { docs, layer } = makeBulkFixture(() =>
-    Effect.fail(new SprintCompletedImmutable())
+it.effect("bulkUpdate into a completed sprint writes nothing", () => {
+  const { docs, layer } = makeBulkFixture(
+    inSprint([], isoDate("2026-04-02T00:00:00.000Z"))
   )
   return Effect.gen(function* () {
     const before = docs.documents.get("T-1")?.rank
     const tickets = yield* TicketCommands.TicketCommands
-    yield* tickets
-      .bulkUpdate({
-        tickets: [ticketId("T-1")],
-        patch: { position: { after: ticketId("T-2") }, sprint: bulkSprint.id }
-      })
-      .pipe(Effect.flip)
-
-    expect(docs.documents.get("T-1")?.rank).toBe(before)
-  }).pipe(Effect.provide(layer))
-})
-
-it.effect("bulkUpdate restores the tickets when planning fails", () => {
-  const { docs, layer } = makeBulkFixture(() =>
-    Effect.fail(new SprintCompletedImmutable())
-  )
-  return Effect.gen(function* () {
-    const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
       .bulkUpdate({
         tickets: [ticketId("T-1"), ticketId("T-2")],
-        patch: { priority: "high", sprint: bulkSprint.id }
+        patch: {
+          priority: "high",
+          position: { after: ticketId("T-2") },
+          sprint: bulkSprint.id
+        }
       })
       .pipe(Effect.flip)
 
     expect(error._tag).toBe("SprintCompletedImmutable")
+    expect(docs.documents.get("T-1")?.rank).toBe(before)
     expect(docs.documents.get("T-1")?.priority).toBe("med")
-    expect(docs.documents.get("T-2")?.priority).toBe("med")
+    expect(docs.documents.get("T-2")?.sprint).toBeUndefined()
   }).pipe(Effect.provide(layer))
 })
 
 it.effect(
-  "a failed sprint step doesn't overwrite an edit made to the tickets in the meantime",
+  "update edits a ticket and moves it into another sprint in one write",
   () => {
-    let duringSprintStep: Effect.Effect<
-      void,
-      never,
-      ProjectScope | ActivityActor
-    > = Effect.void
-    const { docs, layer } = makeBulkFixture(() =>
-      duringSprintStep.pipe(
-        Effect.andThen(Effect.fail(new SprintCompletedImmutable()))
-      )
+    const other = { ...inSprint(["T-1"]), id: groupId("G-2") }
+    const { docs, layer } = makeSprintFixture(
+      [makeTicketDocument("T-1")],
+      [inSprint([]), other]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
-      const editing: Array<Fiber.Fiber<void>> = []
-      duringSprintStep = Effect.gen(function* () {
-        const fiber = yield* Effect.forkDetach(
-          tickets
-            .update("T-1", { title: "Edited elsewhere" })
-            .pipe(Effect.asVoid, Effect.orDie)
-        )
-        editing.push(fiber)
-        for (let step = 0; step < 20; step++) yield* Effect.yieldNow
+      yield* tickets
+        .update("T-1", { priority: "high", sprint: bulkSprint.id })
+        .pipe(as(scopeAs("member", "pm", "user-1")))
+
+      expect(docs.documents.get("T-1")).toMatchObject({
+        priority: "high",
+        sprint: "G-1"
       })
-      const error = yield* tickets
-        .bulkUpdate({
-          tickets: [ticketId("T-1"), ticketId("T-2")],
-          patch: { priority: "high", sprint: bulkSprint.id }
-        })
-        .pipe(Effect.flip)
-      yield* Fiber.joinAll(editing)
-
-      expect(error._tag).toBe("SprintCompletedImmutable")
-      expect(docs.documents.get("T-1")?.title).toBe("Edited elsewhere")
-      expect(docs.documents.get("T-1")?.priority).toBe("med")
-      expect(docs.documents.get("T-2")?.priority).toBe("med")
     }).pipe(Effect.provide(layer))
   }
 )
 
 it.effect(
-  "a failed sprint step still reverts the other tickets when one was deleted meanwhile",
+  "update with a null sprint takes the ticket out of its sprint, open or completed",
   () => {
-    let duringSprintStep: Effect.Effect<void> = Effect.void
-    const { docs, layer } = makeBulkFixture(() =>
-      duringSprintStep.pipe(
-        Effect.andThen(Effect.fail(new SprintCompletedImmutable()))
-      )
-    )
-    duringSprintStep = Effect.sync(() => {
-      docs.documents.delete("T-1")
-    })
-    return Effect.gen(function* () {
-      const tickets = yield* TicketCommands.TicketCommands
-      const error = yield* tickets
-        .bulkUpdate({
-          tickets: [ticketId("T-1"), ticketId("T-2")],
-          patch: { priority: "high", sprint: bulkSprint.id }
-        })
-        .pipe(Effect.flip)
-
-      expect(error._tag).toBe("SprintCompletedImmutable")
-      expect(docs.documents.has("T-1")).toBe(false)
-      expect(docs.documents.get("T-2")?.priority).toBe("med")
-    }).pipe(Effect.provide(layer))
-  }
-)
-
-it.effect(
-  "a failed removal from one sprint puts the tickets back in the sprints they already left",
-  () => {
-    const first = { ...inSprint(["T-9", "T-1", "T-3"]), id: groupId("G-1") }
-    const second = { ...inSprint(["T-2"]), id: groupId("G-2") }
-    const rejoined: Array<
-      readonly [string, string | null, string | null | undefined]
-    > = []
-    const { docs, layer } = makeRulesFixture(
-      [
-        makeTicketDocument("T-1"),
-        makeTicketDocument("T-2"),
-        makeTicketDocument("T-3")
-      ],
-      {
-        list: () => Effect.succeed([first, second]),
-        removeTickets: (id) =>
-          id === first.id
-            ? Effect.succeed({ target: { ...first, body: "" }, evicted: [] })
-            : Effect.fail(new SprintCompletedImmutable()),
-        setSprintMembership: (_org, _slug, ticket, sprintId, options) =>
-          Effect.sync(() => {
-            rejoined.push([ticket, sprintId, options?.from])
-          })
-      }
-    )
-    return Effect.gen(function* () {
-      const tickets = yield* TicketCommands.TicketCommands
-      const error = yield* tickets
-        .bulkUpdate({
-          tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")],
-          patch: { priority: "high", sprint: null }
-        })
-        .pipe(Effect.flip)
-
-      expect(error._tag).toBe("SprintCompletedImmutable")
-      expect(rejoined).toEqual([
-        ["T-1", "G-1", null],
-        ["T-3", "G-1", null]
-      ])
-      expect(docs.documents.get("T-1")?.priority).toBe("med")
-    }).pipe(Effect.provide(layer))
-  }
-)
-
-it.effect("update edits a ticket and plans it into a sprint", () => {
-  const added: Array<ReadonlyArray<string>> = []
-  const { docs, layer } = makeBulkFixture((_id, ids) =>
-    Effect.sync(() => {
-      added.push(ids)
-      return {
-        target: { ...bulkSprint, tickets: [...ids], body: "" },
-        evicted: []
-      }
-    })
-  )
-  return Effect.gen(function* () {
-    const tickets = yield* TicketCommands.TicketCommands
-    yield* tickets.update("T-1", { priority: "high", sprint: bulkSprint.id })
-
-    expect(docs.documents.get("T-1")?.priority).toBe("high")
-    expect(added).toEqual([["T-1"]])
-  }).pipe(Effect.provide(layer))
-})
-
-it.effect(
-  "update with a null sprint takes the ticket out of its sprint",
-  () => {
-    const removed: Array<readonly [string, ReadonlyArray<string>]> = []
-    const sprint = inSprint(["T-1", "T-2"])
-    const { layer } = makeRulesFixture(
+    const completed = {
+      ...inSprint(["T-2"], isoDate("2026-04-02T00:00:00.000Z")),
+      id: groupId("G-2")
+    }
+    const { docs, layer } = makeSprintFixture(
       [makeTicketDocument("T-1"), makeTicketDocument("T-2")],
-      {
-        list: () => Effect.succeed([sprint]),
-        removeTickets: (id, ids) =>
-          Effect.sync(() => {
-            removed.push([id, ids])
-            return { target: { ...sprint, body: "" }, evicted: [] }
-          })
-      }
+      [inSprint(["T-1"]), completed]
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
       yield* tickets
         .update("T-1", { sprint: null })
         .pipe(as(scopeAs("member", "pm", "user-1")))
+      yield* tickets
+        .update("T-2", { sprint: null })
+        .pipe(as(scopeAs("member", "pm", "user-1")))
 
-      expect(removed).toEqual([["G-1", ["T-1"]]])
+      expect(docs.documents.get("T-1")?.sprint).toBeUndefined()
+      expect(docs.documents.get("T-2")?.sprint).toBeUndefined()
     }).pipe(Effect.provide(layer))
   }
 )
@@ -1102,9 +1029,10 @@ it.effect(
 it.effect(
   "update refuses to take a ticket out of its sprint before writing it, without permission to remove sprint tickets",
   () => {
-    const { docs, layer } = makeRulesFixture([makeTicketDocument("T-1")], {
-      list: () => Effect.succeed([inSprint(["T-1"])])
-    })
+    const { docs, layer } = makeSprintFixture(
+      [makeTicketDocument("T-1")],
+      [inSprint(["T-1"], isoDate("2026-04-02T00:00:00.000Z"))]
+    )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
       const error = yield* tickets
@@ -1113,14 +1041,23 @@ it.effect(
 
       expect(error._tag).toBe("Forbidden")
       expect(docs.documents.get("T-1")?.status).toBe("todo")
+      const bulkError = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1")],
+          patch: { sprint: null }
+        })
+        .pipe(as(scopeAs("member", "developer", "user-1")), Effect.flip)
+      expect(bulkError._tag).toBe("Forbidden")
+      expect(docs.documents.get("T-1")?.sprint).toBe("G-1")
     }).pipe(Effect.provide(layer))
   }
 )
 
 it.effect("update refuses a sprint-only change from a stale read", () => {
-  const { layer } = makeRulesFixture([makeTicketDocument("T-1")], {
-    list: () => Effect.succeed([inSprint(["T-1"])])
-  })
+  const { docs, layer } = makeSprintFixture(
+    [makeTicketDocument("T-1")],
+    [inSprint(["T-1"])]
+  )
   return Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
@@ -1130,21 +1067,7 @@ it.effect("update refuses a sprint-only change from a stale read", () => {
       .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
 
     expect(error._tag).toBe("Conflict")
-  }).pipe(Effect.provide(layer))
-})
-
-it.effect("update restores the ticket when planning fails", () => {
-  const { docs, layer } = makeBulkFixture(() =>
-    Effect.fail(new SprintCompletedImmutable())
-  )
-  return Effect.gen(function* () {
-    const tickets = yield* TicketCommands.TicketCommands
-    const error = yield* tickets
-      .update("T-1", { priority: "high", sprint: bulkSprint.id })
-      .pipe(Effect.flip)
-
-    expect(error._tag).toBe("SprintCompletedImmutable")
-    expect(docs.documents.get("T-1")?.priority).toBe("med")
+    expect(docs.documents.get("T-1")?.sprint).toBe("G-1")
   }).pipe(Effect.provide(layer))
 })
 

@@ -1,0 +1,99 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "032da1c2-1969-42ce-b3b5-86ce1c87a108",
+  "prevIds": [
+    "b5aa0a0f-305c-4dd4-8382-c03df8748973"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "sprint_id"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.sprint_id",
+        "n|col|public.ticket_index.sprint_id",
+        "e|col|public.ticket_index.sprint_id"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_index",
+        "ticket_index_sprint_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_index_sprint_idx",
+        "n|idx|public.ticket_index_sprint_idx",
+        "e|idx|public.ticket_index_sprint_idx",
+        "n|rel|public.ticket_index_sprint_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public",
+        "n|col|public.ticket_index.project_id",
+        "n|col|public.ticket_index.sprint_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "sprint_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "ticket_index_sprint_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "sprint_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

@@ -24,7 +24,9 @@ import {
   Validation,
   BUILTIN_TYPE_KEYS,
   isBuiltinTypeKey,
-  isEpic
+  isEpic,
+  SprintCompletedImmutable,
+  sprintClaims
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -42,6 +44,8 @@ import { gitAutomationTestLayer } from "../git/automationTesting"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
+import type * as PullRequestSnapshots from "../github/PullRequestSnapshots"
+import { pullRequestSnapshotsTestLayer } from "../github/pullRequestSnapshotsTesting"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as Markdown from "../markdown/Markdown"
@@ -323,13 +327,61 @@ export const makeFakeGroups = (
     removeTickets: () => unexpected("Groups.removeTickets"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
+    documents: () => Effect.succeed([]),
     ensureSprintAssignable: () => Effect.void,
+    withSprints: (use) => use(new Map()),
     setSprintMembership: () => Effect.void,
     removeTicketFromAllGroups: () => Effect.void,
     ...overrides
   } satisfies Groups.Groups["Service"])
 
 export const FakeGroups = makeFakeGroups()
+
+export const makeSprintGroups = (
+  documents: Map<string, TicketDocs.TicketDocument>,
+  sprints: ReadonlyArray<Group>,
+  overrides: Partial<Groups.Groups["Service"]> = {}
+) => {
+  for (const [id, sprint] of sprintClaims(sprints)) {
+    const document = documents.get(id)
+    if (document !== undefined) documents.set(id, { ...document, sprint })
+  }
+  const files = new Map(
+    sprints.map((sprint) => [sprint.id, { ...sprint, tickets: [], body: "" }])
+  )
+  const live = (file: GroupDetail): GroupDetail => ({
+    ...file,
+    tickets: [...documents.values()].flatMap((document) =>
+      document.sprint === file.id ? [document.id] : []
+    )
+  })
+  return makeFakeGroups({
+    list: () => Effect.sync(() => [...files.values()].map(live)),
+    documents: () => Effect.succeed([...files.values()]),
+    get: (id) => {
+      const file = [...files.values()].find((candidate) => candidate.id === id)
+      return file === undefined
+        ? Effect.fail(new NotFound())
+        : Effect.sync(() => live(file))
+    },
+    withSprints: (use) => use(files),
+    ensureSprintAssignable: (sprintIds) =>
+      Effect.forEach(
+        sprintIds,
+        (
+          sprintId
+        ): Effect.Effect<void, NotFound | SprintCompletedImmutable> => {
+          const file = files.get(sprintId)
+          if (file === undefined) return Effect.fail(new NotFound())
+          return file.completedAt === null
+            ? Effect.void
+            : Effect.fail(new SprintCompletedImmutable())
+        },
+        { discard: true }
+      ),
+    ...overrides
+  })
+}
 
 export const makeFakeAttachments = (
   overrides: Partial<Attachments.Attachments["Service"]> = {}
@@ -428,6 +480,8 @@ export const FakeComments = Layer.succeed(Comments.Comments, {
   create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
+  resolve: () => unexpected("Comments.resolve"),
+  recordTicket: () => unexpected("Comments.recordTicket"),
   remove: () => unexpected("Comments.remove")
 } satisfies Comments.Comments["Service"])
 
@@ -508,12 +562,24 @@ export const ticketSortValue = (
   throw new Error("unsupported ticket sort key")
 }
 
+export const isMember = (
+  document: TicketDocs.TicketDocument,
+  members: TicketIndex.TicketIndexMembers
+) =>
+  (document.sprint !== undefined &&
+    members.sprints.includes(document.sprint)) ||
+  members.tickets.includes(document.id) ||
+  (members.outsideSprints !== null &&
+    (document.sprint === undefined ||
+      !members.outsideSprints.includes(document.sprint)))
+
 export const matchingDocuments = (
   documents: Map<string, TicketDocs.TicketDocument>,
   query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: string,
   ticketIds?: ReadonlyArray<string>,
-  excludeTicketIds?: ReadonlyArray<string>
+  excludeTicketIds?: ReadonlyArray<string>,
+  members: ReadonlyArray<TicketIndex.TicketIndexMembers> = []
 ) => {
   const included = ticketIds === undefined ? null : new Set(ticketIds)
   const excluded = new Set(excludeTicketIds)
@@ -521,6 +587,7 @@ export const matchingDocuments = (
     (document) =>
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
+      members.every((member) => isMember(document, member)) &&
       matchesTicketQuery(
         {
           ...document,
@@ -601,14 +668,27 @@ export const querySectionsVia =
         }
         return out
       }
-      const explicit = options.sections.flatMap(
-        (section) => section.ticketIds ?? []
-      )
+      const claimed: Array<string> = []
+      const idsOf = new Map<string, ReadonlyArray<string>>()
       for (const section of options.sections) {
+        if (section.members === undefined) continue
+        const matching = yield* index.query(
+          project,
+          { sort: query.sort },
+          { ...options, members: section.members, limit: Infinity }
+        )
+        const ids = matching.flatMap(({ entry }) =>
+          claimed.includes(entry.id) ? [] : [entry.id]
+        )
+        claimed.push(...ids)
+        idsOf.set(section.key, ids)
+      }
+      for (const section of options.sections) {
+        const ids = idsOf.get(section.key)
         const scoped =
-          section.ticketIds === undefined
-            ? { ...options, excludeTicketIds: explicit }
-            : { ...options, ticketIds: section.ticketIds }
+          ids === undefined
+            ? { ...options, excludeTicketIds: claimed }
+            : { ...options, ticketIds: ids }
         const counts = yield* index.count(project, countQuery, scoped)
         const entries = yield* index.query(project, query, scoped)
         out.set(section.key, { counts, entries })
@@ -733,7 +813,10 @@ export const makeFakeTicketIndex = (
           query,
           options.viewerId,
           options.ticketIds,
-          options.excludeTicketIds
+          options.excludeTicketIds,
+          [options.members, options.sectionMembers].flatMap((members) =>
+            members === undefined ? [] : [members]
+          )
         ).toSorted((left, right) => {
           const leftValue = ticketSortValue(left, query)
           const rightValue = ticketSortValue(right, query)
@@ -774,7 +857,8 @@ export const makeFakeTicketIndex = (
           query,
           options.viewerId,
           options.ticketIds,
-          options.excludeTicketIds
+          options.excludeTicketIds,
+          options.members === undefined ? [] : [options.members]
         )
         for (const document of matching) {
           byStatus[document.status] = (byStatus[document.status] ?? 0) + 1
@@ -782,6 +866,27 @@ export const makeFakeTicketIndex = (
         return { total: matching.length, byStatus }
       }),
     listIds: () => Effect.sync(() => [...documents.keys()]),
+    sprintTickets: (_project, sprintIds) =>
+      Effect.sync(() =>
+        [...documents.values()]
+          .toSorted((left, right) =>
+            left.rank < right.rank ? -1 : left.rank > right.rank ? 1 : 0
+          )
+          .flatMap((document) =>
+            document.sprint !== undefined &&
+            (sprintIds === undefined || sprintIds.includes(document.sprint))
+              ? [
+                  {
+                    id: document.id,
+                    sprintId: document.sprint,
+                    status: document.status,
+                    estimate: document.estimate ?? null,
+                    archived: document.archivedAt !== null
+                  }
+                ]
+              : []
+          )
+      ),
     existingIds: (_project, ticketIds) =>
       Effect.sync(
         () => new Set(ticketIds.filter((ticketId) => documents.has(ticketId)))
@@ -792,6 +897,8 @@ export const makeFakeTicketIndex = (
       ),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
+    projectKeys: () => Effect.succeed({ current: "", former: [] }),
+    syncFormerKeys: () => Effect.succeed([]),
     tagUsageCounts: () =>
       Effect.sync(() => {
         const counts: Record<string, number> = {}
@@ -944,6 +1051,7 @@ export type TicketsLayerOptions = Readonly<{
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >
   attachments?: Layer.Layer<Attachments.Attachments>
+  pullRequestSnapshots?: Layer.Layer<PullRequestSnapshots.PullRequestSnapshots>
   figmaLinks?: Layer.Layer<FigmaLinks.FigmaLinks>
   scope?: ProjectScope["Service"]
   gitAutomation?: GitAutomationConfig
@@ -970,6 +1078,9 @@ export function makeTicketsLayer(
     Layer.provide(options.figmaLinks ?? makeFakeFigmaLinks()),
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
+    Layer.provide(
+      options.pullRequestSnapshots ?? pullRequestSnapshotsTestLayer()
+    ),
     Layer.provide(FakeDb),
     Layer.provide(FinishedStatuses.baseline),
     Layer.provideMerge(testInfra(options.scope))

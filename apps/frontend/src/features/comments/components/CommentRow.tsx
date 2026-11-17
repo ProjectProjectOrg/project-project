@@ -2,40 +2,73 @@ import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@pp/ui/context-menu"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
+import { CircleCheck } from "@pp/ui/icons"
 import { InlineForm, useInlineForm } from "@pp/ui/inline-form"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
+import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useState } from "react"
+import { useEffect, useRef, useState, type MouseEvent } from "react"
 
+import { me } from "@/features/auth/atoms/auth"
 import {
   commentsRequest,
   deleteComment,
-  editComment
+  editComment,
+  resolveThread
 } from "@/features/comments/atoms/comments"
+import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"
-import { errorMessage, describeCause } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
+import { formatRelative } from "@/lib/relativeTime"
 import { m } from "@/paraglide/messages"
+
+import { CommentMenuButton, CommentMenuItems } from "./CommentMenu"
+import { CreatedTickets } from "./CreatedTickets"
 
 type Mode = "idle" | "edit"
 
+const keepNativeMenu = (event: MouseEvent<HTMLElement>) => {
+  const selection = window.getSelection()
+  const selecting =
+    selection !== null &&
+    !selection.isCollapsed &&
+    selection.containsNode(event.currentTarget, true)
+  const onLink =
+    event.target instanceof Element && event.target.closest("a") !== null
+  if (selecting || onLink) event.stopPropagation()
+}
+
+export type CommentThreadOf = Readonly<{
+  root: Comment
+  replies: ReadonlyArray<Comment>
+}>
+
 export function CommentRow({
   comment,
-  pending = false,
-
-  ticketId
-}: {
+  thread,
+  pending,
+  ticketId,
+  onEditingChange
+}: Readonly<{
   comment: Comment
-  pending?: boolean
+  thread: CommentThreadOf
+  pending: boolean
   ticketId: TicketId
-}) {
+  onEditingChange: (editing: boolean) => void
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const linkedAuthor =
@@ -51,77 +84,125 @@ export function CommentRow({
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
   const deleteState = useAtomValue(deleteComment(key))
-  const waiting = pending || editState.waiting || deleteState.waiting
   const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
-  const deleteError = mutationErrorText(
-    deleteState,
-    () => m.comments_delete_failed(),
-    m.comments_delete_failed
-  )
+  const viewer = useAtomValue(me())
+  const resolveKey = resolveThread({
+    req,
+    rootId: thread.root.id,
+    viewer: AsyncResult.isSuccess(viewer) ? viewer.value : null
+  })
+  const resolve = useAtomSet(resolveKey)
+  const resolveState = useAtomValue(resolveKey)
+  const waiting =
+    pending || editState.waiting || deleteState.waiting || resolveState.waiting
+  const isRoot = comment.id === thread.root.id
+  const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
+  const resolution = thread.root.resolution
+  const actionError =
+    mutationErrorText(
+      deleteState,
+      () => m.comments_delete_failed(),
+      m.comments_delete_failed
+    ) ??
+    (isRoot
+      ? mutationErrorText(
+          resolveState,
+          () => m.comments_resolve_failed(),
+          m.comments_resolve_failed
+        )
+      : null)
+
+  const [mode, setModeState] = useState<Mode>("idle")
+  const setMode = (next: Mode) => {
+    setModeState(next)
+    onEditingChange(next === "edit")
+  }
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const targeted =
+    useLocation({ select: (location) => location.hash }) === comment.id
+  useEffect(() => {
+    if (!targeted) return undefined
+    const frame = requestAnimationFrame(() =>
+      card.current?.scrollIntoView({ block: "center", behavior: "smooth" })
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [targeted])
+  const menu = {
+    comment,
+    replies: isRoot ? thread.replies : [],
+    ticketId,
+    canEdit,
+    canDelete,
+    onEdit: () => setMode("edit"),
+    onDelete: () => remove(),
+    resolved: resolution !== null,
+    onResolve:
+      !pending && actor.call("ticketComments", "resolve") ? resolve : undefined
+  }
 
   return (
-    <InlineForm.Root<Mode>
-      actions={["edit"]}
-      fade={false}
-      className={cn(
-        "ticket-comment rounded-xl border-border/60 p-0 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] corner-squircle",
-        waiting && "animate-pulse"
-      )}
-    >
-      <InlineForm.Idle block>
-        <CommentHeader comment={comment}>
-          {(canEdit || canDelete) && (
-            <div className="flex items-center gap-1">
-              {canEdit && (
-                <InlineForm.Trigger<Mode>
-                  action="edit"
-                  size="sm"
-                  variant="ghost"
-                >
-                  {m.comments_edit_button()}
-                </InlineForm.Trigger>
-              )}
-              {canDelete && (
-                <ConfirmButton.Root>
-                  <ConfirmButton.DeleteTrigger
-                    aria-label={m.comments_delete_aria_label()}
-                  />
-                  <ConfirmButton.Confirm>
-                    <ConfirmButton.Action
-                      cancelLabel={m.common_cancel_button()}
-                      describeError={describeCause}
-                      prompt={m.comments_delete_confirm()}
-                      label={m.common_delete_confirm_button()}
-                      busyLabel={m.common_deleting_button()}
-                      onConfirm={() => remove()}
-                    />
-                  </ConfirmButton.Confirm>
-                </ConfirmButton.Root>
-              )}
-            </div>
+    <ContextMenu disabled={pending || mode === "edit"}>
+      <ContextMenuTrigger
+        render={
+          <div
+            ref={card}
+            id={comment.id}
+            data-targeted={targeted ? "" : undefined}
+            className="group/reveal scroll-mt-6"
+          />
+        }
+      >
+        <InlineForm.Root<Mode>
+          actions={["edit"]}
+          mode={mode}
+          onModeChange={setMode}
+          fade={false}
+          variant="ghost"
+          className={cn(
+            "ticket-comment [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
+            waiting && "animate-pulse"
           )}
-        </CommentHeader>
-        <div className="px-3 pt-1 pb-3">
-          <Markdown>{comment.body}</Markdown>
-        </div>
-        {deleteError && (
-          <p role="alert" className="px-3 pb-3 text-body text-destructive">
-            {deleteError}
-          </p>
-        )}
-      </InlineForm.Idle>
-      <InlineForm.Form action="edit">
-        <EditForm comment={comment} ticketId={ticketId} />
-      </InlineForm.Form>
-    </InlineForm.Root>
+        >
+          <InlineForm.Idle block>
+            <CommentHeader
+              comment={comment}
+              resolution={last ? resolution : null}
+            >
+              {!pending && <CommentMenuButton ref={menuButton} {...menu} />}
+            </CommentHeader>
+            <div
+              className={cn("pt-1 pr-3 pb-3", isRoot ? "pl-3" : "pl-10")}
+              onContextMenu={keepNativeMenu}
+            >
+              <Markdown>{comment.body}</Markdown>
+              <CreatedTickets tickets={comment.tickets} />
+            </div>
+            {actionError && (
+              <p role="alert" className="px-3 pb-3 text-body text-destructive">
+                {actionError}
+              </p>
+            )}
+          </InlineForm.Idle>
+          <InlineForm.Form action="edit">
+            <EditForm comment={comment} ticketId={ticketId} />
+          </InlineForm.Form>
+        </InlineForm.Root>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-52">
+        <CommentMenuItems {...menu} />
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
 function CommentHeader({
   comment,
+  resolution = null,
   children
 }: {
   comment: Comment
+  resolution?: Comment["resolution"]
   children: React.ReactNode
 }) {
   const author = comment.author
@@ -133,15 +214,16 @@ function CommentHeader({
         {author.kind === "user" && (
           <MemberAvatar member={author.user} size={20} />
         )}
-        <span className="font-semibold">
-          {author.kind === "user"
-            ? (author.user.name ?? author.user.email)
-            : author.displayName}
-        </span>
+        <span className="font-semibold">{commentAuthorName(author)}</span>
         <TimelineTime at={comment.createdAt} />
         {comment.editedAt && (
           <span className="text-caption text-muted-foreground">
             {m.comments_edited_marker()}
+          </span>
+        )}
+        {comment.origin === "projectproject" && (
+          <span className="text-caption text-muted-foreground">
+            {m.comments_imported_from_projectproject()}
           </span>
         )}
         {comment.origin === "jira" && (
@@ -149,9 +231,36 @@ function CommentHeader({
             {m.comments_imported_from_jira()}
           </span>
         )}
+        {resolution !== null && <ResolvedLabel resolution={resolution} />}
       </div>
       {children}
     </header>
+  )
+}
+
+function ResolvedLabel({
+  resolution
+}: Readonly<{ resolution: NonNullable<Comment["resolution"]> }>) {
+  const when = formatRelative(resolution.at)
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="inline-flex items-center gap-1 text-caption text-state-success" />
+        }
+      >
+        <CircleCheck className="size-3.5" strokeWidth={2} />
+        {m.comments_resolved_label()}
+      </TooltipTrigger>
+      <TooltipContent>
+        {resolution.by === null
+          ? m.comments_resolved_at({ when })
+          : m.comments_resolved_by({
+              name: resolution.by.name ?? resolution.by.email,
+              when
+            })}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

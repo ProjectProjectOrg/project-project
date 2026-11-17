@@ -138,7 +138,7 @@ function Palette({
           return (
             <CommandMenuItem value={item.value}>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {row?.checked === true && <CommandMenuCheck label="Selected" />}
+              {row?.checked === true && <CommandMenuCheck checked label="Selected" />}
               {row?.shortcut !== undefined && (
                 <CommandMenuShortcut
                   keys={row.shortcut}
@@ -154,7 +154,7 @@ function Palette({
       <CommandMenuFooter className="border-t border-border/60">
         <CommandMenuFooterHint
           label="Select"
-          keys={["up", "down"]}
+          keys="↑↓"
           keyLabels={KEY_LABELS}
         />
         <CommandMenuFooterHint

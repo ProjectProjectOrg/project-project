@@ -10,18 +10,22 @@ import {
   DropdownMenuItem,
   DropdownMenuList,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
 import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as Match from "effect/Match"
 import type { ReactNode } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
@@ -138,35 +142,45 @@ function Trigger({
 }) {
   if (variant === "chip") {
     return (
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            tone={empty ? "muted" : "strong"}
-            aria-label={label}
-          >
-            {children}
-          </Button>
-        }
-      />
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.assign"]}
+        keyLabels={keyLabels()}
+      >
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              tone={empty ? "muted" : "strong"}
+              aria-label={label}
+            >
+              {children}
+            </Button>
+          }
+        />
+      </ShortcutTooltip>
     )
   }
   return (
-    <DropdownMenuTrigger
-      render={
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={label}
-          // A 24px target around the 20px face in rows.
-          className={cn("min-h-6 min-w-6 justify-center", className)}
-        >
-          {children}
-        </Hitbox>
-      }
-    />
+    <ShortcutTooltip
+      hotkey={appHotkeys["tickets.assign"]}
+      keyLabels={keyLabels()}
+    >
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={label}
+            // A 24px target around the 20px face in rows.
+            className={cn("min-h-6 min-w-6 justify-center", className)}
+          >
+            {children}
+          </Hitbox>
+        }
+      />
+    </ShortcutTooltip>
   )
 }
 
@@ -200,6 +214,10 @@ export function AssignMeItem({
       >
         <Icon className="size-4" strokeWidth={1.75} />
         {label}
+        <DropdownMenuShortcut
+          keys={appHotkeys["tickets.assign-me"].defaultHotkey}
+          keyLabels={keyLabels()}
+        />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
     </>

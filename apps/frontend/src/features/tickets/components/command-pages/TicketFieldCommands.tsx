@@ -1,6 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
-import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import {
+  CommandMenuCheck,
+  CommandMenuItem,
+  CommandMenuShortcut
+} from "@pp/ui/command-menu"
 import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import { Archive, CircleSlash, Flag, Layers, Plus, Trash2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
@@ -51,6 +55,7 @@ import {
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
 import { errorMessage } from "@/lib/errorMessage"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { useTicketMutation } from "./useTicketMutation"
@@ -154,9 +159,10 @@ export function TicketEstimatePage({
             <span className="min-w-0 flex-1 truncate tabular-nums">
               {item.label}
             </span>
-            {option !== undefined && sameEstimate(estimate, option) && (
-              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-            )}
+            <CommandMenuCheck
+              checked={option !== undefined && sameEstimate(estimate, option)}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}
@@ -195,14 +201,25 @@ export function TicketTypePage({
         }
         env.close()
       }}
-      renderItem={(item) => (
+      numbered
+      renderItem={(item, number) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {current !== null &&
-            current.type !== undefined &&
-            typeOptionValue(current.type) === item.value && (
-              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-            )}
+          {number !== undefined && (
+            <CommandMenuShortcut
+              keys={number}
+              keyLabels={keyLabels()}
+              aria-hidden
+            />
+          )}
+          <CommandMenuCheck
+            checked={
+              current !== null &&
+              current.type !== undefined &&
+              typeOptionValue(current.type) === item.value
+            }
+            label={m.chrome_command_menu_selected()}
+          />
         </CommandMenuItem>
       )}
     />
@@ -284,9 +301,10 @@ export function TicketTagsPage({
               style={{ backgroundColor: tag?.color }}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {tag !== undefined && applied.includes(tag.name) && (
-              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-            )}
+            <CommandMenuCheck
+              checked={tag !== undefined && applied.includes(tag.name)}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}
@@ -353,9 +371,10 @@ export function TicketParentPage({
                 <span className="min-w-0 truncate">{epic.title}</span>
               </span>
             )}
-            {epic !== undefined && epic.id === parent && (
-              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-            )}
+            <CommandMenuCheck
+              checked={epic !== undefined && epic.id === parent}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}

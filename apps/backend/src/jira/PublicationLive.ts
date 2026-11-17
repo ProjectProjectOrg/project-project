@@ -3,23 +3,16 @@ import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
 import {
-  attachmentIndex,
-  attachmentReference,
-  commentIndex,
   jiraIdentityClaim,
   jiraMigration,
   member,
   organization,
-  projectGitAutomation,
   projectIndex,
-  projectMember,
-  projectStatus,
-  projectTag,
+  projectKey,
   ticketIndex,
   user as userTable
 } from "@pp/db/schema"
 import type * as Client from "@pp/integration-jira/Client"
-import { groupBy } from "@pp/integration-jira/collections"
 import {
   canonicalJiraJson,
   JiraMigrationManifestV2
@@ -47,6 +40,7 @@ import {
   type JiraAttachmentOutcome
 } from "@pp/integration-jira/PublicationPlan"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as HiddenProject from "@pp/server-core/projects/hiddenProject"
 import { issueProjectInvite } from "@pp/server-core/projects/projectInvite"
 import type * as S3Storage from "@pp/server-core/storage/S3Storage"
 import {
@@ -57,7 +51,7 @@ import {
   JiraMigrationConfiguration,
   type JiraMigrationResult
 } from "@pp/shared"
-import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
+import { and, eq, sql as drizzleSql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -127,10 +121,12 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
     .select({
       id: projectIndex.id,
       slug: projectIndex.slug,
-      key: projectIndex.key,
+      key: drizzleSql<string>`coalesce(${projectKey.key}, ${projectIndex.key})`,
       organizationId: projectIndex.organizationId
     })
     .from(projectIndex)
+    .leftJoin(projectKey, eq(projectKey.projectId, projectIndex.id))
+    .where(eq(projectIndex.organizationId, input.organizationId))
   const tickets = yield* db
     .select({
       projectId: ticketIndex.projectId,
@@ -554,25 +550,6 @@ export const makeJiraMaterializationDependencies = (
   }
 }
 
-const INSERT_CHUNK_ROWS = 500
-
-const chunksOf = <A>(
-  rows: ReadonlyArray<A>
-): ReadonlyArray<ReadonlyArray<A>> => {
-  const chunks: Array<ReadonlyArray<A>> = []
-  for (let offset = 0; offset < rows.length; offset += INSERT_CHUNK_ROWS)
-    chunks.push(rows.slice(offset, offset + INSERT_CHUNK_ROWS))
-  return chunks
-}
-
-const insertChunked = <A, B, E, R>(
-  rows: ReadonlyArray<A>,
-  insert: (rows: Array<A>) => Effect.Effect<B, E, R>
-) =>
-  Effect.forEach(chunksOf(rows), (chunk) => insert([...chunk]), {
-    discard: true
-  })
-
 export const jiraMigrationResult = (
   plan: JiraPublicationPlanV1,
   checkpoint: MigrationProjection.JiraMigrationCheckpoint
@@ -613,6 +590,61 @@ export const jiraMigrationResult = (
     findings: [...(checkpoint.findings ?? []), ...(plan.findings ?? [])]
   }
 }
+const isHiddenProjectInvalid = (
+  error: unknown
+): error is HiddenProject.HiddenProjectInvalid =>
+  error instanceof HiddenProject.HiddenProjectInvalid
+
+const asJiraInvalid = <A, E, R>(
+  effect: Effect.Effect<A, E | HiddenProject.HiddenProjectInvalid, R>
+) =>
+  effect.pipe(
+    Effect.catchIf(isHiddenProjectInvalid, (error) =>
+      Effect.fail(new JiraPublicationInvalid({ reasons: [...error.reasons] }))
+    )
+  )
+
+type JiraMigrationRow = typeof jiraMigration.$inferSelect
+
+const isCurrentAttempt = (
+  migration: JiraMigrationRow | undefined,
+  fence: MigrationProjection.AttemptFence
+): migration is JiraMigrationRow =>
+  migration !== undefined &&
+  migration.workflowExecutionId === fence.workflowExecutionId &&
+  migration.workflowAttempt === fence.workflowAttempt &&
+  migration.status === "migrating" &&
+  migration.cleanupExecutionId === null
+
+const holdsRemoteWriteIntent = (
+  checkpoint: MigrationProjection.JiraMigrationCheckpoint,
+  fence: MigrationProjection.AttemptFence
+) =>
+  checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
+    fence.workflowExecutionId &&
+  checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
+    fence.workflowAttempt
+
+const staleMaterialization = () =>
+  new JiraPublicationInvalid({ reasons: ["stale-materialization-attempt"] })
+
+type Tx = Parameters<Parameters<Db["Service"]["transaction"]>[0]>[0]
+
+const lockMigration = (tx: Tx, fence: MigrationProjection.AttemptFence) =>
+  tx
+    .select()
+    .from(jiraMigration)
+    .where(eq(jiraMigration.id, fence.migrationId))
+    .for("update")
+    .pipe(Effect.map(([migration]) => migration))
+
+const lockCurrentAttempt = (tx: Tx, fence: MigrationProjection.AttemptFence) =>
+  Effect.gen(function* () {
+    const migration = yield* lockMigration(tx, fence)
+    if (!isCurrentAttempt(migration, fence))
+      return yield* staleMaterialization()
+    return migration
+  })
 
 export type JiraAtomicPublicationInput = Readonly<{
   fence: MigrationProjection.AttemptFence
@@ -627,11 +659,94 @@ export type JiraAtomicPublicationInput = Readonly<{
   }>
 }>
 
+const publishedIndexes = (
+  plan: JiraPublicationPlanV1
+): HiddenProject.PublishedIndexes => {
+  const project = plan.indexes.project
+  return {
+    project,
+    statuses: plan.indexes.statuses.map((row) => ({
+      ...row,
+      description: baselineStatusDescription(row.slug),
+      createdAt: toDate(row.createdAt)
+    })),
+    gitAutomation: GIT_AUTOMATION_SEED.filter((rule) =>
+      plan.indexes.statuses.some((row) => row.slug === rule.statusSlug)
+    ).map((rule) => ({
+      projectId: project.id,
+      event: rule.event,
+      statusSlug: rule.statusSlug
+    })),
+    tags: plan.indexes.tags.map((row) => ({
+      ...row,
+      createdAt: toDate(row.createdAt)
+    })),
+    members: plan.indexes.members.map((row) => ({
+      projectId: row.projectId,
+      organizationId: project.organizationId,
+      userId: row.userId,
+      roleId: row.role === "owner" ? "pm" : "developer",
+      createdAt: toDate(row.createdAt)
+    })),
+    tickets: plan.indexes.tickets.map(
+      ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+        ...row,
+        tags: [...row.tags],
+        assignees: [...row.assignees],
+        createdAt: toDate(row.createdAt),
+        updatedAt: toDate(row.updatedAt)
+      })
+    ),
+    comments: plan.indexes.comments.map(
+      ({
+        projectSlug: _projectSlug,
+        jiraDisplayName,
+        jiraAccountId,
+        ...row
+      }) => ({
+        ...row,
+        authorKind: row.authorKind === "jira" ? "imported" : row.authorKind,
+        importedName: jiraDisplayName,
+        importedSource: jiraDisplayName === null ? null : "jira",
+        importedId: jiraAccountId,
+        projectId: project.id,
+        createdAt: toDate(row.createdAt),
+        editedAt: row.editedAt === null ? null : toDate(row.editedAt)
+      })
+    ),
+    activity: [],
+    attachmentReferences: plan.indexes.attachmentReferences.map(
+      ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+        ...row,
+        projectId: project.id,
+        createdAt: toDate(row.createdAt)
+      })
+    ),
+    attachments: plan.indexes.attachments.map((planned) => ({
+      row: {
+        id: planned.id,
+        organizationId: planned.organizationId,
+        orgSlug: planned.orgSlug,
+        projectId: project.id,
+        ticketId: planned.ticketId,
+        objectKey: planned.objectKey,
+        filename: planned.filename,
+        contentType: planned.contentType,
+        byteSize: planned.byteSize,
+        contentHash: planned.contentHash,
+        uploadedBy: planned.uploadedBy,
+        createdAt: toDate(planned.createdAt)
+      },
+      committedAt: toDate(planned.committedAt)
+    }))
+  }
+}
+
 export const publishJiraMigrationAtomically = Effect.fn(
   "JiraImport.publishAtomically"
 )(function* (input: JiraAtomicPublicationInput) {
-  const db = yield* Db
   const { fence, plan, verified } = input
+  const db = yield* Db
   const encoded = yield* encodeJiraPublicationPlanV1(plan)
   const checksum = createHash("sha256")
     .update(canonicalJiraJson(encoded))
@@ -650,28 +765,22 @@ export const publishJiraMigrationAtomically = Effect.fn(
     return yield* new JiraPublicationInvalid({
       reasons: ["publication-verification-mismatch"]
     })
-  return yield* Effect.uninterruptible(
-    db.transaction((tx) =>
+  return yield* HiddenProject.publishHiddenProject(publishedIndexes(plan), {
+    lock: (tx) =>
       Effect.gen(function* () {
-        const [migration] = yield* tx
-          .select()
-          .from(jiraMigration)
-          .where(eq(jiraMigration.id, fence.migrationId))
-          .for("update")
-        const [project] = yield* tx
-          .select()
-          .from(projectIndex)
-          .where(eq(projectIndex.id, plan.project.id))
-          .for("update")
+        const migration = yield* lockMigration(tx, fence)
         if (
           !migration ||
           migration.workflowExecutionId !== fence.workflowExecutionId ||
-          migration.workflowAttempt !== fence.workflowAttempt ||
-          !project
+          migration.workflowAttempt !== fence.workflowAttempt
         )
           return yield* new JiraPublicationInvalid({
             reasons: ["stale-publication-attempt"]
           })
+        return migration
+      }),
+    decide: (_tx, project, migration) =>
+      Effect.gen(function* () {
         const checkpoint = yield* MigrationProjection.decodeCheckpoint(
           migration.checkpoint
         )
@@ -699,92 +808,35 @@ export const publishJiraMigrationAtomically = Effect.fn(
             checkpoint.publishedPlan.planRef.key === input.planRef.key &&
             checkpoint.publishedPlan.planRef.sha256 === input.planRef.sha256
           )
-            return true
+            return "replayed" as const
           return yield* new JiraPublicationInvalid({
             reasons: ["publication-replay-conflict"]
           })
         }
-        const plannedProject = plan.indexes.project
         if (
           migration.status !== "migrating" ||
           migration.cleanupExecutionId !== null ||
-          checkpoint.remoteWritesMayStillCommit !== undefined ||
-          project.publishedAt !== null ||
-          project.organizationId !== migration.organizationId ||
-          project.id !== plannedProject.id ||
-          project.slug !== plannedProject.slug ||
-          project.key !== plannedProject.key ||
-          project.name !== plannedProject.name ||
-          project.icon !== plannedProject.icon ||
-          project.color !== plannedProject.color ||
-          project.nextTicketNumber !== plannedProject.nextTicketNumber ||
-          project.createdBy !== plannedProject.createdBy ||
-          project.createdAt.toISOString() !== plannedProject.createdAt
+          checkpoint.remoteWritesMayStillCommit !== undefined
         )
           return yield* new JiraPublicationInvalid({
             reasons: ["hidden-project-identity-conflict"]
           })
-        const plannedMemberIds = [
-          ...new Set(plan.indexes.members.map((row) => row.userId))
-        ]
-        if (plannedMemberIds.length > 0) {
-          const orgMembers = yield* tx
-            .select({ userId: member.userId })
-            .from(member)
-            .where(
-              and(
-                eq(member.organizationId, migration.organizationId),
-                inArray(member.userId, plannedMemberIds)
-              )
-            )
-            .for("share")
-          if (orgMembers.length !== plannedMemberIds.length)
-            return yield* new JiraPublicationInvalid({
-              reasons: ["publication-member-conflict"]
-            })
-        }
-        yield* insertChunked(
-          plan.indexes.statuses.map((row) => ({
-            ...row,
-            description: baselineStatusDescription(row.slug),
-            createdAt: toDate(row.createdAt)
-          })),
-          (rows) => tx.insert(projectStatus).values(rows)
+        return "publish" as const
+      }),
+    published: (tx, project, now, migration) =>
+      Effect.gen(function* () {
+        const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+          migration.checkpoint
         )
-        const seededRules = GIT_AUTOMATION_SEED.filter((rule) =>
-          plan.indexes.statuses.some((row) => row.slug === rule.statusSlug)
-        )
-        if (seededRules.length > 0)
-          yield* tx.insert(projectGitAutomation).values(
-            seededRules.map((rule) => ({
-              projectId: plannedProject.id,
-              event: rule.event,
-              statusSlug: rule.statusSlug
-            }))
-          )
-        yield* insertChunked(
-          plan.indexes.tags.map((row) => ({
-            ...row,
-            createdAt: toDate(row.createdAt)
-          })),
-          (rows) => tx.insert(projectTag).values(rows)
-        )
-        yield* insertChunked(
-          plan.indexes.members.map((row) => ({
-            projectId: row.projectId,
-            organizationId: migration.organizationId,
-            userId: row.userId,
-            roleId:
-              row.role === "owner" ? ("pm" as const) : ("developer" as const),
-            createdAt: toDate(row.createdAt)
-          })),
-          (rows) => tx.insert(projectMember).values(rows)
-        )
+        yield* tx
+          .update(projectIndex)
+          .set({ estimation: plan.indexes.project.estimation ?? "off" })
+          .where(eq(projectIndex.id, project.id))
         for (const invite of plan.invites ?? []) {
           yield* issueProjectInvite(db, {
             organizationId: migration.organizationId,
             orgSlug: plan.project.orgSlug,
-            projectId: plannedProject.id,
+            projectId: project.id,
             inviterId: migration.initiatedBy,
             email: invite.email,
             role: "developer"
@@ -792,7 +844,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
           yield* tx
             .insert(jiraIdentityClaim)
             .values({
-              projectId: plannedProject.id,
+              projectId: project.id,
               email: invite.email,
               jiraAccountIds: [...invite.sourceAccountIds],
               assigneeTicketIds: [...invite.assigneeTicketIds],
@@ -800,101 +852,6 @@ export const publishJiraMigrationAtomically = Effect.fn(
             })
             .onConflictDoNothing()
         }
-        yield* insertChunked(
-          plan.indexes.tickets.map(
-            ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
-              ...row,
-              tags: [...row.tags],
-              assignees: [...row.assignees],
-              createdAt: toDate(row.createdAt),
-              updatedAt: toDate(row.updatedAt)
-            })
-          ),
-          (rows) => tx.insert(ticketIndex).values(rows)
-        )
-        yield* insertChunked(
-          plan.indexes.comments.map(
-            ({ projectSlug: _projectSlug, ...row }) => ({
-              ...row,
-              projectId: plannedProject.id,
-              createdAt: toDate(row.createdAt),
-              editedAt: row.editedAt === null ? null : toDate(row.editedAt)
-            })
-          ),
-          (rows) => tx.insert(commentIndex).values(rows)
-        )
-        yield* insertChunked(
-          plan.indexes.attachmentReferences.map(
-            ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
-              ...row,
-              projectId: plannedProject.id,
-              createdAt: toDate(row.createdAt)
-            })
-          ),
-          (rows) => tx.insert(attachmentReference).values(rows)
-        )
-        for (const plannedChunk of chunksOf(plan.indexes.attachments)) {
-          const pendingRows = yield* tx
-            .select()
-            .from(attachmentIndex)
-            .where(
-              inArray(
-                attachmentIndex.id,
-                plannedChunk.map(({ id }) => id)
-              )
-            )
-            .for("update")
-          const pendingById = new Map(pendingRows.map((row) => [row.id, row]))
-          const conflicting = plannedChunk.some((planned) => {
-            const pending = pendingById.get(planned.id)
-            return (
-              !pending ||
-              pending.status !== "pending" ||
-              pending.organizationId !== planned.organizationId ||
-              pending.orgSlug !== planned.orgSlug ||
-              pending.projectId !== plannedProject.id ||
-              pending.ticketId !== planned.ticketId ||
-              pending.objectKey !== planned.objectKey ||
-              pending.filename !== planned.filename ||
-              pending.contentType !== planned.contentType ||
-              pending.byteSize !== planned.byteSize ||
-              pending.contentHash !== planned.contentHash ||
-              pending.uploadedBy !== planned.uploadedBy ||
-              pending.createdAt.toISOString() !== planned.createdAt
-            )
-          })
-          if (conflicting)
-            return yield* new JiraPublicationInvalid({
-              reasons: ["attachment-identity-conflict"]
-            })
-          for (const [committedAt, ids] of groupBy(
-            plannedChunk,
-            (planned) => planned.committedAt,
-            (planned) => planned.id
-          ))
-            yield* tx
-              .update(attachmentIndex)
-              .set({ status: "live", committedAt: toDate(committedAt) })
-              .where(inArray(attachmentIndex.id, ids))
-        }
-        const now = yield* DateTime.nowAsDate
-        const published = yield* tx
-          .update(projectIndex)
-          .set({
-            publishedAt: now,
-            estimation: plannedProject.estimation ?? "off"
-          })
-          .where(
-            and(
-              eq(projectIndex.id, project.id),
-              drizzleSql`${projectIndex.publishedAt} is null`
-            )
-          )
-          .returning({ id: projectIndex.id })
-        if (published.length !== 1)
-          return yield* new JiraPublicationInvalid({
-            reasons: ["publication-race-lost"]
-          })
         const succeeded = yield* tx
           .update(jiraMigration)
           .set({
@@ -937,111 +894,43 @@ export const publishJiraMigrationAtomically = Effect.fn(
           return yield* new JiraPublicationInvalid({
             reasons: ["publication-race-lost"]
           })
-        return true
       })
-    )
-  )
+  }).pipe(asJiraInvalid)
 })
 
 export type HiddenJiraProjectInput = Readonly<{
   fence: MigrationProjection.AttemptFence
-  project: Readonly<{
-    id: string
-    organizationId: string
-    slug: string
-    key: string
-    name: string
-    icon: string
-    color: string
-    nextTicketNumber: number
-    createdBy: string
-    createdAt: string
-  }>
+  project: HiddenProject.HiddenProjectIdentity
 }>
 
 export const ensureHiddenJiraProject = Effect.fn(
   "JiraImport.ensureHiddenProject"
 )(function* (input: HiddenJiraProjectInput) {
-  const db = yield* Db
   const { fence, project } = input
-  return yield* db.transaction((tx) =>
-    Effect.gen(function* () {
-      const [migration] = yield* tx
-        .select({
-          workflowExecutionId: jiraMigration.workflowExecutionId,
-          workflowAttempt: jiraMigration.workflowAttempt,
-          status: jiraMigration.status,
-          cleanupExecutionId: jiraMigration.cleanupExecutionId,
-          organizationId: jiraMigration.organizationId,
-          destinationProjectId: jiraMigration.destinationProjectId,
-          destinationProjectSlug: jiraMigration.destinationProjectSlug
-        })
-        .from(jiraMigration)
-        .where(eq(jiraMigration.id, fence.migrationId))
-        .for("update")
-      if (
-        !migration ||
-        migration.workflowExecutionId !== fence.workflowExecutionId ||
-        migration.workflowAttempt !== fence.workflowAttempt ||
-        migration.status !== "migrating" ||
-        migration.cleanupExecutionId !== null ||
-        migration.organizationId !== project.organizationId ||
-        (migration.destinationProjectId !== null &&
-          migration.destinationProjectId !== project.id) ||
-        (migration.destinationProjectSlug !== null &&
-          migration.destinationProjectSlug !== project.slug)
-      )
-        return yield* new JiraPublicationInvalid({
-          reasons: ["stale-materialization-attempt"]
-        })
-      yield* tx
-        .insert(projectIndex)
-        .values({
-          ...project,
-          createdAt: DateTime.toDate(DateTime.makeUnsafe(project.createdAt)),
-          banner: null,
-          iconImage: null,
-          publishedAt: null
-        })
-        .onConflictDoNothing()
-      const [existing] = yield* tx
-        .select()
-        .from(projectIndex)
-        .where(
-          and(
-            eq(projectIndex.organizationId, project.organizationId),
-            eq(projectIndex.slug, project.slug)
-          )
+  return yield* HiddenProject.ensureHiddenProject(project, {
+    lock: (tx) =>
+      Effect.gen(function* () {
+        const migration = yield* lockCurrentAttempt(tx, fence)
+        if (
+          migration.organizationId !== project.organizationId ||
+          (migration.destinationProjectId !== null &&
+            migration.destinationProjectId !== project.id) ||
+          (migration.destinationProjectSlug !== null &&
+            migration.destinationProjectSlug !== project.slug)
         )
-        .limit(1)
-      if (
-        !existing ||
-        existing.id !== project.id ||
-        existing.organizationId !== project.organizationId ||
-        existing.key !== project.key ||
-        existing.name !== project.name ||
-        existing.icon !== project.icon ||
-        existing.color !== project.color ||
-        existing.nextTicketNumber !== project.nextTicketNumber ||
-        existing.createdBy !== project.createdBy ||
-        existing.createdAt.toISOString() !== project.createdAt ||
-        existing.banner !== null ||
-        existing.iconImage !== null ||
-        existing.publishedAt !== null
-      )
-        return yield* new JiraPublicationInvalid({
-          reasons: ["hidden-project-identity-conflict"]
-        })
-      yield* tx
+          return yield* staleMaterialization()
+        return migration
+      }),
+    claimed: (tx) =>
+      tx
         .update(jiraMigration)
         .set({
           destinationProjectId: project.id,
           destinationProjectSlug: project.slug
         })
         .where(eq(jiraMigration.id, fence.migrationId))
-      return existing.id
-    })
-  )
+        .pipe(Effect.asVoid)
+  }).pipe(asJiraInvalid)
 })
 
 export type JiraHiddenDocumentsInput = Readonly<{
@@ -1061,82 +950,17 @@ const safeJiraDocumentPath = (relative: string, migrationId: string) =>
 export const writeJiraHiddenDocuments = Effect.fn(
   "JiraImport.writeHiddenDocuments"
 )(function* (input: JiraHiddenDocumentsInput) {
-  const db = yield* Db
-  const markdown = yield* Markdown.Markdown
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  if (
-    new Set(input.documents.map(({ path }) => path)).size !==
-    input.documents.length
-  )
-    return yield* new JiraPublicationInvalid({
-      reasons: ["duplicate-document-path"]
-    })
-  for (const document of input.documents) {
-    if (
-      !safeJiraDocumentPath(document.path, input.fence.migrationId) ||
-      createHash("sha256").update(document.content).digest("hex") !==
-        document.sha256
-    )
-      return yield* new JiraPublicationInvalid({
-        reasons: ["invalid-document-content-or-path"]
-      })
-  }
-  return yield* Effect.uninterruptible(
-    db.transaction((tx) =>
-      Effect.gen(function* () {
-        const [migration] = yield* tx
-          .select()
-          .from(jiraMigration)
-          .where(eq(jiraMigration.id, input.fence.migrationId))
-          .for("update")
-        const [project] = yield* tx
-          .select()
-          .from(projectIndex)
-          .where(eq(projectIndex.id, input.projectId))
-          .limit(1)
-        const [org] = project
-          ? yield* tx
-              .select({ slug: organization.slug })
-              .from(organization)
-              .where(eq(organization.id, project.organizationId))
-              .limit(1)
-          : []
-        if (
-          !migration ||
-          migration.workflowExecutionId !== input.fence.workflowExecutionId ||
-          migration.workflowAttempt !== input.fence.workflowAttempt ||
-          migration.status !== "migrating" ||
-          migration.cleanupExecutionId !== null ||
-          !project ||
-          project.publishedAt !== null ||
-          project.slug !== input.projectSlug ||
-          project.organizationId !== migration.organizationId ||
-          org?.slug !== input.orgSlug
-        )
-          return yield* new JiraPublicationInvalid({
-            reasons: ["stale-materialization-attempt"]
-          })
-        const directory = markdown.projectDir(input.orgSlug, input.projectSlug)
-        for (const document of input.documents) {
-          const target = path.join(directory, document.path)
-          yield* fs.makeDirectory(path.dirname(target), { recursive: true })
-          const temporary = `${target}.jira-tmp`
-          yield* fs.writeFileString(temporary, document.content)
-          yield* fs.rename(temporary, target)
-          const stored = yield* fs.readFileString(target)
-          if (
-            createHash("sha256").update(stored).digest("hex") !==
-            document.sha256
-          )
-            return yield* new JiraPublicationInvalid({
-              reasons: ["document-verification-failed"]
-            })
-        }
-        return input.documents.length
-      })
-    )
-  )
+  return yield* HiddenProject.writeHiddenDocuments(
+    {
+      projectId: input.projectId,
+      orgSlug: input.orgSlug,
+      projectSlug: input.projectSlug,
+      documents: input.documents,
+      isAllowedPath: (path) =>
+        safeJiraDocumentPath(path, input.fence.migrationId)
+    },
+    (tx) => lockCurrentAttempt(tx, input.fence)
+  ).pipe(asJiraInvalid)
 })
 
 export type JiraPreparedAttachmentInput = Readonly<{
@@ -1168,13 +992,22 @@ export const copyJiraPreparedAttachment = Effect.fn(
       kind: attachment.decision === "skip" ? "skipped" : "excluded"
     } satisfies JiraAttachmentOutcome
   const db = yield* Db
-  const attemptIsCurrent = db.transaction((tx) =>
+  const lockWriteIntent = (tx: Tx) =>
     Effect.gen(function* () {
-      const [migration] = yield* tx
-        .select()
-        .from(jiraMigration)
-        .where(eq(jiraMigration.id, fence.migrationId))
-        .for("update")
+      const migration = yield* lockCurrentAttempt(tx, fence)
+      const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+        migration.checkpoint
+      )
+      if (
+        migration.organizationId !== input.organizationId ||
+        !holdsRemoteWriteIntent(checkpoint, fence)
+      )
+        return yield* staleMaterialization()
+      return migration
+    })
+  const migrationCreatedAt = yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const migration = yield* lockWriteIntent(tx)
       const [project] = yield* tx
         .select()
         .from(projectIndex)
@@ -1186,35 +1019,16 @@ export const copyJiraPreparedAttachment = Effect.fn(
         .where(eq(organization.id, input.organizationId))
         .limit(1)
       if (
-        !migration ||
-        migration.workflowExecutionId !== fence.workflowExecutionId ||
-        migration.workflowAttempt !== fence.workflowAttempt ||
-        migration.status !== "migrating" ||
-        migration.cleanupExecutionId !== null ||
-        migration.organizationId !== input.organizationId ||
         !project ||
         project.publishedAt !== null ||
         project.organizationId !== input.organizationId ||
         project.slug !== input.projectSlug ||
         org?.slug !== input.orgSlug
       )
-        return null
-      const checkpoint = yield* MigrationProjection.decodeCheckpoint(
-        migration.checkpoint
-      )
-      return checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
-        fence.workflowExecutionId &&
-        checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
-          fence.workflowAttempt
-        ? migration.createdAt
-        : null
+        return yield* staleMaterialization()
+      return migration.createdAt
     })
   )
-  const migrationCreatedAt = yield* attemptIsCurrent
-  if (migrationCreatedAt === null)
-    return yield* new JiraPublicationInvalid({
-      reasons: ["stale-materialization-attempt"]
-    })
   let bytes = yield* s3.getObject(input.connection, attachment.objectKey)
   const uploaded = bytes === null
   if (bytes === null) {
@@ -1248,104 +1062,44 @@ export const copyJiraPreparedAttachment = Effect.fn(
       reasons: ["attachment-size-mismatch"]
     })
   const contentSha256 = createHash("sha256").update(bytes).digest("hex")
-  return yield* db
-    .transaction((tx) =>
-      Effect.gen(function* () {
-        const [migration] = yield* tx
-          .select()
-          .from(jiraMigration)
-          .where(eq(jiraMigration.id, fence.migrationId))
-          .for("update")
-        const [project] = yield* tx
-          .select()
-          .from(projectIndex)
-          .where(eq(projectIndex.id, input.projectId))
-          .limit(1)
-        const checkpoint = migration
-          ? yield* MigrationProjection.decodeCheckpoint(migration.checkpoint)
-          : null
-        if (
-          !migration ||
-          migration.workflowExecutionId !== fence.workflowExecutionId ||
-          migration.workflowAttempt !== fence.workflowAttempt ||
-          migration.status !== "migrating" ||
-          migration.cleanupExecutionId !== null ||
-          migration.organizationId !== input.organizationId ||
-          !project ||
-          project.publishedAt !== null ||
-          project.organizationId !== input.organizationId ||
-          project.slug !== input.projectSlug ||
-          checkpoint?.remoteWritesMayStillCommit?.workflowExecutionId !==
-            fence.workflowExecutionId ||
-          checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
-            fence.workflowAttempt
-        )
-          return yield* new JiraPublicationInvalid({
-            reasons: ["stale-materialization-attempt"]
-          })
-        yield* tx
-          .insert(attachmentIndex)
-          .values({
-            id: attachment.id,
-            organizationId: input.organizationId,
-            orgSlug: input.orgSlug,
-            projectId: input.projectId,
-            ticketId: attachment.ticketId,
-            objectKey: attachment.objectKey,
-            filename: attachment.filename,
-            contentType: attachment.contentType,
-            byteSize: attachment.byteSize,
-            contentHash: contentSha256,
-            status: "pending",
-            uploadedBy: input.uploadedBy,
-            createdAt: migrationCreatedAt
-          })
-          .onConflictDoNothing()
-        const [row] = yield* tx
-          .select()
-          .from(attachmentIndex)
-          .where(eq(attachmentIndex.id, attachment.id))
-          .limit(1)
-        if (
-          !row ||
-          row.organizationId !== input.organizationId ||
-          row.orgSlug !== input.orgSlug ||
-          row.projectId !== input.projectId ||
-          row.ticketId !== attachment.ticketId ||
-          row.objectKey !== attachment.objectKey ||
-          row.filename !== attachment.filename ||
-          row.contentType !== attachment.contentType ||
-          row.byteSize !== attachment.byteSize ||
-          row.contentHash !== contentSha256 ||
-          row.status !== "pending" ||
-          row.uploadedBy !== input.uploadedBy ||
-          row.createdAt.getTime() !== migrationCreatedAt.getTime()
-        )
-          return yield* new JiraPublicationInvalid({
-            reasons: ["attachment-identity-conflict"]
-          })
-        return {
-          sourceAttachmentId: attachment.sourceAttachmentId,
-          kind: "copied",
-          attachmentId: attachment.id,
-          objectKey: attachment.objectKey,
-          byteSize: attachment.byteSize,
-          contentType: attachment.contentType,
-          contentSha256
-        } satisfies JiraAttachmentOutcome
-      })
+  yield* HiddenProject.recordPendingAttachment(
+    {
+      id: attachment.id,
+      organizationId: input.organizationId,
+      orgSlug: input.orgSlug,
+      projectId: input.projectId,
+      ticketId: attachment.ticketId,
+      objectKey: attachment.objectKey,
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      byteSize: attachment.byteSize,
+      contentHash: contentSha256,
+      uploadedBy: input.uploadedBy,
+      createdAt: migrationCreatedAt
+    },
+    input.projectSlug,
+    lockWriteIntent
+  ).pipe(
+    asJiraInvalid,
+    Effect.tapError((error) =>
+      uploaded &&
+      isJiraPublicationInvalid(error) &&
+      error.reasons.includes("stale-materialization-attempt")
+        ? s3
+            .deleteObject(input.connection, attachment.objectKey)
+            .pipe(Effect.ignore)
+        : Effect.void
     )
-    .pipe(
-      Effect.tapError((error) =>
-        uploaded &&
-        isJiraPublicationInvalid(error) &&
-        error.reasons.includes("stale-materialization-attempt")
-          ? s3
-              .deleteObject(input.connection, attachment.objectKey)
-              .pipe(Effect.ignore)
-          : Effect.void
-      )
-    )
+  )
+  return {
+    sourceAttachmentId: attachment.sourceAttachmentId,
+    kind: "copied",
+    attachmentId: attachment.id,
+    objectKey: attachment.objectKey,
+    byteSize: attachment.byteSize,
+    contentType: attachment.contentType,
+    contentSha256
+  } satisfies JiraAttachmentOutcome
 })
 
 export type JiraHiddenVerificationInput = Readonly<{
@@ -1368,134 +1122,47 @@ export const verifyJiraHiddenMaterialization = Effect.fn(
   input: JiraHiddenVerificationInput
 ) {
   const db = yield* Db
-  const markdown = yield* Markdown.Markdown
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const [migration] = yield* db
-    .select()
-    .from(jiraMigration)
-    .where(eq(jiraMigration.id, input.fence.migrationId))
-    .limit(1)
-  const [project] = yield* db
-    .select()
-    .from(projectIndex)
-    .where(eq(projectIndex.id, input.projectId))
-    .limit(1)
-  if (
-    !migration ||
-    migration.workflowExecutionId !== input.fence.workflowExecutionId ||
-    migration.workflowAttempt !== input.fence.workflowAttempt ||
-    migration.status !== "migrating" ||
-    migration.cleanupExecutionId !== null ||
-    !project ||
-    project.organizationId !== migration.organizationId ||
-    project.slug !== input.projectSlug ||
-    project.publishedAt !== null
-  )
-    return yield* new JiraPublicationInvalid({
-      reasons: ["stale-materialization-attempt"]
-    })
-  const checkpoint = yield* MigrationProjection.decodeCheckpoint(
-    migration.checkpoint
-  )
-  if (
-    checkpoint.remoteWritesMayStillCommit?.workflowExecutionId !==
-      input.fence.workflowExecutionId ||
-    checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
-      input.fence.workflowAttempt
-  )
-    return yield* new JiraPublicationInvalid({
-      reasons: ["stale-materialization-attempt"]
-    })
-  const [org] = yield* db
-    .select({ slug: organization.slug })
-    .from(organization)
-    .where(eq(organization.id, project.organizationId))
-    .limit(1)
-  if (org?.slug !== input.orgSlug)
-    return yield* new JiraPublicationInvalid({
-      reasons: ["hidden-project-identity-conflict"]
-    })
-  const allDocuments = [
-    ...input.documents,
-    input.archiveDocument,
-    input.reportDocument
-  ]
-  if (
-    new Set(allDocuments.map(({ path }) => path)).size !== allDocuments.length
-  )
-    return yield* new JiraPublicationInvalid({
-      reasons: ["duplicate-document-path"]
-    })
-  const directory = markdown.projectDir(input.orgSlug, input.projectSlug)
-  let unresolvedReferenceCount = 0
-  for (const document of allDocuments) {
-    if (!safeJiraDocumentPath(document.path, input.fence.migrationId))
-      return yield* new JiraPublicationInvalid({
-        reasons: ["invalid-document-content-or-path"]
-      })
-    const stored = yield* fs
-      .readFileString(path.join(directory, document.path))
-      .pipe(
-        Effect.mapError(
-          () => new JiraPublicationInvalid({ reasons: ["missing-document"] })
-        )
-      )
-    if (createHash("sha256").update(stored).digest("hex") !== document.sha256)
-      return yield* new JiraPublicationInvalid({
-        reasons: ["document-verification-failed"]
-      })
-    unresolvedReferenceCount += (stored.match(/\uE000jira-reference:/g) ?? [])
-      .length
-  }
-  if (unresolvedReferenceCount !== 0)
-    return yield* new JiraPublicationInvalid({
-      reasons: ["unresolved-document-references"]
-    })
-  const copied = input.attachments.filter(
-    (attachment) => attachment.kind === "copied"
-  )
-  if (
-    new Set(copied.map(({ attachmentId }) => attachmentId)).size !==
-    copied.length
-  )
-    return yield* new JiraPublicationInvalid({
-      reasons: ["duplicate-attachment-outcome"]
-    })
-  for (const attachment of copied) {
-    const [row] = yield* db
+  const lock = Effect.gen(function* () {
+    const [migration] = yield* db
       .select()
-      .from(attachmentIndex)
-      .where(eq(attachmentIndex.id, attachment.attachmentId))
+      .from(jiraMigration)
+      .where(eq(jiraMigration.id, input.fence.migrationId))
       .limit(1)
-    const head = yield* s3.headObject(input.connection, attachment.objectKey)
-    const bytes = yield* s3.getObject(input.connection, attachment.objectKey)
-    if (
-      !row ||
-      row.organizationId !== migration.organizationId ||
-      row.orgSlug !== input.orgSlug ||
-      row.projectId !== input.projectId ||
-      row.objectKey !== attachment.objectKey ||
-      row.byteSize !== attachment.byteSize ||
-      row.contentType !== attachment.contentType ||
-      row.contentHash !== attachment.contentSha256 ||
-      row.status !== "pending" ||
-      !head ||
-      head.byteSize !== attachment.byteSize ||
-      head.contentType !== attachment.contentType ||
-      !bytes ||
-      bytes.length !== attachment.byteSize ||
-      createHash("sha256").update(bytes).digest("hex") !==
-        attachment.contentSha256
+    if (!isCurrentAttempt(migration, input.fence))
+      return yield* staleMaterialization()
+    const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+      migration.checkpoint
     )
-      return yield* new JiraPublicationInvalid({
-        reasons: ["attachment-verification-failed"]
-      })
-  }
+    if (!holdsRemoteWriteIntent(checkpoint, input.fence))
+      return yield* staleMaterialization()
+    return migration
+  })
+  const verified = yield* HiddenProject.verifyHiddenProject(
+    s3,
+    {
+      projectId: input.projectId,
+      orgSlug: input.orgSlug,
+      projectSlug: input.projectSlug,
+      documents: [
+        ...input.documents,
+        input.archiveDocument,
+        input.reportDocument
+      ],
+      isAllowedPath: (path) =>
+        safeJiraDocumentPath(path, input.fence.migrationId),
+      unresolvedReferences: (content) =>
+        (content.match(/jira-reference:/g) ?? []).length,
+      attachments: input.attachments.flatMap((attachment) =>
+        attachment.kind === "copied" ? [attachment] : []
+      ),
+      connection: input.connection
+    },
+    lock
+  ).pipe(asJiraInvalid)
   return {
     planSha256: input.planSha256,
-    documentCount: allDocuments.length,
-    attachmentCount: copied.length,
+    documentCount: verified.documentCount,
+    attachmentCount: verified.attachmentCount,
     unresolvedReferenceCount: 0 as const
   }
 })

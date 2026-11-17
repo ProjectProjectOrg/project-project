@@ -1,5 +1,7 @@
+import { type CommentOrigin, ImportedAuthor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
@@ -12,19 +14,19 @@ const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 export type CommentBlock = Readonly<{
   id: string
   author: CommentBlockAuthor
-  origin: "native" | "jira"
+  origin: CommentOrigin
   createdAt: Date
   editedAt: Date | null
+  replyTo?: string
+  resolvedBy?: string
+  resolvedAt?: Date
+  tickets?: ReadonlyArray<string>
   body: string
 }>
 
 export type CommentBlockAuthor =
   | Readonly<{ kind: "user"; userId: string }>
-  | Readonly<{
-      kind: "jira"
-      displayName: string
-      accountId: string
-    }>
+  | ImportedAuthor
 
 const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
 
@@ -32,11 +34,29 @@ const EditedAt = Schema.NullOr(CommentBlockDate).pipe(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
   Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
 )
+const ReplyTo = Schema.NullOr(
+  Schema.String.pipe(Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/u)))
+).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const ResolvedBy = Schema.NullOr(Schema.NonEmptyString).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const ResolvedAt = Schema.NullOr(CommentBlockDate).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const Tickets = Schema.Array(Schema.NonEmptyString).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some([]))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+)
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
 })
-const JiraBlockAuthor = Schema.Struct({
+const LegacyJiraBlockAuthor = Schema.Struct({
   kind: Schema.Literal("jira"),
   displayName: Schema.NonEmptyString,
   accountId: Schema.NonEmptyString
@@ -44,32 +64,61 @@ const JiraBlockAuthor = Schema.Struct({
 const LegacyCommentData = Schema.Struct({
   author: Schema.NonEmptyString,
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("native"),
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
-const LinkedJiraCommentData = Schema.Struct({
-  author: UserBlockAuthor,
+const ImportedCommentData = Schema.Struct({
+  author: Schema.Union([UserBlockAuthor, ImportedAuthor]),
+  origin: Schema.Literals(["jira", "projectproject"]),
+  createdAt: CommentBlockDate,
+  editedAt: EditedAt,
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
+})
+const LegacyJiraSnapshotCommentData = Schema.Struct({
+  author: LegacyJiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
-})
-const SnapshotJiraCommentData = Schema.Struct({
-  author: JiraBlockAuthor,
-  origin: Schema.Literal("jira"),
-  createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo,
+  resolvedBy: ResolvedBy,
+  resolvedAt: ResolvedAt,
+  tickets: Tickets
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
   NativeCommentData,
-  LinkedJiraCommentData,
-  SnapshotJiraCommentData
+  ImportedCommentData,
+  LegacyJiraSnapshotCommentData
 ])
+
+const blockAuthor = (
+  author: (typeof CommentBlockData.Type)["author"]
+): CommentBlockAuthor => {
+  if (Predicate.isString(author)) return { kind: "user", userId: author }
+  if (author.kind !== "jira") return author
+  return {
+    kind: "imported",
+    displayName: author.displayName,
+    source: "jira",
+    sourceId: author.accountId
+  }
+}
 
 const decodeUnknownCommentBlockDataOption =
   Schema.decodeUnknownOption(CommentBlockData)
@@ -123,21 +172,17 @@ export function parseCommentsRegion(
     const decoded = decodeUnknownCommentBlockDataOption(parsed.data)
     if (Option.isSome(decoded)) {
       const data = decoded.value
-      let author: CommentBlockAuthor
-      let origin: CommentBlock["origin"]
-      if ("origin" in data) {
-        author = data.author
-        origin = data.origin
-      } else {
-        author = { kind: "user", userId: data.author }
-        origin = "native"
-      }
       blocks.push({
         id,
-        author,
-        origin,
+        author: blockAuthor(data.author),
+        origin: "origin" in data ? data.origin : "native",
         createdAt: data.createdAt,
         editedAt: data.editedAt,
+        ...(data.replyTo === null ? {} : { replyTo: data.replyTo }),
+        ...(data.resolvedBy === null || data.resolvedAt === null
+          ? {}
+          : { resolvedBy: data.resolvedBy, resolvedAt: data.resolvedAt }),
+        ...(data.tickets.length === 0 ? {} : { tickets: data.tickets }),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -158,6 +203,12 @@ export function serializeCommentsRegion(
       createdAt: b.createdAt.toISOString()
     }
     if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
+    if (b.replyTo) fm.replyTo = b.replyTo
+    if (b.resolvedBy && b.resolvedAt) {
+      fm.resolvedBy = b.resolvedBy
+      fm.resolvedAt = b.resolvedAt.toISOString()
+    }
+    if (b.tickets && b.tickets.length > 0) fm.tickets = b.tickets
     out.push(`<!-- comment:${b.id} -->`)
     out.push(
       markdownFileContent(fm, b.body.replace(/\s+$/, "") + "\n").trimEnd()

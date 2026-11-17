@@ -17,6 +17,7 @@ import {
   multiFill
 } from "./color-picker-extras"
 import { HexSwatch, hexHeight } from "./hex-swatch"
+import { PopupHotkeyScope } from "./popup-hotkey-scope"
 
 /*
  * ColorPicker: a hexagonal swatch that opens a honeycomb of colours around
@@ -263,6 +264,15 @@ export function ColorPicker({
             onKeyDown={onKeyDown}
             className="pointer-events-none relative outline-none"
             style={{ width: HALF_WIDTH * 2, height: HALF_HEIGHT * 2 }}
+            // App hotkeys (Escape among them) stay out while the grid has
+            // focus, and work again the moment it closes.
+            render={(popupProps, state) => (
+              <div {...popupProps}>
+                <PopupHotkeyScope open={state.open}>
+                  {popupProps.children}
+                </PopupHotkeyScope>
+              </div>
+            )}
           >
             <div role={multiOn ? "group" : "radiogroup"} aria-label={ariaLabel}>
               {SLOTS.map((slot, index) => {

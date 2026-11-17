@@ -23,6 +23,7 @@
     "effect": "4.0.5",
     "fractional-indexing": "^3.2.0",
     "gray-matter": "^4.0.3",
+    "modern-tar": "0.8.6",
     "nodemailer": "^10.1.2",
     "sharp": "^0.35.5",
     "ulid": "^3.0.2"

@@ -19,6 +19,7 @@ const grantedOnEveryProjectBy = {
   },
   manage_members: { members: ["manage"] },
   archive: { project: ["archive"] },
+  export: { project: ["export"] },
   delete: { project: ["delete"] }
 } satisfies Readonly<Partial<Record<OrgProjectAction, ProjectGrants>>>
 

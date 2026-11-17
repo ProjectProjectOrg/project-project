@@ -222,7 +222,8 @@ const TicketIndexStub = Layer.mock(TicketIndex.TicketIndex, {
   touchedBy: () => Effect.succeed([]),
   countAssignedByStatus: () => Effect.succeed([]),
   assignedPerProject: () => Effect.succeed([]),
-  projectFor: (_o, _s) => Effect.succeed(ticketIndexProject)
+  projectFor: (_o, _s) => Effect.succeed(ticketIndexProject),
+  syncFormerKeys: () => Effect.succeed([])
 })
 
 const TicketIndexMaintenanceStub = Layer.mock(
@@ -240,6 +241,24 @@ const TicketIndexMaintenanceStub = Layer.mock(
 )
 
 const ProjectDocsStub = Layer.mock(ProjectDocs.ProjectDocs, {
+  read: () =>
+    Effect.succeed({
+      slug: "demo",
+      name: "Demo",
+      icon: "folder",
+      color: "#000000",
+      createdAt: isoDate("2026-01-01T00:00:00Z"),
+      github: null,
+      githubRepos: [],
+      estimation: "off",
+      setup: {
+        workflowReviewedAt: null,
+        invitePeopleDismissedAt: null,
+        connectGithubDismissedAt: null
+      },
+      links: [],
+      body: ""
+    }),
   readRaw: (_o, _s) =>
     Effect.succeed({
       path: "orgs/acme/projects/demo/project.md",
@@ -756,7 +775,10 @@ describe("MCP handlers → write tools", () => {
         origin: "native",
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),
-        editedAt: null
+        editedAt: null,
+        replyTo: null,
+        resolution: null,
+        tickets: []
       })
     }
   })
@@ -1878,10 +1900,18 @@ describe("MCP ticket discovery and history", () => {
             ticketId: "T-1",
             projectSlug: "demo",
             origin: "jira",
-            author: { kind: "jira", displayName: "Ada", accountId: "jira-ada" },
+            author: {
+              kind: "imported",
+              source: "jira",
+              displayName: "Ada",
+              sourceId: "jira-ada"
+            },
             body: "Try **retrying** the upload.",
             createdAt: "2026-05-01T00:00:00.000Z",
-            editedAt: null
+            editedAt: null,
+            replyTo: null,
+            resolution: null,
+            tickets: []
           }
         ])
       }).pipe(
@@ -1900,13 +1930,17 @@ describe("MCP ticket discovery and history", () => {
                       projectSlug: "demo",
                       origin: "jira",
                       author: {
-                        kind: "jira",
+                        kind: "imported",
+                        source: "jira",
                         displayName: "Ada",
-                        accountId: "jira-ada"
+                        sourceId: "jira-ada"
                       },
                       body: "Try **retrying** the upload.",
                       createdAt: isoDate("2026-05-01T00:00:00.000Z"),
-                      editedAt: null
+                      editedAt: null,
+                      replyTo: null,
+                      resolution: null,
+                      tickets: []
                     }
                   ]
                 })

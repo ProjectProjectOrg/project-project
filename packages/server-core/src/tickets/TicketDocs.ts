@@ -6,6 +6,7 @@ import {
   parseEstimateToken,
   type ActivityCause,
   type TicketActivityChange,
+  GroupId,
   PullRequestState,
   TagName,
   TicketId,
@@ -21,11 +22,17 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
-import { relationChanges, ticketChanges } from "../activity/changes"
+import {
+  relationChanges,
+  sprintChanges,
+  ticketChanges,
+  type SprintRef
+} from "../activity/changes"
 import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
 import * as TicketActivity from "../activity/TicketActivity"
 import { inboxNotices } from "../inbox/events"
@@ -69,6 +76,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   assignees: Schema.optionalKey(Schema.Array(Schema.String)),
   assignee: Schema.optionalKey(Schema.NullOr(Schema.String)),
   parent: Schema.optionalKey(TicketId),
+  sprint: Schema.optionalKey(GroupId),
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -116,6 +124,7 @@ const TicketFrontmatterValue = Schema.Struct({
       estimate: () => Schema.optional(Estimate),
       assignees: () => Schema.Array(Schema.String),
       parent: () => Schema.optional(TicketId),
+      sprint: () => Schema.optional(GroupId),
       splitFrom: () => Schema.optional(TicketId),
       blockedBy: () => Schema.optional(Schema.Array(TicketId)),
       relatedTo: () => Schema.optional(Schema.Array(TicketId)),
@@ -242,6 +251,7 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             "assignees",
             "updatedBy",
             "parent",
+            "sprint",
             "splitFrom",
             "blockedBy",
             "relatedTo",
@@ -257,6 +267,7 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
                 : [input.assignee]),
             updatedBy: input.updatedBy ?? input.createdBy,
             ...(input.parent ? { parent: input.parent } : {}),
+            ...(input.sprint ? { sprint: input.sprint } : {}),
             ...(input.splitFrom ? { splitFrom: input.splitFrom } : {}),
             ...(input.blockedBy?.length ? { blockedBy: input.blockedBy } : {}),
             ...(input.relatedTo?.length ? { relatedTo: input.relatedTo } : {}),
@@ -269,6 +280,7 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
         Object.assign(
           Struct.omit(input, [
             "parent",
+            "sprint",
             "splitFrom",
             "blockedBy",
             "relatedTo",
@@ -278,6 +290,7 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
           ]),
           gitToDisk(input),
           input.parent ? { parent: input.parent } : {},
+          input.sprint ? { sprint: input.sprint } : {},
           input.splitFrom ? { splitFrom: input.splitFrom } : {},
           input.blockedBy?.length ? { blockedBy: input.blockedBy } : {},
           input.relatedTo?.length ? { relatedTo: input.relatedTo } : {},
@@ -387,6 +400,9 @@ export class TicketDocs extends Context.Service<
 >()("@pp/server-core/tickets/TicketDocs") {}
 
 const decodeFrontmatter = Schema.decodeUnknownEffect(TicketFrontmatter)
+const decodeSprintName = Schema.decodeUnknownOption(
+  Schema.Struct({ name: Schema.String })
+)
 const encodeFrontmatter = Schema.encodeSync(TicketFrontmatter)
 const decodeTicketId = Schema.decodeUnknownEffect(TicketId)
 
@@ -435,6 +451,26 @@ const make = Effect.gen(function* () {
     effect: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R> =>
     keyedLock.withLock(KeyedLock.LockKey.ticketWrite(orgSlug, slug, id), effect)
+
+  const sprintRef = (
+    orgSlug: string,
+    slug: string,
+    id: GroupId | undefined
+  ): Effect.Effect<SprintRef | null> =>
+    id === undefined
+      ? Effect.succeed(null)
+      : markdown.readGroupFile(orgSlug, slug, id).pipe(
+          Effect.map((file) => ({
+            id,
+            name: decodeSprintName(file.data).pipe(
+              Option.match({
+                onNone: () => id,
+                onSome: ({ name }) => name
+              })
+            )
+          })),
+          Effect.orElseSucceed(() => ({ id, name: id }))
+        )
 
   const listIds = Effect.fn("TicketDocs.listIds")(function* (
     orgSlug: string,
@@ -610,10 +646,18 @@ const make = Effect.gen(function* () {
             finished === null
               ? stamped
               : clearFlagWhenFinished(current, stamped, finished)
+          const sprints =
+            activity.silent || current.sprint === next.sprint
+              ? []
+              : sprintChanges(
+                  yield* sprintRef(orgSlug, slug, current.sprint),
+                  yield* sprintRef(orgSlug, slug, next.sprint)
+                )
           const changes = activity.silent
             ? []
             : [
                 ...ticketChanges(current, next, activity.archiveReason),
+                ...sprints,
                 ...(activity.extra ?? [])
               ]
           const events =

@@ -24,6 +24,7 @@ import {
 import { isBlankAbout } from "@/features/projects/lib/aboutTemplate"
 import { DescriptionActions } from "@/features/tickets/components/ticket-page/DescriptionActions"
 import { useProjectActor } from "@/hooks/useActor"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export function AboutTab() {
@@ -61,7 +62,8 @@ function AboutDescription({
   const rootRef = useRef<HTMLDivElement>(null)
   const { editing, startEditing, stopEditing } = useEditMode({
     editorRef,
-    rootRef
+    rootRef,
+    startHotkey: appHotkeys["tickets.edit-description"]
   })
 
   if (!canEdit) {

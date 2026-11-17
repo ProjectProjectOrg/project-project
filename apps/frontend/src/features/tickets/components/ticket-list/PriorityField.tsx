@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import type { ReactElement } from "react"
 
 import {
@@ -15,6 +16,8 @@ import {
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 export const priorityOptions = () =>
@@ -49,7 +52,12 @@ export function PriorityMenu({
 }>) {
   return (
     <DropdownMenu disabled={disabled}>
-      <DropdownMenuTrigger render={trigger} />
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.priority"]}
+        keyLabels={keyLabels()}
+      >
+        <DropdownMenuTrigger render={trigger} />
+      </ShortcutTooltip>
       <DropdownMenuContent
         align="start"
         sideOffset={6}

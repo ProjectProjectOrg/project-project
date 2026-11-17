@@ -168,6 +168,8 @@ Add a Proxy Host in NPM:
 
 Set the same Forward Hostname for HTTPS that you put in `BETTER_AUTH_URL`.
 
+Project imports upload one archive of up to 2 GiB to `/api/orgs/<org>/project-imports`. The image's nginx allows that on this route only; if a proxy in front (NPM or another) caps request bodies, raise its limit for this host too, for example `client_max_body_size 2g;` in the Proxy Host's custom nginx configuration.
+
 ### 7. Verify auto-redeploy
 
 Push any change to `main` (e.g. a comment in a README). Within 5–10

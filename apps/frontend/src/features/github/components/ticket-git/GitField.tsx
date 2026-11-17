@@ -158,8 +158,8 @@ const fieldView = (
       },
       pr_pending: (s) => ({
         branch: s.branch,
-        icon: GitBranch,
-        busy: false,
+        icon: s.url === "" ? GitBranch : LoaderCircle,
+        busy: s.url !== "",
         openPr: null,
         status: (
           <>

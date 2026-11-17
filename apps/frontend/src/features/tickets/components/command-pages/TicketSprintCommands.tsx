@@ -145,9 +145,10 @@ export function TicketSprintCommands({
               <SprintStateIcon sprint={sprint} size="md" />
             )}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {sprint !== undefined && sprint === current && (
-              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-            )}
+            <CommandMenuCheck
+              checked={sprint !== undefined && sprint === current}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}

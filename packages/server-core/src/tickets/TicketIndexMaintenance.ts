@@ -49,10 +49,12 @@ const commentIndexRowsForDocument = (
     origin: comment.origin,
     authorKind: comment.author.kind,
     authorId: comment.author.kind === "user" ? comment.author.userId : null,
-    jiraDisplayName:
-      comment.author.kind === "jira" ? comment.author.displayName : null,
-    jiraAccountId:
-      comment.author.kind === "jira" ? comment.author.accountId : null,
+    importedName:
+      comment.author.kind === "imported" ? comment.author.displayName : null,
+    importedSource:
+      comment.author.kind === "imported" ? comment.author.source : null,
+    importedId:
+      comment.author.kind === "imported" ? comment.author.sourceId : null,
     createdAt: comment.createdAt,
     editedAt: comment.editedAt
   }))
@@ -82,11 +84,16 @@ export const nextTicketNumberFor = (
     }, 1)
 
 export type IndexedTicketRef = Readonly<
-  Pick<typeof ticketIndex.$inferSelect, "ticketId" | "updatedAt" | "repoId">
+  Pick<
+    typeof ticketIndex.$inferSelect,
+    "ticketId" | "updatedAt" | "repoId" | "sprintId"
+  >
 >
 
 export type DocumentTicketRef = Readonly<
-  Pick<TicketDocs.TicketDocument, "updatedAt" | "repo"> & { id: string }
+  Pick<TicketDocs.TicketDocument, "updatedAt" | "repo" | "sprint"> & {
+    id: string
+  }
 >
 
 export const detectTicketIndexDrift = (
@@ -102,7 +109,8 @@ export const detectTicketIndexDrift = (
     if (row === undefined) missing.push(id)
     else if (
       row.updatedAt.getTime() !== document.updatedAt.getTime() ||
-      row.repoId !== (document.repo ?? null)
+      row.repoId !== (document.repo ?? null) ||
+      row.sprintId !== (document.sprint ?? null)
     )
       stale.push(id)
   }
@@ -477,7 +485,8 @@ const make = Effect.gen(function* () {
       .select({
         ticketId: ticketIndex.ticketId,
         updatedAt: ticketIndex.updatedAt,
-        repoId: ticketIndex.repoId
+        repoId: ticketIndex.repoId,
+        sprintId: ticketIndex.sprintId
       })
       .from(ticketIndex)
       .where(eq(ticketIndex.projectId, project.projectId))

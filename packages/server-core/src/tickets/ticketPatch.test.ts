@@ -1,4 +1,5 @@
 import {
+  GroupId,
   TagName,
   TicketId,
   TicketStatus,
@@ -15,7 +16,6 @@ import {
   hierarchyChangeOf,
   batchChangeOf,
   breaksEpicSprintRule,
-  openSprintIdsOf,
   revertTicketPatch,
   ticketChangeOf,
   type TicketPatch
@@ -232,6 +232,21 @@ describe("batchChangeOf", () => {
 })
 
 describe("breaksEpicSprintRule", () => {
+  const sprintId = Schema.decodeUnknownSync(GroupId)
+  const sprints = new Map(
+    [
+      { id: sprintId("G-1"), kind: "sprint" as const, completedAt: null },
+      { id: sprintId("G-2"), kind: "sprint" as const, completedAt: null },
+      { id: sprintId("G-3"), kind: "sprint" as const, completedAt: created }
+    ].map((sprint) => [sprint.id, sprint])
+  )
+  const inSprint = (
+    document: TicketDocs.TicketDocument,
+    id: string | undefined
+  ): TicketDocs.TicketDocument => ({
+    ...document,
+    sprint: id === undefined ? undefined : sprintId(id)
+  })
   const ticket = existing
   const epic = { ...existing, type: TypeKey.make("epic") }
   const cases: ReadonlyArray<
@@ -239,78 +254,51 @@ describe("breaksEpicSprintRule", () => {
       string,
       TicketDocs.TicketDocument,
       TicketDocs.TicketDocument,
-      ReadonlyArray<string>,
-      ReadonlyArray<string>,
       boolean
     ]
   > = [
     [
       "becoming an epic while staying in a sprint",
-      ticket,
-      epic,
-      ["G-1"],
-      ["G-1"],
+      inSprint(ticket, "G-1"),
+      inSprint(epic, "G-1"),
       true
     ],
     [
       "becoming an epic while leaving the sprint",
-      ticket,
+      inSprint(ticket, "G-1"),
       epic,
-      ["G-1"],
-      [],
       false
     ],
-    ["becoming an epic outside any sprint", ticket, epic, [], [], false],
-    ["an epic planned into a sprint", epic, epic, [], ["G-1"], true],
-    ["an epic moved to another sprint", epic, epic, ["G-1"], ["G-2"], true],
+    ["becoming an epic outside any sprint", ticket, epic, false],
+    [
+      "becoming an epic in a completed sprint",
+      inSprint(ticket, "G-3"),
+      inSprint(epic, "G-3"),
+      false
+    ],
+    ["an epic planned into a sprint", epic, inSprint(epic, "G-1"), true],
+    [
+      "an epic moved to another sprint",
+      inSprint(epic, "G-1"),
+      inSprint(epic, "G-2"),
+      true
+    ],
     [
       "an epic left in the sprint it is already in",
-      epic,
-      epic,
-      ["G-1"],
-      ["G-1"],
+      inSprint(epic, "G-1"),
+      inSprint(epic, "G-1"),
       false
     ],
     [
       "a ticket that isn't an epic planned into a sprint",
       ticket,
-      ticket,
-      [],
-      ["G-1"],
+      inSprint(ticket, "G-1"),
       false
     ]
   ]
 
-  it.each(cases)(
-    "%s",
-    (_name, before, after, sprintsBefore, sprintsAfter, breaks) => {
-      expect(
-        breaksEpicSprintRule(before, after, sprintsBefore, sprintsAfter)
-      ).toBe(breaks)
-    }
-  )
-})
-
-const group = (
-  id: string,
-  kind: string,
-  completedAt: Date | null,
-  tickets: ReadonlyArray<string>
-) => ({ id, kind, completedAt, tickets })
-
-describe("openSprintIdsOf", () => {
-  it("lists only open sprints that hold the ticket", () => {
-    expect(
-      openSprintIdsOf(
-        [
-          group("G-1", "sprint", null, ["T-2"]),
-          group("G-2", "sprint", created, ["T-2"]),
-          group("G-3", "epic", null, ["T-2"]),
-          group("G-4", "sprint", null, ["T-3"])
-        ],
-        "T-2"
-      )
-    ).toEqual(["G-1"])
+  it.each(cases)("%s", (_name, before, after, breaks) => {
+    expect(breaksEpicSprintRule(before, after, sprints)).toBe(breaks)
   })
 })
 

@@ -11,10 +11,11 @@ import type {
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
 import { OctagonMinus } from "@pp/ui/icons"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { PopoverContent } from "@pp/ui/popover"
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
@@ -47,6 +48,7 @@ import {
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type MarkdownModule = typeof import("@pp/ui/editor/markdown")
@@ -118,7 +120,7 @@ export function TicketPreviewBody({
   ticketId: TicketId
   scope: TicketHoverCardScope
   interactive: boolean
-  shortcut?: string
+  shortcut?: HotkeyChord
 }) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
@@ -146,7 +148,11 @@ export function TicketPreviewBody({
               {ticket.title}
             </div>
             {shortcut !== undefined && (
-              <Kbd aria-hidden>{shortcut.toUpperCase()}</Kbd>
+              <KbdShortcut
+                keys={shortcut}
+                keyLabels={keyLabels()}
+                aria-hidden
+              />
             )}
           </div>
           <MetaRow ticket={ticket} scope={scope} statuses={statuses} />

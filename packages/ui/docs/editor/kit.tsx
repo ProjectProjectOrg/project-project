@@ -226,6 +226,13 @@ export const SAMPLE_SERVICES: EditorServices = {
       </PopoverContent>
     )
   },
+  renderCommentPreview: (id, commentId) => (
+    <PopoverContent className="w-72 p-3" align="start">
+      <p className="font-mono text-caption text-muted-foreground">
+        {id} · {commentId}
+      </p>
+    </PopoverContent>
+  ),
   useLinkPreview: (url) => ({
     title: LINK_TITLES[url] ?? null,
     favicon: { kind: "fallback", cached: true }

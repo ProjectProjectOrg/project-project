@@ -1,10 +1,13 @@
+import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
   branchMentionsTicketId,
   closingTicketIdsInText,
+  resolveTicketId,
   ticketIdsInText
 } from "./references"
+import { TicketId } from "./Ticket"
 
 const idsFor = (branches: ReadonlyArray<string>) =>
   Object.fromEntries(
@@ -179,5 +182,19 @@ describe("closingTicketIdsInText", () => {
       "Closes #12": [],
       "fixes-T-1": []
     })
+  })
+})
+
+describe("resolveTicketId", () => {
+  it("maps ids under a former key to the current key and leaves others alone", () => {
+    const keys = { current: "PP", former: ["T"] }
+    const resolve = (id: string) =>
+      resolveTicketId(keys, Schema.decodeSync(TicketId)(id))
+
+    expect(["T-12", "PP-3", "OTHER-4"].map(resolve)).toEqual([
+      "PP-12",
+      "PP-3",
+      "OTHER-4"
+    ])
   })
 })

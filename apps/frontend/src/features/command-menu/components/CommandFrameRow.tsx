@@ -1,14 +1,16 @@
 import type { TextRange } from "@pp/shared"
-import { CommandMenuItem } from "@pp/ui/command-menu"
+import { CommandMenuItem, CommandMenuShortcut } from "@pp/ui/command-menu"
 import { ChevronRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+
+import { keyLabels } from "@/lib/keyLabels"
 
 import type { CommandFrameItem } from "./CommandFrame"
 
 export function CommandFrameRow({
   item
 }: Readonly<{ item: CommandFrameItem }>) {
-  const { prefix, parent, aside, detail } = item
+  const { prefix, parent, aside, detail, shortcut } = item
   if (detail !== undefined) {
     return (
       <CommandMenuItem
@@ -57,6 +59,14 @@ export function CommandFrameRow({
           <span className="ml-1 flex min-w-0 group-aria-selected/command-item:[&_.text-muted-foreground]:text-foreground">
             {aside}
           </span>
+        )}
+        {shortcut !== undefined && (
+          <CommandMenuShortcut
+            keyLabels={keyLabels()}
+            keys={shortcut}
+            aria-hidden
+            className="ml-2"
+          />
         )}
       </span>
     </CommandMenuItem>

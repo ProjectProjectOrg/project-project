@@ -1,3 +1,4 @@
+import { useHotkey, type AppHotkey } from "@tanstack/react-hotkeys"
 import {
   $createRangeSelection,
   $getRoot,
@@ -14,15 +15,16 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
-import { hasModifier, ownsKeystrokes } from "../lib/keyboard"
-
 export function useEditMode({
   editorRef,
   rootRef,
+  startHotkey,
   initial = false
 }: Readonly<{
   editorRef: RefObject<LexicalEditor | null>
   rootRef: RefObject<HTMLElement | null>
+  // The app's hotkey that starts editing (E); null for none.
+  startHotkey: AppHotkey | null
   initial?: boolean
 }>) {
   const [editing, setEditing] = useState(initial)
@@ -68,21 +70,12 @@ export function useEditMode({
     setEditing(false)
   }, [editorRef])
 
-  const startFromShortcut = useEffectEvent(startEditing)
   const stopFromEvent = useEffectEvent(stopEditing)
 
-  useEffect(() => {
-    if (editing) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "e" && event.key !== "E") return
-      if (event.repeat || event.defaultPrevented || hasModifier(event)) return
-      if (ownsKeystrokes(event.target)) return
-      event.preventDefault()
-      startFromShortcut()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [editing])
+  useHotkey(startHotkey, startEditing, {
+    enabled: !editing,
+    requireReset: true
+  })
 
   useEffect(() => {
     if (!editing) return
@@ -93,19 +86,16 @@ export function useEditMode({
       if (rootRef.current?.contains(target) ?? false) return
       stopFromEvent()
     }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return
-      if (!(event.target instanceof Node)) return
-      if (!(rootRef.current?.contains(event.target) ?? false)) return
-      stopFromEvent()
-    }
     document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown)
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [editing, rootRef])
+
+  useHotkey("Escape", stopEditing, {
+    target: rootRef,
+    enabled: editing,
+    preventDefault: false,
+    conflictBehavior: "allow"
+  })
 
   return { editing, startEditing, stopEditing }
 }

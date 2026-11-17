@@ -38,6 +38,7 @@ import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import * as PullRequestSnapshots from "@pp/server-core/github/PullRequestSnapshots"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Inbox from "@pp/server-core/inbox/Inbox"
@@ -54,6 +55,9 @@ import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectExport from "@pp/server-core/projects/ProjectExport"
+import * as ProjectImports from "@pp/server-core/projects/ProjectImports"
+import * as ProjectReferences from "@pp/server-core/projects/ProjectReferences"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -152,7 +156,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
   tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
   oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
-  Tags.layer
+  Layer.mergeAll(Tags.layer, ProjectReferences.layer)
     .pipe(
       Layer.provideMerge(FeedbackIntake.layer),
       Layer.provideMerge(SystemProjects.layer),
@@ -175,6 +179,14 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(Comments.layer),
       Layer.provideMerge(Groups.layer),
       Layer.provideMerge(ProjectServices.layer),
+      Layer.provideMerge(ProjectExport.layer),
+      Layer.provideMerge(
+        ProjectImports.ProjectImportWorkflowLive.pipe(
+          Layer.provideMerge(ProjectImports.layer)
+        )
+      )
+    )
+    .pipe(
       Layer.provideMerge(Org.layer),
       Layer.provideMerge(Access.layer),
       Layer.provideMerge(GitHubLive),
@@ -191,7 +203,9 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(
         TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
       ),
-      Layer.provideMerge(TicketBranchIndex.layer),
+      Layer.provideMerge(
+        Layer.mergeAll(TicketBranchIndex.layer, PullRequestSnapshots.layer)
+      ),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),

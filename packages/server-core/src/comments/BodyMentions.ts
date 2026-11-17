@@ -1,13 +1,20 @@
-import { extractMentionLinks, MentionInvalid } from "@pp/shared"
+import {
+  extractMentionLinks,
+  mentionedTicket,
+  MentionInvalid
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 
 export const validateBodyMentions = (
   body: string,
   memberIds: ReadonlySet<string>,
-  ticketIds: ReadonlySet<string>
+  ticketIds: ReadonlySet<string>,
+  tolerated: ReadonlySet<string> = new Set()
 ): Effect.Effect<void, MentionInvalid> =>
   Effect.gen(function* () {
-    const links = extractMentionLinks(body)
+    const links = extractMentionLinks(body).filter(
+      (link) => !tolerated.has(link.href)
+    )
     for (const link of links) {
       if (!link.parsed) {
         return yield* new MentionInvalid({
@@ -27,7 +34,14 @@ export const validateBodyMentions = (
           href: link.href
         })
       }
-      if (link.parsed.type === "ticket" && !ticketIds.has(link.parsed.id)) {
+      const ticket = mentionedTicket(link.parsed)
+      if (link.parsed.type === "comment" && ticket === null) {
+        return yield* new MentionInvalid({
+          kind: "malformed_href",
+          href: link.href
+        })
+      }
+      if (ticket !== null && !ticketIds.has(ticket)) {
         return yield* new MentionInvalid({
           kind: "unknown_ticket",
           href: link.href
@@ -52,7 +66,8 @@ export const validateBodyMentionsWithLookups = <
       MemberError,
       MemberContext
     >
-  }
+  },
+  previousBody = ""
 ): Effect.Effect<
   void,
   MentionInvalid | TicketError | MemberError,
@@ -63,9 +78,10 @@ export const validateBodyMentionsWithLookups = <
     const links = extractMentionLinks(body)
     const referencedTicketIds = [
       ...new Set(
-        links.flatMap((link) =>
-          link.parsed?.type === "ticket" ? [link.parsed.id] : []
-        )
+        links.flatMap((link) => {
+          const ticket = link.parsed ? mentionedTicket(link.parsed) : null
+          return ticket === null ? [] : [ticket]
+        })
       )
     ]
     const hasUserMentions = links.some((link) => link.parsed?.type === "user")
@@ -78,6 +94,9 @@ export const validateBodyMentionsWithLookups = <
       ],
       { concurrency: 2 }
     )
-    yield* validateBodyMentions(body, memberIds, ticketIds)
+    const tolerated = new Set(
+      extractMentionLinks(previousBody).map((link) => link.href)
+    )
+    yield* validateBodyMentions(body, memberIds, ticketIds, tolerated)
   })
 }

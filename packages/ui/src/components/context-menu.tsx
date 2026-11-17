@@ -3,7 +3,7 @@ import * as React from "react"
 
 import { MenuControlProvider, useMenuRoot } from "../lib/menuClose"
 import { cn } from "../lib/utils"
-import { DropdownMenuPortal } from "./dropdown-menu"
+import { DropdownMenuPortal, pickNumberedItem } from "./dropdown-menu"
 import { MenuHighlight } from "./menu-highlight"
 import { menuPopupClass } from "./menu-styles"
 
@@ -44,6 +44,7 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Positioner>
         <ContextMenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onKeyDownCapture={pickNumberedItem}
           onClick={(event) => {
             onClick?.(event)
             event.stopPropagation()

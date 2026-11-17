@@ -341,8 +341,7 @@ function Capsule({
 function Cancel({
   children,
   ...rest
-}: Omit<ButtonProps, "onClick" | "children"> &
-  Readonly<{ children: ReactNode }>) {
+}: Omit<ButtonProps, "children"> & Readonly<{ children: ReactNode }>) {
   const { close, busy } = useConfirmButton()
   return (
     <Button
@@ -351,7 +350,10 @@ function Cancel({
       leadingIcon={X}
       {...rest}
       disabled={rest.disabled || busy}
-      onClick={close}
+      onClick={(event) => {
+        close()
+        rest.onClick?.(event)
+      }}
     >
       {children}
     </Button>
@@ -377,6 +379,8 @@ type ActionProps<E> = Readonly<{
   label: ReactNode
   busyLabel?: ReactNode
   onConfirm: () => Promise<ConfirmOutcome<E>> | ConfirmOutcome<E>
+  // Runs after the prompt closes through its cancel button.
+  onCancel?: () => void
   describeError: (cause: Cause.Cause<E>) => string
   disabled?: boolean
   size?: keyof typeof CONFIRM_SIZES
@@ -396,6 +400,7 @@ function Action<E = unknown>({
   label,
   busyLabel = label,
   onConfirm,
+  onCancel,
   describeError,
   disabled = false,
   size = "sm",
@@ -416,6 +421,10 @@ function Action<E = unknown>({
   const error = externalError === undefined ? internalError : externalError
   const typedMatches = typed === undefined || typedValue.trim() === typed
   const blocked = busy || disabled || !typedMatches
+  const cancel = () => {
+    close()
+    onCancel?.()
+  }
 
   async function run() {
     if (blocked) return
@@ -481,7 +490,7 @@ function Action<E = unknown>({
         confirmButton={confirmButton}
         cancelLabel={cancelLabel}
         busy={busy}
-        onCancel={close}
+        onCancel={cancel}
       >
         {children}
       </CapsuleAction>
@@ -500,7 +509,7 @@ function Action<E = unknown>({
         {children}
         {confirmButton}
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the prompt */}
-        <Cancel {...styles.cancel} autoFocus>
+        <Cancel {...styles.cancel} onClick={onCancel} autoFocus>
           {cancelLabel}
         </Cancel>
       </>
@@ -508,7 +517,13 @@ function Action<E = unknown>({
   }
 
   const cancelButton = (
-    <Button type="button" variant="ghost" size="sm" onClick={close}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={busy}
+      onClick={cancel}
+    >
       {cancelLabel}
     </Button>
   )
@@ -555,12 +570,16 @@ function Action<E = unknown>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <p className="text-subtitle font-semibold">{prompt}</p>
-        {description === undefined ? null : (
-          <p className={"text-caption text-muted-foreground"}>{description}</p>
-        )}
-      </div>
+      {(prompt != null || description !== undefined) && (
+        <div className="flex flex-col gap-1">
+          <p className="text-subtitle font-semibold">{prompt}</p>
+          {description === undefined ? null : (
+            <p className={"text-caption text-muted-foreground"}>
+              {description}
+            </p>
+          )}
+        </div>
+      )}
       {children}
       {errorLine}
       <div className="flex items-center justify-end gap-2">

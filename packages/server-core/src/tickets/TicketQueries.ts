@@ -7,7 +7,6 @@ import {
   type EpicSectionKey,
   estimationUnit,
   type Forbidden,
-  type GroupId,
   type GroupIdFilter,
   backlogSprintSections,
   MY_TICKETS_DONE_WINDOW_DAYS,
@@ -27,7 +26,6 @@ import {
   type RecentTicketActivity,
   type RecentTicketRow,
   sprintSectionKey,
-  sprintState,
   summarizeEstimates,
   type Ticket,
   type TicketCountQuery,
@@ -62,8 +60,9 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import * as Access from "../access/Access"
-import { presentActor } from "../activity/actorRow"
+import { presentActor, storedActorUserId } from "../activity/actorRow"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
+import type * as GroupDocs from "../groups/GroupDocs"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import { parseMarkdownFile } from "../markdown/fileContent"
@@ -81,7 +80,6 @@ import {
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
-import type { TicketProject } from "./ticketProject"
 import {
   matchTicketText,
   searchWords,
@@ -169,11 +167,10 @@ const touchedActorIds = (
 ): ReadonlyArray<string> => [
   ...new Set(
     entries.flatMap(({ assignedEvent, statusEvent }) =>
-      [assignedEvent, statusEvent].flatMap((event) =>
-        event === null || event.actor.kind === "system"
-          ? []
-          : [event.actor.userId]
-      )
+      [assignedEvent, statusEvent].flatMap((event) => {
+        const id = event === null ? null : storedActorUserId(event.actor)
+        return id === null ? [] : [id]
+      })
     )
   )
 ]
@@ -340,56 +337,41 @@ const make = Effect.gen(function* () {
     return scope
   })
 
+  const openSprintIds = (documents: ReadonlyArray<GroupDocs.GroupDocument>) =>
+    documents.flatMap((group) =>
+      group.kind === "sprint" && group.completedAt === null ? [group.id] : []
+    )
+
+  const groupMembers = (
+    documents: ReadonlyArray<GroupDocs.GroupDocument>,
+    groupIds: ReadonlyArray<GroupIdFilter>
+  ): TicketIndex.TicketIndexMembers => {
+    const selected = documents.filter((group) => groupIds.includes(group.id))
+    return {
+      sprints: selected.flatMap((group) =>
+        group.kind === "sprint" ? [group.id] : []
+      ),
+      tickets: selected.flatMap((group) =>
+        group.kind === "sprint" ? [] : group.tickets
+      ),
+      outsideSprints: groupIds.includes("ungrouped")
+        ? openSprintIds(documents)
+        : null
+    }
+  }
+
   const resolveGroupMembers = (
-    project: TicketProject,
     groupIds: ReadonlyArray<GroupIdFilter> | undefined
   ): Effect.Effect<
-    ReadonlySet<string> | null,
-    NotFound | Markdown.MarkdownError,
+    TicketIndex.TicketIndexMembers | undefined,
+    Markdown.MarkdownError,
     ProjectScope
   > =>
-    Effect.gen(function* () {
-      if (groupIds === undefined || groupIds.length === 0) return null
-      const wantsUngrouped = groupIds.includes("ungrouped")
-      const explicitIds = groupIds.filter((id) => id !== "ungrouped")
-      const memberSet = new Set<string>()
-      const [details, ungrouped] = yield* Effect.all(
-        [
-          Effect.forEach(
-            explicitIds,
-            (id) =>
-              groups
-                .get(id)
-                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
-            { concurrency: 8 }
-          ),
-          wantsUngrouped
-            ? Effect.all([groups.list(), ticketIndex.listIds(project)], {
-                concurrency: 2
-              })
-            : Effect.succeed(null)
-        ],
-        { concurrency: 2 }
-      )
-      for (const g of details) {
-        if (g === null) continue
-        for (const t of g.tickets) memberSet.add(t)
-      }
-      if (ungrouped !== null) {
-        const [allGroups, allTicketIds] = ungrouped
-        const inIncompleteSprint = new Set<string>()
-        const now = yield* DateTime.nowAsDate
-        for (const g of allGroups) {
-          if (g.kind !== "sprint" || sprintState(g, now) === "completed")
-            continue
-          for (const t of g.tickets) inIncompleteSprint.add(t)
-        }
-        for (const id of allTicketIds) {
-          if (!inIncompleteSprint.has(id)) memberSet.add(id)
-        }
-      }
-      return memberSet
-    })
+    groupIds === undefined || groupIds.length === 0
+      ? Effect.succeed(undefined)
+      : Effect.map(groups.documents(), (documents) =>
+          groupMembers(documents, groupIds)
+        )
 
   const list = Effect.fn("TicketQueries.list")(function* (
     query: TicketPageQuery,
@@ -397,10 +379,10 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const [groupMemberSet, sectionMemberSet] = yield* Effect.all(
+    const [members, sectionMembers] = yield* Effect.all(
       [
-        resolveGroupMembers(scope, query.groupId),
-        resolveGroupMembers(scope, query.section?.groupId)
+        resolveGroupMembers(query.groupId),
+        resolveGroupMembers(query.section?.groupId)
       ],
       { concurrency: 2 }
     )
@@ -409,9 +391,8 @@ const make = Effect.gen(function* () {
       [
         ticketIndex.query(scope, query, {
           viewerId: userId,
-          ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
-          sectionTicketIds:
-            sectionMemberSet === null ? undefined : [...sectionMemberSet],
+          members,
+          sectionMembers,
           limit: pageLimit + 1
         }),
         gitView
@@ -730,14 +711,14 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
+    const members = yield* resolveGroupMembers(query.groupId)
     const queryForCount: TicketCountQuery = {
       ...query,
       status: undefined
     }
     const counts = yield* ticketIndex.count(scope, queryForCount, {
       viewerId: userId,
-      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
+      members
     })
     return {
       total: counts.total,
@@ -750,11 +731,8 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
-    const options = {
-      viewerId: userId,
-      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
-    }
+    const members = yield* resolveGroupMembers(query.groupId)
+    const options = { viewerId: userId, members }
     const [bySection, view] = yield* Effect.all(
       [
         ticketIndex.querySections(
@@ -795,49 +773,42 @@ const make = Effect.gen(function* () {
   })
 
   const sprintSectionMembers = Effect.fnUntraced(function* (
-    scope: TicketProject,
     query: TicketListQuery
   ) {
-    const allGroups = yield* groups.list()
+    const documents = yield* groups.documents()
     const now = yield* DateTime.nowAsDate
-    const sprints = allGroups.filter((group) => group.kind === "sprint")
-    const sectionIds = backlogSprintSections(sprints, query.groupId, now).map(
-      (sprint): GroupIdFilter => sprint?.id ?? "ungrouped"
+    const sections = backlogSprintSections(
+      documents.filter((group) => group.kind === "sprint"),
+      query.groupId,
+      now
     )
-    const selectedSections = new Set(sectionIds)
-    const claimed = new Set<string>()
-    const bySprint = new Map<GroupId, Array<string>>()
-    const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
-      const ids: Array<string> = []
-      for (const id of tickets) {
-        if (claimed.has(id)) continue
-        claimed.add(id)
-        ids.push(id)
-      }
-      return ids
-    }
-    for (const sprint of sprints) {
-      if (sprint.completedAt === null && selectedSections.has(sprint.id)) {
-        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
-      }
-    }
-    for (const sprint of sprints) {
-      if (sprint.completedAt !== null && selectedSections.has(sprint.id)) {
-        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
-      }
-    }
-    const ungroupedMembers = query.groupId?.includes("ungrouped")
-      ? yield* resolveGroupMembers(scope, ["ungrouped"])
-      : null
-    return sectionIds.map((groupId) => ({
-      key: groupId,
-      ticketIds:
-        groupId === "ungrouped"
-          ? ungroupedMembers === null
-            ? undefined
-            : [...ungroupedMembers].filter((id) => !claimed.has(id))
-          : (bySprint.get(groupId) ?? [])
-    }))
+    const unscheduled = query.groupId?.includes("ungrouped")
+      ? {
+          sprints: [],
+          tickets: [],
+          outsideSprints: [
+            ...new Set([
+              ...openSprintIds(documents),
+              ...sections.flatMap((sprint) =>
+                sprint === null ? [] : [sprint.id]
+              )
+            ])
+          ]
+        }
+      : undefined
+    return sections.map(
+      (sprint): TicketIndex.TicketIndexSection & { key: GroupIdFilter } =>
+        sprint === null
+          ? { key: "ungrouped", members: unscheduled }
+          : {
+              key: sprint.id,
+              members: {
+                sprints: [sprint.id],
+                tickets: [],
+                outsideSprints: null
+              }
+            }
+    )
   })
 
   const sprintSections = Effect.fn("TicketQueries.sprintSections")(function* (
@@ -847,20 +818,18 @@ const make = Effect.gen(function* () {
     const { userId } = scope
     const [members, projectDocument, view] = yield* Effect.all(
       [
-        sprintSectionMembers(scope, query),
+        sprintSectionMembers(query),
         readProjectDocument({ db, docs: projectDocs, project: scope }),
         gitView
       ],
       { concurrency: "unbounded" }
     )
     const unit = estimationUnit(projectDocument.estimation)
-    const estimatedIds =
+    const estimatedSprints =
       unit === null
         ? []
-        : members.flatMap(({ key, ticketIds }) =>
-            key === "ungrouped" || ticketIds === undefined ? [] : ticketIds
-          )
-    const [bySection, estimatedList, phaseOf] = yield* Effect.all(
+        : members.flatMap(({ key }) => (key === "ungrouped" ? [] : [key]))
+    const [bySection, sprintTickets, phaseOf] = yield* Effect.all(
       [
         ticketIndex.querySections(
           scope,
@@ -871,35 +840,32 @@ const make = Effect.gen(function* () {
             sections: members
           }
         ),
-        estimatedIds.length === 0
-          ? Effect.succeed([])
-          : ticketIndex.list(scope, estimatedIds),
+        ticketIndex.sprintTickets(scope, estimatedSprints),
         unit === null
           ? Effect.succeed(null)
           : finishedStatuses.phasesForProject(scope.orgSlug, scope.slug)
       ],
       { concurrency: "unbounded" }
     )
-    const estimatedEntries = new Map(
-      estimatedList.map((entry): [string, typeof entry] => [entry.id, entry])
-    )
+    const estimatedBySprint = new Map<
+      string,
+      Array<TicketIndex.TicketIndexSprintTicket>
+    >()
+    for (const ticket of sprintTickets) {
+      if (ticket.archived) continue
+      const tickets = estimatedBySprint.get(ticket.sprintId) ?? []
+      tickets.push(ticket)
+      estimatedBySprint.set(ticket.sprintId, tickets)
+    }
     const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
-    const pages = members.map(({ key: groupId, ticketIds }) => {
+    const pages = members.map(({ key: groupId }) => {
       const result = bySection.get(groupId)
       const counts = result?.counts ?? emptyCounts
       const estimates =
-        unit === null ||
-        phaseOf === null ||
-        groupId === "ungrouped" ||
-        ticketIds === undefined
+        unit === null || phaseOf === null || groupId === "ungrouped"
           ? null
           : summarizeEstimates(
-              ticketIds.flatMap((id) => {
-                const entry = estimatedEntries.get(id)
-                return entry === undefined || entry.archivedAt !== null
-                  ? []
-                  : [entry]
-              }),
+              estimatedBySprint.get(groupId) ?? [],
               unit,
               phaseOf
             )
@@ -954,14 +920,14 @@ const make = Effect.gen(function* () {
       scope: Effect.Success<ReturnType<typeof queryable>>,
       query: TicketListQuery,
       sections: "parent" | "ticketParent",
-      groupMemberSet: ReadonlySet<string> | null
+      members: TicketIndex.TicketIndexMembers | undefined
     ) {
       return yield* ticketIndex.querySections(
         scope,
         parentSectionQuery(query),
         {
           viewerId: scope.userId,
-          ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
+          members,
           limit: TICKET_LIST_LIMIT + 1,
           sections
         }
@@ -1060,20 +1026,11 @@ const make = Effect.gen(function* () {
     query: TicketListQuery
   ) {
     const scope = yield* queryable(query)
-    const [groupMemberSet, { wanted, archivedIds }, view] = yield* Effect.all(
-      [
-        resolveGroupMembers(scope, query.groupId),
-        epicSectionsWanted(scope),
-        gitView
-      ],
+    const [members, { wanted, archivedIds }, view] = yield* Effect.all(
+      [resolveGroupMembers(query.groupId), epicSectionsWanted(scope), gitView],
       { concurrency: "unbounded" }
     )
-    const bySection = yield* parentSectionsOf(
-      scope,
-      query,
-      "parent",
-      groupMemberSet
-    )
+    const bySection = yield* parentSectionsOf(scope, query, "parent", members)
     return toParentSections(
       wanted,
       bySection,
@@ -1120,15 +1077,15 @@ const make = Effect.gen(function* () {
     query: TicketListQuery
   ) {
     const scope = yield* queryable(query)
-    const [groupMemberSet, view] = yield* Effect.all(
-      [resolveGroupMembers(scope, query.groupId), gitView],
+    const [members, view] = yield* Effect.all(
+      [resolveGroupMembers(query.groupId), gitView],
       { concurrency: "unbounded" }
     )
     const bySection = yield* parentSectionsOf(
       scope,
       query,
       "ticketParent",
-      groupMemberSet
+      members
     )
     return toParentSections(
       yield* parentSectionsWanted(scope, bySection),
@@ -1153,7 +1110,10 @@ const make = Effect.gen(function* () {
         viewerId: scope.userId
       })
     if (source.kind === "sprintBoard") {
-      const group = yield* groups.get(source.groupId)
+      const documents = yield* groups.documents()
+      if (!documents.some((group) => group.id === source.groupId)) {
+        return yield* new NotFound()
+      }
       return yield* find(
         {
           ...query,
@@ -1162,7 +1122,7 @@ const make = Effect.gen(function* () {
           subTickets: "nested"
         },
         {
-          ticketIds: group.tickets,
+          members: groupMembers(documents, [source.groupId]),
           sections: { kind: "status" },
           within: {
             sort: { key: "manual", dir: "asc" },
@@ -1174,15 +1134,15 @@ const make = Effect.gen(function* () {
     const within = { sort: query.sort }
     switch (source.grouping) {
       case "status": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
+        const members = yield* resolveGroupMembers(query.groupId)
         return yield* find(query, {
-          ticketIds: members === null ? undefined : [...members],
+          members,
           sections: { kind: "status" },
           within
         })
       }
       case "sprint": {
-        const members = yield* sprintSectionMembers(scope, query)
+        const members = yield* sprintSectionMembers(query)
         return yield* find(
           { ...query, groupId: undefined },
           { sections: { kind: "explicit", sections: members }, within }
@@ -1190,26 +1150,23 @@ const make = Effect.gen(function* () {
       }
       case "epic": {
         const [members, { wanted }] = yield* Effect.all(
-          [
-            resolveGroupMembers(scope, query.groupId),
-            epicSectionsWanted(scope)
-          ],
+          [resolveGroupMembers(query.groupId), epicSectionsWanted(scope)],
           { concurrency: "unbounded" }
         )
         return yield* find(parentSectionQuery(query), {
-          ticketIds: members === null ? undefined : [...members],
+          members,
           sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
           within
         })
       }
       case "parent": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
+        const members = yield* resolveGroupMembers(query.groupId)
         const wanted = yield* parentSectionsWanted(
           scope,
           yield* parentSectionsOf(scope, query, "ticketParent", members)
         )
         return yield* find(parentSectionQuery(query), {
-          ticketIds: members === null ? undefined : [...members],
+          members,
           sections: {
             kind: "ticketParent",
             keys: wanted.map(({ key }) => key)

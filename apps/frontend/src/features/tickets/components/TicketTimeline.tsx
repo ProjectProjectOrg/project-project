@@ -83,6 +83,13 @@ function ActorMark({
 }: Readonly<{ actor: TicketActivityActor | null; size?: 20 | 24 }>) {
   const box = size === 24 ? "size-6" : "size-5"
   const glyph = size === 24 ? "size-3.5" : "size-3"
+  if (actor?.kind === "imported")
+    return (
+      <MemberAvatar
+        member={{ id: actor.sourceId, name: actor.displayName }}
+        size={size}
+      />
+    )
   if (actor !== null && actor.kind !== "system") {
     const logo = agentLogo(actor)
     if (logo === undefined)
@@ -111,7 +118,10 @@ function ActorMark({
 }
 
 const personKey = (actor: TicketActivityActor | null) =>
-  actor === null || actor.kind === "system" || agentLogo(actor) !== undefined
+  actor === null ||
+  actor.kind === "system" ||
+  actor.kind === "imported" ||
+  agentLogo(actor) !== undefined
     ? actorKey(actor)
     : `user:${actor.user.id}`
 
@@ -134,6 +144,8 @@ function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
       </span>
     )
   }
+  if (actor.kind === "imported")
+    return <span className="font-semibold">{actor.displayName}</span>
   const name = actor.user.name || actor.user.email
   if (actor.kind === "user") {
     return <span className="font-semibold">{name}</span>

@@ -4,6 +4,7 @@ import type { TicketId, TicketParent } from "@pp/shared"
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
@@ -30,6 +31,8 @@ import {
 import { useOpenTicketPage } from "@/features/tickets/components/ticket-menu/useOpenTicketPage"
 import { removableRelations } from "@/features/tickets/lib/relationGroups"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -58,11 +61,19 @@ export function MarkAsSubmenu({
           <DropdownMenuItem onClick={onUnflag} className="cursor-pointer">
             <FlagOff className="size-4" strokeWidth={1.75} />
             {m.tickets_mark_remove_flag()}
+            <DropdownMenuShortcut
+              keys={appHotkeys["tickets.flag"].defaultHotkey}
+              keyLabels={keyLabels()}
+            />
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem onClick={onFlag} className="cursor-pointer">
             <Flag className="size-4" strokeWidth={1.75} />
             {m.tickets_mark_flagged()}
+            <DropdownMenuShortcut
+              keys={appHotkeys["tickets.flag"].defaultHotkey}
+              keyLabels={keyLabels()}
+            />
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

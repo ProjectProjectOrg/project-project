@@ -39,7 +39,7 @@ import {
   stageSubscriptions,
   type StagedSubscription
 } from "../subscriptions/subscriptionRows"
-import { actorColumns, actorOf } from "./actorRow"
+import { actorColumns, actorOf, type StoredActor } from "./actorRow"
 import type { TicketScopedChange } from "./changes"
 
 export type ActivityDocument = Readonly<{
@@ -52,7 +52,7 @@ export type StoredTicketActivity = Readonly<{
   id: string
   seq: number
   occurredAt: Date
-  actor: ActivityActor["Service"]
+  actor: StoredActor
   cause: ActivityCause | null
   change: TicketActivityChange
 }>

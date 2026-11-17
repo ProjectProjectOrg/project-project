@@ -20,7 +20,7 @@ export const settingsCommands: ReadonlyArray<Command> = [
       parent: m.chrome_command_menu_settings_parent_project,
       label: () => section.label,
       icon: section.icon,
-      searchOnly: true,
+      listed: "search",
       when: ({ projectSlug }) => projectSlug !== null,
       run: go(
         (orgSlug, projectSlug) =>
@@ -35,7 +35,7 @@ export const settingsCommands: ReadonlyArray<Command> = [
       parent: m.chrome_command_menu_settings_parent_org,
       label: () => section.label,
       icon: section.icon,
-      searchOnly: true,
+      listed: "search",
       when: ({ canSeeOrgMembers }) =>
         section.key !== "members" || canSeeOrgMembers,
       run: go((orgSlug) => section.to.replace("$orgSlug", orgSlug))
@@ -48,7 +48,7 @@ export const settingsCommands: ReadonlyArray<Command> = [
       parent: m.chrome_command_menu_settings_group_profile,
       label: () => section.label,
       icon: section.icon,
-      searchOnly: true,
+      listed: "search",
       run: go(() => section.to)
     })
   )

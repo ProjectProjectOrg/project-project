@@ -9,6 +9,7 @@ import { commandRegistry } from "./registry"
 const NOT_IN_COMMAND_MENU: Readonly<Partial<Record<ToolName, string>>> = {
   prepare_ticket_attachment: "Files are attached from the editor",
   create_comment: "Comments are written on the ticket page",
+  resolve_comment: "Threads are resolved from the comment menu",
   sync_git_state: "Git state is synced by automation",
   attach_branch: "Branches are attached from the ticket's git panel",
   stack_branch: "Stacks are edited from the ticket's git panel",

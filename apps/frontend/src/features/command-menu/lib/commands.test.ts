@@ -6,10 +6,19 @@ import {
   TypeKey
 } from "@pp/shared"
 import { Settings } from "@pp/ui/icons"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
-import { visibleCommands, type Command, type CommandContext } from "./commands"
+import { organizationCommands } from "@/features/organizations/commands"
+
+import {
+  runCommand,
+  visibleCommands,
+  type Command,
+  type CommandContext,
+  type CommandEnv
+} from "./commands"
 
 const decodeTicketId = Schema.decodeSync(TicketId)
 const decodeStatus = Schema.decodeSync(TicketStatus)
@@ -19,8 +28,10 @@ const context: CommandContext = {
   orgActor: OrgActor.none,
   projectActor: null,
   projectSlug: null,
+  routeProjectSlug: null,
   ticket: null,
   selection: [],
+  ticketData: null,
   ticketDetail: null,
   ticketSprint: null,
   ticketSubscribed: null,
@@ -108,5 +119,34 @@ describe("visibleCommands", () => {
         (c) => c.id
       )
     ).toEqual(["status", "theme"])
+  })
+})
+
+describe("org.settings", () => {
+  it("opens the current page's settings, not the pointed ticket's project", () => {
+    const settings = organizationCommands.find(
+      (each) => each.id === "org.settings"
+    )
+    if (settings === undefined) throw new Error("Missing org.settings")
+    const navigate = vi.fn<CommandEnv["navigate"]>()
+    const env: CommandEnv = {
+      registry: AtomRegistry.make(),
+      execute: () => {},
+      navigate,
+      copy: vi.fn<CommandEnv["copy"]>(),
+      open: vi.fn<CommandEnv["open"]>(),
+      actOn: vi.fn<CommandEnv["actOn"]>(),
+      close: vi.fn<CommandEnv["close"]>()
+    }
+    runCommand(settings, { ...context, projectSlug: "web" }, env)
+    runCommand(
+      settings,
+      { ...context, projectSlug: "web", routeProjectSlug: "web" },
+      env
+    )
+    expect(navigate.mock.calls).toEqual([
+      ["/orgs/acme/settings"],
+      ["/orgs/acme/projects/web/settings"]
+    ])
   })
 })

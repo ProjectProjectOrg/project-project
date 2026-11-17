@@ -69,9 +69,10 @@ export function EditorPreferenceCommands({
           >
             {item.label}
           </span>
-          {current === item.value && (
-            <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-          )}
+          <CommandMenuCheck
+            checked={current === item.value}
+            label={m.chrome_command_menu_selected()}
+          />
         </CommandMenuItem>
       )}
     />

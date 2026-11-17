@@ -5,6 +5,7 @@ import {
   useHighlightedItem
 } from "@pp/ui/command-menu"
 import { spring } from "@pp/ui/lib/springs"
+import type { Hotkey } from "@tanstack/react-hotkeys"
 import { motion, useReducedMotion } from "motion/react"
 
 import { keyLabels } from "@/lib/keyLabels"
@@ -12,7 +13,7 @@ import { m } from "@/paraglide/messages"
 
 import type { CommandFrameItem } from "./CommandFrame"
 
-function KeyFirst({ keys, label }: Readonly<{ keys: string; label: string }>) {
+function KeyFirst({ keys, label }: Readonly<{ keys: Hotkey; label: string }>) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
       <CommandMenuShortcut
@@ -47,26 +48,26 @@ export function SearchFooter({
       >
         {shown !== null && (
           <KeyFirst
-            keys="enter"
+            keys="Enter"
             label={shown.enterLabel ?? m.chrome_command_menu_run()}
           />
         )}
         <span className="ml-auto flex items-center gap-4">
           {shown?.actionable === true && (
-            <KeyFirst keys="tab" label={m.chrome_command_menu_actions()} />
+            <KeyFirst keys="Tab" label={m.chrome_command_menu_actions()} />
           )}
           {peekOpen ? (
             <CommandMenuFooterHint
               keyLabels={keyLabels()}
               label={m.chrome_command_menu_close_peek()}
-              keys="arrowleft"
+              keys="ArrowLeft"
             />
           ) : (
             shown?.peekable === true && (
               <CommandMenuFooterHint
                 keyLabels={keyLabels()}
                 label={m.chrome_command_menu_peek()}
-                keys="arrowright"
+                keys="ArrowRight"
               />
             )
           )}

@@ -7,6 +7,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
+import { commentThreads } from "@/features/comments/lib/commentThreads"
 import {
   useProject,
   useProjectRoute
@@ -23,7 +24,7 @@ import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 import { CommentComposer } from "./CommentComposer"
-import { CommentRow } from "./CommentRow"
+import { CommentThread } from "./CommentThread"
 
 export function CommentsSection({
   ticketId
@@ -70,17 +71,18 @@ export function CommentsSection({
           <TicketTimeline
             ticketId={ticketId}
             order={order}
-            comments={rows.map((row) => ({
-              key: row.key,
-              at: row.comment.createdAt,
-              value: row
+            comments={commentThreads(rows).map((thread) => ({
+              key: thread.root.key,
+              at: thread.root.comment.createdAt,
+              lastAt: (thread.replies.at(-1) ?? thread.root).comment.createdAt,
+              value: thread
             }))}
-            renderComment={({ value: row }) => (
+            renderComment={({ value: thread }) => (
               <AnimatePresence initial={true}>
-                <CommentRow
-                  comment={row.comment}
-                  pending={row.pending}
+                <CommentThread
+                  thread={thread}
                   ticketId={ticketId}
+                  canReply={canComment}
                 />
               </AnimatePresence>
             )}

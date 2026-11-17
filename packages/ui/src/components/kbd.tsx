@@ -1,5 +1,14 @@
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
+import * as React from "react"
+
 import type { IconComponent } from "../lib/icon"
-import { formatShortcut, useIsMac, type KeyLabels } from "../lib/shortcuts"
+import { installKeyCapHighlight } from "../lib/keyCapHighlight"
+import {
+  shortcutCaps,
+  useIsMac,
+  type KeyLabels,
+  type ShortcutCap
+} from "../lib/shortcuts"
 import { cn } from "../lib/utils"
 import {
   ArrowBigUp,
@@ -47,6 +56,9 @@ function Kbd({
         // Centre the capitals, not the line box: trim the text to cap height
         // and baseline so flex centring lands on the letters.
         "[text-box:trim-both_cap_alphabetic]",
+        // Lit while its key is held (keyCapHighlight sets data-pressed);
+        // it fades back out.
+        "transition-colors duration-150 data-pressed:bg-[color-mix(in_oklab,currentColor_24%,transparent)] data-pressed:duration-0",
         KBD_SIZES[size],
         className
       )}
@@ -101,39 +113,86 @@ function KbdCap({ cap }: Readonly<{ cap: string }>) {
   )
 }
 
-export type KbdShortcutProps = Omit<React.ComponentProps<"kbd">, "children"> &
-  Readonly<{
-    // "mod+shift+p", "g+b", "esc", or several: ["mod+k", "/"].
-    keys: string | ReadonlyArray<string>
-    // Names for keys off a Mac (Ctrl, Enter, …); the app passes its messages.
-    keyLabels: KeyLabels
-    size?: KbdSize
-  }>
+type KbdCapsProps = Omit<React.ComponentProps<"kbd">, "children"> &
+  Readonly<{ size?: KbdSize }>
 
-// A shortcut as keys: ⌘ ⇧ P on a Mac, Ctrl Shift P elsewhere, one Kbd per
-// key.
-function KbdShortcut({
-  keys,
-  keyLabels,
+// Caps in a group. Each one carries the key that lights it while held; the
+// highlight listener is installed once, by the first shortcut on screen.
+// Hidden on touch screens, where there is no keyboard to press them on.
+function KbdCaps({
+  caps,
   size = "default",
   className,
   ...props
-}: KbdShortcutProps) {
-  const mac = useIsMac()
-  const caps = [keys].flat().flatMap((k) => formatShortcut(k, mac, keyLabels))
+}: KbdCapsProps & Readonly<{ caps: ReadonlyArray<ShortcutCap> }>) {
+  React.useEffect(installKeyCapHighlight, [])
   return (
     <KbdGroup
       data-slot="kbd-shortcut"
-      className={cn("align-middle", className)}
+      className={cn("align-middle pointer-coarse:hidden", className)}
       {...props}
     >
       {caps.map((cap, i) => (
-        <Kbd key={`${cap}-${i}`} size={size}>
-          <KbdCap cap={cap} />
+        <Kbd
+          key={`${cap.label}-${i}`}
+          size={size}
+          data-key={cap.key}
+          data-sequence-start={cap.sequenceStart ? "" : undefined}
+        >
+          <KbdCap cap={cap.label} />
         </Kbd>
       ))}
     </KbdGroup>
   )
 }
 
-export { Kbd, KbdGroup, KbdShortcut, type KeyLabels }
+export type KbdShortcutProps = KbdCapsProps &
+  Readonly<{
+    // One chord ("mod+shift+p", "esc", "Mod+K") or a sequence of chords
+    // (["G", "B"]), as TanStack Hotkeys declares them.
+    keys: string | ReadonlyArray<string>
+    // Names for keys off a Mac (Ctrl, Enter, …); the app passes its messages.
+    keyLabels: KeyLabels
+  }>
+
+// A shortcut as keys: ⌘ ⇧ P on a Mac, Ctrl Shift P elsewhere, one Kbd per
+// key.
+function KbdShortcut({ keys, keyLabels, ...props }: KbdShortcutProps) {
+  const mac = useIsMac()
+  return <KbdCaps caps={shortcutCaps(keys, mac, keyLabels)} {...props} />
+}
+
+const NUMBER_KEYS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "0"
+] as const satisfies ReadonlyArray<HotkeyChord>
+
+// The digit that picks the nth choice in a list (1 to 9, then 0), if any.
+const numberKey = (index: number): HotkeyChord | undefined => NUMBER_KEYS[index]
+
+// A digit's cap, for numbered choices. Digits need no key names.
+function KbdNumber({
+  digit,
+  ...props
+}: KbdCapsProps & Readonly<{ digit: string }>) {
+  return (
+    <KbdCaps caps={[{ label: digit, key: digit, sequenceStart: false }]} {...props} />
+  )
+}
+
+export {
+  Kbd,
+  KbdGroup,
+  KbdNumber,
+  KbdShortcut,
+  numberKey,
+  type KeyLabels
+}

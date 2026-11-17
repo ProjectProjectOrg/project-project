@@ -29,6 +29,8 @@ import {
   OrgGroup
 } from "./organizations/OrgApi"
 import { SidebarPinsGroup } from "./pins/PinsApi"
+import { ProjectImportsGroup } from "./projects/ProjectImportsApi"
+import { ProjectReferencesGroup } from "./projects/ProjectReferencesApi"
 import { ProjectsGroup } from "./projects/ProjectsApi"
 import { SlackGroup } from "./slack/SlackApi"
 import { StatusesGroup } from "./statuses/StatusesApi"
@@ -69,6 +71,8 @@ export const AppApi = HttpApi.make("projectproject")
   .add(OrgGroup)
   .add(InvitationsGroup)
   .add(ProjectsGroup)
+  .add(ProjectImportsGroup)
+  .add(ProjectReferencesGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
   .add(LinkPreviewsGroup)

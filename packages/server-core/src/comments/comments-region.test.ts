@@ -1,3 +1,4 @@
+import { rewriteMentionsInMovedTicket } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import { describe, expect, it } from "vitest"
 
@@ -20,18 +21,23 @@ const sample = (): ReadonlyArray<CommentBlock> => [
     origin: "native",
     createdAt: isoDate("2026-05-07T10:00:00.000Z"),
     editedAt: isoDate("2026-05-07T10:04:00.000Z"),
+    resolvedBy: "github_88",
+    resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
     body: "Looks good. cc [Wouter](mention:user/github_88)."
   },
   {
     id: "c_b",
     author: {
-      kind: "jira",
+      kind: "imported",
       displayName: "Former Jira User",
-      accountId: "jira-account-88"
+      source: "jira",
+      sourceId: "jira-account-88"
     },
     origin: "jira",
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
+    replyTo: "c_a",
+    tickets: ["[T-23](mention:ticket/T-23)"],
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
   }
 ]
@@ -101,8 +107,19 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     ])
   })
 
+  it("reads Jira author snapshots written before imported authors as imported from Jira", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_old -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\n  accountId: jira-account-88\norigin: jira\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nFrom Jira.\n${COMMENTS_END}\n`
+
+    expect(parseCommentsRegion(region)[0]?.author).toEqual({
+      kind: "imported",
+      displayName: "Former Jira User",
+      source: "jira",
+      sourceId: "jira-account-88"
+    })
+  })
+
   it("rejects invalid author and origin combinations", () => {
-    const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
+    const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: imported\n  displayName: Former Jira User\n  source: jira\n  sourceId: jira-account-88\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
 
     expect(parseCommentsRegion(region)).toEqual([])
   })
@@ -175,5 +192,27 @@ describe("validateCommentBody", () => {
   it("rejects empty bodies", () => {
     expect(validateCommentBody("").ok).toBe(false)
     expect(validateCommentBody("   \n  ").ok).toBe(false)
+  })
+})
+
+describe("tickets created from a comment", () => {
+  it("follow the ticket into its new project when it moves", () => {
+    const region = serializeCommentsRegion([
+      {
+        ...sample()[0],
+        tickets: ["[T-23](mention:ticket/T-23)", "[T-24](mention:ticket/T-24)"]
+      }
+    ])
+
+    const moved = rewriteMentionsInMovedTicket(region, {
+      fromProject: "web",
+      toProject: "app",
+      moved: new Map([["T-23", "A-7"]])
+    })
+
+    expect(parseCommentsRegion(moved)[0]?.tickets).toEqual([
+      "[A-7](mention:ticket/A-7)",
+      "[T-24](mention:ticket/web/T-24)"
+    ])
   })
 })

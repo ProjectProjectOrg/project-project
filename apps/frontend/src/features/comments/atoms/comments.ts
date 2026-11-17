@@ -7,6 +7,7 @@ import {
   type UpdateCommentInput,
   type User
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -97,6 +98,9 @@ const placeholderComment = (
   body: input.body,
   createdAt: key.createdAt,
   editedAt: null,
+  replyTo: input.replyTo ?? null,
+  resolution: null,
+  tickets: [],
   origin: "native"
 })
 
@@ -181,4 +185,47 @@ export const deleteComment = Atom.family(({ req, commentId }: CommentKey) =>
     confirm: keepPredicted,
     publish: () => [Keys.ticketComments(scopeOf(req))]
   })
+)
+
+type ResolveKey = Readonly<{
+  req: CommentsRequest
+  rootId: CommentId
+  viewer: User | null
+}>
+
+export const resolveThread = Atom.family(
+  ({ req, rootId, viewer }: ResolveKey) =>
+    viewMutation(comments(req), {
+      name: "resolveThread",
+      predict: (value, resolved: boolean) =>
+        value.map((row) =>
+          row.comment.id === rootId
+            ? {
+                ...row,
+                comment: {
+                  ...row.comment,
+                  resolution: resolved
+                    ? (row.comment.resolution ?? {
+                        by: viewer,
+                        at: DateTime.toDate(DateTime.nowUnsafe())
+                      })
+                    : null
+                }
+              }
+            : row
+        ),
+      call: (client, resolved) =>
+        resolved
+          ? client.ticketComments.resolve({
+              params: { ...req.params, commentId: rootId }
+            })
+          : client.ticketComments.unresolve({
+              params: { ...req.params, commentId: rootId }
+            }),
+      confirm: (value, root) =>
+        value.map((row) =>
+          row.comment.id === rootId ? { ...row, comment: root } : row
+        ),
+      publish: () => [Keys.ticketComments(scopeOf(req))]
+    })
 )

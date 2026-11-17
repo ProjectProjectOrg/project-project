@@ -98,6 +98,7 @@
     "@number-flow/react": "^0.6.0",
     "@pp/shared": "workspace:*",
     "@scritto/react": "^0.1.0",
+    "@tanstack/react-hotkeys": "0.25.1",
     "@tanstack/react-pacer": "0.22.1",
     "@toolwind/corner-shape": "^0.0.8-3",
     "allo-font": "1.0.0",

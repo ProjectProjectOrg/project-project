@@ -33,3 +33,15 @@ export const closingTicketIdsInText = (text: string): ReadonlySet<TicketId> =>
 
 export const branchMentionsTicketId = (branch: string): boolean =>
   ticketIdsInText(branch).size > 0
+
+export type ProjectKeys = Readonly<{
+  current: string
+  former: ReadonlyArray<string>
+}>
+
+export const resolveTicketId = (keys: ProjectKeys, id: TicketId): TicketId => {
+  const dash = id.lastIndexOf("-")
+  if (!keys.former.includes(id.slice(0, dash))) return id
+  const resolved = decodeTicketId(`${keys.current}${id.slice(dash)}`)
+  return Exit.isSuccess(resolved) ? resolved.value : id
+}

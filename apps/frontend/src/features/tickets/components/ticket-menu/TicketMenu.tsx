@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import {
@@ -78,7 +79,9 @@ import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { describeCause } from "@/lib/errorMessage"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { BranchSubmenu } from "./BranchSubmenu"
@@ -364,6 +367,10 @@ function TicketMenuItems({
               {single
                 ? m.tickets_archive_submit()
                 : m.tickets_row_archive_many_menu_item({ count })}
+              <DropdownMenuShortcut
+                keys={appHotkeys["tickets.archive"].defaultHotkey}
+                keyLabels={keyLabels()}
+              />
             </DropdownMenuItem>
           ))}
       </Fragment>

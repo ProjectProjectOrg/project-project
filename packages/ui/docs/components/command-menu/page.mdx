@@ -84,14 +84,14 @@ import {
 |                         | `stretch`                                     | `boolean` (fill the parent's height)           | `false`   |
 | `CommandMenuDialog`     | `open`, `onOpenChange`                        | `boolean`, `(open) => void`                    |           |
 |                         | `title`                                       | `string` (screen-reader title)                 |           |
-|                         | `shortcut`                                    | `string \| null`                               | `"mod+k"` |
+|                         | `shortcut`                                    | `AppHotkey \| null` (opens it; closes it too)  |           |
 |                         | `pulseKey`                                    | `string` (a change pulses the open dialog)     |           |
 | `CommandMenuTabs`       | `tabs`, `value`, `onValueChange`, `tabsLabel` | `{ value, label, icon?, count? }[]`, …         |           |
 | `CommandMenuList`       | `renderItem`                                  | `(item, index) => ReactNode`                   |           |
 | `CommandMenuItem`       | `value`                                       | `string`                                       |           |
-| `CommandMenuShortcut`   | `keys`, `keyLabels`                           | `string \| string[]`, `KeyLabels`              |           |
+| `CommandMenuShortcut`   | `keys`, `keyLabels`                           | `string \| string[]` (a sequence), `KeyLabels` |           |
 | `CommandMenuFooterHint` | `label`, `keys`, `keyLabels`                  | `string`, `string \| string[]`, `KeyLabels`    |           |
-| `CommandMenuCheck`      | `label`                                       | `string` (screen-reader text for the tick)     |           |
+| `CommandMenuCheck`      | `checked`, `label`                            | `boolean` (unchecked keeps the space), `string` (screen-reader text for the tick) | |
 
 ## Rules
 

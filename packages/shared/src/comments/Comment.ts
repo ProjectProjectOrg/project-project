@@ -3,30 +3,31 @@ import * as Schema from "effect/Schema"
 import { User } from "../auth/User"
 import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
-
-export const CommentId = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/u)),
-  Schema.brand("CommentId")
-)
-export type CommentId = typeof CommentId.Type
+import { CommentId } from "./CommentId"
 
 const UserCommentAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   user: User
 })
-const JiraCommentAuthor = Schema.Struct({
-  kind: Schema.Literal("jira"),
-  displayName: Schema.NonEmptyString,
-  accountId: Schema.NonEmptyString
-})
+export const ImportedSource = Schema.Literals(["jira", "projectproject"])
+export type ImportedSource = typeof ImportedSource.Type
 
-export const CommentAuthor = Schema.Union([
-  UserCommentAuthor,
-  JiraCommentAuthor
-])
+export const ImportedAuthor = Schema.Struct({
+  kind: Schema.Literal("imported"),
+  displayName: Schema.NonEmptyString,
+  source: ImportedSource,
+  sourceId: Schema.NonEmptyString
+})
+export type ImportedAuthor = typeof ImportedAuthor.Type
+
+export const CommentAuthor = Schema.Union([UserCommentAuthor, ImportedAuthor])
 export type CommentAuthor = typeof CommentAuthor.Type
 
-export const CommentOrigin = Schema.Literals(["native", "jira"])
+export const CommentOrigin = Schema.Literals([
+  "native",
+  "jira",
+  "projectproject"
+])
 export type CommentOrigin = typeof CommentOrigin.Type
 
 const CommentFields = {
@@ -35,7 +36,14 @@ const CommentFields = {
   projectSlug: Slug,
   body: Schema.String,
   createdAt: Schema.DateFromString,
-  editedAt: Schema.NullOr(Schema.DateFromString)
+  editedAt: Schema.NullOr(Schema.DateFromString),
+  replyTo: Schema.NullOr(CommentId),
+  resolution: Schema.NullOr(
+    Schema.Struct({ by: Schema.NullOr(User), at: Schema.DateFromString })
+  ),
+  tickets: Schema.Array(
+    Schema.Struct({ projectSlug: Schema.NullOr(Slug), id: TicketId })
+  )
 }
 
 export const Comment = Schema.Union([
@@ -47,7 +55,7 @@ export const Comment = Schema.Union([
   Schema.Struct({
     ...CommentFields,
     author: CommentAuthor,
-    origin: Schema.Literal("jira")
+    origin: Schema.Literals(["jira", "projectproject"])
   })
 ])
 export type Comment = typeof Comment.Type
@@ -58,6 +66,10 @@ export const CreateCommentInput = Schema.Struct({
     Schema.check(Schema.isMaxLength(20_000))
   ).annotate({
     description: "The comment as CommonMark markdown, 1 to 20,000 characters."
+  }),
+  replyTo: Schema.optionalKey(CommentId).annotate({
+    description:
+      "Reply in the thread of this comment. Replying to a reply adds to the same thread."
   })
 })
 export type CreateCommentInput = typeof CreateCommentInput.Type
@@ -69,3 +81,10 @@ export const UpdateCommentInput = Schema.Struct({
   )
 })
 export type UpdateCommentInput = typeof UpdateCommentInput.Type
+
+export const ResolveCommentInput = Schema.Struct({
+  resolved: Schema.Boolean.annotate({
+    description: "true resolves the comment's thread, false reopens it."
+  })
+})
+export type ResolveCommentInput = typeof ResolveCommentInput.Type

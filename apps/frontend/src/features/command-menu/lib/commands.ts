@@ -3,16 +3,19 @@ import type {
   OrgActor,
   ProjectActor,
   ProjectDetail,
+  Ticket,
   TicketDetail,
   Tools
 } from "@pp/shared"
 import type { IconComponent } from "@pp/ui/lib/icon"
+import type { AppHotkey } from "@tanstack/react-hotkeys"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
 import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
+import type { TicketNavigationSearch } from "@/features/tickets/lib/ticketSearch"
 
 import type {
   CommandPage,
@@ -48,8 +51,10 @@ export type CommandContext = Readonly<{
   orgActor: OrgActor
   projectActor: ProjectActor | null
   projectSlug: string | null
+  routeProjectSlug: string | null
   ticket: TicketContext | null
   selection: ReadonlyArray<SelectedTicket>
+  ticketData: Ticket | null
   ticketDetail: TicketDetail | null
   ticketSprint: Group | null
   ticketSubscribed: boolean | null
@@ -71,7 +76,7 @@ export type CommandEnv = Readonly<{
     atom: Atom.Writable<AsyncResult.AsyncResult<unknown, unknown>, W>,
     value: W
   ) => void
-  navigate: (to: string) => void
+  navigate: (to: string, search?: TicketNavigationSearch) => void
   copy: (text: string) => void
   open: (page: CommandPage, from?: ReturnPoint) => void
   actOn: (ticket: TicketContext, from: ReturnPoint) => void
@@ -88,10 +93,10 @@ export type Command = Readonly<{
   label: (context: CommandContext) => string
   aside?: (context: CommandContext) => ReactNode
   parent?: () => string
-  searchOnly?: boolean
+  listed?: "always" | "search" | "never"
   icon: IconComponent
   keywords?: ReadonlyArray<string>
-  shortcut?: string
+  hotkey?: AppHotkey
   tool?: ToolName
   bulk?: boolean
   when?: (context: CommandContext) => boolean

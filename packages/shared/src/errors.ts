@@ -235,6 +235,12 @@ export class StorageConfigMissing extends Schema.TaggedError<StorageConfigMissin
   { httpApiStatus: 503 }
 ) {}
 
+export class ImportFormatUnsupported extends Schema.TaggedError<ImportFormatUnsupported>()(
+  "ImportFormatUnsupported",
+  { fileVersion: Schema.Int, supportedVersion: Schema.Int },
+  { httpApiStatus: 422 }
+) {}
+
 export class StorageError extends Schema.TaggedError<StorageError>()(
   "StorageError",
   { reason: Schema.String },

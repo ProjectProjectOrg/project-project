@@ -3,6 +3,7 @@ import * as React from "react"
 
 import { cn } from "../lib/utils"
 import { XIcon } from "./icons"
+import { PopupHotkeyScope } from "./popup-hotkey-scope"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root {...props} />
@@ -59,7 +60,7 @@ function SheetContent({
   side = "left",
   closeLabel,
   ...props
-}: React.ComponentProps<typeof SheetPrimitive.Popup> & {
+}: Omit<React.ComponentProps<typeof SheetPrimitive.Popup>, "render"> & {
   side?: SheetSide
   closeLabel?: string
 }) {
@@ -74,6 +75,13 @@ function SheetContent({
           className
         )}
         {...props}
+        render={(popupProps, state) => (
+          <div {...popupProps}>
+            <PopupHotkeyScope open={state.open}>
+              {popupProps.children}
+            </PopupHotkeyScope>
+          </div>
+        )}
       >
         {children}
         {closeLabel !== undefined && (

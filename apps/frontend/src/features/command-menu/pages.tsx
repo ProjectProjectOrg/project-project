@@ -49,10 +49,12 @@ import {
   ViewFilterPage
 } from "@/features/tickets/components/command-pages/ViewFilterCommands"
 import { CreateTicketPage } from "@/features/tickets/components/create-ticket/CreateTicketPage"
+import { MarkDuplicatePage } from "@/features/tickets/components/MarkDuplicatePage"
 import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkAsCommands"
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 
+import { ShortcutSheetPage } from "./components/ShortcutSheet"
 import { ThemeCommands } from "./components/ThemeCommands"
 import type { CommandPage } from "./lib/commandMenu"
 import type { CommandPageProps } from "./lib/commandPages"
@@ -122,6 +124,7 @@ const markPage = (kind: MarkPickKind) =>
         chip={chip}
         onBack={onBack}
         onDone={env.close}
+        onDuplicate={() => env.open("ticketDuplicate")}
       />
     )
   }
@@ -151,6 +154,7 @@ export const COMMAND_PAGES: Readonly<
   ticketRemoveRelation: ticketPage(TicketRemoveRelationPage),
   ticketArchive: ticketPage(TicketArchivePage),
   ticketFlag: ticketPage(TicketFlagPage),
+  ticketDuplicate: MarkDuplicatePage,
   ticketDelete: ticketPage(TicketDeletePage),
   githubRegisterApp: GithubRegisterAppCommand,
   githubInstallApp: GithubInstallAppCommand,
@@ -168,6 +172,7 @@ export const COMMAND_PAGES: Readonly<
   createTicket: CreateTicketPage,
   sendFeedback: SendFeedbackPage,
   theme: ThemeCommands,
+  shortcuts: ShortcutSheetPage,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,
   "filter:type": viewFilterDimensionPage("type"),

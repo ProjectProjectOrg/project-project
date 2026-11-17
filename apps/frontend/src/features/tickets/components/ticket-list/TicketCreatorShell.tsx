@@ -3,7 +3,7 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { comboboxProps, type ListboxState } from "@pp/ui/menu-listbox"
 import {
@@ -20,6 +20,8 @@ import {
 } from "react"
 
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 
 type CreatorActive = Readonly<{
   active: boolean
@@ -47,7 +49,6 @@ export function DimWhileCreating({
 export type TicketCreatorShellProps = Readonly<{
   inputRef: RefObject<HTMLInputElement | null>
   formRef: RefObject<HTMLFormElement | null>
-  shortcut: string
   value: string
   onValueChange: (next: string) => void
   onPointerEnter?: () => void
@@ -69,7 +70,6 @@ export type TicketCreatorShellProps = Readonly<{
 export function TicketCreatorShell({
   inputRef,
   formRef,
-  shortcut,
   value,
   onValueChange,
   onPointerEnter,
@@ -88,7 +88,7 @@ export function TicketCreatorShell({
   belowInput
 }: TicketCreatorShellProps) {
   const errorId = useId()
-  useGlobalShortcut(shortcut, inputRef)
+  useGlobalShortcut(appHotkeys["tickets.create"], inputRef)
 
   const setCreatorActive = use(CreatorActiveContext)?.setActive
   useEffect(() => {
@@ -139,7 +139,7 @@ export function TicketCreatorShell({
           }}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          aria-keyshortcuts={shortcut}
+          aria-keyshortcuts={appHotkeys["tickets.create"].defaultHotkey}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           readOnly={busy}
@@ -156,7 +156,13 @@ export function TicketCreatorShell({
             {error}
           </span>
         ) : (
-          !expanded && <Kbd aria-hidden>{shortcut}</Kbd>
+          !expanded && (
+            <KbdShortcut
+              keys={appHotkeys["tickets.create"].defaultHotkey}
+              keyLabels={keyLabels()}
+              aria-hidden
+            />
+          )
         )}
       </InputGroup>
       {belowInput}

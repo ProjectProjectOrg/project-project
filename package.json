@@ -16,7 +16,7 @@
     "dev": "bun run dev:db && turbo run dev --filter @pp/backend --filter @pp/frontend --filter @pp/ui",
     "build": "turbo run build --filter @pp/frontend",
     "test": "PROJECTPROJECT_TEST_DATABASE_NAME=projectproject_effect_v4_$(bun -e 'console.log(crypto.randomUUID().replaceAll(\"-\", \"\").slice(0, 16))') bun run test:isolated",
-    "test:all": "bun run test:lint && turbo run test --concurrency=1",
+    "test:all": "bun run test:lint && bun run test:agent && turbo run test --concurrency=1",
     "test:lint": "bun test tools/oxlint/anti-slop/effect",
     "test:cleanup": "bun scripts/setup-test-db.ts --cleanup",
     "test:isolated": "test_exit=0; bun run test:setup && DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME bun run test:migrate && PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME BETTER_AUTH_SECRET=isolated-effect-v4-oauth-compatibility-test-secret bun run test:all $TEST_ALL_ARGS || test_exit=$?; bun run test:cleanup || { cleanup_exit=$?; if [ $test_exit -eq 0 ]; then test_exit=$cleanup_exit; fi; }; exit $test_exit",
@@ -32,7 +32,14 @@
     "prepare": "effect-tsgo patch",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "check:changed": "bun run format:check && bun run lint --affected && bun run typecheck --affected && TEST_ALL_ARGS=--affected bun run test",
-    "test:db": "vitest run --project db --project \"server-core*\" --project integration-everhour --project integration-jira --project backend --no-file-parallelism"
+    "test:db": "vitest run --project db --project \"server-core*\" --project integration-everhour --project integration-jira --project backend --no-file-parallelism",
+    "dev:agent": "bun --no-env-file apps/backend/scripts/dev-agent.ts",
+    "dev:login": "bun --no-env-file apps/backend/scripts/dev-agent.ts login",
+    "dev:agent:clean": "bun --no-env-file apps/backend/scripts/dev-agent.ts clean",
+    "dev:agent:prune": "bun --no-env-file apps/backend/scripts/dev-agent.ts prune",
+    "dev:agent:stop": "bun --no-env-file apps/backend/scripts/dev-agent.ts stop",
+    "dev:agent:trust": "bun --no-env-file apps/backend/scripts/dev-agent.ts trust",
+    "test:agent": "bun test apps/backend/scripts/agent"
   },
   "devDependencies": {
     "@effect/tsgo": "0.53.1",
@@ -42,6 +49,7 @@
     "oxfmt": "0.59.0",
     "oxlint": "1.79.0",
     "oxlint-tsgolint": "7.0.2001",
+    "portless": "0.18.0",
     "turbo": "2.10.9",
     "typescript": "7.0.2",
     "vite": "8.1.5",

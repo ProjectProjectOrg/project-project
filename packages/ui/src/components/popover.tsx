@@ -9,6 +9,7 @@ import {
 } from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
 import { popupMotionClass, popupSurfaceClass } from "./menu-styles"
+import { PopupHotkeyScope } from "./popup-hotkey-scope"
 
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return (
@@ -39,7 +40,10 @@ function PopoverTrigger({
   )
 }
 
-type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
+type PopoverContentProps = Omit<
+  React.ComponentProps<typeof PopoverPrimitive.Popup>,
+  "render"
+> &
   Pick<
     React.ComponentProps<typeof PopoverPrimitive.Positioner>,
     | "align"
@@ -65,6 +69,7 @@ function PopoverContent({
   collisionBoundary,
   collisionPadding,
   keepMounted,
+  children,
   ...props
 }: PopoverContentProps) {
   const popupAnchor = usePopupAnchor(anchor)
@@ -84,7 +89,16 @@ function PopoverContent({
           data-slot="popover-content"
           className={cn(popupSurfaceClass, popupMotionClass, "p-3", className)}
           {...props}
-        />
+          render={(popupProps, state) => (
+            <div {...popupProps}>
+              <PopupHotkeyScope open={state.open}>
+                {popupProps.children}
+              </PopupHotkeyScope>
+            </div>
+          )}
+        >
+          {children}
+        </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPortal>
   )

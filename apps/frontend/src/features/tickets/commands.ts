@@ -9,6 +9,7 @@ import {
   CircleDot,
   CircleSlash,
   Copy,
+  ExternalLink,
   FileText,
   FolderInput,
   Gauge,
@@ -26,12 +27,23 @@ import {
   UserRound
 } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
+import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { createElement } from "react"
 
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import {
+  commandMenuState,
+  pointedTicket
+} from "@/features/command-menu/atoms/commandMenu"
+import {
+  pointedAt,
+  type TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import type {
   Command,
-  CommandContext
+  CommandContext,
+  CommandEnv
 } from "@/features/command-menu/lib/commands"
 import {
   removeTicketFromSprint,
@@ -40,6 +52,7 @@ import {
 import { SprintChip } from "@/features/sprints/components/SprintChip"
 import {
   setSubscribed,
+  ticketSubscribers,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
@@ -53,12 +66,42 @@ import {
   ticketMarkdown,
   ticketPrompt
 } from "@/features/tickets/lib/ticketClipboard"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null
 
-export const onLiveTicket = ({ ticket, ticketDetail }: CommandContext) =>
-  ticket !== null && (ticketDetail === null || ticketDetail.archivedAt === null)
+export const editTicket = (
+  ticket: TicketContext,
+  env: CommandEnv,
+  edit: TicketEdit
+) => {
+  const row = pointedAt(env.registry.get(pointedTicket), ticket)
+  if (row !== null) row.patch(edit)
+  else {
+    env.execute(
+      updateTicketDetail(
+        ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+      ),
+      edit
+    )
+  }
+}
+
+export const openTicket = (ticket: TicketContext, env: CommandEnv) => {
+  const row =
+    pointedAt(env.registry.get(pointedTicket), ticket) ??
+    pointedAt(env.registry.get(commandMenuState).row, ticket)
+  env.close()
+  env.navigate(
+    `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}`,
+    row?.search
+  )
+}
+
+export const onLiveTicket = ({ ticket, ticketData }: CommandContext) =>
+  ticket !== null && (ticketData === null || ticketData.archivedAt === null)
 
 export const editable = (context: CommandContext) =>
   onLiveTicket(context) && context.tickets.edit
@@ -104,6 +147,7 @@ const ticketLink = (context: CommandContext) =>
 export const ticketCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.status",
+    hotkey: appHotkeys["tickets.status"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_change_status,
@@ -114,6 +158,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.priority",
+    hotkey: appHotkeys["tickets.priority"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_set_priority,
@@ -124,6 +169,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign",
+    hotkey: appHotkeys["tickets.assign"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_assign,
@@ -134,50 +180,43 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign-me",
+    hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
     label: m.tickets_command_assign_me,
     icon: UserCheck,
     tool: "update_ticket",
     when: (context) =>
       assignable(context) &&
-      context.ticketDetail !== null &&
+      context.ticketData !== null &&
       context.viewerId !== null &&
-      !context.ticketDetail.assignees.includes(context.viewerId),
-    run: ({ ticket, ticketDetail, viewerId }, env) => {
-      if (ticket === null || ticketDetail === null || viewerId === null) return
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { assignees: { add: [viewerId] } }
-      )
+      !context.ticketData.assignees.includes(context.viewerId),
+    run: ({ ticket, ticketData, viewerId }, env) => {
+      if (ticket === null || ticketData === null || viewerId === null) return
+      editTicket(ticket, env, { assignees: { add: [viewerId] } })
       env.close()
     }
   },
   {
     id: "ticket.unassign-me",
+    hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
     label: m.tickets_command_unassign_me,
     icon: UserMinus,
     tool: "update_ticket",
     when: (context) =>
       assignable(context) &&
-      context.ticketDetail !== null &&
+      context.ticketData !== null &&
       context.viewerId !== null &&
-      context.ticketDetail.assignees.includes(context.viewerId),
-    run: ({ ticket, ticketDetail, viewerId }, env) => {
-      if (ticket === null || ticketDetail === null || viewerId === null) return
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { assignees: { remove: [viewerId] } }
-      )
+      context.ticketData.assignees.includes(context.viewerId),
+    run: ({ ticket, ticketData, viewerId }, env) => {
+      if (ticket === null || ticketData === null || viewerId === null) return
+      editTicket(ticket, env, { assignees: { remove: [viewerId] } })
       env.close()
     }
   },
   {
     id: "ticket.sprint",
+    hotkey: appHotkeys["tickets.sprint"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_move_to_sprint,
@@ -187,7 +226,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: (context) =>
       onLiveTicket(context) &&
       context.tickets.planSprints &&
-      !isEpic(context.ticketDetail),
+      !isEpic(context.ticketData),
     page: "ticketSprint"
   },
   {
@@ -228,6 +267,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.estimate",
+    hotkey: appHotkeys["tickets.estimate"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_set_estimate,
@@ -242,6 +282,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.type",
+    hotkey: appHotkeys["tickets.type"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_change_type,
@@ -253,6 +294,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.tags",
+    hotkey: appHotkeys["tickets.tags"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_tags,
@@ -264,6 +306,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.copy-id",
+    hotkey: appHotkeys["tickets.copy-id"],
     group: "ticketActions",
     label: m.tickets_command_copy_id,
     icon: Copy,
@@ -275,6 +318,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.copy-link",
+    hotkey: appHotkeys["tickets.copy-link"],
     group: "ticketActions",
     label: m.tickets_command_copy_link,
     icon: Link2,
@@ -291,7 +335,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
       label,
       icon,
       keywords,
-      searchOnly: true,
+      listed: "search",
       when: ({ ticketDetail }) => ticketDetail !== null,
       run: (context, env) => {
         const { ticket, ticketDetail } = context
@@ -302,6 +346,19 @@ export const ticketCommands: ReadonlyArray<Command> = [
       }
     })
   ),
+  {
+    id: "ticket.open",
+    hotkey: appHotkeys["tickets.open"],
+    group: "ticketActions",
+    label: m.tickets_shortcut_open,
+    icon: ExternalLink,
+    listed: "search",
+    when: onTicket,
+    run: ({ ticket }, env) => {
+      if (ticket === null) return
+      openTicket(ticket, env)
+    }
+  },
   {
     id: "ticket.split",
     group: "ticketActions",
@@ -319,16 +376,17 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.archive",
+    hotkey: appHotkeys["tickets.archive"],
     bulk: true,
     group: "ticketActions",
     label: m.tickets_command_archive,
     icon: Archive,
     tool: "archive_ticket",
-    when: ({ ticket, ticketDetail, tickets }) =>
+    when: ({ ticket, ticketData, tickets }) =>
       ticket !== null &&
       tickets.archive &&
-      ticketDetail !== null &&
-      ticketDetail.archivedAt === null,
+      ticketData !== null &&
+      ticketData.archivedAt === null,
     page: "ticketArchive"
   },
   {
@@ -337,11 +395,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_unarchive,
     icon: ArchiveRestore,
     tool: "restore_ticket",
-    when: ({ ticket, ticketDetail, tickets }) =>
+    when: ({ ticket, ticketData, tickets }) =>
       ticket !== null &&
       tickets.archive &&
-      ticketDetail !== null &&
-      ticketDetail.archivedAt !== null,
+      ticketData !== null &&
+      ticketData.archivedAt !== null,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(
@@ -396,18 +454,51 @@ export const ticketCommands: ReadonlyArray<Command> = [
     }
   },
   {
+    id: "ticket.toggle-subscription",
+    hotkey: appHotkeys["tickets.subscribe"],
+    group: "ticketActions",
+    label: m.tickets_shortcut_subscribe,
+    icon: Bell,
+    listed: "never",
+    when: ({ ticket, project, viewerId }) =>
+      ticket !== null && canSubscribe(project, viewerId),
+    run: ({ ticket, ticketSubscribed }, env) => {
+      if (ticket === null) return
+      const req = ticketSubscribersRequest(
+        ticket.orgSlug,
+        ticket.slug,
+        ticket.ticketId
+      )
+      const view = ticketSubscribers(req)
+      const toggle = (subscribed: boolean) =>
+        env.execute(setSubscribed(req), !subscribed)
+      if (ticketSubscribed !== null) {
+        toggle(ticketSubscribed)
+        return
+      }
+      void Effect.runPromise(AtomRegistry.getResult(env.registry, view)).then(
+        () => {
+          const current = env.registry.get(view)
+          if (AsyncResult.isSuccess(current)) toggle(current.value.subscribed)
+        },
+        () => undefined
+      )
+    }
+  },
+  {
     id: "ticket.delete",
     bulk: true,
     group: "ticketActions",
     label: m.tickets_command_delete,
     icon: Trash2,
     keywords: ["remove"],
-    searchOnly: true,
+    listed: "search",
     when: ({ ticket, tickets }) => ticket !== null && tickets.delete,
     page: "ticketDelete"
   },
   {
     id: "ticket.create",
+    hotkey: appHotkeys["tickets.create-anywhere"],
     group: "create",
     label: m.tickets_command_create,
     icon: Plus,

@@ -94,7 +94,9 @@ export function CreateTicketForm({
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
-  const [description, setDescription] = useState("")
+  const [description, setDescription] = useState(request.body ?? "")
+  const fromComment =
+    slug === request.projectSlug ? request.fromComment : undefined
   const creatorType = useCreatorType({
     orgSlug,
     slug: slug ?? "",
@@ -121,7 +123,8 @@ export function CreateTicketForm({
         ...ticketFieldsPayload(fields),
         ...creatorType.payload,
         body: body === "" ? undefined : body,
-        ...relatedPayload(related)
+        ...relatedPayload(related),
+        fromComment
       }
     })
     creatorType.settle(exit)
@@ -162,6 +165,7 @@ export function CreateTicketForm({
       )
     }
     onDone()
+    if (fromComment !== undefined) return
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id },
@@ -233,7 +237,7 @@ export function CreateTicketForm({
       <Composer.Body onKeyDownCapture={onSubmitShortcut}>
         <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
           <LexicalEditor
-            markdown=""
+            markdown={request.body ?? ""}
             onDraftChange={setDescription}
             placeholder={m.tickets_create_dialog_description_placeholder()}
           />

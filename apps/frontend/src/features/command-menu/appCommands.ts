@@ -1,6 +1,7 @@
-import { Link, LogOut, Palette } from "@pp/ui/icons"
+import { Command as CommandKeyIcon, Link, LogOut, Palette } from "@pp/ui/icons"
 
 import { logout } from "@/features/auth/atoms/auth"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import type { Command } from "./lib/commands"
@@ -15,6 +16,15 @@ export const appCommands: ReadonlyArray<Command> = [
       env.copy(window.location.href)
       env.close()
     }
+  },
+  {
+    id: "app.shortcuts",
+    group: "miscellaneous",
+    label: m.chrome_keyboard_shortcuts,
+    icon: CommandKeyIcon,
+    keywords: ["hotkeys", "keys", "help"],
+    hotkey: appHotkeys["app.shortcuts"],
+    page: "shortcuts"
   },
   {
     id: "app.theme",

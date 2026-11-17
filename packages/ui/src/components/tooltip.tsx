@@ -5,12 +5,14 @@
 
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
+import type { AppHotkey } from "@tanstack/react-hotkeys"
 import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
+import { KbdShortcut, type KeyLabels } from "./kbd"
 import { TextSwap } from "./text-swap"
 
 /*
@@ -818,7 +820,41 @@ function PinnedTooltip({
   )
 }
 
+/**
+ * A trigger whose tooltip names an app hotkey and shows its keys: the
+ * hotkey's own name (its meta.name) unless a label is given.
+ */
+function ShortcutTooltip({
+  hotkey,
+  label,
+  keyLabels,
+  children
+}: Readonly<{
+  hotkey: AppHotkey
+  label?: string
+  keyLabels: KeyLabels
+  children: React.ReactElement
+}>) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={children} />
+      <TooltipContent className="flex items-center gap-2">
+        {label ?? hotkey.meta?.name}
+        {hotkey.hotkey !== null && (
+          <KbdShortcut
+            keys={hotkey.hotkey}
+            keyLabels={keyLabels}
+            size="sm"
+            aria-hidden
+          />
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export {
+  ShortcutTooltip,
   Tooltip,
   TooltipProvider,
   TooltipHost,

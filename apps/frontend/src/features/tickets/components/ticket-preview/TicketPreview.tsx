@@ -18,6 +18,7 @@ import { Copy } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { PreviewCardContent } from "@pp/ui/preview-card"
 import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -68,7 +69,7 @@ import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =
-  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: string }>
+  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: HotkeyChord }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{
       kind: "subTickets"

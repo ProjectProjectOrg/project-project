@@ -24,6 +24,7 @@ export * from "./auth/SignInProvider"
 export * from "./auth/User"
 
 export * from "./comments/Comment"
+export * from "./comments/CommentId"
 export * from "./comments/mentions"
 
 export * from "./estimates/Estimate"
@@ -71,6 +72,9 @@ export * from "./pagination/Pagination"
 export * from "./pagination/cursor"
 
 export * from "./projects/Project"
+export * from "./projects/ProjectExport"
+export * from "./projects/ProjectImport"
+export * from "./projects/ProjectReferences"
 export * from "./projects/ProjectEvent"
 export * from "./projects/identity"
 

@@ -15,6 +15,7 @@ import {
   type TransitionRecord,
   TicketBranchEntry,
   TicketId,
+  resolveTicketId,
   ActivityActor,
   type BranchExists,
   type BranchProtected,
@@ -25,12 +26,16 @@ import {
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
+import * as FiberMap from "effect/FiberMap"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
+import * as PullRequestSnapshots from "../github/PullRequestSnapshots"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
@@ -55,6 +60,7 @@ import {
   planStackPullRequests,
   planTicketGitStates
 } from "./statePlanner"
+import { snapshotBranches, snapshotsOf, storedGitState } from "./storedGitState"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -66,7 +72,15 @@ type GitHubFailure =
   | RateLimited
   | GitHubError
 
-export type GitStateOptions = Readonly<{ reconcile: boolean }>
+type SyncStatus = Pick<
+  GitStatesResponse,
+  "tokenStatus" | "repoStatus" | "refreshStatus" | "retryAt"
+>
+
+const BACKGROUND_SYNC_INTERVAL_MS = 30_000
+
+const snapshotKey = (repositoryId: string, number: number) =>
+  `${repositoryId}#${number}`
 
 type StackedTicketEntry = TicketIndex.TicketIndexEntry &
   Readonly<{
@@ -228,15 +242,18 @@ export class TicketGit extends Context.Service<
     >
     getGitState: (
       ticketId: string | undefined,
-      options?: GitStateOptions
+      options: Readonly<{ sync: boolean }>
     ) => Effect.Effect<
       GitStatesResponse,
       NotFound | Markdown.MarkdownError,
       ProjectScope
     >
-    listGitStates: (
-      options?: GitStateOptions
-    ) => Effect.Effect<
+    listGitStates: () => Effect.Effect<
+      GitStatesResponse,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    syncGitStates: () => Effect.Effect<
       GitStatesResponse,
       NotFound | Markdown.MarkdownError,
       ProjectScope
@@ -253,7 +270,15 @@ const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const github = yield* GitHub.GitHub
+  const pullRequestSnapshots = yield* PullRequestSnapshots.PullRequestSnapshots
   const { gitView, detailOf, readTicket } = yield* TicketView.TicketView
+  const syncs = yield* FiberMap.make<
+    string,
+    GitStatesResponse,
+    NotFound | Markdown.MarkdownError
+  >()
+  const syncStatuses = new Map<string, SyncStatus>()
+  const backgroundSyncStartedAt = new Map<string, number>()
 
   const writeGitFields = (
     project: TicketProject,
@@ -741,13 +766,16 @@ const make = Effect.gen(function* () {
       knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const { orgSlug, slug } = project
+      const keys = yield* ticketIndex.projectKeys(project)
+      const resolveId = (id: TicketId) => resolveTicketId(keys, id)
       const automaticLinks = planAutomaticBranchLinks(
         tickets,
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
         raw.prByBranch,
-        knownIds
+        knownIds,
+        resolveId
       )
       const automaticStacks = planAutomaticStacks(
         tickets,
@@ -756,7 +784,8 @@ const make = Effect.gen(function* () {
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
         raw.prByBranch,
-        knownIds
+        knownIds,
+        resolveId
       )
       const stackedTicketIds = tickets.flatMap((ticket) =>
         automaticStacks.has(ticket.id) ||
@@ -1010,7 +1039,6 @@ const make = Effect.gen(function* () {
       scope: ProjectScope["Service"],
       projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
-      options: GitStateOptions,
       knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const result = yield* fetchGitSnapshot(projectGithub, tickets)
@@ -1037,6 +1065,10 @@ const make = Effect.gen(function* () {
           ...("retryAt" in result ? { retryAt: result.retryAt } : {})
         }
       }
+
+      yield* pullRequestSnapshots.record(
+        snapshotsOf(projectGithub.repoId, result.raw)
+      )
 
       if (result.raw.refreshStatus) {
         const snapshot = planTicketGitStates(
@@ -1065,26 +1097,6 @@ const make = Effect.gen(function* () {
         }
       }
 
-      if (!options.reconcile) {
-        const snapshot = planTicketGitStates(
-          tickets,
-          result.raw,
-          yield* DateTime.nowAsDate
-        )
-        const planned = tickets.map((ticket) => ({
-          ...ticket,
-          stack: planStackPullRequests(ticket.stack, result.raw)
-        }))
-        return {
-          states: snapshot.states,
-          stacks: stacksOf(planned, projectGithub, result.raw),
-          transitioned: [],
-          changedTicketIds: [],
-          tokenStatus: "ok",
-          repoStatus: "ok"
-        }
-      }
-
       return yield* reconcileGitStates(
         scope,
         projectGithub,
@@ -1095,33 +1107,36 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const listGitStates = Effect.fn("TicketGit.listGitStates")(function* (
-    options: GitStateOptions = { reconcile: true }
-  ): Effect.fn.Return<
+  const notConnected: GitStatesResponse = {
+    states: {},
+    transitioned: [],
+    tokenStatus: "ok",
+    repoStatus: "not_connected"
+  }
+
+  const stackedTickets = Effect.fn("TicketGit.stackedTickets")(function* (
+    scope: ProjectScope["Service"]
+  ) {
+    const [indexed, stacks] = yield* Effect.all(
+      [ticketIndex.list(scope), ticketBranchIndex.stacksFor(scope)],
+      { concurrency: 2 }
+    )
+    return indexed.map(
+      (ticket): StackedTicketEntry =>
+        Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
+    )
+  })
+
+  const runSync = Effect.fn("TicketGit.runSync")(function* (): Effect.fn.Return<
     GitStatesResponse,
     NotFound | Markdown.MarkdownError,
     ProjectScope
   > {
     const scope = yield* ProjectScope
     const repositories = yield* projectGithubLinks.integrations()
+    if (repositories.length === 0) return notConnected
 
-    if (repositories.length === 0) {
-      return {
-        states: {},
-        transitioned: [],
-        tokenStatus: "ok",
-        repoStatus: "not_connected"
-      }
-    }
-
-    const [indexed, stacks] = yield* Effect.all(
-      [ticketIndex.list(scope), ticketBranchIndex.stacksFor(scope)],
-      { concurrency: 2 }
-    )
-    const tickets = indexed.map(
-      (ticket): StackedTicketEntry =>
-        Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
-    )
+    const tickets = yield* stackedTickets(scope)
     const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
     const repositoryOf = (ticket: StackedTicketEntry) =>
       ProjectGithub.integrationForRepo(repositories, ticket.repoId)
@@ -1139,12 +1154,20 @@ const make = Effect.gen(function* () {
               ticket.branch === null ||
               repositoryOf(ticket)?.repoId === repository.repoId
           ),
-          options,
           knownIds
         ),
       { concurrency: 1 }
     )
     const merged = mergeGitStates(results)
+    syncStatuses.set(
+      scope.projectId,
+      Struct.pick(merged, [
+        "tokenStatus",
+        "repoStatus",
+        "refreshStatus",
+        "retryAt"
+      ])
+    )
     return {
       ...merged,
       states: {
@@ -1157,15 +1180,151 @@ const make = Effect.gen(function* () {
     }
   })
 
+  const startSync = Effect.fn("TicketGit.startSync")(function* (
+    scope: ProjectScope["Service"]
+  ) {
+    const running = yield* FiberMap.get(syncs, scope.projectId)
+    if (Option.isSome(running)) return running.value
+    return yield* FiberMap.run(
+      syncs,
+      scope.projectId,
+      runSync().pipe(
+        Effect.tapCause((cause) =>
+          Effect.logWarning("Git state sync failed", {
+            projectId: scope.projectId,
+            cause
+          })
+        ),
+        Effect.provideService(ProjectScope, scope)
+      )
+    )
+  })
+
+  const syncGitStates = Effect.fn("TicketGit.syncGitStates")(function* () {
+    const scope = yield* ProjectScope
+    return yield* Fiber.join(yield* startSync(scope))
+  })
+
+  const syncInBackground = Effect.fn("TicketGit.syncInBackground")(function* (
+    scope: ProjectScope["Service"]
+  ) {
+    const now = (yield* DateTime.nowAsDate).getTime()
+    const startedAt = backgroundSyncStartedAt.get(scope.projectId)
+    if (
+      startedAt !== undefined &&
+      now - startedAt < BACKGROUND_SYNC_INTERVAL_MS
+    ) {
+      return
+    }
+    backgroundSyncStartedAt.set(scope.projectId, now)
+    yield* startSync(scope)
+  })
+
+  const readGitStates = Effect.fn("TicketGit.readGitStates")(
+    function* (): Effect.fn.Return<
+      GitStatesResponse,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    > {
+      const scope = yield* ProjectScope
+      const repositories = yield* projectGithubLinks.integrations()
+      if (repositories.length === 0) return notConnected
+
+      const tickets = yield* stackedTickets(scope)
+      const repositoryOf = (ticket: StackedTicketEntry) =>
+        ProjectGithub.integrationForRepo(repositories, ticket.repoId)
+      const snapshots = yield* pullRequestSnapshots.find(
+        repositories.map((repository) => ({
+          repositoryId: repository.repoId,
+          numbers: tickets.flatMap((ticket) =>
+            repositoryOf(ticket)?.repoId === repository.repoId
+              ? [ticket.pr, ...ticket.stack.map((layer) => layer.pr)].filter(
+                  (pr): pr is number => pr !== null && pr !== undefined
+                )
+              : []
+          )
+        }))
+      )
+      const byNumber = new Map(
+        snapshots.map((snapshot) => [
+          snapshotKey(snapshot.repositoryId, snapshot.number),
+          snapshot
+        ])
+      )
+      const branchesByRepository = new Map(
+        repositories.map((repository) => [
+          repository.repoId,
+          snapshotBranches(
+            repository,
+            snapshots.filter(
+              (snapshot) => snapshot.repositoryId === repository.repoId
+            )
+          )
+        ])
+      )
+      return {
+        states: Object.fromEntries(
+          tickets.map((ticket) => {
+            const repository = repositoryOf(ticket)
+            return [
+              ticket.id,
+              storedGitState(
+                ticket,
+                repository,
+                repository === null || ticket.pr === null
+                  ? undefined
+                  : byNumber.get(snapshotKey(repository.repoId, ticket.pr))
+              )
+            ]
+          })
+        ),
+        stacks: Object.fromEntries(
+          tickets.flatMap((ticket) => {
+            if (ticket.stack.length === 0) return []
+            const repository = repositoryOf(ticket)
+            const prByBranch =
+              repository === null
+                ? undefined
+                : branchesByRepository.get(repository.repoId)
+            return [
+              [
+                ticket.id,
+                stackLayerStates(
+                  ticket.branch,
+                  ticket.stack,
+                  repository,
+                  prByBranch === undefined ? undefined : { prByBranch }
+                )
+              ]
+            ]
+          })
+        ),
+        transitioned: [],
+        ...(syncStatuses.get(scope.projectId) ?? {
+          tokenStatus: "ok",
+          repoStatus: "ok"
+        })
+      }
+    }
+  )
+
+  const listGitStates = Effect.fn("TicketGit.listGitStates")(function* () {
+    const states = yield* readGitStates()
+    if (states.repoStatus !== "not_connected") {
+      yield* syncInBackground(yield* ProjectScope)
+    }
+    return states
+  })
+
   const getGitState = Effect.fn("TicketGit.getGitState")(function* (
     ticketId: string | undefined,
-    options?: GitStateOptions
+    options: Readonly<{ sync: boolean }>
   ): Effect.fn.Return<
     GitStatesResponse,
     NotFound | Markdown.MarkdownError,
     ProjectScope
   > {
-    const all = yield* listGitStates(options)
+    const all = yield* options.sync ? syncGitStates() : readGitStates()
     if (ticketId === undefined) return all
     const single = all.states[ticketId]
     const stack = all.stacks?.[ticketId]
@@ -1186,7 +1345,8 @@ const make = Effect.gen(function* () {
     stackBranch,
     unstackBranch,
     getGitState,
-    listGitStates
+    listGitStates,
+    syncGitStates
   })
 })
 

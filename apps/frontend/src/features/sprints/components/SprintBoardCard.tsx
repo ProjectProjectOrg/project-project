@@ -56,7 +56,7 @@ function BoardCardFields({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
-  const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
+  const pointAt = usePointedTicket(orgSlug, slug, ticket, onPatch)
   const preloadChildren = useChildTicketsPreload(ticket)
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })

@@ -15,7 +15,7 @@ import {
 } from "@/features/github/lib/gitStateChanges"
 import { projectRequest } from "@/features/projects/atoms/projects"
 
-const POLL_INTERVAL_MS = 60_000
+const POLL_INTERVAL_MS = 15_000
 
 export function useProjectGitStatePolling(
   orgSlug: string,

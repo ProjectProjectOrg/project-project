@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest"
 import { contentHash } from "../markdown/fileContent"
 import {
   groupMembershipChanges,
+  sprintChanges,
   ticketChanges,
   type GroupMembershipSource,
   type TicketChangeSource
@@ -286,11 +287,11 @@ describe("ticketChanges for stacked branches", () => {
 describe("groupMembershipChanges", () => {
   const sprint: GroupMembershipSource = {
     id: groupId("G-1"),
-    kind: "sprint",
+    kind: "epic",
     name: "Sprint 4",
     tickets: [ticketId("T-1"), ticketId("T-2")]
   }
-  const subject = { groupId: "G-1", groupKind: "sprint", name: "Sprint 4" }
+  const subject = { groupId: "G-1", groupKind: "epic", name: "Sprint 4" }
 
   it("records each ticket that joins or leaves", () => {
     expect(
@@ -326,5 +327,29 @@ describe("groupMembershipChanges", () => {
         tickets: [ticketId("T-2"), ticketId("T-1")]
       })
     ).toEqual([])
+  })
+})
+
+describe("sprintChanges", () => {
+  it("records a move between sprints as leaving one and joining the other", () => {
+    expect(
+      sprintChanges(
+        { id: groupId("G-1"), name: "Sprint 4" },
+        { id: groupId("G-2"), name: "Sprint 5" }
+      )
+    ).toEqual([
+      {
+        kind: "group_removed",
+        groupId: "G-1",
+        groupKind: "sprint",
+        name: "Sprint 4"
+      },
+      {
+        kind: "group_added",
+        groupId: "G-2",
+        groupKind: "sprint",
+        name: "Sprint 5"
+      }
+    ])
   })
 })

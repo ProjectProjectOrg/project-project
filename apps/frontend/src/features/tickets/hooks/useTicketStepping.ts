@@ -1,6 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, TicketSequence } from "@pp/shared"
-import { hasModifier, ownsKeystrokes } from "@pp/ui/lib/keyboard"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -31,9 +31,7 @@ import {
   type StepCursor,
   type StepDirection
 } from "@/features/tickets/lib/ticketStepping"
-
-export const PREVIOUS_KEY = "k"
-export const NEXT_KEY = "j"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 type Entry = Readonly<{ id: TicketId; source: string }>
 
@@ -81,6 +79,9 @@ export function useTicketStepping(
   }
 
   const direction = useRef<StepDirection>(1)
+  const stepper = useRef<((to: StepDirection, held: boolean) => void) | null>(
+    null
+  )
   const latest = useRef({ sequence, shown, urlId, cursor, search })
   useLayoutEffect(() => {
     latest.current = { sequence, shown, urlId, cursor, search }
@@ -146,11 +147,11 @@ export function useTicketStepping(
       })
     }
 
-    const step = (to: StepDirection, held: boolean) => {
+    stepper.current = (to, held) => {
       const { sequence, shown, urlId, cursor } = latest.current
-      if (sequence === null) return false
+      if (sequence === null) return
       const target = stepTarget(sequence.tickets, shown, to)
-      if (target === null) return false
+      if (target === null) return
       direction.current = to
       const next = stepCursor(cursor, urlId, target.id)
       latest.current = { ...latest.current, cursor: next, shown: next.shown }
@@ -164,29 +165,20 @@ export function useTicketStepping(
       } else if (commitTimer === undefined) {
         commitTimer = window.setTimeout(commit, delay)
       }
-      return true
     }
 
-    function onKey(event: KeyboardEvent) {
-      if (
-        event.defaultPrevented ||
-        hasModifier(event) ||
-        ownsKeystrokes(event.target)
-      ) {
-        return
-      }
-      const to =
-        event.key === NEXT_KEY ? 1 : event.key === PREVIOUS_KEY ? -1 : null
-      if (to === null) return
-      if (step(to, event.repeat)) event.preventDefault()
-    }
-
-    document.addEventListener("keydown", onKey)
     return () => {
-      document.removeEventListener("keydown", onKey)
+      stepper.current = null
       window.clearTimeout(commitTimer)
     }
   }, [router, orgSlug, slug])
+
+  useHotkey(appHotkeys["tickets.next"], (event) =>
+    stepper.current?.(1, event.repeat)
+  )
+  useHotkey(appHotkeys["tickets.previous"], (event) =>
+    stepper.current?.(-1, event.repeat)
+  )
 
   return { shown, sequence, search }
 }

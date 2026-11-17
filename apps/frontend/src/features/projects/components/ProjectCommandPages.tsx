@@ -51,9 +51,10 @@ export function SwitchProjectPage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {context.projectSlug === item.value && (
-            <CommandMenuCheck label={m.chrome_command_menu_selected()} />
-          )}
+          <CommandMenuCheck
+            checked={context.projectSlug === item.value}
+            label={m.chrome_command_menu_selected()}
+          />
         </CommandMenuItem>
       )}
     />

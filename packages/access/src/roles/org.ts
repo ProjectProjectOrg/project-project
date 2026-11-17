@@ -15,6 +15,7 @@ export const orgStatement = Statement.make({
     "read_all",
     "manage_members",
     "archive",
+    "export",
     "delete"
   ]),
   integration: Schema.Literals(["manage"]),
@@ -38,6 +39,7 @@ export const admin = orgStatement.role({
     "read_all",
     "manage_members",
     "archive",
+    "export",
     "delete"
   ],
   integration: ["manage"],

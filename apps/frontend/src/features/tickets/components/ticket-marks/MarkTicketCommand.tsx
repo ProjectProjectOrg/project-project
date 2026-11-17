@@ -14,12 +14,12 @@ import {
   type CommandEmpty
 } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import { markDuplicateRequest } from "@/features/tickets/atoms/markDuplicateRequest"
 import {
   recentTickets,
   recentTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import {
-  archiveTicket,
   markTicket,
   ticketDetail,
   ticketRequest
@@ -60,13 +60,17 @@ export function MarkTicketCommand({
   kind,
   chip,
   onBack,
-  onDone
+  onDone,
+  onDuplicate
 }: Readonly<{
   ticket: TicketContext
   kind: MarkPickKind
   chip: ReactNode
   onBack: () => void
   onDone: () => void
+  // Duplicates are confirmed on a page of their own (both tickets side by
+  // side): this opens it once the request is set.
+  onDuplicate: () => void
 }>) {
   const req = ticketRequest(orgSlug, slug, ticketId)
   const detail = useAtomValue(ticketDetail(req))
@@ -74,7 +78,7 @@ export function MarkTicketCommand({
     ? detail.value.relations
     : EMPTY_TICKET_RELATIONS
   const mark = useAtomSet(markTicket(req), { mode: "promiseExit" })
-  const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
+  const setDuplicate = useAtomSet(markDuplicateRequest)
   const [search, setSearch] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -132,12 +136,14 @@ export function MarkTicketCommand({
 
   const pick = async (target: Ticket) => {
     if (pending) return
+    if (kind === "duplicateOf") {
+      setDuplicate({ orgSlug, slug, ticketId, originalId: target.id })
+      onDuplicate()
+      return
+    }
     setPending(true)
     setFailure(null)
-    const exit =
-      kind === "duplicateOf"
-        ? await archive({ duplicateOf: target.id })
-        : await mark({ kind, target: target.id })
+    const exit = await mark({ kind, target: target.id })
     setPending(false)
     if (Exit.isSuccess(exit)) onDone()
     else setFailure(errorMessage(Cause.squash(exit.cause)))

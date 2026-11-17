@@ -21,6 +21,14 @@ _Avoid_: Project admin, project owner
 A user with accepted access to a project.
 _Avoid_: Pending member, invitee
 
+**Reference to fix**:
+A mention or link in a ticket description that doesn't resolve on this instance, listed for PMs after an import. Saving a description keeps mentions it already had even if they don't resolve; only new mentions must resolve.
+_Avoid_: Broken link, dead mention
+
+**Imported author**:
+A person named on comments or activity who has no account on this instance, kept by display name, source (`jira` or `projectproject`) and their id there. Migrations and imports create them for people nobody linked; no account is created.
+_Avoid_: Ghost user, external user
+
 **Pending project member**:
 An email address with a pending invitation that will grant project access if accepted.
 _Avoid_: Member, user
@@ -33,6 +41,14 @@ A set of tickets, sprints and settings inside an org. Identified by its slug in 
 **Project key**:
 The uppercase prefix of a project's ticket ids (`PP` in `PP-12`). Older projects use `T`.
 _Avoid_: Prefix, code
+
+**Former key**:
+A key a project used before, kept in `project.md` as `formerKeys`. No other project in the org can take it, and git branches and pull requests that name it (`T-12`) still link to the ticket under the current key (`PP-12`).
+_Avoid_: Alias, old prefix
+
+**Project export**:
+One `.tar.gz` file holding a project's markdown, its Postgres rows, the people it references and its attachment bytes, without integrations or credentials. A PM or org admin downloads it to move the project to another instance.
+_Avoid_: Backup, dump
 
 **Ticket**:
 A unit of work, stored as one markdown file. Has a ticket type or no type, a status, a priority (`low`, `med`, `high`), tags, assignees and an optional estimate.
@@ -56,6 +72,10 @@ _Avoid_: Link (for relations), dependency (except "blocked by"), issue link
 **Flag**:
 A marker that a ticket needs attention, with an optional markdown reason and who set it when. It doesn't change the status and isn't a **Relation**: it points at no other ticket. Moving the ticket to a finished status removes it. The UI sets it from "Mark as → Flagged".
 _Avoid_: Blocked (for a flag), impediment
+
+**Thread**:
+A top-level comment and its **replies**. Replies are one level deep: replying to a reply adds to the same thread, and each reply stores `replyTo` with the id of the thread's first comment. When the first comment is deleted, each reply stands as a comment on its own. Anyone who can comment can **resolve** a thread from any of its comments: its first comment records who and when, the replies between the first and last comment fold away, and the thread takes no replies until it is **reopened**. A ticket created from a comment is listed under that comment (`tickets` in its frontmatter) and, unless it's a sub-ticket, related to the ticket it came from.
+_Avoid_: Conversation, nested comments
 
 **Subscribe**:
 A person's subscription to one ticket, so the ticket's updates reach them. You are subscribed to a ticket when you create it, are assigned to it, comment on it or are mentioned in it, and you can subscribe or **unsubscribe** by hand. An unsubscribe sticks until you are assigned or mentioned again. **Subscribers** are everyone subscribed to a ticket.
@@ -85,7 +105,10 @@ The storage concept behind sprints: a markdown file under `groups/` with a kind.
 _Avoid_: Using "group" in UI copy
 
 **Sprint**:
-A group of tickets with optional start and end dates, planned by the PM and completed when it ends.
+A group of tickets with optional start and end dates, planned by the PM and completed when it ends. Each ticket names its sprint in its own frontmatter; the sprint file holds no ticket list.
+
+**Sprint snapshot**:
+The tickets a sprint held when it was completed, with the status and estimate each had then, kept in the completed sprint's file.
 
 **Backlog**:
 The tickets in no sprint.
@@ -163,8 +186,8 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 - Resending a **Pending project member** invitation is not part of the current flow.
 - Canceling a **Pending project member** removes that project grant; the underlying organization invitation is canceled only when no project grants remain.
 - A **Pending project member** is displayed by email, not by a user profile, until the invitation is accepted.
-- A **Ticket** is in at most one **Sprint**; otherwise it is in the **Backlog**.
-- A **Ticket** has exactly one **Rank**; a sprint's ticket list records membership only, not order.
+- A **Ticket** is in at most one **Sprint**, open or completed; otherwise it is in the **Backlog**.
+- A **Ticket** has exactly one **Rank**; its sprint records membership only, not order.
 - A **Ticket** has at most one parent: an **Epic**, a ticket without a parent, or a child of an **Epic**.
 - A **Ticket** can have several **linked branches**, forming **stacks**.
 - A **Ticket** can have any number of **Relations** to other tickets in its project. A blocking relation can't form a loop, and a duplicate can't point at another duplicate.

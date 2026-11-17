@@ -89,6 +89,9 @@ export const Keys = {
   /** Comments on one ticket. */
   comments: (scope: string, ticketId: TicketId): ReactivityKey =>
     key(`comments/${scope}/${ticketId}`),
+  /** Who follows one ticket. */
+  ticketSubscribers: (scope: string, ticketId: TicketId): ReactivityKey =>
+    key(`ticket-subscribers/${scope}/${ticketId}`),
   /** Attachments stored by one organization. */
   attachments: (orgSlug: string): ReactivityKey =>
     key(`attachments/${orgSlug}`),

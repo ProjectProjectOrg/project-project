@@ -48,6 +48,7 @@ import { useTicketParticipants } from "@/features/tickets/hooks/useTicketPartici
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { DescriptionActions } from "./DescriptionActions"
@@ -125,6 +126,7 @@ export function DescriptionField({
   const { editing, startEditing, stopEditing } = useEditMode({
     editorRef,
     rootRef,
+    startHotkey: appHotkeys["tickets.edit-description"],
     initial: autoFocus
   })
 

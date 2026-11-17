@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import { User, UserId } from "../auth/User"
+import { ImportedAuthor } from "../comments/Comment"
 import { Estimate } from "../estimates/Estimate"
 import { GroupKind } from "../groups/Group"
 import { GroupId } from "../groups/GroupId"
@@ -148,7 +149,8 @@ export const TicketActivityActor = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("system"),
     source: ActivitySystemSource
-  })
+  }),
+  ImportedAuthor
 ])
 export type TicketActivityActor = typeof TicketActivityActor.Type
 

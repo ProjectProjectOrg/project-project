@@ -23,7 +23,7 @@ export const projectStatement = Statement.make({
   attachment: Schema.Literals(["upload"]),
   settings: Schema.Literals(["manage"]),
   members: Schema.Literals(["manage", "invite_client"]),
-  project: Schema.Literals(["archive", "delete"])
+  project: Schema.Literals(["archive", "export", "delete"])
 })
 
 export type ProjectResources = typeof projectStatement.resources

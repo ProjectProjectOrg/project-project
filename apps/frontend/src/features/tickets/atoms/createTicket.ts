@@ -18,7 +18,9 @@ export type CreateTicketRequest = Readonly<{
   sprint?: GroupId
   type?: TypeKey
   title?: string
+  body?: string
   related?: RelatedTo
+  fromComment?: NonNullable<CreateTicketInput["fromComment"]>
 }>
 
 export type RelatedKind = MarkKind | "subTicket"
@@ -62,8 +64,14 @@ export const createTicketInProject = Api.runtime.fn(
         payload: input.payload
       })
     )
+    const scope = projectScope(input.orgSlug, input.slug)
     yield* Reactivity.invalidate(
-      Keys.ticketsChanged(projectScope(input.orgSlug, input.slug))
+      input.payload.fromComment === undefined
+        ? Keys.ticketsChanged(scope)
+        : [
+            ...Keys.ticketsChanged(scope),
+            Keys.comments(scope, input.payload.fromComment.ticketId)
+          ]
     )
     return created
   })

@@ -119,10 +119,13 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   rankGap: () => unexpected("TicketIndex.rankGap"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
+  sprintTickets: () => unexpected("TicketIndex.sprintTickets"),
   existingIds: () => unexpected("TicketIndex.existingIds"),
   mentionableIds: () => unexpected("TicketIndex.mentionableIds"),
   movedTo: () => unexpected("TicketIndex.movedTo"),
   reserveTicketNumber: () => unexpected("TicketIndex.reserveTicketNumber"),
+  projectKeys: () => unexpected("TicketIndex.projectKeys"),
+  syncFormerKeys: () => unexpected("TicketIndex.syncFormerKeys"),
   tagUsageCounts: () => unexpected("TicketIndex.tagUsageCounts"),
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
@@ -188,8 +191,9 @@ const commentRow = (
   input.origin ?? "native",
   input.authorKind ?? "user",
   input.authorId ?? "user-1",
-  input.jiraDisplayName ?? null,
-  input.jiraAccountId ?? null,
+  input.importedName ?? null,
+  input.importedSource ?? null,
+  input.importedId ?? null,
   (input.createdAt ?? at("2026-01-01T00:00:00.000Z")).toISOString(),
   input.editedAt?.toISOString() ?? null
 ]
@@ -279,6 +283,235 @@ it.effect("creates comments through TicketDocs", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("adds a reply to a reply to the first comment's thread", () => {
+  const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+  let current: TicketDocs.TicketDocument = {
+    ...document,
+    commentsRegion: serializeCommentsRegion([
+      {
+        id: "c_root",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        body: "Question"
+      },
+      {
+        id: "c_reply",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        replyTo: "c_root",
+        body: "Answer"
+      }
+    ])
+  }
+  const layer = makeLayer(
+    makeTicketDocs({
+      read: () => Effect.succeed(current),
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(current).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              current = next
+            })
+          )
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const created = yield* comments.create(ticketId("T-1"), {
+      body: "Follow-up",
+      replyTo: decodeCommentIdSync("c_reply")
+    })
+
+    expect(created.replyTo).toBe("c_root")
+    expect(parseCommentsRegion(current.commentsRegion).at(-1)).toMatchObject({
+      body: "Follow-up",
+      replyTo: "c_root"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("lists a ticket created from a comment under that comment", () => {
+  const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+  let current: TicketDocs.TicketDocument = {
+    ...document,
+    commentsRegion: serializeCommentsRegion([
+      {
+        id: "c_root",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        body: "Won't Do should still archive the ticket"
+      }
+    ])
+  }
+  const layer = makeLayer(
+    makeTicketDocs({
+      read: () => Effect.succeed(current),
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(current).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              current = next
+            })
+          )
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    yield* comments.recordTicket(
+      ticketId("T-1"),
+      decodeCommentIdSync("c_root"),
+      ticketId("T-23")
+    )
+    expect(parseCommentsRegion(current.commentsRegion)[0]).toMatchObject({
+      tickets: ["[T-23](mention:ticket/T-23)"]
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "refuses a reply when the thread is resolved between reading and writing",
+  () => {
+    const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+    const root = {
+      id: "c_root",
+      author: { kind: "user" as const, userId: "user-1" },
+      origin: "native" as const,
+      createdAt: at,
+      editedAt: null,
+      body: "Question"
+    }
+    const open = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([root])
+    }
+    const resolved = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([
+        { ...root, resolvedBy: "user-2", resolvedAt: at }
+      ])
+    }
+    let written: TicketDocs.TicketDocument | undefined
+    const layer = makeLayer(
+      makeTicketDocs({
+        read: () => Effect.succeed(open),
+        update: (_orgSlug, _slug, _ticketId, transform) =>
+          transform(resolved).pipe(
+            Effect.tap((next) =>
+              Effect.sync(() => {
+                written = next
+              })
+            )
+          )
+      })
+    )
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const reply = yield* Effect.flip(
+        comments.create(ticketId("T-1"), {
+          body: "Late",
+          replyTo: decodeCommentIdSync("c_root")
+        })
+      )
+
+      expect(reply).toMatchObject({
+        _tag: "Conflict",
+        reason: "thread_resolved"
+      })
+      expect(parseCommentsRegion(written?.commentsRegion ?? "")).toHaveLength(1)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "resolves a thread on its first comment and refuses replies until it is reopened",
+  () => {
+    const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+    let current: TicketDocs.TicketDocument = {
+      ...document,
+      commentsRegion: serializeCommentsRegion([
+        {
+          id: "c_root",
+          author: { kind: "user", userId: "user-1" },
+          origin: "native",
+          createdAt: at,
+          editedAt: null,
+          body: "Question"
+        },
+        {
+          id: "c_reply",
+          author: { kind: "user", userId: "user-1" },
+          origin: "native",
+          createdAt: at,
+          editedAt: null,
+          replyTo: "c_root",
+          body: "Answer"
+        }
+      ])
+    }
+    const layer = makeLayer(
+      makeTicketDocs({
+        read: () => Effect.succeed(current),
+        update: (_orgSlug, _slug, _ticketId, transform) =>
+          transform(current).pipe(
+            Effect.tap((next) =>
+              Effect.sync(() => {
+                current = next
+              })
+            )
+          )
+      }),
+      databaseLayer(({ sql }) =>
+        Effect.succeed(
+          sql.startsWith("select") ? [commentRow({ id: "c_root" })] : []
+        )
+      )
+    )
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const resolved = yield* comments.resolve(
+        ticketId("T-1"),
+        decodeCommentIdSync("c_reply"),
+        true
+      )
+      expect(resolved.id).toBe("c_root")
+      expect(resolved.resolution?.by?.id).toBe("user-1")
+
+      const reply = yield* Effect.flip(
+        comments.create(ticketId("T-1"), {
+          body: "One more thing",
+          replyTo: decodeCommentIdSync("c_root")
+        })
+      )
+      expect(reply).toMatchObject({
+        _tag: "Conflict",
+        reason: "thread_resolved"
+      })
+
+      const reopened = yield* comments.resolve(
+        ticketId("T-1"),
+        decodeCommentIdSync("c_root"),
+        false
+      )
+      expect(reopened.resolution).toBeNull()
+      expect(parseCommentsRegion(current.commentsRegion)[0]).not.toHaveProperty(
+        "resolvedBy"
+      )
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect(
   "imports Jira history with complete bodies and exact timestamps",
   () => {
@@ -287,8 +520,8 @@ it.effect(
     const database = databaseLayer(({ sql, params }) =>
       Effect.sync(() => {
         if (sql.startsWith("insert")) {
-          for (let index = 0; index < params.length; index += 10)
-            rows.push(params.slice(index, index + 10))
+          for (let index = 0; index < params.length; index += 11)
+            rows.push(params.slice(index, index + 11))
         }
         if (sql.startsWith("delete")) rows.splice(0)
         return sql.startsWith("select") ? rows : []
@@ -326,9 +559,10 @@ it.effect(
         },
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "Snapshot body",
           createdAt,
@@ -347,9 +581,10 @@ it.effect(
       })
       expect(listed[1]).toMatchObject({
         author: {
-          kind: "jira",
+          kind: "imported",
           displayName: "Former Jira User",
-          accountId: "jira-account-1"
+          source: "jira",
+          sourceId: "jira-account-1"
         },
         origin: "jira",
         body: "Snapshot body",
@@ -378,9 +613,10 @@ it.effect("rejects reserved markers without writing imported history", () => {
       comments.importHistorical(ticketId("T-1"), [
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "<!-- comments:end -->",
           createdAt: at("2021-04-02T03:04:05.678Z"),
@@ -412,9 +648,10 @@ it.effect("rejects incomplete Jira snapshot attribution", () => {
       comments.importHistorical(ticketId("T-1"), [
         {
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           body: "Imported body",
           createdAt: at("2021-04-02T03:04:05.678Z"),
@@ -433,8 +670,8 @@ it.effect("removes imported index rows when the markdown write fails", () => {
   const database = databaseLayer(({ sql, params }) =>
     Effect.sync(() => {
       if (sql.startsWith("insert")) {
-        for (let index = 0; index < params.length; index += 10)
-          rows.push(params.slice(index, index + 10))
+        for (let index = 0; index < params.length; index += 11)
+          rows.push(params.slice(index, index + 11))
       }
       if (sql.startsWith("delete")) rows.splice(0)
       return sql.startsWith("select") ? rows : []

@@ -83,3 +83,23 @@ export function backlogSprintSections(
     ? sections.filter((sprint) => selected.includes(sprint?.id ?? "ungrouped"))
     : sections
 }
+
+type ClaimingSprint = Readonly<{
+  id: GroupId
+  completedAt: Date | null
+  tickets: ReadonlyArray<string>
+}>
+
+export function sprintClaims(
+  newestFirst: ReadonlyArray<ClaimingSprint>
+): ReadonlyMap<string, GroupId> {
+  const claims = new Map<string, GroupId>()
+  const open = newestFirst.filter((sprint) => sprint.completedAt === null)
+  const completed = newestFirst.filter((sprint) => sprint.completedAt !== null)
+  for (const sprint of [...open, ...completed]) {
+    for (const id of sprint.tickets) {
+      if (!claims.has(id)) claims.set(id, sprint.id)
+    }
+  }
+  return claims
+}

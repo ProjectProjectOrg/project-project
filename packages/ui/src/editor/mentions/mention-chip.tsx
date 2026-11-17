@@ -1,7 +1,13 @@
-import { parseTicketMentionId, TicketId, type MentionType } from "@pp/shared"
+import {
+  parseCommentMentionId,
+  parseTicketMentionId,
+  TicketId,
+  type MentionType
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 
 import { Badge } from "../../components/badge"
+import { MessageSquare } from "../../components/icons"
 import { MemberAvatar } from "../../components/member-avatar"
 import { Popover, PopoverTrigger } from "../../components/popover"
 import { useEditorServices } from "../services"
@@ -21,7 +27,8 @@ export function MentionChip({
 }) {
   const scope = useMentionScope()
   const linkRef = useInAppLink()
-  const { mentionHref, renderTicketPreview } = useEditorServices()
+  const { mentionHref, renderTicketPreview, renderCommentPreview } =
+    useEditorServices()
   if (type === "user") {
     const member = scope?.members?.find((m) => m.id === id)
     return (
@@ -53,9 +60,12 @@ export function MentionChip({
     )
   }
 
-  const target = parseTicketMentionId(id)
-  const ticketId = target.ticketId
-  if (!scope || !isTicketId(ticketId)) {
+  // A comment mention points at a ticket too: its id is the ticket's plus
+  // "/<comment id>".
+  const comment = type === "comment" ? parseCommentMentionId(id) : null
+  const target = type === "comment" ? comment : parseTicketMentionId(id)
+  const ticketId = target?.ticketId
+  if (!scope || target === null || !isTicketId(ticketId)) {
     return (
       <Badge
         tone="muted"
@@ -63,7 +73,7 @@ export function MentionChip({
         className="inline-chip font-mono"
         contentEditable={false}
       >
-        {ticketId}
+        {type === "comment" ? label : ticketId}
       </Badge>
     )
   }
@@ -86,7 +96,11 @@ export function MentionChip({
               className="font-mono"
               render={
                 <a
-                  href={mentionHref.ticket(ticketScope, ticketId)}
+                  href={
+                    comment === null
+                      ? mentionHref.ticket(ticketScope, ticketId)
+                      : `${mentionHref.ticket(ticketScope, ticketId)}#${encodeURIComponent(comment.commentId)}`
+                  }
                   ref={linkRef}
                   onMouseDown={(e) => e.preventDefault()}
                 />
@@ -98,9 +112,14 @@ export function MentionChip({
           nativeButton={false}
           contentEditable={false}
         >
+          {type === "comment" && (
+            <MessageSquare className="size-3" strokeWidth={1.75} aria-hidden />
+          )}
           {ticketId}
         </PopoverTrigger>
-        {renderTicketPreview(ticketId, ticketScope)}
+        {comment === null
+          ? renderTicketPreview(ticketId, ticketScope)
+          : renderCommentPreview(ticketId, comment.commentId, ticketScope)}
       </Popover>
     </span>
   )

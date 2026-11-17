@@ -89,7 +89,7 @@ function SlashMenuFooter({ tabs }: Readonly<{ tabs: boolean }>) {
       <CommandMenuFooterHint
         keyLabels={keyLabelsFrom(m)}
         label={m.editor_slash_footer_select()}
-        keys={["up", "down"]}
+        keys="↑↓"
       />
       {tabs ? (
         <CommandMenuFooterHint

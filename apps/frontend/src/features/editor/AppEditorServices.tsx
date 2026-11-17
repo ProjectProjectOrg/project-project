@@ -14,6 +14,7 @@ import {
   uploadAttachment,
   uploadAttachmentRequest
 } from "@/features/attachments/atoms/attachments"
+import { CommentHoverCard } from "@/features/comments/components/CommentHoverCard"
 import {
   figmaTicketLinksAtom,
   figmaTicketLinksRequest
@@ -111,6 +112,13 @@ export function AppEditorServices({
       },
       renderTicketPreview: (ticketId, scope) => (
         <TicketHoverCard ticketId={ticketId} scope={scope} />
+      ),
+      renderCommentPreview: (ticketId, commentId, scope) => (
+        <CommentHoverCard
+          ticketId={ticketId}
+          commentId={commentId}
+          scope={scope}
+        />
       ),
       useLinkPreview,
       useUploadAttachment,

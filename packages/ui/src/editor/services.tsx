@@ -67,6 +67,13 @@ export type EditorServices = Readonly<{
     ticketId: TicketId,
     scope: Readonly<{ orgSlug: string; slug: string }>
   ) => ReactNode
+  // The card a comment mention shows on hover (rendered in a Popover). The
+  // chip links to the ticket's page with the comment id as its #hash.
+  renderCommentPreview: (
+    ticketId: TicketId,
+    commentId: string,
+    scope: Readonly<{ orgSlug: string; slug: string }>
+  ) => ReactNode
   useLinkPreview: (url: string) => LinkPreviewView
   useUploadAttachment: (target: TicketTarget) => UploadAttachment
   useFigmaLinks: (target: TicketTarget) => FigmaLinks

@@ -9,6 +9,7 @@ import {
 } from "@pp/ui/empty"
 import { FolderKanban } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion } from "motion/react"
@@ -33,6 +34,7 @@ export function Projects() {
   const org = useOrgActor(orgSlug)
   const canCreate = org.call("projects", "create")
   const canMigrate = org.call("jiraMigrations", "create")
+  const canImport = org.call("projectImports", "upload")
   const [creating, setCreating] = useState(false)
 
   const content = Result.matchWithError(list, {
@@ -100,21 +102,41 @@ export function Projects() {
           </p>
           {canMigrate ? <ActiveImports orgSlug={orgSlug} /> : null}
         </PageHeader>
-        {canMigrate && (
-          <Button
-            variant="tertiary"
-            size="sm"
-            className="shrink-0"
-            render={
-              <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
-            }
-          >
-            {m.jira_import_projects_entry()}
-          </Button>
+        {(canImport || canMigrate) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {canImport && (
+              <Button
+                variant="tertiary"
+                size="sm"
+                render={
+                  <Link
+                    to="/orgs/$orgSlug/imports/projectproject"
+                    params={{ orgSlug }}
+                  />
+                }
+              >
+                {m.project_import_projects_entry()}
+              </Button>
+            )}
+            {canMigrate && (
+              <Button
+                variant="tertiary"
+                size="sm"
+                render={
+                  <Link
+                    to="/orgs/$orgSlug/migrations/jira"
+                    params={{ orgSlug }}
+                  />
+                }
+              >
+                {m.jira_import_projects_entry()}
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
-      {content}
+      <HotkeysProvider scope="projects">{content}</HotkeysProvider>
     </PageContainer>
   )
 }

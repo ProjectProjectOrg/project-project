@@ -13,6 +13,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
@@ -45,7 +46,9 @@ export function AddChildTicketButton({
             variant="ghost"
             size="square-7"
             aria-label={label}
-            aria-keyshortcuts="c"
+            aria-keyshortcuts={
+              appHotkeys["tickets.add-sub-ticket"].defaultHotkey
+            }
             onClick={onCreate}
             className={cn("motion-safe:active:scale-100", className)}
           />
@@ -57,7 +60,10 @@ export function AddChildTicketButton({
         <DropdownMenuItem onClick={onCreate}>
           <Plus className="size-4" strokeWidth={1.75} />
           {label}
-          <DropdownMenuShortcut keys="c" keyLabels={keyLabels()} />
+          <DropdownMenuShortcut
+            keys={appHotkeys["tickets.add-sub-ticket"].defaultHotkey}
+            keyLabels={keyLabels()}
+          />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={attachExisting}>
           <ListPlus className="size-4" strokeWidth={1.75} />

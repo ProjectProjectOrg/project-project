@@ -5,7 +5,7 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
@@ -16,9 +16,12 @@ import {
   createProject,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { sanitizeKey } from "@/features/projects/lib/deriveKey"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { errorMessage } from "@/lib/errorMessage"
 import { useAppForm, useFormValues } from "@/lib/form"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
 import { m } from "@/paraglide/messages"
@@ -28,12 +31,6 @@ import {
   effectiveProjectKey,
   toCreateProjectInput
 } from "./opts"
-
-const sanitizeKey = (value: string) =>
-  value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 10)
 
 export function CreateProjectRow({
   orgSlug,
@@ -58,7 +55,7 @@ export function CreateProjectRow({
   const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const reduceMotion = useReducedMotion()
-  useGlobalShortcut("c", inputRef)
+  useGlobalShortcut(appHotkeys["projects.create"], inputRef)
 
   const trackFocus = (next: boolean) => {
     setFocused(next)
@@ -131,7 +128,9 @@ export function CreateProjectRow({
                       }}
                       placeholder={m.projects_create_name_placeholder()}
                       aria-label={m.projects_create_name_aria_label()}
-                      aria-keyshortcuts="c"
+                      aria-keyshortcuts={
+                        appHotkeys["projects.create"].defaultHotkey
+                      }
                       readOnly={submitting}
                       aria-disabled={submitting}
                       maxLength={120}
@@ -173,7 +172,13 @@ export function CreateProjectRow({
                     </motion.div>
                   )}
                 </AnimatePresence>
-                {!focused && !trimmed && !error && <Kbd aria-hidden>c</Kbd>}
+                {!focused && !trimmed && !error && (
+                  <KbdShortcut
+                    keyLabels={keyLabels()}
+                    keys={appHotkeys["projects.create"].defaultHotkey}
+                    aria-hidden
+                  />
+                )}
               </InputGroup>
               <AnimatePresence initial={false}>
                 {trimmed && (

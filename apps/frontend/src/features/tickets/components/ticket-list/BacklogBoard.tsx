@@ -17,6 +17,7 @@ import type {
 import { Button } from "@pp/ui/button"
 import { DitherShell } from "@pp/ui/dither-shell"
 import { cn } from "@pp/ui/lib/utils"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef } from "react"
@@ -192,75 +193,77 @@ function BacklogBoardContent({
   )
 
   return (
-    <BoardKeyboardContext value={keyboard.context}>
-      <motion.div
-        ref={ref}
-        role={keyboard.context ? "grid" : undefined}
-        aria-label={m.tickets_board_aria_label()}
-        aria-colcount={keyboard.context ? order.length : undefined}
-        aria-rowcount={keyboard.context ? 1 : undefined}
-        onKeyDown={keyboard.onKeyDown}
-        layoutScroll
-        style={{ height: height ?? 240 }}
-        className={cn(
-          "overflow-x-auto overscroll-x-contain",
-          hasRightOverflow &&
-            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-        )}
-      >
-        {order.length === 0 && layout.hidden.length > 0 ? (
-          <HiddenColumnsEmpty onShowAll={layout.showAll} />
-        ) : (
-          <Reorder.Group
-            ref={groupRef}
-            as="div"
-            role={keyboard.context ? "row" : undefined}
-            axis="x"
-            values={[...order]}
-            onReorder={(next) => setDragOrder(next)}
-            className="flex h-full gap-3"
-          >
-            {order.map((status, columnIndex) => {
-              const column = columns.find((c) => c.status === status)
-              return (
-                <SprintBoardColumn
-                  key={status}
-                  columnIndex={columnIndex}
-                  update={backlogTicketUpdates(req)}
-                  status={status}
-                  statuses={statuses}
-                  tickets={column?.tickets ?? NO_TICKETS}
-                  filterKey={encodeTicketListQuery(query)}
-                  count={column?.count ?? 0}
-                  members={members}
-                  isDraggable={canDrag}
-                  ordered={manual}
-                  inertTicketIds={inertTicketIds}
-                  lastFlash={null}
-                  reorderMode={reorderMode}
-                  onActivateReorder={onEnterReorder}
-                  collapsed={layout.collapsed.includes(status)}
-                  onToggleCollapsed={() => layout.toggleCollapsed(status)}
-                  footer={(nearEnd) =>
-                    column?.nextCursor != null ? (
-                      <ColumnLoadMore
-                        req={req}
-                        status={status}
-                        nearEnd={nearEnd}
-                        remaining={Math.max(
-                          0,
-                          column.count - column.rows.length
-                        )}
-                      />
-                    ) : null
-                  }
-                />
-              )
-            })}
-          </Reorder.Group>
-        )}
-      </motion.div>
-    </BoardKeyboardContext>
+    <HotkeysProvider scope="board">
+      <BoardKeyboardContext value={keyboard.context}>
+        <motion.div
+          ref={ref}
+          role={keyboard.context ? "grid" : undefined}
+          aria-label={m.tickets_board_aria_label()}
+          aria-colcount={keyboard.context ? order.length : undefined}
+          aria-rowcount={keyboard.context ? 1 : undefined}
+          onKeyDown={keyboard.onKeyDown}
+          layoutScroll
+          style={{ height: height ?? 240 }}
+          className={cn(
+            "overflow-x-auto overscroll-x-contain",
+            hasRightOverflow &&
+              "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+          )}
+        >
+          {order.length === 0 && layout.hidden.length > 0 ? (
+            <HiddenColumnsEmpty onShowAll={layout.showAll} />
+          ) : (
+            <Reorder.Group
+              ref={groupRef}
+              as="div"
+              role={keyboard.context ? "row" : undefined}
+              axis="x"
+              values={[...order]}
+              onReorder={(next) => setDragOrder(next)}
+              className="flex h-full gap-3"
+            >
+              {order.map((status, columnIndex) => {
+                const column = columns.find((c) => c.status === status)
+                return (
+                  <SprintBoardColumn
+                    key={status}
+                    columnIndex={columnIndex}
+                    update={backlogTicketUpdates(req)}
+                    status={status}
+                    statuses={statuses}
+                    tickets={column?.tickets ?? NO_TICKETS}
+                    filterKey={encodeTicketListQuery(query)}
+                    count={column?.count ?? 0}
+                    members={members}
+                    isDraggable={canDrag}
+                    ordered={manual}
+                    inertTicketIds={inertTicketIds}
+                    lastFlash={null}
+                    reorderMode={reorderMode}
+                    onActivateReorder={onEnterReorder}
+                    collapsed={layout.collapsed.includes(status)}
+                    onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                    footer={(nearEnd) =>
+                      column?.nextCursor != null ? (
+                        <ColumnLoadMore
+                          req={req}
+                          status={status}
+                          nearEnd={nearEnd}
+                          remaining={Math.max(
+                            0,
+                            column.count - column.rows.length
+                          )}
+                        />
+                      ) : null
+                    }
+                  />
+                )
+              })}
+            </Reorder.Group>
+          )}
+        </motion.div>
+      </BoardKeyboardContext>
+    </HotkeysProvider>
   )
 }
 

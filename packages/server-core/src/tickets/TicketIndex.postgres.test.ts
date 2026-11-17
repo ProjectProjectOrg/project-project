@@ -6,6 +6,7 @@ import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
   CommentId,
+  GroupId,
   UserId,
   encodeCursor,
   padNumericIdSort,
@@ -226,6 +227,54 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         Array.from({ length: 32 }, (_, value) => value + 1)
       )
     }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "puts each ticket in the section of its sprint, and the rest in the catch-all",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = yield* seedRebuildProject
+        const index = yield* TicketIndex.TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const sprintOf = { "T-1": "G-1", "T-2": "G-2", "T-4": "G-9" } as const
+        yield* Effect.forEach(
+          ["T-1", "T-2", "T-3", "T-4"],
+          (id) =>
+            index.upsertTicket(
+              project,
+              indexedDocument(id, {
+                sprint:
+                  id in sprintOf
+                    ? GroupId.make(sprintOf[id as keyof typeof sprintOf])
+                    : undefined
+              })
+            ),
+          { discard: true }
+        )
+        const sprint = (id: string) => ({
+          key: id,
+          members: { sprints: [id], tickets: [], outsideSprints: null }
+        })
+
+        const sections = yield* index.querySections(
+          project,
+          { sort: { key: "id", dir: "asc" } },
+          {
+            viewerId: "viewer",
+            limit: 10,
+            sections: [sprint("G-1"), { key: "ungrouped" }, sprint("G-2")]
+          }
+        )
+
+        expect(
+          Object.fromEntries(
+            [...sections].map(([key, section]) => [
+              key,
+              section.entries.map(({ entry }) => entry.id)
+            ])
+          )
+        ).toEqual({ "G-1": ["T-1"], ungrouped: ["T-3", "T-4"], "G-2": ["T-2"] })
+      }).pipe(Effect.provide(TestLayer))
   )
 
   it.effect("traces each index call under its TicketIndex span", () =>
@@ -971,9 +1020,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         {
           id: snapshotId,
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           origin: "jira",
           createdAt: snapshotCreatedAt,
@@ -1074,13 +1124,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: string
           author_kind: string
           author_id: string | null
-          jira_display_name: string | null
-          jira_account_id: string | null
+          imported_name: string | null
+          imported_source: string | null
+          imported_id: string | null
           created_at: Date
           edited_at: Date | null
         }>(
-          `select id, origin, author_kind, author_id, jira_display_name,
-                    jira_account_id, created_at, edited_at
+          `select id, origin, author_kind, author_id, imported_name,
+                    imported_source, imported_id, created_at, edited_at
              from comment_index
              where project_id = $1 and ticket_id = $2
              order by created_at`,
@@ -1093,8 +1144,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "native",
           author_kind: "user",
           author_id: userId,
-          jira_display_name: null,
-          jira_account_id: null,
+          imported_name: null,
+          imported_source: null,
+          imported_id: null,
           created_at: nativeCreatedAt,
           edited_at: null
         },
@@ -1103,18 +1155,20 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "jira",
           author_kind: "user",
           author_id: userId,
-          jira_display_name: null,
-          jira_account_id: null,
+          imported_name: null,
+          imported_source: null,
+          imported_id: null,
           created_at: linkedCreatedAt,
           edited_at: linkedEditedAt
         },
         {
           id: snapshotId,
           origin: "jira",
-          author_kind: "jira",
+          author_kind: "imported",
           author_id: null,
-          jira_display_name: "Former Jira User",
-          jira_account_id: "jira-account-1",
+          imported_name: "Former Jira User",
+          imported_source: "jira",
+          imported_id: "jira-account-1",
           created_at: snapshotCreatedAt,
           edited_at: snapshotEditedAt
         }
@@ -1145,7 +1199,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "native",
           body: "Native body",
           createdAt: nativeCreatedAt,
-          editedAt: null
+          editedAt: null,
+          replyTo: null,
+          resolution: null,
+          tickets: []
         },
         {
           id: linkedId,
@@ -1155,21 +1212,28 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           origin: "jira",
           body: largeBody,
           createdAt: linkedCreatedAt,
-          editedAt: linkedEditedAt
+          editedAt: linkedEditedAt,
+          replyTo: null,
+          resolution: null,
+          tickets: []
         },
         {
           id: snapshotId,
           ticketId: rebuildDocument.id,
           projectSlug,
           author: {
-            kind: "jira",
+            kind: "imported",
             displayName: "Former Jira User",
-            accountId: "jira-account-1"
+            source: "jira",
+            sourceId: "jira-account-1"
           },
           origin: "jira",
           body: "Snapshot body",
           createdAt: snapshotCreatedAt,
-          editedAt: snapshotEditedAt
+          editedAt: snapshotEditedAt,
+          replyTo: null,
+          resolution: null,
+          tickets: []
         }
       ])
     }).pipe(Effect.provide(indexLayer))
@@ -1580,7 +1644,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           viewerId: "viewer",
           limit: 10,
           sections: [
-            { key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] },
+            {
+              key: "G-1",
+              members: {
+                sprints: [],
+                tickets: ["T-11", "T-2", "T-12"],
+                outsideSprints: null
+              }
+            },
             { key: "ungrouped" }
           ]
         }
@@ -1604,7 +1675,16 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         {
           viewerId: "viewer",
           limit: 10,
-          sections: [{ key: "G-1", ticketIds: ["T-11", "T-2", "T-12"] }]
+          sections: [
+            {
+              key: "G-1",
+              members: {
+                sprints: [],
+                tickets: ["T-11", "T-2", "T-12"],
+                outsideSprints: null
+              }
+            }
+          ]
         }
       )
       expect(summarize(selectedOnly)).toEqual({
@@ -3076,7 +3156,13 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           viewerId: "viewer",
           sections: {
             kind: "explicit",
-            sections: [{ key: "G-2", ticketIds: ["T-3"] }, { key: "ungrouped" }]
+            sections: [
+              {
+                key: "G-2",
+                members: { sprints: [], tickets: ["T-3"], outsideSprints: null }
+              },
+              { key: "ungrouped" }
+            ]
           },
           within: sortById
         })

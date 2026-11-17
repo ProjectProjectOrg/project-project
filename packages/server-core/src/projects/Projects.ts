@@ -5,6 +5,7 @@ import {
   invitation,
   projectGitAutomation,
   projectIndex,
+  projectKey,
   projectInviteGrant,
   projectMember,
   projectStatus
@@ -271,17 +272,15 @@ const make = Effect.gen(function* () {
           icon: makeProjectIcon(identityRaw.icon),
           color: makeProjectColor(identityRaw.color)
         }
-        const existingKey = yield* db.query.projectIndex
-          .findFirst({
-            columns: { slug: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.organizationId, organizationId),
-                  _operators.eq(table.key, input.key)
-                )!
-            }
-          })
+        const [existingKey] = yield* db
+          .select({ projectId: projectKey.projectId })
+          .from(projectKey)
+          .where(
+            and(
+              eq(projectKey.organizationId, organizationId),
+              eq(projectKey.key, input.key)
+            )
+          )
           .pipe(Effect.orDie)
         if (existingKey) {
           return yield* new Conflict({ reason: "project_key_taken" })
@@ -310,6 +309,24 @@ const make = Effect.gen(function* () {
                       cause,
                       "project_index_organization_key_uidx"
                     )
+                      ? Effect.fail(
+                          new Conflict({ reason: "project_key_taken" })
+                        )
+                      : Effect.die(cause)
+                  )
+                )
+
+              yield* db
+                .insert(projectKey)
+                .values({
+                  organizationId,
+                  key,
+                  projectId: inserted.id,
+                  current: true
+                })
+                .pipe(
+                  Effect.catch((cause) =>
+                    uniqueConstraint(cause, "project_key_pkey")
                       ? Effect.fail(
                           new Conflict({ reason: "project_key_taken" })
                         )

@@ -30,6 +30,7 @@ import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as GitHubTicketEvents from "./GitHubTicketEvents"
+import * as PullRequestSnapshots from "./PullRequestSnapshots"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
@@ -135,10 +136,13 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     rankGap: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
+    sprintTickets: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
     mentionableIds: () => Effect.succeed(new Set()),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.succeed(1),
+    projectKeys: () => Effect.succeed({ current: "", former: [] }),
+    syncFormerKeys: () => Effect.succeed([]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
@@ -606,6 +610,27 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
     )
   }
+
+  it.effect(
+    "links a pull request on a branch named after a former key to the ticket under the current key",
+    () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(
+          [unlinked({ id: ticketId("PP-12") })],
+          { branch: "feat/T-12-x" },
+          {
+            projectKeys: () => Effect.succeed({ current: "PP", former: ["T"] })
+          }
+        )
+
+        expect(docs.writes).toEqual([
+          {
+            id: "PP-12",
+            document: expect.objectContaining({ branch: "feat/T-12-x", pr: 80 })
+          }
+        ])
+      })
+  )
 
   for (const { name, documents, change, indexOverrides } of [
     {
@@ -1139,7 +1164,8 @@ describe.skipIf(!databaseUrl)("GitHubTicketEvents tracing", () => {
         Layer.mock(TicketIndex.TicketIndex, {}),
         Layer.mock(TicketBranchIndex.TicketBranchIndex, {}),
         Layer.mock(TicketDocumentLock.TicketDocumentLock, {}),
-        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {})
+        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
+        PullRequestSnapshots.layer
       )
     ),
     Layer.provide(

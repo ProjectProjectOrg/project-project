@@ -1,5 +1,5 @@
 import type { TicketId } from "@pp/shared"
-import { hasModifier, ownsKeystrokes } from "@pp/ui/lib/keyboard"
+import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys"
 import {
   createContext,
   use,
@@ -12,8 +12,9 @@ import {
 } from "react"
 
 import { useReturnToTicket } from "@/features/tickets/hooks/useReturnToTicket"
-import { listStep, stepTicket } from "@/features/tickets/lib/listKeyboard"
+import { stepTicket } from "@/features/tickets/lib/listKeyboard"
 import { useKeyboardMode } from "@/hooks/useKeyboardMode"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 type ListKeyboardSection = Readonly<{
   ticketIds: ReadonlyArray<TicketId>
@@ -84,38 +85,31 @@ export function ListKeyboardProvider({
     }
   }))
 
+  const step = (to: 1 | -1, arrow: boolean) => (event: KeyboardEvent) => {
+    const target = event.target
+    const focused =
+      target instanceof Element && root.current?.contains(target)
+        ? rowTicketId(target)
+        : null
+    if (arrow && focused === null && target !== document.body) return
+    const shown = shownSections(sections.current)
+    const next = stepTicket(
+      shown.map(({ ticketIds }) => ticketIds),
+      focused ?? last.current,
+      to
+    )
+    if (next === null) return
+    event.preventDefault()
+    startKeyboardMode()
+    reveal(sections.current, next)
+  }
+  const manual = { preventDefault: false, stopPropagation: false } as const
+  useHotkey(appHotkeys["tickets.focus-next"], step(1, false), manual)
+  useHotkey(appHotkeys["tickets.focus-previous"], step(-1, false), manual)
+  useHotkey("ArrowDown", step(1, true), { ...manual, scope: "ticket-list" })
+  useHotkey("ArrowUp", step(-1, true), { ...manual, scope: "ticket-list" })
+
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const step = listStep(event.key)
-      const target = event.target
-      if (
-        step === null ||
-        event.defaultPrevented ||
-        hasModifier(event) ||
-        ownsKeystrokes(target)
-      )
-        return
-      const focused =
-        target instanceof Element && root.current?.contains(target)
-          ? rowTicketId(target)
-          : null
-      if (
-        event.key.startsWith("Arrow") &&
-        focused === null &&
-        target !== document.body
-      )
-        return
-      const shown = shownSections(sections.current)
-      const next = stepTicket(
-        shown.map(({ ticketIds }) => ticketIds),
-        focused ?? last.current,
-        step
-      )
-      if (next === null) return
-      event.preventDefault()
-      startKeyboardMode()
-      reveal(sections.current, next)
-    }
     const onFocusIn = (event: FocusEvent) => {
       const ticketId = rowTicketId(
         event.target instanceof Element ? event.target : null
@@ -123,20 +117,20 @@ export function ListKeyboardProvider({
       if (ticketId !== null) last.current = ticketId
     }
     const element = root.current
-    document.addEventListener("keydown", onKeyDown)
     element?.addEventListener("focusin", onFocusIn)
     return () => {
-      document.removeEventListener("keydown", onKeyDown)
       element?.removeEventListener("focusin", onFocusIn)
     }
-  }, [startKeyboardMode])
+  }, [])
 
   return (
-    <ListKeyboardContext value={context}>
-      <div ref={root} className="contents">
-        {children}
-      </div>
-    </ListKeyboardContext>
+    <HotkeysProvider scope="ticket-list">
+      <ListKeyboardContext value={context}>
+        <div ref={root} className="contents">
+          {children}
+        </div>
+      </ListKeyboardContext>
+    </HotkeysProvider>
   )
 }
 

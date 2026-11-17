@@ -1,14 +1,15 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ChevronRight, Plus } from "@pp/ui/icons"
-import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { AddChildTicketButton } from "./AddChildTicketButton"
@@ -58,18 +59,9 @@ function ChildrenSection({
     setOpen(true)
     setAdding(true)
   }
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!editable || adding || event.defaultPrevented) return
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key !== "c" || ownsKeystrokes(event.target)) return
-      event.preventDefault()
-      setOpen(true)
-      setAdding(true)
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [editable, adding])
+  useHotkey(appHotkeys["tickets.add-sub-ticket"], startAdding, {
+    enabled: editable && !adding
+  })
 
   const empty = editable && count === 0
   const expanded = empty ? adding : open

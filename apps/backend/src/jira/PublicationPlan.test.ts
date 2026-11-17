@@ -1452,6 +1452,15 @@ it.effect(
         []
       )
       expect(result.plan.groups.map((group) => group.kind)).toEqual(["sprint"])
+      expect(
+        result.plan.indexes.tickets.map(({ ticketId, sprintId }) => ({
+          ticketId,
+          sprintId
+        }))
+      ).toEqual([
+        { ticketId: "APP-1", sprintId: "G-1" },
+        { ticketId: "APP-4", sprintId: null }
+      ])
       expect(result.plan.archive.categories.customFields).toEqual([
         {
           id: "custom",
@@ -1908,9 +1917,10 @@ it.effect(
         id: final.plan.indexes.comments[0].id,
         origin: "jira",
         author: {
-          kind: "jira",
-          accountId: "account-unlinked",
-          displayName: "Former User"
+          kind: "imported",
+          displayName: "Former User",
+          source: "jira",
+          sourceId: "account-unlinked"
         },
         body: "Comment text"
       })

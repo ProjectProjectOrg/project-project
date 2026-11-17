@@ -11,6 +11,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { ArrowRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type MouseEvent } from "react"
@@ -26,6 +27,8 @@ import {
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 function StatusTrigger({
@@ -56,34 +59,39 @@ function StatusTrigger({
       if (stopPropagation) e.stopPropagation()
     },
     "aria-label": disabled ? label : m.tickets_status_aria_label({ label }),
-    title: label,
     disabled
   }
   return (
-    <DropdownMenuTrigger
-      render={
-        <Button
-          type="button"
-          variant="ghost"
-          tone="strong"
-          size={showLabel ? undefined : "square-6"}
-          {...triggerProps}
-        />
-      }
+    <ShortcutTooltip
+      hotkey={appHotkeys["tickets.status"]}
+      label={label}
+      keyLabels={keyLabels()}
     >
-      {blocked ? (
-        <span className="relative inline-flex">
-          {icon}
-          <span
-            aria-hidden
-            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            tone="strong"
+            size={showLabel ? undefined : "square-6"}
+            {...triggerProps}
           />
-        </span>
-      ) : (
-        icon
-      )}
-      {showLabel && <span>{label}</span>}
-    </DropdownMenuTrigger>
+        }
+      >
+        {blocked ? (
+          <span className="relative inline-flex">
+            {icon}
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
+            />
+          </span>
+        ) : (
+          icon
+        )}
+        {showLabel && <span>{label}</span>}
+      </DropdownMenuTrigger>
+    </ShortcutTooltip>
   )
 }
 

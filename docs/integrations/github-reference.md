@@ -58,9 +58,11 @@ it through ProjectProject. Forks with the same branch name are excluded.
 
 ## Branches created outside ProjectProject
 
-The existing project GitHub refresh also discovers pushed branches in the
-connected repository. While the project is visible, the frontend refreshes every
-60 seconds and on focus. Local-only branches become discoverable after a push.
+The project's background sync also discovers pushed branches in the connected
+repository. While the project is visible, the frontend reads git state every 15
+seconds and on focus, and each read starts a sync at most every 30 seconds, so a
+pushed branch appears within about a minute. Local-only branches become
+discoverable after a push.
 
 An unlinked, active ticket can acquire a branch containing its ID, such as
 `feat/PP-123-add-search`. Matching is case-insensitive, so branches created
@@ -91,6 +93,21 @@ attaching or creating a branch clears the flag. This preference is private docum
 metadata; it does not require a database migration or public API change.
 
 ## Refresh reliability and PR details
+
+Git state reads never wait for GitHub. A ticket's branch, pull request and
+stack come from its markdown through the ticket index; each pull request's
+title, state, draft flag, base, merge time and checks come from
+`github_pull_request`, a Postgres copy of GitHub's data keyed by repository and
+number. Webhooks and syncs both write it: the newest observation wins, and a
+webhook, which carries no checks, keeps the stored ones. Losing the table costs
+one sync per project. A pull request without a stored row shows as pending
+until a sync stores it.
+
+Reading a project's git state returns the stored state and starts a background
+sync of that project, at most one at a time and at most every 30 seconds per
+backend process. `sync_git_state` waits for a sync, joining one already
+running. Token, repository and rate-limit problems in a response are those of
+the project's last sync in this process.
 
 Project-state reads share a bounded 15-second cache and in-flight requests.
 Repository mutations and GitHub App webhooks invalidate the affected cache.

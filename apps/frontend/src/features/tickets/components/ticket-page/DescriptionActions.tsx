@@ -1,12 +1,14 @@
 import { Button } from "@pp/ui/button"
 import type { SaveStatus } from "@pp/ui/editor/save-queue"
 import { Check, Pencil } from "@pp/ui/icons"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }
@@ -66,7 +68,7 @@ export function DescriptionActions({
                   ? m.tickets_description_not_saved()
                   : m.tickets_description_done()}
               </MorphLabel>
-              <Kbd aria-hidden>{m.tickets_description_done_key()}</Kbd>
+              <KbdShortcut keys="Escape" keyLabels={keyLabels()} aria-hidden />
               <span aria-live="polite" className="sr-only">
                 {statusLabel[status]()}
               </span>
@@ -75,13 +77,19 @@ export function DescriptionActions({
             <Button
               variant="ghost"
               aria-label={m.tickets_description_edit()}
-              aria-keyshortcuts="E"
+              aria-keyshortcuts={
+                appHotkeys["tickets.edit-description"].defaultHotkey
+              }
               onClick={onEdit}
               className="rounded-full bg-page pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}
-              <Kbd aria-hidden>{m.tickets_description_edit_key()}</Kbd>
+              <KbdShortcut
+                keys={appHotkeys["tickets.edit-description"].defaultHotkey}
+                keyLabels={keyLabels()}
+                aria-hidden
+              />
             </Button>
           )}
         </motion.div>

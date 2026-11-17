@@ -62,9 +62,9 @@ describe.skipIf(!databaseUrl)("claiming an invited Jira identity", () => {
       [id, id, id]
     )
     await pool.query(
-      `INSERT INTO comment_index (id,project_id,ticket_id,origin,author_kind,author_id,jira_display_name,jira_account_id)
-       VALUES ('c_old',$1,'T-2','jira','jira',NULL,'Jan (old)','jira-old'),
-              ('c_other',$1,'T-2','jira','jira',NULL,'Piet','jira-other')`,
+      `INSERT INTO comment_index (id,project_id,ticket_id,origin,author_kind,author_id,imported_name,imported_source,imported_id)
+       VALUES ('c_old',$1,'T-2','jira','imported',NULL,'Jan (old)','jira','jira-old'),
+              ('c_other',$1,'T-2','jira','imported',NULL,'Piet','jira','jira-other')`,
       [id]
     )
   })
@@ -76,13 +76,18 @@ describe.skipIf(!databaseUrl)("claiming an invited Jira identity", () => {
     await pool.end()
   })
 
-  const jiraComment = (commentId: string, accountId: string) => ({
+  const jiraComment = (commentId: string, sourceId: string) => ({
     id: commentId,
-    author: { kind: "jira" as const, displayName: accountId, accountId },
+    author: {
+      kind: "imported" as const,
+      source: "jira" as const,
+      displayName: sourceId,
+      sourceId
+    },
     origin: "jira" as const,
     createdAt: isoDate("2026-09-01T10:00:00.000Z"),
     editedAt: null,
-    body: `From ${accountId}`
+    body: `From ${sourceId}`
   })
 
   it.effect(
@@ -139,7 +144,12 @@ describe.skipIf(!databaseUrl)("claiming an invited Jira identity", () => {
           ["c_old", { kind: "user", userId: invitee }],
           [
             "c_other",
-            { kind: "jira", displayName: "jira-other", accountId: "jira-other" }
+            {
+              kind: "imported",
+              source: "jira",
+              displayName: "jira-other",
+              sourceId: "jira-other"
+            }
           ]
         ])
         const { rows } = yield* Effect.promise(() =>
@@ -150,7 +160,7 @@ describe.skipIf(!databaseUrl)("claiming an invited Jira identity", () => {
         )
         expect(rows).toEqual([
           { id: "c_old", author_kind: "user", author_id: invitee },
-          { id: "c_other", author_kind: "jira", author_id: null }
+          { id: "c_other", author_kind: "imported", author_id: null }
         ])
       }).pipe(
         Effect.provideService(ActivityActor, ActivityActor.system("import")),

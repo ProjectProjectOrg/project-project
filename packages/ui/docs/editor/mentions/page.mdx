@@ -33,6 +33,7 @@ import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 | `useMentionSearch(query)` | People and tickets matching what follows "@" (`null` while no menu is open): each group's provider (heading, row, failure text) and results (`items`, `status`) |
 | `mentionHref.user`, `mentionHref.ticket` | Where a chip links |
 | `renderTicketPreview(ticketId, scope)` | The card a ticket chip shows on hover |
+| `renderCommentPreview(ticketId, commentId, scope)` | The card a comment chip shows on hover; the chip links to its ticket with `#commentId` |
 
 In Markdown a mention is a link: `[Maya Chen](mention:user/maya)`, `[ATL-8](mention:ticket/ATL-8)`, or `mention:ticket/billing/BIL-3` for another project's ticket.
 

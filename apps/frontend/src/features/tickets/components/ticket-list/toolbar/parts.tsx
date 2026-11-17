@@ -6,11 +6,13 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { useRef } from "react"
 
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { MIN_SEARCH_CHARS } from "../search"
@@ -22,7 +24,7 @@ export function SearchInput() {
   const searchRef = useRef<HTMLInputElement>(null)
   const searchBelowMinChars =
     searchInput.length > 0 && searchInput.length < MIN_SEARCH_CHARS
-  useGlobalShortcut("/", searchRef)
+  useGlobalShortcut(appHotkeys["tickets.search"], searchRef)
   return (
     <InputGroup className="min-w-0 flex-1 basis-[220px]">
       <InputGroupAddon>
@@ -39,7 +41,7 @@ export function SearchInput() {
         }}
         placeholder={m.tickets_search_placeholder()}
         aria-label={m.tickets_search_aria_label()}
-        aria-keyshortcuts="/"
+        aria-keyshortcuts={appHotkeys["tickets.search"].defaultHotkey}
       />
       {searchBelowMinChars ? (
         <span className="shrink-0 text-caption text-muted-foreground">
@@ -58,7 +60,11 @@ export function SearchInput() {
           <X strokeWidth={1.75} />
         </Button>
       ) : !compact ? (
-        <Kbd aria-hidden>/</Kbd>
+        <KbdShortcut
+          keys={appHotkeys["tickets.search"].defaultHotkey}
+          keyLabels={keyLabels()}
+          aria-hidden
+        />
       ) : null}
     </InputGroup>
   )

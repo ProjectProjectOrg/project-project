@@ -83,26 +83,93 @@ const capLabels = (labels: KeyLabels): ReadonlyMap<string, CapLabel> =>
 
 const PREFORMATTED = /^[⌘⌃⌥⇧↵⌫⌦⇥↑↓←→]+[A-Za-z0-9]?$/
 
-export function formatShortcut(
+// The KeyboardEvent.key (lowercased, " " as "space") each glyph and name
+// stands for, so a cap can light up while its key is held.
+const GLYPH_KEYS: ReadonlyMap<string, string> = new Map([
+  ["⌘", "meta"],
+  ["⌃", "control"],
+  ["⌥", "alt"],
+  ["⇧", "shift"],
+  ["↵", "enter"],
+  ["⌫", "backspace"],
+  ["⌦", "delete"],
+  ["⇥", "tab"],
+  ["↑", "arrowup"],
+  ["↓", "arrowdown"],
+  ["←", "arrowleft"],
+  ["→", "arrowright"]
+])
+
+const eventKey = (name: string, mac: boolean): string => {
+  if (name === "mod") return mac ? "meta" : "control"
+  if (name === "ctrl") return "control"
+  if (name === " ") return "space"
+  return name
+}
+
+export type ShortcutCap = Readonly<{
+  // What the cap shows: a glyph on a Mac, a label or letter elsewhere.
+  label: string
+  // The held key that lights it (see keyCapHighlight).
+  key: string
+  // The first step of a sequence (g then b) stays lit until the next key.
+  sequenceStart: boolean
+}>
+
+const chordCaps = (
   shortcut: string,
   mac: boolean,
   labels: KeyLabels
-): ReadonlyArray<string> {
+): Array<Omit<ShortcutCap, "sequenceStart">> => {
   const labelled = capLabels(labels)
-  const caps: Array<string> = []
+  const caps: Array<Omit<ShortcutCap, "sequenceStart">> = []
   for (const token of shortcutTokens(shortcut)) {
     if (PREFORMATTED.test(token)) {
-      caps.push(...Array.from(token))
+      for (const glyph of Array.from(token)) {
+        caps.push({
+          label: glyph,
+          key: GLYPH_KEYS.get(glyph) ?? glyph.toLowerCase()
+        })
+      }
       continue
     }
     const lower = token.toLowerCase()
     const name = MODIFIER_TOKENS.get(lower) ?? KEY_ALIASES.get(lower) ?? lower
     const cap = labelled.get(name)
-    if (cap) caps.push(mac ? cap.mac : cap.other)
-    else if (name.length === 1) caps.push(name.toUpperCase())
-    else caps.push(name.charAt(0).toUpperCase() + name.slice(1))
+    const label = cap
+      ? mac
+        ? cap.mac
+        : cap.other
+      : name.length === 1
+        ? name.toUpperCase()
+        : name.charAt(0).toUpperCase() + name.slice(1)
+    caps.push({ label, key: eventKey(name, mac) })
   }
   return caps
+}
+
+export function formatShortcut(
+  shortcut: string,
+  mac: boolean,
+  labels: KeyLabels
+): ReadonlyArray<string> {
+  return chordCaps(shortcut, mac, labels).map((cap) => cap.label)
+}
+
+// A hotkey as caps: one chord ("mod+k"), or a sequence of chords (["g", "b"],
+// TanStack Hotkeys' shape) whose first step starts the sequence.
+export function shortcutCaps(
+  keys: string | ReadonlyArray<string>,
+  mac: boolean,
+  labels: KeyLabels
+): ReadonlyArray<ShortcutCap> {
+  const steps = [keys].flat()
+  return steps.flatMap((step, index) =>
+    chordCaps(step, mac, labels).map((cap) => ({
+      ...cap,
+      sequenceStart: steps.length > 1 && index === 0
+    }))
+  )
 }
 
 const isMacPlatform = (): boolean => {

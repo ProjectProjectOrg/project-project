@@ -30,7 +30,7 @@ export function TicketContextChip({
       </span>
       <CommandMenuShortcut
         keyLabels={keyLabels()}
-        keys="backspace"
+        keys="Backspace"
         className="ml-0 self-stretch *:h-full *:rounded-none *:px-1.5"
       />
     </span>

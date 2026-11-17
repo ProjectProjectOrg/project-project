@@ -2,20 +2,18 @@ import type { TicketId, TicketSequence, TicketSequenceEntry } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ChevronDown, ChevronUp } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
-import {
-  NEXT_KEY,
-  PREVIOUS_KEY
-} from "@/features/tickets/hooks/useTicketStepping"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 type Step = Readonly<{
   neighbor: TicketSequenceEntry | null
-  shortcut: string
+  shortcut: HotkeyChord
   icon: IconComponent
   label: string
 }>
@@ -54,13 +52,13 @@ export function TicketStepper({
       </span>
       {step({
         neighbor: tickets[index - 1] ?? null,
-        shortcut: PREVIOUS_KEY,
+        shortcut: appHotkeys["tickets.previous"].defaultHotkey,
         icon: ChevronUp,
         label: m.tickets_stepper_previous()
       })}
       {step({
         neighbor: tickets[index + 1] ?? null,
-        shortcut: NEXT_KEY,
+        shortcut: appHotkeys["tickets.next"].defaultHotkey,
         icon: ChevronDown,
         label: m.tickets_stepper_next()
       })}

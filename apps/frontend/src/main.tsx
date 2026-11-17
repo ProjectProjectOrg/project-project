@@ -1,5 +1,6 @@
 import { RegistryContext } from "@effect/atom-react"
 import { provideEditorMessages } from "@pp/ui/editor/messages"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import {
   createBrowserHistory,
   createRouter,
@@ -9,6 +10,7 @@ import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { m } from "./paraglide/messages"
 import { routeTree } from "./routeTree.gen"
@@ -41,7 +43,12 @@ function App() {
   if (!session.ready) return null
   return (
     <RegistryContext.Provider key={session.generation} value={session.registry}>
-      <RouterProvider router={session.router} />
+      <HotkeysProvider
+        appHotkeys={appHotkeys}
+        defaultOptions={{ hotkey: { ignoreDefaultPrevented: true } }}
+      >
+        <RouterProvider router={session.router} />
+      </HotkeysProvider>
     </RegistryContext.Provider>
   )
 }

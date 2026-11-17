@@ -22,6 +22,7 @@ import {
   pickStatusColor,
   ProjectKey,
   Slug,
+  sprintClaims,
   StatusSlug,
   TagName,
   TicketId,
@@ -1328,6 +1329,7 @@ const TicketRow = Schema.Struct({
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
   parent: Schema.optional(Schema.NullOr(TicketId)),
+  sprintId: Schema.optional(Schema.NullOr(GroupId)),
   estimateUnit: Schema.optional(Schema.NullOr(EstimateUnit)),
   estimateValue: Schema.optional(Schema.NullOr(Schema.Int)),
   branch: Schema.Null,
@@ -1719,9 +1721,26 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
     })
     const groups = draft.plan.groups.map((group, index) => ({
       ...group,
-      id: `G-${index + 1}`,
+      id: GroupId.make(`G-${index + 1}`),
       color: "#777777"
     }))
+    const sprintOf = sprintClaims(
+      groups
+        .filter((group) => group.kind === "sprint")
+        .map((group) => ({
+          id: group.id,
+          completedAt:
+            group.completedAt === null
+              ? null
+              : DateTime.toDate(DateTime.makeUnsafe(group.completedAt)),
+          tickets: group.ticketIds
+        }))
+        .toSorted(
+          (a, b) =>
+            (b.completedAt?.getTime() ?? Number.POSITIVE_INFINITY) -
+            (a.completedAt?.getTime() ?? Number.POSITIVE_INFINITY)
+        )
+    )
     const estimates = planJiraEstimates(
       manifest,
       values,
@@ -1756,6 +1775,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         )
       }
     })
+    const ticketsById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
     const comments = draft.plan.comments.map((comment) => ({
       ...comment,
       id: `c_jira_${digest(JSON.stringify([manifest.migrationId, comment.sourceCommentId])).slice(0, 32)}`
@@ -1808,6 +1828,9 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             tags: ticket.tags,
             assignees: ticket.assignees,
             ...(ticket.parent ? { parent: ticket.parent } : {}),
+            ...(sprintOf.has(ticket.id)
+              ? { sprint: sprintOf.get(ticket.id) }
+              : {}),
             ...(ticket.estimate
               ? { estimate: estimateToken(ticket.estimate) }
               : {}),
@@ -1831,7 +1854,25 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             id: group.id,
             kind: group.kind,
             name: group.name,
-            tickets: group.ticketIds,
+            ...(group.kind === "sprint" ? {} : { tickets: group.ticketIds }),
+            ...(group.kind === "sprint" && group.completedAt !== null
+              ? {
+                  snapshot: group.ticketIds.flatMap((id) => {
+                    const ticket = ticketsById.get(id)
+                    return ticket === undefined
+                      ? []
+                      : [
+                          {
+                            id,
+                            status: ticket.status,
+                            ...(ticket.estimate
+                              ? { estimate: estimateToken(ticket.estimate) }
+                              : {})
+                          }
+                        ]
+                  })
+                }
+              : {}),
             color: group.color,
             startsAt: group.startsAt,
             endsAt: group.endsAt,
@@ -2042,6 +2083,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           tags: ticket.tags,
           assignees: ticket.assignees,
           parent: ticket.parent ?? null,
+          sprintId: sprintOf.get(ticket.id) ?? null,
           estimateUnit: ticket.estimate?.unit ?? null,
           estimateValue: ticket.estimate ? estimateRank(ticket.estimate) : null,
           branch: null,
