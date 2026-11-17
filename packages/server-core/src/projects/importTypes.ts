@@ -1,4 +1,9 @@
-import { TypeDraft, LIBRARY_KEY_MAX_LENGTH, type Library } from "@pp/shared"
+import {
+  TypeDraft,
+  LIBRARY_KEY_MAX_LENGTH,
+  isBuiltinTypeKey,
+  type Library
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 
 import { parseMarkdownFile } from "../markdown/fileContent"
@@ -29,7 +34,7 @@ export const planImportedTypes = (
     let suffix = 1
     let key: string = type.key
     let name = type.name
-    if (key !== "epic") {
+    if (!isBuiltinTypeKey(key)) {
       while (keys.has(key) || names.has(name)) {
         suffix++
         const ending = String(suffix)

@@ -42,8 +42,13 @@ import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
+import { splitDescriptionAndCommentsRegion } from "../comments/comments-region"
 import * as LibraryDocs from "../library/LibraryDocs"
-import { markdownFileContent } from "../markdown/fileContent"
+import {
+  markdownFileContent,
+  parseMarkdownFile,
+  ticketFileBody
+} from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
@@ -297,8 +302,31 @@ const make = Effect.gen(function* () {
         )
       }))
     const typePaths = new Set(typeFiles.map((file) => file.path))
+    const sourceBlocks = blockLookupFor(library)
     const portableFiles = [
-      ...files.filter((file) => !typePaths.has(file.path)),
+      ...files
+        .filter((file) => !typePaths.has(file.path))
+        .map((file) => {
+          if (!file.path.startsWith("tickets/") || !file.path.endsWith(".md"))
+            return file
+          const { data, content } = parseMarkdownFile(
+            textDecoder.decode(file.bytes)
+          )
+          const { description, region } =
+            splitDescriptionAndCommentsRegion(content)
+          const frozen = resolveSyncedBlocks(
+            resolveSyncedBlocks(description, sourceBlocks),
+            () => undefined
+          )
+          return frozen === description
+            ? file
+            : {
+                path: file.path,
+                bytes: textEncoder.encode(
+                  markdownFileContent(data, ticketFileBody(frozen, region))
+                )
+              }
+        }),
       ...typeFiles
     ].toSorted((a, b) => a.path.localeCompare(b.path))
 

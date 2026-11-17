@@ -30,6 +30,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
@@ -69,7 +70,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
     secretAccessKey: "secret"
   }
 
-  const layer = () => {
+  const layer = (workflowEngine = WorkflowEngine.layerMemory) => {
     const db = DbLive.pipe(
       Layer.provideMerge(
         PgClient.layer({ url: Redacted.make(databaseUrl!), maxConnections: 2 })
@@ -114,7 +115,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
       ),
       ProjectExport.layer
     ).pipe(
-      Layer.provideMerge(WorkflowEngine.layerMemory),
+      Layer.provideMerge(workflowEngine),
       Layer.provide(index),
       Layer.provide(ProjectDocs.layer),
       Layer.provideMerge(LibraryDocs.layer.pipe(Layer.provide(markdown))),
@@ -237,6 +238,16 @@ describe.skipIf(!databaseUrl)("project import", () => {
       body: '<block type="incident-note">\n\n</block>'
     })
     yield* libraryDocs.writeType(source.slug, null, sourceType)
+    yield* libraryDocs.writeType(
+      source.slug,
+      null,
+      decodeType({
+        ...sourceType,
+        key: "bug",
+        name: "Bug",
+        body: "Source Bug template"
+      })
+    )
     yield* libraryDocs.writeType(target.slug, null, {
       ...sourceType,
       body: "Destination template"
@@ -272,6 +283,10 @@ describe.skipIf(!databaseUrl)("project import", () => {
         "",
         `See [T-2](mention:ticket/T-2). ![shot](/api/attachments/${source.slug}/${attachmentId})`,
         "",
+        '<block type="incident-note" sync>',
+        "Stale ticket snapshot",
+        "</block>",
+        "",
         "<!-- comments:start -->",
         "<!-- comment:c_bob -->",
         "---",
@@ -288,7 +303,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
     )
     yield* fs.writeFileString(
       path.join(dir, "tickets", "T-2.md"),
-      `---\nid: T-2\ntitle: Second\nstatus: todo\ntype: feat\nrank: a1\npriority: med\ntags: []\ncreatedBy: ${ada}\ncreatedAt: '2026-01-01T00:00:00.000Z'\nupdatedAt: '2026-01-01T00:00:00.000Z'\n---\n`
+      `---\nid: T-2\ntitle: Second\nstatus: todo\ntype: bug\nrank: a1\npriority: med\ntags: []\ncreatedBy: ${ada}\ncreatedAt: '2026-01-01T00:00:00.000Z'\nupdatedAt: '2026-01-01T00:00:00.000Z'\n---\n`
     )
     yield* Effect.promise(() =>
       pool.query(
@@ -333,6 +348,14 @@ describe.skipIf(!databaseUrl)("project import", () => {
           root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
           yield* Effect.gen(function* () {
             yield* writeSource
+            const notesDir = `${root}/orgs/${source.slug}/projects/src/notes`
+            yield* fs.makeDirectory(notesDir, { recursive: true })
+            for (let i = 0; i < 105; i++) {
+              yield* fs.writeFileString(
+                `${notesDir}/${i}.md`,
+                `Source note ${i}`
+              )
+            }
             const imports = yield* ProjectImports.ProjectImports
             const uploaded = yield* imports
               .upload(yield* exported)
@@ -342,6 +365,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
               source: { key: "T", name: "Source" },
               counts: { tickets: 2, attachments: 1, missingAttachments: 0 },
               types: [
+                { sourceKey: "bug", key: "bug", name: "Bug" },
                 { sourceKey: "incident", key: "incident2", name: "Incident2" }
               ]
             })
@@ -472,8 +496,28 @@ describe.skipIf(!databaseUrl)("project import", () => {
             const ticket = yield* fs.readFileString(
               `${root}/orgs/${target.slug}/projects/moved/tickets/PP-1.md`
             )
+            for (let i = 0; i < 105; i++) {
+              expect(
+                yield* fs.readFileString(
+                  `${root}/orgs/${target.slug}/projects/moved/notes/${i}.md`
+                )
+              ).toBe(`Source note ${i}`)
+            }
             expect(ticket).toContain("[PP-2](mention:ticket/PP-2)")
             expect(ticket).toContain("type: incident2")
+            expect(ticket).toContain("Source incident template")
+            expect(ticket).not.toContain("Stale ticket snapshot")
+            expect(ticket).not.toContain('type="incident-note" sync')
+            expect(
+              yield* fs.readFileString(
+                `${root}/orgs/${target.slug}/projects/moved/tickets/PP-2.md`
+              )
+            ).toContain("type: bug")
+            expect(
+              yield* fs.readFileString(
+                `${root}/orgs/${target.slug}/projects/moved/types/bug.md`
+              )
+            ).toContain("Source Bug template")
             const importedType = yield* fs.readFileString(
               `${root}/orgs/${target.slug}/projects/moved/types/incident2.md`
             )
@@ -491,6 +535,79 @@ describe.skipIf(!databaseUrl)("project import", () => {
           }).pipe(Effect.provide(layer()))
         })
       ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live(
+    "leaves a failed import retryable when dispatching its workflow fails",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({
+            prefix: "pp-import-dispatch-"
+          })
+          yield* Effect.gen(function* () {
+            yield* writeSource
+            const imports = yield* ProjectImports.ProjectImports
+            const uploaded = yield* imports
+              .upload(yield* exported)
+              .pipe(asImporter)
+            const result = yield* Effect.exit(
+              imports
+                .run(uploaded.id, {
+                  name: "Dispatch failure",
+                  slug: "dispatch-failure",
+                  key: decodeKey("DSP"),
+                  people: []
+                })
+                .pipe(asImporter)
+            )
+            expect(result._tag).toBe("Failure")
+            expect(
+              (yield* imports.get(uploaded.id).pipe(asImporter)).status
+            ).toBe("failed")
+          }).pipe(
+            Effect.provide(
+              layer(
+                Layer.mock(WorkflowEngine.WorkflowEngine, {
+                  register: () => Effect.void,
+                  execute: () => Effect.die("workflow dispatch failed")
+                })
+              )
+            )
+          )
+        })
+      ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live("removes staged objects when an upload is interrupted", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-abort-" })
+        yield* Effect.gen(function* () {
+          yield* writeSource
+          const imports = yield* ProjectImports.ProjectImports
+          const before = new Set(objects.keys())
+          const upload = yield* Effect.forkScoped(
+            imports
+              .upload(Stream.concat(yield* exported, Stream.never))
+              .pipe(asImporter)
+          )
+          const staged = yield* Effect.sync(() =>
+            [...objects.keys()].filter((key) => !before.has(key))
+          ).pipe(
+            Effect.repeat({
+              while: (keys) => keys.length === 0,
+              schedule: Schedule.spaced("20 millis")
+            }),
+            Effect.timeout("2 seconds")
+          )
+          yield* Fiber.interrupt(upload)
+          expect(staged.some((key) => objects.has(key))).toBe(false)
+        }).pipe(Effect.provide(layer()))
+      })
+    ).pipe(Effect.provide(BunServices.layer))
   )
 
   it.live("deletes uploaded files when an import is cancelled", () =>
@@ -638,6 +755,12 @@ describe.skipIf(!databaseUrl)("project import", () => {
               Effect.timeout("10 seconds")
             )
             expect(finished.status).toBe("failed")
+            yield* Effect.exit(
+              ProjectImports.ProjectImportWorkflow.execute({
+                importId: uploaded.id,
+                attempt: 1
+              })
+            )
             const rows = yield* Effect.promise(() =>
               pool.query(
                 "SELECT id FROM project_index WHERE organization_id = $1 AND slug = 'broken'",
@@ -645,6 +768,57 @@ describe.skipIf(!databaseUrl)("project import", () => {
               )
             )
             expect(rows.rows).toEqual([])
+          }).pipe(Effect.provide(layer()))
+        })
+      ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live.each(["fail", "cancel", "expire"] as const)(
+    "%s leaves another project's folder intact when the destination id is absent",
+    (operation) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({
+            prefix: "pp-import-owner-"
+          })
+          yield* Effect.gen(function* () {
+            const imports = yield* ProjectImports.ProjectImports
+            const importId = randomUUID()
+            const slug = `reused-${operation}`
+            const dir = `${root}/orgs/${target.slug}/projects/${slug}`
+            yield* fs.makeDirectory(dir, { recursive: true })
+            yield* fs.writeFileString(`${dir}/project.md`, "Live project")
+            yield* Effect.promise(async () => {
+              await pool.query(
+                "INSERT INTO project_index (id, organization_id, slug, key, name, icon, color, created_by) VALUES ($1, $2, $3, $4, 'Reused', 'folder', '#000000', $5)",
+                [
+                  randomUUID(),
+                  target.id,
+                  slug,
+                  `R${operation.toUpperCase()}`,
+                  importer
+                ]
+              )
+              await pool.query(
+                "INSERT INTO project_import (id, organization_id, created_by, status, attempt, destination_project_id, destination_project_slug, retained_until) VALUES ($1, $2, $3, $4, 1, $5, $6, now() - interval '1 day')",
+                [
+                  importId,
+                  target.id,
+                  importer,
+                  operation === "fail" ? "importing" : "failed",
+                  randomUUID(),
+                  slug
+                ]
+              )
+            })
+            if (operation === "fail") yield* imports.steps.fail(importId, 1)
+            else if (operation === "cancel")
+              yield* imports.cancel(importId).pipe(asImporter)
+            else yield* imports.expire()
+            expect(yield* fs.readFileString(`${dir}/project.md`)).toBe(
+              "Live project"
+            )
           }).pipe(Effect.provide(layer()))
         })
       ).pipe(Effect.provide(BunServices.layer))

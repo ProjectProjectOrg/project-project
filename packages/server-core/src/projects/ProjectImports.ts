@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
 import {
+  attachmentIndex,
   member,
   organization,
   projectImageReference,
@@ -36,7 +37,15 @@ import {
   type ProjectImport,
   type RunProjectImportInput
 } from "@pp/shared"
-import { and, eq, inArray, isNotNull, lte, sql } from "drizzle-orm"
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  lte,
+  sql
+} from "drizzle-orm"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -302,39 +311,45 @@ const make = Effect.gen(function* () {
         )
 
   const removeDestination = (orgSlug: string, row: ImportRow) =>
-    Effect.gen(function* () {
-      const destination = {
-        organizationId: row.organizationId,
-        orgSlug,
-        projectId: row.destinationProjectId,
-        projectSlug: row.destinationProjectSlug
-      }
-      if (!(yield* HiddenProject.isUnpublishedDestination(destination))) return
-      const stage = <E, R>(name: string, effect: Effect.Effect<void, E, R>) =>
-        effect.pipe(
-          Effect.catchCause((cause) =>
-            Effect.logWarning(`project import cleanup: ${name} failed`, cause)
+    db
+      .transaction((tx) =>
+        Effect.gen(function* () {
+          if (
+            row.destinationProjectId === null ||
+            row.destinationProjectSlug === null
           )
+            return
+          const [owned] = yield* tx
+            .select({ id: projectIndex.id })
+            .from(projectIndex)
+            .where(
+              and(
+                eq(projectIndex.id, row.destinationProjectId),
+                eq(projectIndex.organizationId, row.organizationId),
+                eq(projectIndex.slug, row.destinationProjectSlug),
+                sql`${projectIndex.publishedAt} is null`
+              )
+            )
+            .for("update")
+          if (!owned) return
+          yield* tx
+            .delete(attachmentIndex)
+            .where(
+              and(
+                eq(attachmentIndex.projectId, owned.id),
+                eq(attachmentIndex.organizationId, row.organizationId),
+                eq(attachmentIndex.status, "pending")
+              )
+            )
+          yield* projectDocs.removeDir(orgSlug, row.destinationProjectSlug)
+          yield* tx.delete(projectIndex).where(eq(projectIndex.id, owned.id))
+        })
+      )
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("project import destination cleanup failed", cause)
         )
-      yield* stage(
-        "pending attachments",
-        HiddenProject.deletePendingAttachments(destination)
       )
-      if (destination.projectSlug !== null)
-        yield* stage(
-          "documents",
-          projectDocs.removeDir(orgSlug, destination.projectSlug)
-        )
-      yield* stage(
-        "hidden project",
-        HiddenProject.deleteHiddenProjectRow(destination)
-      )
-    }).pipe(
-      Effect.provide(provided),
-      Effect.catchCause((cause) =>
-        Effect.logWarning("project import destination cleanup failed", cause)
-      )
-    )
 
   const upload = Effect.fn("ProjectImports.upload")(function* <E>(
     body: Stream.Stream<Uint8Array, E>
@@ -467,13 +482,6 @@ const make = Effect.gen(function* () {
           attachmentId,
           planned.filename
         )
-        yield* s3
-          .putObject(connection, objectKey, planned.contentType, bytes)
-          .pipe(
-            Effect.mapError(
-              (error) => new StorageError({ reason: error.reason })
-            )
-          )
         staged.push({
           sourceId,
           id: attachmentId,
@@ -482,54 +490,72 @@ const make = Effect.gen(function* () {
           contentType: planned.contentType,
           contentHash: sha256(bytes)
         })
+        yield* s3
+          .putObject(connection, objectKey, planned.contentType, bytes)
+          .pipe(
+            Effect.mapError(
+              (error) => new StorageError({ reason: error.reason })
+            )
+          )
         return
       }
       return yield* invalid("unexpected_entry")
     })
 
-    const received$ = yield* entries.pipe(
-      Stream.runForEach(handleEntry),
-      Effect.flatMap(() =>
-        manifest === null
-          ? Effect.fail(invalid("missing_manifest"))
-          : Effect.succeed(manifest)
-      ),
-      Effect.tap(() =>
-        Effect.try({
-          try: () => importedTypes(files),
-          catch: () => invalid("invalid_type_definition")
+    return yield* Effect.gen(function* () {
+      const received$ = yield* entries.pipe(
+        Stream.runForEach(handleEntry),
+        Effect.flatMap(() =>
+          manifest === null
+            ? Effect.fail(invalid("missing_manifest"))
+            : Effect.succeed(manifest)
+        ),
+        Effect.tap(() =>
+          Effect.try({
+            try: () => importedTypes(files),
+            catch: () => invalid("invalid_type_definition")
+          })
+        )
+      )
+      const [row] = yield* db
+        .update(projectImport)
+        .set({
+          status: "ready",
+          manifest: encodeManifest(received$),
+          files,
+          attachments: staged,
+          updatedAt: yield* DateTime.nowAsDate
         })
-      ),
-      Effect.tapError((error) =>
-        Effect.gen(function* () {
+        .where(eq(projectImport.id, id))
+        .returning()
+        .pipe(Effect.orDie)
+      return yield* present(row)
+    }).pipe(
+      Effect.onExit((exit) => {
+        if (Exit.isSuccess(exit)) return Effect.void
+        const error = Cause.findErrorOption(exit.cause)
+        return Effect.gen(function* () {
           yield* deleteObjects(scope.orgSlug, staged)
           yield* db
             .update(projectImport)
             .set({
               status: "failed",
-              failureReason:
-                error._tag === "Validation" ? error.reason : error._tag,
+              files: null,
+              attachments: null,
+              failureReason: Option.isSome(error)
+                ? error.value._tag === "Validation"
+                  ? error.value.reason
+                  : error.value._tag
+                : Cause.hasInterruptsOnly(exit.cause)
+                  ? "upload_interrupted"
+                  : "upload_failed",
               updatedAt: yield* DateTime.nowAsDate
             })
             .where(eq(projectImport.id, id))
             .pipe(Effect.orDie)
         })
-      )
-    )
-
-    const [row] = yield* db
-      .update(projectImport)
-      .set({
-        status: "ready",
-        manifest: encodeManifest(received$),
-        files,
-        attachments: staged,
-        updatedAt: yield* DateTime.nowAsDate
       })
-      .where(eq(projectImport.id, id))
-      .returning()
-      .pipe(Effect.orDie)
-    return yield* present(row)
+    )
   })
 
   const get = Effect.fn("ProjectImports.get")(function* (id: string) {
@@ -540,7 +566,12 @@ const make = Effect.gen(function* () {
     (id: string, attempt: number, allowSucceeded = false) =>
     (tx: Tx) =>
       tx
-        .select()
+        .select({
+          organizationId: projectImport.organizationId,
+          attempt: projectImport.attempt,
+          status: projectImport.status,
+          destinationProjectId: projectImport.destinationProjectId
+        })
         .from(projectImport)
         .where(eq(projectImport.id, id))
         .for("update")
@@ -638,7 +669,11 @@ const make = Effect.gen(function* () {
         updatedAt: yield* DateTime.nowAsDate
       })
       .where(
-        and(eq(projectImport.id, id), eq(projectImport.attempt, row.attempt))
+        and(
+          eq(projectImport.id, id),
+          eq(projectImport.attempt, row.attempt),
+          inArray(projectImport.status, ["ready", "failed"])
+        )
       )
       .returning()
       .pipe(Effect.orDie)
@@ -646,16 +681,39 @@ const make = Effect.gen(function* () {
     yield* ProjectImportWorkflow.execute(
       { importId: id, attempt },
       { discard: true }
-    ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
+    ).pipe(
+      Effect.provideService(WorkflowEngine.WorkflowEngine, engine),
+      Effect.onExit((exit) =>
+        Exit.isSuccess(exit) ? Effect.void : fail(id, attempt)
+      )
+    )
     return yield* present(started)
   })
 
   const loadAttempt = Effect.fn("ProjectImports.loadAttempt")(function* (
     id: string,
-    attempt: number
+    attempt: number,
+    phase: "metadata" | "publish" | Readonly<{ batch: number }> = "metadata"
   ) {
     const [state] = yield* db
-      .select({ row: projectImport, orgSlug: organization.slug })
+      .select({
+        row: {
+          ...getTableColumns(projectImport),
+          manifest:
+            phase === "publish"
+              ? projectImport.manifest
+              : sql<
+                  ImportRow["manifest"]
+                >`${projectImport.manifest} || '{"activity":[],"comments":[]}'::jsonb`,
+          files:
+            typeof phase === "string"
+              ? sql<ImportRow["files"]>`null::jsonb`
+              : sql<
+                  ImportRow["files"]
+                >`jsonb_path_query_array(${projectImport.files}, ${`$[${phase.batch * DOCUMENT_BATCH_SIZE} to ${(phase.batch + 1) * DOCUMENT_BATCH_SIZE - 1}]`}::jsonpath)`
+        },
+        orgSlug: organization.slug
+      })
       .from(projectImport)
       .innerJoin(
         organization,
@@ -742,8 +800,19 @@ const make = Effect.gen(function* () {
 
   const documentBatches = Effect.fn("ProjectImports.documentBatches")(
     function* (id: string, attempt: number) {
-      const { plan } = yield* loadAttempt(id, attempt)
-      return Math.ceil(plan.documents.length / DOCUMENT_BATCH_SIZE)
+      const [row] = yield* db
+        .select({
+          attempt: projectImport.attempt,
+          count: sql<number>`coalesce(jsonb_array_length(${projectImport.files}), 0)`
+        })
+        .from(projectImport)
+        .where(eq(projectImport.id, id))
+        .pipe(Effect.orDie)
+      if (!row || row.attempt !== attempt)
+        return yield* new ProjectImportFailure({
+          reason: "stale-import-attempt"
+        })
+      return Math.ceil(row.count / DOCUMENT_BATCH_SIZE)
     }
   )
 
@@ -752,16 +821,15 @@ const make = Effect.gen(function* () {
     attempt: number,
     batch: number
   ) {
-    const { plan, orgSlug, configuration } = yield* loadAttempt(id, attempt)
+    const { plan, orgSlug, configuration } = yield* loadAttempt(id, attempt, {
+      batch
+    })
     yield* HiddenProject.writeHiddenDocuments(
       {
         projectId: plan.identity.id,
         orgSlug,
         projectSlug: configuration.slug,
-        documents: plan.documents.slice(
-          batch * DOCUMENT_BATCH_SIZE,
-          (batch + 1) * DOCUMENT_BATCH_SIZE
-        ),
+        documents: plan.documents,
         isAllowedPath: (path) => SAFE_PATH.test(path)
       },
       lockAttempt(id, attempt)
@@ -803,7 +871,7 @@ const make = Effect.gen(function* () {
     id: string,
     attempt: number
   ) {
-    const { plan, configuration } = yield* loadAttempt(id, attempt)
+    const { plan, configuration } = yield* loadAttempt(id, attempt, "publish")
     const now = yield* DateTime.nowAsDate
     yield* HiddenProject.publishHiddenProject(
       {
@@ -876,9 +944,8 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.orDie)
     if (!state) return
-    yield* removeDestination(state.orgSlug, state.row)
     const now = yield* DateTime.nowAsDate
-    yield* db
+    const [failed] = yield* db
       .update(projectImport)
       .set({
         status: "failed",
@@ -893,7 +960,9 @@ const make = Effect.gen(function* () {
           eq(projectImport.status, "importing")
         )
       )
+      .returning()
       .pipe(Effect.orDie)
+    if (failed) yield* removeDestination(state.orgSlug, failed)
   })
 
   const cancel = Effect.fn("ProjectImports.cancel")(function* (id: string) {
@@ -901,8 +970,22 @@ const make = Effect.gen(function* () {
     const row = yield* ownRow(id)
     if (row.status === "importing" || row.status === "succeeded")
       return yield* new Conflict({ reason: "import_not_cancellable" })
-    yield* removeDestination(scope.orgSlug, row)
-    yield* deleteObjects(scope.orgSlug, row.attachments ?? [])
+    const [claimed] = yield* db
+      .update(projectImport)
+      .set({ status: "cancelled" })
+      .where(
+        and(
+          eq(projectImport.id, id),
+          eq(projectImport.attempt, row.attempt),
+          eq(projectImport.status, row.status)
+        )
+      )
+      .returning()
+      .pipe(Effect.orDie)
+    if (!claimed)
+      return yield* new Conflict({ reason: "import_not_cancellable" })
+    yield* removeDestination(scope.orgSlug, claimed)
+    yield* deleteObjects(scope.orgSlug, claimed.attachments ?? [])
     const [cancelled] = yield* db
       .update(projectImport)
       .set({
@@ -943,8 +1026,21 @@ const make = Effect.gen(function* () {
       rows,
       ({ row, orgSlug }) =>
         Effect.gen(function* () {
-          yield* removeDestination(orgSlug, row)
-          yield* deleteObjects(orgSlug, row.attachments ?? [])
+          const [claimed] = yield* db
+            .update(projectImport)
+            .set({ status: "cancelled" })
+            .where(
+              and(
+                eq(projectImport.id, row.id),
+                eq(projectImport.attempt, row.attempt),
+                eq(projectImport.status, row.status)
+              )
+            )
+            .returning()
+            .pipe(Effect.orDie)
+          if (!claimed) return
+          yield* removeDestination(orgSlug, claimed)
+          yield* deleteObjects(orgSlug, claimed.attachments ?? [])
           yield* db
             .delete(projectImport)
             .where(eq(projectImport.id, row.id))

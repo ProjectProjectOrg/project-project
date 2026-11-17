@@ -140,12 +140,16 @@ it("keeps comment replies and structured comment links connected after an import
         "Done in [T-5](mention:ticket/T-5).",
         "See [T-12](mention:comment/T-12/c_a). Reply [T-12](mention:ticket/source/T-12)."
       )
-      .replace("origin: native", "replyTo: c_parent\norigin: native")
+      .replace(
+        "origin: native",
+        'replyTo: c_parent\ntickets: ["[T-5](mention:ticket/T-5)"]\norigin: native'
+      )
   })
   const [comment] = parseCommentsRegion(
     parseMarkdownFile(thread.content).content
   )
   expect(comment.replyTo).toBe("c_parent_new")
+  expect(comment.tickets).toEqual(["[PP-5](mention:ticket/PP-5)"])
   expect(comment.body).toContain("[PP-12](mention:comment/PP-12/c_a_new)")
   expect(comment.body).toContain("[PP-12](mention:ticket/destination/PP-12)")
 })

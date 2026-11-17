@@ -113,7 +113,7 @@ const commentOf = (
         }),
     ...(comment.tickets === undefined
       ? {}
-      : { tickets: comment.tickets.map((id) => renameTicketId(mapping, id)) })
+      : { tickets: comment.tickets.map((link) => rewriteText(mapping, link)) })
   }
   if (comment.author.kind === "imported") return { ...comment, id, body }
   const linked = mapping.users.get(comment.author.userId)
