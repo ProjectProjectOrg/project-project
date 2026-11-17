@@ -149,6 +149,7 @@
   "tickets_create_starts_with_text": "Starts with its own text",
   "tickets_create_title_aria_label": "New ticket title",
   "tickets_create_title_placeholder": "New ticket title…",
+  "tickets_create_add_details": "Add details",
   "tickets_create_type_aria_label": "Type: {type}. Click to change.",
   "tickets_create_type_edit_types": "Edit ticket types",
   "tickets_create_type_last_used": "last used",
