@@ -43,31 +43,32 @@ function ReadyCommentComposer({
   ticketId,
   author
 }: Readonly<{ ticketId: TicketId; author: User }>) {
-  const draft = useCommentDraft({ ticketId, author, onSend: keepInView })
+  const { body, setBody, editorKey, focusEditor, failed, submit, rootRef } =
+    useCommentDraft({ ticketId, author, onSend: keepInView })
 
   return (
     <div
-      ref={draft.rootRef}
+      ref={rootRef}
       className="rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
     >
       <div className="px-4 pt-3.5">
         <LexicalEditor
-          key={draft.editorKey}
-          markdown={draft.body}
-          onDraftChange={draft.setBody}
-          onSubmit={draft.submit}
+          key={editorKey}
+          markdown={body}
+          onDraftChange={setBody}
+          onSubmit={submit}
           placeholder={m.comments_composer_placeholder()}
-          autoFocus={draft.focusEditor}
+          autoFocus={focusEditor}
           compact
         />
       </div>
-      {draft.failed && (
+      {failed && (
         <p role="alert" className="mx-4 mt-2 text-body text-destructive">
           {m.comments_composer_failed()}
         </p>
       )}
       <div className="flex justify-end p-1.5">
-        <Button size="sm" onClick={draft.submit} disabled={!draft.body.trim()}>
+        <Button size="sm" onClick={submit} disabled={!body.trim()}>
           {m.comments_composer_submit()}
         </Button>
       </div>
