@@ -22,6 +22,7 @@ import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedb
 import { CreateSprintDialogHost } from "@/features/sprints/components/CreateSprintDialog"
 import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
 import { FlagTicketDialogHost } from "@/features/tickets/components/FlagTicketDialog"
+import { MarkDuplicateDialogHost } from "@/features/tickets/components/MarkDuplicateDialog"
 import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
@@ -89,6 +90,7 @@ function Shell({ user }: { user: User }) {
       <TicketPreviewRoot />
       <CreateTicketDialogHost />
       <FlagTicketDialogHost />
+      <MarkDuplicateDialogHost />
       <CreateSprintDialogHost />
       <SendFeedbackDialogHost />
     </div>
