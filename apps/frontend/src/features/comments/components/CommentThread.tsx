@@ -1,19 +1,18 @@
 import type { TicketId } from "@pp/shared"
 import { useLocation } from "@tanstack/react-router"
-import { Reply } from "lucide-react"
 import { useState } from "react"
 
 import type { CommentViewRow } from "@/features/comments/atoms/comments"
 import type { CommentThread as Thread } from "@/features/comments/lib/commentThreads"
 import { m } from "@/paraglide/messages"
 
-import { CommentComposer } from "./CommentComposer"
 import { CommentRow } from "./CommentRow"
+import { ReplyComposer } from "./ReplyComposer"
 
 const FOLD_AFTER = 3
 const KEEP_OPEN = 2
 
-const threadRowClass =
+const showEarlierClass =
   "flex w-full items-center gap-2 border-t border-border/60 px-4 py-2 text-left text-body text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
 
 export function CommentThread({
@@ -25,7 +24,6 @@ export function CommentThread({
   ticketId: TicketId
   canReply: boolean
 }>) {
-  const [replying, setReplying] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const hash = useLocation({ select: (location) => location.hash })
   const folded =
@@ -46,7 +44,7 @@ export function CommentThread({
       {folded && (
         <button
           type="button"
-          className={threadRowClass}
+          className={showEarlierClass}
           onClick={() => setExpanded(true)}
         >
           {m.comments_thread_show_earlier({
@@ -65,23 +63,9 @@ export function CommentThread({
           />
         </div>
       ))}
-      {canReply &&
-        !root.pending &&
-        (replying ? (
-          <CommentComposer
-            ticketId={ticketId}
-            reply={{ to: root.comment.id, onClose: () => setReplying(false) }}
-          />
-        ) : (
-          <button
-            type="button"
-            className={`${threadRowClass} rounded-b-xl`}
-            onClick={() => setReplying(true)}
-          >
-            <Reply className="size-4" strokeWidth={1.75} />
-            {m.comments_reply_open()}
-          </button>
-        ))}
+      {canReply && !root.pending && (
+        <ReplyComposer ticketId={ticketId} replyTo={root.comment.id} />
+      )}
     </div>
   )
 }
