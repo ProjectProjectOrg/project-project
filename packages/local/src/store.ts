@@ -1068,9 +1068,9 @@ const releasedChildren = (copy: number, edits: ReadonlyArray<PendingEdit>) =>
     const cascade = deletes.some((intent) => intent.cascade)
     const seen = new Set(edits.map((edit) => edit.ticket))
     const added: Array<PendingEdit> = []
-    let parents = edits
-      .filter((edit) => edit.intents.some(Intent.guards.delete))
-      .map((edit) => edit.ticket)
+    let parents = edits.flatMap((edit) =>
+      edit.intents.some(Intent.guards.delete) ? [edit.ticket] : []
+    )
     while (parents.length > 0) {
       const children = (yield* db
         .select({ id: localTickets.id })
