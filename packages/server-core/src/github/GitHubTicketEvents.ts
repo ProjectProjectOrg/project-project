@@ -616,7 +616,7 @@ const make = Effect.gen(function* () {
           title: change.title,
           mergedAt: change.mergedAt ?? null,
           checks: null,
-          observedAt: yield* DateTime.nowAsDate
+          observedAt: change.updatedAt ?? (yield* DateTime.nowAsDate)
         }
       ])
       const merged = yield* mergedPullRequestsForRepository(
