@@ -70,11 +70,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
-import {
-  openSprintOf,
-  sprintAfter,
-  type SprintFiles
-} from "../groups/sprintMembership"
+import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
 import { lockTickets } from "../inbox/inboxRows"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
@@ -928,7 +924,7 @@ const make = Effect.gen(function* () {
                 const nextSprint =
                   sprint === undefined || sprints === null
                     ? existing.sprint
-                    : sprintAfter(sprints, existing.sprint, sprint)
+                    : (sprint ?? undefined)
                 const leaving =
                   sprints === null
                     ? null
@@ -2135,7 +2131,7 @@ const make = Effect.gen(function* () {
         const sprintOf = (existing: TicketDocs.TicketDocument) =>
           sprint === undefined || sprints === null
             ? existing.sprint
-            : sprintAfter(sprints, existing.sprint, sprint)
+            : (sprint ?? undefined)
         const patched = originals.map((existing) => {
           const next = {
             ...applyTicketPatch(existing, fields, userId, now),

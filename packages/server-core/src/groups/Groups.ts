@@ -44,7 +44,7 @@ import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 import * as GroupDocs from "./GroupDocs"
-import { openSprintOf, sprintAfter, type SprintFiles } from "./sprintMembership"
+import { openSprintOf, type SprintFiles } from "./sprintMembership"
 
 export type SprintMembershipOptions = Readonly<{
   from?: GroupId | null
@@ -1050,7 +1050,7 @@ const make = Effect.gen(function* () {
                     reason: "sprint_membership_changed"
                   })
                 }
-                const sprint = sprintAfter(sprints, document.sprint, sprintId)
+                const sprint = sprintId ?? undefined
                 return sprint === document.sprint
                   ? document
                   : { ...document, sprint }

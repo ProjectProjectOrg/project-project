@@ -920,7 +920,7 @@ it.effect(
 )
 
 it.effect(
-  "update with a null sprint takes the ticket out of an open sprint but leaves a completed one",
+  "update with a null sprint takes the ticket out of its sprint, open or completed",
   () => {
     const completed = {
       ...inSprint(["T-2"], isoDate("2026-04-02T00:00:00.000Z")),
@@ -940,7 +940,7 @@ it.effect(
         .pipe(as(scopeAs("member", "pm", "user-1")))
 
       expect(docs.documents.get("T-1")?.sprint).toBeUndefined()
-      expect(docs.documents.get("T-2")?.sprint).toBe("G-2")
+      expect(docs.documents.get("T-2")?.sprint).toBeUndefined()
     }).pipe(Effect.provide(layer))
   }
 )
