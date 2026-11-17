@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   commentMarkdown,
+  commentPath,
   commentUrl
 } from "@/features/comments/lib/commentClipboard"
 import { ticketFromComment } from "@/features/comments/lib/ticketFromComment"
@@ -97,7 +98,7 @@ export function CommentMenuItems({
           <DropdownMenuSeparator />
         </>
       )}
-      <CreateTicketItems comment={comment} ticketId={ticketId} url={url} />
+      <CreateTicketItems comment={comment} ticketId={ticketId} />
       <DropdownMenuItem onClick={() => copy(url)} className="cursor-pointer">
         <Link2 className="size-4" strokeWidth={1.75} />
         {m.comments_menu_copy_link()}
@@ -131,10 +132,10 @@ export function CommentMenuItems({
 
 function CreateTicketItems({
   comment,
-  ticketId,
-  url
-}: Readonly<{ comment: Comment; ticketId: TicketId; url: string }>) {
-  const { orgSlug, slug } = useProjectRoute()
+  ticketId
+}: Readonly<{ comment: Comment; ticketId: TicketId }>) {
+  const location = useProjectRoute()
+  const { orgSlug, slug } = location
   const canCreate = useProjectActor().call("tickets", "create")
   const openDialog = useAtomSet(createTicketDialog)
   const source = useAtomValue(
@@ -146,7 +147,11 @@ function CreateTicketItems({
     openDialog({
       orgSlug,
       projectSlug: slug,
-      ...ticketFromComment(comment, ticketId, url),
+      ...ticketFromComment(
+        comment,
+        ticketId,
+        commentPath(location, ticketId, comment.id)
+      ),
       related: { kind, ticketId },
       fromComment: { ticketId, commentId: comment.id }
     })
