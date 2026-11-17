@@ -11,6 +11,7 @@
   "comments_editing_marker": "editing…",
   "comments_imported_from_jira": "Imported from Jira",
   "comments_load_failed": "Failed to load comments.",
+  "comments_mention_card_from": "Comment from {name}",
   "comments_menu_aria_label": "Comment actions",
   "comments_menu_copy_link": "Copy link",
   "comments_menu_copy_markdown": "Copy as markdown",
@@ -36,7 +37,9 @@
         "input names",
         "local countPlural = count: plural"
       ],
-      "selectors": ["countPlural"],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} comment from {names}",
         "countPlural=*": "{count} comments from {names}"
@@ -45,8 +48,13 @@
   ],
   "comments_thread_show_earlier": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Show {count} earlier reply",
         "countPlural=*": "Show {count} earlier replies"

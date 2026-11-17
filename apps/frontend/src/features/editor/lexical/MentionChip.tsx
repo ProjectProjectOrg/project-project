@@ -10,6 +10,7 @@ import { MessageSquare } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import { CommentHoverCard } from "@/features/comments/components/CommentHoverCard"
 import { useInAppLink } from "@/features/editor/hooks/useInAppLink"
 import { useMentionScope } from "@/features/editor/mentions/scope"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
@@ -104,7 +105,15 @@ export function MentionChip({
         )}
         {ticketId}
       </PopoverTrigger>
-      <TicketHoverCard ticketId={ticketId} scope={ticketScope} />
+      {comment === null ? (
+        <TicketHoverCard ticketId={ticketId} scope={ticketScope} />
+      ) : (
+        <CommentHoverCard
+          ticketId={ticketId}
+          commentId={comment.commentId}
+          scope={ticketScope}
+        />
+      )}
     </Popover>
   )
 }
