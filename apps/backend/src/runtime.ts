@@ -35,6 +35,7 @@ import * as FeedbackIntake from "@pp/server-core/feedback/FeedbackIntake"
 import * as Figma from "@pp/server-core/figma/Figma"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as GitSyncSchedule from "@pp/server-core/git/GitSyncSchedule"
 import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
@@ -199,7 +200,11 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
         TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
       ),
       Layer.provideMerge(
-        Layer.mergeAll(TicketBranchIndex.layer, PullRequestSnapshots.layer)
+        Layer.mergeAll(
+          TicketBranchIndex.layer,
+          PullRequestSnapshots.layer,
+          GitSyncSchedule.layer
+        )
       ),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),

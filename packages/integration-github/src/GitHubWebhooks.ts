@@ -7,7 +7,7 @@ import {
 } from "@pp/db/schema"
 import type {
   ChecksStatus,
-  GitHubBranchDeletionChange,
+  GitHubBranchChange,
   GitHubCheckWebhookChange,
   GitHubError,
   GitHubPullRequestWebhookChange,
@@ -80,7 +80,11 @@ export type GitHubWebhookMutationSink = Readonly<{
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
   branchDeleted: (
-    change: GitHubBranchDeletionChange,
+    change: GitHubBranchChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  branchCreated: (
+    change: GitHubBranchChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
   checkStateChanged: (
@@ -455,9 +459,12 @@ const handlePullRequest = (
     )
   })
 
-const handleDelete = (
-  sink: GitHubWebhookMutationSink,
-  delivery: GitHubWebhookDelivery
+const handleBranchRef = (
+  delivery: GitHubWebhookDelivery,
+  notify: (
+    change: GitHubBranchChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
 ) =>
   Effect.gen(function* () {
     const payload = yield* decodePayload(
@@ -468,7 +475,7 @@ const handleDelete = (
     const installationId = idToString(payload.installation.id)
     const repositoryId = idToString(payload.repository.id)
     if (payload.ref_type !== "branch") {
-      yield* logIgnored("github delete ref_type ignored", delivery, {
+      yield* logIgnored(`github ${delivery.event} ref_type ignored`, delivery, {
         refType: payload.ref_type,
         installationId,
         repositoryId
@@ -479,14 +486,18 @@ const handleDelete = (
       payload.repository.default_branch !== undefined &&
       payload.ref === payload.repository.default_branch
     ) {
-      yield* logIgnored("github delete default branch ignored", delivery, {
-        branch: payload.ref,
-        installationId,
-        repositoryId
-      })
+      yield* logIgnored(
+        `github ${delivery.event} default branch ignored`,
+        delivery,
+        {
+          branch: payload.ref,
+          installationId,
+          repositoryId
+        }
+      )
       return
     }
-    yield* sink.branchDeleted(
+    yield* notify(
       { installationId, repositoryId, branch: payload.ref },
       delivery.deliveryId
     )
@@ -665,7 +676,11 @@ export const fromSink = (
         return
       }
       if (delivery.event === "delete") {
-        yield* handleDelete(sink, delivery)
+        yield* handleBranchRef(delivery, sink.branchDeleted)
+        return
+      }
+      if (delivery.event === "create") {
+        yield* handleBranchRef(delivery, sink.branchCreated)
         return
       }
       if (delivery.event === "check_suite") {
@@ -1223,6 +1238,11 @@ const make = Effect.gen(function* () {
       withProjectStateInvalidation(
         change.installationId,
         host.branchDeleted(change, deliveryId)
+      ),
+    branchCreated: (change, deliveryId) =>
+      withProjectStateInvalidation(
+        change.installationId,
+        host.branchCreated(change, deliveryId)
       ),
     checkStateChanged: (change, deliveryId) =>
       withProjectStateInvalidation(

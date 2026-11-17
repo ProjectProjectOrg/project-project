@@ -10,7 +10,7 @@ import {
 import { ActivityActor, resolveTicketId } from "@pp/shared"
 import type {
   GitHubPullRequestWebhookChange,
-  GitHubBranchDeletionChange,
+  GitHubBranchChange,
   GitHubCheckWebhookChange
 } from "@pp/shared"
 import { and, eq, sql as drizzleSql } from "drizzle-orm"
@@ -27,6 +27,7 @@ import {
   moveForDeletedBranch,
   withGitAutomation
 } from "../git/automationMoves"
+import * as GitSyncSchedule from "../git/GitSyncSchedule"
 import * as ProjectGitAutomation from "../git/ProjectGitAutomation"
 import {
   pickPullRequestTicket,
@@ -64,11 +65,15 @@ export class GitHubTicketEvents extends Context.Service<
       deliveryId: string | null
     ) => Effect.Effect<void, Markdown.MarkdownError>
     branchDeleted: (
-      change: GitHubBranchDeletionChange,
+      change: GitHubBranchChange,
       deliveryId: string | null
     ) => Effect.Effect<void, Markdown.MarkdownError>
     checkStateChanged: (
       change: GitHubCheckWebhookChange,
+      deliveryId: string | null
+    ) => Effect.Effect<void>
+    branchCreated: (
+      change: GitHubBranchChange,
       deliveryId: string | null
     ) => Effect.Effect<void>
   }>
@@ -515,6 +520,7 @@ const make = Effect.gen(function* () {
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
   const gitAutomation = yield* ProjectGitAutomation.ProjectGitAutomation
   const pullRequestSnapshots = yield* PullRequestSnapshots.PullRequestSnapshots
+  const syncSchedule = yield* GitSyncSchedule.GitSyncSchedule
   const earlierLink = alias(projectIntegrationLink, "earlier_link")
   const activeProjectLinksForRepository = Effect.fn(
     "GitHubWebhooks.activeProjectLinksForRepository"
@@ -593,6 +599,7 @@ const make = Effect.gen(function* () {
       deliveryId: string | null
     ) {
       const links = yield* activeProjectLinksForRepository(change)
+      yield* syncSchedule.requestSync(links.map((link) => link.projectId))
       if (links.length === 0) {
         yield* Effect.logDebug("github pull_request repository unknown").pipe(
           Effect.annotateLogs({
@@ -716,10 +723,11 @@ const make = Effect.gen(function* () {
   )
 
   const branchDeleted = Effect.fn("GitHubWebhooks.branchDeleted")(function* (
-    change: GitHubBranchDeletionChange,
+    change: GitHubBranchChange,
     deliveryId: string | null
   ) {
     const links = yield* activeProjectLinksForRepository(change)
+    yield* syncSchedule.requestSync(links.map((link) => link.projectId))
     if (links.length === 0) {
       yield* Effect.logDebug("github delete repository unknown").pipe(
         Effect.annotateLogs({
@@ -778,6 +786,7 @@ const make = Effect.gen(function* () {
   const checkStateChanged = Effect.fn("GitHubWebhooks.checkStateChanged")(
     function* (change: GitHubCheckWebhookChange, deliveryId: string | null) {
       const links = yield* activeProjectLinksForRepository(change)
+      yield* syncSchedule.requestSync(links.map((link) => link.projectId))
       if (links.length === 0) {
         yield* Effect.logDebug("github check repository unknown").pipe(
           Effect.annotateLogs({
@@ -839,10 +848,19 @@ const make = Effect.gen(function* () {
     }
   )
 
+  const branchCreated = Effect.fn("GitHubWebhooks.branchCreated")(function* (
+    change: GitHubBranchChange,
+    _deliveryId: string | null
+  ) {
+    const links = yield* activeProjectLinksForRepository(change)
+    yield* syncSchedule.requestSync(links.map((link) => link.projectId))
+  })
+
   return GitHubTicketEvents.of({
     pullRequestChanged,
     branchDeleted,
-    checkStateChanged
+    checkStateChanged,
+    branchCreated
   })
 })
 

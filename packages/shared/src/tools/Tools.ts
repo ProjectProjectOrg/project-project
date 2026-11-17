@@ -576,9 +576,9 @@ export const Tools = Toolkit.make(
       "Fetch GitHub state for a project's tickets and run git automation " +
       "on it: link branches and pull requests that name a ticket, stack " +
       "layers, mark deleted branches stale and move statuses per `setBy` " +
-      "in `list_statuses`. The app does the same whenever it shows git " +
-      "state, so call this only when you need the result now, for " +
-      "example right after opening a pull request. Returns the same " +
+      "in `list_statuses`. A background sweep does the same every few " +
+      "minutes, and within a minute of GitHub activity, so call this only " +
+      "when you need the result now. Returns the same " +
       "shape as `get_git_state`; `transitioned` lists the status moves " +
       "and `changedTicketIds` the tickets written.",
     cli: {
