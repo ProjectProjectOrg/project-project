@@ -36,7 +36,6 @@ const layer = ProjectReferences.layer.pipe(
           Effect.succeed(makeTicketDocument(id, { body: bodies.get(id) ?? "" }))
       }),
       Layer.mock(TicketIndex.TicketIndex, {
-        projectKeys: () => Effect.succeed({ current: "PP", former: ["T"] }),
         mentionableIds: () => Effect.succeed(new Set<string>()),
         existingIds: (_project, ids) =>
           Effect.succeed(new Set(ids.filter((id) => bodies.has(id))))
@@ -91,13 +90,14 @@ const layer = ProjectReferences.layer.pipe(
 
 describe("ProjectReferences", () => {
   it.effect(
-    "lists mentions of people without an account and tickets that don't exist, but not former-key ids that resolve",
+    "lists missing people and ticket links, including former keys that navigation cannot resolve",
     () =>
       Effect.gen(function* () {
         const references = yield* ProjectReferences.ProjectReferences
         const { items } = yield* references.list()
         expect(items.map((item) => [item.ticketId, item.target])).toEqual([
           ["PP-1", "old-bob"],
+          ["PP-1", "T-2"],
           ["PP-1", "T-9"],
           ["PP-2", "old-bob"]
         ])
@@ -115,7 +115,16 @@ describe("ProjectReferences", () => {
       })
       expect(updates.map((update) => update.id)).toEqual(["PP-1", "PP-2"])
       expect(bodies.get("PP-2")).toBe("Again Bob.")
-      expect(items.map((item) => item.target)).toEqual(["T-9"])
+      expect(items.map((item) => item.target)).toEqual(["T-2", "T-9"])
+      expect(
+        (yield* references.fix({
+          kind: "ticket",
+          target: "T-2",
+          ticketId: null,
+          action: { kind: "link", to: "PP-2" }
+        })).items.map((item) => item.target)
+      ).toEqual(["T-9"])
+      expect(bodies.get("PP-1")).toContain("[T-2](mention:ticket/PP-2)")
       expect(
         (yield* references.fix({
           kind: "ticket",

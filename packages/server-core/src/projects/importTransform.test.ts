@@ -173,4 +173,34 @@ it("rewrites activity references to renamed tickets and custom types", () => {
       ticket: "T-3"
     })
   ).toEqual({ kind: "relation_added", relation: "blockedBy", ticket: "PP-3" })
+  expect(
+    rewriteImportedChange(typedMapping, {
+      kind: "flagged",
+      reason: "Ask [Ada](mention:user/old-ada) about [T-3](mention:ticket/T-3)."
+    })
+  ).toEqual({
+    kind: "flagged",
+    reason: "Ask [Ada](mention:user/new-ada) about [PP-3](mention:ticket/PP-3)."
+  })
+})
+
+it("remaps a flag author and the structured references in its reason", () => {
+  const flagged = transformImportedFile(mapping, identity, {
+    path: "tickets/T-12.md",
+    content: ticket.replace(
+      "createdBy: old-ada",
+      [
+        "createdBy: old-ada",
+        "flag:",
+        "  by: old-ada",
+        "  at: '2026-01-01T00:00:00.000Z'",
+        '  reason: "Ask [Ada](mention:user/old-ada) about [T-3](mention:ticket/T-3)."'
+      ].join("\n")
+    )
+  })
+  expect(parseMarkdownFile(flagged.content).data.flag).toEqual({
+    by: "new-ada",
+    at: "2026-01-01T00:00:00.000Z",
+    reason: "Ask [Ada](mention:user/new-ada) about [PP-3](mention:ticket/PP-3)."
+  })
 })

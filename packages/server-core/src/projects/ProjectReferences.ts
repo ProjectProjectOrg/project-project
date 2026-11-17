@@ -11,14 +11,11 @@ import {
   ProjectScope,
   type ReferencesToFix,
   type ReferenceToFix,
-  resolveTicketId,
-  TicketId,
   Validation
 } from "@pp/shared"
 import { and, desc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -32,7 +29,6 @@ import * as Users from "../users/Users"
 import { applyReferenceFix, referenceCandidates } from "./references"
 
 const decodeManifest = Schema.decodeUnknownOption(ProjectExportManifestJson)
-const decodeTicketId = Schema.decodeUnknownExit(TicketId)
 
 export class ProjectReferences extends Context.Service<
   ProjectReferences,
@@ -125,17 +121,8 @@ const make = Effect.gen(function* () {
           Object.assign({ ticketId: id }, candidate)
       )
     )
-    const keys = yield* ticketIndex.projectKeys(scope)
     const ticketTargets = [
-      ...new Set(
-        found.flatMap((r) => {
-          if (r.kind !== "ticket") return []
-          const decoded = decodeTicketId(r.target)
-          return Exit.isSuccess(decoded)
-            ? [r.target, resolveTicketId(keys, decoded.value)]
-            : [r.target]
-        })
-      )
+      ...new Set(found.flatMap((r) => (r.kind === "ticket" ? [r.target] : [])))
     ]
     const existingTickets = yield* ticketIndex.existingIds(scope, ticketTargets)
     const mentionableTickets = yield* ticketIndex.mentionableIds(
@@ -151,15 +138,9 @@ const make = Effect.gen(function* () {
     const resolves = (reference: ReferenceToFix) => {
       if (reference.kind === "link") return false
       if (reference.kind === "user") return existingUsers.has(reference.target)
-      if (
+      return (
         existingTickets.has(reference.target) ||
         mentionableTickets.has(reference.target)
-      )
-        return true
-      const decoded = decodeTicketId(reference.target)
-      return (
-        Exit.isSuccess(decoded) &&
-        existingTickets.has(resolveTicketId(keys, decoded.value))
       )
     }
     return { items: found.filter((reference) => !resolves(reference)) }

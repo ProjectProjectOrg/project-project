@@ -1,6 +1,7 @@
 import {
   ATTACHMENT_URL_PREFIX,
   rewriteTicketMentions,
+  TicketFlag,
   parseCommentMentionId,
   formatCommentMentionId,
   type CommentOrigin,
@@ -8,7 +9,9 @@ import {
   type TicketActivityChangeEncoded
 } from "@pp/shared"
 import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
+import * as Schema from "effect/Schema"
 
 import {
   type CommentBlock,
@@ -40,6 +43,8 @@ export type ImportedProjectIdentity = Readonly<{
   name: string
   formerKeys: ReadonlyArray<string>
 }>
+
+const decodeFlag = Schema.decodeUnknownOption(Schema.toEncoded(TicketFlag))
 
 const escapeRegExp = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -152,6 +157,15 @@ const transformTicket = (mapping: ImportMapping, content: string) => {
     if (Predicate.isString(value))
       frontmatter[field] = mapping.users.get(value) ?? value
   }
+  const flag = decodeFlag(data.flag)
+  if (Option.isSome(flag)) {
+    const { by, reason } = flag.value
+    frontmatter.flag = {
+      ...flag.value,
+      by: mapping.users.get(by) ?? by,
+      ...(reason === undefined ? {} : { reason: rewriteText(mapping, reason) })
+    }
+  }
   if (Array.isArray(data.assignees))
     frontmatter.assignees = stringsIn(data.assignees).flatMap((id) => {
       const target = mapping.users.get(id)
@@ -256,6 +270,12 @@ export const rewriteImportedChange = (
         ticket: renameTicketId(mapping, change.ticket)
       })
     ),
+    Match.discriminator("kind")("flagged", (change) => ({
+      ...change,
+      ...(change.reason === undefined
+        ? {}
+        : { reason: rewriteText(mapping, change.reason) })
+    })),
     Match.discriminator("kind")("type_changed", (change) => ({
       ...change,
       from:

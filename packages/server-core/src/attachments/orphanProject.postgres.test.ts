@@ -33,6 +33,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
   const orgSlug = `orphan-${organizationId.slice(0, 8)}`
   const doomed = randomUUID()
   const survivor = randomUUID()
+  const objects = new Set<string>()
   let pool: Pool
   let layer: Layer.Layer<Attachments.Attachments | Db>
 
@@ -110,8 +111,25 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     layer = Attachments.layer.pipe(
       Layer.provideMerge(db),
       Layer.provide(Layer.mock(Access.Access, {})),
-      Layer.provide(Layer.mock(OrgStorage.OrgStorage, {})),
-      Layer.provide(Layer.mock(S3Storage.S3Storage, {})),
+      Layer.provide(
+        Layer.mock(OrgStorage.OrgStorage, {
+          requireConnection: () =>
+            Effect.succeed({
+              endpoint: "https://s3.example.test",
+              bucket: "bucket",
+              region: "auto",
+              keyPrefix: null,
+              forcePathStyle: true,
+              accessKeyId: "test",
+              secretAccessKey: "test"
+            })
+        })
+      ),
+      Layer.provide(
+        Layer.mock(S3Storage.S3Storage, {
+          deleteObject: (_, key) => Effect.sync(() => void objects.delete(key))
+        })
+      ),
       Layer.orDie
     )
   })
@@ -204,6 +222,37 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
           "orphaned",
           undefined
         ])
+      }).pipe(Effect.provide(layer))
+  )
+  it.live(
+    "reaps expired uploads but preserves pending attachments owned by a hidden project",
+    () =>
+      Effect.gen(function* () {
+        const hidden = randomUUID()
+        const pending = `${organizationId}-hidden-pending`
+        const expired = `${organizationId}-expired-pending`
+        yield* Effect.promise(async () => {
+          await pool.query(
+            "INSERT INTO project_index (id, slug, organization_id, key, name, icon, color, created_by, published_at) VALUES ($1, 'hidden', $2, 'HID', 'Hidden', 'x', '#000000', 'user-1', null)",
+            [hidden, organizationId]
+          )
+          for (const [id, projectId] of [
+            [pending, hidden],
+            [expired, survivor]
+          ]) {
+            objects.add(id)
+            await pool.query(
+              "INSERT INTO attachment_index (id, organization_id, org_slug, project_id, object_key, filename, content_type, byte_size, status, uploaded_by, created_at) VALUES ($1, $2, $3, $4, $1, $1, 'image/png', 1, 'pending', 'user-1', now() - interval '1 day')",
+              [id, organizationId, orgSlug, projectId]
+            )
+          }
+        })
+        const attachments = yield* Attachments.Attachments
+        yield* attachments.reapOnce()
+        expect(objects.has(pending)).toBe(true)
+        expect(objects.has(expired)).toBe(false)
+        expect((yield* statuses())[pending]).toBe("pending")
+        expect((yield* statuses())[expired]).toBeUndefined()
       }).pipe(Effect.provide(layer))
   )
 })

@@ -108,7 +108,7 @@ const sameIdentity = (
   row.name === project.name &&
   row.icon === project.icon &&
   row.color === project.color &&
-  row.nextTicketNumber === project.nextTicketNumber &&
+  row.nextTicketNumber >= project.nextTicketNumber &&
   row.createdBy === project.createdBy &&
   row.createdAt.toISOString() === project.createdAt
 

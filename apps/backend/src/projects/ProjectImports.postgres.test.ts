@@ -165,7 +165,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
       )
     }
     await pool.query(
-      "INSERT INTO project_index (id, slug, organization_id, key, name, icon, color, created_by, next_ticket_number) VALUES ($1, 'src', $2, 'T', 'Source', 'x', '#000000', $3, 3)",
+      "INSERT INTO project_index (id, slug, organization_id, key, name, icon, color, created_by, next_ticket_number) VALUES ($1, 'src', $2, 'T', 'Source', 'x', '#000000', $3, 2)",
       [sourceProjectId, source.id, ada]
     )
     for (const userId of [ada, bob]) {
@@ -408,12 +408,14 @@ describe.skipIf(!databaseUrl)("project import", () => {
               id: string
               published_at: Date | null
               key: string
+              next_ticket_number: number
             }>(
-              "SELECT id, published_at, key FROM project_index WHERE organization_id = $1 AND slug = 'moved'",
+              "SELECT id, published_at, key, next_ticket_number FROM project_index WHERE organization_id = $1 AND slug = 'moved'",
               [target.id]
             )
             expect(project.published_at).not.toBeNull()
             expect(project.key).toBe("PP")
+            expect(project.next_ticket_number).toBe(3)
             expect(
               yield* q(
                 "SELECT sprint_id FROM ticket_index WHERE project_id = $1 AND ticket_id = 'PP-1'",

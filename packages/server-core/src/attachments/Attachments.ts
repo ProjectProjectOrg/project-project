@@ -1147,11 +1147,17 @@ const make = Effect.gen(function* () {
   })
 
   const reapOnce = Effect.fn("Attachments.reapOnce")(function* () {
+    const outsideHiddenProject = sql`not exists (select 1 from ${projectIndex} where ${projectIndex.id} = ${attachmentIndex.projectId} and ${projectIndex.publishedAt} is null)`
     return yield* Effect.gen(function* () {
       const rows = yield* db
         .select()
         .from(attachmentIndex)
-        .where(inArray(attachmentIndex.status, ["pending", "orphaned"]))
+        .where(
+          and(
+            inArray(attachmentIndex.status, ["pending", "orphaned"]),
+            outsideHiddenProject
+          )
+        )
         .pipe(Effect.orDie)
 
       const now = yield* Clock.currentTimeMillis
@@ -1203,6 +1209,7 @@ const make = Effect.gen(function* () {
               and(
                 eq(attachmentIndex.id, row.id),
                 eq(attachmentIndex.status, row.status),
+                outsideHiddenProject,
                 sql`not exists (select 1 from ${projectImageReference} where ${projectImageReference.attachmentId} = ${attachmentIndex.id})`
               )
             )
