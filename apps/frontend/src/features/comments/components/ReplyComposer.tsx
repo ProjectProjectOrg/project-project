@@ -1,7 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { CommentId, TicketId, User } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowUp } from "lucide-react"
 import { useState, type FocusEvent } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -37,10 +36,10 @@ function ReadyReplyComposer({
     <div
       ref={draft.rootRef}
       onBlur={closeWhenEmpty}
-      className="flex items-end gap-3 rounded-b-xl border-t border-border/60 py-2.5 pr-2.5 pl-4 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      className="flex items-end gap-2 rounded-b-xl border-t border-border/60 py-2.5 pr-2.5 pl-4 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
     >
-      <MemberAvatar member={author} size={24} className="mt-1.5 self-start" />
-      <div className="min-w-0 flex-1 py-1.5">
+      <MemberAvatar member={author} size={20} className="mt-1.5 self-start" />
+      <div className="min-w-0 flex-1 pt-1.5 pb-0.5">
         {open ? (
           <LexicalEditor
             key={draft.editorKey}
@@ -55,7 +54,7 @@ function ReadyReplyComposer({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="block min-h-6 w-full cursor-text text-left text-body text-muted-foreground"
+            className="flex min-h-6 w-full cursor-text items-start text-left text-body text-muted-foreground"
           >
             {m.comments_reply_placeholder()}
           </button>
@@ -67,13 +66,12 @@ function ReadyReplyComposer({
         )}
       </div>
       <Button
-        variant={ready ? "primary" : "secondary"}
-        size="square-8"
-        aria-label={m.comments_reply_submit()}
-        disabled={!ready}
+        size="sm"
         onClick={draft.submit}
+        disabled={!ready}
+        className="mb-0.5"
       >
-        <ArrowUp className="size-4" strokeWidth={1.75} />
+        {m.comments_reply_submit()}
       </Button>
     </div>
   )
