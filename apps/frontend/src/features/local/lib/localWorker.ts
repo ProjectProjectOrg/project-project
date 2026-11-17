@@ -18,16 +18,18 @@ import {
   WarmView
 } from "@pp/local"
 import {
-  AppApi,
   GroupId,
+  GroupsGroup,
   OPERATION_ID_HEADER,
   SYNC_RECEIPT_HEADER,
-  TicketId
+  SyncGroup,
+  TicketId,
+  TicketsGroup
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
-import { HttpApiClient } from "effect/http-api"
+import { HttpApi, HttpApiClient } from "effect/http-api"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientRequest from "effect/http/HttpClientRequest"
@@ -43,10 +45,15 @@ import { browserCrypto } from "@/lib/browserCrypto"
 
 import { localDatabaseLayer } from "./localDatabase"
 
+const LocalApi = HttpApi.make("local")
+  .add(SyncGroup)
+  .add(TicketsGroup)
+  .add(GroupsGroup)
+
 const syncSourceLayer = Layer.effect(
   SyncSource,
   Effect.gen(function* () {
-    const client = yield* HttpApiClient.group(AppApi, {
+    const client = yield* HttpApiClient.group(LocalApi, {
       group: "sync",
       httpClient: yield* HttpClient.HttpClient,
       baseUrl: "/api"
@@ -79,7 +86,7 @@ const pendingWritesLayer = Layer.effect(
       write
     ) =>
       Effect.gen(function* () {
-        const client = yield* HttpApiClient.group(AppApi, {
+        const client = yield* HttpApiClient.group(LocalApi, {
           group: "tickets",
           httpClient: HttpClient.mapRequest(
             httpClient,
@@ -125,7 +132,7 @@ const descriptionSourceLayer = Layer.effect(
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient
     const tickets = (operationId: string | null) =>
-      HttpApiClient.group(AppApi, {
+      HttpApiClient.group(LocalApi, {
         group: "tickets",
         httpClient:
           operationId === null
@@ -137,7 +144,7 @@ const descriptionSourceLayer = Layer.effect(
               ),
         baseUrl: "/api"
       })
-    const groups = HttpApiClient.group(AppApi, {
+    const groups = HttpApiClient.group(LocalApi, {
       group: "groups",
       httpClient,
       baseUrl: "/api"
