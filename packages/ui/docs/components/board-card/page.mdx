@@ -1,0 +1,72 @@
+export const meta = {
+  title: "Board card",
+  group: "Primitives",
+  description:
+    "A ticket on a board (a sprint's board, the backlog's board view and the dashboard): a raised card with its key, assignee, a two-line title and a row of property chips. The app fills the slots with its fields.",
+  sources: [
+    {
+      kind: "own",
+      name: "BoardCard",
+      note: "Ported from the app's sprint board card; polish pass still to come"
+    }
+  ]
+}
+
+## Overview
+
+Cards as a board column holds them: interactive ones first, then a pinned hover, a sub-ticket with its parent in the top line, and a long title clamped to two lines. The fields are stand-ins; in the app they are menus.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { BoardCard } from "@pp/ui/board-card"
+import { ItemLink } from "@pp/ui/item-link"
+import { TicketKey } from "@pp/ui/ticket-key"
+
+<BoardCard
+  link={
+    <ItemLink
+      render={<Link to="/orgs/$orgSlug/projects/$slug/tickets/$id" params={…} />}
+      aria-label={`${ticket.id} ${ticket.title}`}
+    />
+  }
+  meta={
+    <>
+      <TicketKey value={ticket.id} />
+      {ticket.parent && <ParentTicketCrumb parent={ticket.parent} />}
+    </>
+  }
+  assignee={<AssigneeField variant="card" … />}
+  title={ticket.title}
+  properties={<BoardCardProperties … />}
+>
+  <BoardCardChildren parent={ticket} />
+</BoardCard>
+```
+
+| Prop | Type | What it does |
+| --- | --- | --- |
+| `link` | `ReactNode` | An `ItemLink` stretched over the card, so a click anywhere opens the ticket |
+| `meta` | `ReactNode` | The top line in caption text: the key and, for a sub-ticket, its parent |
+| `assignee` | `ReactNode` | Top right, a 24px avatar |
+| `title` | `ReactNode` | Clamped to two lines, and always two lines tall |
+| `properties` | `ReactNode` | The chip row; hidden when every chip in it renders nothing |
+| `children` | `ReactNode` | Anything under the chips, such as the expanded sub-ticket list |
+
+Chips use `chipClassName` from `@pp/ui/chip`: `interaction` is `"none"` for a static count, `"hover"` for one that previews on hover and `"press"` for one that opens a menu or link; `shape` is `"label"`, `"icon"` (a 24px circle) or `"count"`.
+
+## Rules
+
+### Every card in a column is one height
+
+The title always takes two lines of room, even when it fits on one, so a column of cards reads as an even stack and a card doesn't jump when its title is renamed. Longer titles clamp at two lines.
+
+### The card lifts on hover
+
+The card sits on `--surface-3` with the `shadow-surface-1` lift, and steps up to `--surface-4` with a stronger shadow on hover, while one of its menus is open and while its link has keyboard focus. During arrow-key navigation the step has no transition, so it keeps up with the keys.
+
+### The whole card is the link
+
+Like the list row, one `ItemLink` under the content makes the whole card open the ticket, and the card's chips and avatar sit above it so they take their own clicks.

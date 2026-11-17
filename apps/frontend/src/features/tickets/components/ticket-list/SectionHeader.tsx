@@ -1,17 +1,12 @@
 import type { ProjectStatus, TicketStatus } from "@pp/shared"
-import { Badge } from "@pp/ui/badge"
-import { Hitbox } from "@pp/ui/hitbox"
-import { ChevronDown, Plus } from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
-import { AnimatePresence, motion } from "motion/react"
-import { forwardRef, type ReactNode, type Ref } from "react"
+import { ListSectionHeader } from "@pp/ui/list-section"
+import { StatusGlyph } from "@pp/ui/status-glyph"
+import type { ReactNode, Ref } from "react"
 
 import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
-import { keepInPlace } from "@/lib/keepInPlace"
 import { m } from "@/paraglide/messages"
 
 export type SectionHeading = {
@@ -33,6 +28,7 @@ type HeadingSource =
     }
 
 type SectionHeaderProps = HeadingSource & {
+  ref?: Ref<HTMLDivElement>
   count: number
   collapsed: boolean
   creating: boolean
@@ -43,169 +39,49 @@ type SectionHeaderProps = HeadingSource & {
   canCreate?: boolean
 }
 
-function HeadingContent(props: HeadingSource & { count: number }): ReactNode {
-  const { count, heading } = props
-  const label = headingLabel(props)
-
+// A ticket section's header in the app: a status (with its icon) or a
+// heading (sprint, epic, group), with the app's labels.
+export function SectionHeader({ ref, ...props }: SectionHeaderProps) {
+  const { canCreate = true, count, heading } = props
+  const label = heading
+    ? heading.label
+    : statusLabelFor(props.status, props.statuses)
+  const meta = heading ? null : statusMetaFor(props.status, props.statuses)
   return (
-    <div className="flex w-full items-center gap-2">
-      <span className="grid h-6 w-(--list-icon) shrink-0 place-items-center">
-        {heading ? heading.icon : <StatusHeadingIcon {...props} />}
-      </span>
-      <span className="truncate text-body font-semibold">{label}</span>
-      <span
-        className="flex"
-        aria-label={m.tickets_section_count_aria_label({ count })}
-      >
-        <Badge variant="count">{count}</Badge>
-      </span>
-      {heading?.detail && (
-        <span className="ml-auto hidden text-caption text-muted-foreground sm:block">
-          {heading.detail}
-        </span>
-      )}
-    </div>
-  )
-}
-
-const headingLabel = (source: HeadingSource): string =>
-  source.heading
-    ? source.heading.label
-    : statusLabelFor(source.status, source.statuses)
-
-function StatusHeadingIcon({
-  status,
-  statuses
-}: Readonly<{
-  status: TicketStatus
-  statuses: ReadonlyArray<ProjectStatus>
-}>) {
-  const meta = statusMetaFor(status, statuses)
-  const Icon = meta.icon
-  return (
-    <Icon
-      className={cn("size-4", meta.className)}
-      style={meta.color ? { color: meta.color } : undefined}
-      strokeWidth={1.75}
+    <ListSectionHeader
+      ref={ref}
+      icon={
+        meta ? (
+          <StatusGlyph
+            icon={meta.icon}
+            className={meta.className}
+            color={meta.color}
+          />
+        ) : (
+          heading?.icon
+        )
+      }
+      label={label}
+      count={count}
+      countLabel={m.tickets_section_count_aria_label({ count })}
+      detail={heading?.detail}
+      collapsed={props.collapsed}
+      onToggleCollapsed={props.onToggleCollapsed}
+      collapseLabel={m.tickets_section_collapse_aria_label({ label })}
+      create={
+        canCreate
+          ? {
+              creating: props.creating,
+              creator: props.creator,
+              onStart: props.onStartCreate,
+              onDismiss: props.onDismissCreate,
+              label: m.tickets_section_create_aria_label({ label }),
+              dismissLabel: m.tickets_section_create_dismiss_aria_label({
+                label
+              })
+            }
+          : undefined
+      }
     />
   )
 }
-
-const morphFrom = { opacity: 0, filter: "blur(8px)" }
-const morphTo = { opacity: 1, filter: "blur(0px)" }
-
-export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
-  function SectionHeader(props, ref: Ref<HTMLDivElement>) {
-    const {
-      canCreate = true,
-      collapsed,
-      creating,
-      onToggleCollapsed,
-      onStartCreate,
-      onDismissCreate,
-      creator
-    } = props
-    const label = headingLabel(props)
-    return (
-      <div
-        ref={ref}
-        onClick={
-          creating
-            ? undefined
-            : (e) => keepInPlace(e.currentTarget, onToggleCollapsed)
-        }
-        className={cn(
-          "sticky top-0 z-10 flex items-center gap-(--list-lead-gap) rounded-lg bg-muted px-3 py-2 transition-colors",
-          !creating &&
-            "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
-        )}
-      >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            keepInPlace(e.currentTarget, onToggleCollapsed)
-          }}
-          aria-expanded={!collapsed}
-          aria-label={m.tickets_section_collapse_aria_label({ label })}
-          className={cn(
-            "grid h-6 w-(--list-lead) shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
-            "transition-all duration-100 hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring",
-            "active:scale-[0.97]"
-          )}
-        >
-          <span className="translate-x-px">
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform duration-150",
-                collapsed && "-rotate-90"
-              )}
-              strokeWidth={1.75}
-            />
-          </span>
-        </button>
-
-        <div className="grid min-w-0 flex-1">
-          <AnimatePresence mode="sync" initial={false}>
-            {creating ? (
-              <motion.div
-                key="creator"
-                initial={morphFrom}
-                animate={morphTo}
-                exit={morphFrom}
-                transition={transitions.presence}
-                className="min-w-0 self-center [grid-area:1/1]"
-              >
-                {creator}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="header"
-                initial={morphFrom}
-                animate={morphTo}
-                exit={morphFrom}
-                transition={transitions.presence}
-                className="self-center [grid-area:1/1]"
-              >
-                <HeadingContent {...props} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {canCreate && (
-          <Hitbox
-            mode="inline"
-            margin="2"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (creating) onDismissCreate()
-              else onStartCreate()
-            }}
-            aria-label={
-              creating
-                ? m.tickets_section_create_dismiss_aria_label({ label })
-                : m.tickets_section_create_aria_label({ label })
-            }
-            title={
-              creating
-                ? m.tickets_section_create_dismiss_aria_label({ label })
-                : m.tickets_section_create_aria_label({ label })
-            }
-          >
-            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]">
-              <Plus
-                className={cn(
-                  "size-4 transition-transform duration-200 ease-out",
-                  creating && "rotate-45"
-                )}
-                strokeWidth={1.75}
-              />
-            </span>
-          </Hitbox>
-        )}
-      </div>
-    )
-  }
-)

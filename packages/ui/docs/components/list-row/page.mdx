@@ -1,0 +1,83 @@
+export const meta = {
+  title: "List row",
+  group: "Primitives",
+  description:
+    "A ticket in a list: the backlog, a sprint's list, a ticket's sub-tickets and the dashboard. One row of the list's grid, with a slot per column so every row lines up; the app fills the slots with its fields.",
+  sources: [
+    {
+      kind: "own",
+      name: "ListRow",
+      note: "Ported from the app's backlog row; polish pass still to come"
+    }
+  ]
+}
+
+## Overview
+
+The rows a list shows: interactive ones first (hover a row, tick its checkbox), then each state pinned. The fields here are stand-ins; in the app they are menus.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+The list sets `listGridClassName` on the element that holds its rows; each `ListRow` is a subgrid of it, so status, key, title and the trailing columns line up across rows and sections.
+
+```tsx
+import { ItemLink } from "@pp/ui/item-link"
+import { ListRow, ListRowTitle, listGridClassName } from "@pp/ui/list-row"
+import { TicketKey } from "@pp/ui/ticket-key"
+
+<div className={listGridClassName}>
+  <ListRow
+    selected={selected}
+    disabled={!editable}
+    link={
+      <ItemLink
+        render={<Link to="/orgs/$orgSlug/projects/$slug/tickets/$id" params={…} />}
+        aria-label={`${ticket.id} ${ticket.title}`}
+      />
+    }
+    lead={<RowCheckbox … />}
+    status={<StatusButton … />}
+    priority={<PriorityButton … />}
+    ticketKey={<TicketKey value={ticket.id} pending={pending} />}
+    title={<ListRowTitle>{ticket.title}</ListRowTitle>}
+    trailing={<TagChips … />}
+    estimate={<EstimateBadgeTrigger … />}
+    assignee={<AssigneeField … />}
+  />
+</div>
+```
+
+| Prop | Type | What it does |
+| --- | --- | --- |
+| `link` | `ReactNode` | An `ItemLink` stretched over the row, so a click anywhere opens the ticket |
+| `lead` | `ReactNode` | The first column: the selection checkbox |
+| `status`, `priority` | `ReactNode` | The two icon columns, each `--list-icon` wide |
+| `ticketKey` | `ReactNode` | A `TicketKey`; give it `min-w-(--ticket-key-width)` so keys line up |
+| `title` | `ReactNode` | The title column, which takes the remaining width: a parent prefix, `ListRowTitle`, inline chips |
+| `trailing` | `ReactNode` | Chips at the end: tags, git, relations, sprint |
+| `estimate`, `assignee` | `ReactNode` | The last two columns; the assignee hides on narrow screens |
+| `selected` | `boolean` | Tinted fill for a ticket in the multi-select |
+| `disabled` | `boolean` | Disables the row's fields, for someone who can only look |
+| `variant` | `"standalone" \| "embedded"` | `embedded` drops the hover and corners, for a row inside a card |
+
+Parts used with it: `ItemLink` (`@pp/ui/item-link`), `TicketKey` (`@pp/ui/ticket-key`), `ProgressCount` (`@pp/ui/progress-count`) and `chipClassName` (`@pp/ui/chip`), which the board card shares.
+
+## Rules
+
+### The whole row is the link
+
+A click anywhere on the row opens the ticket, through one `ItemLink` stretched under the row's content. The row's own controls (status, priority, assignee, chips) sit above it on `z-20`, so they still take their own clicks. Keyboard users tab to the link once per row; the link's inset ring is the row's focus.
+
+### One grid for the whole list
+
+Rows are subgrids of the list's grid, so a long key or a wide estimate in one row widens that column for every row, and the columns never zigzag. The leading widths are CSS variables (`--list-lead`, `--list-icon`, `--list-row-gap`, `--list-lead-gap`) so section headers can line up with the rows under them.
+
+### Hover is instant, keyboard navigation has no fade
+
+The row fills on hover without a delay. While someone moves through the list with the arrow keys (`data-keyboard-navigation` on the list) the hover is off and the fill moves without a transition, so it follows the keys instead of trailing behind.
+
+### A new ticket's number rolls in
+
+While a ticket is being created it has no number yet, so `TicketKey` shows only the prefix ("ATL-"); the number rolls in through TextSwap once the server answers, instead of a placeholder that jumps.

@@ -3,8 +3,8 @@ import { Button } from "@pp/ui/button"
 import { Flag, Link2, OctagonMinus, SquareEqual } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { cn } from "@pp/ui/lib/utils"
+import { ProgressCount } from "@pp/ui/progress-count"
 
-import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
@@ -107,7 +107,7 @@ export function SubTicketsChip({
         />
       }
     >
-      <SubTicketCount done={done} total={total} className="text-inherit" />
+      <ProgressCount done={done} total={total} className="text-inherit" />
     </TicketPreviewTrigger>
   )
 }

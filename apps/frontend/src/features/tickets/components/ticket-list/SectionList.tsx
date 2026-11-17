@@ -12,6 +12,7 @@ import {
 import { Button } from "@pp/ui/button"
 import { Loader2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+import { ListSectionBody } from "@pp/ui/list-section"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   createContext,
@@ -46,7 +47,6 @@ import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 import { LandingFlash, useSectionDrop } from "./ListRowDrag"
-import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
 import { SectionTicketCreator } from "./SectionTicketCreator"
@@ -210,7 +210,7 @@ export function SectionList({
         }
       />
 
-      <SectionBody collapsed={collapsed}>
+      <ListSectionBody collapsed={collapsed}>
         {items.length === 0 ? (
           <div className="px-3 py-4 text-center text-caption text-muted-foreground">
             {emptyMessage ?? "—"}
@@ -242,7 +242,7 @@ export function SectionList({
             count={count}
           />
         )}
-      </SectionBody>
+      </ListSectionBody>
     </div>
   )
 }

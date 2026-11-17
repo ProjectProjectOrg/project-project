@@ -311,6 +311,7 @@
         "@lexical/selection": "0.44.0",
         "@lexical/table": "0.44.0",
         "@lexical/utils": "0.44.0",
+        "@number-flow/react": "^0.6.0",
         "@pp/shared": "workspace:*",
         "@scritto/react": "^0.1.0",
         "@tanstack/react-pacer": "0.22.1",

@@ -1,5 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import type { Ticket } from "@pp/shared"
+import { boardCardSlotClass, BoardCardList } from "@pp/ui/board-column"
 import { cn } from "@pp/ui/lib/utils"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import { useReducedMotion } from "motion/react"
@@ -13,10 +14,11 @@ import {
   type ReactNode
 } from "react"
 
+import { m } from "@/paraglide/messages"
+
 import { useDeferredOverscan } from "../../tickets/components/ticket-list/useDeferredOverscan"
 import { useBoardColumnKeyboard } from "../hooks/useBoardKeyboardNavigation"
 import { useSprintEdgeScroll } from "../hooks/useSprintEdgeScroll"
-import { BOARD_CARD_SLOT_CLASS, BoardCardList } from "./BoardColumnShell"
 import { SprintCardMotion } from "./SprintCardMotion"
 
 const ESTIMATED_CARD_HEIGHT = 104
@@ -150,6 +152,7 @@ export function VirtualSprintCards({
       : null
   return (
     <BoardCardList
+      scrollLabel={m.common_scroll_area_label()}
       viewportProps={{
         ref: scrollRef,
         "data-virtual-sprint-column": status,
@@ -189,10 +192,7 @@ export function VirtualSprintCards({
               key={row.key}
               data-index={row.index}
               aria-hidden
-              className={cn(
-                BOARD_CARD_SLOT_CLASS,
-                "absolute top-0 left-0 w-full"
-              )}
+              className={cn(boardCardSlotClass, "absolute top-0 left-0 w-full")}
               style={{
                 height: ESTIMATED_CARD_HEIGHT,
                 transform: `translateY(${row.start}px)`

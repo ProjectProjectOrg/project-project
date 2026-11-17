@@ -106,7 +106,7 @@ export function VirtualRows({
   useLayoutEffect(() => {
     if (reveal === null || reveal === revealed.current) return
     const link = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${reveal.index + 1}"] [data-row-link]`
+      `:scope > [aria-posinset="${reveal.index + 1}"] [data-item-link]`
     )
     if (!link) return
     revealed.current = reveal

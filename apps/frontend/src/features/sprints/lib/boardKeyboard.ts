@@ -40,7 +40,7 @@ const observedChanges: MutationObserverInit = {
 }
 
 const cardSelector = "[data-board-card]"
-const primarySelector = "[data-board-card] > [data-row-link]"
+const primarySelector = "[data-board-card] > [data-item-link]"
 
 const available = (element: HTMLElement): boolean =>
   !element.closest('[inert], [hidden], [aria-hidden="true"]') &&

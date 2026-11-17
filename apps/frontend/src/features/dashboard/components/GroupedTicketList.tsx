@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
 import { ArrowRight } from "@pp/ui/icons"
+import { ListSectionBody } from "@pp/ui/list-section"
 import { Link } from "@tanstack/react-router"
 import { useState, type ReactNode } from "react"
 
@@ -19,7 +20,6 @@ import {
   type OrgTicketUpdates,
   type ProjectTicketGroup
 } from "@/features/tickets/atoms/myTickets"
-import { SectionBody } from "@/features/tickets/components/ticket-list/SectionBody"
 import { useCollapsedInSet } from "@/features/tickets/components/ticket-list/sectionCollapse"
 import {
   SectionHeader,
@@ -244,7 +244,7 @@ function GroupSection({
         onDismissCreate={noop}
         creator={null}
       />
-      <SectionBody collapsed={collapsed}>
+      <ListSectionBody collapsed={collapsed}>
         {group.tickets.length === 0 ? (
           <div className="px-3 py-4 text-center text-caption text-muted-foreground">
             —
@@ -268,7 +268,7 @@ function GroupSection({
           expanded &&
           group.tickets.length < group.count &&
           group.expandable.pagination}
-      </SectionBody>
+      </ListSectionBody>
     </div>
   )
 }

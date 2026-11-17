@@ -14,12 +14,6 @@
   }
 }
 
-:root {
-  --list-lead: 1.5rem;
-  --list-lead-gap: 0.75rem;
-  --list-icon: 1.5rem;
-  --list-row-gap: 0.25rem;
-}
 [data-page-banner] [data-page-header] {
   text-shadow:
     0 0 8px var(--page),

@@ -63,7 +63,7 @@ export function ListKeyboardProvider({
     if (
       wasNavigating &&
       focused instanceof HTMLElement &&
-      focused.matches("[data-row-link]") &&
+      focused.matches("[data-item-link]") &&
       element.contains(focused)
     )
       focused.blur()

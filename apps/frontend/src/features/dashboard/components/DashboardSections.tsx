@@ -1,5 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
+  BoardColumn,
+  boardColumnClass,
+  BoardColumnTitle
+} from "@pp/ui/board-column"
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -16,16 +21,13 @@ import {
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import { StatusGlyph } from "@pp/ui/status-glyph"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import {
-  BoardColumnShell,
-  BOARD_COLUMN_CLASS
-} from "@/features/sprints/components/BoardColumnShell"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
   myTicketBoard,
@@ -284,15 +286,21 @@ function TicketBoard({
     <div className="scroll-fade-x -mx-4 h-[min(40rem,70vh)] overflow-x-auto px-4">
       <div className="flex h-full gap-3">
         {columns.map((column) => (
-          <BoardColumnShell
+          <BoardColumn
             key={column.key}
-            meta={{
-              icon: getStatusIcon(column.icon),
-              label: column.label,
-              className: "",
-              color: column.color
-            }}
+            title={
+              <BoardColumnTitle
+                icon={
+                  <StatusGlyph
+                    icon={getStatusIcon(column.icon)}
+                    color={column.color}
+                  />
+                }
+                label={column.label}
+              />
+            }
             count={column.count}
+            scrollLabel={m.common_scroll_area_label()}
           >
             {column.items.map((item) => (
               <DashboardCard
@@ -302,7 +310,7 @@ function TicketBoard({
                 update={myTicketUpdates(req)}
               />
             ))}
-          </BoardColumnShell>
+          </BoardColumn>
         ))}
       </div>
     </div>
@@ -355,7 +363,7 @@ function BoardSkeleton() {
   return (
     <div className="flex gap-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn(BOARD_COLUMN_CLASS, "skeleton h-48")} />
+        <div key={i} className={cn(boardColumnClass, "skeleton h-48")} />
       ))}
     </div>
   )

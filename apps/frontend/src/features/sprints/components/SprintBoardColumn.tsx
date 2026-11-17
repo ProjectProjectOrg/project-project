@@ -6,31 +6,60 @@ import {
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
+import {
+  boardCardSlotClass,
+  boardCollapsedColumnClass,
+  boardColumnClass,
+  BoardColumnHeader,
+  BoardColumnTitle,
+  BoardCollapsedColumnHeader,
+  boardReorderFade
+} from "@pp/ui/board-column"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
+import { StatusGlyph } from "@pp/ui/status-glyph"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import { m } from "@/paraglide/messages"
 
 import { BoardKeyboardContext } from "../hooks/useBoardKeyboardNavigation"
 import type { CardDropData, ColumnDropData, DragData } from "../lib/boardUtils"
-import {
-  CollapsedColumnHeader,
-  ColumnHeader,
-  QUICK_S,
-  REORDER_EASE,
-  type HoldHandlers
-} from "./BoardColumnHeader"
-import {
-  BOARD_CARD_SLOT_CLASS,
-  BOARD_COLLAPSED_COLUMN_CLASS,
-  BOARD_COLUMN_CLASS
-} from "./BoardColumnShell"
 import { useLongPress } from "./BoardReorderMode"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { VirtualSprintCards } from "./VirtualSprintCards"
+
+type HoldHandlers = Partial<
+  Omit<ReturnType<typeof useLongPress>["handlers"], "onPointerDown">
+>
+
+// The long press's handlers after it starts; the header's own pointer-down
+// starts it (or the reorder drag).
+const holdHandlersOf = ({
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave
+}: ReturnType<typeof useLongPress>["handlers"]): HoldHandlers => ({
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave
+})
+
+function MetaGlyph({
+  meta
+}: Readonly<{ meta: ReturnType<typeof statusMetaFor> }>) {
+  return (
+    <StatusGlyph
+      icon={meta.icon}
+      className={meta.className}
+      color={meta.color}
+    />
+  )
+}
 
 const LONG_PRESS_MS = 500
 const EXPANDED_WIDTH = 288
@@ -117,15 +146,9 @@ export function SprintBoardColumn({
   }, [isDraggable, reorderMode, columnEl])
 
   const headerHoldable = isDraggable && !reorderMode
-  const holdHandlers: HoldHandlers = headerHoldable
-    ? {
-        onPointerMove: longPressHandlers.onPointerMove,
-        onPointerUp: longPressHandlers.onPointerUp,
-        onPointerCancel: longPressHandlers.onPointerCancel,
-        onPointerLeave: longPressHandlers.onPointerLeave
-      }
-    : {}
+  const holdHandlers = headerHoldable ? holdHandlersOf(longPressHandlers) : {}
   const count = countOverride ?? tickets.length
+  const glyph = <MetaGlyph meta={meta} />
 
   const onHeaderPointerDown = (e: React.PointerEvent) => {
     if (reorderMode) {
@@ -161,38 +184,43 @@ export function SprintBoardColumn({
       transition={{
         width: transitions.layout,
         layout: transitions.layout,
-        filter: { duration: QUICK_S, ease: REORDER_EASE },
+        filter: boardReorderFade,
         zIndex: { duration: 0 }
       }}
-      className={collapsed ? BOARD_COLLAPSED_COLUMN_CLASS : BOARD_COLUMN_CLASS}
+      className={collapsed ? boardCollapsedColumnClass : boardColumnClass}
     >
       {collapsed ? (
-        <CollapsedColumnHeader
-          meta={meta}
+        <BoardCollapsedColumnHeader
+          icon={glyph}
+          label={meta.label}
           count={count}
+          expandLabel={m.sprints_board_column_expand({ status: meta.label })}
           highlighted={dragOver}
           reorderMode={reorderMode}
           onPointerDown={onHeaderPointerDown}
-          holdHandlers={holdHandlers}
+          {...holdHandlers}
           onExpand={onToggleCollapsed}
         />
       ) : (
         <div className="flex min-h-0 w-72 flex-1 shrink-0 flex-col">
-          <ColumnHeader
-            meta={meta}
+          <BoardColumnHeader
+            title={<BoardColumnTitle icon={glyph} label={meta.label} />}
             count={count}
             reorderMode={reorderMode}
             holdable={headerHoldable}
             onPointerDown={onHeaderPointerDown}
-            holdHandlers={holdHandlers}
+            {...holdHandlers}
             onCollapse={onToggleCollapsed}
+            collapseLabel={m.sprints_board_column_collapse({
+              status: meta.label
+            })}
           />
           <motion.div
             animate={{
               opacity: reorderMode ? 0 : 1
             }}
             transition={{
-              opacity: { duration: QUICK_S, ease: REORDER_EASE }
+              opacity: boardReorderFade
             }}
             style={{
               pointerEvents: reorderMode ? "none" : undefined,
@@ -321,7 +349,7 @@ function CardSlot({
       ref={ref}
       inert={inert}
       aria-busy={inert}
-      className={cn(BOARD_CARD_SLOT_CLASS, inert && "pointer-events-none")}
+      className={cn(boardCardSlotClass, inert && "pointer-events-none")}
     >
       <div
         ref={cardRef}

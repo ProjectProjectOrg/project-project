@@ -6,6 +6,7 @@ import {
   type TicketPriority,
   isEpic
 } from "@pp/shared"
+import { chipClassName } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import {
 import { ChevronRight, Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { ProgressCount } from "@pp/ui/progress-count"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ComponentProps, type ReactNode } from "react"
@@ -23,7 +25,6 @@ import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
-import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import {
   FlagChip,
   RelationChips,
@@ -43,19 +44,7 @@ import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"
 
-export const boardChipClass =
-  "inline-flex h-6 max-w-48 min-w-0 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-caption text-muted-foreground inset-ring inset-ring-border/60"
-
-const hoverChipClass =
-  "transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover data-[popup-open]:text-foreground"
-
-export const interactiveChipClass = cn("cursor-pointer", hoverChipClass)
-
-export const relationChipClass = cn(
-  boardChipClass,
-  hoverChipClass,
-  "min-w-6 justify-center gap-1 px-1.5 [&_svg]:size-3"
-)
+const pressChip = chipClassName({ interaction: "press" })
 
 export function BoardCardProperties({
   ticket,
@@ -71,14 +60,14 @@ export function BoardCardProperties({
   const estimation = useEstimationMode()
   const { shows } = useDisplayProperties()
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1 [&:not(:has(>:not(:empty)))]:hidden [&>:empty]:hidden">
+    <>
       <FlagChip
         ticket={ticket}
-        className={cn(
-          boardChipClass,
-          hoverChipClass,
-          "w-[22px] justify-center px-0 [&_svg]:size-3"
-        )}
+        className={chipClassName({
+          interaction: "hover",
+          shape: "icon",
+          className: "w-[22px] [&_svg]:size-3"
+        })}
       />
       <PriorityChip
         priority={ticket.priority}
@@ -93,12 +82,12 @@ export function BoardCardProperties({
         />
       )}
       {shows("git") && (
-        <BoardCardGit
-          ticket={ticket}
-          chipClassName={cn(boardChipClass, interactiveChipClass)}
-        />
+        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
       )}
-      <RelationChips ticket={ticket} className={relationChipClass} />
+      <RelationChips
+        ticket={ticket}
+        className={chipClassName({ interaction: "hover", shape: "count" })}
+      />
       {isEpic(ticket.parent) && shows("epic") && (
         <EpicChip epic={ticket.parent} />
       )}
@@ -110,12 +99,12 @@ export function BoardCardProperties({
               ticket={ticket}
               mode={estimation}
               onPatch={onPatch}
-              className={cn(boardChipClass, interactiveChipClass)}
+              className={pressChip}
             />
           </fieldset>
         )}
       {failure}
-    </div>
+    </>
   )
 }
 
@@ -144,11 +133,7 @@ function PriorityChip({
           onClick={(event) => event.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label })}
           title={label}
-          className={cn(
-            boardChipClass,
-            interactiveChipClass,
-            "w-6 justify-center px-0"
-          )}
+          className={chipClassName({ interaction: "press", shape: "icon" })}
         >
           <Icon
             className={cn("size-3 shrink-0", meta.className)}
@@ -170,7 +155,7 @@ function BoardSubTicketsChip({
     return (
       <SubTicketsChip
         ticket={ticket}
-        className={cn(boardChipClass, hoverChipClass)}
+        className={chipClassName({ interaction: "hover" })}
       />
     )
   }
@@ -178,11 +163,11 @@ function BoardSubTicketsChip({
   const done = ticket.subTicketDoneCount ?? 0
   const total = ticket.subTicketCount ?? 0
   return (
-    <SubTicketCount
+    <ProgressCount
       done={done}
       total={total}
-      title={m.tickets_sub_tickets_progress({ done, total })}
-      className={boardChipClass}
+      label={m.tickets_sub_tickets_progress({ done, total })}
+      className={chipClassName()}
     />
   )
 }
@@ -198,7 +183,7 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
           params={{ orgSlug, slug, id: epic.id }}
           preload="intent"
           draggable={false}
-          className={cn(boardChipClass, interactiveChipClass)}
+          className={pressChip}
         />
       }
     >
@@ -260,12 +245,7 @@ export function TagChips({
     content: ReactNode,
     label?: string
   ) => {
-    const button = (
-      <button
-        type="button"
-        className={cn(boardChipClass, interactiveChipClass)}
-      />
-    )
+    const button = <button type="button" className={pressChip} />
     return onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger

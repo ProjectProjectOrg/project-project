@@ -1,0 +1,71 @@
+export const meta = {
+  title: "Board column",
+  group: "Primitives",
+  description:
+    "A board column: a status's tickets as cards, top to bottom, under a header with the status and its count. Columns fold to a narrow strip, and the sprint board reorders them by holding a header.",
+  sources: [
+    {
+      kind: "own",
+      name: "BoardColumn",
+      note: "Ported from the app's sprint board; polish pass still to come"
+    },
+    {
+      kind: "own",
+      name: "NumberFlow",
+      note: "the count",
+      href: "https://number-flow.barvian.me"
+    }
+  ]
+}
+
+## Overview
+
+A column that folds (hover its header for the fold button), one in reorder mode (the count gives way to a grip), a folded column with a card dragged over it, and the plain column the dashboard uses.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+The dashboard uses the plain column:
+
+```tsx
+import { BoardColumn, BoardColumnTitle, boardCardSlotClass } from "@pp/ui/board-column"
+import { StatusGlyph } from "@pp/ui/status-glyph"
+
+<BoardColumn
+  title={<BoardColumnTitle icon={<StatusGlyph icon={icon} color={color} />} label={label} />}
+  count={count}
+  scrollLabel={m.common_scroll_area_label()}
+>
+  {cards.map((card) => (
+    <div key={card.id} className={boardCardSlotClass}>
+      <BoardCard … />
+    </div>
+  ))}
+</BoardColumn>
+```
+
+The sprint board builds its column from the parts, because it animates width, reorders and takes drops: `boardColumnClass` and `boardCollapsedColumnClass` on its `Reorder.Item`, then `BoardColumnHeader` or `BoardCollapsedColumnHeader`, then `BoardCardList` with its virtualized cards.
+
+| Part | Props | What it does |
+| --- | --- | --- |
+| `BoardColumnHeader` | `title`, `count`, `reorderMode`, `holdable`, `onCollapse`, `collapseLabel`, plus div props | The open column's header; pointer handlers go on it for the hold-to-reorder |
+| `BoardCollapsedColumnHeader` | `icon`, `label`, `count`, `expandLabel`, `highlighted`, `reorderMode`, `onExpand`, plus button props | The folded strip: icon, name running down, count; a click unfolds |
+| `BoardColumnTitle` | `icon`, `label` | The status's icon and name |
+| `BoardColumnCount` | `value` | The count, rolling when it changes by one |
+| `BoardCardList` | `scrollLabel`, `viewportProps` | The scrolling list with a 6px edge fade |
+| `boardReorderFade` | | The 200ms ease the board uses for its reorder crossfades |
+
+## Rules
+
+### The count rolls only for one card
+
+A card moving in or out changes a column's count by one, and the number rolls to show it. A bigger change (a filter, a reload) swaps the number at once, because a long spin reads as noise.
+
+### Folding keeps the status findable
+
+A folded column keeps its icon, its name (running down the strip) and its count, so a folded "QA" still says how many tickets wait there. The whole strip is the unfold button, and it lights up when a card is dragged over it, so it still takes drops.
+
+### Reordering swaps count for grip
+
+In reorder mode the count crossfades into a grip and the cursor turns to a hand, so every header reads as something to drag, and the fold button hides until reordering ends.

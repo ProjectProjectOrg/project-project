@@ -1,5 +1,6 @@
 import type { Member, ParentFilter, TicketId } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
+import { listGridClassName } from "@pp/ui/list-row"
 import { useRef, useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -16,7 +17,7 @@ import {
   SectionDropProvider,
   type SectionDrop
 } from "./ListRowDrag"
-import { Row, rowGridClassName } from "./Row"
+import { Row } from "./Row"
 import { SelectionOrder } from "./TicketSelection"
 import { VirtualRows } from "./VirtualRows"
 
@@ -67,7 +68,7 @@ export function SectionRows({
       <SectionDropProvider drop={drop}>
         <div ref={section} className="contents">
           <VirtualRows
-            className={rowGridClassName}
+            className={listGridClassName}
             rowKeys={items.map(({ key }) => key)}
             activeIndex={items.findIndex(
               ({ ticket }) => ticket.id === activePreviewId

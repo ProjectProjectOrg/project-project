@@ -150,6 +150,7 @@ Set during the polish passes; a component that breaks one is not done.
 | Date picker | Done: type a date or range (chrono-node via lib/parseDate), Calendar inside, two months for ranges; used by sprints and log time |
 | Sidebar | In progress: rail on `--rail` (sliding bar, dithered project tiles), plain panel header, rows with gliding hover, row actions, live rows, the Pinned shelf with drag reorder; project switches don't animate, sub-pages slide; in the app and the gallery |
 | Breadcrumbs | New: trail at the top of the page container; crumbs keyed by role, TextSwap for changed crumbs, blur in/out for added and removed ones; gallery page with a playground; used by the app |
+| List row, Board card, List section, Board column | Ported, polish to come: slot-based `ListRow` (+ `listGridClassName`, `ListRowTitle`), `BoardCard`, `ListSectionHeader`/`ListSectionBody` and `BoardColumn` with its parts, sharing `ItemLink`, `TicketKey`, `ProgressCount`, `StatusGlyph`, `chipClassName` and `lib/keepInPlace`; the app fills the slots and keeps data, drag and virtualization. Known: the row checkbox fails axe target-size (18px) |
 | Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.

@@ -177,7 +177,7 @@ function ChildLine({
         params={{ orgSlug, slug, id: ticket.id }}
         preload="intent"
         draggable={false}
-        data-row-link
+        data-item-link
         title={ticket.title}
         className="min-w-0 truncate outline-none after:absolute after:-inset-x-1.5 after:inset-y-0 after:rounded-sm after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
       >
