@@ -15,6 +15,7 @@ export type CommentBlock = Readonly<{
   origin: "native" | "jira"
   createdAt: Date
   editedAt: Date | null
+  replyTo?: string
   body: string
 }>
 
@@ -32,6 +33,12 @@ const EditedAt = Schema.NullOr(CommentBlockDate).pipe(
   Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
   Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
 )
+const ReplyTo = Schema.NullOr(
+  Schema.String.pipe(Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/u)))
+).pipe(
+  Schema.catchDecoding(() => Effect.succeed(Option.some(null))),
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
 const UserBlockAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   userId: Schema.NonEmptyString
@@ -44,25 +51,29 @@ const JiraBlockAuthor = Schema.Struct({
 const LegacyCommentData = Schema.Struct({
   author: Schema.NonEmptyString,
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo
 })
 const NativeCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("native"),
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo
 })
 const LinkedJiraCommentData = Schema.Struct({
   author: UserBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo
 })
 const SnapshotJiraCommentData = Schema.Struct({
   author: JiraBlockAuthor,
   origin: Schema.Literal("jira"),
   createdAt: CommentBlockDate,
-  editedAt: EditedAt
+  editedAt: EditedAt,
+  replyTo: ReplyTo
 })
 const CommentBlockData = Schema.Union([
   LegacyCommentData,
@@ -138,6 +149,7 @@ export function parseCommentsRegion(
         origin,
         createdAt: data.createdAt,
         editedAt: data.editedAt,
+        ...(data.replyTo === null ? {} : { replyTo: data.replyTo }),
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -158,6 +170,7 @@ export function serializeCommentsRegion(
       createdAt: b.createdAt.toISOString()
     }
     if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
+    if (b.replyTo) fm.replyTo = b.replyTo
     out.push(`<!-- comment:${b.id} -->`)
     out.push(
       markdownFileContent(fm, b.body.replace(/\s+$/, "") + "\n").trimEnd()

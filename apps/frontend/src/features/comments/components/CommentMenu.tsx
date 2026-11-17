@@ -20,6 +20,7 @@ import { m } from "@/paraglide/messages"
 
 export type CommentMenuProps = Readonly<{
   comment: Comment
+  replies: ReadonlyArray<Comment>
   ticketId: TicketId
   canEdit: boolean
   canDelete: boolean
@@ -30,6 +31,7 @@ const copy = (text: string) => void navigator.clipboard.writeText(text)
 
 export function CommentMenuItems({
   comment,
+  replies,
   ticketId,
   canEdit,
   canDelete,
@@ -53,11 +55,15 @@ export function CommentMenuItems({
         {m.comments_menu_copy_link()}
       </DropdownMenuItem>
       <DropdownMenuItem
-        onClick={() => copy(commentMarkdown(comment, ticketId, url))}
+        onClick={() =>
+          copy(commentMarkdown([comment, ...replies], ticketId, url))
+        }
         className="cursor-pointer"
       >
         <FileText className="size-4" strokeWidth={1.75} />
-        {m.comments_menu_copy_markdown()}
+        {replies.length > 0
+          ? m.comments_menu_copy_thread_markdown()
+          : m.comments_menu_copy_markdown()}
       </DropdownMenuItem>
       {canDelete && (
         <>

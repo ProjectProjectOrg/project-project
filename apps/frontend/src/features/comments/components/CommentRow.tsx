@@ -48,14 +48,19 @@ const keepNativeMenu = (event: MouseEvent<HTMLElement>) => {
 
 export function CommentRow({
   comment,
-  pending = false,
-
-  ticketId
-}: {
+  replies,
+  pending,
+  reply,
+  ticketId,
+  onEditingChange
+}: Readonly<{
   comment: Comment
-  pending?: boolean
+  replies: ReadonlyArray<Comment>
+  pending: boolean
+  reply: boolean
   ticketId: TicketId
-}) {
+  onEditingChange: (editing: boolean) => void
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const linkedAuthor =
@@ -79,7 +84,11 @@ export function CommentRow({
     m.comments_delete_failed
   )
 
-  const [mode, setMode] = useState<Mode>("idle")
+  const [mode, setModeState] = useState<Mode>("idle")
+  const setMode = (next: Mode) => {
+    setModeState(next)
+    onEditingChange(next === "edit")
+  }
   const menuButton = useRef<HTMLButtonElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const targeted =
@@ -93,6 +102,7 @@ export function CommentRow({
   }, [targeted])
   const menu = {
     comment,
+    replies,
     ticketId,
     canEdit,
     canDelete,
@@ -117,8 +127,9 @@ export function CommentRow({
             mode={mode}
             onModeChange={setMode}
             fade={false}
+            variant="ghost"
             className={cn(
-              "ticket-comment rounded-xl border-border/60 p-0 transition-colors [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] group-data-targeted/reveal:border-ring",
+              "ticket-comment [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
               waiting && "animate-pulse"
             )}
           >
@@ -126,7 +137,10 @@ export function CommentRow({
               <CommentHeader comment={comment}>
                 {!pending && <CommentMenuButton ref={menuButton} {...menu} />}
               </CommentHeader>
-              <div className="px-4 pt-1 pb-3.5" onContextMenu={keepNativeMenu}>
+              <div
+                className={cn("pt-1 pr-4 pb-3.5", reply ? "pl-11" : "pl-4")}
+                onContextMenu={keepNativeMenu}
+              >
                 <Markdown>{comment.body}</Markdown>
               </div>
               {deleteError && (

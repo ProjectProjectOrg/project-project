@@ -756,7 +756,8 @@ describe("MCP handlers → write tools", () => {
         origin: "native",
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),
-        editedAt: null
+        editedAt: null,
+        replyTo: null
       })
     }
   })
@@ -1881,7 +1882,8 @@ describe("MCP ticket discovery and history", () => {
             author: { kind: "jira", displayName: "Ada", accountId: "jira-ada" },
             body: "Try **retrying** the upload.",
             createdAt: "2026-05-01T00:00:00.000Z",
-            editedAt: null
+            editedAt: null,
+            replyTo: null
           }
         ])
       }).pipe(
@@ -1906,7 +1908,8 @@ describe("MCP ticket discovery and history", () => {
                       },
                       body: "Try **retrying** the upload.",
                       createdAt: isoDate("2026-05-01T00:00:00.000Z"),
-                      editedAt: null
+                      editedAt: null,
+                      replyTo: null
                     }
                   ]
                 })

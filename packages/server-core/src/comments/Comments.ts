@@ -133,6 +133,9 @@ const isHistoricalCommentAuthor = Schema.is(HistoricalCommentAuthor)
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 
+const replyTo = (block: CommentBlock): CommentId | null =>
+  block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
+
 const make = Effect.gen(function* () {
   const db = yield* Db
   const projectMembers = yield* ProjectMembers.ProjectMembers
@@ -191,6 +194,21 @@ const make = Effect.gen(function* () {
     )
   }
 
+  const threadOf = (
+    orgSlug: string,
+    slug: string,
+    ticketId: TicketId,
+    commentId: CommentId
+  ) =>
+    Effect.gen(function* () {
+      const document = yield* ticketDocs.read(orgSlug, slug, ticketId)
+      const blocks = parseCommentsRegion(document.commentsRegion)
+      const target = blocks.find((block) => block.id === commentId)
+      if (target === undefined) return yield* new NotFound()
+      const root = blocks.find((block) => block.id === target.replyTo)
+      return decodeCommentId(root?.id ?? target.id)
+    })
+
   const list: Comments["Service"]["list"] = Effect.fn("Comments.list")(
     function* (ticketId) {
       const { orgSlug, slug, projectId } = yield* ProjectScope
@@ -248,7 +266,8 @@ const make = Effect.gen(function* () {
               origin: "native",
               body: block.body,
               createdAt: r.createdAt,
-              editedAt: r.editedAt ?? null
+              editedAt: r.editedAt ?? null,
+              replyTo: replyTo(block)
             }
           ]
         }
@@ -261,7 +280,8 @@ const make = Effect.gen(function* () {
             origin: "jira",
             body: block.body,
             createdAt: r.createdAt,
-            editedAt: r.editedAt ?? null
+            editedAt: r.editedAt ?? null,
+            replyTo: replyTo(block)
           }
         ]
       })
@@ -283,6 +303,10 @@ const make = Effect.gen(function* () {
         ],
         { concurrency: 2 }
       )
+      const thread =
+        input.replyTo === undefined
+          ? null
+          : yield* threadOf(orgSlug, slug, ticketId, input.replyTo)
       const id = yield* newCommentId
       const now = yield* DateTime.nowAsDate
 
@@ -308,6 +332,7 @@ const make = Effect.gen(function* () {
         origin: "native",
         createdAt: now,
         editedAt: null,
+        ...(thread === null ? {} : { replyTo: thread }),
         body: input.body
       }
       yield* updateBlocks(orgSlug, slug, ticketId, (blocks) => [
@@ -329,7 +354,8 @@ const make = Effect.gen(function* () {
         origin: "native",
         body: input.body,
         createdAt: now,
-        editedAt: null
+        editedAt: null,
+        replyTo: thread
       }
     }
   )
@@ -438,7 +464,8 @@ const make = Effect.gen(function* () {
       origin: "jira" as const,
       body: block.body,
       createdAt: block.createdAt,
-      editedAt: block.editedAt
+      editedAt: block.editedAt,
+      replyTo: null
     }))
   })
 
@@ -495,16 +522,17 @@ const make = Effect.gen(function* () {
       )
       yield* validateBody(scope, input.body)
       const editedAt = yield* DateTime.nowAsDate
+      let thread: CommentId | null = null
       yield* updateBlocks(
         orgSlug,
         slug,
         ticketId,
         (blocks) =>
-          blocks.map((block) =>
-            block.id === commentId
-              ? { ...block, body: input.body, editedAt }
-              : block
-          ),
+          blocks.map((block) => {
+            if (block.id !== commentId) return block
+            thread = replyTo(block)
+            return { ...block, body: input.body, editedAt }
+          }),
         db
           .update(commentIndex)
           .set({ editedAt })
@@ -522,7 +550,8 @@ const make = Effect.gen(function* () {
         origin: "native",
         body: input.body,
         createdAt: meta.createdAt,
-        editedAt
+        editedAt,
+        replyTo: thread
       }
     }
   )

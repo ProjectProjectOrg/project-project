@@ -279,6 +279,59 @@ it.effect("creates comments through TicketDocs", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("adds a reply to a reply to the first comment's thread", () => {
+  const at = DateTime.toDate(DateTime.makeUnsafe("2026-05-07T10:00:00.000Z"))
+  let current: TicketDocs.TicketDocument = {
+    ...document,
+    commentsRegion: serializeCommentsRegion([
+      {
+        id: "c_root",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        body: "Question"
+      },
+      {
+        id: "c_reply",
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        createdAt: at,
+        editedAt: null,
+        replyTo: "c_root",
+        body: "Answer"
+      }
+    ])
+  }
+  const layer = makeLayer(
+    makeTicketDocs({
+      read: () => Effect.succeed(current),
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(current).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              current = next
+            })
+          )
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const created = yield* comments.create(ticketId("T-1"), {
+      body: "Follow-up",
+      replyTo: decodeCommentIdSync("c_reply")
+    })
+
+    expect(created.replyTo).toBe("c_root")
+    expect(parseCommentsRegion(current.commentsRegion).at(-1)).toMatchObject({
+      body: "Follow-up",
+      replyTo: "c_root"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "imports Jira history with complete bodies and exact timestamps",
   () => {

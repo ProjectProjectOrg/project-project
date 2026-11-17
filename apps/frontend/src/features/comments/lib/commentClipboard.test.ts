@@ -6,23 +6,30 @@ import { commentMarkdown } from "./commentClipboard"
 
 const ticketId = Schema.decodeSync(TicketId)
 
+const sam = {
+  kind: "jira",
+  displayName: "Sam de Vries",
+  accountId: "jira-1"
+} as const
+const noor = {
+  kind: "jira",
+  displayName: "Noor Bakker",
+  accountId: "jira-2"
+} as const
+
 describe("commentMarkdown", () => {
-  it("credits the author above the body and keeps its indentation", () => {
+  it("credits each author above their text, keeps indentation and links back to the first comment", () => {
     const markdown = commentMarkdown(
-      {
-        author: {
-          kind: "jira",
-          displayName: "Sam de Vries",
-          accountId: "jira-1"
-        },
-        body: "\nImport note only.\n\n    const kept = true\n"
-      },
+      [
+        { author: sam, body: "\nImport note only.\n\n    const kept = true\n" },
+        { author: noor, body: "Agreed." }
+      ],
       ticketId("T-12"),
       "https://pp.test/orgs/o/projects/p/tickets/T-12#c_1"
     )
 
     expect(markdown).toBe(
-      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only.\n\n    const kept = true"
+      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only.\n\n    const kept = true\n\n**Noor Bakker**\n\nAgreed."
     )
   })
 })

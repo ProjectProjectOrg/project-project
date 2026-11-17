@@ -41,6 +41,7 @@ import {
   tryDecodeCursor,
   type AttachBranchInput,
   type CompleteSprintInput,
+  type CreateCommentInput,
   type CreateGroupInput,
   type CreateTicketInput,
   type GroupFilter,
@@ -505,14 +506,15 @@ const prepare_ticket_attachment = (
     }
   })
 
-const create_comment = (input: {
-  orgSlug: string
-  projectSlug: string
-  ticketId: TicketId
-  body: string
-}) =>
+const create_comment = (
+  input: CreateCommentInput & {
+    orgSlug: string
+    projectSlug: string
+    ticketId: TicketId
+  }
+) =>
   Effect.flatMap(Comments.Comments, (comments) =>
-    comments.create(input.ticketId, { body: input.body })
+    comments.create(input.ticketId, input)
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
       Effect.fail(new Validation({ reason: error.reason }))

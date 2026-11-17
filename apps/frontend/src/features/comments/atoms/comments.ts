@@ -97,6 +97,7 @@ const placeholderComment = (
   body: input.body,
   createdAt: key.createdAt,
   editedAt: null,
+  replyTo: input.replyTo ?? null,
   origin: "native"
 })
 

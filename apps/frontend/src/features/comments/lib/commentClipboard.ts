@@ -20,8 +20,18 @@ const markdownBody = (body: string): string =>
   body.replace(/^(?:[ \t]*\n)+/u, "").trimEnd()
 
 export const commentMarkdown = (
-  comment: Pick<Comment, "author" | "body">,
+  [first, ...replies]: readonly [
+    Pick<Comment, "author" | "body">,
+    ...ReadonlyArray<Pick<Comment, "author" | "body">>
+  ],
   ticketId: TicketId,
   url: string
 ): string =>
-  `**${commentAuthorName(comment.author)}** · [${ticketId}](${url})\n\n${markdownBody(comment.body)}`
+  [
+    `**${commentAuthorName(first.author)}** · [${ticketId}](${url})`,
+    markdownBody(first.body),
+    ...replies.flatMap((reply) => [
+      `**${commentAuthorName(reply.author)}**`,
+      markdownBody(reply.body)
+    ])
+  ].join("\n\n")

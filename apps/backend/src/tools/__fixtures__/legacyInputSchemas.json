@@ -1749,6 +1749,10 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 20000
+      },
+      "replyTo": {
+        "type": "string",
+        "pattern": "^c_[A-Za-z0-9_-]+$"
       }
     },
     "required": ["orgSlug", "projectSlug", "ticketId", "body"],
