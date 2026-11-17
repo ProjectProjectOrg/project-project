@@ -176,6 +176,14 @@ const transformGroup = (mapping: ImportMapping, content: string) => {
     frontmatter.tickets = stringsIn(data.tickets).map((id) =>
       renameTicketId(mapping, id)
     )
+  if (Array.isArray(data.snapshot)) {
+    const snapshot: ReadonlyArray<unknown> = data.snapshot
+    frontmatter.snapshot = snapshot.map((entry) =>
+      Predicate.isObject(entry) && Predicate.isString(entry.id)
+        ? { ...entry, id: renameTicketId(mapping, entry.id) }
+        : entry
+    )
+  }
   return markdownFileContent(frontmatter, rewriteText(mapping, body))
 }
 

@@ -924,7 +924,8 @@ const make = Effect.gen(function* () {
             (existing) =>
               Effect.gen(function* () {
                 yield* checkExpected(existing)
-                if (body !== undefined) yield* validateBody(body, scope, existing.body)
+                if (body !== undefined)
+                  yield* validateBody(body, scope, existing.body)
                 const nextSprint =
                   sprint === undefined || sprints === null
                     ? existing.sprint

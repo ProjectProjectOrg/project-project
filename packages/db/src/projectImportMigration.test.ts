@@ -16,7 +16,7 @@ VALUES ('c_upgrade', '00000000-0000-0000-0000-000000000301', 'IMP-1', 'jira', 'j
 
 describe.skipIf(!databaseUrl)("project import upgrade", () => {
   layer(
-    migratedDatabase(databaseUrl, "20261117130431_project_import", fixture),
+    migratedDatabase(databaseUrl, "20261117133953_project_import", fixture),
     { timeout: "60 seconds" }
   )((it) => {
     it.effect("keeps existing Jira comment attribution", () =>

@@ -104,11 +104,15 @@ describe("transformImportedFile", () => {
   it("renames ticket ids in group ticket lists", () => {
     const group = transformImportedFile(mapping, identity, {
       path: "groups/G-1.md",
-      content: "---\nid: G-1\ntickets: [T-1, T-2]\n---\n"
+      content:
+        "---\nid: G-1\ntickets: [T-1, T-2]\nsnapshot:\n  - id: T-1\n    status: done\n    estimate: 5\n---\n"
     })
     expect(parseMarkdownFile(group.content).data.tickets).toEqual([
       "PP-1",
       "PP-2"
+    ])
+    expect(parseMarkdownFile(group.content).data.snapshot).toEqual([
+      { id: "PP-1", status: "done", estimate: 5 }
     ])
   })
 

@@ -243,6 +243,11 @@ describe.skipIf(!databaseUrl)("project import", () => {
     })
     const dir = path.join(root, "orgs", source.slug, "projects", "src")
     yield* fs.makeDirectory(path.join(dir, "tickets"), { recursive: true })
+    yield* fs.makeDirectory(path.join(dir, "groups"), { recursive: true })
+    yield* fs.writeFileString(
+      path.join(dir, "groups", "G-1.md"),
+      `---\nid: G-1\nname: Source sprint\nkind: sprint\ncolor: '#8b5cf6'\ntickets: []\nstartsAt: null\nendsAt: null\ncompletedAt: null\ncreatedBy: ${ada}\ncreatedAt: '2026-01-01T00:00:00.000Z'\nupdatedAt: '2026-01-01T00:00:00.000Z'\n---\n`
+    )
     yield* fs.writeFileString(
       path.join(dir, "project.md"),
       `---\norg: ${source.slug}\nslug: src\nformerKeys: [OLD]\nname: Source\ncreatedAt: 2026-01-01T00:00:00.000Z\n---\n`
@@ -256,6 +261,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
         "status: todo",
         "type: incident",
         "rank: a0",
+        "sprint: G-1",
         "priority: med",
         "tags: []",
         `assignees: [${ada}, ${bob}]`,
@@ -384,6 +390,12 @@ describe.skipIf(!databaseUrl)("project import", () => {
             )
             expect(project.published_at).not.toBeNull()
             expect(project.key).toBe("PP")
+            expect(
+              yield* q(
+                "SELECT sprint_id FROM ticket_index WHERE project_id = $1 AND ticket_id = 'PP-1'",
+                [project.id]
+              )
+            ).toEqual([{ sprint_id: "G-1" }])
             expect(
               yield* q<{ key: string; current: boolean }>(
                 "SELECT key, current FROM project_key WHERE project_id = $1 ORDER BY key",
