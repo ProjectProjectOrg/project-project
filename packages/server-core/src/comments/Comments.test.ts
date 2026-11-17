@@ -369,7 +369,7 @@ it.effect("lists a ticket created from a comment under that comment", () => {
       ticketId("T-23")
     )
     expect(parseCommentsRegion(current.commentsRegion)[0]).toMatchObject({
-      tickets: ["T-23"]
+      tickets: ["[T-23](mention:ticket/T-23)"]
     })
   }).pipe(Effect.provide(layer))
 })

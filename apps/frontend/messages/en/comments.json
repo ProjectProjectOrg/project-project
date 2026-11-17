@@ -53,5 +53,7 @@
         "countPlural=*": "Show {count} earlier replies"
       }
     }
-  ]
+  ],
+  "comments_ticket_source": "{author} said in {source}:",
+  "comments_ticket_source_link": "a comment on {ticket}"
 }

@@ -37,7 +37,9 @@ const CommentFields = {
   resolution: Schema.NullOr(
     Schema.Struct({ by: Schema.NullOr(User), at: Schema.DateFromString })
   ),
-  tickets: Schema.Array(TicketId)
+  tickets: Schema.Array(
+    Schema.Struct({ projectSlug: Schema.NullOr(Slug), id: TicketId })
+  )
 }
 
 export const Comment = Schema.Union([

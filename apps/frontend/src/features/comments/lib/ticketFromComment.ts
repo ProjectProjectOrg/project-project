@@ -1,5 +1,7 @@
 import type { Comment, TicketId } from "@pp/shared"
 
+import { m } from "@/paraglide/messages"
+
 import { commentAuthorName } from "./commentClipboard"
 
 const TITLE_LENGTH = 80
@@ -22,7 +24,10 @@ export const ticketFromComment = (
 ) => ({
   title: titleFrom(comment.body),
   body: [
-    `**${commentAuthorName(comment.author)}** said in [a comment on ${ticketId}](${url}):`,
+    m.comments_ticket_source({
+      author: `**${commentAuthorName(comment.author)}**`,
+      source: `[${m.comments_ticket_source_link({ ticket: ticketId })}](${url})`
+    }),
     comment.body
       .trim()
       .split("\n")

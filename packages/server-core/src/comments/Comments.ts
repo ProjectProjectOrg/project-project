@@ -3,6 +3,10 @@ import { Db } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
 import {
   type ActivityActor,
+  extractMentionLinks,
+  formatMentionHref,
+  parseTicketMentionId,
+  Slug,
   Comment,
   Conflict,
   CommentId,
@@ -154,6 +158,7 @@ const isHistoricalCommentAuthor = Schema.is(HistoricalCommentAuthor)
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+const decodeSlug = Schema.decodeUnknownSync(Slug)
 
 const replyTo = (block: CommentBlock): CommentId | null =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
@@ -166,8 +171,20 @@ const resolutionOf = (
     ? null
     : { by: userById.get(block.resolvedBy) ?? null, at: block.resolvedAt }
 
-const ticketsOf = (block: CommentBlock): ReadonlyArray<TicketId> =>
-  (block.tickets ?? []).map((id) => decodeTicketId(id))
+const ticketsOf = (block: CommentBlock): Comment["tickets"] =>
+  (block.tickets ?? []).flatMap((link) =>
+    extractMentionLinks(link).flatMap(({ parsed }) => {
+      if (parsed?.type !== "ticket") return []
+      const target = parseTicketMentionId(parsed.id)
+      return [
+        {
+          projectSlug:
+            target.projectSlug === null ? null : decodeSlug(target.projectSlug),
+          id: decodeTicketId(target.ticketId)
+        }
+      ]
+    })
+  )
 
 const withoutResolution = ({
   resolvedBy: _by,
@@ -655,7 +672,13 @@ const make = Effect.gen(function* () {
       blocks.map((block) => {
         if (block.id !== commentId) return block
         found = true
-        return { ...block, tickets: [...(block.tickets ?? []), created] }
+        return {
+          ...block,
+          tickets: [
+            ...(block.tickets ?? []),
+            `[${created}](${formatMentionHref("ticket", created)})`
+          ]
+        }
       })
     )
     if (!found) return yield* new NotFound()

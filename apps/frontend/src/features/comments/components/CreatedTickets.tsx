@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { TicketId } from "@pp/shared"
+import type { Comment } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CornerDownRight } from "lucide-react"
@@ -16,21 +16,29 @@ import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/Tic
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { m } from "@/paraglide/messages"
 
+type CreatedRef = Comment["tickets"][number]
+
 export function CreatedTickets({
   tickets
-}: Readonly<{ tickets: ReadonlyArray<TicketId> }>) {
+}: Readonly<{ tickets: ReadonlyArray<CreatedRef> }>) {
   if (tickets.length === 0) return null
   return (
     <ul className="mt-2 flex flex-col gap-1.5 text-body">
-      {tickets.map((id) => (
-        <CreatedTicket key={id} id={id} />
+      {tickets.map((ref) => (
+        <CreatedTicket
+          key={`${ref.projectSlug ?? ""}/${ref.id}`}
+          created={ref}
+        />
       ))}
     </ul>
   )
 }
 
-function CreatedTicket({ id }: Readonly<{ id: TicketId }>) {
-  const { orgSlug, slug } = useProjectRoute()
+function CreatedTicket({ created: ref }: Readonly<{ created: CreatedRef }>) {
+  const route = useProjectRoute()
+  const orgSlug = route.orgSlug
+  const slug = ref.projectSlug ?? route.slug
+  const id = ref.id
   const { members } = useProject()
   const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
   if (!Result.isSuccess(result)) return null
