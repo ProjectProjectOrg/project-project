@@ -13,7 +13,7 @@ import {
 
 import { backlog, type BacklogRequest, type BacklogValue } from "./backlog"
 import { recordCreatedKey } from "./createdKeys"
-import { localFirstCreate } from "./ticketRows"
+import { localCreate } from "./ticketRows"
 
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -111,9 +111,8 @@ export const quickCreateBacklogTicketOnServer = Atom.family(
 )
 
 export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
-  localFirstCreate(
-    req.params,
-    quickCreateBacklogTicketOnServer(req),
-    (input: QuickCreateInput) => ({ ...input, sprint: input.sprint ?? null })
-  )
+  localCreate(req.params, (input: QuickCreateInput) => ({
+    ...input,
+    sprint: input.sprint ?? null
+  }))
 )

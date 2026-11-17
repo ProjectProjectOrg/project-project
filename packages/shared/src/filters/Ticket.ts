@@ -276,12 +276,6 @@ export const TicketSearchQuery = Schema.Struct({
 })
 export type TicketSearchQuery = typeof TicketSearchQuery.Type
 
-export const TicketSections = Schema.Struct({
-  counts: TicketCounts,
-  sections: Schema.Record(TicketStatus, TicketListPage)
-})
-export type TicketSections = typeof TicketSections.Type
-
 export const SprintSectionUnscheduled = Schema.Literal("unscheduled")
 export type SprintSectionUnscheduled = typeof SprintSectionUnscheduled.Type
 

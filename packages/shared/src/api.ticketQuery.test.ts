@@ -36,11 +36,7 @@ const decodeTicketListQuery = Schema.decodeEffect(TicketListQuery)
 
 const endpoints = AppApi.groups.tickets.endpoints
 const api = HttpApi.make("TicketQueryTest").add(
-  HttpApiGroup.make("tickets").add(
-    endpoints.list,
-    endpoints.sections,
-    endpoints.update
-  )
+  HttpApiGroup.make("tickets").add(endpoints.list, endpoints.update)
 )
 const ticket = Schema.decodeSync(TicketDetail)({
   id: "T-1",
@@ -115,14 +111,6 @@ const makeHarness = Effect.gen(function* () {
       .handle("list", ({ query }) =>
         Ref.set(received, query).pipe(Effect.as(page))
       )
-      .handle("sections", ({ query }) =>
-        Ref.set(received, query).pipe(
-          Effect.as({
-            counts: { total: 0, byStatus: {} },
-            sections: {}
-          })
-        )
-      )
       .handle("update", ({ query }) =>
         Ref.set(receivedUpdate, query).pipe(
           Effect.as({ ticket, orderKey: null })
@@ -148,8 +136,6 @@ it.effect(
         for (const dir of SortDir.literals) {
           const sort = { key, dir }
           yield* client.tickets.list({ params, query: { sort } })
-          expect((yield* Ref.get(received)).sort).toEqual(sort)
-          yield* client.tickets.sections({ params, query: { sort } })
           expect((yield* Ref.get(received)).sort).toEqual(sort)
           yield* client.tickets.update({
             params: { ...params, id: ticket.id },
@@ -183,11 +169,6 @@ it.effect("preserves filters and keeps an omitted update sort absent", () =>
       payload: {}
     })
     expect(yield* Ref.get(receivedUpdate)).toEqual({})
-    yield* client.tickets.sections({
-      params,
-      query: { sort: DEFAULT_TICKET_SORT }
-    })
-    expect((yield* Ref.get(received)).sort).toEqual(DEFAULT_TICKET_SORT)
   }).pipe(Effect.scoped)
 )
 
@@ -219,11 +200,6 @@ it.effect(
         const query = { sort: DEFAULT_TICKET_SORT }
         const requests = [
           client.tickets.list({ params, query, responseMode: "response-only" }),
-          client.tickets.sections({
-            params,
-            query,
-            responseMode: "response-only"
-          }),
           client.tickets.update({
             params: { ...params, id: ticket.id },
             query,

@@ -128,8 +128,6 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
       Effect.die(new Error("unexpected TicketIndex.projectFor call")),
     list: () => Effect.succeed([]),
     query: () => Effect.succeed([]),
-    querySections: () => Effect.succeed(new Map()),
-    sequence: () => Effect.succeed([]),
     orderKeyFor: () => Effect.succeed(null),
     topRank: () => Effect.succeed(null),
     rankGap: () => Effect.succeed(null),

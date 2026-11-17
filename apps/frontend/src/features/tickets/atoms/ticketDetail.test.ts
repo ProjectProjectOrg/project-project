@@ -269,23 +269,14 @@ const probe = (name: string, key: string) =>
     reactivityKeys: [key]
   })
 
-const probeNames = [
-  "ticketsIn",
-  "ticketLists",
-  "ticketPages",
-  "titleQuery",
-  "updatedQuery",
-  "self"
-] as const
+const probeNames = ["ticketsIn", "ticketLists", "titleQuery", "self"] as const
 
 type ProbeName = (typeof probeNames)[number]
 
 const probes: Readonly<Record<ProbeName, ReturnType<typeof probe>>> = {
   ticketsIn: probe("ticketsIn", Keys.ticketsIn(scope)),
   ticketLists: probe("ticketLists", Keys.ticketLists(scope)),
-  ticketPages: probe("ticketPages", Keys.ticketPages(scope)),
   titleQuery: probe("titleQuery", Keys.ticketTitleQuery(scope)),
-  updatedQuery: probe("updatedQuery", Keys.ticketUpdatedQuery(scope)),
   self: probe("self", Keys.ticket(scope, ticket.id))
 }
 
@@ -352,27 +343,21 @@ describe("ticket detail invalidation keys", () => {
     try {
       const published = await publishedBy({ title: "After" }, [
         "ticketsIn",
-        "titleQuery",
-        "updatedQuery"
+        "titleQuery"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery", "self"])
+        new Set<ProbeName>(["ticketsIn", "titleQuery", "self"])
       )
     } finally {
       registry.dispose()
     }
   })
 
-  it("publishes the ticket list, updated query and the ticket's own key for a body-only edit", async () => {
+  it("publishes the ticket list and the ticket's own key for a body-only edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
-      const published = await publishedBy({ body: "After" }, [
-        "ticketsIn",
-        "updatedQuery"
-      ])
-      expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "updatedQuery", "self"])
-      )
+      const published = await publishedBy({ body: "After" }, ["ticketsIn"])
+      expect(published).toEqual(new Set<ProbeName>(["ticketsIn", "self"]))
     } finally {
       registry.dispose()
     }
@@ -383,11 +368,10 @@ describe("ticket detail invalidation keys", () => {
     try {
       const published = await publishedBy({ priority: "high" }, [
         "ticketsIn",
-        "ticketLists",
-        "ticketPages"
+        "ticketLists"
       ])
       expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages", "self"])
+        new Set<ProbeName>(["ticketsIn", "ticketLists", "self"])
       )
     } finally {
       registry.dispose()

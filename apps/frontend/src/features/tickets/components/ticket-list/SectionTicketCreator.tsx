@@ -1,10 +1,9 @@
-import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   EPIC_SECTION_NONE,
   GroupId,
   sprintSectionKey,
   type Group,
-  type TicketId,
   type TicketListQuery,
   type TicketStatus,
   type TicketParent,
@@ -17,7 +16,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import {
   useCallback,
-  useContext,
   useId,
   useMemo,
   useRef,
@@ -33,7 +31,6 @@ import {
 } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
-  assignTicketToSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
@@ -70,14 +67,9 @@ type CreatorProps = Readonly<{
   onDone: () => void
 }>
 
-type CreatedTicket = Readonly<{
-  id: TicketId
-  sprintAssignmentFailed?: boolean
-}>
-
 type CreateTicket = (
   input: QuickCreateInput
-) => Promise<Exit.Exit<CreatedTicket | void, Readonly<{ _tag: string }>>>
+) => Promise<Exit.Exit<void, Readonly<{ _tag: string }>>>
 
 export function SectionTicketCreator({
   snapshotReq,
@@ -128,21 +120,16 @@ function SprintSectionTicketCreator(
     mode: "promiseExit"
   })
   const state = useAtomValue(quickCreateSprintSectionsTicket({ req, key }))
-  const error = Result.isFailure(state)
-    ? mutationErrorText(
-        state,
-        ticketCreateErrorMessage,
-        m.tickets_create_error_fallback
-      )
-    : Result.isSuccess(state) && state.value?.sprintAssignmentFailed
-      ? m.tickets_create_sprint_assignment_failed()
-      : null
   return (
     <SectionCreatorForm
       {...props}
       create={create}
       submitting={state.waiting}
-      error={error}
+      error={mutationErrorText(
+        state,
+        ticketCreateErrorMessage,
+        m.tickets_create_error_fallback
+      )}
       assignsSprint={false}
     />
   )
@@ -190,7 +177,6 @@ function SectionCreatorForm({
     assignsSprint: boolean
   }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const registry = useContext(RegistryContext)
 
   const viewerId = useAtomValue(currentUserId)
 
@@ -269,9 +255,6 @@ function SectionCreatorForm({
     if (Exit.isFailure(exit)) {
       setTitle(submittedTitle)
       return
-    }
-    if (attachTo !== null && exit.value !== undefined) {
-      assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
 

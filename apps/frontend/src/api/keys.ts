@@ -22,13 +22,10 @@ export const Keys = {
   ticketsIn: (scope: string): ReactivityKey => key(`tickets/${scope}`),
   /** Any list/section/board projection of this project's tickets. */
   ticketLists: (scope: string): ReactivityKey => key(`ticket-lists/${scope}`),
-  /** Cursor pages loaded on top of a backlog section. */
-  ticketPages: (scope: string): ReactivityKey => key(`ticket-pages/${scope}`),
-  /** Every ticket row, list, section and cursor page in this project. */
+  /** Every ticket row, list and section in this project. */
   ticketsChanged: (scope: string): ReadonlyArray<ReactivityKey> => [
     Keys.ticketsIn(scope),
-    Keys.ticketLists(scope),
-    Keys.ticketPages(scope)
+    Keys.ticketLists(scope)
   ],
   /** One ticket's content plus every ticket list in its project. */
   ticketChanged: (
@@ -44,9 +41,6 @@ export const Keys = {
   /** Queries that depend on comments on this project's tickets. */
   ticketComments: (scope: string): ReactivityKey =>
     key(`ticket-comments/${scope}`),
-  /** Queries whose ordering or matching depends on `updatedAt`. */
-  ticketUpdatedQuery: (scope: string): ReactivityKey =>
-    key(`ticket-updated-query/${scope}`),
   /** The local copy of this project, which pulls on every change to it. */
   projectFacts: (scope: string): ReactivityKey => key(`project-facts/${scope}`),
   /** Every query, refetched when the live connection reconnects. */
@@ -54,15 +48,8 @@ export const Keys = {
   /** Any query returning this project's sprints. */
   sprints: (scope: string): ReactivityKey => key(`sprints/${scope}`),
   /** Which sprint a ticket belongs to. */
-  sprintMembership: (scope: string, groupId?: string): ReactivityKey =>
-    key(
-      groupId === undefined
-        ? `sprint-membership/${scope}`
-        : `sprint-membership/${scope}/${groupId}`
-    ),
-  /** One sprint's own content, wherever it is shown. */
-  sprint: (scope: string, id: GroupId): ReactivityKey =>
-    key(`sprint/${scope}/${id}`),
+  sprintMembership: (scope: string): ReactivityKey =>
+    key(`sprint-membership/${scope}`),
   /** This project's tag definitions. */
   tags: (scope: string): ReactivityKey => key(`tags/${scope}`),
   /** Ticket-derived tag usage in this project. */

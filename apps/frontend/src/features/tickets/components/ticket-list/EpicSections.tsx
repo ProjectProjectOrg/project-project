@@ -35,7 +35,7 @@ import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
   firstScreenSectionCount,
-  type EpicSectionsValue,
+  type EpicSectionsData,
   type EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
@@ -75,7 +75,7 @@ export function EpicSections(props: Props) {
   const [previous, setPrevious] = useState<Readonly<{
     req: EpicSectionsRequest
     query: TicketListQuery
-    value: EpicSectionsValue
+    value: EpicSectionsData
   }> | null>(null)
   if (
     Result.isSuccess(snapshotResult) &&

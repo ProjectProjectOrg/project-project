@@ -1,5 +1,4 @@
 import * as Groups from "@pp/server-core/groups/Groups"
-import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -25,11 +24,6 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
         Effect.flatMap(Groups.Groups, (groups) => groups.get(params.id)).pipe(
           dieOnMarkdown
         )
-      )
-      .handle("listTickets", ({ params }) =>
-        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.listInGroup(params.id)
-        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload }) =>
         Effect.flatMap(Groups.Groups, (groups) =>

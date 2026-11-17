@@ -123,7 +123,7 @@ const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   const contentOnly = fields.every((f) => f === "title" || f === "body")
   const own = Keys.ticket(scope, req.params.id)
   if (!contentOnly) return [...Keys.ticketsChanged(scope), own]
-  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope), own]
+  const keys = [Keys.ticketsIn(scope), own]
   if (patch.title !== undefined) {
     keys.push(Keys.ticketTitleQuery(scope))
   }

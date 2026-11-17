@@ -20,7 +20,11 @@ import {
   viewMutation,
   type OptimisticView
 } from "@/api/viewMutation"
-import { localFirst } from "@/features/local/atoms/localEdit"
+import {
+  type LocalEdit,
+  localEditFn,
+  localFirst
+} from "@/features/local/atoms/localEdit"
 import { createEdit, type LocalCreate } from "@/features/local/lib/localCreate"
 import { intentsOf } from "@/features/local/lib/localIntents"
 import type { BulkDrop } from "@/features/tickets/lib/listDrop"
@@ -111,59 +115,40 @@ const movePatch = (input: BulkDrop) =>
     ? toBulkPatch(input.edit)
     : { ...toBulkPatch(input.edit), position: input.position.to }
 
-export const bulkTicketMove = <V, VE>(
-  view: OptimisticView<V, VE>,
-  update: BulkTicketUpdate<V>
-) =>
-  localFirst(update.path, serverTicketMove(view, update), (input: BulkDrop) => [
-    {
-      write: PendingWrite.cases.bulk.make({
-        payload: { tickets: input.tickets, patch: movePatch(input) }
-      }),
-      edits: input.tickets.map((ticket, index) => ({
-        ticket,
-        intents: intentsOf(movedEdit(input, index))
-      }))
-    }
-  ])
+const moveEdits = (input: BulkDrop): ReadonlyArray<LocalEdit> => [
+  {
+    write: PendingWrite.cases.bulk.make({
+      payload: { tickets: input.tickets, patch: movePatch(input) }
+    }),
+    edits: input.tickets.map((ticket, index) => ({
+      ticket,
+      intents: intentsOf(movedEdit(input, index))
+    }))
+  }
+]
 
-const serverTicketMove = <V, VE>(
-  view: OptimisticView<V, VE>,
-  update: BulkTicketUpdate<V>
-) =>
-  viewMutation(view, {
-    name: update.name,
-    predict: (value, input: BulkDrop) =>
-      input.tickets.reduce(
-        (current, id, index) =>
-          update.predict(current, id, movedEdit(input, index)),
-        value
-      ),
-    call: (client, input) =>
-      client.tickets
-        .bulkUpdate({
-          params: update.path,
-          payload: { tickets: input.tickets, patch: movePatch(input) }
-        })
-        .pipe(
-          Effect.onError(() =>
-            Reactivity.invalidate(
-              bulkChangedKeys(
-                update.path,
-                input.tickets,
-                input.edit.sprint !== undefined
-              )
-            )
-          )
-        ),
-    confirm: keepPredicted,
-    publish: (_result, input) =>
-      bulkChangedKeys(
-        update.path,
-        input.tickets,
-        input.edit.sprint !== undefined
-      )
-  })
+export const localTicketMove = (
+  project: Readonly<{ orgSlug: string; slug: string }>
+) => localEditFn(project, moveEdits)
+
+export const localBulkUpdate = (
+  project: Readonly<{ orgSlug: string; slug: string }>
+) => localEditFn(project, bulkEdits)
+
+const createEdits =
+  <I>(toCreate: (input: I) => LocalCreate) =>
+  (input: I): ReadonlyArray<LocalEdit> => [
+    createEdit(
+      toCreate(input),
+      Effect.runSync(Random.next),
+      DateTime.toDate(DateTime.nowUnsafe())
+    )
+  ]
+
+export const localCreate = <I>(
+  project: Readonly<{ orgSlug: string; slug: string }>,
+  toCreate: (input: I) => LocalCreate
+) => localEditFn(project, createEdits(toCreate))
 
 export const localFirstCreate = <I, A, E>(
   project: Readonly<{ orgSlug: string; slug: string }>,
@@ -172,14 +157,7 @@ export const localFirstCreate = <I, A, E>(
     I | Atom.Reset | Atom.Interrupt
   >,
   toCreate: (input: I) => LocalCreate
-) =>
-  localFirst(project, server, (input: I) => [
-    createEdit(
-      toCreate(input),
-      Effect.runSync(Random.next),
-      DateTime.toDate(DateTime.nowUnsafe())
-    )
-  ])
+) => localFirst(project, server, createEdits(toCreate))
 
 type Page<Item> = Readonly<{
   items: ReadonlyArray<Item>
@@ -264,6 +242,16 @@ export const loadNextPage = <P extends Page<unknown>, E>(
   return get.result(pages.page(cursor), { suspendOnWaiting: true })
 }
 
+export const loadMorePages = (
+  pages: Atom.Writable<Readonly<Record<string, number>>>,
+  key: string
+) =>
+  Atom.fn((_input: void, get: Atom.FnContext) =>
+    Effect.sync(() =>
+      get.set(pages, { ...get(pages), [key]: (get(pages)[key] ?? 0) + 1 })
+    )
+  )
+
 export type TicketPath = Readonly<{
   orgSlug: string
   slug: string
@@ -280,6 +268,21 @@ export type CoalescingTicketUpdate<V> = Readonly<{
   publish?: (patch: TicketEdit) => ReadonlyArray<ReactivityKey>
 }>
 
+const updateEdits =
+  (id: TicketId) =>
+  (edit: TicketEdit): ReadonlyArray<LocalEdit> => [
+    {
+      write: PendingWrite.cases.update.make({
+        ticket: id,
+        payload: toUpdateInput(edit)
+      }),
+      edits: [{ ticket: id, intents: intentsOf(edit) }]
+    }
+  ]
+
+export const localTicketUpdate = (path: TicketPath) =>
+  localEditFn(path, updateEdits(path.id))
+
 export const coalescingTicketUpdate = <V, VE>(
   view: OptimisticView<V, VE>,
   update: CoalescingTicketUpdate<V>
@@ -287,15 +290,7 @@ export const coalescingTicketUpdate = <V, VE>(
   localFirst(
     update.path,
     serverTicketUpdate(view, update),
-    (edit: TicketEdit) => [
-      {
-        write: PendingWrite.cases.update.make({
-          ticket: update.path.id,
-          payload: toUpdateInput(edit)
-        }),
-        edits: [{ ticket: update.path.id, intents: intentsOf(edit) }]
-      }
-    ]
+    updateEdits(update.path.id)
   )
 
 const serverTicketUpdate = <V, VE>(

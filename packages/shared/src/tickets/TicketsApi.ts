@@ -31,17 +31,12 @@ import {
   RecentTicketRow,
   TicketCountQuery,
   TicketCounts,
-  TicketEpicSections,
   TicketListPage,
   TicketListQuery,
   TicketOrderKeyQuery,
-  TicketListSource,
   TicketSearchQuery,
   TicketSection,
-  TicketSequence,
-  TicketSections,
   TicketSort,
-  TicketSprintSections,
   TicketUpdateResult
 } from "../filters/Ticket"
 import {
@@ -80,11 +75,7 @@ import {
   DescriptionPageQuery,
   UpdateTicketDescriptionInput
 } from "./TicketDescription"
-import {
-  TicketTextHit,
-  TicketTextSearchQuery,
-  TicketTitle
-} from "./TicketTextSearch"
+import { TicketTextHit, TicketTextSearchQuery } from "./TicketTextSearch"
 
 const TicketListHttpQuery = TicketListQuery.pipe(
   Schema.fieldsAssign({
@@ -138,34 +129,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "sections",
-      "/orgs/:orgSlug/projects/:slug/tickets/sections",
-      {
-        params: ProjectPath,
-        query: TicketListHttpQuery,
-        success: TicketSections,
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "sprintSections",
-      "/orgs/:orgSlug/projects/:slug/tickets/sprint-sections",
-      {
-        params: ProjectPath,
-        query: TicketListHttpQuery,
-        success: TicketSprintSections,
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
-      .middleware(ProjectAccess)
   )
   .add(
     HttpApiEndpoint.post(
@@ -223,34 +186,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
-    HttpApiEndpoint.get(
-      "epicSections",
-      "/orgs/:orgSlug/projects/:slug/tickets/epic-sections",
-      {
-        params: ProjectPath,
-        query: TicketListHttpQuery,
-        success: TicketEpicSections,
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "parentSections",
-      "/orgs/:orgSlug/projects/:slug/tickets/parent-sections",
-      {
-        params: ProjectPath,
-        query: TicketListHttpQuery,
-        success: TicketEpicSections,
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
       query: TicketPageHttpQuery,
@@ -268,19 +203,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketSearchQuery,
         success: Schema.Array(Ticket),
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "titles",
-      "/orgs/:orgSlug/projects/:slug/tickets/titles",
-      {
-        params: ProjectPath,
-        success: Schema.Array(TicketTitle),
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
@@ -408,22 +330,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "sequence",
-      "/orgs/:orgSlug/projects/:slug/tickets/:id/sequence",
-      {
-        params: TicketPath,
-        query: Schema.Struct({
-          from: Schema.optional(Schema.fromJsonString(TicketListSource))
-        }),
-        success: Schema.NullOr(TicketSequence),
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    )
-      .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
   )
   .add(

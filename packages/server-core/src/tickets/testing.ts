@@ -1,6 +1,5 @@
 import {
   ActivityActor,
-  EPIC_SECTION_NONE,
   Group,
   matchesTicketQuery,
   NotFound,
@@ -20,11 +19,9 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  StatusSlug,
   Validation,
   BUILTIN_TYPE_KEYS,
-  isBuiltinTypeKey,
-  isEpic
+  isBuiltinTypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -534,88 +531,6 @@ export const matchingDocuments = (
   )
 }
 
-export const decodeStatusSlug = Schema.decodeSync(StatusSlug)
-
-export const querySectionsVia =
-  (
-    index: Pick<TicketIndex.TicketIndex["Service"], "list" | "query" | "count">
-  ): TicketIndex.TicketIndex["Service"]["querySections"] =>
-  (project, query, options) =>
-    Effect.gen(function* () {
-      const out = new Map<
-        string,
-        {
-          counts: { total: number; byStatus: Readonly<Record<string, number>> }
-          entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>
-        }
-      >()
-      const countQuery = { ...query, status: undefined }
-      if (options.sections === "status") {
-        const counts = yield* index.count(project, countQuery, options)
-        for (const [status, total] of Object.entries(counts.byStatus)) {
-          const requested =
-            query.status === undefined ||
-            query.status.some((value) => value === status)
-          const entries = requested
-            ? yield* index.query(
-                project,
-                { ...query, status: [decodeStatusSlug(status)] },
-                options
-              )
-            : []
-          out.set(status, {
-            counts: { total, byStatus: { [status]: total } },
-            entries
-          })
-        }
-        return out
-      }
-      if (
-        options.sections === "parent" ||
-        options.sections === "ticketParent"
-      ) {
-        const all = yield* index.list(project)
-        const byId = new Map(all.map((entry) => [entry.id, entry]))
-        const byEpic = options.sections === "parent"
-        const sectionOf = (entry: TicketIndex.TicketIndexEntry): string => {
-          const parent =
-            entry.parent === null ? undefined : byId.get(entry.parent.id)
-          if (parent === undefined) return EPIC_SECTION_NONE
-          if (!byEpic) {
-            return isEpic(parent) ? EPIC_SECTION_NONE : parent.id
-          }
-          return isEpic(parent)
-            ? parent.id
-            : (parent.parent?.id ?? EPIC_SECTION_NONE)
-        }
-        for (const key of new Set(all.map(sectionOf))) {
-          const scoped = {
-            ...options,
-            ticketIds: all
-              .filter((entry) => sectionOf(entry) === key)
-              .map((entry) => entry.id)
-          }
-          const counts = yield* index.count(project, countQuery, scoped)
-          const entries = yield* index.query(project, query, scoped)
-          if (counts.total > 0) out.set(key, { counts, entries })
-        }
-        return out
-      }
-      const explicit = options.sections.flatMap(
-        (section) => section.ticketIds ?? []
-      )
-      for (const section of options.sections) {
-        const scoped =
-          section.ticketIds === undefined
-            ? { ...options, excludeTicketIds: explicit }
-            : { ...options, ticketIds: section.ticketIds }
-        const counts = yield* index.count(project, countQuery, scoped)
-        const entries = yield* index.query(project, query, scoped)
-        out.set(section.key, { counts, entries })
-      }
-      return out
-    })
-
 export const relationEdgesOfDocuments = (
   documents: Map<string, TicketDocs.TicketDocument>
 ): ReadonlyArray<RelationEdge> =>
@@ -878,9 +793,6 @@ export const makeFakeTicketIndex = (
       Effect.sync(() => {
         documents.delete(ticketId)
       }),
-    querySections: (project, query, options) =>
-      querySectionsVia(index)(project, query, options),
-    sequence: () => Effect.die(new Error("unexpected TicketIndex.sequence")),
     relationsOf: (_project, ticketId) =>
       Effect.sync(() => relationsOfDocuments(documents, ticketId)),
     relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),

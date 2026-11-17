@@ -157,8 +157,6 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     projectFor: () => Effect.succeed(ticketIndexProject),
     list: () => Effect.succeed([]),
     query: () => Effect.succeed([]),
-    querySections: () => Effect.succeed(new Map()),
-    sequence: () => Effect.succeed([]),
     orderKeyFor: () => Effect.succeed(null),
     topRank: () => Effect.succeed(null),
     rankGap: () => Effect.succeed(null),

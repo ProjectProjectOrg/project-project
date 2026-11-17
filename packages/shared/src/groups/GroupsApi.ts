@@ -12,7 +12,6 @@ import {
 } from "../errors"
 import { GroupPath, ProjectPath } from "../http/paths"
 import { Operations } from "../sync/Operations"
-import { Ticket } from "../tickets/Ticket"
 import {
   CompleteSprintInput,
   CompleteSprintOutput,
@@ -46,17 +45,6 @@ export const GroupsGroup = HttpApiGroup.make("groups")
       success: GroupDetail,
       error: [Unauthorized, NotFound, Forbidden]
     }).annotate(RequiresProject, { ticket: ["read"] })
-  )
-  .add(
-    HttpApiEndpoint.get(
-      "listTickets",
-      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets",
-      {
-        params: GroupPath,
-        success: Schema.Array(Ticket),
-        error: [Unauthorized, NotFound, Forbidden]
-      }
-    ).annotate(RequiresProject, { ticket: ["read"] })
   )
   .add(
     HttpApiEndpoint.patch(

@@ -1,57 +1,34 @@
-import {
-  matchesTicketQuery,
-  type EpicSectionKey,
-  type Ticket,
-  type TicketId,
-  type TicketListQuery,
-  TicketStatus
-} from "@pp/shared"
-import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
+import type { EpicSectionKey, TicketId, TicketListQuery } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { persisted } from "@/api/bootCache"
-import { Keys, projectScope } from "@/api/keys"
-import { query } from "@/api/query"
-import { bindRowMutation, viewMutation } from "@/api/viewMutation"
-import { currentUserId } from "@/features/auth/atoms/auth"
+import { projectScope } from "@/api/keys"
+import { bindRowMutation } from "@/api/viewMutation"
 import { localParentSections } from "@/features/local/atoms/localParentSections"
-import { readLocal } from "@/features/local/atoms/readLocal"
-import {
-  projectEstimation,
-  projectRequest
-} from "@/features/projects/atoms/projects"
+import { localValue } from "@/features/local/atoms/readLocal"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
-  patchEpicSectionsRow,
-  replaceEpicSectionsRow,
   EpicSectionsData,
-  firstScreenEpicSections,
-  type EpicSectionsValue
+  firstScreenEpicSections
 } from "@/features/tickets/lib/epicSectionRows"
 import {
-  placeholderRow,
   toRow,
-  withCreatedKeys,
-  withoutEpics,
   viewQuery,
+  withCreatedKeys,
   type QueryWithView,
-  type QuickCreateInput,
-  quickCreatePayload
+  type QuickCreateInput
 } from "@/features/tickets/lib/ticketRows"
 
 import { encodeTicketListQuery } from "./backlog"
-import { createdKeys, recordCreatedKey } from "./createdKeys"
+import { createdKeys } from "./createdKeys"
 import { epicLoadedPages } from "./epicPages"
 import {
-  bulkTicketMove,
-  bulkTicketUpdate,
-  coalescingTicketUpdate,
-  loadNextPage,
-  localFirstCreate,
-  readLoadedPages
+  loadMorePages,
+  localBulkUpdate,
+  localCreate,
+  localTicketMove,
+  localTicketUpdate
 } from "./ticketRows"
 
 export type EpicSectionsRequest = Readonly<{
@@ -79,198 +56,43 @@ export const epicSectionsRequest = (
 const scopeOf = (req: EpicSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const snapshotQuery = (req: EpicSectionsRequest) =>
-  query("tickets", req.by === "epic" ? "epicSections" : "parentSections", {
-    params: req.params,
-    query: req.query,
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
-      Keys.orgMembers(req.params.orgSlug)
-    ]
-  })
-
-const pageQuery = (
-  req: EpicSectionsRequest,
-  key: EpicSectionKey,
-  cursor: string
-) =>
-  query("tickets", "list", {
-    params: req.params,
-    query: {
-      ...withoutEpics(req.query),
-      section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
-      cursor
-    },
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
-      Keys.ticketPages(scopeOf(req)),
-      Keys.orgMembers(req.params.orgSlug)
-    ]
-  })
-
-const viewerOf = (get: Atom.AtomContext, req: EpicSectionsRequest) => ({
-  id: get(currentUserId),
-  estimation: get(
-    projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
-  )
-})
-
-const emptyEpicSections: EpicSectionsData = {
-  total: 0,
-  counts: { total: 0, byStatus: {} },
-  sections: []
-}
-
-const epicSectionsData = (req: EpicSectionsRequest) =>
-  Atom.readable(
-    (get) => {
-      const local = readLocal(get, req.params, () => localParentSections(req))
-      if (local !== null) {
-        const created = get(createdKeys(scopeOf(req)))
-        return AsyncResult.map(
-          local,
-          (value): EpicSectionsData => ({
-            total: value.total,
-            counts: value.counts,
-            sections: value.sections.map((section) => ({
-              key: section.key,
-              parent: section.parent,
-              count: section.count,
-              page: {
-                items: withCreatedKeys(section.page.items.map(toRow), created),
-                nextCursor: section.page.nextCursor
-              }
-            }))
-          })
-        )
-      }
-      const base = get(snapshotQuery(req))
-      if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, () => emptyEpicSections)
-      }
-      const loaded = get(epicLoadedPages(req))
-      const created = get(createdKeys(scopeOf(req)))
-      let waiting = base.waiting
-      const sections = base.value.sections.map((section) => {
-        const pages = readLoadedPages(
-          get,
-          section.page,
-          loaded[section.key] ?? 0,
-          (cursor) => pageQuery(req, section.key, cursor)
-        )
-        waiting = waiting || pages.waiting
-        return {
+const epicSectionsView = (req: EpicSectionsRequest) =>
+  Atom.make((get) => {
+    const created = get(createdKeys(scopeOf(req)))
+    return AsyncResult.map(
+      localValue(get(localParentSections(req))),
+      (value): EpicSectionsData => ({
+        total: value.total,
+        counts: value.counts,
+        sections: value.sections.map((section) => ({
           key: section.key,
           parent: section.parent,
           count: section.count,
           page: {
-            items: withCreatedKeys(pages.items.map(toRow), created),
-            nextCursor: pages.nextCursor
+            items: withCreatedKeys(section.page.items.map(toRow), created),
+            nextCursor: section.page.nextCursor
           }
-        }
+        }))
       })
-      return AsyncResult.success<EpicSectionsData>(
-        {
-          total: base.value.total,
-          counts: base.value.counts,
-          sections
-        },
-        { waiting }
-      )
-    },
-    (refresh) => refresh(snapshotQuery(req))
-  )
-
-const epicSectionsView = (req: EpicSectionsRequest) => {
-  const data = epicSectionsData(req).pipe(
+    )
+  }).pipe(
     persisted(
       `view/${scopeOf(req)}/${req.by}/${encodeTicketListQuery(req.query)}`,
       EpicSectionsData,
       firstScreenEpicSections
     )
   )
-  return Atom.readable(
-    (get) =>
-      AsyncResult.map(
-        get(data),
-        (value): EpicSectionsValue => ({
-          ...value,
-          viewer: viewerOf(get, req)
-        })
-      ),
-    (refresh) => refresh(data)
-  )
-}
 
-export const epicSections = Atom.family((req: EpicSectionsRequest) =>
-  Atom.optimistic(epicSectionsView(req))
-)
+export const epicSections = Atom.family(epicSectionsView)
 
 export const loadMoreEpicSections = Atom.family(
   ({ req, key }: Readonly<{ req: EpicSectionsRequest; key: EpicSectionKey }>) =>
-    Api.runtime.fn(
-      Effect.fn("loadMoreEpicSections")(function* (
-        _input: void,
-        get: Atom.FnContext
-      ) {
-        const shown = get(epicSections(req))
-        const loaded = get(epicLoadedPages(req))
-        if (
-          AsyncResult.isSuccess(shown) &&
-          shown.value.sections
-            .find((section) => section.key === key)
-            ?.page.nextCursor?.startsWith("local:")
-        )
-          return get.set(epicLoadedPages(req), {
-            ...loaded,
-            [key]: (loaded[key] ?? 0) + 1
-          })
-        return yield* loadNextPage(get, {
-          visibleCursor: () => {
-            const current = get(epicSections(req))
-            return AsyncResult.isSuccess(current)
-              ? current.value.sections.find((section) => section.key === key)
-                  ?.page.nextCursor
-              : undefined
-          },
-          depth: () => get(epicLoadedPages(req))[key] ?? 0,
-          firstCursor: () => {
-            const base = get(snapshotQuery(req))
-            return AsyncResult.isSuccess(base)
-              ? (base.value.sections.find((section) => section.key === key)
-                  ?.page.nextCursor ?? null)
-              : undefined
-          },
-          page: (cursor) => pageQuery(req, key, cursor),
-          deepen: (depth) =>
-            get.set(epicLoadedPages(req), {
-              ...get(epicLoadedPages(req)),
-              [key]: depth
-            })
-        })
-      })
-    )
+    loadMorePages(epicLoadedPages(req), key)
 )
 
 export const updateEpicSectionsTicket = Atom.family(
   ({ req, id }: Readonly<{ req: EpicSectionsRequest; id: TicketId }>) =>
-    coalescingTicketUpdate(epicSections(req), {
-      name: "updateEpicSectionsTicket",
-      path: { ...req.params, id },
-      sort: req.query.sort,
-      predict: (value, patch) =>
-        patchEpicSectionsRow(
-          value,
-          id,
-          patch,
-          req.query,
-          DateTime.toDate(DateTime.nowUnsafe())
-        ),
-      confirm: (value, { ticket, orderKey }) =>
-        replaceEpicSectionsRow(value, ticket, orderKey, req.query.sort)
-    })
+    localTicketUpdate({ ...req.params, id })
 )
 
 export const epicSectionsTicketUpdates = bindRowMutation(
@@ -278,141 +100,17 @@ export const epicSectionsTicketUpdates = bindRowMutation(
 )
 
 export const bulkUpdateEpicSectionsTickets = Atom.family(
-  (req: EpicSectionsRequest) =>
-    bulkTicketUpdate(epicSections(req), {
-      name: "bulkUpdateEpicSectionsTickets",
-      path: req.params,
-      predict: (value, id, edit) =>
-        patchEpicSectionsRow(
-          value,
-          id,
-          edit,
-          req.query,
-          DateTime.toDate(DateTime.nowUnsafe())
-        )
-    })
+  (req: EpicSectionsRequest) => localBulkUpdate(req.params)
 )
 
 export const bulkMoveEpicSectionsTickets = Atom.family(
-  (req: EpicSectionsRequest) =>
-    bulkTicketMove(epicSections(req), {
-      name: "bulkMoveEpicSectionsTickets",
-      path: req.params,
-      predict: (value, id, edit) =>
-        patchEpicSectionsRow(
-          value,
-          id,
-          edit,
-          req.query,
-          DateTime.toDate(DateTime.nowUnsafe())
-        )
-    })
+  (req: EpicSectionsRequest) => localTicketMove(req.params)
 )
 
-const insertCreated = (
-  req: EpicSectionsRequest,
-  key: EpicSectionKey,
-  value: EpicSectionsValue,
-  input: QuickCreateInput
-): EpicSectionsValue => {
-  const existing = value.sections.find((section) => section.key === key)
-  if (existing === undefined) return value
-  const status = input.payload.status ?? TicketStatus.make("todo")
-  const row = placeholderRow(
-    input,
-    existing.page.items,
-    status,
-    DateTime.toDate(DateTime.nowUnsafe())
-  )
-  if (
-    !matchesTicketQuery(
-      row.ticket,
-      { ...req.query, status: undefined },
-      undefined,
-      input.prediction.estimation
-    )
-  )
-    return value
-  const counts = {
-    total: value.counts.total + 1,
-    byStatus: {
-      ...value.counts.byStatus,
-      [status]: (value.counts.byStatus[status] ?? 0) + 1
-    }
-  }
-  if (req.query.status?.length && !req.query.status.includes(status)) {
-    return { ...value, counts }
-  }
-  return {
-    ...value,
-    total: value.total + 1,
-    counts,
-    sections: value.sections.map((section) =>
-      section.key !== key
-        ? section
-        : {
-            ...section,
-            count: section.count + 1,
-            page: { ...section.page, items: [row, ...section.page.items] }
-          }
-    )
-  }
-}
-
-const confirmCreated = (
-  key: EpicSectionKey,
-  value: EpicSectionsValue,
-  created: Ticket,
-  input: QuickCreateInput
-): EpicSectionsValue => ({
-  ...value,
-  sections: value.sections.map((section) =>
-    section.key !== key
-      ? section
-      : {
-          ...section,
-          page: {
-            ...section.page,
-            items: section.page.items.map((row) =>
-              row.key === input.prediction.clientId
-                ? { ...row, ticket: created, pending: false }
-                : row
-            )
-          }
-        }
-  )
-})
-
 export const quickCreateEpicSectionsTicket = Atom.family(
-  ({ req, key }: Readonly<{ req: EpicSectionsRequest; key: EpicSectionKey }>) =>
-    localFirstCreate(
-      req.params,
-      viewMutation(epicSections(req), {
-        name: "quickCreateEpicSectionsTicket",
-        predict: (value, input: QuickCreateInput) =>
-          insertCreated(req, key, value, input),
-        call: (client, input, get) =>
-          client.tickets
-            .quickCreate({
-              params: req.params,
-              payload: quickCreatePayload(input)
-            })
-            .pipe(
-              Effect.tap((created) =>
-                Effect.sync(() =>
-                  recordCreatedKey(
-                    get,
-                    scopeOf(req),
-                    created.id,
-                    input.prediction.clientId
-                  )
-                )
-              )
-            ),
-        confirm: (value, created, input) =>
-          confirmCreated(key, value, created, input),
-        publish: () => Keys.ticketsChanged(scopeOf(req))
-      }),
-      (input: QuickCreateInput) => ({ ...input, sprint: input.sprint ?? null })
-    )
+  ({ req }: Readonly<{ req: EpicSectionsRequest; key: EpicSectionKey }>) =>
+    localCreate(req.params, (input: QuickCreateInput) => ({
+      ...input,
+      sprint: input.sprint ?? null
+    }))
 )

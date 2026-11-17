@@ -207,8 +207,6 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
         .map((document) => entryFromDocument(document, (id) => indexed.get(id)))
     ),
   query: () => Effect.succeed([]),
-  querySections: () => Effect.succeed(new Map()),
-  sequence: () => Effect.succeed([]),
   orderKeyFor: () => Effect.succeed(null),
   ...fakeRanks(indexed),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),

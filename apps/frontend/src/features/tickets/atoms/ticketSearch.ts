@@ -11,7 +11,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { localTitles } from "@/features/local/atoms/localViews"
-import { readLocal } from "@/features/local/atoms/readLocal"
+import { localRead, localValue } from "@/features/local/atoms/readLocal"
 
 export type TicketSearchOptions = Readonly<{
   q?: string
@@ -61,31 +61,15 @@ export const ticketTextSearch = Atom.family(
   }
 )
 
-const titlesQuery = (params: SearchRequest["params"]) => {
-  const scope = projectScope(params.orgSlug, params.slug)
-  return query("tickets", "titles", {
-    params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticketsIn(scope),
-      Keys.ticketLists(scope),
-      Keys.ticketTitleQuery(scope)
-    ]
-  })
-}
+const noTitles = AsyncResult.success<ReadonlyArray<TicketTitle>>([])
 
 export const ticketTitles = Atom.family((params: SearchRequest["params"]) =>
-  Atom.readable(
-    (get) =>
-      readLocal(get, params, () => localTitles(params)) ??
-      get(titlesQuery(params)),
-    (refresh) => refresh(titlesQuery(params))
+  Atom.make((get) =>
+    localRead(get, params) ? localValue(get(localTitles(params))) : noTitles
   )
 )
 
-export const idleTicketTitles: ReturnType<typeof ticketTitles> = Atom.make(
-  AsyncResult.success<ReadonlyArray<TicketTitle>>([])
-)
-
+export const idleTicketTitles: ReturnType<typeof ticketTitles> =
+  Atom.make(noTitles)
 export const idleTicketTextSearch: ReturnType<typeof ticketTextSearch> =
   Atom.make(AsyncResult.success<ReadonlyArray<TicketTextHit>>([]))

@@ -8,7 +8,6 @@ const liveChangeKeys = (change: LiveChange): ReadonlyArray<ReactivityKey> => {
     return [
       ...Keys.ticketChanged(scope, change.id),
       Keys.ticketTitleQuery(scope),
-      Keys.ticketUpdatedQuery(scope),
       Keys.tagUsage(scope),
       Keys.gitStates(scope)
     ]
@@ -16,7 +15,6 @@ const liveChangeKeys = (change: LiveChange): ReadonlyArray<ReactivityKey> => {
     return [
       ...Keys.ticketsChanged(scope),
       Keys.ticketTitleQuery(scope),
-      Keys.ticketUpdatedQuery(scope),
       Keys.tagUsage(scope),
       Keys.gitStates(scope)
     ]
@@ -24,9 +22,7 @@ const liveChangeKeys = (change: LiveChange): ReadonlyArray<ReactivityKey> => {
     return [Keys.comments(scope, change.ticketId), Keys.ticketComments(scope)]
   return [
     Keys.sprints(scope),
-    Keys.sprint(scope, change.id),
     Keys.sprintMembership(scope),
-    Keys.sprintMembership(scope, change.id),
     ...Keys.ticketsChanged(scope)
   ]
 }

@@ -1,6 +1,5 @@
 import {
   TicketRank,
-  EPIC_SECTION_NONE,
   TicketId,
   TicketStatus,
   type EpicSectionKey,
@@ -9,27 +8,16 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import { describe, expect, it } from "vitest"
+import { expect, it } from "vitest"
 
 import {
+  type EpicSectionsData,
   firstScreenEpicSections,
-  patchEpicSectionsRow,
-  replaceEpicSectionsRow,
-  type EpicSectionsValue,
   type EpicSectionValue
 } from "./epicSectionRows"
 import { FIRST_SCREEN_ROWS } from "./ticketRows"
 
 const ticketId = Schema.decodeSync(TicketId)
-const epicId = ticketId("T-9")
-const epic = {
-  id: epicId,
-  title: "Launch",
-  type: TypeKey.make("epic")
-} as const
-const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
-const query = { sort: { key: "id", dir: "asc" } } as const
-
 const ticket = {
   id: ticketId("T-1"),
   title: "Estimate field",
@@ -73,76 +61,10 @@ const section = (
 
 const grouped = (
   sections: ReadonlyArray<EpicSectionValue>
-): EpicSectionsValue => ({
+): EpicSectionsData => ({
   total: sections.reduce((sum, s) => sum + s.count, 0),
   counts: { total: 1, byStatus: { [ticket.status]: 1 } },
-  sections,
-  viewer: { id: undefined, estimation: "off" }
-})
-
-const idsBySection = (value: EpicSectionsValue) =>
-  value.sections.map((s) => ({
-    key: s.key,
-    count: s.count,
-    ids: s.page.items.map((row) => row.ticket.id)
-  }))
-
-describe("epic grouping rows", () => {
-  it("moves a row to its new epic's section while the edit is pending", () => {
-    const value = grouped([
-      section(epicId, []),
-      section(EPIC_SECTION_NONE, [ticket])
-    ])
-
-    const patched = patchEpicSectionsRow(
-      value,
-      ticket.id,
-      { parent: epic },
-      query,
-      now
-    )
-
-    expect(idsBySection(patched)).toEqual([
-      { key: epicId, count: 1, ids: [ticket.id] },
-      { key: EPIC_SECTION_NONE, count: 0, ids: [] }
-    ])
-  })
-
-  it("leaves rows in place when the grouping field is untouched", () => {
-    const value = grouped([
-      section(epicId, []),
-      section(EPIC_SECTION_NONE, [ticket])
-    ])
-
-    const patched = patchEpicSectionsRow(
-      value,
-      ticket.id,
-      { priority: "high" },
-      query,
-      now
-    )
-
-    expect(idsBySection(patched)).toEqual(idsBySection(value))
-  })
-
-  it("follows the server's copy when it lands in another section", () => {
-    const value = grouped([
-      section(epicId, []),
-      section(EPIC_SECTION_NONE, [ticket])
-    ])
-
-    const replaced = replaceEpicSectionsRow(
-      value,
-      { ...ticket, parent: epic },
-      null,
-      query.sort
-    )
-
-    expect(idsBySection(replaced)).toEqual([
-      { key: epicId, count: 1, ids: [ticket.id] },
-      { key: EPIC_SECTION_NONE, count: 0, ids: [] }
-    ])
-  })
+  sections
 })
 
 it("keeps the first screen's lines, counting each section's header", () => {
