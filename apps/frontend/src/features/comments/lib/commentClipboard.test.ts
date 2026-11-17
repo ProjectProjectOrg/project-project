@@ -18,10 +18,10 @@ const noor = {
 } as const
 
 describe("commentMarkdown", () => {
-  it("credits each author above their text and links back to the first comment", () => {
+  it("credits each author above their text, keeps indentation and links back to the first comment", () => {
     const markdown = commentMarkdown(
       [
-        { author: sam, body: "Import note only.\n" },
+        { author: sam, body: "\nImport note only.\n\n    const kept = true\n" },
         { author: noor, body: "Agreed." }
       ],
       ticketId("T-12"),
@@ -29,7 +29,7 @@ describe("commentMarkdown", () => {
     )
 
     expect(markdown).toBe(
-      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only.\n\n**Noor Bakker**\n\nAgreed."
+      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only.\n\n    const kept = true\n\n**Noor Bakker**\n\nAgreed."
     )
   })
 })
