@@ -4,8 +4,8 @@ import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
 import { useState } from "react"
 
 import type { CommentViewRow } from "@/features/comments/atoms/comments"
-import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
 import type { CommentThread as Thread } from "@/features/comments/lib/commentThreads"
+import { foldedAuthors, threadFold } from "@/features/comments/lib/threadFold"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -13,21 +13,8 @@ import { getLocale } from "@/paraglide/runtime"
 import { CommentRow } from "./CommentRow"
 import { ReplyComposer } from "./ReplyComposer"
 
-const FOLD_AFTER = 3
-const KEEP_OPEN = 2
-
 const foldClass =
   "flex w-full items-center gap-2 border-t border-border/60 px-4 py-2 text-left text-body text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-
-const hiddenReplies = (
-  replies: ReadonlyArray<CommentViewRow>,
-  resolved: boolean
-) =>
-  resolved
-    ? replies.slice(0, -1)
-    : replies.length > FOLD_AFTER
-      ? replies.slice(0, -KEEP_OPEN)
-      : []
 
 export function CommentThread({
   thread: { root, replies },
@@ -38,18 +25,33 @@ export function CommentThread({
   ticketId: TicketId
   canReply: boolean
 }>) {
-  const [expanded, setExpanded] = useState<boolean | null>(null)
   const hash = useLocation({ select: (location) => location.hash })
+  const [manual, setManual] = useState<Readonly<{
+    hash: string
+    open: boolean
+  }> | null>(null)
+  const [editing, setEditing] = useState<ReadonlySet<string>>(new Set())
   const resolved = root.comment.resolution !== null
-  const foldable = hiddenReplies(replies, resolved)
-  const open = expanded ?? foldable.some((reply) => reply.comment.id === hash)
-  const hidden = open ? [] : foldable
-  const shown = replies.slice(hidden.length)
+  const { foldable, open } = threadFold({
+    replies,
+    resolved,
+    manual: manual?.hash === hash ? manual.open : null,
+    target: hash,
+    editing
+  })
+  const shown = open ? replies : replies.slice(foldable.length)
   const FoldIcon = open ? ChevronsDownUp : ChevronsUpDown
   const thread = {
     root: root.comment,
     replies: replies.map((reply) => reply.comment)
   }
+  const trackEditing = (id: string) => (active: boolean) =>
+    setEditing((current) => {
+      const next = new Set(current)
+      if (active) next.add(id)
+      else next.delete(id)
+      return next
+    })
 
   return (
     <div className="rounded-xl border border-border/60 bg-background transition-colors has-data-targeted:border-ring">
@@ -58,13 +60,14 @@ export function CommentThread({
         thread={thread}
         pending={root.pending}
         ticketId={ticketId}
+        onEditingChange={trackEditing(root.comment.id)}
       />
       {foldable.length > 0 && (
         <button
           type="button"
           aria-expanded={open}
           className={foldClass}
-          onClick={() => setExpanded(!open)}
+          onClick={() => setManual({ hash, open: !open })}
         >
           {open ? (
             m.comments_thread_collapse()
@@ -83,11 +86,14 @@ export function CommentThread({
             thread={thread}
             pending={reply.pending}
             ticketId={ticketId}
+            onEditingChange={trackEditing(reply.comment.id)}
           />
         </div>
       ))}
-      {canReply && !resolved && !root.pending && (
-        <ReplyComposer ticketId={ticketId} replyTo={root.comment.id} />
+      {canReply && !root.pending && (
+        <div hidden={resolved}>
+          <ReplyComposer ticketId={ticketId} replyTo={root.comment.id} />
+        </div>
       )}
     </div>
   )
@@ -96,20 +102,7 @@ export function CommentThread({
 function FoldedComments({
   comments
 }: Readonly<{ comments: ReadonlyArray<Comment> }>) {
-  const people = [
-    ...new Map(
-      comments.flatMap((comment) =>
-        comment.author.kind === "user"
-          ? [[comment.author.user.id, comment.author.user] as const]
-          : []
-      )
-    ).values()
-  ]
-  const names = new Intl.ListFormat(getLocale(), {
-    type: "conjunction"
-  }).format([
-    ...new Set(comments.map((comment) => commentAuthorName(comment.author)))
-  ])
+  const { people, names } = foldedAuthors(comments, getLocale())
   return (
     <>
       <span className="flex -space-x-1.5">
