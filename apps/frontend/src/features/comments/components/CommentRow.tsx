@@ -242,7 +242,7 @@ function ResolvedLabel({
     <Tooltip>
       <TooltipTrigger
         render={
-          <span className="inline-flex items-center gap-1 text-caption font-medium text-state-success" />
+          <span className="inline-flex items-center gap-1 text-caption text-state-success" />
         }
       >
         <CircleCheck className="size-3.5" strokeWidth={2} />
