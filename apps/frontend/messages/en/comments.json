@@ -37,9 +37,7 @@
         "input names",
         "local countPlural = count: plural"
       ],
-      "selectors": [
-        "countPlural"
-      ],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "{count} comment from {names}",
         "countPlural=*": "{count} comments from {names}"
@@ -48,13 +46,8 @@
   ],
   "comments_thread_show_earlier": [
     {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Show {count} earlier reply",
         "countPlural=*": "Show {count} earlier replies"
