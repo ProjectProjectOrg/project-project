@@ -1230,9 +1230,8 @@ const make = Effect.gen(function* () {
     const ascending = ticketQuery.sort.dir === "asc"
     const ranked = db
       .select({
-        ...entryColumns,
+        ticketId: ticketIndex.ticketId,
         sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
-        subTicketsInSection: subTicketsInSection(nestWithin),
         section: drizzleSql<string | null>`${section}`.as("section"),
         position: drizzleSql<number>`row_number() over (
           partition by ${section}
@@ -1278,8 +1277,33 @@ const make = Effect.gen(function* () {
         )
       )
       .groupBy(drizzleSql`1`, drizzleSql`2`)
-    return yield* Effect.all([rows, counts], { concurrency: 2 }).pipe(
-      Effect.map(([rows, counts]) => {
+    const withEntries = rows.pipe(
+      Effect.flatMap((rows) =>
+        db
+          .select({
+            ...entryColumns,
+            subTicketsInSection: subTicketsInSection(nestWithin)
+          })
+          .from(ticketIndex)
+          .where(
+            and(
+              eq(ticketIndex.projectId, project.projectId),
+              inArray(
+                ticketIndex.ticketId,
+                rows.map((row) => row.ticketId)
+              )
+            )
+          )
+          .pipe(
+            Effect.map((entries) => ({
+              rows,
+              entries: new Map(entries.map((entry) => [entry.ticketId, entry]))
+            }))
+          )
+      )
+    )
+    return yield* Effect.all([withEntries, counts], { concurrency: 2 }).pipe(
+      Effect.map(([{ rows, entries }, counts]) => {
         const out = new Map<
           string,
           {
@@ -1301,13 +1325,9 @@ const make = Effect.gen(function* () {
           current.counts.byStatus[row.status] = row.total
           current.counts.total += row.total
         }
-        for (const {
-          sortValue,
-          section: key,
-          position: _position,
-          ...row
-        } of rows) {
-          if (key === null) continue
+        for (const { ticketId, sortValue, section: key } of rows) {
+          const row = entries.get(ticketId)
+          if (key === null || row === undefined) continue
           const value = sortValueText(sortValue)
           at(key).entries.push({
             entry: toEntry(row),
