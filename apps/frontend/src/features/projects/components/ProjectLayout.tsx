@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { getRouteApi, Outlet, useMatch } from "@tanstack/react-router"
+import { getRouteApi, Outlet } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -28,11 +28,6 @@ export function ProjectLayout() {
   const req = projectRequest(orgSlug, slug)
   const projectResult = useAtomValue(project(req))
   const projectUpdate = useAtomValue(updateProject(req))
-  const onAbout =
-    useMatch({
-      from: "/_authed/orgs/$orgSlug/projects/$slug/about",
-      shouldThrow: false
-    }) !== undefined
 
   return Result.matchWithError(projectResult, {
     onInitial: () => (
@@ -81,7 +76,6 @@ export function ProjectLayout() {
             banner={value.banner}
             waiting={waiting && projectUpdate.waiting}
             pageBackdrop
-            cover={onAbout}
           />
           <Outlet />
           <RetainedProjectViews key={`${orgSlug}/${slug}`} />

@@ -34,8 +34,6 @@ import {
 import { bannerDefaults, bannerPresets } from "../lib/bannerPresets"
 import { CachedShaderBanner } from "./CachedShaderBanner"
 
-const COVER_OPACITY = 0.8
-
 const devicePixelRatio = () =>
   typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)
 
@@ -45,8 +43,7 @@ export function ProjectBanner({
   banner,
   waiting,
   variant = "header",
-  pageBackdrop = false,
-  cover = false
+  pageBackdrop = false
 }: Readonly<{
   orgSlug: string
   slug: string
@@ -54,7 +51,6 @@ export function ProjectBanner({
   waiting?: boolean
   variant?: "header" | "card" | "row"
   pageBackdrop?: boolean
-  cover?: boolean
 }>) {
   const preview = useAtomValue(
     projectBannerPreview(projectRequest(orgSlug, slug))
@@ -156,7 +152,7 @@ export function ProjectBanner({
           Match.when("card", () => 120),
           Match.orElse(() => "100%")
         ),
-        opacity: cover ? COVER_OPACITY : bannerDefaults.overallOpacity
+        opacity: bannerDefaults.overallOpacity
       }}
     >
       <BannerLayers

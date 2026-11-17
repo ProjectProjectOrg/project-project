@@ -22,7 +22,6 @@ import {
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
 import { isBlankAbout } from "@/features/projects/lib/aboutTemplate"
-import { bannerDefaults } from "@/features/projects/lib/bannerPresets"
 import { DescriptionActions } from "@/features/tickets/components/ticket-page/DescriptionActions"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -33,12 +32,6 @@ export function AboutTab() {
 
   return (
     <PageContainer>
-      {project.banner ? (
-        <div
-          aria-hidden
-          style={{ height: `calc(${bannerDefaults.height}px - 3rem)` }}
-        />
-      ) : null}
       <div className="grid grid-cols-1 gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,42rem)_18rem] lg:justify-between">
         <AboutDescription project={project} canEdit={canEdit} />
         <aside className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start lg:pt-2">
