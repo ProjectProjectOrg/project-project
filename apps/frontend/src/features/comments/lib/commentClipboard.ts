@@ -16,9 +16,12 @@ export const commentUrl = (
   commentId: Comment["id"]
 ): string => `${ticketUrl(location, ticketId)}#${commentId}`
 
+const markdownBody = (body: string): string =>
+  body.replace(/^(?:[ \t]*\n)+/u, "").trimEnd()
+
 export const commentMarkdown = (
   comment: Pick<Comment, "author" | "body">,
   ticketId: TicketId,
   url: string
 ): string =>
-  `**${commentAuthorName(comment.author)}** · [${ticketId}](${url})\n\n${comment.body.trim()}`
+  `**${commentAuthorName(comment.author)}** · [${ticketId}](${url})\n\n${markdownBody(comment.body)}`

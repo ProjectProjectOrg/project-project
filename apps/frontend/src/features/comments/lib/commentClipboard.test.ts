@@ -7,7 +7,7 @@ import { commentMarkdown } from "./commentClipboard"
 const ticketId = Schema.decodeSync(TicketId)
 
 describe("commentMarkdown", () => {
-  it("credits the author and links back to the comment above its body", () => {
+  it("credits the author above the body and keeps its indentation", () => {
     const markdown = commentMarkdown(
       {
         author: {
@@ -15,14 +15,14 @@ describe("commentMarkdown", () => {
           displayName: "Sam de Vries",
           accountId: "jira-1"
         },
-        body: "Import note only.\n"
+        body: "\nImport note only.\n\n    const kept = true\n"
       },
       ticketId("T-12"),
       "https://pp.test/orgs/o/projects/p/tickets/T-12#c_1"
     )
 
     expect(markdown).toBe(
-      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only."
+      "**Sam de Vries** · [T-12](https://pp.test/orgs/o/projects/p/tickets/T-12#c_1)\n\nImport note only.\n\n    const kept = true"
     )
   })
 })
