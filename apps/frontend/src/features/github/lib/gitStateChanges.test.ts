@@ -118,6 +118,31 @@ describe("changedGitStateTicketIds", () => {
       })
     ).toEqual([])
   })
+
+  it("invalidates when a draft pull request becomes ready", () => {
+    const state = {
+      tag: "pr_open",
+      branch: "feat/T-1",
+      baseBranch: "main",
+      number: 80,
+      url: "https://github.com/acme/app/pull/80",
+      draft: true,
+      title: "Feature",
+      checks: "passing"
+    } as const
+    const before: GitStatesResponse = {
+      states: { "T-1": state },
+      transitioned: [],
+      tokenStatus: "ok",
+      repoStatus: "ok"
+    }
+    expect(
+      changedGitStateTicketIds(before, {
+        ...before,
+        states: { "T-1": { ...state, draft: false } }
+      })
+    ).toEqual(["T-1"])
+  })
 })
 
 const stackPr = {

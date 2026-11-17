@@ -537,7 +537,8 @@ export const Tools = Toolkit.make(
     title: "Check Git state",
     hints: { readOnly: true, openWorld: true },
     description:
-      "Fetch GitHub state for a project's tickets, keyed by ticket id in " +
+      "Read the stored GitHub state of a project's tickets, as webhooks and " +
+      "the last sync left it, keyed by ticket id in " +
       "`states`, or for one ticket with `ticketId`. Each state's `tag` " +
       "says where the ticket stands: `no_branch`, `branch_pending` or " +
       "`pr_pending` (still being set up), `branch_no_pr`, `pr_open` (with " +

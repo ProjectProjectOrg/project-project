@@ -38,6 +38,7 @@ import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import * as PullRequestSnapshots from "@pp/server-core/github/PullRequestSnapshots"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Inbox from "@pp/server-core/inbox/Inbox"
@@ -197,7 +198,9 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(
         TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
       ),
-      Layer.provideMerge(TicketBranchIndex.layer),
+      Layer.provideMerge(
+        Layer.mergeAll(TicketBranchIndex.layer, PullRequestSnapshots.layer)
+      ),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),

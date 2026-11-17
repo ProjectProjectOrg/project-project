@@ -605,6 +605,25 @@ export const githubPullRequestReconciliation = pgTable(
   ]
 )
 
+export const githubPullRequest = pgTable(
+  "github_pull_request",
+  {
+    repositoryId: text("repository_id").notNull(),
+    number: integer("number").notNull(),
+    branch: text("branch").notNull(),
+    base: text("base").notNull(),
+    state: text("state", { enum: ["open", "closed", "merged"] }).notNull(),
+    draft: boolean("draft").notNull(),
+    title: text("title").notNull(),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    checks: text("checks", {
+      enum: ["passing", "failing", "pending", "neutral", "none"]
+    }),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull()
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId, t.number] })]
+)
+
 export const userEverhourIntegration = pgTable("user_everhour_integration", {
   userId: text("user_id")
     .primaryKey()

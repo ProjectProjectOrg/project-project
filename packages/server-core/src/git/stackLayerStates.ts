@@ -5,11 +5,15 @@ import { orderStackLayers } from "./stack"
 
 type Repository = Readonly<{ repoOwner: string; repoName: string }>
 
+export const pullRequestUrl = (repository: Repository, number: number) =>
+  `https://github.com/${repository.repoOwner}/${repository.repoName}/pull/${number}`
+
 export const stackLayerStates = (
   ownBranch: string | null,
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   repository: Repository | null,
-  snapshot?: Pick<GitHub.RawProjectStates, "existingBranches" | "prByBranch">
+  snapshot?: Pick<GitHub.RawProjectStates, "prByBranch"> &
+    Partial<Pick<GitHub.RawProjectStates, "existingBranches">>
 ): ReadonlyArray<StackLayerState> =>
   orderStackLayers(ownBranch, stack).map(({ layer, depth }) => {
     const live = snapshot?.prByBranch.get(layer.branch)
@@ -27,7 +31,7 @@ export const stackLayerStates = (
                 ? live.url
                 : repository === null
                   ? ""
-                  : `https://github.com/${repository.repoOwner}/${repository.repoName}/pull/${layer.pr}`,
+                  : pullRequestUrl(repository, layer.pr),
               title: fromSnapshot ? live.title : "",
               state: layer.prState ?? "open",
               draft: layer.prDraft ?? false,
@@ -35,7 +39,7 @@ export const stackLayerStates = (
               checks: fromSnapshot && live.state === "open" ? live.checks : null
             },
       deleted:
-        snapshot !== undefined &&
+        snapshot?.existingBranches !== undefined &&
         layer.prState !== "merged" &&
         !snapshot.existingBranches.has(layer.branch) &&
         live === undefined

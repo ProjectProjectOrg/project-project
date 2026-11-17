@@ -12,9 +12,10 @@ const gitStateIdentity = (state: GitState): string => {
     case "branch_pending":
     case "stale_branch":
       return `${state.tag}:${state.name}`
+    case "pr_open":
+      return `${state.tag}:${state.branch}:${state.number}:${state.draft}`
     case "pr_closed":
     case "pr_merged":
-    case "pr_open":
     case "pr_pending":
       return `${state.tag}:${state.branch}:${state.number}`
     case "no_branch":

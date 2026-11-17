@@ -279,12 +279,12 @@ type GitStateInput = Readonly<{
 
 const get_git_state = (input: GitStateInput) =>
   Effect.flatMap(TicketGit.TicketGit, (git) =>
-    git.getGitState(input.ticketId, { reconcile: false })
+    git.getGitState(input.ticketId, { sync: false })
   )
 
 const sync_git_state = (input: GitStateInput) =>
   Effect.flatMap(TicketGit.TicketGit, (git) =>
-    git.getGitState(input.ticketId, { reconcile: true })
+    git.getGitState(input.ticketId, { sync: true })
   )
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
