@@ -94,6 +94,7 @@ const touches = (changes: ProjectChanges) =>
   Object.values(changes.deletes).some((ids) => ids.length > 0)
 
 const OFFLINE = "offline" as const
+const RESEND_AFTER = "5 seconds"
 
 const nextTask = Effect.callback<void>((resume) => {
   const channel = new MessageChannel()
@@ -113,6 +114,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const writes = yield* PendingWrites
     const sender = yield* Semaphore.make(1)
     const inFlight = new Set<string>()
+    const retrying = new Set<string>()
     const writing = yield* Semaphore.make(1)
     const loops = new Map<string, Semaphore.Semaphore>()
     const noReads = yield* Latch.make(true)
@@ -330,7 +332,22 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       )
     }
 
-    const resend = (project: LocalProject) =>
+    const resendLater = (project: LocalProject) =>
+      Effect.suspend(() => {
+        const scope = scopeOf(project)
+        if (retrying.has(scope)) return Effect.void
+        retrying.add(scope)
+        return Effect.forkDetach(
+          Effect.sleep(RESEND_AFTER).pipe(
+            Effect.andThen(Effect.sync(() => retrying.delete(scope))),
+            Effect.andThen(resend(project))
+          )
+        )
+      })
+
+    const resend = (
+      project: LocalProject
+    ): Effect.Effect<void, never, LocalDb | SqlClient.SqlClient> =>
       Effect.gen(function* () {
         for (const unsent of yield* unsentEdits(scopeOf(project))) {
           if (inFlight.has(unsent.id)) continue
@@ -340,7 +357,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
             unsent.id,
             unsent.write
           ).pipe(Effect.orElseSucceed(() => null))
-          if (delivered === OFFLINE) return
+          if (delivered === OFFLINE) return yield* resendLater(project)
         }
       }).pipe(
         Effect.catchCause((cause) =>
@@ -363,7 +380,9 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         ).pipe(Effect.orDie)
         yield* changed(scope)
         const delivered = yield* deliver(project, id, pending)
-        return delivered === OFFLINE ? null : delivered
+        if (delivered !== OFFLINE) return delivered
+        yield* resendLater(project)
+        return null
       })
 
     const pull = (project: LocalProject) => {

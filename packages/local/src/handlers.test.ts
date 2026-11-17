@@ -125,7 +125,10 @@ it.effect("an interrupted snapshot resumes from its next page", () => {
   return Effect.gen(function* () {
     const client = yield* RpcTest.makeClient(LocalRpcs)
     expect(yield* client.Pull(project)).toEqual({ kind: "failed" })
-    expect(yield* client.Pull(project)).toEqual({ kind: "ready", sync: "live" })
+    expect(yield* client.Pull(project)).toEqual({
+      kind: "ready",
+      sync: "live"
+    })
     expect(asked).toEqual([
       {},
       { page: "page-2" },
@@ -140,7 +143,11 @@ it.effect("pages fetched ahead are applied in page order", () => {
   const pages = new Map<string, ProjectSync>([
     [
       "page-2",
-      { ...onePage("1.1", [ticket("T-2", "two")]), start: null, next: "page-3" }
+      {
+        ...onePage("1.1", [ticket("T-2", "two")]),
+        start: null,
+        next: "page-3"
+      }
     ],
     ["page-3", { ...onePage("1.1", [ticket("T-3", "three")]), start: null }]
   ])
@@ -249,6 +256,43 @@ it.effect(
     }).pipe(Effect.scoped, Effect.provide(engineWith(pull, writes)))
   }
 )
+
+it.effect("an edit made offline is sent once the server is reachable", () => {
+  const sent: Array<string> = []
+  let online = false
+  const writes: PendingWrites["Service"] = {
+    operationId: Effect.succeed("operation-1"),
+    send: (_project, operationId) =>
+      Effect.suspend(() => {
+        if (!online) return Effect.fail(new SyncOffline())
+        sent.push(operationId)
+        return Effect.succeed({ receipt: "1.1", created: null })
+      })
+  }
+  const pulls: Array<ProjectSync> = [onePage("1.1", [ticket("T-1", "one")])]
+  const pull = () => Effect.sync(() => pulls.shift() ?? changes("1.1", [], []))
+  return Effect.gen(function* () {
+    const client = yield* RpcTest.makeClient(LocalRpcs)
+    yield* client.Pull(project)
+    yield* client.Edit({
+      project,
+      write: PendingWrite.cases.update.make({
+        ticket: TicketId.make("T-1"),
+        payload: { title: "renamed" }
+      }),
+      edits: [
+        {
+          ticket: "T-1",
+          intents: [Intent.cases.title.make({ title: "renamed" })]
+        }
+      ]
+    })
+    yield* TestClock.adjust("5 seconds")
+    online = true
+    yield* TestClock.adjust("5 seconds")
+    expect(sent).toEqual(["operation-1"])
+  }).pipe(Effect.scoped, Effect.provide(engineWith(pull, writes)))
+})
 
 const hoursIn = (hours: number) =>
   DateTime.toDateUtc(DateTime.makeUnsafe(hours * 3_600_000))
