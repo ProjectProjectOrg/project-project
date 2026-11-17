@@ -40,7 +40,7 @@ const keepNativeMenu = (event: MouseEvent<HTMLElement>) => {
   const selecting =
     selection !== null &&
     !selection.isCollapsed &&
-    event.currentTarget.contains(selection.anchorNode)
+    selection.containsNode(event.currentTarget, true)
   const onLink =
     event.target instanceof Element && event.target.closest("a") !== null
   if (selecting || onLink) event.stopPropagation()
