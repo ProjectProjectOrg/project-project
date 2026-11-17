@@ -14,12 +14,8 @@ import {
 import { TicketPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
-import {
-  Comment,
-  CommentId,
-  CreateCommentInput,
-  UpdateCommentInput
-} from "./Comment"
+import { Comment, CreateCommentInput, UpdateCommentInput } from "./Comment"
+import { CommentId } from "./CommentId"
 
 const TicketCommentPath = Schema.Struct({
   orgSlug: Slug,

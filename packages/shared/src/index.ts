@@ -24,6 +24,7 @@ export * from "./auth/SignInProvider"
 export * from "./auth/User"
 
 export * from "./comments/Comment"
+export * from "./comments/CommentId"
 export * from "./comments/mentions"
 
 export * from "./estimates/Estimate"

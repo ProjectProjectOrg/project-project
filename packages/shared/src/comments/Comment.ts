@@ -5,8 +5,6 @@ import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
 import { CommentId } from "./CommentId"
 
-export { CommentId } from "./CommentId"
-
 const UserCommentAuthor = Schema.Struct({
   kind: Schema.Literal("user"),
   user: User

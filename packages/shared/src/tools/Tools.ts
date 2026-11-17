@@ -10,10 +10,10 @@ import {
 } from "../attachments/Attachment"
 import {
   Comment,
-  CommentId,
   CreateCommentInput,
   ResolveCommentInput
 } from "../comments/Comment"
+import { CommentId } from "../comments/CommentId"
 import {
   AttachmentTooLarge,
   AttachmentTypeRejected,

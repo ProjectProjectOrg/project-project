@@ -42,7 +42,7 @@ function ReadyReplyComposer({
     >
       <MemberAvatar member={author} size={20} className="mt-1.5 self-start" />
       <div className="min-w-0 flex-1 pt-1.5 pb-0.5">
-        {open ? (
+        {open || failed ? (
           <LexicalEditor
             key={editorKey}
             markdown={body}
