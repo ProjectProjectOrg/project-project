@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode, type RefObject } from "react"
 import { keepInPlace } from "../lib/keepInPlace"
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
-import { Hitbox } from "./hitbox"
+import { Button } from "./button"
 import { ChevronDown, Plus } from "./icons"
 import { TextSwap } from "./text-swap"
 
@@ -120,38 +120,35 @@ export function ListSectionHeader({
           ? // Typing a ticket: the bar becomes the field it holds.
             "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
           : cn(
-              "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)] hover:duration-0",
+              "cursor-pointer select-none hover:duration-0 [&:hover:not(:has(button:hover,a:hover))]:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
               // Pressed: one step darker, unless the press is on one of
               // the header's own controls (a chip, the chevron, the "+").
               "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
             )
       )}
     >
-      <button
+      {/* The header's controls are house buttons (ghost, 24px), so they
+          hover, press and take focus like every other icon button. */}
+      <Button
         type="button"
+        variant="ghost"
+        size="square-6"
         onClick={(event) => {
           event.stopPropagation()
           toggle(event.currentTarget)
         }}
         aria-expanded={!collapsed}
         aria-label={collapseLabel}
-        className={cn(
-          "grid h-6 w-(--list-lead) shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
-          "transition-all duration-100 hover:text-foreground",
-          "focus-visible:ring-2 focus-visible:ring-ring",
-          "active:scale-[0.97]"
-        )}
+        className="w-(--list-lead) text-muted-foreground"
       >
-        <span className="translate-x-px">
-          <ChevronDown
-            className={cn(
-              "size-4 transition-transform duration-150",
-              collapsed && "-rotate-90"
-            )}
-            strokeWidth={1.75}
-          />
-        </span>
-      </button>
+        <ChevronDown
+          className={cn(
+            "size-4 transition-transform duration-150 ease-standard",
+            collapsed && "-rotate-90"
+          )}
+          strokeWidth={1.75}
+        />
+      </Button>
 
       <div className="grid min-w-0 flex-1">
         <AnimatePresence mode="sync" initial={false}>
@@ -208,9 +205,10 @@ export function ListSectionHeader({
       </div>
 
       {create ? (
-        <Hitbox
-          mode="inline"
-          margin="2"
+        <Button
+          type="button"
+          variant="ghost"
+          size="square-6"
           onClick={(event) => {
             event.stopPropagation()
             if (creating) create.onDismiss()
@@ -218,17 +216,16 @@ export function ListSectionHeader({
           }}
           aria-label={creating ? create.dismissLabel : create.label}
           title={creating ? create.dismissLabel : create.label}
+          className="text-muted-foreground"
         >
-          <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]">
-            <Plus
-              className={cn(
-                "size-4 transition-transform duration-200 ease-out",
-                creating && "rotate-45"
-              )}
-              strokeWidth={1.75}
-            />
-          </span>
-        </Hitbox>
+          <Plus
+            className={cn(
+              "size-4 transition-transform duration-200 ease-standard",
+              creating && "rotate-45"
+            )}
+            strokeWidth={1.75}
+          />
+        </Button>
       ) : null}
     </div>
   )

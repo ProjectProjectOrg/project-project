@@ -59,7 +59,6 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
-import { StartsWithLine } from "./StartsWithLine"
 import { useCreatorFocus } from "./useCreatorFocus"
 
 const isGroupId = Schema.is(GroupId)
@@ -285,7 +284,7 @@ function SectionCreatorForm({
     ) : null
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full flex-col gap-1">
+    <form onSubmit={onSubmit} className="flex w-full">
       <div className="flex w-full items-center gap-2">
         <CreatorTypeMenu
           type={type}
@@ -328,7 +327,6 @@ function SectionCreatorForm({
           </span>
         )}
       </div>
-      <StartsWithLine start={creatorType.start} className="pl-1" />
     </form>
   )
 }
