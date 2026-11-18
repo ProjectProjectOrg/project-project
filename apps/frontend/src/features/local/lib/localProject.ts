@@ -1,11 +1,14 @@
 import {
+  Group,
+  type GroupId,
   type LiveCursor,
   type LiveEvent,
   NotFound,
   Ticket,
   TicketDetail,
   type TicketId,
-  type TicketSync
+  type TicketSync,
+  sprintState
 } from "@pp/shared"
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence"
 import {
@@ -14,6 +17,7 @@ import {
   createOptimisticAction
 } from "@tanstack/react-db"
 import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -32,6 +36,7 @@ import type { LocalPersistence } from "./persistence"
 
 export type TicketRow = typeof Ticket.Encoded
 export type DetailRow = typeof TicketDetail.Encoded
+export type GroupRow = typeof Group.Encoded
 
 type Scope = Readonly<{ orgSlug: string; slug: string }>
 
@@ -41,6 +46,8 @@ const encodeTicket = Schema.encodeSync(Ticket)
 const encodeDetail = Schema.encodeSync(TicketDetail)
 const decodeTicket = Schema.decodeSync(Ticket)
 const decodeDetail = Schema.decodeSync(TicketDetail)
+const encodeGroup = Schema.encodeSync(Group)
+const decodeGroup = Schema.decodeSync(Group)
 const isNotFound = Schema.is(NotFound)
 
 const memo = <Row extends object, Value>(decode: (row: Row) => Value) => {
@@ -56,6 +63,7 @@ const memo = <Row extends object, Value>(decode: (row: Row) => Value) => {
 
 export const decodeTicketRow = memo(decodeTicket)
 export const decodeDetailRow = memo(decodeDetail)
+export const decodeGroupRow = memo(decodeGroup)
 
 export type FetchOutcome =
   | Readonly<{ _tag: "Found"; ticket: TicketDetail }>
@@ -88,6 +96,7 @@ export const createLocalProject = ({
 }>) => {
   let rowsWriter: RowsWriter | null = null
   let detailsWriter: DetailsWriter | null = null
+  let groupsWriter: ((groups: ReadonlyArray<Group>) => void) | null = null
   let cursor: LiveCursor | undefined
   let report: (error: unknown) => void = () => {}
   const run = <A, E>(effect: Effect.Effect<A, E>) =>
@@ -235,6 +244,76 @@ export const createLocalProject = ({
     }
   })
 
+  const syncGroups = async () => {
+    const exit = await run(client.groups.list({ params: scope }))
+    if (Exit.isFailure(exit))
+      throw new Error("Couldn't sync the project's groups", {
+        cause: exit.cause
+      })
+    groupsWriter?.(exit.value)
+  }
+
+  const groups = persisted<GroupRow>({
+    id: `groups:${scope.orgSlug}/${scope.slug}`,
+    getKey: (row) => row.id,
+    startSync: true,
+    sync: {
+      rowUpdateMode: "full",
+      sync: ({
+        collection,
+        begin,
+        write,
+        commit,
+        truncate,
+        markReady,
+        reportError
+      }) => {
+        groupsWriter = (list) => {
+          begin()
+          truncate()
+          for (const group of list)
+            write({ type: "insert", value: encodeGroup(group) })
+          void commit()
+        }
+        let ready = false
+        const becomeReady = () => {
+          if (ready) return
+          ready = true
+          markReady()
+        }
+        if (collection.size > 0) becomeReady()
+        queueMicrotask(() => {
+          syncGroups().then(becomeReady, (error: unknown) => {
+            becomeReady()
+            reportError(error)
+          })
+        })
+        return () => {
+          groupsWriter = null
+        }
+      }
+    }
+  })
+
+  const moveToSprint = (id: TicketId, sprint: GroupId | null) => {
+    const now = DateTime.toDate(DateTime.nowUnsafe())
+    for (const row of groups.values()) {
+      const group = decodeGroupRow(row)
+      const open =
+        group.kind === "sprint" && sprintState(group, now) !== "completed"
+      const has = group.tickets.includes(id)
+      const wanted = group.id === sprint
+      if (wanted && !has)
+        groups.update(group.id, (draft) => {
+          draft.tickets = [...draft.tickets, id]
+        })
+      else if (!wanted && has && open)
+        groups.update(group.id, (draft) => {
+          draft.tickets = draft.tickets.filter((ticket) => ticket !== id)
+        })
+    }
+  }
+
   const staleDetails = (result: TicketSync): ReadonlyArray<string> => {
     const changed =
       result.mode === "delta"
@@ -323,10 +402,12 @@ export const createLocalProject = ({
     if (event.kind === "resync") {
       cursor = undefined
       void syncNow().catch(report)
+      void syncGroups().catch(report)
       return
     }
     if (event.orgSlug !== scope.orgSlug || event.slug !== scope.slug) return
     if (event.kind === "comments") return
+    if (event.kind !== "ticket") void syncGroups().catch(report)
     void syncNow().catch(report)
   }
 
@@ -350,6 +431,7 @@ export const createLocalProject = ({
           Object.assign(draft, next)
         })
       }
+      if (edit.sprint !== undefined) moveToSprint(id, edit.sprint)
     },
     mutationFn: async ({ id, edit }) => {
       const exit = await run(
@@ -363,6 +445,7 @@ export const createLocalProject = ({
         throw new Error(`Couldn't save ${id}`, { cause: exit.cause })
       detailsWriter?.upsert(exit.value.ticket)
       rowsWriter?.upsert([exit.value.ticket])
+      if (edit.sprint !== undefined) await syncGroups()
       return exit.value
     }
   })
@@ -370,6 +453,8 @@ export const createLocalProject = ({
   return {
     rows,
     details,
+    groups,
+    syncGroups,
     fetchDetail,
     syncNow,
     updateTicket,

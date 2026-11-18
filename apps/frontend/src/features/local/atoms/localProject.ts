@@ -22,6 +22,7 @@ export const localProject = Atom.family((scope: LocalScope) =>
         get.addFinalizer(() => {
           void local.rows.cleanup()
           void local.details.cleanup()
+          void local.groups.cleanup()
         })
         return local
       })
