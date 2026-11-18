@@ -7,26 +7,21 @@
 
 FROM oven/bun:1.4.4-slim AS bun
 
+FROM node:24.15.0-bookworm-slim AS prune
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+WORKDIR /app
+COPY . .
+RUN bun x turbo@2.10.9 prune @pp/frontend --docker
+
 FROM node:24.15.0-bookworm-slim AS build
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
-COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
-COPY packages/access/package.json ./packages/access/
-COPY packages/db/package.json ./packages/db/
-COPY packages/integration-everhour/package.json ./packages/integration-everhour/
-COPY packages/integration-github/package.json ./packages/integration-github/
-COPY packages/integration-jira/package.json ./packages/integration-jira/
-COPY packages/integration-slack/package.json ./packages/integration-slack/
-COPY packages/server-core/package.json ./packages/server-core/
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/backend/package.json ./apps/backend/
-COPY apps/frontend/package.json ./apps/frontend/
+COPY --from=prune /app/out/json/ ./
 RUN bun install --frozen-lockfile
 
-COPY packages/access ./packages/access
-COPY packages/shared ./packages/shared
-COPY apps/frontend ./apps/frontend
+COPY --from=prune /app/out/full/ ./
+COPY tsconfig.base.json ./
 
 # Vite reads `import.meta.env.*` at build time. The frontend itself talks
 # to a same-origin /api, so no API-URL env is needed. Note the flag order:

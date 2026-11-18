@@ -10,23 +10,19 @@
 
 FROM oven/bun:1.4.4-slim AS bun
 
+FROM node:24.15.0-bookworm-slim AS prune
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+WORKDIR /app
+COPY . .
+RUN bun x turbo@2.10.9 prune @pp/backend --docker
+
 FROM node:24.15.0-bookworm-slim AS deps
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
 # Copy only manifests first so dep install is cache-friendly when source
 # changes but lockfile doesn't.
-COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
-COPY packages/access/package.json ./packages/access/
-COPY packages/db/package.json ./packages/db/
-COPY packages/integration-everhour/package.json ./packages/integration-everhour/
-COPY packages/integration-github/package.json ./packages/integration-github/
-COPY packages/integration-jira/package.json ./packages/integration-jira/
-COPY packages/integration-slack/package.json ./packages/integration-slack/
-COPY packages/server-core/package.json ./packages/server-core/
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/backend/package.json ./apps/backend/
-COPY apps/frontend/package.json ./apps/frontend/
+COPY --from=prune /app/out/json/ ./
 
 # Install only the backend's production dependencies. `--omit=peer` skips
 # optional peers (better-auth lists next, react, vitest, ...), which would
@@ -37,29 +33,11 @@ RUN bun install --frozen-lockfile --production --omit=peer --filter @pp/backend
 FROM oven/bun:1.4.4-alpine AS runtime
 WORKDIR /app
 
-# Bring deps over and then layer in source. Frontend source is omitted since
-# this image only serves the backend HTTP API. Bun's isolated linker keeps
-# each workspace's dependency links beside that workspace.
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/access/node_modules ./packages/access/node_modules
-COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
-COPY --from=deps /app/packages/integration-everhour/node_modules ./packages/integration-everhour/node_modules
-COPY --from=deps /app/packages/integration-github/node_modules ./packages/integration-github/node_modules
-COPY --from=deps /app/packages/integration-jira/node_modules ./packages/integration-jira/node_modules
-COPY --from=deps /app/packages/integration-slack/node_modules ./packages/integration-slack/node_modules
-COPY --from=deps /app/packages/server-core/node_modules ./packages/server-core/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/apps/backend/node_modules ./packages/backend/node_modules
-COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
-COPY packages/access ./packages/access
-COPY packages/db ./packages/db
-COPY packages/integration-everhour ./packages/integration-everhour
-COPY packages/integration-github ./packages/integration-github
-COPY packages/integration-jira ./packages/integration-jira
-COPY packages/integration-slack ./packages/integration-slack
-COPY packages/server-core ./packages/server-core
-COPY packages/shared ./packages/shared
-COPY apps/backend ./packages/backend
+# docker-compose.prod.yml and docs/deploy.md run the backend from packages/backend.
+COPY --from=deps /app ./
+COPY --from=prune /app/out/full/ ./
+COPY tsconfig.base.json ./
+RUN mv apps/backend packages/backend
 COPY docker/entrypoint.backend.sh /usr/local/bin/entrypoint.backend.sh
 
 # Markdown data root is bind-mounted at runtime; org-scoped projects live
