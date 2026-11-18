@@ -23,7 +23,7 @@ import {
   ProjectScope,
   type ProjectTicketsPreview,
   RECENT_TICKETS_LIMIT,
-  type RecentTicketActivity,
+  RecentTicketActivity,
   type RecentTicketRow,
   sprintSectionKey,
   summarizeEstimates,
@@ -42,7 +42,7 @@ import {
   type TicketTextHit,
   type TicketTextSearchQuery,
   type TicketTitle,
-  type TicketListSource,
+  TicketListSource,
   type TicketSequence,
   type TicketSections,
   type TicketSort,
@@ -107,21 +107,23 @@ const touchedEventCandidate = (
       ? null
       : ({
           at: event.occurredAt,
-          activity: {
-            tag: "status_changed",
+          activity: RecentTicketActivity.cases.status_changed.make({
             actor,
             at: event.occurredAt,
             from: event.change.from,
             to: event.change.to
-          }
+          })
         } satisfies RecentCandidate)
   }
   return {
     at: event.occurredAt,
     activity:
       actor === null
-        ? { tag: "assigned", at: event.occurredAt }
-        : { tag: "assigned", actor, at: event.occurredAt }
+        ? RecentTicketActivity.cases.assigned.make({ at: event.occurredAt })
+        : RecentTicketActivity.cases.assigned.make({
+            actor,
+            at: event.occurredAt
+          })
   } satisfies RecentCandidate
 }
 
@@ -143,12 +145,16 @@ export function recentActivityOf(
       ? null
       : {
           at: entry.lastCommentAt,
-          activity: { tag: "commented", at: entry.lastCommentAt }
+          activity: RecentTicketActivity.cases.commented.make({
+            at: entry.lastCommentAt
+          })
         },
     entry.entry.createdBy === viewerId
       ? {
           at: entry.entry.createdAt,
-          activity: { tag: "created", at: entry.entry.createdAt }
+          activity: RecentTicketActivity.cases.created.make({
+            at: entry.entry.createdAt
+          })
         }
       : null
   ]
@@ -159,9 +165,7 @@ export function recentActivityOf(
         : best,
     null
   )
-  return (
-    latest?.activity ?? ({ tag: "assigned" } satisfies RecentTicketActivity)
-  )
+  return latest?.activity ?? RecentTicketActivity.cases.assigned.make({})
 }
 
 const touchedActorIds = (
@@ -1101,7 +1105,7 @@ const make = Effect.gen(function* () {
         ...options,
         viewerId: scope.userId
       })
-    if (source.kind === "sprintBoard") {
+    if (TicketListSource.isAnyOf(["sprintBoard"])(source)) {
       const documents = yield* groups.documents()
       if (!documents.some((group) => group.id === source.groupId)) {
         return yield* new NotFound()

@@ -1,4 +1,4 @@
-import { SidebarPin, StatusSlug, TicketId } from "@pp/shared"
+import { PinTarget, SidebarPin, StatusSlug, TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -17,7 +17,7 @@ const req = pinsRequest("acme")
 const ticketPin = (id: string, orderKey: string) =>
   decodePin({
     projectSlug: "web",
-    kind: "ticket",
+    _tag: "ticket",
     ref: id,
     orderKey,
     ticket: { id, title: `Ticket ${id}`, status: "todo", archivedAt: null }
@@ -62,7 +62,7 @@ describe("pinItem", () => {
       const added = ticketPin("WEB-2", "Zz")
       const ref = Schema.decodeSync(TicketId)("WEB-2")
       registry.set(mutation, {
-        payload: { kind: "ticket", ref },
+        payload: PinTarget.cases.ticket.make({ ref }),
         prediction: {
           ticket: {
             id: ref,

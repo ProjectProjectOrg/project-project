@@ -5,7 +5,8 @@ import {
   type BlockDefinition,
   type BlockLookup,
   type Library,
-  type TypeKey
+  type TypeKey,
+  TicketBlockSegment
 } from "@pp/shared"
 
 import {
@@ -101,7 +102,7 @@ export const matchesSlashQuery = (
 
 const blockTypesIn = (markdown: string) =>
   parseTicketBlocks(markdown).flatMap((segment) =>
-    segment.kind === "block" ? [segment.type] : []
+    TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
   )
 
 const visibleBlocks = (library: Library) =>

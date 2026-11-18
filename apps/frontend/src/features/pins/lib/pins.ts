@@ -3,15 +3,15 @@ import {
   type PinKind,
   type PinnedTicket,
   type PinnedSprint,
-  type PinTarget,
-  type SidebarPin
+  PinTarget,
+  SidebarPin
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
 export type PinRef = Readonly<{
   projectSlug: string
-  kind: PinKind
+  _tag: PinKind
   ref: string
 }>
 
@@ -22,10 +22,10 @@ export type PinPrediction =
 const decodeOrderKey = Schema.decodeSync(PinOrderKey)
 
 export const pinKey = (pin: PinRef) =>
-  `${pin.projectSlug}:${pin.kind}:${pin.ref}`
+  `${pin.projectSlug}:${pin._tag}:${pin.ref}`
 
 export const samePin = (a: PinRef, b: PinRef) =>
-  a.projectSlug === b.projectSlug && a.kind === b.kind && a.ref === b.ref
+  a.projectSlug === b.projectSlug && a._tag === b._tag && a.ref === b.ref
 
 export const pinsIn = (pins: ReadonlyArray<SidebarPin>, projectSlug: string) =>
   pins.filter((pin) => pin.projectSlug === projectSlug)
@@ -35,7 +35,7 @@ const compareBytes = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const comparePins = (a: SidebarPin, b: SidebarPin) =>
   compareBytes(a.projectSlug, b.projectSlug) ||
   compareBytes(a.orderKey, b.orderKey) ||
-  compareBytes(a.kind, b.kind) ||
+  compareBytes(a._tag, b._tag) ||
   compareBytes(a.ref, b.ref)
 
 export const withPin = (pins: ReadonlyArray<SidebarPin>, pin: SidebarPin) =>
@@ -54,22 +54,20 @@ export const predictPin = (
   const orderKey = decodeOrderKey(
     generateKeyBetween(null, top?.orderKey ?? null)
   )
-  if (payload.kind === "ticket" && "ticket" in prediction)
-    return {
+  if (PinTarget.isAnyOf(["ticket"])(payload) && "ticket" in prediction)
+    return SidebarPin.cases.ticket.make({
       projectSlug,
-      kind: "ticket",
       ref: payload.ref,
       orderKey,
       ticket: prediction.ticket
-    } satisfies SidebarPin
-  if (payload.kind === "sprint" && "sprint" in prediction)
-    return {
+    })
+  if (PinTarget.isAnyOf(["sprint"])(payload) && "sprint" in prediction)
+    return SidebarPin.cases.sprint.make({
       projectSlug,
-      kind: "sprint",
       ref: payload.ref,
       orderKey,
       sprint: prediction.sprint
-    } satisfies SidebarPin
+    })
   return null
 }
 
@@ -89,7 +87,9 @@ export function showsLiveRow(
   pinned: boolean
 ): viewing is PinTarget {
   if (viewing === null || pinned) return false
-  return !(viewing.kind === "sprint" && viewing.ref === activeSprintId)
+  return !(
+    PinTarget.isAnyOf(["sprint"])(viewing) && viewing.ref === activeSprintId
+  )
 }
 
 export type PinMove = Readonly<{ pin: SidebarPin; orderKey: PinOrderKey }>

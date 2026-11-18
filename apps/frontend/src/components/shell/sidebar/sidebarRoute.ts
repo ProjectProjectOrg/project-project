@@ -1,4 +1,4 @@
-import { GroupId, TicketId, type PinTarget } from "@pp/shared"
+import { GroupId, PinTarget, TicketId } from "@pp/shared"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -33,12 +33,12 @@ const viewingIn = (section: string, sub: string) => {
   if (section === "tickets")
     return Option.match(decodeTicketId(sub), {
       onNone: () => null,
-      onSome: (ref) => ({ kind: "ticket" as const, ref })
+      onSome: (ref) => PinTarget.cases.ticket.make({ ref })
     })
   if (section === "sprints" && sub !== "current")
     return Option.match(decodeGroupId(sub), {
       onNone: () => null,
-      onSome: (ref) => ({ kind: "sprint" as const, ref })
+      onSome: (ref) => PinTarget.cases.sprint.make({ ref })
     })
   return null
 }

@@ -53,7 +53,8 @@ import {
   type TicketBodyEdit,
   type TicketId,
   type UpdateGroupInput,
-  type UpdateTicketInput
+  type UpdateTicketInput,
+  TicketBlockSegment
 } from "@pp/shared"
 import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
@@ -74,12 +75,12 @@ const sanitizeMcpBody = (body: string) =>
       })
     }
     const segments = parseTicketBlocks(body)
-    if (!segments.some((segment) => segment.kind === "block")) return body
+    if (!segments.some(TicketBlockSegment.$is("block"))) return body
     const library = yield* Library.Library
     const lookup = blockLookupFor(yield* library.projectLibrary())
     return serializeTicketBlocks(
       segments.map((segment) => {
-        if (segment.kind === "markdown") return segment
+        if (TicketBlockSegment.$is("markdown")(segment)) return segment
         const definition = lookup(segment.type)
         return definition === undefined
           ? segment
@@ -94,7 +95,7 @@ const sanitizeMcpBody = (body: string) =>
 const withBlocks = <T extends Readonly<{ body: string }>>(detail: T) => ({
   ...detail,
   blocks: parseTicketBlocks(detail.body).flatMap((segment) =>
-    segment.kind === "block"
+    TicketBlockSegment.$is("block")(segment)
       ? [
           {
             type: segment.type,

@@ -1,5 +1,6 @@
 import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
@@ -83,7 +84,7 @@ export const Route = createFileRoute(
           params.orgSlug,
           params.slug,
           id,
-          deps.from?.kind === "parent" ? undefined : deps.from
+          Predicate.isTagged(deps.from, "parent") ? undefined : deps.from
         )
       )
     )()

@@ -1,13 +1,14 @@
 import {
   parseTicketBlocks,
   type Library,
-  type TypeDefinition
+  type TypeDefinition,
+  TicketBlockSegment
 } from "@pp/shared"
 
 const sectionKeysOf = (type: TypeDefinition) =>
   new Set(
     parseTicketBlocks(type.body).flatMap((segment) =>
-      segment.kind === "block" ? [segment.type] : []
+      TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
     )
   )
 

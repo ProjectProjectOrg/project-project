@@ -4,7 +4,8 @@ import {
   parseFigmaUrl,
   parseAttachmentUrl,
   parseMentionHref,
-  parseTicketBlocks
+  parseTicketBlocks,
+  TicketBlockSegment
 } from "@pp/shared"
 import {
   Children,
@@ -123,7 +124,7 @@ export function Markdown({
   const morphId = useId()
   const segments = parseTicketBlocks(children)
   const framed =
-    blocks === "frame" && segments.some((segment) => segment.kind === "block")
+    blocks === "frame" && segments.some(TicketBlockSegment.$is("block"))
   const references =
     segments.length > 1 ? linkReferenceDefinitions(children) : ""
   return (
@@ -139,7 +140,7 @@ export function Markdown({
         >
           {segments.map((segment, index) => {
             const id = `${morphId}-${index}`
-            if (segment.kind === "markdown")
+            if (TicketBlockSegment.$is("markdown")(segment))
               return (
                 <MarkdownSegment key={index} text={segment.text} morphId={id} />
               )

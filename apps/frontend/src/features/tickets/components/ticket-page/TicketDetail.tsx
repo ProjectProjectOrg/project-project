@@ -3,6 +3,7 @@ import { TicketId } from "@pp/shared"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useEffect, useMemo, useRef, type ReactNode } from "react"
@@ -84,7 +85,10 @@ export function TicketDetail() {
     [orgSlug, slug, shown]
   )
   useCommandScope(commandScope)
-  useRememberViewedTicket(shown, from?.kind === "parent" ? undefined : from)
+  useRememberViewedTicket(
+    shown,
+    Predicate.isTagged(from, "parent") ? undefined : from
+  )
   useMarkTicketRead(
     urlId,
     Result.isSuccess(

@@ -2,9 +2,9 @@ import {
   outlineBlockContent,
   parseTicketBlocks,
   serializeTicketBlocks,
-  type BlockOutlineNode,
+  BlockOutlineNode,
   type Library,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "@pp/shared"
 
 export type StartingRow =
@@ -19,7 +19,7 @@ export type StartingRow =
   | Readonly<{ id: string; kind: "text"; text: string }>
 
 const rowOf = (segment: TicketBlockSegment, id: string) => {
-  if (segment.kind === "markdown")
+  if (TicketBlockSegment.$is("markdown")(segment))
     return { id, kind: "text", text: segment.text } satisfies StartingRow
   return segment.content.trim() === ""
     ? ({ id, kind: "section", key: segment.type } satisfies StartingRow)
@@ -33,7 +33,9 @@ const rowOf = (segment: TicketBlockSegment, id: string) => {
 }
 
 const idBase = (segment: TicketBlockSegment) =>
-  segment.kind === "markdown" ? "text" : `section:${segment.type}`
+  TicketBlockSegment.$is("markdown")(segment)
+    ? "text"
+    : `section:${segment.type}`
 
 export const startingRows = (body: string) => {
   const seen = new Map<string, number>()
@@ -47,25 +49,16 @@ export const startingRows = (body: string) => {
 
 const segmentOf = (row: StartingRow) => {
   if (row.kind === "text")
-    return { kind: "markdown", text: row.text } satisfies TicketBlockSegment
+    return TicketBlockSegment.markdown({ text: row.text })
   if (row.kind === "section")
-    return {
-      kind: "block",
-      type: row.key,
-      content: ""
-    } satisfies TicketBlockSegment
+    return TicketBlockSegment.block({ type: row.key, content: "" })
   return row.sync
-    ? ({
-        kind: "block",
+    ? TicketBlockSegment.block({
         type: row.key,
         content: row.content,
         sync: true
-      } satisfies TicketBlockSegment)
-    : ({
-        kind: "block",
-        type: row.key,
-        content: row.content
-      } satisfies TicketBlockSegment)
+      })
+    : TicketBlockSegment.block({ type: row.key, content: row.content })
 }
 
 export const bodyOfRows = (rows: ReadonlyArray<StartingRow>) =>
@@ -116,7 +109,7 @@ const plain = (text: string) =>
     .trim()
 
 const nodeTexts = (node: BlockOutlineNode) =>
-  "items" in node ? node.items : [node.text]
+  BlockOutlineNode.$is("list")(node) ? node.items : [node.text]
 
 export const contentSummary = (content: string) => {
   const nodes = outlineBlockContent(content)

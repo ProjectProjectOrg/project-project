@@ -18,7 +18,7 @@ import {
   type BlockLookup,
   type HintNodeKind,
   type HintSlot,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "@pp/shared"
 import {
   $copyNode,
@@ -262,7 +262,10 @@ export const missingBlocksMarkdown = (
   const remaining = [...added]
   const missing = parseTicketBlocks(expanded).filter(
     (segment: TicketBlockSegment) => {
-      if (segment.kind !== "block" || segment.type !== remaining[0])
+      if (
+        !TicketBlockSegment.$is("block")(segment) ||
+        segment.type !== remaining[0]
+      )
         return false
       remaining.shift()
       return true

@@ -86,7 +86,7 @@ const compareBytes = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const comparePins = (a: SidebarPin, b: SidebarPin) =>
   compareBytes(a.projectSlug, b.projectSlug) ||
   compareBytes(a.orderKey, b.orderKey) ||
-  compareBytes(a.kind, b.kind) ||
+  compareBytes(a._tag, b._tag) ||
   compareBytes(a.ref, b.ref)
 
 const make = Effect.gen(function* () {
@@ -95,7 +95,7 @@ const make = Effect.gen(function* () {
   const groupDocs = yield* GroupDocs.GroupDocs
 
   const targetOf = (kind: PinKind, ref: string) =>
-    orNotFound(decodeTarget({ kind, ref }))
+    orNotFound(decodeTarget({ _tag: kind, ref }))
 
   const pinOf = (
     scope: PinScope,
@@ -106,7 +106,7 @@ const make = Effect.gen(function* () {
     orNotFound(
       decodePin({
         projectSlug: scope.slug,
-        kind: target.kind,
+        _tag: target._tag,
         ref: target.ref,
         orderKey,
         ...("ticket" in found
@@ -158,7 +158,7 @@ const make = Effect.gen(function* () {
       )
 
   const resolve = (scope: PinScope, target: PinTarget) =>
-    target.kind === "ticket"
+    PinTarget.isAnyOf(["ticket"])(target)
       ? ticketOf(scope, target.ref)
       : sprintOf(scope, target.ref)
 
@@ -166,7 +166,7 @@ const make = Effect.gen(function* () {
     and(
       eq(sidebarPin.userId, scope.userId),
       eq(sidebarPin.projectId, scope.projectId),
-      eq(sidebarPin.kind, target.kind),
+      eq(sidebarPin.kind, target._tag),
       eq(sidebarPin.ref, target.ref)
     )
 
@@ -193,21 +193,20 @@ const make = Effect.gen(function* () {
   ) {
     if (scope === undefined) return yield* new NotFound()
     const target = yield* targetOf(row.kind, row.ref)
-    const found: Found =
-      target.kind === "sprint"
-        ? yield* sprintOf(scope, target.ref)
-        : {
-            ticket: yield* orNotFound(
-              row.title === null || row.status === null
-                ? Option.none()
-                : Option.some({
-                    title: row.title,
-                    status: row.status,
-                    archivedAt: row.archivedAt,
-                    parent: row.parent
-                  })
-            )
-          }
+    const found: Found = PinTarget.isAnyOf(["sprint"])(target)
+      ? yield* sprintOf(scope, target.ref)
+      : {
+          ticket: yield* orNotFound(
+            row.title === null || row.status === null
+              ? Option.none()
+              : Option.some({
+                  title: row.title,
+                  status: row.status,
+                  archivedAt: row.archivedAt,
+                  parent: row.parent
+                })
+          )
+        }
     return yield* pinOf(scope, target, row.orderKey, found)
   })
 
@@ -265,7 +264,7 @@ const make = Effect.gen(function* () {
         userId: scope.userId,
         organizationId: scope.organizationId,
         projectId: scope.projectId,
-        kind: target.kind,
+        kind: target._tag,
         ref: target.ref,
         orderKey
       })

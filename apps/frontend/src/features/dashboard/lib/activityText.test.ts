@@ -8,7 +8,7 @@ import { activityText } from "./activityText"
 const decodeActivity = Schema.decodeSync(RecentTicketActivity)
 type ActorInput = Extract<
   typeof RecentTicketActivity.Encoded,
-  { tag: "status_changed" }
+  { _tag: "status_changed" }
 >["actor"]
 
 const user = (id: string, name: string) => ({
@@ -51,7 +51,7 @@ const at = DateTime.formatIso(
 const statusBy = (actor: ActorInput) =>
   activityText(
     decodeActivity({
-      tag: "status_changed",
+      _tag: "status_changed",
       actor,
       at,
       from: "todo",
@@ -63,7 +63,7 @@ const statusBy = (actor: ActorInput) =>
 
 const assignedBy = (actor: ActorInput) =>
   activityText(
-    decodeActivity({ tag: "assigned", actor, at }),
+    decodeActivity({ _tag: "assigned", actor, at }),
     "viewer",
     statuses
   )
@@ -96,10 +96,10 @@ describe("activityText", () => {
 
   it("falls back when the assignment has no recorded actor", () => {
     expect(
-      activityText(decodeActivity({ tag: "assigned", at }), "viewer", statuses)
+      activityText(decodeActivity({ _tag: "assigned", at }), "viewer", statuses)
     ).toBe("Assigned to you 2 hours ago")
     expect(
-      activityText(decodeActivity({ tag: "assigned" }), "viewer", statuses)
+      activityText(decodeActivity({ _tag: "assigned" }), "viewer", statuses)
     ).toBe("Assigned to you")
   })
 })

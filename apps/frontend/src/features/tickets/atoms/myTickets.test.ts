@@ -5,6 +5,7 @@ import {
   Project,
   ProjectStatus,
   ProjectTicketsPreview,
+  RecentTicketActivity,
   RecentTicketRow,
   Ticket,
   TicketDetail,
@@ -234,7 +235,7 @@ const serve = (
           encodeRecent(
             served.recent.map((recent) => ({
               ...recent,
-              activity: { tag: "assigned" as const }
+              activity: RecentTicketActivity.cases.assigned.make({})
             }))
           )
         )
@@ -354,7 +355,7 @@ describe("recentTickets", () => {
         expect(
           successOf(registry.get(view)).tickets.map(({ ticket, activity }) => [
             ticket.id,
-            activity?.tag
+            activity?._tag
           ])
         ).toEqual([
           ["API-2", "assigned"],

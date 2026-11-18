@@ -4,6 +4,7 @@ import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import {
@@ -94,7 +95,7 @@ export function SubTicketOf({
           }}
           current={ticket.id}
           search={
-            from?.kind === "parent"
+            Predicate.isTagged(from, "parent")
               ? { from: "parent", parentId: from.parent }
               : undefined
           }

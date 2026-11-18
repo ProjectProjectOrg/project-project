@@ -1,6 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
-import { type GroupId, type TicketListQuery } from "@pp/shared"
+import {
+  type GroupId,
+  type TicketListQuery,
+  TicketListSource
+} from "@pp/shared"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -81,11 +85,12 @@ export function SprintDetail({
         <SprintDescription sprint={value} disabled={isCompleted || !canPlan} />
       ) : isBoard ? (
         <TicketViewSourceContext
-          value={ticketSearchFromSource({
-            kind: "sprintBoard",
-            groupId,
-            query: listQuery
-          })}
+          value={ticketSearchFromSource(
+            TicketListSource.cases.sprintBoard.make({
+              groupId,
+              query: listQuery
+            })
+          )}
         >
           <SprintBoard
             groupId={value.id}

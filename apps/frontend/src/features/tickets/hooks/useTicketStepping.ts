@@ -2,6 +2,7 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, TicketSequence } from "@pp/shared"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import { useRouter } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
 
@@ -54,7 +55,7 @@ export function useTicketStepping(
   const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const registry = use(RegistryContext)
-  const listSource = from?.kind === "parent" ? undefined : from
+  const listSource = Predicate.isTagged(from, "parent") ? undefined : from
   const search = ticketPageSearch(from, sprint)
 
   const source = JSON.stringify([orgSlug, slug, from ?? null])

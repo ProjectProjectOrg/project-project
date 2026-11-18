@@ -7,6 +7,7 @@ import {
   type Member,
   type TicketId,
   type TicketListQuery,
+  TicketListSource,
   TicketStatus
 } from "@pp/shared"
 import { chipClassName } from "@pp/ui/chip"
@@ -137,11 +138,12 @@ export function SprintSections(props: Props) {
         className="flex flex-col gap-1"
       >
         <TicketViewSourceContext
-          value={ticketSearchFromSource({
-            kind: "sections",
-            grouping: "sprint",
-            query: viewQuery(active.query)
-          })}
+          value={ticketSearchFromSource(
+            TicketListSource.cases.sections.make({
+              grouping: "sprint",
+              query: viewQuery(active.query)
+            })
+          )}
         >
           {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
             const id = sprintSectionKey(sprint?.id ?? null)

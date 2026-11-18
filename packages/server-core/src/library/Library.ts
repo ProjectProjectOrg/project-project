@@ -36,7 +36,7 @@ import {
   type Layer as LibraryLayer,
   type LibraryLayers,
   type TypeDraft,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -422,7 +422,7 @@ const make = Effect.gen(function* () {
   })
 
   const isSyncedWithMention = (segment: TicketBlockSegment) =>
-    segment.kind === "block" &&
+    TicketBlockSegment.$is("block")(segment) &&
     segment.sync === true &&
     segment.content.includes("](mention:")
 
@@ -435,12 +435,15 @@ const make = Effect.gen(function* () {
         orgSlug,
         slug,
         synced
-          .map((segment) => (segment.kind === "block" ? segment.content : ""))
+          .map((segment) =>
+            TicketBlockSegment.$is("block")(segment) ? segment.content : ""
+          )
           .join("\n")
       )
       return serializeTicketBlocks(
         segments.map((segment) =>
-          segment.kind === "block" && isSyncedWithMention(segment)
+          TicketBlockSegment.$is("block")(segment) &&
+          isSyncedWithMention(segment)
             ? {
                 ...segment,
                 content: withKnownMentions(segment.content, lookups)

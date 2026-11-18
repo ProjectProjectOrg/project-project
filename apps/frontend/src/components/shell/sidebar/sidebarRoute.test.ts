@@ -46,7 +46,7 @@ describe("sidebarScope", () => {
     )
     expect(plain).toMatchObject({
       route: { page: "backlog" },
-      viewing: { kind: "ticket", ref: "WEB-3" }
+      viewing: { _tag: "ticket", ref: "WEB-3" }
     })
     const fromSprint = sidebarScope(
       "/orgs/acme/projects/web/tickets/WEB-3",
@@ -55,14 +55,14 @@ describe("sidebarScope", () => {
     )
     expect(fromSprint).toMatchObject({
       route: { page: "sprints", sub: "s1" },
-      viewing: { kind: "ticket", ref: "WEB-3" }
+      viewing: { _tag: "ticket", ref: "WEB-3" }
     })
   })
 
   it("views a sprint by id but not the current-sprint alias", () => {
     expect(
       sidebarScope("/orgs/acme/projects/web/sprints/G-4", "acme", undefined)
-    ).toMatchObject({ viewing: { kind: "sprint" } })
+    ).toMatchObject({ viewing: { _tag: "sprint" } })
     expect(
       sidebarScope("/orgs/acme/projects/web/sprints/current", "acme", undefined)
     ).toMatchObject({ viewing: null })

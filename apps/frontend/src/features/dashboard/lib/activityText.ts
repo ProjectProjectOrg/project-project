@@ -1,7 +1,7 @@
-import type {
-  ProjectStatus,
+import {
   RecentTicketActivity,
-  TicketActivityActor
+  type ProjectStatus,
+  type TicketActivityActor
 } from "@pp/shared"
 
 import { statusLabelFor } from "@/features/tickets/lib/ticketMeta"
@@ -36,39 +36,34 @@ export const activityText = (
   activity: RecentTicketActivity,
   viewerId: string | undefined,
   statuses: ReadonlyArray<ProjectStatus>
-) => {
-  switch (activity.tag) {
-    case "commented":
-      return m.org_dashboard_activity_commented({
-        when: formatRelative(activity.at)
-      })
-    case "created":
-      return m.org_dashboard_activity_created({
-        when: formatRelative(activity.at)
-      })
-    case "assigned": {
-      if (activity.at === undefined) return m.org_dashboard_activity_assigned()
-      const when = formatRelative(activity.at)
-      if (activity.actor === undefined) {
+) =>
+  RecentTicketActivity.match(activity, {
+    commented: ({ at }) =>
+      m.org_dashboard_activity_commented({ when: formatRelative(at) }),
+    created: ({ at }) =>
+      m.org_dashboard_activity_created({ when: formatRelative(at) }),
+    assigned: ({ actor, at }) => {
+      if (at === undefined) return m.org_dashboard_activity_assigned()
+      const when = formatRelative(at)
+      if (actor === undefined) {
         return m.org_dashboard_activity_assigned_at({ when })
       }
-      return isViewer(activity.actor, viewerId)
+      return isViewer(actor, viewerId)
         ? m.org_dashboard_activity_assigned_self({ when })
         : m.org_dashboard_activity_assigned_by({
-            actor: actorName(activity.actor),
+            actor: actorName(actor),
             when
           })
-    }
-    case "status_changed": {
-      const when = formatRelative(activity.at)
-      const status = statusLabelFor(activity.to, statuses)
-      return isViewer(activity.actor, viewerId)
+    },
+    status_changed: ({ actor, at, to }) => {
+      const when = formatRelative(at)
+      const status = statusLabelFor(to, statuses)
+      return isViewer(actor, viewerId)
         ? m.org_dashboard_activity_status_self({ status, when })
         : m.org_dashboard_activity_status_by({
-            actor: actorName(activity.actor),
+            actor: actorName(actor),
             status,
             when
           })
     }
-  }
-}
+  })

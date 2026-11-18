@@ -5,7 +5,8 @@ import {
   type BlockLookup,
   type Library,
   type TypeDefinition,
-  type TypeKey
+  type TypeKey,
+  TicketBlockSegment
 } from "@pp/shared"
 import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 
@@ -34,7 +35,7 @@ export const typeStart = (
   if (definition === null) return { kind: "empty" } satisfies TypeStart
   const segments = parseTicketBlocks(definition.body)
   const names = segments.flatMap((segment) =>
-    segment.kind === "block" &&
+    TicketBlockSegment.$is("block")(segment) &&
     (segment.content.trim() !== "" || lookup(segment.type) !== undefined)
       ? [blockChrome(segment.type, lookup).name]
       : []
@@ -45,7 +46,8 @@ export const typeStart = (
       names: [...new Set(names)]
     } satisfies TypeStart
   return segments.some(
-    (segment) => segment.kind === "markdown" && segment.text.trim() !== ""
+    (segment) =>
+      TicketBlockSegment.$is("markdown")(segment) && segment.text.trim() !== ""
   )
     ? ({ kind: "text" } satisfies TypeStart)
     : ({ kind: "empty" } satisfies TypeStart)

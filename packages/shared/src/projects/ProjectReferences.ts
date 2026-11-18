@@ -17,13 +17,10 @@ export const ReferencesToFix = Schema.Struct({
 })
 export type ReferencesToFix = typeof ReferencesToFix.Type
 
-export const FixReferenceAction = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("plain") }),
-  Schema.Struct({
-    kind: Schema.Literal("link"),
-    to: Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
-  })
-])
+export const FixReferenceAction = Schema.TaggedUnion({
+  plain: {},
+  link: { to: Schema.String.pipe(Schema.check(Schema.isMinLength(1))) }
+})
 export type FixReferenceAction = typeof FixReferenceAction.Type
 
 export const FixReferenceInput = Schema.Struct({
