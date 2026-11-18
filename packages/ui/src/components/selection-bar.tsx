@@ -163,15 +163,15 @@ export function SelectionBar({
   const bar = React.useRef<HTMLDivElement>(null)
   useSwapResize(bar, result ? "result" : "selection", laneWidth !== null)
   return (
-    // It takes its own 40px under the list (plus 16px above), so even when
-    // the list is short it never sits on the last rows; while the list
-    // scrolls it stays 24px above the window's bottom.
+    // It takes its own 40px under the list (spaced by the list's own gap), so
+    // even when the list is short it never sits on the last rows; while the
+    // list scrolls it stays 24px above the window's bottom.
     // The lane is a size container: its width is the list's, never the
     // bar's, so measuring it says when to fold. Too narrow even folded, the
     // bar wraps onto a second row instead of overflowing.
     <div
       ref={lane}
-      className="@container pointer-events-none sticky bottom-6 z-30 mt-4 flex min-h-10 items-end justify-center"
+      className="@container pointer-events-none sticky bottom-6 z-30 flex min-h-10 items-end justify-center"
     >
       {/* The bar waits for the lane's width (measured before paint), so it
           rises already folded or not, instead of rising wide and then
@@ -193,6 +193,7 @@ export function SelectionBar({
           className={cn(
             hoverCardSurfaceClass,
             "pointer-events-auto relative max-w-full overflow-hidden rounded-[18px] whitespace-nowrap",
+            "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]",
             className
           )}
         >
