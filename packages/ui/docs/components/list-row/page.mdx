@@ -62,6 +62,8 @@ import { TicketKey } from "@pp/ui/ticket-key"
 | `disabled` | `boolean` | Disables the row's fields, for someone who can only look |
 | `variant` | `"standalone" \| "embedded"` | `embedded` drops the hover and corners, for a row inside a card |
 
+`ListRowTitle` takes `variant="quiet"` for the regular weight instead of semibold, for rows that sit under a heading that should lead, such as the sub-tickets on a ticket's page.
+
 Parts used with it: `ItemLink` (`@pp/ui/item-link`), `TicketKey` (`@pp/ui/ticket-key`), `ProgressCount` (`@pp/ui/progress-count`) and `chipClassName` (`@pp/ui/chip`), which the board card shares.
 
 ## Rules

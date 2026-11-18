@@ -1,6 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Member, Ticket } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
 import { listGridClassName } from "@pp/ui/list-row"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -61,16 +60,12 @@ export function ChildTicketList({
               <TicketViewSourceContext
                 value={{ from: "parent", parentId: parent.id }}
               >
-                <div
-                  className={cn(
-                    listGridClassName,
-                    "[&_[data-slot=list-row-title]]:font-normal"
-                  )}
-                >
+                <div className={listGridClassName}>
                   {value.map((row) => (
                     <Row
                       key={row.key}
                       update={childTicketUpdates(req)}
+                      titleVariant="quiet"
                       ticket={row.ticket}
                       members={members}
                       contextParent={parent.id}

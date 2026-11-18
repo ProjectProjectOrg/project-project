@@ -299,11 +299,24 @@ export function ListRow({
 }
 
 // The title text: one line, truncated, in the row's weight.
-export function ListRowTitle({ className, ...props }: ComponentProps<"span">) {
+export function ListRowTitle({
+  variant = "default",
+  className,
+  ...props
+}: ComponentProps<"span"> &
+  Readonly<{
+    // "quiet" drops to the regular weight, for rows under a heading that
+    // should lead (the sub-tickets on a ticket's page).
+    variant?: "default" | "quiet"
+  }>) {
   return (
     <span
       data-slot="list-row-title"
-      className={cn("min-w-0 truncate text-body font-semibold", className)}
+      className={cn(
+        "min-w-0 truncate text-body",
+        variant === "default" ? "font-semibold" : "font-normal",
+        className
+      )}
       {...props}
     />
   )
