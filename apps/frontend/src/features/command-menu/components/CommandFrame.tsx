@@ -97,6 +97,34 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
     )
 }
 
+// The rows a query shows, each row's item by value, and (unsearched, on a
+// numbered page) the number key that picks it.
+const frameRows = (
+  items: ReadonlyArray<CommandFrameItem>,
+  query: string,
+  filter: boolean,
+  numbered: boolean
+) => {
+  const visible =
+    query === ""
+      ? items.filter((item) => item.searchOnly !== true)
+      : filter
+        ? rankItems(items, query)
+        : items
+  return {
+    visible,
+    decorations: new Map(visible.map((item) => [item.value, item] as const)),
+    numbers: new Map(
+      numbered && query === ""
+        ? visible.flatMap((item, index) => {
+            const number = numberKey(index)
+            return number === undefined ? [] : [[item.value, number] as const]
+          })
+        : []
+    )
+  }
+}
+
 const keyWidth = (items: ReadonlyArray<CommandFrameItem>) =>
   `${Math.max(0, ...items.map((item) => item.prefix?.length ?? 0))}ch`
 
@@ -123,6 +151,11 @@ export type CommandFrameProps = Readonly<{
   renderPeek?: (value: string) => ReactNode
   warmPeek?: (value: string) => ReactNode
   fixedHeight?: boolean
+  // Below the list, in place of the search footer: a staged change's
+  // preview and its Apply.
+  footer?: ReactNode
+  // Mod+Enter: applies what the page has staged.
+  onSubmit?: () => void
 }>
 
 export type CommandEmpty = Readonly<{
@@ -151,7 +184,9 @@ export function CommandFrame({
   onActOn,
   renderPeek,
   warmPeek,
-  fixedHeight = false
+  fixedHeight = false,
+  footer,
+  onSubmit
 }: CommandFrameProps) {
   const peek = usePeekWipe()
   const highlighted = useRef<CommandMenuItemData | undefined>(undefined)
@@ -160,22 +195,11 @@ export function CommandFrame({
   const backHint = useId()
   useEffect(() => input.current?.focus(), [])
   const query = search.trim()
-  const visible =
-    query === ""
-      ? items.filter((item) => item.searchOnly !== true)
-      : filter
-        ? rankItems(items, query)
-        : items
-  const decorations = new Map(
-    visible.map((item) => [item.value, item] as const)
-  )
-  const numbers = new Map(
-    numbered && query === ""
-      ? visible.flatMap((item, index) => {
-          const number = numberKey(index)
-          return number === undefined ? [] : [[item.value, number] as const]
-        })
-      : []
+  const { visible, decorations, numbers } = frameRows(
+    items,
+    query,
+    filter,
+    numbered
   )
 
   return (
@@ -254,6 +278,15 @@ export function CommandFrame({
               onSelect(pickedItem)
               return
             }
+            if (
+              onSubmit !== undefined &&
+              event.key === "Enter" &&
+              (event.metaKey || event.ctrlKey)
+            ) {
+              event.preventDefault()
+              onSubmit()
+              return
+            }
             if (event.key === "Backspace" && search === "") {
               event.preventDefault()
               onBack()
@@ -317,9 +350,10 @@ export function CommandFrame({
           </CommandMenuList>
         </motion.div>
       </div>
-      {searchFooter && query !== "" && (
-        <SearchFooter decorations={decorations} peekOpen={peek.active} />
-      )}
+      {footer ??
+        (searchFooter && query !== "" && (
+          <SearchFooter decorations={decorations} peekOpen={peek.active} />
+        ))}
       {notice !== null && (
         <p
           role="alert"

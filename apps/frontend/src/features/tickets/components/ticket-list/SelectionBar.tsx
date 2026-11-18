@@ -1,6 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
-import type { BulkTicketPatch } from "@pp/shared"
-import { MoreHorizontal } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
 import {
   SelectionBar as Bar,
   SelectionBarField,
@@ -8,38 +7,35 @@ import {
 } from "@pp/ui/selection-bar"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { use, useEffect, useState } from "react"
+import { use, useEffect } from "react"
 
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import {
   openCommandMenu,
   type SelectedTicket
 } from "@/features/command-menu/lib/commandMenu"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
-import { ProjectContext } from "@/features/projects/hooks/useProject"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
+import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { sharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
+import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import {
   toBulkPatch,
   type TicketEdit
 } from "@/features/tickets/lib/ticketPatch"
 import { projectOfKey, selectAll } from "@/features/tickets/lib/ticketSelection"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
-import {
-  AssigneeField,
-  LabelsField,
-  PriorityField,
-  SprintField,
-  StatusField
-} from "./SelectionFields"
-import { type SelectionStore, updateSelected } from "./selectionStore"
-import { groupBy, restoreOf, type Restore } from "./selectionUndo"
+import { applySelected, type SelectionStore } from "./selectionStore"
 
 /*
- * The bar that rises while tickets are selected (@pp/ui/selection-bar). Each
- * field reads what the selected tickets share, or (muted) how many values
- * they hold, and opens the row's own menu for it; a pick applies to every
- * selected ticket. More actions opens ⌘K with the selection.
+ * The bar that rises while tickets are selected (@pp/ui/selection-bar): a
+ * suggested next step when there is an obvious one (every ticket in the
+ * same status: move them to the next), and Actions, which opens ⌘K with
+ * the selection for everything else.
  */
 
 export function SelectionBar({
@@ -50,20 +46,21 @@ export function SelectionBar({
   const count = useAtomValue(store.count)
   const failure = useAtomValue(store.failure)
   const selection = useAtomValue(store.selection)
-  // What the last change is doing or did: "Updating 3 tickets…" while it's
-  // out, then "Updated 3 tickets · Undo" for six seconds or until the
-  // selection changes.
-  const [last, setLast] = useState<
-    (Undo & Readonly<{ selection: typeof selection }>) | null
-  >(null)
-  const undo = last?.selection === selection ? last : null
-  const remember = (next: Undo | null) =>
-    setLast(next && { ...next, selection })
+  // What the last change (from here or ⌘K) did: "Updated 3 tickets ·
+  // Undo" for six seconds or until the selection changes ("Updating 3
+  // tickets…" only while a retry is out).
+  const outcome = useAtomValue(store.outcome)
+  const undo = outcome?.selection === selection ? outcome : null
+  const remember = (next: Readonly<{ count: number; pending: boolean }>) =>
+    registry.set(store.outcome, { ...next, selection })
   useEffect(() => {
     if (undo === null || undo.pending) return undefined
-    const timer = window.setTimeout(() => setLast(null), UNDO_FOR_MS)
+    const timer = window.setTimeout(
+      () => registry.set(store.outcome, null),
+      UNDO_FOR_MS
+    )
     return () => window.clearTimeout(timer)
-  }, [undo])
+  }, [undo, registry, store])
   // Everything the lists show in this selection's project: what "Select
   // all" would select, so it can say how much.
   const everything = selectAll(
@@ -104,11 +101,9 @@ export function SelectionBar({
                   onClick: () => {
                     remember({ count: failure.count, pending: true })
                     void Promise.resolve(failure.retry()).then((landed) =>
-                      remember(
-                        landed === false
-                          ? null
-                          : { count: failure.count, pending: false }
-                      )
+                      landed === false
+                        ? registry.set(store.outcome, null)
+                        : remember({ count: failure.count, pending: false })
                     )
                   }
                 },
@@ -141,18 +136,12 @@ export function SelectionBar({
               : undefined
       }
     >
-      <SelectionFields store={store} onApplied={remember} />
+      <SelectionFields store={store} />
     </Bar>
   )
 }
 
-function SelectionFields({
-  store,
-  onApplied
-}: Readonly<{
-  store: SelectionStore
-  onApplied: (undo: Undo | null) => void
-}>) {
+function SelectionFields({ store }: Readonly<{ store: SelectionStore }>) {
   const { orgSlug } = useParams({ strict: false })
   const keys = [...useAtomValue(store.selection).keys]
   const known = useAtomValue(store.known)
@@ -160,111 +149,73 @@ function SelectionFields({
   if (orgSlug === undefined || first === undefined) return null
   const slug = projectOfKey(first)
   return (
-    <ProjectContext value={projectRequest(orgSlug, slug)}>
-      <Fields
-        store={store}
-        onApplied={onApplied}
-        orgSlug={orgSlug}
-        slug={slug}
-        tickets={keys.flatMap((key) => known.get(key) ?? [])}
-      />
-    </ProjectContext>
+    <Fields
+      store={store}
+      orgSlug={orgSlug}
+      slug={slug}
+      tickets={keys.flatMap((key) => known.get(key) ?? [])}
+    />
   )
 }
 
 function Fields({
   store,
-  onApplied,
   orgSlug,
   slug,
   tickets
 }: Readonly<{
   store: SelectionStore
-  onApplied: (undo: Undo | null) => void
   orgSlug: string
   slug: string
   tickets: ReadonlyArray<SelectedTicket>
 }>) {
   const registry = use(RegistryContext)
-  const ids = tickets.map((ticket) => ticket.id)
-  // Applies a change to every selected ticket. The bar says "Updating 3
-  // tickets…" at once; the edit itself (shown in the list straight away,
-  // then sent) waits for that swap to finish, so the list's re-render
-  // doesn't stall it. The answer turns it into "Updated 3 tickets · Undo",
-  // or the failure takes its place. Undo puts each ticket's old value back
-  // (one update per old value).
-  const apply = (patch: BulkTicketPatch, restore: ReadonlyArray<Restore>) => {
-    const count = ids.length
-    onApplied({ count, pending: true })
-    window.setTimeout(() => {
-      void updateSelected(registry, store, slug, ids, patch).then((ok) =>
-        onApplied(
-          ok
-            ? {
-                count,
-                pending: false,
-                run: () => {
-                  onApplied(null)
-                  window.setTimeout(() => {
-                    for (const each of restore)
-                      void updateSelected(
-                        registry,
-                        store,
-                        slug,
-                        each.ids,
-                        each.patch
-                      )
-                  }, SWAP_MS)
-                }
-              }
-            : null
-        )
-      )
-    }, SWAP_MS)
-  }
   const edit = (change: TicketEdit) =>
-    apply(toBulkPatch(change), restoreOf(tickets, change))
-  const shared = sharedTicketFields(tickets)
-
-  const detail = useAtomValue(project(projectRequest(orgSlug, slug)))
-  const members = Result.isSuccess(detail) ? detail.value.members : []
+    void applySelected(
+      registry,
+      store,
+      slug,
+      tickets.map((ticket) => ticket.id),
+      toBulkPatch(change)
+    )
+  const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  const order = Result.isSuccess(statuses)
+    ? boardStatusesFor(statuses.value)
+    : []
+  const shared = sharedTicketFields(tickets).status
+  const at = shared === undefined ? -1 : order.indexOf(shared)
+  const next = at === -1 ? undefined : order[at + 1]
+  const meta =
+    next === undefined || !Result.isSuccess(statuses)
+      ? null
+      : statusMetaFor(next, statuses.value)
 
   return (
     <>
-      <StatusField
-        tickets={tickets}
-        shared={shared.status ?? null}
-        onEdit={edit}
-      />
-      <AssigneeField
-        tickets={tickets}
-        common={shared.assignees}
-        members={members}
-        onEdit={edit}
-      />
-      <PriorityField
-        tickets={tickets}
-        shared={shared.priority ?? null}
-        onEdit={edit}
-      />
-      <SprintField
-        orgSlug={orgSlug}
-        slug={slug}
-        tickets={tickets}
-        onSprint={(sprint, before) =>
-          apply(
-            { sprint },
-            groupBy(tickets, (ticket) => before.get(ticket.id) ?? null).map(
-              ([old, group]) => ({ ids: group, patch: { sprint: old } })
-            )
-          )
-        }
-      />
-      <LabelsField tickets={tickets} common={shared.tags} onEdit={edit} />
-      <SelectionBarSeparator />
+      {next !== undefined && meta !== null && (
+        <>
+          <SelectionBarField
+            name={m.tickets_selection_suggested()}
+            icon={
+              <meta.icon
+                className={meta.className}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+            }
+            value={m.tickets_selection_move_to({ status: meta.label })}
+            onClick={() => edit({ status: next })}
+          />
+          <SelectionBarSeparator />
+        </>
+      )}
       <SelectionBarField
-        name={m.tickets_selection_field_more()}
-        icon={<MoreHorizontal strokeWidth={1.75} />}
+        name={m.tickets_selection_actions()}
+        value={m.tickets_selection_actions()}
+        aria-label={m.tickets_selection_actions()}
+        shortcut={
+          <KbdShortcut size="sm" keys="Mod+K" keyLabels={keyLabels()} />
+        }
         onClick={() => {
           const [lead] = tickets
           if (lead === undefined) return
@@ -283,11 +234,3 @@ function Fields({
 }
 
 const UNDO_FOR_MS = 6000
-
-// The last change: on its way (pending), then landed, with its Undo (none
-// after a retry, which has no old values to put back).
-type Undo = Readonly<{ count: number; pending: boolean; run?: () => void }>
-
-// The bar's swap (transitions.morph): a change waits this long before it
-// renders and sends, so the swap plays smoothly first.
-const SWAP_MS = 260

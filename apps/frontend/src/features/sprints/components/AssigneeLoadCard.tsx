@@ -6,6 +6,7 @@ import {
   type Ticket
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { chipClassName } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -72,12 +73,15 @@ export function AssigneeLoadCard({
               event.stopPropagation()
               onFilter?.()
             }}
-            className="-mx-1 flex cursor-pointer items-center gap-1 rounded-full px-1 py-0.5 transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+            className={chipClassName({
+              interaction: "press",
+              className: "pl-1 tabular-nums"
+            })}
           />
         }
       >
         <Avatar member={member} size={16} />
-        <span className="tabular-nums">{amount}</span>
+        {amount}
       </HoverCardTrigger>
       <HoverCardContent align="end" className="flex w-80 flex-col gap-3 p-3">
         <div className="flex items-center gap-2.5">

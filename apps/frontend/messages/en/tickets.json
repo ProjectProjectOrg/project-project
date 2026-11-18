@@ -451,6 +451,11 @@
     }
   ],
   "tickets_selection_select_all": "Select all {count}",
+  "tickets_selection_choose": "Choose",
+  "tickets_selection_toggle": "Toggle",
+  "tickets_selection_actions": "Actions",
+  "tickets_selection_suggested": "Suggested",
+  "tickets_selection_move_to": "Move to {status}",
   "tickets_selection_updated": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -472,55 +477,7 @@
       }
     }
   ],
-  "tickets_selection_field_status": "Status",
-  "tickets_selection_field_assignee": "Assignee",
-  "tickets_selection_field_priority": "Priority",
-  "tickets_selection_field_sprint": "Sprint",
-  "tickets_selection_field_labels": "Labels",
-  "tickets_selection_field_more": "More actions",
-  "tickets_selection_statuses": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} status",
-        "countPlural=*": "{count} statuses"
-      }
-    }
-  ],
-  "tickets_selection_priorities": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} priority",
-        "countPlural=*": "{count} priorities"
-      }
-    }
-  ],
-  "tickets_selection_assignees": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} assignee",
-        "countPlural=*": "{count} assignees"
-      }
-    }
-  ],
-  "tickets_selection_labels": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} label",
-        "countPlural=*": "{count} labels"
-      }
-    }
-  ],
   "tickets_selection_no_sprint": "No sprint",
-  "tickets_selection_sprints_and_none": "{sprints}, none",
-  "tickets_selection_no_labels": "No labels",
   "tickets_shortcut_focus_next": "Focus next ticket",
   "tickets_shortcut_focus_previous": "Focus previous ticket",
   "tickets_shortcut_new_ticket": "New ticket",

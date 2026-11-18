@@ -72,7 +72,7 @@ export function SprintPlanSummary({
       )}
       <ul
         aria-label={m.sprints_load_label()}
-        className="flex items-center gap-1.5 pl-1"
+        className="flex items-center gap-1"
       >
         {loadByAssignee(tickets, measure).map(({ assignee }) => {
           const member = members.find((each) => each.id === assignee)

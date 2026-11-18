@@ -35,9 +35,9 @@ import { appHotkeys } from "@/lib/appHotkeys"
 
 import { SelectionBar } from "./SelectionBar"
 import {
+  applySelected,
   createSelectionStore,
-  type SelectionStore,
-  updateSelected
+  type SelectionStore
 } from "./selectionStore"
 
 const SelectionContext = createContext<SelectionStore | null>(null)
@@ -130,8 +130,8 @@ export function TicketSelectionProvider({
 const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
   ({
     clearSelection: () => registry.set(store.selection, emptySelection),
-    updateSelection: (slug, tickets, patch) =>
-      updateSelected(registry, store, slug, tickets, patch),
+    updateSelection: (slug, tickets, patch, restore) =>
+      applySelected(registry, store, slug, tickets, patch, restore),
     selection: () => {
       const keys = [...registry.get(store.selection).keys]
       const [first] = keys
@@ -256,7 +256,7 @@ export function useSelectionActions(key: string) {
         )
   const patchBulk = (patch: BulkTicketPatch) => {
     if (!acting) return false
-    void updateSelected(
+    void applySelected(
       registry,
       watching,
       projectOfKey(key),

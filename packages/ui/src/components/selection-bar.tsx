@@ -293,6 +293,8 @@ type FieldProps = Omit<React.ComponentProps<"button">, "value"> &
     value?: string
     // The selection doesn't share one value: the text is muted.
     mixed?: boolean
+    // Keys that do the same, after the value (hidden while folded).
+    shortcut?: React.ReactNode
     render?: useRender.RenderProp
   }>
 
@@ -303,6 +305,7 @@ export function SelectionBarField({
   icon,
   value,
   mixed = false,
+  shortcut,
   render,
   className,
   ...props
@@ -310,7 +313,8 @@ export function SelectionBarField({
   // Folded (a narrow list) or an action without a value, it shows only its
   // icon; then its tooltip says what it is: "Status: 2 statuses".
   const { folded, instant } = React.use(FoldedContext)
-  const iconOnly = value === undefined || folded
+  // A field without an icon has nothing to fold to, so it keeps its value.
+  const iconOnly = value === undefined || (folded && icon !== undefined)
   const field = useRender({
     defaultTagName: "button",
     render,
@@ -358,6 +362,9 @@ export function SelectionBarField({
                   <TextSwap>{value}</TextSwap>
                 </span>
               </motion.span>
+            )}
+            {shortcut !== undefined && !iconOnly && (
+              <span className="ml-1.5 flex shrink-0">{shortcut}</span>
             )}
           </>
         )

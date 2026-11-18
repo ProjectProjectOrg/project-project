@@ -42,7 +42,7 @@ import {
   FluidHoverHighlight,
   type FluidHoverSource
 } from "./fluid-hover-highlight"
-import { Check } from "./icons"
+import { Check, Minus } from "./icons"
 import { KbdShortcut } from "./kbd"
 import { menuItemClass } from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
@@ -1003,14 +1003,22 @@ function CloseOnShortcut({
 }
 
 // A choice's check. Unchecked rows keep the space, so labels line up.
+// "mixed" (some of a selection have it) shows a dash.
 function CommandMenuCheck({
   checked,
   label
-}: Readonly<{ checked: boolean; label: string }>) {
+}: Readonly<{ checked: boolean | "mixed"; label: string }>) {
+  const Icon = checked === "mixed" ? Minus : Check
   return (
-    <span className={cn("flex shrink-0", !checked && "invisible")}>
-      <Check className="size-3.5" strokeWidth={1.75} />
-      {checked && <span className="sr-only">{label}</span>}
+    <span
+      className={cn(
+        "flex shrink-0",
+        checked === false && "invisible",
+        checked === "mixed" && "text-muted-foreground"
+      )}
+    >
+      <Icon className="size-3.5" strokeWidth={1.75} />
+      {checked !== false && <span className="sr-only">{label}</span>}
     </span>
   )
 }
