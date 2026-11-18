@@ -237,6 +237,7 @@ function BranchPickerList({
                   <GitBranch />
                   <MiddleTruncate
                     value={branch.name}
+                    title={branch.name}
                     className="flex-1 text-foreground tabular-nums"
                   />
                   <BranchBadge branch={branch} defaultBase={defaultBase} />

@@ -24,6 +24,9 @@ const OPEN_SUBMENU_TRIGGER =
   "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
 const MENU_ROW =
   "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
+const CHOICE_ROW = "[role=menuitemradio], [role=option]"
+const CHOSEN_ROW =
+  "[role=menuitemradio][data-checked]:not([data-disabled]), [role=option][data-selected]:not([data-disabled])"
 const RESTING = "data-menu-resting"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const HIGHLIGHT_INSET = 1
@@ -37,6 +40,11 @@ const firstOwned = (container: HTMLElement, selector: string) =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
     (candidate) => candidate.closest("[data-menu-highlight-host]") === container
   )
+
+export const chosenRow = (container: HTMLElement) =>
+  firstOwned(container, MENU_ROW)?.matches(CHOICE_ROW)
+    ? firstOwned(container, CHOSEN_ROW)
+    : undefined
 
 const contains = (element: HTMLElement, pointer: Point) => {
   const box = element.getBoundingClientRect()
@@ -59,8 +67,6 @@ const ownedAt = (container: HTMLElement, selector: string, pointer: Point) =>
 // and marks no row as highlighted until the pointer moves again after the
 // submenu closes. The row under the pointer bridges that handoff, so the
 // highlight slides on instead of fading out and in.
-// With `restOnFirst`, a menu with no highlighted row shows the highlight on
-// its first row, so a submenu opened by hover shows what its rows offer.
 // While the pointer crosses a gap between rows (a separator, the padding) the
 // highlight keeps its last spot (`"hold"`) instead of fading out or jumping to
 // rest, so it slides straight on to the next row. Over a non-item row marked
@@ -70,7 +76,8 @@ const measureHighlight = (
   container: HTMLElement,
   selector: string,
   pointer: Point | null,
-  restOnFirst: boolean
+  restOnFirst: boolean,
+  shown: boolean
 ) => {
   if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
   const active =
@@ -80,11 +87,13 @@ const measureHighlight = (
         (pointer === null ? undefined : ownedAt(container, MENU_ROW, pointer)))
       : undefined)
   if (active === undefined && pointer !== null && contains(container, pointer))
-    return "hold"
+    return "hold" as const
   const resting =
-    active === undefined && restOnFirst
-      ? firstOwned(container, MENU_ROW)
+    active === undefined
+      ? (chosenRow(container) ??
+        (restOnFirst ? firstOwned(container, MENU_ROW) : undefined))
       : undefined
+  if (resting !== undefined && shown && pointer !== null) return "hold" as const
   for (const row of container.querySelectorAll(`[${RESTING}]`)) {
     if (row !== resting) row.removeAttribute(RESTING)
   }
@@ -180,7 +189,8 @@ function useHighlightRect(
               container,
               selector,
               pointer,
-              restOnFirst
+              restOnFirst,
+              previous.rect !== null
             )
             return rect === "hold" ? previous : nextHighlight(previous, rect)
           })
@@ -204,7 +214,7 @@ export function MenuHighlight({
   const reduceMotion = useReducedMotion() ?? false
 
   return (
-    <span ref={anchorRef} aria-hidden className="contents">
+    <span ref={anchorRef} aria-hidden data-menu-chrome className="contents">
       <AnimatePresence>
         {rect === null ? null : (
           <motion.span

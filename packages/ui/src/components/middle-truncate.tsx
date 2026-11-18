@@ -13,7 +13,6 @@ export function MiddleTruncate({
   const split = splitForMiddleTruncate(value, tail)
   return (
     <span
-      title={value}
       className={cn(
         "inline-flex max-w-full min-w-0 overflow-hidden whitespace-nowrap",
         className

@@ -1,4 +1,11 @@
-import { createContext, use, useMemo, useRef, type RefObject } from "react"
+import {
+  createContext,
+  use,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject
+} from "react"
 
 // What an item can do to its whole menu (root and any submenus): close it
 // later, e.g. after an async action it started has finished, and hold it
@@ -13,11 +20,13 @@ type MenuControl = Readonly<{
 
 type MenuActions = Readonly<{ close: () => void }>
 
-type CancelableDetails = Readonly<{ cancel: () => void }>
+type CancelableDetails = Readonly<{ cancel: () => void; reason: string }>
 
 const MenuControlContext = createContext<MenuControl | null>(null)
 
 export const MenuControlProvider = MenuControlContext
+
+export const MenuPickedContext = createContext(false)
 
 // The root's actionsRef (the caller's, or one of our own), the control its
 // items get, and an onOpenChange that refuses to close while held.
@@ -40,10 +49,16 @@ export function useMenuRoot<T extends MenuActions, D extends CancelableDetails>(
     }),
     [ref]
   )
+  const [picked, setPicked] = useState(false)
+  const trackPick = (open: boolean, details: D) => {
+    setPicked(!open && details.reason === "item-press")
+    onOpenChange?.(open, details)
+  }
   return {
     ref,
     control,
-    onOpenChange: guardOpenChange(control, onOpenChange)
+    picked,
+    onOpenChange: guardOpenChange(control, trackPick)
   }
 }
 

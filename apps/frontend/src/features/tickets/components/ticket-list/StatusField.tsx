@@ -153,7 +153,7 @@ export function StatusSelect({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className="w-44"
+        className="max-w-72 min-w-44"
         finalFocus={false}
       >
         <DropdownMenuRadioGroup

@@ -44,9 +44,6 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
-[data-description] .lexical-content > :first-child {
-  padding-inline-end: 11rem;
-}
 /* One text edge for the ticket page: the title's hover padding, under the
    Back button. Boxed fields (description, comments) sit their border and
    padding outside it, and the block rail hangs in the page margin. */

@@ -56,7 +56,11 @@ export function BaseBranchSubmenu(props: BaseBranchProps) {
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
           <GitBranch className="size-3.5" />
-          <MiddleTruncate value={value} className="tabular-nums" />
+          <MiddleTruncate
+            value={value}
+            title={value}
+            className="tabular-nums"
+          />
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
@@ -102,6 +106,7 @@ function BaseBranchOptions({
                 <>
                   <MiddleTruncate
                     value={branch.name}
+                    title={branch.name}
                     className="flex-1 text-foreground tabular-nums"
                   />
                   <BranchBadge branch={branch} defaultBase={defaultBase} />
@@ -132,7 +137,7 @@ export function RepoSubmenu({
           {m.git_branch_picker_repo_label()}
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
-          <MiddleTruncate value={repoSlug(value)} />
+          <MiddleTruncate value={repoSlug(value)} title={repoSlug(value)} />
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
@@ -146,6 +151,7 @@ export function RepoSubmenu({
               <>
                 <MiddleTruncate
                   value={repoSlug(repo)}
+                  title={repoSlug(repo)}
                   className="flex-1 text-foreground"
                 />
                 {index === 0 ? (

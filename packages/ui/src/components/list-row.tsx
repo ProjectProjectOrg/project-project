@@ -73,6 +73,8 @@ const sameHovered = (a: Hovered | null, b: Hovered | null) =>
     a.rect.height === b.rect.height)
 
 const rowAt = (container: HTMLElement, x: number, y: number) => {
+  const under = document.elementFromPoint(x, y)
+  if (!under || !container.contains(under)) return null
   for (const dy of [0, -HOVER_REACH, HOVER_REACH]) {
     const row = document
       .elementFromPoint(x, y + dy)
@@ -82,12 +84,19 @@ const rowAt = (container: HTMLElement, x: number, y: number) => {
   return null
 }
 
+const openPopupRow = (container: HTMLElement) =>
+  container.querySelector<HTMLElement>(
+    '[data-slot="list-row"]:is([data-popup-open], :has([data-popup-open]))'
+  )
+
 /*
  * The gliding hover for a list, like the sidebar's: one highlight that
  * slides from row to row under the pointer instead of each row lighting up
  * on its own. Wrap everything that holds rows (sections included); rows
  * inside it drop their own hover fill. It hides during arrow-key
- * navigation, where the focused row shows instead.
+ * navigation, where the focused row shows instead. While a row has a menu
+ * or preview card open, the highlight stays on it when the pointer leaves
+ * for the popup, so the row is never lit twice.
  * Only the row under the pointer is found and measured, at most once a
  * frame, so rows mounting as a virtual list scrolls cost nothing here.
  */
@@ -107,8 +116,8 @@ export function ListHoverScope({
     frame.current = 0
     const container = ref.current
     const at = point.current
-    if (!container || !at) return
-    const row = rowAt(container, at.x, at.y)
+    if (!container) return
+    const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
     if (!row) {
       setHovered(null)
       return
@@ -140,13 +149,22 @@ export function ListHoverScope({
   }, [track])
 
   useEffect(() => {
-    const root = ref.current?.closest("[data-scroll-root]") ?? window
+    const container = ref.current
+    const root = container?.closest("[data-scroll-root]") ?? window
     const onScroll = () => {
       if (point.current) schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
+    const popups = new MutationObserver(schedule)
+    if (container) {
+      popups.observe(container, {
+        subtree: true,
+        attributeFilter: ["data-popup-open"]
+      })
+    }
     return () => {
       root.removeEventListener("scroll", onScroll)
+      popups.disconnect()
       cancelAnimationFrame(frame.current)
     }
   }, [schedule])
@@ -174,9 +192,7 @@ export function ListHoverScope({
       }}
       onMouseLeave={() => {
         point.current = null
-        cancelAnimationFrame(frame.current)
-        frame.current = 0
-        setHovered(null)
+        schedule()
       }}
       className={cn("relative", className)}
     >
@@ -232,9 +248,10 @@ export function ListRow({
 }: ListRowProps) {
   // In a ListHoverScope the gliding highlight is the hover; on its own the
   // row fills itself.
-  const ownHover =
-    !use(InHoverScopeContext) &&
-    "not-in-data-keyboard-navigation:hover:bg-hover"
+  const inHoverScope = use(InHoverScopeContext)
+  const ownHover = inHoverScope
+    ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:bg-hover in-data-keyboard-navigation:not-data-selected:data-[popup-open]:bg-hover"
+    : "not-in-data-keyboard-navigation:hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover not-data-selected:data-[popup-open]:bg-hover"
   return (
     // Every hover in it opens below, tooltips and cards alike.
     <HoverSide side="bottom">
@@ -248,7 +265,7 @@ export function ListRow({
           itemSurfaceClass,
           variant === "standalone" && ownHover,
           variant === "standalone" &&
-            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover",
+            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover data-selected:bg-foreground/6",
           // The link reaches into the gap between rows, so the rows have no
           // dead strip between them.
           "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",

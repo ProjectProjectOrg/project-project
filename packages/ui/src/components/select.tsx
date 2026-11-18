@@ -397,14 +397,15 @@ type SelectItemProps = Omit<
     indicator?: boolean
   }>
 
-// The chosen row marks itself like a DropdownMenu radio row: a leading slot
-// springs open, a dot pops in and the label turns semibold. No row fill and
+// The chosen row marks itself like a DropdownMenu radio row: a dot pops into
+// its leading slot, which every row keeps so labels never shift, and the label
+// turns semibold. No row fill and
 // no trailing tick, so it never stacks with the sliding highlight.
 const choiceItemClass =
   "transition-[color,font-weight] duration-150 data-[selected]:font-semibold data-[selected]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
 
 const choiceIndicatorClass =
-  "-mr-2 w-0 shrink-0 opacity-0 transition-[width,margin,opacity] duration-[160ms,160ms,80ms] delay-[40ms,40ms,0ms] ease-standard group-data-[selected]/choice:mr-0 group-data-[selected]/choice:w-4 group-data-[selected]/choice:opacity-100 group-data-[selected]/choice:duration-[260ms,260ms,60ms] group-data-[selected]/choice:delay-0 group-data-[selected]/choice:ease-spring motion-reduce:transition-none"
+  "w-4 shrink-0 opacity-0 transition-opacity duration-80 ease-standard group-data-[selected]/choice:opacity-100 group-data-[selected]/choice:duration-60 motion-reduce:transition-none"
 
 const choiceDotClass =
   "origin-center fill-current [scale:0] transition-[scale] duration-80 ease-standard group-data-[selected]/choice:[scale:1] group-data-[selected]/choice:duration-260 group-data-[selected]/choice:delay-60 group-data-[selected]/choice:ease-spring motion-reduce:transition-none"

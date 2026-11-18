@@ -18,7 +18,7 @@ export const menuItemClass =
 export const menuLabelClass = "px-2 py-1.5 text-caption text-muted-foreground"
 
 export const menuSeparatorClass =
-  "-mx-1 my-1 h-px bg-border/60 first:hidden last:hidden"
+  "-mx-1 my-1 h-px bg-border/60 first:hidden last:hidden [[data-menu-chrome]+&]:hidden"
 
 export const menuChoiceItemClass =
   "data-[checked]:bg-active data-[checked]:text-foreground data-[selected]:bg-active data-[selected]:text-foreground"

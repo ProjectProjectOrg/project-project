@@ -45,12 +45,19 @@ const sameOrder = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
   a.length === b.length && a.every((key, index) => key === b[index])
 
 const presence = {
-  initial: { opacity: 0, height: 0 },
-  animate: { opacity: 1, height: "auto", transition: transitions.layout },
-  exit: {
-    opacity: 0,
-    height: 0,
-    transition: { ...transitions.fade, duration: 0.16 }
+  initial: "hidden",
+  animate: "shown",
+  exit: "gone",
+  variants: {
+    hidden: { opacity: 0, height: 0 },
+    shown: { opacity: 1, height: "auto", transition: transitions.layout },
+    gone: (last: boolean) => ({
+      opacity: 0,
+      height: 0,
+      transition: last
+        ? { duration: 0 }
+        : { ...transitions.fade, duration: 0.16 }
+    })
   }
 } as const
 
@@ -89,7 +96,7 @@ function SidebarRowGroup({
 
   if (onReorder === undefined)
     return (
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} custom={keys.length === 0}>
         {keys.map((key) => (
           <motion.div
             key={key}
@@ -131,7 +138,7 @@ function SidebarRowGroup({
       onReorder={(next: string[]) => setPreview([...fixed, ...next])}
       className="relative flex flex-col"
     >
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} custom={keys.length === 0}>
         {fixed.map((key) => (
           <motion.div
             key={key}

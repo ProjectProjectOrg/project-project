@@ -42,9 +42,6 @@ expectTypeOf<
   Readonly<{ items: typeof items; value: "chore" }>
 >().not.toExtend<Props>()
 expectTypeOf<
-  Readonly<{ items: typeof items; defaultValue: "chore" }>
->().not.toExtend<Props>()
-expectTypeOf<
   Readonly<{
     items: typeof items
     onValueChange: (value: number) => void

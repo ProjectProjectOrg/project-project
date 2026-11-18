@@ -66,6 +66,7 @@ export function GitField({
             />
             <MiddleTruncate
               value={view.branch}
+              title={view.branch}
               className="text-caption tabular-nums"
             />
             <ChevronDown

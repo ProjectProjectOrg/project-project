@@ -11,6 +11,7 @@ import { useCountdown } from "../lib/countdown"
 import { forwardThroughMenuBackdrop, isMenuBackdrop } from "../lib/menuBackdrop"
 import {
   MenuControlProvider,
+  MenuPickedContext,
   useHeldOpenChange,
   useMenuControl,
   useMenuRoot
@@ -32,7 +33,7 @@ import {
   type KeyLabels
 } from "./kbd"
 import { LogoLoader } from "./logo"
-import { MenuHighlight } from "./menu-highlight"
+import { MenuHighlight, chosenRow } from "./menu-highlight"
 import {
   menuItemClass,
   menuLabelClass,
@@ -93,17 +94,19 @@ function DropdownMenu({
   }
   return (
     <MenuControlProvider value={root.control}>
-      <PopupAnchorProvider>
-        {defer && !props.handle && typeof props.children !== "function" ? (
-          <DeferredDropdownMenu {...props} filterable={filterable}>
-            {props.children}
-          </DeferredDropdownMenu>
-        ) : (
-          <FilterableRoot filterable={filterable}>
-            <MenuPrimitive.Root {...props} />
-          </FilterableRoot>
-        )}
-      </PopupAnchorProvider>
+      <MenuPickedContext value={root.picked}>
+        <PopupAnchorProvider>
+          {defer && !props.handle && typeof props.children !== "function" ? (
+            <DeferredDropdownMenu {...props} filterable={filterable}>
+              {props.children}
+            </DeferredDropdownMenu>
+          ) : (
+            <FilterableRoot filterable={filterable}>
+              <MenuPrimitive.Root {...props} />
+            </FilterableRoot>
+          )}
+        </PopupAnchorProvider>
+      </MenuPickedContext>
     </MenuControlProvider>
   )
 }
@@ -251,6 +254,28 @@ function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
   item.click()
 }
 
+// Base UI highlights the first row on keyboard open; a picker starts on its checked row.
+function StartOnChecked() {
+  const anchorRef = React.useRef<HTMLSpanElement>(null)
+  React.useLayoutEffect(() => {
+    const popup = anchorRef.current?.parentElement
+    if (!popup) return undefined
+    let live = true
+    queueMicrotask(() =>
+      queueMicrotask(() => {
+        if (!live) return
+        const highlighted = popup.querySelector("[data-highlighted]")
+        const checked = chosenRow(popup)
+        if (highlighted && checked && highlighted !== checked) checked.focus()
+      })
+    )
+    return () => {
+      live = false
+    }
+  }, [])
+  return <span ref={anchorRef} hidden data-menu-chrome />
+}
+
 function DropdownMenuPopup({
   highlightFirst = false,
   className,
@@ -291,6 +316,7 @@ function DropdownMenuPopup({
           {...props}
         >
           <MenuHighlight restOnFirst={highlightFirst} />
+          <StartOnChecked />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
@@ -488,15 +514,16 @@ function DropdownMenuConfirmItem<E = unknown>({
 }
 
 const checkboxItemClass =
-  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground data-[highlighted]:duration-0 [&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:transition-[opacity,filter] [&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:duration-150 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:opacity-40 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:saturate-30 motion-reduce:transition-none"
+  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
 
 const checkboxIndicatorClass =
   "-mr-2 w-0 shrink-0 opacity-0 transition-[width,margin,opacity] duration-[160ms,160ms,80ms] delay-[40ms,40ms,0ms] ease-standard data-[checked]:mr-0 data-[checked]:w-4 data-[checked]:opacity-100 data-[checked]:duration-[260ms,260ms,60ms] data-[checked]:delay-0 data-[checked]:ease-spring motion-reduce:transition-none"
 
+const radioIndicatorClass =
+  "w-4 shrink-0 opacity-0 transition-opacity duration-80 ease-standard data-[checked]:opacity-100 data-[checked]:duration-60 motion-reduce:transition-none"
+
 const checkboxTickClass =
   "fill-none stroke-current stroke-2 [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard group-data-[checked]/check:[stroke-dashoffset:0] group-data-[checked]/check:duration-160 group-data-[checked]/check:delay-90 motion-reduce:transition-none"
-
-const settleAtOnceClass = "transition-none [&_*]:transition-none"
 
 const radioDotClass =
   "origin-center fill-current [scale:0] transition-[scale] duration-80 ease-standard group-data-[checked]/check:[scale:1] group-data-[checked]/check:duration-260 group-data-[checked]/check:delay-60 group-data-[checked]/check:ease-spring motion-reduce:transition-none"
@@ -563,7 +590,6 @@ export type DropdownMenuRadioGroupProps<Value extends string> = Readonly<
   Readonly<{
     items: ReadonlyArray<DropdownMenuRadioOption<Value>>
     value?: NoInfer<Value> | null
-    defaultValue?: NoInfer<Value> | null
     onValueChange?: (
       value: NoInfer<Value>,
       details: MenuPrimitive.RadioGroup.ChangeEventDetails
@@ -574,14 +600,19 @@ function DropdownMenuRadioGroup<
   const Items extends ReadonlyArray<DropdownMenuRadioOption<string>>
 >({
   items,
+  value,
   onValueChange,
   ...props
 }: DropdownMenuRadioGroupProps<Items[number]["value"]> &
   Readonly<{ items: Items }>) {
+  const picked = React.use(MenuPickedContext)
+  const [shown, setShown] = React.useState(value)
+  if (!picked && shown !== value) setShown(value)
   return (
     <MenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
+      value={shown}
       onValueChange={(next, details) => {
         const item = items.find((item) => item.value === next)
         if (item === undefined) {
@@ -624,21 +655,15 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       closeOnClick={closeOnClick}
-      className={cn(
-        menuItemClass,
-        checkboxItemClass,
-        // A pick that closes the menu shows its mark at once: animating the
-        // indent while the menu fades out reads as a missed click.
-        closeOnClick && settleAtOnceClass,
-        className
-      )}
+      aria-keyshortcuts={number}
+      className={cn(menuItemClass, checkboxItemClass, className)}
       {...props}
     >
       <MenuPrimitive.RadioItemIndicator
         keepMounted
         aria-hidden
         data-slot="dropdown-menu-radio-indicator"
-        className={checkboxIndicatorClass}
+        className={radioIndicatorClass}
       >
         <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
           <circle cx="8" cy="8" r="3" className={radioDotClass} />
@@ -697,7 +722,7 @@ function DropdownMenuList({
   return (
     <MenuPrimitive.List
       data-slot="dropdown-menu-list"
-      className={cn("relative overflow-x-hidden", className)}
+      className={cn("relative -mx-1 overflow-x-hidden px-1", className)}
       {...props}
     >
       <MenuHighlight />
@@ -776,10 +801,10 @@ function DropdownMenuShortcut({
 
 // Rows sit 5px inside the popup (4px padding, 1px border). The submenu is
 // placed against the row, so the side offset adds that inset back for a
-// 6px gap between the two surfaces, and the align offset lines its first
+// 2px gap between the two surfaces, and the align offset lines its first
 // row up with the trigger row.
 const MENU_ROW_INSET = 5
-const SUBMENU_GAP = 6
+const SUBMENU_GAP = 2
 const SUBMENU_SIDE_OFFSET = MENU_ROW_INSET + SUBMENU_GAP
 const SUBMENU_ALIGN_OFFSET = -MENU_ROW_INSET
 
@@ -861,6 +886,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPortal>
       <MenuPrimitive.Positioner
+        data-slot="dropdown-menu-sub-positioner"
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -872,6 +898,7 @@ function DropdownMenuSubContent({
           {...props}
         >
           <MenuHighlight restOnFirst />
+          <StartOnChecked />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>

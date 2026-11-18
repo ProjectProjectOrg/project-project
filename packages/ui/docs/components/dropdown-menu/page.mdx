@@ -126,21 +126,29 @@ Every label change rolls through TextSwap and every icon change crossfades, so t
 
 A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a checkbox nested in a menu item. The menu stays open while you toggle, through `closeOnClick={false}`.
 
-### On rows step forward, off rows step back
+### Checked rows step forward, unchecked rows stay plain
 
-A checked row gets a leading tick and a full-colour, semibold label. Unchecked rows dim their marker (dot, icon or avatar), so the selection reads at a glance. Labels and counts keep the muted text colour, which meets WCAG AA contrast (6.9:1 on the menu surface); dimming them further fails it.
+A checked row gets a leading mark and a full-colour, semibold label. Unchecked rows are ordinary rows: icons and avatars in full colour, labels and keys in the muted text colour, which meets WCAG AA contrast (6.9:1 on the dark menu surface, 6.0:1 on the light one). Fading is kept for disabled rows, so "not chosen" never reads as "not available". Screen readers hear the state from `aria-checked`.
 
-### The tick's slot opens and closes
+### Radio rows keep the mark's slot
 
-Ticking opens a 16px slot with a spring, pushing the row along, then draws the tick. Unticking rewinds the tick first, then closes the slot.
+Radio rows reserve the 16px leading slot, chosen or not, so picking another option never shifts the labels. A checkbox row has no slot until it is ticked: ticking opens the slot and draws the tick, and unticking rewinds it.
 
 ### Radio rows match checkbox rows
 
-A radio row behaves like a checkbox row: the chosen option gets the leading slot, a full-colour semibold label and a dot instead of a tick. The dot springs in from nothing once the slot has opened, and shrinks away quickly when another option is chosen. Single and multiple choice then read the same way, and only the mark tells them apart.
+A radio row behaves like a checkbox row: the chosen option gets the leading slot, a full-colour semibold label and a dot instead of a tick. The dot springs in from nothing, and shrinks away quickly when another option is chosen. Single and multiple choice then read the same way, and only the mark tells them apart.
 
 ### Shortcuts are keys, inset like a trailing icon
 
-A row's shortcut is `DropdownMenuShortcut keys="…"`: small Kbd keys (⌘ ⇧ ↑ on a Mac, Ctrl Shift ↑ elsewhere), the same keys as ⌘K, tooltips and buttons. The last key sits 9px from the highlight's end, the same as from its top and bottom. The keys are hidden from screen readers; the item carries `aria-keyshortcuts`.
+A row's shortcut is `DropdownMenuShortcut keys="…"`: small Kbd keys (⌘ ⇧ ↑ on a Mac, Ctrl Shift ↑ elsewhere), the same keys as ⌘K, tooltips and buttons. The last key sits 9px from the highlight's end, the same as from its top and bottom. The keys are hidden from screen readers; the item carries `aria-keyshortcuts`. Radio rows numbered 1 to 9 (then 0) pick on that digit, and carry it as `aria-keyshortcuts` the same way.
+
+### Pickers open on the chosen row
+
+A menu whose first row is a choice (a status picker, a priority submenu) is a picker: with nothing hovered, the highlight rests on the checked row, and a keyboard open starts there too, so arrow keys step on from the current value. An action menu with a few choices further down starts at its top like any other menu.
+
+### A pick closes the menu as it was
+
+A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its way out: the menu fades out showing the selection it opened with, and the new value shows on the page. A selection changing inside a menu that is leaving reads as two events at once. The next open shows the new value. Escape and an outside click close the same way.
 
 ### Hover and press match the buttons
 
@@ -172,7 +180,7 @@ The more-actions menu on a ticket row, opened from its three-dot button. Propert
 
 ### Status picker
 
-The status chip on a ticket. Each status is a radio row with its own icon: the current one gets the dot and keeps its colour, the others dim their icon. A plain link row after the separator leads to the workflow settings.
+The status chip on a ticket. Each status is a radio row with its own icon: the current one gets the dot and the semibold label; every status keeps its icon colour, so each stays recognisable. A plain link row after the separator leads to the workflow settings.
 
 <Demo name="status-picker" title="Status picker" className="min-h-96 place-items-start" />
 

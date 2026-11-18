@@ -10,6 +10,7 @@ import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
+import { keyName, typesText } from "../lib/keyCapHighlight"
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { KbdShortcut, type KeyLabels } from "./kbd"
@@ -93,8 +94,8 @@ let warmUntil = 0
 // tooltip on whatever passes and glide it along with the scroll.
 const SCROLL_QUIET = 200
 let scrollQuietUntil = 0
-// Set when a scroll closes the tooltip, so it vanishes at once instead of
-// fading out over content that has already moved on.
+// Set when a scroll, a resize or the tooltip's own shortcut closes it, so it
+// vanishes at once instead of fading out over content that has moved on.
 let closedByScroll = false
 let showTimer: number | undefined
 // The host's surface, so a hover inside an open card doesn't replace it.
@@ -166,6 +167,13 @@ const hide = (instant = false) => {
   emit()
 }
 
+const MODIFIERS = new Set(["Meta", "Control", "Alt", "Shift"])
+
+const showsKey = (key: string) =>
+  Array.from(surfaceElement?.querySelectorAll("[data-key]") ?? []).some(
+    (cap) => cap.getAttribute("data-key") === key
+  )
+
 const isWarm = () => activeId !== null || performance.now() < warmUntil
 
 const tooltipStore = {
@@ -207,10 +215,10 @@ const tooltipStore = {
       hideTimer = window.setTimeout(() => hide(), 0)
     }
   },
-  dismiss() {
+  dismiss(instant = false) {
     window.clearTimeout(showTimer)
     suppressedId = activeId
-    hide()
+    hide(instant)
   },
   // The trigger opened a menu or popover: its tooltip goes away at once.
   popupOpened(id: string) {
@@ -526,17 +534,25 @@ function HostSurface() {
       window.removeEventListener("scroll", onScroll, { capture: true })
   }, [])
 
-  // Escape and resize close it.
+  // Escape and resize close it. Pressing the key it shows closes it at once:
+  // the shortcut is opening something, and a tooltip fading out would sit on
+  // top of it. Modifiers alone keep it, so their caps light up as held.
   React.useEffect(() => {
     if (id === null) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") tooltipStore.dismiss()
+      else if (
+        !MODIFIERS.has(event.key) &&
+        !typesText(event) &&
+        showsKey(keyName(event))
+      )
+        tooltipStore.dismiss(true)
     }
     const onResize = () => hide(true)
-    document.addEventListener("keydown", onKey)
+    document.addEventListener("keydown", onKey, true)
     window.addEventListener("resize", onResize)
     return () => {
-      document.removeEventListener("keydown", onKey)
+      document.removeEventListener("keydown", onKey, true)
       window.removeEventListener("resize", onResize)
     }
   }, [id])

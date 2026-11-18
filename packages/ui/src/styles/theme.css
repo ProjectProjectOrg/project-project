@@ -546,6 +546,23 @@
   }
 }
 
+/* Base UI leaves a few frames with no submenu between rows: hold the closing one up to 50ms, until the next is placed. */
+[data-slot="dropdown-menu-sub-content"][data-closed] {
+  animation: submenu-hold 50ms steps(1, end);
+}
+:root:has(
+    [data-slot="dropdown-menu-sub-positioner"]:not([style*="opacity: 0"])
+      > [data-open]
+  )
+  [data-slot="dropdown-menu-sub-content"][data-closed] {
+  visibility: hidden;
+}
+@keyframes submenu-hold {
+  to {
+    opacity: 1;
+  }
+}
+
 /* Focus ring, the standard for every interactive @pp/ui component: a 2px
    outline in the app's grey --ring, standing 2px off the element. */
 .focus-ring:focus-visible {

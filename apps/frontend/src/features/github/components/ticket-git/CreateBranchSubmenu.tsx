@@ -62,6 +62,7 @@ export function CreateBranchSubmenu({
         <span className="shrink-0">{m.git_branch_picker_create()}</span>
         <MiddleTruncate
           value={suggestedName}
+          title={suggestedName}
           className="-ml-1 flex-1 text-foreground tabular-nums"
         />
       </DropdownMenuSubTrigger>
