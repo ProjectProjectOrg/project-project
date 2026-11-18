@@ -40,23 +40,21 @@ const SplitTicketFormSchema = Schema.toType(
 
 let nextRowId = 0
 
-export const splitResultDefaults = (
-  source: SplitResultDefaults
-): SplitResultValues => ({
-  rowId: `split-row-${nextRowId++}`,
-  title: "",
-  type: source.type,
-  status: source.status,
-  priority: source.priority,
-  sprintId: source.sprintId,
-  assignees: []
-})
+export const splitResultDefaults = (source: SplitResultDefaults) =>
+  ({
+    rowId: `split-row-${nextRowId++}`,
+    title: "",
+    type: source.type,
+    status: source.status,
+    priority: source.priority,
+    sprintId: source.sprintId,
+    assignees: []
+  }) satisfies SplitResultValues
 
-export const toSplitTicketInput = (
-  results: ReadonlyArray<SplitResultValues>
-): SplitTicketInput => ({
-  results: results.map(({ rowId: _rowId, ...result }) => result)
-})
+export const toSplitTicketInput = (results: ReadonlyArray<SplitResultValues>) =>
+  ({
+    results: results.map(({ rowId: _rowId, ...result }) => result)
+  }) satisfies SplitTicketInput
 
 export const splitTicketFormOpts = appFormOptions({
   defaultValues: { results: [] as Array<SplitResultValues> },

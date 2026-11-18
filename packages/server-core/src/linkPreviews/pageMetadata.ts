@@ -32,12 +32,12 @@ const NAMED_ENTITIES: ReadonlyMap<string, string> = new Map([
   ["trade", "™"]
 ])
 
-const fromCodePoint = (code: number, raw: string): string =>
+const fromCodePoint = (code: number, raw: string) =>
   Number.isInteger(code) && code > 0 && code <= 0x10ffff
     ? String.fromCodePoint(code)
     : raw
 
-const decodeEntities = (text: string): string =>
+const decodeEntities = (text: string) =>
   text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (raw, entity: string) => {
     if (entity.startsWith("#x") || entity.startsWith("#X")) {
       return fromCodePoint(Number.parseInt(entity.slice(2), 16), raw)
@@ -48,7 +48,7 @@ const decodeEntities = (text: string): string =>
     return NAMED_ENTITIES.get(entity.toLowerCase()) ?? raw
   })
 
-const cleanTitle = (raw: string | undefined): string | null => {
+const cleanTitle = (raw: string | undefined) => {
   if (raw === undefined) return null
   const title = decodeEntities(raw).replace(/\s+/g, " ").trim()
   if (title.length === 0) return null
@@ -57,7 +57,7 @@ const cleanTitle = (raw: string | undefined): string | null => {
     : title
 }
 
-const attributes = (source: string): ReadonlyMap<string, string> => {
+const attributes = (source: string) => {
   const found = new Map<string, string>()
   for (const match of source.matchAll(
     /([^\s=/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g
@@ -69,7 +69,7 @@ const attributes = (source: string): ReadonlyMap<string, string> => {
   return found
 }
 
-const headOf = (html: string): string => {
+const headOf = (html: string) => {
   const withoutNoise = html
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
@@ -78,7 +78,7 @@ const headOf = (html: string): string => {
   return end === -1 ? withoutNoise : withoutNoise.slice(0, end)
 }
 
-const resolveHttpUrl = (href: string, base: URL): URL | null => {
+const resolveHttpUrl = (href: string, base: URL) => {
   try {
     const url = new URL(href.trim(), base)
     return url.protocol === "http:" || url.protocol === "https:" ? url : null
@@ -89,7 +89,7 @@ const resolveHttpUrl = (href: string, base: URL): URL | null => {
 
 type IconCandidate = Readonly<{ url: URL; score: number }>
 
-const iconScore = (tag: ReadonlyMap<string, string>, url: URL): number => {
+const iconScore = (tag: ReadonlyMap<string, string>, url: URL) => {
   const sizes = (tag.get("sizes") ?? "").toLowerCase()
   if (
     sizes.split(/\s+/).includes("any") ||
@@ -103,14 +103,14 @@ const iconScore = (tag: ReadonlyMap<string, string>, url: URL): number => {
   return Math.min(...dimensions.map((d) => Math.abs(d - TARGET_ICON_SIZE)))
 }
 
-const bestIcon = (candidates: ReadonlyArray<IconCandidate>): URL | null =>
+const bestIcon = (candidates: ReadonlyArray<IconCandidate>) =>
   candidates.reduce<IconCandidate | null>(
     (best, candidate) =>
       best === null || candidate.score < best.score ? candidate : best,
     null
   )?.url ?? null
 
-export const parsePageMetadata = (html: string, pageUrl: URL): PageMetadata => {
+export const parsePageMetadata = (html: string, pageUrl: URL) => {
   const head = headOf(html)
   const tags = [...head.matchAll(/<(meta|link|base)\b([^>]*)>/gi)].map(
     (match) => ({
@@ -125,7 +125,7 @@ export const parsePageMetadata = (html: string, pageUrl: URL): PageMetadata => {
       ? pageUrl
       : (resolveHttpUrl(baseHref, pageUrl) ?? pageUrl)
 
-  const metaContent = (key: string): string | undefined =>
+  const metaContent = (key: string) =>
     tags
       .find(
         (tag) =>
@@ -167,5 +167,5 @@ export const parsePageMetadata = (html: string, pageUrl: URL): PageMetadata => {
   }
 }
 
-export const defaultFaviconUrl = (pageUrl: URL): string =>
+export const defaultFaviconUrl = (pageUrl: URL) =>
   new URL("/favicon.ico", pageUrl.origin).href

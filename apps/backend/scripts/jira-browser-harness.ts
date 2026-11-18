@@ -157,7 +157,7 @@ export const makeJiraBrowserControlRoutes = (fixture: JiraBrowserFixture) =>
     { prefix: "/__jira-harness" }
   )
 
-export const browserResourcesFromEnv = (): JiraBrowserResources => ({
+export const browserResourcesFromEnv = () => ({
   databaseUrl: process.env.PROJECTPROJECT_TEST_DATABASE_URL ?? "",
   s3Endpoint: process.env.JIRA_BROWSER_S3_ENDPOINT ?? "",
   bucket: process.env.JIRA_BROWSER_BUCKET ?? "",

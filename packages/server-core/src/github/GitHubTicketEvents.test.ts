@@ -1,21 +1,14 @@
 import { PgClient } from "@effect/sql-pg"
 import { it as plainIt, layer } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
-import {
-  NotFound,
-  TicketId,
-  TicketStatus,
-  type TicketBranchEntry,
-  TicketRank
-} from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { NotFound, type TicketBranchEntry } from "@pp/shared"
 import type { GitHubPullRequestWebhookChange } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
-import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
@@ -27,53 +20,34 @@ import {
 import * as GitSyncSchedule from "../git/GitSyncSchedule"
 import * as ProjectGitAutomation from "../git/ProjectGitAutomation"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
+import { makeTicketDocument, ticketId, ticketStatus } from "../tickets/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as GitHubTicketEvents from "./GitHubTicketEvents"
 import * as PullRequestSnapshots from "./PullRequestSnapshots"
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
-const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
-
-const baseDocument = (
-  overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument => ({
-  id: ticketId("T-1"),
-  title: "first",
-  status: ticketStatus("in_progress"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: "feat/T-1",
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
-  updatedBy: "user-1",
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
-  body: "",
-  commentsRegion: "",
-  ...overrides
-})
+const baseDocument = (overrides: Partial<TicketDocs.TicketDocument> = {}) =>
+  makeTicketDocument("T-1", {
+    status: ticketStatus("in_progress"),
+    branch: "feat/T-1",
+    ...overrides
+  })
 
 const baseMatch = (
   overrides: Partial<GitHubTicketEvents.PullRequestWebhookMatch> = {}
-): GitHubTicketEvents.PullRequestWebhookMatch => ({
-  orgSlug: "org",
-  organizationId: "org-1",
-  projectId: "project-1",
-  slug: "p",
-  ticketId: "T-1",
-  branch: "feat/T-1",
-  repoId: "456",
-  isDefault: true,
-  ...overrides
-})
+) =>
+  ({
+    orgSlug: "org",
+    organizationId: "org-1",
+    projectId: "project-1",
+    slug: "p",
+    ticketId: "T-1",
+    branch: "feat/T-1",
+    repoId: "456",
+    isDefault: true,
+    ...overrides
+  }) satisfies GitHubTicketEvents.PullRequestWebhookMatch
 
 const makeFakeDocs = (initial: ReadonlyArray<TicketDocs.TicketDocument>) => {
   const documents = new Map(initial.map((doc) => [doc.id as string, doc]))

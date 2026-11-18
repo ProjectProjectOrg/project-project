@@ -55,7 +55,7 @@ export const presentDetail = (
   scope: ProjectScope["Service"],
   detail: Omit<ProjectDetail, "permissions" | "github" | "githubRepos"> &
     Readonly<{ github: ReadonlyArray<GithubConnection> }>
-): ProjectDetail => ({
+) => ({
   ...detail,
   github: scope.permissions.can({ github: ["read"] })
     ? (detail.github[0] ?? null)
@@ -70,7 +70,7 @@ export const presentDetail = (
 const rescoped = (
   scope: ProjectScope["Service"],
   members: ReadonlyArray<Member>
-): ProjectScope["Service"] => {
+) => {
   const role =
     members.find((candidate) => candidate.id === scope.userId)?.role ?? null
   return {
@@ -170,16 +170,14 @@ const make = Effect.gen(function* () {
       })
       .pipe(
         Effect.map((rows) =>
-          rows.map(
-            (r): Member => ({
-              id: decodeUserId(r.user.id),
-              username: r.user.username,
-              name: r.user.name,
-              email: r.user.email,
-              image: r.user.image,
-              role: makeRole(r.roleId)
-            })
-          )
+          rows.map((r) => ({
+            id: decodeUserId(r.user.id),
+            username: r.user.username,
+            name: r.user.name,
+            email: r.user.email,
+            image: r.user.image,
+            role: makeRole(r.roleId)
+          }))
         ),
         Effect.orDie
       )

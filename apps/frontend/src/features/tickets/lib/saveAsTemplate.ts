@@ -7,7 +7,8 @@ import {
   type TagName,
   type TypeDraft,
   TypeKey,
-  type TicketPriority
+  type TicketPriority,
+  TicketBlockSegment
 } from "@pp/shared"
 
 import type { LibraryLayer } from "@/features/library/atoms/libraryScope"
@@ -33,35 +34,26 @@ export type SaveAsTemplateSummary = Readonly<{
 
 const FALLBACK_KEY = "template"
 
-export const lookupForLayer = (
-  lookup: BlockLookup,
-  layer: LibraryLayer
-): BlockLookup =>
-  layer === "project"
+export const lookupForLayer = (lookup: BlockLookup, layer: LibraryLayer) =>
+  (layer === "project"
     ? lookup
     : (key) => {
         const definition = lookup(key)
         return definition?.origin === "project" ? undefined : definition
-      }
+      }) satisfies BlockLookup
 
-export const saveAsTemplateSummary = (
-  body: string,
-  lookup: BlockLookup
-): SaveAsTemplateSummary => {
+export const saveAsTemplateSummary = (body: string, lookup: BlockLookup) => {
   const template = typeBodyFromTicket(body, lookup)
   return {
     body: template.body,
     blocks: parseTicketBlocks(template.body).filter(
-      (segment) => segment.kind === "block"
+      TicketBlockSegment.$is("block")
     ).length,
     customized: template.customized
   }
 }
 
-export const freeTemplateKey = (
-  name: string,
-  taken: ReadonlySet<string>
-): TypeKey => {
+export const freeTemplateKey = (name: string, taken: ReadonlySet<string>) => {
   const base = keyFromName(name) || FALLBACK_KEY
   const free = (key: string) =>
     key !== NEW_ENTRY_KEY && !isReservedTypeKey(key) && !taken.has(key)
@@ -78,7 +70,7 @@ export const saveAsTemplateDraft = (
   options: SaveAsTemplateOptions,
   lookup: BlockLookup,
   taken: ReadonlySet<string>
-): TypeDraft => {
+) => {
   const name = options.name.trim()
   return {
     key: freeTemplateKey(name, taken),
@@ -89,5 +81,5 @@ export const saveAsTemplateDraft = (
     priority: options.includePriority ? ticket.priority : null,
     tags: options.includeTags ? ticket.tags : [],
     body: saveAsTemplateSummary(ticket.body, lookup).body
-  }
+  } satisfies TypeDraft
 }

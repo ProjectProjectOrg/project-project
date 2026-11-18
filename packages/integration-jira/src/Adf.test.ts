@@ -617,13 +617,12 @@ it("preserves readable text on an unsupported leaf without appending its raw pay
 
 describe("convertAdfToMarkdown block structure", () => {
   it("keeps quotes, panels, expands, decisions, cards, dates and header-less tables readable", () => {
-    const text = (value: string, marks?: Schema.Json): Schema.Json =>
-      marks === undefined
-        ? { type: "text", text: value }
-        : { type: "text", text: value, marks }
-    const paragraph = (
-      ...content: ReadonlyArray<Schema.Json>
-    ): Schema.Json => ({
+    const text = (value: string, marks?: Schema.Json) => ({
+      type: "text",
+      text: value,
+      ...(marks === undefined ? {} : { marks })
+    })
+    const paragraph = (...content: ReadonlyArray<Schema.Json>) => ({
       type: "paragraph",
       content
     })

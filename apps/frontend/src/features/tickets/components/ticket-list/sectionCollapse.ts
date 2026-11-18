@@ -38,17 +38,17 @@ const emptyMemory: MemorySnapshot = {
   record: EMPTY_RECORD
 }
 
-function getMemory(key: string): MemorySnapshot {
+function getMemory(key: string) {
   return memory.get(key) ?? emptyMemory
 }
 
-function setMemory(key: string, next: MemorySnapshot): void {
+function setMemory(key: string, next: MemorySnapshot) {
   memory.set(key, next)
   const set = memoryListeners.get(key)
   if (set) for (const listener of set) listener()
 }
 
-function subscribeMemory(key: string, onStoreChange: () => void): () => void {
+function subscribeMemory(key: string, onStoreChange: () => void) {
   let set = memoryListeners.get(key)
   if (!set) {
     set = new Set()
@@ -61,17 +61,11 @@ function subscribeMemory(key: string, onStoreChange: () => void): () => void {
   }
 }
 
-function toggleInList(
-  ids: ReadonlyArray<string>,
-  id: string
-): ReadonlyArray<string> {
+function toggleInList(ids: ReadonlyArray<string>, id: string) {
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 }
 
-function useMemorySelect<T>(
-  key: string,
-  select: (value: MemorySnapshot) => T
-): readonly [T, (update: (current: MemorySnapshot) => MemorySnapshot) => void] {
+function useMemorySelect<T>(key: string, select: (value: MemorySnapshot) => T) {
   const selectRef = useRef(select)
   selectRef.current = select
   const subscribe = useCallback(
@@ -100,7 +94,7 @@ export function useCollapsedInSet(
   persistKey: string,
   id: string,
   searchQuery: string | undefined
-): readonly [boolean, () => void] {
+) {
   const [persisted, setPersisted] = useLocalStorageSelect(
     persistKey,
     listCodec,
@@ -122,7 +116,7 @@ export function useCollapsedInSet(
     }
     setPersisted((ids) => toggleInList(ids, id))
   }, [id, searchQuery, setMemorySnapshot, setPersisted])
-  return [collapsed, toggle]
+  return [collapsed, toggle] as const
 }
 
 export function useCollapsedInRecord(
@@ -130,7 +124,7 @@ export function useCollapsedInRecord(
   id: string,
   searchQuery: string | undefined,
   defaultCollapsed: boolean
-): readonly [boolean, () => void] {
+) {
   const [persisted, setPersisted] = useLocalStorageSelect(
     persistKey,
     recordCodec,
@@ -161,9 +155,9 @@ export function useCollapsedInRecord(
       [id]: !(record[id] ?? defaultCollapsed)
     }))
   }, [defaultCollapsed, id, searchQuery, setMemorySnapshot, setPersisted])
-  return [collapsed, toggle]
+  return [collapsed, toggle] as const
 }
 
-export function resetSectionCollapseMemory(): void {
+export function resetSectionCollapseMemory() {
   memory.clear()
 }

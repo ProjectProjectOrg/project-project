@@ -17,15 +17,14 @@ export const isEpic = <T extends Typed>(
 ): ticket is T & Readonly<{ type: typeof EPIC_TYPE }> =>
   isEpicType(ticket?.type)
 
-export const canHaveParent = (type: string | null | undefined): boolean =>
+export const canHaveParent = (type: string | null | undefined) =>
   !isEpicType(type)
 
-export const canJoinSprint = (type: string | null | undefined): boolean =>
+export const canJoinSprint = (type: string | null | undefined) =>
   !isEpicType(type)
 
-export const canHoldChildren = (ticket: Typed, parent: Typed): boolean =>
+export const canHoldChildren = (ticket: Typed, parent: Typed) =>
   isEpic(ticket) || parent === null || parent === undefined || isEpic(parent)
 
-export const hasSubTickets = (
-  ticket: Pick<Ticket, "subTicketCount">
-): boolean => (ticket.subTicketCount ?? 0) > 0
+export const hasSubTickets = (ticket: Pick<Ticket, "subTicketCount">) =>
+  (ticket.subTicketCount ?? 0) > 0

@@ -41,6 +41,7 @@ import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
+import { makeTicketDocument } from "@pp/server-core/tickets/testing"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
@@ -57,10 +58,7 @@ import {
   StorageConfigMissing,
   StorageError,
   TicketId,
-  TicketStatus,
-  User,
-  TypeKey,
-  TicketRank
+  User
 } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -92,8 +90,6 @@ const decodeSealedGrant = Schema.decodeEffect(sealedCodec)
 const encodeSealedGrant = Schema.encodeEffect(sealedCodec)
 
 const decodeTicketId = Schema.decodeEffect(TicketId)
-
-const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
 
 const isPrepareTicketAttachmentInput = Schema.is(
   Tools.tools.prepare_ticket_attachment.parametersSchema
@@ -214,27 +210,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
         expect([orgSlug, projectSlug, id]).toEqual([slug, slug, scope.ticketId])
         return options.missingTicket
           ? Effect.fail(new NotFound())
-          : Effect.succeed({
-              id: scope.ticketId,
-              title: "Ticket",
-              body: "Original description",
-              commentsRegion: "",
-              status: decodeTicketStatusSync("todo"),
-              type: TypeKey.make("feat"),
-              priority: "med",
-              rank: TicketRank.make("a0"),
-              tags: [],
-              branch: null,
-              pr: null,
-              prState: null,
-              lastTransitionedPr: null,
-              assignees: [],
-              archivedAt: null,
-              createdBy: user.id,
-              createdAt: user.createdAt,
-              updatedBy: user.id,
-              updatedAt: user.createdAt
-            })
+          : Effect.succeed(makeTicketDocument(scope.ticketId))
       }
     }),
     options.storage

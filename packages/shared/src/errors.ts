@@ -160,7 +160,7 @@ export class GitHubError extends Schema.TaggedError<GitHubError>()(
   static invalidResponse(
     operation: "fetchProjectStateBatch" | "discoverProjectBranches",
     cause: unknown
-  ): GitHubError {
+  ) {
     const message =
       operation === "fetchProjectStateBatch"
         ? "GitHub returned an invalid pull-request page"

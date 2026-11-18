@@ -176,7 +176,7 @@ const NUMBER_KEYS = [
 ] as const satisfies ReadonlyArray<HotkeyChord>
 
 // The digit that picks the nth choice in a list (1 to 9, then 0), if any.
-const numberKey = (index: number): HotkeyChord | undefined => NUMBER_KEYS[index]
+const numberKey = (index: number) => NUMBER_KEYS[index]
 
 // A digit's cap, for numbered choices. Digits need no key names.
 function KbdNumber({

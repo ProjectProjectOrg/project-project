@@ -19,7 +19,7 @@ export const bannerCropRect = (
   containerWidth: number,
   containerHeight: number,
   crop: BannerFrameCrop
-): BannerCropRect => {
+) => {
   const sourceAspect = naturalWidth / naturalHeight
   const cropWidth =
     (sourceAspect > 3 ? naturalHeight * 3 : naturalWidth) / crop.zoom
@@ -38,7 +38,7 @@ export const bannerCropStyle = (
   containerWidth: number,
   containerHeight: number,
   crop: BannerFrameCrop
-): CSSProperties | undefined => {
+) => {
   if (
     naturalWidth <= 0 ||
     naturalHeight <= 0 ||
@@ -61,7 +61,7 @@ export const bannerCropStyle = (
     width: `${(naturalWidth / rect.width) * 100}%`,
     height: `${(naturalHeight / rect.height) * 100}%`,
     maxWidth: "none"
-  }
+  } satisfies CSSProperties
 }
 
 export type BannerPreview = Readonly<{
@@ -73,7 +73,7 @@ export const bannerPreviewChanged = (
   preview: BannerPreview | null,
   appliedSource: string | null,
   appliedCrop: BannerFrameCrop
-): boolean =>
+) =>
   preview !== null &&
   (preview.source !== appliedSource ||
     preview.crop.x !== appliedCrop.x ||
@@ -82,7 +82,7 @@ export const bannerPreviewChanged = (
 
 const FADE_MASK_STEPS = 8
 
-export const bannerFadeMask = (fadeDepth: number): string => {
+export const bannerFadeMask = (fadeDepth: number) => {
   const depth = Math.min(Math.max(fadeDepth, 0), 1)
   if (depth <= 0) return "none"
   const edge0 = 1 - depth

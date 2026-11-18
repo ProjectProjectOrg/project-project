@@ -68,12 +68,13 @@ const can = (grants: AnyGrants, request: AnyGrants, connector: Connector) => {
   )
 }
 
-const makeRole = <S extends Resources>(grants: Grants<S>): Role<S> => ({
-  grants,
-  can: (request, connector = "AND") => can(grants, request, connector)
-})
+const makeRole = <S extends Resources>(grants: Grants<S>) =>
+  ({
+    grants,
+    can: (request, connector = "AND") => can(grants, request, connector)
+  }) satisfies Role<S>
 
-export const make = <S extends Resources>(resources: S): Statement<S> => {
+export const make = <S extends Resources>(resources: S) => {
   const schema = grantsSchema(resources)
   const decodeGrants = Schema.decodeSync(schema)
   return {
@@ -81,6 +82,6 @@ export const make = <S extends Resources>(resources: S): Statement<S> => {
     schema,
     all: decodeGrants(Record.map(resources, (actions) => actions.literals)),
     merge: (...grants) => decodeGrants(union(grants)),
-    role: makeRole
-  }
+    role: makeRole<S>
+  } satisfies Statement<S>
 }

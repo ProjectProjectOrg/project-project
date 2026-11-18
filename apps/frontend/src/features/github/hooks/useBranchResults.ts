@@ -36,10 +36,7 @@ export function usePreloadBranches(repoId?: string) {
   useAtomMount(branches(branchesRequest(orgSlug, slug, "", repoId)))
 }
 
-export function useBranchResults(
-  query: string,
-  repoId?: string
-): BranchResults {
+export function useBranchResults(query: string, repoId?: string) {
   const { orgSlug, slug } = useProjectRoute()
   const term = sanitizeBranchName(query)
   const [debounced] = useDebouncedValue(term, { wait: SEARCH_DEBOUNCE_MS })
@@ -66,5 +63,5 @@ export function useBranchResults(
       if (!exact.hasMore || exact.loadingMore || exact.loadMoreFailed) return
       if (isNearScrollEnd(event.currentTarget)) setPages(pages + 1)
     }
-  }
+  } satisfies BranchResults
 }

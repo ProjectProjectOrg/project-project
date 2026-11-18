@@ -58,9 +58,7 @@ type MaterializationServices =
   | Path.Path
   | Markdown.Markdown
 
-const fenceForInput = (
-  input: MigrationActivityInput
-): MigrationProjection.AttemptFence =>
+const fenceForInput = (input: MigrationActivityInput) =>
   MigrationWorkflow.JiraMigrationWorkflowCommand.match(input.payload.command, {
     Create: () => ({
       migrationId: input.executionId,

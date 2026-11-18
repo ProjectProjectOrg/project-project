@@ -6,9 +6,7 @@ export type DissolveLayer<A> = Readonly<{
 
 export type DissolveBand<A> = DissolveLayer<A> & Readonly<{ from: number }>
 
-export const dissolveBands = <A>(
-  layers: ReadonlyArray<DissolveLayer<A>>
-): ReadonlyArray<DissolveBand<A>> => {
+export const dissolveBands = <A>(layers: ReadonlyArray<DissolveLayer<A>>) => {
   let covered = 0
   const bands: Array<DissolveBand<A>> = []
   for (let index = layers.length - 1; index >= 0; index--) {
@@ -23,7 +21,7 @@ export const pushDissolveLayer = <A>(
   layers: ReadonlyArray<DissolveLayer<A>>,
   previous: A,
   next: A
-): ReadonlyArray<DissolveLayer<A>> => {
+) => {
   const base =
     layers.length > 0 ? layers : [{ id: 0, subject: previous, coverage: 1 }]
   const visible = dissolveBands(base)

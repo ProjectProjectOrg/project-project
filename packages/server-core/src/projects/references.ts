@@ -1,4 +1,4 @@
-import type { FixReferenceAction, ReferenceKind } from "@pp/shared"
+import { FixReferenceAction, type ReferenceKind } from "@pp/shared"
 
 export type ReferenceCandidate = Readonly<{
   kind: ReferenceKind
@@ -32,10 +32,7 @@ const originOf = (url: string) => {
   }
 }
 
-export const referenceCandidates = (
-  body: string,
-  oldOrigin: string | null
-): ReadonlyArray<ReferenceCandidate> => [
+export const referenceCandidates = (body: string, oldOrigin: string | null) => [
   ...[...body.matchAll(MENTION)].map((match) => ({
     kind: match[2] === "user" ? ("user" as const) : ("ticket" as const),
     target: match[3],
@@ -68,14 +65,15 @@ export const applyReferenceFix = (
   body: string,
   reference: Readonly<{ kind: ReferenceKind; target: string }>,
   action: FixReferenceAction
-): string => {
+) => {
   const pattern = new RegExp(
     `\\[([^\\]]*)\\]\\(${escapeRegExp(hrefOf(reference.kind, reference.target))}\\)`,
     "g"
   )
   return body.replace(pattern, (_whole, label: string) =>
-    action.kind === "plain"
-      ? label
-      : `[${label}](${linkedHref(reference.kind, action.to)})`
+    FixReferenceAction.match(action, {
+      plain: () => label,
+      link: ({ to }) => `[${label}](${linkedHref(reference.kind, to)})`
+    })
   )
 }

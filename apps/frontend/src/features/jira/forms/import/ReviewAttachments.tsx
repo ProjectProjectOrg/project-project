@@ -35,7 +35,7 @@ const skipCounts: Readonly<
   unavailable: m.jira_import_attachment_count_unavailable
 }
 
-const skipSummary = (attachments: ReadonlyArray<Attachment>): string =>
+const skipSummary = (attachments: ReadonlyArray<Attachment>) =>
   m.jira_import_attachment_skipped_summary({
     count: attachments.length,
     reasons: formatList(

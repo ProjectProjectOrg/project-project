@@ -28,7 +28,7 @@ const layoutCodec = createLocalStorageCodec(BoardColumnLayout)
 
 const identity = (layout: BoardColumnLayout) => layout
 
-export function useBoardColumns(scope: BoardScope): BoardColumns {
+export function useBoardColumns(scope: BoardScope) {
   const { orgSlug, slug } = useProjectRoute()
   const viewerId = useAtomValue(currentUserId)
   const key = `projectproject:board-columns:${viewerId ?? ""}:${orgSlug}/${slug}/${scope}`

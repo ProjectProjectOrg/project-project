@@ -11,7 +11,7 @@ import {
   daysBetween,
   sprintCountdown,
   sprintEnded,
-  type SprintCountdown
+  SprintCountdown
 } from "@/features/sprints/lib/sprintDates"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -29,7 +29,7 @@ export const SPRINT_STATE_META: Record<
   completed: { icon: Trophy, className: "text-state-success" }
 }
 
-export const sprintStateLabel = (state: SprintStateName): string =>
+export const sprintStateLabel = (state: SprintStateName) =>
   Match.value(state).pipe(
     Match.when("planned", () => m.sprints_planned_label()),
     Match.when("active", () => m.sprints_active_label()),
@@ -72,10 +72,7 @@ export function SprintStateIcon({
   )
 }
 
-const sprintHintText = (
-  state: SprintStateName,
-  status: string | null
-): string =>
+const sprintHintText = (state: SprintStateName, status: string | null) =>
   status === null
     ? sprintStateLabel(state)
     : state === "completed"
@@ -117,15 +114,13 @@ export function SprintChip({
   )
 }
 
-export const countdownLabel = (countdown: SprintCountdown): string =>
-  Match.value(countdown).pipe(
-    Match.discriminatorsExhaustive("kind")({
-      noEnd: () => m.sprints_no_end_date(),
-      left: ({ days }) => m.sprints_active_with_days_left({ days }),
-      lastDay: () => m.sprints_last_day(),
-      ended: ({ days }) => m.sprints_ended_days_ago({ days })
-    })
-  )
+export const countdownLabel = (countdown: SprintCountdown) =>
+  SprintCountdown.$match(countdown, {
+    noEnd: () => m.sprints_no_end_date(),
+    left: ({ days }) => m.sprints_active_with_days_left({ days }),
+    lastDay: () => m.sprints_last_day(),
+    ended: ({ days }) => m.sprints_ended_days_ago({ days })
+  })
 
 export const shortDateFormatter = () =>
   new Intl.DateTimeFormat(getLocale(), {
@@ -133,10 +128,7 @@ export const shortDateFormatter = () =>
     day: "numeric"
   })
 
-export const sprintStatusText = (
-  sprint: SprintTiming,
-  now: Date
-): string | null =>
+export const sprintStatusText = (sprint: SprintTiming, now: Date) =>
   Match.value(sprintState(sprint, now)).pipe(
     Match.when("planned", () =>
       sprint.startsAt === null

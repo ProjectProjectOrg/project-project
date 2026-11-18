@@ -11,15 +11,13 @@ import { projectLibraryFor, projectLibraryRequest } from "./library"
 
 export const USAGE_PROJECT_LIMIT = 24
 
-export type LibraryUsageRequest = Readonly<{
-  _view: "libraryUsage"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type LibraryUsageRequest = ReturnType<typeof libraryUsageRequest>
 
-export const libraryUsageRequest = (orgSlug: string): LibraryUsageRequest => ({
-  _view: "libraryUsage",
-  params: { orgSlug }
-})
+export const libraryUsageRequest = (orgSlug: string) =>
+  ({
+    _view: "libraryUsage",
+    params: { orgSlug }
+  }) as const
 
 export type LibraryUsage = Readonly<{
   libraries: ReadonlyArray<ProjectLibrary>
@@ -37,7 +35,7 @@ export const libraryUsage = Atom.family((req: LibraryUsageRequest) => {
     (get) => {
       const listed = get(projects)
       if (!AsyncResult.isSuccess(listed))
-        return AsyncResult.map(listed, (): LibraryUsage => empty)
+        return AsyncResult.map(listed, () => empty)
       slugs =
         listed.value.length > USAGE_PROJECT_LIMIT
           ? []
@@ -48,16 +46,17 @@ export const libraryUsage = Atom.family((req: LibraryUsageRequest) => {
         AsyncResult.all(
           listed.value.map((project) => get(libraryOf(project.slug)))
         ),
-        (libraries): LibraryUsage => ({
-          complete: true,
-          libraries: libraries.map((library, index) => ({
-            project: {
-              slug: listed.value[index].slug,
-              name: listed.value[index].name
-            },
-            library
-          }))
-        })
+        (libraries) =>
+          ({
+            complete: true,
+            libraries: libraries.map((library, index) => ({
+              project: {
+                slug: listed.value[index].slug,
+                name: listed.value[index].name
+              },
+              library
+            }))
+          }) satisfies LibraryUsage
       )
     },
     (refresh) => {

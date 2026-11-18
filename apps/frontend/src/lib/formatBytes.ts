@@ -1,6 +1,6 @@
 const UNITS = ["B", "KB", "MB", "GB", "TB"] as const
 
-export const formatBytes = (bytes: number, locale: string): string => {
+export const formatBytes = (bytes: number, locale: string) => {
   let value = bytes
   let unit = 0
   while (value >= 1024 && unit < UNITS.length - 1) {

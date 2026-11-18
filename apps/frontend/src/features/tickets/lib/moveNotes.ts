@@ -13,7 +13,7 @@ export const moveNotes = (
   ticket: Pick<TicketDetail, "branch" | "subTicketCount">,
   dropped: MoveDrops,
   sourceMembers: ReadonlyArray<Readonly<{ id: string; name: string }>>
-): ReadonlyArray<string> => {
+) => {
   const names = dropped.assignees.map(
     (id) => sourceMembers.find((member) => member.id === id)?.name ?? id
   )

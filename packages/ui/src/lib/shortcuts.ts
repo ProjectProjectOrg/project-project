@@ -32,7 +32,7 @@ export const KEY_ALIASES: ReadonlyMap<string, string> = new Map([
   ["plus", "+"]
 ])
 
-export const shortcutTokens = (shortcut: string): ReadonlyArray<string> => {
+export const shortcutTokens = (shortcut: string) => {
   const trimmed = shortcut.trim()
   if (trimmed === "") return []
   const tokens = trimmed.split("+").map((t) => t.trim())
@@ -62,8 +62,8 @@ export type KeyLabels = Readonly<{
 
 type CapLabel = Readonly<{ mac: string; other: string }>
 
-const capLabels = (labels: KeyLabels): ReadonlyMap<string, CapLabel> =>
-  new Map([
+const capLabels = (labels: KeyLabels) =>
+  new Map<string, CapLabel>([
     ["mod", { mac: "⌘", other: labels.ctrl }],
     ["meta", { mac: "⌘", other: labels.meta }],
     ["ctrl", { mac: "⌃", other: labels.ctrl }],
@@ -100,7 +100,7 @@ const GLYPH_KEYS: ReadonlyMap<string, string> = new Map([
   ["→", "arrowright"]
 ])
 
-const eventKey = (name: string, mac: boolean): string => {
+const eventKey = (name: string, mac: boolean) => {
   if (name === "mod") return mac ? "meta" : "control"
   if (name === "ctrl") return "control"
   if (name === " ") return "space"
@@ -116,11 +116,7 @@ export type ShortcutCap = Readonly<{
   sequenceStart: boolean
 }>
 
-const chordCaps = (
-  shortcut: string,
-  mac: boolean,
-  labels: KeyLabels
-): Array<Omit<ShortcutCap, "sequenceStart">> => {
+const chordCaps = (shortcut: string, mac: boolean, labels: KeyLabels) => {
   const labelled = capLabels(labels)
   const caps: Array<Omit<ShortcutCap, "sequenceStart">> = []
   for (const token of shortcutTokens(shortcut)) {
@@ -152,7 +148,7 @@ export function formatShortcut(
   shortcut: string,
   mac: boolean,
   labels: KeyLabels
-): ReadonlyArray<string> {
+) {
   return chordCaps(shortcut, mac, labels).map((cap) => cap.label)
 }
 
@@ -162,7 +158,7 @@ export function shortcutCaps(
   keys: string | ReadonlyArray<string>,
   mac: boolean,
   labels: KeyLabels
-): ReadonlyArray<ShortcutCap> {
+) {
   const steps = [keys].flat()
   return steps.flatMap((step, index) =>
     chordCaps(step, mac, labels).map((cap) => ({
@@ -172,7 +168,7 @@ export function shortcutCaps(
   )
 }
 
-const isMacPlatform = (): boolean => {
+const isMacPlatform = () => {
   if (typeof navigator === "undefined") return false
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } }
   const platform = nav.userAgentData?.platform ?? nav.platform ?? ""
@@ -184,5 +180,5 @@ const readMac = () => (macPlatform ??= isMacPlatform())
 const serverMac = () => true
 const subscribeNever = () => () => {}
 
-export const useIsMac = (): boolean =>
+export const useIsMac = () =>
   useSyncExternalStore(subscribeNever, readMac, serverMac)

@@ -5,7 +5,7 @@ import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { m } from "@/paraglide/messages"
 
-export function useGithubWarning(orgSlug: string, slug: string): string | null {
+export function useGithubWarning(orgSlug: string, slug: string) {
   const req = projectRequest(orgSlug, slug)
   const states = useAtomValue(projectGitStates(req))
   if (!Result.isSuccess(states)) return null

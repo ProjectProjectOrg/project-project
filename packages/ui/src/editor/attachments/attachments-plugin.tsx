@@ -20,20 +20,13 @@ import {
   DROP_COMMAND,
   PASTE_COMMAND
 } from "lexical"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useMountedRef } from "../../hooks/useMountedRef"
 import { m } from "../messages"
 import { useEditorServices } from "../services"
 import { AttachmentNode, $createAttachmentNode } from "./attachment-node"
-import { splitPastedAttachments } from "./pasted-attachments"
+import { PastedPart, splitPastedAttachments } from "./pasted-attachments"
 import { staleUploadIds } from "./stale-uploads"
 
 export interface AttachmentsPluginProps {
@@ -46,7 +39,7 @@ export function AttachmentsPlugin({
   orgSlug,
   slug,
   ticketId
-}: AttachmentsPluginProps): JSX.Element | null {
+}: AttachmentsPluginProps) {
   const [editor] = useLexicalComposerContext()
   const upload = useEditorServices().useUploadAttachment(
     useMemo(() => ({ orgSlug, slug, ticketId }), [orgSlug, slug, ticketId])
@@ -170,16 +163,18 @@ export function AttachmentsPlugin({
         event.preventDefault()
         editor.update(() => {
           $insertNodes(
-            parts.map((part) =>
-              part.type === "text"
-                ? $createTextNode(part.value)
-                : $createAttachmentNode({
-                    url: attachmentSrc(part.url),
-                    alt: part.alt,
-                    filename: part.alt,
-                    kind: part.kind,
-                    ...attachmentViewParams(part.url)
+            parts.map(
+              PastedPart.$match({
+                text: ({ value }) => $createTextNode(value),
+                attachment: ({ url, alt, kind }) =>
+                  $createAttachmentNode({
+                    url: attachmentSrc(url),
+                    alt,
+                    filename: alt,
+                    kind,
+                    ...attachmentViewParams(url)
                   })
+              })
             )
           )
         })

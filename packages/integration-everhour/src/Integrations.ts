@@ -127,7 +127,7 @@ type ActiveLink = Readonly<{
 
 const decodeOrgEverhourConfig = Schema.decodeUnknownSync(OrgEverhourConfig)
 
-const emptySummary = (): MutableSummary => ({
+const emptySummary = () => ({
   sectionsCreated: 0,
   sectionsUpdated: 0,
   sectionsArchived: 0,
@@ -164,7 +164,7 @@ export const planWorkTypeTasks = (
     }>
   >,
   config: OrgEverhourConfig
-): ReadonlyArray<DesiredWorkTypeTask> => {
+) => {
   const plan: Array<DesiredWorkTypeTask> = []
   for (const section of sections) {
     if (section.groupId === null) continue
@@ -185,7 +185,7 @@ export const planWorkTypeTasks = (
 export const workTypeTaskAction = (
   row: Readonly<{ name: string; status: string }> | undefined,
   desired: DesiredWorkTypeTask
-): "create" | "update" | "noop" => {
+) => {
   if (!row) return "create"
   const closed = desired.status === "closed"
   if (
@@ -198,9 +198,9 @@ export const workTypeTaskAction = (
   return "noop"
 }
 
-const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
+const toStatus = (row: ActiveLink | null) =>
   row === null
-    ? {
+    ? ({
         status: "not_connected",
         everhourProjectId: null,
         everhourProjectName: null,
@@ -208,8 +208,8 @@ const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
         lastSyncStatus: null,
         lastSyncError: null,
         needsSync: false
-      }
-    : {
+      } satisfies EverhourProjectIntegrationStatus)
+    : ({
         status: row.status === "active" ? "active" : "broken",
         everhourProjectId: row.everhourProjectId,
         everhourProjectName: row.everhourProjectName,
@@ -217,7 +217,7 @@ const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
         lastSyncStatus: row.lastSyncStatus,
         lastSyncError: row.lastSyncError,
         needsSync: row.status !== "active" || row.lastSyncStatus === "error"
-      }
+      } satisfies EverhourProjectIntegrationStatus)
 
 const SYNC_LEASE = Duration.minutes(10)
 const SYNC_RENEW = Duration.minutes(2)

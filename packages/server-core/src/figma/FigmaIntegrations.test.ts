@@ -29,7 +29,7 @@ const isFigmaError = Schema.is(FigmaError)
 
 const isFigmaNotConnected = Schema.is(FigmaNotConnected)
 
-const at = (iso: string): Date =>
+const at = (iso: string) =>
   DateTime.toDate(DateTime.makeUnsafe(Date.parse(iso)))
 
 describe("chooseCredential", () => {
@@ -457,7 +457,7 @@ const proxyDb = (rows: ReadonlyArray<ReadonlyArray<unknown>> = []) => {
 
 type TestDb = Effect.Success<ReturnType<typeof proxyDb>>["db"]
 
-const whereClauseOf = (sql: string): string => {
+const whereClauseOf = (sql: string) => {
   const afterWhere = sql.slice(sql.indexOf(" where ") + " where ".length)
   return afterWhere.slice(0, afterWhere.lastIndexOf(" returning ")).trim()
 }

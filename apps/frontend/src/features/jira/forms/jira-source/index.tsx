@@ -73,14 +73,16 @@ export function JiraSourceForm({
       : undefined
   const failure = mutationFailure(
     createState,
-    (error): CreateFailure => ({
-      message: errorMessage(error),
-      storage: isJiraStorageUnavailable(error)
-    }),
-    (): CreateFailure => ({
-      message: m.jira_import_error_unexpected(),
-      storage: false
-    })
+    (error) =>
+      ({
+        message: errorMessage(error),
+        storage: isJiraStorageUnavailable(error)
+      }) satisfies CreateFailure,
+    () =>
+      ({
+        message: m.jira_import_error_unexpected(),
+        storage: false
+      }) satisfies CreateFailure
   )
 
   return (

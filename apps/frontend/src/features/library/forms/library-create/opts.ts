@@ -20,7 +20,7 @@ export type LibraryCreateValues = Readonly<{
 
 export const effectiveLibraryKey = (
   values: Pick<LibraryCreateValues, "name" | "key">
-): string => values.key ?? keyFromName(values.name.trim())
+) => values.key ?? keyFromName(values.name.trim())
 
 const KEY_PROBLEM_MESSAGES: Readonly<Record<KeyProblem, () => string>> = {
   invalid: () => m.templates_settings_key_invalid(),
@@ -70,23 +70,23 @@ const validateOnceKeyed = createValidator({
   ]
 })
 
-const defaultValuesFor = (layer: LibraryLayer): LibraryCreateValues => ({
-  example: null,
-  name: "",
-  key: null,
-  layer
-})
-
 export const libraryCreateFormOpts = (
   kind: LibraryKind,
   layer: LibraryLayer,
   taken: (layer: LibraryLayer) => ReadonlySet<string>
-) =>
-  appFormOptions({
-    defaultValues: defaultValuesFor(layer),
+) => {
+  const defaultValues: LibraryCreateValues = {
+    example: null,
+    name: "",
+    key: null,
+    layer
+  }
+  return appFormOptions({
+    defaultValues,
     validators: [
       validateOnceKeyed(
         Schema.toStandardSchemaV1(libraryCreateSchema(kind, taken))
       )
     ]
   })
+}

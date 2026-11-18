@@ -42,10 +42,10 @@ docs/                         # Architecture, deploy, integration guides, specs
 bun install
 ```
 
-Install runs `effect-tsgo patch`, which patches TypeScript 7 so both
-command-line typechecks and the native editor language service report Effect
-diagnostics. Install the recommended TypeScript native preview extension and
-select the workspace TypeScript version when prompted.
+Install runs `effect-tsgo patch`, which patches TypeScript 7 so the native
+editor language service reports Effect diagnostics. Install the recommended
+TypeScript native preview extension and select the workspace TypeScript
+version when prompted.
 
 ```bash
 bun run dev           # Postgres, then backend + frontend in parallel
@@ -94,10 +94,10 @@ the React compiler rules (`refs`, `set-state-in-effect`, `immutability`,
 `static-components`) warn. Formatting skips generated Drizzle snapshots,
 `routeTree.gen.ts`, the vendored Everhour schema, and markdown.
 
-Turborepo runs one `tsc --noEmit` per workspace through the patched
-TypeScript 7, preserving the Effect diagnostics configured in
-`tsconfig.base.json`. The frontend's typecheck compiles Paraglide messages
-first, and the Paraglide Vite plugin does the same for dev, build, and test.
+Turborepo runs one `effect-tsgo tsrs --noEmit` per workspace: tsrs, the Rust
+port of TypeScript, with the Effect diagnostics configured in
+`tsconfig.base.json`. Oxlint's type-aware rules run on tsrs too. The
+frontend's typecheck compiles Paraglide messages first, and the Paraglide Vite plugin does the same for dev, build, and test.
 
 Every Effect package, `@effect/vitest` included, is pinned to
 `4.0.5`, which requires Vitest 5. Upgrade them together and rerun the full suite.

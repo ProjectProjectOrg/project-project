@@ -1,26 +1,29 @@
 import { describe, expect, it } from "vitest"
 
-import { panelTransition, projectNavActive, sidebarScope } from "./sidebarRoute"
+import {
+  panelTransition,
+  projectNavActive,
+  sidebarScope,
+  SidebarScope
+} from "./sidebarRoute"
 
 describe("sidebarScope", () => {
   it("puts the org dashboard and all projects in the dashboard scope", () => {
-    expect(sidebarScope("/orgs/acme", "acme", undefined)).toEqual({
-      kind: "dashboard",
-      page: "overview"
-    })
-    expect(sidebarScope("/orgs/acme/projects", "acme", undefined)).toEqual({
-      kind: "dashboard",
-      page: "projects"
-    })
+    expect(sidebarScope("/orgs/acme", "acme", undefined)).toEqual(
+      SidebarScope.dashboard({ page: "overview" })
+    )
+    expect(sidebarScope("/orgs/acme/projects", "acme", undefined)).toEqual(
+      SidebarScope.dashboard({ page: "projects" })
+    )
   })
 
   it("keeps org settings and profile out of every scope", () => {
     expect(
       sidebarScope("/orgs/acme/settings/general", "acme", undefined)
-    ).toEqual({ kind: "none" })
-    expect(sidebarScope("/profile/account", "acme", undefined)).toEqual({
-      kind: "none"
-    })
+    ).toEqual(SidebarScope.none())
+    expect(sidebarScope("/profile/account", "acme", undefined)).toEqual(
+      SidebarScope.none()
+    )
   })
 
   it("scopes a project's settings to the project", () => {
@@ -30,12 +33,13 @@ describe("sidebarScope", () => {
         "acme",
         undefined
       )
-    ).toEqual({
-      kind: "project",
-      slug: "web",
-      route: { page: "settings", sub: "workflow" },
-      viewing: null
-    })
+    ).toEqual(
+      SidebarScope.project({
+        slug: "web",
+        route: { page: "settings", sub: "workflow" },
+        viewing: null
+      })
+    )
   })
 
   it("views the ticket and lights Backlog, or Sprints when opened from one", () => {
@@ -46,7 +50,7 @@ describe("sidebarScope", () => {
     )
     expect(plain).toMatchObject({
       route: { page: "backlog" },
-      viewing: { kind: "ticket", ref: "WEB-3" }
+      viewing: { _tag: "ticket", ref: "WEB-3" }
     })
     const fromSprint = sidebarScope(
       "/orgs/acme/projects/web/tickets/WEB-3",
@@ -55,14 +59,14 @@ describe("sidebarScope", () => {
     )
     expect(fromSprint).toMatchObject({
       route: { page: "sprints", sub: "s1" },
-      viewing: { kind: "ticket", ref: "WEB-3" }
+      viewing: { _tag: "ticket", ref: "WEB-3" }
     })
   })
 
   it("views a sprint by id but not the current-sprint alias", () => {
     expect(
       sidebarScope("/orgs/acme/projects/web/sprints/G-4", "acme", undefined)
-    ).toMatchObject({ viewing: { kind: "sprint" } })
+    ).toMatchObject({ viewing: { _tag: "sprint" } })
     expect(
       sidebarScope("/orgs/acme/projects/web/sprints/current", "acme", undefined)
     ).toMatchObject({ viewing: null })

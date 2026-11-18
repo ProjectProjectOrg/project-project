@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 
-import type { AsyncFailure } from "@/components/shell/AsyncView"
+import { AsyncFailure } from "@/components/shell/AsyncView"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -14,8 +14,10 @@ export function ReadFailure<E>({
   onRetry: () => void
   className?: string
 }>) {
-  const message =
-    failure.kind === "error" ? errorMessage(failure.error) : m.error_unknown()
+  const message = AsyncFailure.$match(failure, {
+    error: ({ error }) => errorMessage(error),
+    defect: () => m.error_unknown()
+  })
   return (
     <div
       role="alert"

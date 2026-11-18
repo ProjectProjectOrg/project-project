@@ -26,8 +26,8 @@ const BannerShader = lazy(() =>
 
 const RENDER_QUALITY = 0.9
 
-const toBlob = (canvas: HTMLCanvasElement): Promise<Blob | null> =>
-  new Promise((resolve) => {
+const toBlob = (canvas: HTMLCanvasElement) =>
+  new Promise<Blob | null>((resolve) => {
     if (typeof canvas.toBlob !== "function") return resolve(null)
     canvas.toBlob(resolve, "image/webp", RENDER_QUALITY)
   })

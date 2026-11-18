@@ -24,7 +24,7 @@ const entry = (
   change: TicketActivityChange,
   actor: ActivityActor["Service"] = wouter,
   cause: ActivityCause | null = null
-): TicketActivity.StoredTicketActivity => {
+) => {
   sequence += 1
   return {
     id: `a${sequence}`,
@@ -35,14 +35,15 @@ const entry = (
     actor,
     cause,
     change
-  }
+  } satisfies TicketActivity.StoredTicketActivity
 }
 
-const moved = (from: string, to: string): TicketActivityChange => ({
-  kind: "status_changed",
-  from: status(from),
-  to: status(to)
-})
+const moved = (from: string, to: string) =>
+  ({
+    kind: "status_changed",
+    from: status(from),
+    to: status(to)
+  }) satisfies TicketActivityChange
 const edited: TicketActivityChange = { kind: "description_edited" }
 
 const newestFirst = (

@@ -40,38 +40,37 @@ export type TicketRowPage = Readonly<{
 
 export type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
 
-const withoutUnsetFields = <A extends object>(value: A): A =>
+const withoutUnsetFields = <A extends object>(value: A) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- fromEntries drops key types; only undefined fields are removed
   Object.fromEntries(
     Object.entries(value).filter(([, field]) => field !== undefined)
   ) as A
 
-export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
+export const ticketListQueryOf = (query: QueryWithView) => {
   const { view: _view, ...rest } = query
   return withoutUnsetFields(rest)
 }
 
-export const withoutEpics = <Q extends TicketFilter>(query: Q): Q =>
+export const withoutEpics = <Q extends TicketFilter>(query: Q) =>
   query.excludeType?.includes(EPIC_TYPE)
     ? query
     : { ...query, excludeType: [...(query.excludeType ?? []), EPIC_TYPE] }
 
-export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
+export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q) =>
   query.type?.length ? query : withoutEpics(query)
 
-export const viewQuery = (query: QueryWithView): TicketListQuery =>
+export const viewQuery = (query: QueryWithView) =>
   withoutEpicsByDefault(ticketListQueryOf(query))
 
-export const toRow = (row: TicketListRow): TicketRow => ({
-  ticket: row.ticket,
-  key: row.ticket.id,
-  orderKey: row.orderKey,
-  pending: false
-})
+export const toRow = (row: TicketListRow) =>
+  ({
+    ticket: row.ticket,
+    key: row.ticket.id,
+    orderKey: row.orderKey,
+    pending: false
+  }) satisfies TicketRow
 
-export const dedupeById = (
-  rows: ReadonlyArray<TicketRow>
-): ReadonlyArray<TicketRow> => {
+export const dedupeById = (rows: ReadonlyArray<TicketRow>) => {
   const seen = new Set<string>()
   const out: Array<TicketRow> = []
   for (const row of rows) {
@@ -85,7 +84,7 @@ export const dedupeById = (
 export const withCreatedKeys = (
   rows: ReadonlyArray<TicketRow>,
   createdKeys: ReadonlyMap<TicketId, string>
-): ReadonlyArray<TicketRow> =>
+) =>
   dedupeById(rows).map((row) => ({
     ...row,
     key: createdKeys.get(row.ticket.id) ?? row.key
@@ -95,7 +94,7 @@ export const insertByOrderKey = (
   items: ReadonlyArray<TicketRow>,
   row: TicketRow,
   dir: TicketSort["dir"]
-): ReadonlyArray<TicketRow> => {
+) => {
   const orderKey = row.orderKey
   if (orderKey === null) return [row, ...items]
   let low = 0
@@ -117,7 +116,7 @@ export const insertByOrderKey = (
 export const patchesSortedField = (
   patch: TicketEdit,
   key: TicketSort["key"]
-): boolean => {
+) => {
   if (key === "updated") return true
   if (key === "manual") return patch.position !== undefined
   if (key === "title") return patch.title !== undefined
@@ -126,7 +125,7 @@ export const patchesSortedField = (
   return false
 }
 
-export const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
+export const localOrderKey = (ticket: Ticket, sort: TicketSort) => {
   let value: string
   switch (sort.key) {
     case "manual":
@@ -162,7 +161,7 @@ export const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
 export const placeholderId = (
   taken: ReadonlyArray<TicketRow>,
   prefix: string
-): TicketId => {
+) => {
   const used = new Set(taken.map((row) => row.ticket.id))
   let n = 999999
   while (used.has(TicketId.make(`${prefix}-${n}`))) n++
@@ -191,10 +190,7 @@ export type QuickCreateInput = Readonly<{
   prediction: QuickCreatePrediction
 }>
 
-export const quickCreatePayload = ({
-  payload,
-  parent
-}: QuickCreateInput): QuickCreateTicketInput =>
+export const quickCreatePayload = ({ payload, parent }: QuickCreateInput) =>
   parent === undefined ? payload : { ...payload, parent: parent.id }
 
 const PREDICTED_TOP_RANK = TicketRank.make(" ")
@@ -204,52 +200,54 @@ export const predictedTicket = (
   id: TicketId,
   status: TicketStatus,
   now: Date
-): Ticket => ({
-  id,
-  title: input.payload.title,
-  status,
-  type: input.payload.type ?? null,
-  priority: input.prediction.priority ?? "med",
-  rank: PREDICTED_TOP_RANK,
-  estimate: null,
-  flag: null,
-  tags: input.prediction.tags ?? [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch", baseBranch: "" },
-  assignees: [],
-  parent: input.parent ?? null,
-  archivedAt: null,
-  createdBy: input.prediction.createdBy,
-  createdAt: now,
-  updatedAt: now
-})
+) =>
+  ({
+    id,
+    title: input.payload.title,
+    status,
+    type: input.payload.type ?? null,
+    priority: input.prediction.priority ?? "med",
+    rank: PREDICTED_TOP_RANK,
+    estimate: null,
+    flag: null,
+    tags: input.prediction.tags ?? [],
+    branch: null,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    gitState: { tag: "no_branch", baseBranch: "" },
+    assignees: [],
+    parent: input.parent ?? null,
+    archivedAt: null,
+    createdBy: input.prediction.createdBy,
+    createdAt: now,
+    updatedAt: now
+  }) satisfies Ticket
 
 export const placeholderRow = (
   input: QuickCreateInput,
   taken: ReadonlyArray<TicketRow>,
   status: TicketStatus,
   now: Date
-): TicketRow => ({
-  ticket: predictedTicket(
-    input,
-    placeholderId(taken, input.prediction.projectPrefix),
-    status,
-    now
-  ),
-  key: input.prediction.clientId,
-  orderKey: null,
-  pending: true
-})
+) =>
+  ({
+    ticket: predictedTicket(
+      input,
+      placeholderId(taken, input.prediction.projectPrefix),
+      status,
+      now
+    ),
+    key: input.prediction.clientId,
+    orderKey: null,
+    pending: true
+  }) satisfies TicketRow
 
 export const patchTicketRow = (
   row: TicketRow,
   patch: TicketEdit,
   sort: TicketSort,
   now: Date
-): TicketRow => {
+) => {
   const ticket = { ...applyTicketPatch(row.ticket, patch), updatedAt: now }
   return {
     ...row,

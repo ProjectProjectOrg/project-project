@@ -90,25 +90,22 @@ export type TicketMovePlan<T extends MovableTicket> = Readonly<{
 export const defaultMoveStatus = (
   current: string,
   statuses: ReadonlyArray<string>
-): string | null =>
-  statuses.includes(current) ? current : (statuses[0] ?? null)
+) => (statuses.includes(current) ? current : (statuses[0] ?? null))
 
-export const keepsTypeIn = (
-  type: string | null,
-  types: ReadonlySet<string>
-): boolean => type === null || isEpicType(type) || types.has(type)
+export const keepsTypeIn = (type: string | null, types: ReadonlySet<string>) =>
+  type === null || isEpicType(type) || types.has(type)
 
 export const planTicketMove = <T extends MovableTicket>(
   ticket: T,
   destination: MoveDestination,
   requestedStatus?: string
-): TicketMovePlan<T> => {
+) => {
   const knownTags = new Set(destination.tags)
   const hasEstimate = ticket.estimate !== undefined && ticket.estimate !== null
   const keepsEstimate =
     hasEstimate && ticket.estimate?.unit === destination.estimation
   const keepsType = keepsTypeIn(ticket.type, destination.types)
-  return {
+  const plan: TicketMovePlan<T> = {
     type: keepsType ? ticket.type : null,
     status:
       requestedStatus ?? defaultMoveStatus(ticket.status, destination.statuses),
@@ -124,6 +121,7 @@ export const planTicketMove = <T extends MovableTicket>(
       estimate: hasEstimate && !keepsEstimate
     }
   }
+  return plan
 }
 
 export type MoveMentionContext = Readonly<{
@@ -136,7 +134,7 @@ const afterMove = (
   target: TicketMentionTarget,
   context: MoveMentionContext,
   writtenIn: string
-): TicketMentionTarget => {
+) => {
   const project = target.projectSlug ?? writtenIn
   const movedTo =
     project === context.fromProject
@@ -147,16 +145,13 @@ const afterMove = (
     : { projectSlug: context.toProject, ticketId: movedTo }
 }
 
-const relativeTo = (
-  target: TicketMentionTarget,
-  projectSlug: string
-): TicketMentionTarget =>
+const relativeTo = (target: TicketMentionTarget, projectSlug: string) =>
   target.projectSlug === projectSlug ? { ...target, projectSlug: null } : target
 
 export const rewriteMentionsInMovedTicket = (
   text: string,
   context: MoveMentionContext
-): string =>
+) =>
   rewriteTicketMentions(text, (target) =>
     relativeTo(
       afterMove(target, context, context.fromProject),
@@ -168,7 +163,7 @@ export const rewriteMentionsOfMovedTickets = (
   text: string,
   context: MoveMentionContext,
   writtenIn: string
-): string =>
+) =>
   rewriteTicketMentions(text, (target) => {
     const project = target.projectSlug ?? writtenIn
     return project === context.fromProject && context.moved.has(target.ticketId)

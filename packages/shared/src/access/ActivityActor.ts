@@ -14,24 +14,21 @@ export class ActivityActor extends Context.Service<
     }>
   | Readonly<{ kind: "system"; source: ActivitySystemSource }>
 >()("@pp/shared/access/ActivityActor") {
-  static readonly user = (userId: string): ActivityActor["Service"] => ({
-    kind: "user",
-    userId
-  })
+  static readonly user = (userId: string) =>
+    ({ kind: "user", userId }) satisfies ActivityActor["Service"]
   static readonly agent = (
     userId: string,
     client: Readonly<{ id: string; name: string }>
-  ): ActivityActor["Service"] => ({
-    kind: "agent",
-    userId,
-    clientId: client.id,
-    clientName: client.name
-  })
-  static readonly system = (
-    source: ActivitySystemSource
-  ): ActivityActor["Service"] => ({ kind: "system", source })
+  ) =>
+    ({
+      kind: "agent",
+      userId,
+      clientId: client.id,
+      clientName: client.name
+    }) satisfies ActivityActor["Service"]
+  static readonly system = (source: ActivitySystemSource) =>
+    ({ kind: "system", source }) satisfies ActivityActor["Service"]
 }
 
-export const activityActorUserId = (
-  actor: ActivityActor["Service"]
-): string | null => (actor.kind === "system" ? null : actor.userId)
+export const activityActorUserId = (actor: ActivityActor["Service"]) =>
+  actor.kind === "system" ? null : actor.userId

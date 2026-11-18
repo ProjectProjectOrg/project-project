@@ -16,5 +16,5 @@ export type EditorBlocks = Readonly<{
   onMakeDefinition?: (definition: BlockDefinition, content: string) => void
 }>
 
-export const hasBlockGutter = (blocks: EditorBlocks | undefined): boolean =>
+export const hasBlockGutter = (blocks: EditorBlocks | undefined) =>
   blocks !== undefined && blocks.mode !== "definition"

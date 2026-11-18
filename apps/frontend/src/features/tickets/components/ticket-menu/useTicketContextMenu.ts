@@ -12,16 +12,16 @@ type OpenMenu = { current: Handoff | null }
 
 const openMenu: OpenMenu = { current: null }
 
-const pointAnchor = (x: number, y: number): Anchor => ({
+const pointAnchor = (x: number, y: number) => ({
   getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
 })
 
-const opensMenu = (target: EventTarget, trigger: Element): boolean =>
+const opensMenu = (target: EventTarget, trigger: Element) =>
   target instanceof Element &&
   trigger.contains(target) &&
   target.closest("input, textarea, select, [contenteditable='true']") === null
 
-const isSecondaryPress = (event: Event): boolean =>
+const isSecondaryPress = (event: Event) =>
   event instanceof globalThis.MouseEvent && event.button === 2
 
 type OpenChangeDetails = Readonly<{

@@ -171,8 +171,8 @@ export const BUILTIN_TYPE_KEYS: ReadonlyArray<TypeKey> = BUILTIN_TYPES.map(
   (type) => type.key
 )
 
-export const isBuiltinTypeKey = (key: string): boolean =>
+export const isBuiltinTypeKey = (key: string) =>
   BUILTIN_TYPE_KEYS.some((builtin) => builtin === key)
 
-export const builtinType = (key: string): TypeDraft | undefined =>
+export const builtinType = (key: string) =>
   BUILTIN_TYPES.find((type) => type.key === key)

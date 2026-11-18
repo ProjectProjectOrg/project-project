@@ -24,6 +24,7 @@ import {
 } from "@pp/integration-jira/PublicationArtifacts"
 import { aliasJiraMediaReferences } from "@pp/integration-jira/PublicationPlan"
 import {
+  JiraPublicationPlanResult,
   JiraPublicationPlanV1,
   jiraAttachmentId,
   prepareJiraPublication as prepareJiraPublicationWithFormat
@@ -1204,116 +1205,120 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
   )
 })
 
-const convertedText = (markdown: string): JiraConvertedText => ({
-  markdown,
-  references: [],
-  warnings: [],
-  adf: {}
-})
+const convertedText = (markdown: string) =>
+  ({
+    markdown,
+    references: [],
+    warnings: [],
+    adf: {}
+  }) satisfies JiraConvertedText
 
-const manifest = (): JiraMigrationManifest => ({
-  version: 1,
-  migrationId: "migration-1",
-  source: {
-    cloudId: "cloud-1",
-    siteUrl: "https://example.atlassian.net",
-    projectId: "10000",
-    projectKey: "APP",
-    projectName: "Application",
-    productType: "software",
-    scannedAt: "2026-09-14T12:00:00Z"
-  },
-  identities: [
-    {
-      accountId: "account-linked",
-      displayName: "Linked User",
-      emailAddress: null,
-      active: true,
-      accountType: "atlassian",
-      raw: {}
+const manifest = () =>
+  ({
+    version: 1,
+    migrationId: "migration-1",
+    source: {
+      cloudId: "cloud-1",
+      siteUrl: "https://example.atlassian.net",
+      projectId: "10000",
+      projectKey: "APP",
+      projectName: "Application",
+      productType: "software",
+      scannedAt: "2026-09-14T12:00:00Z"
     },
-    {
-      accountId: "account-unlinked",
-      displayName: "Former User",
-      emailAddress: null,
-      active: false,
-      accountType: "atlassian",
-      raw: {}
-    }
-  ],
-  statuses: [
-    { id: "status-open", name: "Open", categoryKey: "new", raw: {} },
-    {
-      id: "status-hold",
-      name: "On hold",
-      categoryKey: "indeterminate",
-      raw: {}
-    }
-  ],
-  issueTypes: [{ id: "type-1", name: "Bug", subtask: false, raw: {} }],
-  priorities: [{ id: "priority-1", name: "High", raw: {} }],
-  components: [{ id: "component-1", name: "API", description: null, raw: {} }],
-  issues: [
-    {
-      id: "issue-1",
-      key: "APP-1",
-      issueNumber: 1,
-      summary: "First",
-      description: convertedText("Body one"),
-      statusId: "status-open",
-      issueTypeId: "type-1",
-      priorityId: "priority-1",
-      assigneeAccountId: "account-linked",
-      labels: ["Urgent"],
-      componentIds: ["component-1"],
-      groupIds: [],
-      parentIssueId: null,
-      attachmentIds: [],
-      restricted: false,
-      createdAt: "2026-09-01T10:00:00Z",
-      updatedAt: "2026-09-02T10:00:00Z",
-      raw: {}
-    },
-    {
-      id: "issue-7",
-      key: "APP-7",
-      issueNumber: 7,
-      summary: "Seventh",
-      description: null,
-      statusId: "status-hold",
-      issueTypeId: "type-1",
-      priorityId: "priority-1",
-      assigneeAccountId: "account-unlinked",
-      labels: [],
-      componentIds: [],
-      groupIds: [],
-      parentIssueId: null,
-      attachmentIds: [],
-      restricted: false,
-      createdAt: "2026-09-01T10:00:00Z",
-      updatedAt: "2026-09-02T10:00:00Z",
-      raw: {}
-    }
-  ],
-  comments: [
-    {
-      id: "comment-1",
-      issueId: "issue-1",
-      authorAccountId: "account-unlinked",
-      authorDisplayName: "Former User",
-      body: convertedText("Historical note"),
-      createdAt: "2026-09-01T11:00:00Z",
-      updatedAt: null,
-      restricted: false,
-      raw: {}
-    }
-  ],
-  attachments: [],
-  groups: [],
-  restrictions: [],
-  coverage: [],
-  rawPages: []
-})
+    identities: [
+      {
+        accountId: "account-linked",
+        displayName: "Linked User",
+        emailAddress: null,
+        active: true,
+        accountType: "atlassian",
+        raw: {}
+      },
+      {
+        accountId: "account-unlinked",
+        displayName: "Former User",
+        emailAddress: null,
+        active: false,
+        accountType: "atlassian",
+        raw: {}
+      }
+    ],
+    statuses: [
+      { id: "status-open", name: "Open", categoryKey: "new", raw: {} },
+      {
+        id: "status-hold",
+        name: "On hold",
+        categoryKey: "indeterminate",
+        raw: {}
+      }
+    ],
+    issueTypes: [{ id: "type-1", name: "Bug", subtask: false, raw: {} }],
+    priorities: [{ id: "priority-1", name: "High", raw: {} }],
+    components: [
+      { id: "component-1", name: "API", description: null, raw: {} }
+    ],
+    issues: [
+      {
+        id: "issue-1",
+        key: "APP-1",
+        issueNumber: 1,
+        summary: "First",
+        description: convertedText("Body one"),
+        statusId: "status-open",
+        issueTypeId: "type-1",
+        priorityId: "priority-1",
+        assigneeAccountId: "account-linked",
+        labels: ["Urgent"],
+        componentIds: ["component-1"],
+        groupIds: [],
+        parentIssueId: null,
+        attachmentIds: [],
+        restricted: false,
+        createdAt: "2026-09-01T10:00:00Z",
+        updatedAt: "2026-09-02T10:00:00Z",
+        raw: {}
+      },
+      {
+        id: "issue-7",
+        key: "APP-7",
+        issueNumber: 7,
+        summary: "Seventh",
+        description: null,
+        statusId: "status-hold",
+        issueTypeId: "type-1",
+        priorityId: "priority-1",
+        assigneeAccountId: "account-unlinked",
+        labels: [],
+        componentIds: [],
+        groupIds: [],
+        parentIssueId: null,
+        attachmentIds: [],
+        restricted: false,
+        createdAt: "2026-09-01T10:00:00Z",
+        updatedAt: "2026-09-02T10:00:00Z",
+        raw: {}
+      }
+    ],
+    comments: [
+      {
+        id: "comment-1",
+        issueId: "issue-1",
+        authorAccountId: "account-unlinked",
+        authorDisplayName: "Former User",
+        body: convertedText("Historical note"),
+        createdAt: "2026-09-01T11:00:00Z",
+        updatedAt: null,
+        restricted: false,
+        raw: {}
+      }
+    ],
+    attachments: [],
+    groups: [],
+    restrictions: [],
+    coverage: [],
+    rawPages: []
+  }) satisfies JiraMigrationManifest
 
 const manifestV2 = (migrationId: string) => {
   const source = manifest()
@@ -1402,8 +1407,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.project.slug).toBe("application")
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1", "APP-7"])
     expect(result.plan.tickets[0]?.status).toBe("todo")
@@ -1419,7 +1424,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.createdStatuses.map(({ slug }) => slug)).toEqual([
       "on_hold"
     ])
@@ -1435,7 +1441,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.comments).toHaveLength(1)
     expect(result.plan.comments[0]?.author).toEqual({
       kind: "jira",
@@ -1452,7 +1459,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.tickets[0]?.assignees).toEqual(["user-1"])
     expect(result.plan.tickets[1]?.assignees).toEqual([])
   })
@@ -1465,8 +1473,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    expect(result.kind).toBe("blocked")
-    if (result.kind !== "blocked") return
+    expect(result._tag).toBe("blocked")
+    if (!JiraPublicationPlanResult.$is("blocked")(result)) return
     expect(result.blockers.map(({ code }) => code)).toContain(
       "project-slug-collision"
     )
@@ -1483,7 +1491,8 @@ describe("tag renaming", () => {
     })
     const result = buildJiraImportPlan(manifest(), withRename, environment, {})
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     const names = result.plan.tags.map(({ name }) => name)
     expect(names).toContain("p0")
     expect(names).not.toContain("urgent")
@@ -1498,13 +1507,14 @@ describe("tag renaming", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.tags.map(({ name }) => name)).toContain("urgent")
   })
 })
 
 describe("aliasJiraMediaReferences", () => {
-  const mediaManifest = (): JiraMigrationManifest => {
+  const mediaManifest = () => {
     const base = manifest()
     return {
       ...base,
@@ -1540,7 +1550,7 @@ describe("aliasJiraMediaReferences", () => {
           }
         }
       ]
-    }
+    } satisfies JiraMigrationManifest
   }
 
   it("maps the ADF media uuid onto the copied attachment url", () => {
@@ -1647,7 +1657,7 @@ describe("embedded image references", () => {
       "10349": "/api/attachments/example/DOC"
     })
 
-    if (result.kind !== "ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
       throw new Error(`blocked: ${encodeJson(result.blockers)}`)
     const body = result.plan.comments[0].body
     expect(body).toContain("![Screenshot.png](/api/attachments/example/IMG)")

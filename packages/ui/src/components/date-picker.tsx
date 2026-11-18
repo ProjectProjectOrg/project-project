@@ -1,3 +1,4 @@
+import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Option from "effect/Option"
 import {
@@ -104,33 +105,35 @@ const formatRange = ({ from, to }: DateRange) =>
 
 const toDate = (day: DateTime.Zoned) => DateTime.toDateUtc(day)
 
-type Preview =
-  | Readonly<{ kind: "empty" }>
-  | Readonly<{ kind: "unreadable" }>
-  | Readonly<{ kind: "day"; value: Date }>
-  | Readonly<{ kind: "range"; value: DateRange }>
+type Preview = Data.TaggedEnum<{
+  empty: {}
+  unreadable: {}
+  day: Readonly<{ value: Date }>
+  range: Readonly<{ value: DateRange }>
+}>
+const Preview = Data.taggedEnum<Preview>()
 
 const readTyped = (
   text: string,
   mode: "single" | "range",
   allowPast: boolean
-): Preview => {
-  if (text.trim() === "") return { kind: "empty" }
+) => {
+  if (text.trim() === "") return Preview.empty()
   const now = DateTime.nowUnsafe()
   if (mode === "single")
     return Option.match(parseDayAt(text, now, { allowPast }), {
-      onNone: () => ({ kind: "unreadable" }),
-      onSome: (day) => ({ kind: "day", value: toDate(day) })
+      onNone: () => Preview.unreadable(),
+      onSome: (day) => Preview.day({ value: toDate(day) })
     })
   return Option.match(parseRangeAt(text, now, { allowPast }), {
-    onNone: () => ({ kind: "unreadable" }),
-    onSome: ({ from, to }) => ({
-      kind: "range",
-      value: {
-        from: toDate(from),
-        to: Option.getOrUndefined(Option.map(to, toDate))
-      }
-    })
+    onNone: () => Preview.unreadable(),
+    onSome: ({ from, to }) =>
+      Preview.range({
+        value: {
+          from: toDate(from),
+          to: Option.getOrUndefined(Option.map(to, toDate))
+        }
+      })
   })
 }
 
@@ -155,14 +158,16 @@ function DatePicker(props: DatePickerProps) {
   const preview = readTyped(typed, props.mode, allowPast)
   const [month, setMonth] = useState<Date | undefined>(undefined)
 
-  const shown: Date | DateRange | undefined =
-    preview.kind === "day" || preview.kind === "range"
-      ? preview.value
-      : props.value
+  const typedDate = Preview.$is("day")(preview) || Preview.$is("range")(preview)
+  const shown: Date | DateRange | undefined = Preview.$match(preview, {
+    empty: () => props.value,
+    unreadable: () => props.value,
+    day: ({ value }) => value,
+    range: ({ value }) => value
+  })
   const anchor = shown instanceof Date ? shown : (shown?.from ?? undefined)
   // The calendar follows a typed date; otherwise the user's own paging.
-  const visibleMonth =
-    preview.kind === "day" || preview.kind === "range" ? anchor : month
+  const visibleMonth = typedDate ? anchor : month
 
   const reset = () => {
     setTyped("")
@@ -174,11 +179,11 @@ function DatePicker(props: DatePickerProps) {
   }
 
   const applyTyped = () => {
-    if (preview.kind === "day" && props.mode === "single") {
+    if (Preview.$is("day")(preview) && props.mode === "single") {
       props.onChange(preview.value)
       close()
     }
-    if (preview.kind === "range" && props.mode === "range") {
+    if (Preview.$is("range")(preview) && props.mode === "range") {
       props.onChange(preview.value)
       if (preview.value.to !== undefined) close()
       else setTyped("")
@@ -219,12 +224,12 @@ function DatePicker(props: DatePickerProps) {
     triggerRef.current?.focus()
   }, [typingFrom])
 
-  const applyPreview = (next: Preview): boolean => {
-    if (next.kind === "day" && props.mode === "single") {
+  const applyPreview = (next: Preview) => {
+    if (Preview.$is("day")(next) && props.mode === "single") {
       props.onChange(next.value)
       return true
     }
-    if (next.kind === "range" && props.mode === "range") {
+    if (Preview.$is("range")(next) && props.mode === "range") {
       props.onChange(next.value)
       return true
     }
@@ -324,7 +329,7 @@ function DatePicker(props: DatePickerProps) {
             onChange={(event) => setTyped(event.target.value)}
             onKeyDown={onTypeKey}
             placeholder={labels.type}
-            aria-invalid={preview.kind === "unreadable" || undefined}
+            aria-invalid={Preview.$is("unreadable")(preview) || undefined}
             className="h-full min-w-0 flex-1 bg-transparent text-body outline-hidden placeholder:text-muted-foreground"
           />
           {result}
@@ -420,7 +425,7 @@ function TypedResult({
   // key never shrinks.
   fit?: boolean
 }>) {
-  if (preview.kind === "unreadable")
+  if (Preview.$is("unreadable")(preview))
     return (
       <span
         className={cn(
@@ -431,11 +436,10 @@ function TypedResult({
         {unreadable}
       </span>
     )
-  if (preview.kind === "empty") return null
-  const text =
-    preview.kind === "day"
-      ? formatDay(preview.value)
-      : formatRange(preview.value)
+  if (Preview.$is("empty")(preview)) return null
+  const text = Preview.$is("day")(preview)
+    ? formatDay(preview.value)
+    : formatRange(preview.value)
   if (fit)
     return (
       <span className="ml-auto flex shrink-[100] items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
@@ -451,11 +455,7 @@ function TypedResult({
     )
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
-      <TextSwap speed="fast">
-        {preview.kind === "day"
-          ? formatDay(preview.value)
-          : formatRange(preview.value)}
-      </TextSwap>
+      <TextSwap speed="fast">{text}</TextSwap>
       <Kbd size="sm" aria-hidden>
         ↵
       </Kbd>
@@ -514,7 +514,7 @@ function InlineField({
           aria-label={labels.type}
           spellCheck={false}
           autoComplete="off"
-          aria-invalid={preview.kind === "unreadable" || undefined}
+          aria-invalid={Preview.$is("unreadable")(preview) || undefined}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {

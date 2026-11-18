@@ -5,7 +5,7 @@ import {
   parseBenchmarkReports
 } from "./ticket-benchmark-report"
 
-const argumentValue = (name: string): string | undefined => {
+const argumentValue = (name: string) => {
   const prefix = `${name}=`
   const inline = process.argv.find((argument) => argument.startsWith(prefix))
   if (inline) return inline.slice(prefix.length)

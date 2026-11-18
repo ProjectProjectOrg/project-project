@@ -16,9 +16,7 @@ export const bannerNeedsPlaceholder = (
 ): banner is AttachmentBanner =>
   banner?.type === "attachment" && (banner.placeholder ?? null) === null
 
-export const encodeBannerPlaceholder = async (
-  bytes: Uint8Array
-): Promise<string | null> => {
+export const encodeBannerPlaceholder = async (bytes: Uint8Array) => {
   let smallest: string | null = null
   for (const quality of BANNER_PLACEHOLDER_QUALITY_LADDER) {
     const encoded = await sharp(bytes)

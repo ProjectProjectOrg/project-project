@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 
-const opensElsewhere = (event: MouseEvent): boolean =>
+const opensElsewhere = (event: MouseEvent) =>
   event.button !== 0 ||
   event.metaKey ||
   event.ctrlKey ||

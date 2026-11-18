@@ -32,7 +32,7 @@ const AAA_TAGS = ["wcag2aaa"]
 export const AA_CONTRAST_RULE = "color-contrast"
 export const AAA_CONTRAST_RULE = "color-contrast-enhanced"
 
-const toRule = (result: Result): RuleResult => ({
+const toRule = (result: Result) => ({
   id: result.id,
   help: result.help,
   helpUrl: result.helpUrl,
@@ -52,7 +52,7 @@ const overlaps = (a: DOMRect, b: DOMRect) =>
   a.top < b.bottom &&
   a.bottom > b.top
 
-const popupsOver = (element: Element): ReadonlyArray<Element> => {
+const popupsOver = (element: Element) => {
   const frame = element.getBoundingClientRect()
   return [...document.querySelectorAll("[data-base-ui-portal]")].filter(
     (portal) =>
@@ -66,7 +66,7 @@ const popupsOver = (element: Element): ReadonlyArray<Element> => {
 async function runStandard(
   targets: ReadonlyArray<Element>,
   options: RunOptions
-): Promise<StandardRun> {
+) {
   const results = await axe.run(
     { include: [...targets], exclude: [[FOCUS_GUARDS]] },
     options
@@ -79,7 +79,7 @@ async function runStandard(
   }
 }
 
-export const ruleStatus = (run: StandardRun, id: string): RuleStatus => {
+export const ruleStatus = (run: StandardRun, id: string) => {
   if (run.violations.some((rule) => rule.id === id)) return "fail"
   if (run.incomplete.some((rule) => rule.id === id)) return "review"
   if (run.passes.some((rule) => rule.id === id)) return "pass"
@@ -98,9 +98,7 @@ const animationsSettled = () =>
 
 let queue: Promise<unknown> = Promise.resolve()
 
-export function checkAccessibility(
-  element: Element
-): Promise<AccessibilityReport> {
+export function checkAccessibility(element: Element) {
   const run = queue.then(async () => {
     await animationsSettled()
     const targets = [element, ...popupsOver(element)]

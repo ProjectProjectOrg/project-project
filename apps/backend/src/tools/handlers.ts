@@ -53,11 +53,13 @@ import {
   type TicketBodyEdit,
   type TicketId,
   type UpdateGroupInput,
-  type UpdateTicketInput
+  type UpdateTicketInput,
+  TicketBlockSegment
 } from "@pp/shared"
 import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
 
 import { createTicket } from "../tickets/createTicket"
 import { toolRunner } from "./runTool"
@@ -73,12 +75,12 @@ const sanitizeMcpBody = (body: string) =>
       })
     }
     const segments = parseTicketBlocks(body)
-    if (!segments.some((segment) => segment.kind === "block")) return body
+    if (!segments.some(TicketBlockSegment.$is("block"))) return body
     const library = yield* Library.Library
     const lookup = blockLookupFor(yield* library.projectLibrary())
     return serializeTicketBlocks(
       segments.map((segment) => {
-        if (segment.kind === "markdown") return segment
+        if (TicketBlockSegment.$is("markdown")(segment)) return segment
         const definition = lookup(segment.type)
         return definition === undefined
           ? segment
@@ -93,7 +95,7 @@ const sanitizeMcpBody = (body: string) =>
 const withBlocks = <T extends Readonly<{ body: string }>>(detail: T) => ({
   ...detail,
   blocks: parseTicketBlocks(detail.body).flatMap((segment) =>
-    segment.kind === "block"
+    TicketBlockSegment.$is("block")(segment)
       ? [
           {
             type: segment.type,
@@ -363,13 +365,14 @@ const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
   Effect.gen(function* () {
     const ticket = yield* (yield* TicketQueries.TicketQueries).get(id)
     const result = applyTicketBodyEdits(ticket.body, edits)
-    if (!result.ok) {
+    if (Result.isFailure(result)) {
+      const { index, failure } = result.failure
       return yield* new Validation({
-        reason: `edit_failed:${result.index}:${formatTicketBodyEditFailure(result.failure)}`
+        reason: `edit_failed:${index}:${formatTicketBodyEditFailure(failure)}`
       })
     }
     return {
-      body: yield* sanitizeMcpBody(result.body),
+      body: yield* sanitizeMcpBody(result.success),
       expectedBody: ticket.body
     }
   })

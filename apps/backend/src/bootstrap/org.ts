@@ -82,7 +82,7 @@ export type BootstrapOrgResult = {
 export function bootstrapOrg(
   store: BootstrapOrgStore,
   input: BootstrapOrgInput
-): Effect.Effect<BootstrapOrgResult, BootstrapOrgError> {
+) {
   return Effect.gen(function* () {
     let createdOrg = false
     let org = yield* store.findOrgBySlug(input.orgSlug)

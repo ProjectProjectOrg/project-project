@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -12,54 +13,51 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { slackOrg, slackOrgRequest } from "@/features/slack/atoms/slack"
 import { m } from "@/paraglide/messages"
 
-export type IntegrationState = Readonly<{
+type Status = Readonly<{
   tone: IntegrationTone
   label: string
-  connected: boolean
-  loading: boolean
 }>
+
+export type IntegrationState = Data.TaggedEnum<{
+  loading: Status
+  notSetUp: Status
+  unavailable: Status
+  attention: Status
+  connected: Status
+  needsStorage: Status
+  perProject: Status
+}>
+export const IntegrationState = Data.taggedEnum<IntegrationState>()
 
 const disabledState = Atom.make(Result.initial())
 
-const loadingState: IntegrationState = {
-  tone: "idle",
-  label: "",
-  connected: false,
-  loading: true
-}
+const loadingState = IntegrationState.loading({ tone: "idle", label: "" })
 
-const notSetUp = (): IntegrationState => ({
-  tone: "idle",
-  label: m.org_integrations_status_not_set_up(),
-  connected: false,
-  loading: false
-})
+const notSetUp = () =>
+  IntegrationState.notSetUp({
+    tone: "idle",
+    label: m.org_integrations_status_not_set_up()
+  })
 
-const attention = (): IntegrationState => ({
-  tone: "attention",
-  label: m.org_integrations_status_attention(),
-  connected: true,
-  loading: false
-})
+const attention = () =>
+  IntegrationState.attention({
+    tone: "attention",
+    label: m.org_integrations_status_attention()
+  })
 
-const unavailable = (): IntegrationState => ({
-  tone: "attention",
-  label: m.org_integrations_status_unavailable(),
-  connected: false,
-  loading: false
-})
+const unavailable = () =>
+  IntegrationState.unavailable({
+    tone: "attention",
+    label: m.org_integrations_status_unavailable()
+  })
 
-const connected = (): IntegrationState => ({
-  tone: "connected",
-  label: m.org_integrations_status_connected(),
-  connected: true,
-  loading: false
-})
+const connected = () =>
+  IntegrationState.connected({
+    tone: "connected",
+    label: m.org_integrations_status_connected()
+  })
 
-export function useGithubAppState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useGithubAppState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? githubIntegration(githubOrgRequest(orgSlug)) : disabledState
   )
@@ -70,10 +68,7 @@ export function useGithubAppState(
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useStorageState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useStorageState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? orgStorage(storageRequest(orgSlug)) : disabledState
   )
@@ -84,10 +79,7 @@ export function useStorageState(
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useEmailState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useEmailState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? orgEmail(emailRequest(orgSlug)) : disabledState
   )
@@ -99,10 +91,7 @@ export function useEmailState(
   return connected()
 }
 
-export function useSlackState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useSlackState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? slackOrg(slackOrgRequest(orgSlug)) : disabledState
   )
@@ -116,18 +105,18 @@ export function useSlackState(
 export function perProjectState(
   needsStorage: boolean,
   storage: IntegrationState
-): IntegrationState {
-  if (needsStorage && !storage.loading && !storage.connected)
-    return {
+) {
+  const settled =
+    IntegrationState.$is("loading")(storage) ||
+    IntegrationState.$is("connected")(storage) ||
+    IntegrationState.$is("attention")(storage)
+  if (needsStorage && !settled)
+    return IntegrationState.needsStorage({
       tone: "attention",
-      label: m.org_integrations_status_needs_storage(),
-      connected: false,
-      loading: false
-    }
-  return {
+      label: m.org_integrations_status_needs_storage()
+    })
+  return IntegrationState.perProject({
     tone: "idle",
-    label: m.org_integrations_status_per_project(),
-    connected: false,
-    loading: false
-  }
+    label: m.org_integrations_status_per_project()
+  })
 }

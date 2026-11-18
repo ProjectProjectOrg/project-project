@@ -110,7 +110,7 @@ export function useBoardColumnKeyboard(
   status: string,
   ticketIds: ReadonlyArray<string>,
   reveal: (index: number) => void
-): void {
+) {
   const context = useContext(BoardKeyboardContext)
   useLayoutEffect(
     () => context?.registerColumn(status, { ticketIds, reveal }),

@@ -1,4 +1,9 @@
-import { ActivityActor, TicketStatus, UserId } from "@pp/shared"
+import {
+  ActivityActor,
+  RecentTicketActivity,
+  TicketStatus,
+  UserId
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -23,54 +28,55 @@ const touched = (
     assignedEvent?: TicketIndexTouchedEvent
     statusEvent?: TicketIndexTouchedEvent
   }> = {}
-): Parameters<typeof recentActivityOf>[0] => ({
-  lastCommentAt,
-  assignedEvent: events.assignedEvent ?? null,
-  statusEvent: events.statusEvent ?? null,
-  entry: { createdBy, createdAt: earlier }
-})
+) =>
+  ({
+    lastCommentAt,
+    assignedEvent: events.assignedEvent ?? null,
+    statusEvent: events.statusEvent ?? null,
+    entry: { createdBy, createdAt: earlier }
+  }) satisfies Parameters<typeof recentActivityOf>[0]
 
 const assignedBy = (
   actor: TicketIndexTouchedEvent["actor"],
   occurredAt: Date
-): TicketIndexTouchedEvent => ({
-  occurredAt,
-  actor,
-  change: { kind: "assignees_changed", added: [viewer], removed: [] }
-})
+) =>
+  ({
+    occurredAt,
+    actor,
+    change: { kind: "assignees_changed", added: [viewer], removed: [] }
+  }) satisfies TicketIndexTouchedEvent
 
 const movedToDone = (
   actor: TicketIndexTouchedEvent["actor"],
   occurredAt: Date
-): TicketIndexTouchedEvent => ({
-  occurredAt,
-  actor,
-  change: {
-    kind: "status_changed",
-    from: status("in_progress"),
-    to: status("done")
-  }
-})
+) =>
+  ({
+    occurredAt,
+    actor,
+    change: {
+      kind: "status_changed",
+      from: status("in_progress"),
+      to: status("done")
+    }
+  }) satisfies TicketIndexTouchedEvent
 
 describe("recentActivityOf", () => {
   it("prefers the viewer's latest comment when it is newer than creating", () => {
-    expect(recentActivityOf(touched("viewer", later), viewer, users)).toEqual({
-      tag: "commented",
-      at: later
-    })
+    expect(recentActivityOf(touched("viewer", later), viewer, users)).toEqual(
+      RecentTicketActivity.cases.commented.make({ at: later })
+    )
   })
 
   it("reports creating when the viewer never commented", () => {
-    expect(recentActivityOf(touched("viewer", null), viewer, users)).toEqual({
-      tag: "created",
-      at: earlier
-    })
+    expect(recentActivityOf(touched("viewer", null), viewer, users)).toEqual(
+      RecentTicketActivity.cases.created.make({ at: earlier })
+    )
   })
 
   it("falls back to an assignment with no known actor or time", () => {
     expect(
       recentActivityOf(touched("someone-else", null), viewer, users)
-    ).toEqual({ tag: "assigned" })
+    ).toEqual(RecentTicketActivity.cases.assigned.make({}))
   })
 
   it("names who assigned the viewer and when", () => {
@@ -83,7 +89,7 @@ describe("recentActivityOf", () => {
         users
       )
     ).toEqual({
-      tag: "assigned",
+      _tag: "assigned",
       actor: { kind: "user", user: wouter },
       at: later
     })
@@ -106,7 +112,7 @@ describe("recentActivityOf", () => {
         users
       )
     ).toEqual({
-      tag: "status_changed",
+      _tag: "status_changed",
       actor: {
         kind: "agent",
         user: wouter,
@@ -127,6 +133,6 @@ describe("recentActivityOf", () => {
         viewer,
         users
       )
-    ).toEqual({ tag: "assigned", at: later })
+    ).toEqual(RecentTicketActivity.cases.assigned.make({ at: later }))
   })
 })

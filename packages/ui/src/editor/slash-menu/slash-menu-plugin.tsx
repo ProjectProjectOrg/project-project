@@ -35,7 +35,7 @@ import {
   cycleSlashTab,
   slashMenuView,
   slashTriggerMatch,
-  type SlashItem,
+  SlashItem,
   type SlashMode,
   type SlashTab
 } from "./slash-menu-items"
@@ -96,7 +96,7 @@ export function SlashMenuPlugin({
     [editor, transformers]
   )
 
-  const menu = useMemo((): SlashMenuState => {
+  const menu = useMemo(() => {
     if (query === null) return EMPTY_MENU
     const view = slashMenuView(
       { library, lookup, ticketType, body, query, basicLabel, mode },
@@ -179,7 +179,7 @@ export function SlashMenuPlugin({
       const detach = detachRef.current
       detachRef.current = false
       const { item } = option
-      if (item.kind === "gallery") {
+      if (SlashItem.$is("gallery")(item)) {
         editor.update(() => {
           nodeToReplace?.remove()
           closeMenu()

@@ -62,7 +62,7 @@ type GripHandlers = Readonly<{
   onPointerCancel: () => void
 }>
 
-const $slotKeys = (): ReadonlyArray<NodeKey> => {
+const $slotKeys = () => {
   const children = $getRoot().getChildren()
   const last = children.at(-1)
   const trailingBlank =
@@ -75,10 +75,7 @@ const $slotKeys = (): ReadonlyArray<NodeKey> => {
   )
 }
 
-const measureSlots = (
-  editor: LexicalEditor,
-  anchor: HTMLElement
-): ReadonlyArray<DragSlot> =>
+const measureSlots = (editor: LexicalEditor, anchor: HTMLElement) =>
   editor.getEditorState().read(() =>
     $slotKeys().flatMap((key) => {
       const element = editor.getElementByKey(key)
@@ -94,7 +91,7 @@ const measureSlots = (
     })
   )
 
-const clonePreview = (element: HTMLElement): HTMLElement => {
+const clonePreview = (element: HTMLElement) => {
   const clone = element.cloneNode(true)
   if (!(clone instanceof HTMLElement)) return document.createElement("div")
   for (const attribute of ["hovered", "flash", "dragging", "selected"])
@@ -247,55 +244,56 @@ export function useBlockDrag({
     setDrag((current) => (current === null ? null : { ...current, shifts }))
   }
 
-  const gripHandlers = (key: NodeKey): GripHandlers => ({
-    onPointerDown: (event) => {
-      if (event.button !== 0 || !editor.isEditable()) return
-      if (sessionRef.current !== null || drag !== null) return
-      event.currentTarget.setPointerCapture(event.pointerId)
-      pendingRef.current = {
-        key,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY
-      }
-    },
-    onPointerMove: (event) => {
-      const session = sessionRef.current
-      if (session !== null) {
-        if (session.pointerId === event.pointerId)
-          follow(session, event.clientY)
-        return
-      }
-      const pending = pendingRef.current
-      if (pending === null || pending.pointerId !== event.pointerId) return
-      const distance = Math.hypot(
-        event.clientX - pending.startX,
-        event.clientY - pending.startY
-      )
-      if (distance <= DRAG_THRESHOLD) return
-      pendingRef.current = null
-      start(pending)
-      const started = sessionRef.current
-      if (started !== null) follow(started, event.clientY)
-    },
-    onPointerUp: (event) => {
-      pendingRef.current = null
-      const session = sessionRef.current
-      if (session === null || session.pointerId !== event.pointerId) return
-      suppressClickRef.current = true
-      follow(session, event.clientY)
-      finish(true)
-    },
-    onPointerCancel: () => finish(false)
-  })
+  const gripHandlers = (key: NodeKey) =>
+    ({
+      onPointerDown: (event) => {
+        if (event.button !== 0 || !editor.isEditable()) return
+        if (sessionRef.current !== null || drag !== null) return
+        event.currentTarget.setPointerCapture(event.pointerId)
+        pendingRef.current = {
+          key,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY
+        }
+      },
+      onPointerMove: (event) => {
+        const session = sessionRef.current
+        if (session !== null) {
+          if (session.pointerId === event.pointerId)
+            follow(session, event.clientY)
+          return
+        }
+        const pending = pendingRef.current
+        if (pending === null || pending.pointerId !== event.pointerId) return
+        const distance = Math.hypot(
+          event.clientX - pending.startX,
+          event.clientY - pending.startY
+        )
+        if (distance <= DRAG_THRESHOLD) return
+        pendingRef.current = null
+        start(pending)
+        const started = sessionRef.current
+        if (started !== null) follow(started, event.clientY)
+      },
+      onPointerUp: (event) => {
+        pendingRef.current = null
+        const session = sessionRef.current
+        if (session === null || session.pointerId !== event.pointerId) return
+        suppressClickRef.current = true
+        follow(session, event.clientY)
+        finish(true)
+      },
+      onPointerCancel: () => finish(false)
+    }) satisfies GripHandlers
 
-  const consumeClick = (): boolean => {
+  const consumeClick = () => {
     const suppressed = suppressClickRef.current
     suppressClickRef.current = false
     return suppressed
   }
 
-  const isDragging = (): boolean => sessionRef.current !== null
+  const isDragging = () => sessionRef.current !== null
 
   return { drag, previewY, gripHandlers, consumeClick, isDragging }
 }

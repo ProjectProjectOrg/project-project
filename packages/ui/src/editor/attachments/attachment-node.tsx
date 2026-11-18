@@ -71,11 +71,11 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   __failed: boolean
   __density: AttachmentDensity
 
-  static getType(): string {
+  static getType() {
     return "attachment"
   }
 
-  static clone(node: AttachmentNode): AttachmentNode {
+  static clone(node: AttachmentNode) {
     return new AttachmentNode(
       {
         url: node.__url,
@@ -105,7 +105,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     this.__density = payload.density ?? "rich"
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const span = document.createElement("span")
     span.setAttribute("data-attachment-kind", this.__kind)
     span.style.display = "inline-block"
@@ -114,75 +114,75 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     return span
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): boolean {
+  isInline() {
     return true
   }
 
-  getTextContent(): string {
+  getTextContent() {
     return this.__filename
   }
 
-  getUrl(): string {
+  getUrl() {
     return this.getLatest().__url
   }
 
-  getAlt(): string {
+  getAlt() {
     return this.getLatest().__alt
   }
 
-  getFilename(): string {
+  getFilename() {
     return this.getLatest().__filename
   }
 
-  getKind(): AttachmentKind {
+  getKind() {
     return this.getLatest().__kind
   }
 
-  getUploadId(): string | undefined {
+  getUploadId() {
     return this.getLatest().__uploadId
   }
 
-  getProgress(): number {
+  getProgress() {
     return this.getLatest().__progress
   }
 
-  getFailed(): boolean {
+  getFailed() {
     return this.getLatest().__failed
   }
 
-  getWidth(): number | null {
+  getWidth() {
     return this.getLatest().__width
   }
 
-  setWidth(width: number | null): void {
+  setWidth(width: number | null) {
     const writable = this.getWritable()
     writable.__width = width
   }
 
-  getDensity(): AttachmentDensity {
+  getDensity() {
     return this.getLatest().__density
   }
 
-  setDensity(density: AttachmentDensity): void {
+  setDensity(density: AttachmentDensity) {
     const writable = this.getWritable()
     writable.__density = density
   }
 
-  setProgress(fraction: number): void {
+  setProgress(fraction: number) {
     const writable = this.getWritable()
     writable.__progress = fraction
   }
 
-  setFailed(failed: boolean): void {
+  setFailed(failed: boolean) {
     const writable = this.getWritable()
     writable.__failed = failed
   }
 
-  setCommitted(url: string): void {
+  setCommitted(url: string) {
     const writable = this.getWritable()
     writable.__url = url
     writable.__uploadId = undefined
@@ -190,7 +190,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     writable.__progress = 1
   }
 
-  exportJSON(): SerializedAttachmentNode {
+  exportJSON() {
     return {
       ...super.exportJSON(),
       type: "attachment",
@@ -204,7 +204,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     }
   }
 
-  static importJSON(serialized: SerializedAttachmentNode): AttachmentNode {
+  static importJSON(serialized: SerializedAttachmentNode) {
     return $createAttachmentNode({
       url: serialized.url,
       alt: serialized.alt,
@@ -215,7 +215,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     })
   }
 
-  decorate(): ReactElement {
+  decorate() {
     const settled = this.__uploadId === undefined && !this.__failed
 
     if (settled) {
@@ -346,9 +346,7 @@ function AttachmentSettled({
   )
 }
 
-export function $createAttachmentNode(
-  payload: AttachmentPayload
-): AttachmentNode {
+export function $createAttachmentNode(payload: AttachmentPayload) {
   return $applyNodeReplacement(new AttachmentNode(payload))
 }
 

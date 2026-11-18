@@ -17,13 +17,12 @@ export type SlackOrgRequest = Readonly<{
 export type SlackProjectRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
-export const slackOrgRequest = (orgSlug: string): SlackOrgRequest => ({
+export const slackOrgRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
-export const slackProjectRequest = (
-  orgSlug: string,
-  slug: string
-): SlackProjectRequest => ({ params: { orgSlug, slug } })
+export const slackProjectRequest = (orgSlug: string, slug: string) => ({
+  params: { orgSlug, slug }
+})
 
 export const slackOrg = Atom.family((req: SlackOrgRequest) =>
   Atom.optimistic(

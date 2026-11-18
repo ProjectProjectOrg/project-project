@@ -6,7 +6,7 @@ export type LinkPreviewRequest = Readonly<{
   query: Readonly<{ url: string }>
 }>
 
-export const linkPreviewRequest = (url: string): LinkPreviewRequest => ({
+export const linkPreviewRequest = (url: string) => ({
   query: { url }
 })
 

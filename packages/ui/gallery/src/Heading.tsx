@@ -11,7 +11,7 @@ import {
 
 import { IconSwap } from "./IconSwap"
 
-const textOf = (node: ReactNode): string =>
+const textOf: (node: ReactNode) => string = (node) =>
   Children.toArray(node)
     .map((child) => {
       if (typeof child === "string" || typeof child === "number")

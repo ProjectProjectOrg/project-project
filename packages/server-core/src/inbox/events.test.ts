@@ -14,7 +14,12 @@ import {
   type CommentBlock
 } from "../comments/comments-region"
 import type { SubscriptionSource } from "../subscriptions/intents"
-import { inboxNotices, stageInbox, type InboxInput } from "./events"
+import {
+  InboxNotice,
+  inboxNotices,
+  stageInbox,
+  type InboxInput
+} from "./events"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const status = Schema.decodeUnknownSync(TicketStatus)
@@ -32,12 +37,13 @@ const base: InboxInput = {
   touched: false
 }
 
-const statusTo = (to: string): InboxInput["changes"] => [
-  {
-    ticketId: ticketId("T-1"),
-    change: { kind: "status_changed", from: status("todo"), to: status(to) }
-  }
-]
+const statusTo = (to: string) =>
+  [
+    {
+      ticketId: ticketId("T-1"),
+      change: { kind: "status_changed", from: status("todo"), to: status(to) }
+    }
+  ] satisfies InboxInput["changes"]
 
 const source: SubscriptionSource = {
   id: ticketId("T-1"),
@@ -47,18 +53,15 @@ const source: SubscriptionSource = {
   commentsRegion: ""
 }
 
-const comment = (
-  id: string,
-  origin: CommentBlock["origin"],
-  body: string
-): CommentBlock => ({
-  id,
-  author: { kind: "user", userId: "carl" },
-  origin,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
-  editedAt: null,
-  body
-})
+const comment = (id: string, origin: CommentBlock["origin"], body: string) =>
+  ({
+    id,
+    author: { kind: "user", userId: "carl" },
+    origin,
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
+    editedAt: null,
+    body
+  }) satisfies CommentBlock
 
 describe("stageInbox", () => {
   it("assigns the added people directly and resolves the removed ones", () => {
@@ -180,7 +183,7 @@ describe("stageInbox", () => {
     expect(
       stageInbox({
         ...base,
-        notices: [{ kind: "commented", authorId: "ann", commentId: "c1" }]
+        notices: [InboxNotice.commented({ authorId: "ann", commentId: "c1" })]
       })
     ).toMatchObject({
       subscribers: [{ kind: "commented", commentId: "c1" }],
@@ -202,14 +205,14 @@ describe("inboxNotices", () => {
         ])
       })
     ).toEqual([
-      { kind: "commented", authorId: "carl", commentId: "c2" },
-      { kind: "mentioned", userId: "bob", commentId: "c2" }
+      InboxNotice.commented({ authorId: "carl", commentId: "c2" }),
+      InboxNotice.mentioned({ userId: "bob", commentId: "c2" })
     ])
   })
 
   it("assigns the people on a new ticket", () => {
     expect(
       inboxNotices(null, { ...source, assignees: [userId("bob")] })
-    ).toEqual([{ kind: "assigned", userId: "bob" }])
+    ).toEqual([InboxNotice.assigned({ userId: "bob" })])
   })
 })

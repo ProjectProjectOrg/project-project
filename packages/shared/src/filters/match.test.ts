@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest"
 import { UserId } from "../auth/User"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
+import { makeTicket } from "../tickets/testing"
 import type { Ticket } from "../tickets/Ticket"
-import { TicketId, TicketRank } from "../tickets/Ticket"
+import { TicketId } from "../tickets/Ticket"
 import {
   matchesTicketFilter,
   matchesTicketQuery,
@@ -21,29 +22,14 @@ const s = Schema.decodeUnknownSync(StatusSlug)
 const userId = Schema.decodeUnknownSync(UserId)
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
-const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
-  id: decodeTicketId("T-1"),
-  title: "Test",
-  status: s("todo"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: isoDate("2026-05-01T00:00:00.000Z"),
-  updatedAt: isoDate("2026-05-10T00:00:00.000Z"),
-  ...overrides
-})
+const baseTicket = (overrides: Partial<Ticket> = {}) =>
+  makeTicket({
+    title: "Test",
+    type: TypeKey.make("feat"),
+    createdAt: isoDate("2026-05-01T00:00:00.000Z"),
+    updatedAt: isoDate("2026-05-10T00:00:00.000Z"),
+    ...overrides
+  })
 
 describe("matchesTicketFilter", () => {
   it("estimate filter only counts estimates in the project's current unit", () => {

@@ -20,12 +20,13 @@ import {
 import {
   backCommandMenu,
   CLOSED_COMMAND_MENU,
+  CommandMenuState,
   currentCommandPage,
   openCommandMenu,
   pushCommandPage,
   actOnTicket,
   deselectFromCommandMenu,
-  type CommandMenuState
+  type OpenCommandMenu
 } from "../lib/commandMenu"
 import type { CommandContext, CommandEnv } from "../lib/commands"
 import {
@@ -44,14 +45,15 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const registry = useContext(RegistryContext)
   const [state, setState] = useAtom(commandMenuState)
   const scopes = useAtomValue(commandScopes)
+  const open = CommandMenuState.$is("open")(state)
   const [shown, setShown] = useState(state)
-  if (state.open && state !== shown) setShown(state)
+  if (open && state !== shown) setShown(state)
   const [shownScopes, setShownScopes] = useState(scopes)
-  if (state.open && scopes !== shownScopes) setShownScopes(scopes)
+  if (open && scopes !== shownScopes) setShownScopes(scopes)
   return (
     <>
       <CommandMenuDialog
-        open={state.open}
+        open={open}
         onOpenChange={(open) =>
           setState(
             open
@@ -61,10 +63,14 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
         }
         title={m.chrome_command_menu_title()}
         shortcut={appHotkeys["app.command-menu"]}
-        pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
+        pulseKey={CommandMenuState.$match(state, {
+          closed: () => ":0:root",
+          open: ({ ticket, selection, pages }) =>
+            `${ticket?.ticketId ?? ""}:${selection.length}:${pages.join("/")}`
+        })}
       >
-        {shown.open && (
-          <Freeze frozen={!state.open}>
+        {CommandMenuState.$is("open")(shown) && (
+          <Freeze frozen={!open}>
             <CommandMenuPage
               key={`${shown.ticket?.ticketId ?? ""}:${shown.pages.join("/")}`}
               orgSlug={orgSlug}
@@ -76,7 +82,7 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
         )}
       </CommandMenuDialog>
       <CommandHotkeys orgSlug={orgSlug} />
-      {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
+      {!open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
     </>
   )
 }
@@ -127,9 +133,9 @@ const PREWARM_TIMEOUT_MS = 3000
 const ignoreChange = () => {}
 
 function useCommandEnv(
-  state: CommandMenuState,
+  state: OpenCommandMenu,
   onChange: (state: CommandMenuState) => void
-): CommandEnv {
+) {
   const registry = useContext(RegistryContext)
   const navigate = useNavigate()
   return {
@@ -140,7 +146,7 @@ function useCommandEnv(
     open: (page, from) => onChange(pushCommandPage(state, page, from)),
     actOn: (ticket, from) => onChange(actOnTicket(state, ticket, from)),
     close: () => onChange(CLOSED_COMMAND_MENU)
-  }
+  } satisfies CommandEnv
 }
 
 function CommandMenuPage({
@@ -150,7 +156,7 @@ function CommandMenuPage({
   onChange
 }: Readonly<{
   orgSlug: string
-  state: CommandMenuState
+  state: OpenCommandMenu
   scopes: ReadonlyArray<CommandScope>
   onChange: (state: CommandMenuState) => void
 }>) {

@@ -164,7 +164,7 @@ export const SETTINGS = [
 
 export type SettingsSection = (typeof SETTINGS)[number][0]
 
-export const livePin = (route: Route): PinRef | null =>
+export const livePin = (route: Route) =>
   (route.page === "ticket" || route.page === "sprint") && route.id
     ? { kind: route.page, id: route.id }
     : null

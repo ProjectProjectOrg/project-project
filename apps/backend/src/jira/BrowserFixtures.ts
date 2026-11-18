@@ -252,12 +252,13 @@ const response = (
   status = 200,
   headers: Readonly<Record<string, string>> = {},
   stream: Stream.Stream<Uint8Array, JiraError> = Stream.empty
-): Transport.JiraTransportResponse => ({
-  status,
-  headers,
-  json: Effect.succeed(body),
-  stream
-})
+) =>
+  ({
+    status,
+    headers,
+    json: Effect.succeed(body),
+    stream
+  }) satisfies Transport.JiraTransportResponse
 
 const nextPageToken = (request: Transport.JiraTransportRequest) =>
   Predicate.isObject(request.body) &&
@@ -323,27 +324,25 @@ const pageFromRequest = (request: Transport.JiraTransportRequest) => {
   return { operation: "unknown", page: "single" }
 }
 
-const jsonForRequest = (
-  request: Transport.JiraTransportRequest
-): Schema.Json => {
+const responseForRequest = (request: Transport.JiraTransportRequest) => {
   const url = new URL(request.url)
   const path = url.pathname
   const startAt = Number(url.searchParams.get("startAt") ?? "0")
   if (path.endsWith("/oauth/token/accessible-resources"))
-    return [
+    return response([
       {
         id: source.cloudId,
         name: "Fixture Jira",
         url: source.siteUrl,
         avatarUrl: `${source.siteUrl}/avatar/site.png`
       }
-    ]
-  if (path.endsWith("/myself")) return user
+    ])
+  if (path.endsWith("/myself")) return response(user)
   if (
     path.endsWith(`/project/${source.projectId}`) ||
     path.endsWith("/project/APP")
   )
-    return {
+    return response({
       id: source.projectId,
       key: source.projectKey,
       name: source.projectName,
@@ -353,9 +352,9 @@ const jsonForRequest = (
       style: "classic",
       lead: user,
       avatarUrls: { "48x48": `${source.siteUrl}/avatar/project.png` }
-    }
+    })
   if (path.endsWith("/statuses"))
-    return [
+    return response([
       {
         id: "type-1",
         name: "Story",
@@ -382,9 +381,9 @@ const jsonForRequest = (
           }
         ]
       }
-    ]
+    ])
   if (path.endsWith("/field"))
-    return [
+    return response([
       {
         id: "summary",
         key: "summary",
@@ -412,9 +411,9 @@ const jsonForRequest = (
           custom: "com.pyxis.greenhopper.jira:gh-epic-link"
         }
       }
-    ]
+    ])
   if (path.endsWith("/priority"))
-    return [
+    return response([
       {
         id: "priority-1",
         name: "High",
@@ -429,9 +428,9 @@ const jsonForRequest = (
         iconUrl: null,
         statusColor: "#f79232"
       }
-    ]
+    ])
   if (path.endsWith("/component"))
-    return {
+    return response({
       values: [
         {
           id: "component-1",
@@ -444,9 +443,9 @@ const jsonForRequest = (
       maxResults: 100,
       total: 1,
       isLast: true
-    }
+    })
   if (path.endsWith("/version"))
-    return {
+    return response({
       values: [
         {
           id: "version-1",
@@ -462,17 +461,19 @@ const jsonForRequest = (
       maxResults: 100,
       total: 1,
       isLast: true
-    }
+    })
   if (path.endsWith("/search/jql")) {
-    return nextPageToken(request) === "issues-2"
-      ? { issues: [issues[1]], nextPageToken: null }
-      : { issues: [issues[0]], nextPageToken: "issues-2" }
+    return response(
+      nextPageToken(request) === "issues-2"
+        ? { issues: [issues[1]], nextPageToken: null }
+        : { issues: [issues[0]], nextPageToken: "issues-2" }
+    )
   }
   const issueCollection = path.match(
     /\/issue\/([^/]+)\/(comment|worklog|changelog)$/
   )
   if (issueCollection && !["APP-1", "10001"].includes(issueCollection[1]))
-    return {
+    return response({
       [Match.value(issueCollection[2]).pipe(
         Match.when("changelog", () => "values"),
         Match.when("comment", () => "comments"),
@@ -482,90 +483,96 @@ const jsonForRequest = (
       maxResults: 100,
       total: 0,
       isLast: true
-    }
+    })
   if (path.endsWith("/comment"))
-    return offsetPage(
-      startAt,
-      "comments",
-      {
-        id: "comment-1",
-        body: adf("First fixture comment."),
-        author: user,
-        updateAuthor: user,
-        created: "2026-09-20T10:00:00.000Z",
-        updated: "2026-09-20T10:05:00.000Z",
-        visibility: { type: "role", value: "Developers" }
-      },
-      {
-        id: "comment-2",
-        body: adf("Second fixture comment."),
-        author: user,
-        created: "2026-09-21T10:00:00.000Z",
-        updated: null
-      }
+    return response(
+      offsetPage(
+        startAt,
+        "comments",
+        {
+          id: "comment-1",
+          body: adf("First fixture comment."),
+          author: user,
+          updateAuthor: user,
+          created: "2026-09-20T10:00:00.000Z",
+          updated: "2026-09-20T10:05:00.000Z",
+          visibility: { type: "role", value: "Developers" }
+        },
+        {
+          id: "comment-2",
+          body: adf("Second fixture comment."),
+          author: user,
+          created: "2026-09-21T10:00:00.000Z",
+          updated: null
+        }
+      )
     )
   if (path.endsWith("/worklog"))
-    return offsetPage(
-      startAt,
-      "worklogs",
-      {
-        id: "worklog-1",
-        author: user,
-        updateAuthor: user,
-        comment: adf("Initial migration work."),
-        started: "2026-09-20T11:00:00.000Z",
-        created: "2026-09-20T11:30:00.000Z",
-        updated: "2026-09-20T11:30:00.000Z",
-        timeSpentSeconds: 1800,
-        visibility: { type: "role", value: "Developers" }
-      },
-      {
-        id: "worklog-2",
-        author: user,
-        comment: adf("Verification work."),
-        started: "2026-09-21T11:00:00.000Z",
-        created: "2026-09-21T11:15:00.000Z",
-        updated: "2026-09-21T11:15:00.000Z",
-        timeSpentSeconds: 900
-      }
+    return response(
+      offsetPage(
+        startAt,
+        "worklogs",
+        {
+          id: "worklog-1",
+          author: user,
+          updateAuthor: user,
+          comment: adf("Initial migration work."),
+          started: "2026-09-20T11:00:00.000Z",
+          created: "2026-09-20T11:30:00.000Z",
+          updated: "2026-09-20T11:30:00.000Z",
+          timeSpentSeconds: 1800,
+          visibility: { type: "role", value: "Developers" }
+        },
+        {
+          id: "worklog-2",
+          author: user,
+          comment: adf("Verification work."),
+          started: "2026-09-21T11:00:00.000Z",
+          created: "2026-09-21T11:15:00.000Z",
+          updated: "2026-09-21T11:15:00.000Z",
+          timeSpentSeconds: 900
+        }
+      )
     )
   if (path.endsWith("/changelog"))
-    return offsetPage(
-      startAt,
-      "values",
-      {
-        id: "changelog-1",
-        author: user,
-        created: "2026-09-20T12:00:00.000Z",
-        items: [
-          {
-            field: "status",
-            fieldId: "status",
-            from: "status-2",
-            to: "status-1"
-          }
-        ]
-      },
-      {
-        id: "changelog-2",
-        author: user,
-        created: "2026-09-21T12:00:00.000Z",
-        items: [
-          {
-            field: "priority",
-            fieldId: "priority",
-            from: "priority-2",
-            to: "priority-1"
-          }
-        ]
-      }
+    return response(
+      offsetPage(
+        startAt,
+        "values",
+        {
+          id: "changelog-1",
+          author: user,
+          created: "2026-09-20T12:00:00.000Z",
+          items: [
+            {
+              field: "status",
+              fieldId: "status",
+              from: "status-2",
+              to: "status-1"
+            }
+          ]
+        },
+        {
+          id: "changelog-2",
+          author: user,
+          created: "2026-09-21T12:00:00.000Z",
+          items: [
+            {
+              field: "priority",
+              fieldId: "priority",
+              from: "priority-2",
+              to: "priority-1"
+            }
+          ]
+        }
+      )
     )
   if (path.endsWith("/watchers"))
-    return { watchCount: 1, isWatching: true, watchers: [user] }
+    return response({ watchCount: 1, isWatching: true, watchers: [user] })
   if (path.endsWith("/votes"))
-    return { votes: 1, hasVoted: true, voters: [user] }
+    return response({ votes: 1, hasVoted: true, voters: [user] })
   if (path.endsWith("/board"))
-    return {
+    return response({
       values: [
         {
           id: 1,
@@ -581,9 +588,9 @@ const jsonForRequest = (
       maxResults: 100,
       total: 1,
       isLast: true
-    }
+    })
   if (path.endsWith("/configuration"))
-    return {
+    return response({
       id: 1,
       name: "Fixture board",
       type: "scrum",
@@ -598,9 +605,9 @@ const jsonForRequest = (
         ]
       },
       ranking: { rankCustomFieldId: 10001 }
-    }
+    })
   if (path.endsWith("/sprint"))
-    return {
+    return response({
       values: [
         {
           id: 10,
@@ -616,12 +623,12 @@ const jsonForRequest = (
       maxResults: 100,
       total: 1,
       isLast: true
-    }
+    })
   if (path.endsWith("/issue"))
-    return {
+    return response({
       issues: issues.map(({ id, key }) => ({ id, key })),
       nextPageToken: null
-    }
+    })
   throw new Error(
     `Unexpected Jira fixture request ${request.method} ${request.url}`
   )
@@ -636,7 +643,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
   function* (
     initialScenario: JiraBrowserScenario,
     scale: JiraFixtureScale = defaultJiraFixtureScale
-  ): Effect.fn.Return<JiraBrowserFixture> {
+  ) {
     const state = yield* Ref.make<FixtureState>({
       scenario: initialScenario,
       rateLimited: false,
@@ -784,7 +791,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
             content
           )
         }
-        return response(jsonForRequest(request))
+        return responseForRequest(request)
       })
     } satisfies Transport.JiraTransport["Service"]
 
@@ -866,6 +873,6 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
       ),
       calls: Ref.get(recordedCalls),
       callCounts: Ref.get(recordedCounts)
-    }
+    } satisfies JiraBrowserFixture
   }
 )

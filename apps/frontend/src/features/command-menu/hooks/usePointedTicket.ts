@@ -15,7 +15,11 @@ import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSour
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import { commandMenuState, pointedTicket } from "../atoms/commandMenu"
-import { pointedAt, type TicketContext } from "../lib/commandMenu"
+import {
+  CommandMenuState,
+  pointedAt,
+  type TicketContext
+} from "../lib/commandMenu"
 
 export function usePointedTicket(
   orgSlug: string,
@@ -52,6 +56,7 @@ export function usePointedTicket(
       registry.set(pointedTicket, { ...pointed, row })
     }
     const menu = registry.get(commandMenuState)
+    if (!CommandMenuState.$is("open")(menu)) return
     const opened = pointedAt(menu.row, at)
     if (opened !== null && opened.row !== row) {
       registry.set(commandMenuState, { ...menu, row: { ...opened, row } })

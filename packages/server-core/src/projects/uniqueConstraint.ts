@@ -4,9 +4,7 @@ import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as SqlError from "effect/sql/SqlError"
 
-const querySqlError = (
-  error: EffectDrizzleQueryError
-): Option.Option<SqlError.SqlError> =>
+const querySqlError = (error: EffectDrizzleQueryError) =>
   SqlError.isSqlError(error.cause)
     ? Option.some(error.cause)
     : Cause.isCause(error.cause)
@@ -16,7 +14,7 @@ const querySqlError = (
 export const uniqueConstraint = (
   error: EffectDrizzleQueryError,
   constraint: string
-): boolean =>
+) =>
   Option.match(querySqlError(error), {
     onNone: () => false,
     onSome: (sqlError) =>

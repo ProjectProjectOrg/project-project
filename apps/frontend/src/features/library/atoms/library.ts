@@ -30,28 +30,21 @@ import {
   applyTypeUpsert
 } from "../lib/libraryPatch"
 
-export type OrgLibraryRequest = Readonly<{
-  _view: "orgLibrary"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type OrgLibraryRequest = ReturnType<typeof orgLibraryRequest>
 
-export type ProjectLibraryRequest = Readonly<{
-  _view: "projectLibrary"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type ProjectLibraryRequest = ReturnType<typeof projectLibraryRequest>
 
-export const orgLibraryRequest = (orgSlug: string): OrgLibraryRequest => ({
-  _view: "orgLibrary",
-  params: { orgSlug }
-})
+export const orgLibraryRequest = (orgSlug: string) =>
+  ({
+    _view: "orgLibrary",
+    params: { orgSlug }
+  }) as const
 
-export const projectLibraryRequest = (
-  orgSlug: string,
-  slug: string
-): ProjectLibraryRequest => ({
-  _view: "projectLibrary",
-  params: { orgSlug, slug }
-})
+export const projectLibraryRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "projectLibrary",
+    params: { orgSlug, slug }
+  }) as const
 
 const scopeOf = (req: ProjectLibraryRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

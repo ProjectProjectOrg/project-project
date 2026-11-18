@@ -7,19 +7,15 @@ import * as Redacted from "effect/Redacted"
 
 import * as Access from "../access/Access"
 import * as GitHub from "../github/GitHub"
-import type * as ProjectGithub from "../github/ProjectGithub"
 import * as TicketIndexServices from "../tickets/indexLayer"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as Users from "../users/Users"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectServices from "./layer"
 import * as ProjectDocs from "./ProjectDocs"
-import type * as ProjectMembers from "./ProjectMembers"
-import type * as Projects from "./Projects"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
@@ -29,14 +25,7 @@ export const projectsOnPostgres = (
   ticketDocs: Partial<TicketDocs.TicketDocs["Service"]> = {},
   projectDocs?: Layer.Layer<ProjectDocs.ProjectDocs>,
   github: Partial<GitHub.GitHub["Service"]> = {}
-): Layer.Layer<
-  | Projects.Projects
-  | ProjectGithub.ProjectGithub
-  | ProjectMembers.ProjectMembers
-  | TicketIndex.TicketIndex
-  | TicketRewrites.TicketRewrites
-  | Access.Access
-> => {
+) => {
   const db = DbLive.pipe(
     Layer.provideMerge(
       PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })

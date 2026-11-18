@@ -181,7 +181,7 @@ export const readLoadedPages = <Item, E>(
   first: Page<Item>,
   depth: number,
   page: (cursor: string) => Atom.Atom<AsyncResult.AsyncResult<Page<Item>, E>>
-): LoadedPages<Item> => {
+) => {
   const items: Array<Item> = [...first.items]
   let nextCursor = first.nextCursor
   let waiting = false
@@ -230,7 +230,7 @@ const settledPage = <P, E>(
 export const loadNextPage = <P extends Page<unknown>, E>(
   get: Atom.FnContext,
   pages: NextPage<P, E>
-): Effect.Effect<P | void, E> => {
+) => {
   const cursor = pages.visibleCursor()
   if (!cursor) return Effect.void
   const depth = pages.depth()

@@ -10,9 +10,7 @@ import { ChecklistItemExtension } from "./checklist-item-node"
 
 const CHECKBOX_ZONE_EM = 1.75
 
-function isCheckboxClick(
-  event: MouseEvent | PointerEvent
-): HTMLLIElement | null {
+function isCheckboxClick(event: MouseEvent | PointerEvent) {
   // The drawn box (checklist-item-node.ts) belongs to its item.
   const box =
     event.target instanceof Element

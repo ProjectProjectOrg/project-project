@@ -18,7 +18,7 @@ import {
   useBoardColumnDrop,
   useBoardDropGap,
   useBoardEdgeScroll,
-  type BoardDropData
+  BoardDropData
 } from "@pp/ui/board-drag"
 import { ItemLink } from "@pp/ui/item-link"
 import { TicketKey } from "@pp/ui/ticket-key"
@@ -255,7 +255,7 @@ const placeCard = (
   columns: ReadonlyArray<Column>,
   id: string,
   target: BoardDropData
-): ReadonlyArray<Column> => {
+) => {
   const ticket = columns
     .flatMap((column) => column.tickets)
     .find((entry) => entry.id === id)
@@ -263,11 +263,12 @@ const placeCard = (
   return columns.map((column) => {
     const rest = column.tickets.filter((entry) => entry.id !== id)
     if (column.status !== target.status) return { ...column, tickets: rest }
-    const at =
-      target.type === "column"
-        ? rest.length
-        : rest.findIndex((entry) => entry.id === target.id) +
-          (target.edge === "bottom" ? 1 : 0)
+    const at = BoardDropData.match(target, {
+      column: () => rest.length,
+      card: (drop) =>
+        rest.findIndex((entry) => entry.id === drop.id) +
+        (drop.edge === "bottom" ? 1 : 0)
+    })
     return {
       ...column,
       tickets: [...rest.slice(0, at), ticket, ...rest.slice(at)]

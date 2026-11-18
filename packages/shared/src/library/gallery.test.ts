@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { parseTicketBlocks, validateTicketBlocks } from "../tickets/blocks"
+import {
+  parseTicketBlocks,
+  TicketBlockSegment,
+  validateTicketBlocks
+} from "../tickets/blocks"
 import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
 import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
 import { hintSlots } from "./hints"
@@ -19,7 +23,7 @@ const galleryLookup = blockLookupFor(
 
 const blockTypesOf = (markdown: string) =>
   parseTicketBlocks(markdown).flatMap((segment) =>
-    segment.kind === "block" ? [segment.type] : []
+    TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
   )
 
 describe("gallery blocks", () => {
@@ -90,10 +94,13 @@ describe("gallery types", () => {
   it("heads Spike's approach like the Approach block it adopts", () => {
     const spike = GALLERY_TYPES.find((type) => type.key === "spike")
     const approach = parseTicketBlocks(spike?.body ?? "").find(
-      (segment) => segment.kind === "block" && segment.type === "approach"
+      (segment) =>
+        TicketBlockSegment.$is("block")(segment) && segment.type === "approach"
     )
     expect(
-      approach?.kind === "block" ? approach.content.trim().split("\n")[0] : null
+      TicketBlockSegment.$is("block")(approach)
+        ? approach.content.trim().split("\n")[0]
+        : null
     ).toBe("## Approach")
   })
 

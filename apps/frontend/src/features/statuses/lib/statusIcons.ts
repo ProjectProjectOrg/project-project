@@ -77,6 +77,6 @@ export const STATUS_ICON_NAMES = STATUS_ICONS
 
 const isStatusIcon = Schema.is(StatusIcon)
 
-export function getStatusIcon(name: string): IconType {
+export function getStatusIcon(name: string) {
   return isStatusIcon(name) ? ICON_MAP[name] : Circle
 }

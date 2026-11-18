@@ -18,7 +18,8 @@ import {
   isSettingsPath,
   railOrder,
   SETTINGS_PANEL,
-  sidebarScope
+  sidebarScope,
+  SidebarScope
 } from "@/components/shell/sidebar/sidebarRoute"
 import { usePanelTransition } from "@/components/shell/sidebar/usePanelTransition"
 import { ProjectBannerWarmup } from "@/features/projects/components/ProjectBannerWarmup"
@@ -46,10 +47,11 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
 
   const projects = useOrgProjects(orgSlug)
   const scope = sidebarScope(location.pathname, orgSlug, sprint)
+  const inProject = SidebarScope.$is("project")(scope) ? scope : null
   const project =
-    scope.kind === "project"
-      ? projects.find((candidate) => candidate.slug === scope.slug)
-      : undefined
+    inProject === null
+      ? undefined
+      : projects.find((candidate) => candidate.slug === inProject.slug)
   const panelKey = inSettings
     ? SETTINGS_PANEL
     : project === undefined
@@ -89,19 +91,17 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
             projectSlug={slug ?? null}
             backHref={backHref}
           />
-        ) : project !== undefined &&
-          orgSlug !== null &&
-          scope.kind === "project" ? (
+        ) : project !== undefined && orgSlug !== null && inProject !== null ? (
           <ProjectPanel
             orgSlug={orgSlug}
             project={project}
-            route={scope.route}
-            viewing={scope.viewing}
+            route={inProject.route}
+            viewing={inProject.viewing}
           />
         ) : (
           <DashboardPanel
             orgSlug={orgSlug}
-            page={scope.kind === "dashboard" ? scope.page : null}
+            page={SidebarScope.$is("dashboard")(scope) ? scope.page : null}
             projects={projects}
           />
         )}

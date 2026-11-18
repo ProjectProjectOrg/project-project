@@ -80,10 +80,10 @@ const table = (rows: ReadonlyArray<Row>) => {
     : [layout.header, ...rows.map(layout.row)].join("\n")
 }
 
-const flatten = (
+const flatten: (
   record: Readonly<Record<string, unknown>>,
-  prefix = ""
-): ReadonlyArray<readonly [string, unknown]> =>
+  prefix?: string
+) => ReadonlyArray<readonly [string, unknown]> = (record, prefix = "") =>
   Object.entries(record).flatMap(([key, value]) =>
     Predicate.isObject(value) && !Array.isArray(value)
       ? flatten(value, `${prefix}${key}.`)
@@ -136,10 +136,7 @@ export const isRows = (
 
 export type ResultLayout = "table" | "details"
 
-export const human = (
-  value: unknown,
-  layout: ResultLayout = "table"
-): string => {
+export const human = (value: unknown, layout: ResultLayout = "table") => {
   const renderRows = (rows: ReadonlyArray<Row>) =>
     layout === "table"
       ? table(rows)

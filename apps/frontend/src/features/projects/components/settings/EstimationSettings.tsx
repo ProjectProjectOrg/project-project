@@ -33,11 +33,14 @@ const ESTIMATION_MODE_LABELS: Readonly<Record<EstimationMode, () => string>> = {
   time: () => m.project_settings_estimation_mode_time()
 }
 
-const estimationItems = (): ReadonlyArray<SegmentedItem<EstimationMode>> =>
-  EstimationMode.literals.map((key) => ({
-    key,
-    label: ESTIMATION_MODE_LABELS[key]()
-  }))
+const estimationItems = () =>
+  EstimationMode.literals.map(
+    (key) =>
+      ({
+        key,
+        label: ESTIMATION_MODE_LABELS[key]()
+      }) satisfies SegmentedItem<EstimationMode>
+  )
 
 export function EstimationSettings({
   req,

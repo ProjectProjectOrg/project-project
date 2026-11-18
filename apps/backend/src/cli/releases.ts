@@ -20,7 +20,7 @@ export const decodeReleases = HttpClientResponse.schemaBodyJson(
 export const releaseForCommit = (
   releases: ReadonlyArray<Release>,
   commit: string
-): Option.Option<string> => {
+) => {
   const matching = releases.filter(
     (release) =>
       !release.draft &&
@@ -59,28 +59,20 @@ const releasesPage = (page: number) =>
     Effect.flatMap(decodeReleases)
   )
 
-const searchReleases = (
-  commit: string,
-  page: number
-): Effect.Effect<
-  Option.Option<string>,
-  Effect.Error<ReturnType<typeof releasesPage>>,
-  HttpClient.HttpClient
-> =>
+export const findRelease = (commit: string) =>
   Effect.gen(function* () {
-    const releases = yield* releasesPage(page)
-    const found = releaseForCommit(releases, commit)
-    if (
-      Option.isSome(found) ||
-      releases.length < RELEASES_PER_PAGE ||
-      page >= MAX_RELEASE_PAGES
-    ) {
-      return found
+    for (let page = 1; ; page++) {
+      const releases = yield* releasesPage(page)
+      const found = releaseForCommit(releases, commit)
+      if (
+        Option.isSome(found) ||
+        releases.length < RELEASES_PER_PAGE ||
+        page >= MAX_RELEASE_PAGES
+      ) {
+        return found
+      }
     }
-    return yield* searchReleases(commit, page + 1)
   })
-
-export const findRelease = (commit: string) => searchReleases(commit, 1)
 
 const hasInstaller = (release: Release) =>
   !release.draft && release.assets.some((asset) => asset.name === "install.sh")

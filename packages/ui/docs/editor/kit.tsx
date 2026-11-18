@@ -7,10 +7,7 @@ import {
 } from "@pp/shared"
 import type { EditorBlocks } from "@pp/ui/editor/blocks/editor-blocks"
 import type { AttachmentsTarget } from "@pp/ui/editor/editor-transformers"
-import type {
-  MentionCandidate,
-  MentionProvider
-} from "@pp/ui/editor/mentions/registry"
+import type { MentionProvider } from "@pp/ui/editor/mentions/registry"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { provideEditorMessages } from "@pp/ui/editor/messages"
 import {
@@ -141,10 +138,7 @@ const tickets: MentionProvider = {
 const matches = (query: string, ...fields: ReadonlyArray<string | undefined>) =>
   fields.some((field) => field?.toLowerCase().includes(query.toLowerCase()))
 
-const search = (
-  type: MentionType,
-  query: string | null
-): ReadonlyArray<MentionCandidate> => {
+const search = (type: MentionType, query: string | null) => {
   if (query === null) return []
   if (type === "user")
     return MEMBERS.filter((entry) =>

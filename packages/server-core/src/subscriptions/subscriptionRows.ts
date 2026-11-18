@@ -14,7 +14,7 @@ export type StagedSubscription =
 
 export const stageSubscriptions = (
   intents: ReadonlyArray<SubscriptionIntent>
-): ReadonlyArray<StagedSubscription> =>
+) =>
   intents.map(({ ticketId, userId, reason }) => ({
     ticketId,
     userId,

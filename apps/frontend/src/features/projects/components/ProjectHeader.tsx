@@ -62,10 +62,7 @@ import { m } from "@/paraglide/messages"
 const CURRENT_SPRINT_ROUTE =
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/current"
 
-const currentSprintId = (
-  sprints: ReadonlyArray<Group>,
-  loaded: boolean
-): string | null =>
+const currentSprintId = (sprints: ReadonlyArray<Group>, loaded: boolean) =>
   loaded ? (pickActiveSprint(sprints)?.id ?? null) : "current"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }

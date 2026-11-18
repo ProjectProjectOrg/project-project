@@ -794,7 +794,7 @@ function sprintGroup(
   id: string,
   tickets: ReadonlyArray<string>,
   completedAt: Date | null = null
-): GroupDetail {
+) {
   return {
     id: groupId(id),
     name: id,
@@ -808,7 +808,7 @@ function sprintGroup(
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     updatedAt: isoDate("2026-01-01T00:00:00.000Z"),
     body: ""
-  }
+  } satisfies GroupDetail
 }
 
 function makeFakeSprintGroups(

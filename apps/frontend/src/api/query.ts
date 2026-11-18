@@ -26,7 +26,7 @@ const unreachable = <E>(cause: Cause.Cause<E>) => {
 
 const keepLoadedWhenUnreachable = <A, E>(
   result: AsyncResult.AsyncResult<A, E>
-): AsyncResult.AsyncResult<A, E> =>
+) =>
   AsyncResult.isFailure(result) && unreachable(result.cause)
     ? Option.getOrElse(result.previousSuccess, () => result)
     : result

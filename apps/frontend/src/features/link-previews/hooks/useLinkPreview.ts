@@ -34,7 +34,7 @@ const loadImage = (src: string, onSettled: (ok: boolean) => void) => {
 const useFaviconImage = (
   src: string | null | undefined,
   rendering: LinkPreview["faviconRendering"]
-): LinkFavicon => {
+) => {
   const [initialSrc] = useState(src)
   const [settled, setSettled] = useState<Readonly<{
     src: string
@@ -56,15 +56,15 @@ const useFaviconImage = (
 
   return useMemo(() => {
     if (src === undefined) return PENDING
-    if (src === null) return { kind: "fallback", cached }
+    if (src === null) return { kind: "fallback", cached } satisfies LinkFavicon
     if (ok === undefined) return PENDING
     return ok
-      ? { kind: "image", src, cached, rendering }
-      : { kind: "fallback", cached }
+      ? ({ kind: "image", src, cached, rendering } satisfies LinkFavicon)
+      : ({ kind: "fallback", cached } satisfies LinkFavicon)
   }, [src, ok, cached, rendering])
 }
 
-export const useLinkPreview = (url: string): LinkPreviewView => {
+export const useLinkPreview = (url: string) => {
   const result = useAtomValue(linkPreview(linkPreviewRequest(url)))
   const preview = AsyncResult.isSuccess(result) ? result.value : null
   const faviconUrl =
@@ -79,5 +79,5 @@ export const useLinkPreview = (url: string): LinkPreviewView => {
       faviconUrl,
       preview?.faviconRendering ?? "original"
     )
-  }
+  } satisfies LinkPreviewView
 }

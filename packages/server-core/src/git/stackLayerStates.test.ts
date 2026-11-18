@@ -5,20 +5,19 @@ import { stackLayerStates } from "./stackLayerStates"
 
 const repository = { repoOwner: "acme", repoName: "app" }
 
-const livePr = (
-  overrides: Partial<GitHub.RawBranchEntry>
-): GitHub.RawBranchEntry => ({
-  headRefName: "ui",
-  baseRefName: "api",
-  state: "open",
-  draft: false,
-  number: 42,
-  url: "https://github.test/pull/42",
-  title: "Checkout UI",
-  mergedAt: null,
-  checks: "failing",
-  ...overrides
-})
+const livePr = (overrides: Partial<GitHub.RawBranchEntry>) =>
+  ({
+    headRefName: "ui",
+    baseRefName: "api",
+    state: "open",
+    draft: false,
+    number: 42,
+    url: "https://github.test/pull/42",
+    title: "Checkout UI",
+    mergedAt: null,
+    checks: "failing",
+    ...overrides
+  }) satisfies GitHub.RawBranchEntry
 
 describe("stackLayerStates", () => {
   const stack = [

@@ -41,7 +41,7 @@ function assignRunIds(
   sorted: ReadonlyArray<number>,
   prev: ReadonlyMap<number, number>,
   lastId: number
-): RunIds {
+) {
   const spans: Array<{ start: number; end: number }> = []
   for (const idx of sorted) {
     const last = spans.at(-1)
@@ -65,12 +65,10 @@ function assignRunIds(
     for (let i = span.start; i <= span.end; i++) byRow.set(i, id)
     return { ...span, id }
   })
-  return { runs, byRow, lastId: nextId }
+  return { runs, byRow, lastId: nextId } satisfies RunIds
 }
 
-export function useSelectionRuns(
-  checkedIndices: ReadonlyArray<number>
-): ReadonlyArray<Run> {
+export function useSelectionRuns(checkedIndices: ReadonlyArray<number>) {
   const sorted = [...checkedIndices].toSorted((a, b) => a - b)
   const key = sorted.join(",")
   const [ids, setIds] = useState(() => ({
@@ -105,7 +103,7 @@ function detectBoundaries(
   prev: ReadonlyArray<Run>,
   cur: ReadonlyArray<Run>,
   nextTid: () => number
-): ReadonlyArray<Boundary> {
+) {
   const found: Array<Boundary> = []
   for (const c of cur) {
     const p = bridgePair(c, prev)
@@ -134,7 +132,7 @@ function detectBoundaries(
   return found
 }
 
-function isStillValid(b: Boundary, cur: ReadonlyArray<Run>): boolean {
+function isStillValid(b: Boundary, cur: ReadonlyArray<Run>) {
   if (b.kind === "merge")
     return cur.some(
       (c) => c.id === b.survivorId && b.gapIndex > c.start && b.gapIndex < c.end
@@ -145,10 +143,7 @@ function isStillValid(b: Boundary, cur: ReadonlyArray<Run>): boolean {
   )
 }
 
-function settleBoundary(
-  boundaries: ReadonlyArray<Boundary>,
-  tid: number
-): ReadonlyArray<Boundary> {
+function settleBoundary(boundaries: ReadonlyArray<Boundary>, tid: number) {
   if (!boundaries.some((x) => x.tid === tid)) return boundaries
   return boundaries.flatMap((x) =>
     x.tid !== tid
@@ -159,7 +154,7 @@ function settleBoundary(
   )
 }
 
-function useBoundaries(runs: ReadonlyArray<Run>): ReadonlyArray<Boundary> {
+function useBoundaries(runs: ReadonlyArray<Run>) {
   const [boundaries, setBoundaries] = useState<ReadonlyArray<Boundary>>([])
   const prevRunsRef = useRef<ReadonlyArray<Run>>([])
   const tidRef = useRef(0)
@@ -227,7 +222,7 @@ function rectOf(
   itemRects: ReadonlyArray<ItemRect | undefined>,
   start: number,
   end: number
-): Rect | null {
+) {
   const s = itemRects[start]
   const e = itemRects[end]
   if (!s || !e) return null
@@ -311,7 +306,7 @@ export function useMergeSplitBlocks(
   runs: ReadonlyArray<Run>,
   itemRects: ReadonlyArray<ItemRect | undefined>,
   radius: number
-): ReadonlyArray<SelectionBlock> {
+) {
   const boundaries = useBoundaries(runs)
   const prevRunsRef = useRef<ReadonlyArray<Run>>(runs)
   const prevRuns = prevRunsRef.current

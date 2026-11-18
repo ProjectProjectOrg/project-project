@@ -15,7 +15,7 @@ type Shape = Readonly<{ starts: ReadonlyArray<number>; initials: string }>
 
 const shapes = new Map<string, Shape>()
 
-const shapeOf = (text: string): Shape => {
+const shapeOf = (text: string) => {
   const cached = shapes.get(text)
   if (cached !== undefined) return cached
   const starts: Array<number> = []
@@ -34,7 +34,7 @@ const shapeOf = (text: string): Shape => {
   return shape
 }
 
-const findWordStart = (text: string, word: string): number => {
+const findWordStart = (text: string, word: string) => {
   let index = text.indexOf(word)
   while (index !== -1) {
     if (isWordStart(text, index)) return index
@@ -47,18 +47,18 @@ const textScore = (
   text: string,
   word: string,
   weights: Readonly<{ start: number; contains: number }>
-): number | null => {
+) => {
   const at = findWordStart(text, word)
   if (at !== -1) return at === 0 ? weights.start + 10 : weights.start
   return text.includes(word) ? weights.contains : null
 }
 
-const acronymScore = (label: string, word: string): number | null => {
+const acronymScore = (label: string, word: string) => {
   if (word.length < 2) return null
   return shapeOf(label).initials.startsWith(word) ? 70 : null
 }
 
-const fuzzyFrom = (label: string, word: string, start: number): boolean => {
+const fuzzyFrom = (label: string, word: string, start: number) => {
   let from = start
   for (const char of word) {
     const index = label.indexOf(char, from)
@@ -68,14 +68,14 @@ const fuzzyFrom = (label: string, word: string, start: number): boolean => {
   return from - start <= word.length * 2 + 2
 }
 
-const fuzzyScore = (label: string, word: string): number | null =>
+const fuzzyScore = (label: string, word: string) =>
   shapeOf(label).starts.some(
     (start) => label[start] === word[0] && fuzzyFrom(label, word, start)
   )
     ? 5
     : null
 
-const best = (scores: ReadonlyArray<number | null>): number | null =>
+const best = (scores: ReadonlyArray<number | null>) =>
   scores.reduce<number | null>(
     (top, score) =>
       score !== null && (top === null || score > top) ? score : top,
@@ -96,7 +96,7 @@ const wordScore = (item: Searchable, label: string, word: string) =>
     )
   ]) ?? fuzzyScore(label, word)
 
-export const scoreSearch = (item: Searchable, query: string): number | null => {
+export const scoreSearch = (item: Searchable, query: string) => {
   const needle = query.trim().toLowerCase()
   const words = needle.split(/\s+/).filter(Boolean)
   if (words.length === 0) return null

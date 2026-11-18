@@ -13,7 +13,7 @@ import { Link } from "@tanstack/react-router"
 import { AccountMenu } from "@/components/shell/sidebar/AccountMenu"
 import {
   PROJECT_PAGE_PATHS,
-  type SidebarScope
+  SidebarScope
 } from "@/components/shell/sidebar/sidebarRoute"
 import { useOpenCommandMenu } from "@/features/command-menu/hooks/useOpenCommandMenu"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
@@ -55,7 +55,7 @@ export function AppRail({
     >
       <SidebarRailItem
         label={m.chrome_sidebar_dashboard()}
-        active={scope.kind === "dashboard"}
+        active={SidebarScope.$is("dashboard")(scope)}
         render={
           orgSlug === null ? (
             <Link
@@ -100,7 +100,8 @@ function ProjectTile({
   scope
 }: Readonly<{ orgSlug: string; project: Project; scope: SidebarScope }>) {
   const params = { orgSlug, slug: project.slug }
-  const route = scope.kind === "project" ? scope.route : null
+  const inProject = SidebarScope.$is("project")(scope) ? scope : null
+  const route = inProject?.route ?? null
   const settingsSection =
     route?.page === "settings"
       ? PROJECT_SETTINGS_SECTIONS.find((section) => section.key === route.sub)
@@ -109,7 +110,7 @@ function ProjectTile({
     <SidebarRailItem
       label={project.name}
       tone={project.color}
-      active={scope.kind === "project" && scope.slug === project.slug}
+      active={inProject?.slug === project.slug}
       // The item takes the tile's own shape, so the tile looks the same
       // here as everywhere else.
       className="corner-squircle"

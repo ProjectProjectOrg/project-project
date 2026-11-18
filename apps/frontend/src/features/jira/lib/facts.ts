@@ -8,14 +8,12 @@ const optional = (
   label: () => string,
   value: number | undefined,
   hideZero = false
-): ReadonlyArray<JiraFact> =>
+) =>
   value === undefined || (hideZero && value === 0)
     ? []
     : [{ label: label(), value }]
 
-export const scanFacts = (
-  counts: JiraMigrationCounts
-): ReadonlyArray<JiraFact> => [
+export const scanFacts = (counts: JiraMigrationCounts) => [
   { label: m.jira_import_fact_tickets(), value: counts.issues },
   ...optional(m.jira_import_fact_epics_found, counts.epics, true),
   ...optional(m.jira_import_fact_sub_tickets_found, counts.subTickets),

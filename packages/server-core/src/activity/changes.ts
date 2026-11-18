@@ -42,10 +42,7 @@ type PullRequestFields = Readonly<{
   prState: TicketChangeSource["prState"]
 }>
 
-const listDiff = <A>(
-  before: ReadonlyArray<A>,
-  after: ReadonlyArray<A>
-): Readonly<{ added: ReadonlyArray<A>; removed: ReadonlyArray<A> }> | null => {
+const listDiff = <A>(before: ReadonlyArray<A>, after: ReadonlyArray<A>) => {
   const previous = new Set(before)
   const next = new Set(after)
   const added = after.filter((value) => !previous.has(value))
@@ -53,23 +50,26 @@ const listDiff = <A>(
   return added.length === 0 && removed.length === 0 ? null : { added, removed }
 }
 
-const prChange = (
-  before: PullRequestFields,
-  after: PullRequestFields
-): TicketActivityChange | null => {
+const prChange = (before: PullRequestFields, after: PullRequestFields) => {
   if (after.pr === null) return null
   const samePr = before.pr === after.pr
   if (samePr && before.prState === after.prState) return null
-  if (after.prState === "merged") return { kind: "pr_merged", number: after.pr }
-  if (after.prState === "closed") return { kind: "pr_closed", number: after.pr }
+  if (after.prState === "merged")
+    return {
+      kind: "pr_merged",
+      number: after.pr
+    } satisfies TicketActivityChange
+  if (after.prState === "closed")
+    return {
+      kind: "pr_closed",
+      number: after.pr
+    } satisfies TicketActivityChange
   const reopened = before.prState === "closed" || before.prState === "merged"
   if (samePr && !reopened) return null
-  return { kind: "pr_opened", number: after.pr }
+  return { kind: "pr_opened", number: after.pr } satisfies TicketActivityChange
 }
 
-const layerPullRequest = (
-  layer: TicketBranchEntry | undefined
-): PullRequestFields => ({
+const layerPullRequest = (layer: TicketBranchEntry | undefined) => ({
   pr: layer?.pr ?? null,
   prState: layer?.prState ?? null
 })
@@ -77,7 +77,7 @@ const layerPullRequest = (
 const stackChanges = (
   before: TicketChangeSource,
   after: TicketChangeSource
-): ReadonlyArray<TicketActivityChange> => {
+) => {
   const previous = new Map(
     (before.stack ?? []).map((layer) => [layer.branch, layer])
   )
@@ -103,7 +103,7 @@ export const ticketChanges = (
   before: TicketChangeSource,
   after: TicketChangeSource,
   archiveReason?: string
-): ReadonlyArray<TicketActivityChange> => {
+) => {
   const changes: Array<TicketActivityChange> = []
   if (before.title !== after.title) {
     changes.push({
@@ -231,11 +231,11 @@ const relationPairChanges = (
     added: ReadonlyArray<TicketId>
     removed: ReadonlyArray<TicketId>
   }>
-): ReadonlyArray<TicketScopedChange> => {
+) => {
   const both = (
     kind: "relation_added" | "relation_removed",
     other: TicketId
-  ): ReadonlyArray<TicketScopedChange> => [
+  ) => [
     { ticketId: ticket, change: { kind, relation: sides.own, ticket: other } },
     { ticketId: other, change: { kind, relation: sides.other, ticket } }
   ]
@@ -245,13 +245,12 @@ const relationPairChanges = (
   ]
 }
 
-const optionalId = (id: TicketId | undefined): ReadonlyArray<TicketId> =>
-  id === undefined ? [] : [id]
+const optionalId = (id: TicketId | undefined) => (id === undefined ? [] : [id])
 
 export const relationChanges = (
   before: RelationChangeSource | null,
   after: RelationChangeSource
-): ReadonlyArray<TicketScopedChange> => {
+) => {
   const pairs = [
     {
       sides: relationSides.blockedBy,
@@ -277,7 +276,7 @@ export const relationChanges = (
 export const groupMembershipChanges = (
   before: GroupMembershipSource | null,
   after: GroupMembershipSource | null
-): ReadonlyArray<TicketScopedChange> => {
+) => {
   const group = after ?? before
   if (group === null || group.kind === "sprint") return []
   const diff = listDiff(before?.tickets ?? [], after?.tickets ?? [])
@@ -304,17 +303,15 @@ export type SprintRef = Readonly<{ id: GroupId; name: string }>
 export const sprintChanges = (
   before: SprintRef | null,
   after: SprintRef | null
-): ReadonlyArray<TicketActivityChange> => {
+) => {
   if (before?.id === after?.id) return []
-  const change = (
-    kind: "group_added" | "group_removed",
-    sprint: SprintRef
-  ): TicketActivityChange => ({
-    kind,
-    groupId: sprint.id,
-    groupKind: "sprint",
-    name: sprint.name
-  })
+  const change = (kind: "group_added" | "group_removed", sprint: SprintRef) =>
+    ({
+      kind,
+      groupId: sprint.id,
+      groupKind: "sprint",
+      name: sprint.name
+    }) satisfies TicketActivityChange
   return [
     ...(before === null ? [] : [change("group_removed", before)]),
     ...(after === null ? [] : [change("group_added", after)])

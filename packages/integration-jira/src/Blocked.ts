@@ -96,10 +96,7 @@ const httpDateMillis = (header: string, now: number) => {
     : null
 }
 
-export const parseRetryAfter = (
-  header: string | undefined,
-  now: number
-): number | null => {
+export const parseRetryAfter = (header: string | undefined, now: number) => {
   if (header === undefined) return null
   const trimmed = header.trim()
   const seconds = decodeRetryAfterSeconds(trimmed)
@@ -115,7 +112,7 @@ export const rateLimitFromHeaders = (
   operation: string,
   headers: Readonly<Record<string, string>>,
   now: number
-): JiraRateLimited => {
+) => {
   const parsed = parseRetryAfter(headers["retry-after"], now)
   const limitReason = headers["ratelimit-reason"]
   return new JiraRateLimited({

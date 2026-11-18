@@ -1,6 +1,7 @@
 import {
   TicketActivityChange,
   TicketId,
+  TypeKey,
   type ActivityCause,
   type TicketActivityChangeEncoded
 } from "@pp/shared"
@@ -10,28 +11,29 @@ import { describe, expect, it } from "vitest"
 
 import { m } from "@/paraglide/messages"
 
-import type { ActivityItem } from "./activityGroups"
-import { activityLines } from "./activityLines"
+import { ActivityItem } from "./activityGroups"
+import { ActivityLineBody, ActivityValue, activityLines } from "./activityLines"
 
 const decodeChange = Schema.decodeUnknownSync(TicketActivityChange)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const typeKey = Schema.decodeUnknownSync(TypeKey)
 const at = DateTime.toDate(DateTime.makeUnsafe("2026-10-16T12:00:00Z"))
 
 const changeItem = (
   change: TicketActivityChangeEncoded,
   cause: ActivityCause | null = null
-): ActivityItem => ({
-  kind: "entry",
-  key: "a",
-  entry: {
-    kind: "change",
-    id: "a",
-    occurredAt: at,
-    actor: { kind: "system", source: "automation" },
-    cause,
-    change: decodeChange(change)
-  }
-})
+) =>
+  ActivityItem.entry({
+    key: "a",
+    entry: {
+      kind: "change",
+      id: "a",
+      occurredAt: at,
+      actor: { kind: "system", source: "automation" },
+      cause,
+      change: decodeChange(change)
+    }
+  })
 
 const lines = (change: TicketActivityChangeEncoded) =>
   activityLines(changeItem(change))
@@ -39,20 +41,21 @@ const lines = (change: TicketActivityChangeEncoded) =>
 describe("activityLines", () => {
   it("describes a created ticket", () => {
     expect(
-      activityLines({
-        kind: "entry",
-        key: "created",
-        entry: {
-          kind: "created",
-          id: "created",
-          occurredAt: at,
-          actor: null,
-          splitFrom: null
-        }
-      })
+      activityLines(
+        ActivityItem.entry({
+          key: "created",
+          entry: {
+            kind: "created",
+            id: "created",
+            occurredAt: at,
+            actor: null,
+            splitFrom: null
+          }
+        })
+      )
     ).toEqual([
       {
-        body: { kind: "plain", text: m.tickets_activity_created() },
+        body: ActivityLineBody.plain({ text: m.tickets_activity_created() }),
         cause: null
       }
     ])
@@ -60,24 +63,24 @@ describe("activityLines", () => {
 
   it("names the ticket a created ticket was split from", () => {
     expect(
-      activityLines({
-        kind: "entry",
-        key: "created",
-        entry: {
-          kind: "created",
-          id: "created",
-          occurredAt: at,
-          actor: null,
-          splitFrom: ticketId("PP-4")
-        }
-      })
+      activityLines(
+        ActivityItem.entry({
+          key: "created",
+          entry: {
+            kind: "created",
+            id: "created",
+            occurredAt: at,
+            actor: null,
+            splitFrom: ticketId("PP-4")
+          }
+        })
+      )
     ).toEqual([
       {
-        body: {
-          kind: "verb",
+        body: ActivityLineBody.verb({
           verb: m.tickets_activity_split_from(),
-          value: { kind: "literal", text: "PP-4", icon: null }
-        },
+          value: ActivityValue.literal({ text: "PP-4", icon: null })
+        }),
         cause: null
       }
     ])
@@ -86,11 +89,10 @@ describe("activityLines", () => {
   it("shows the new title", () => {
     expect(lines({ kind: "title_changed", from: "Old", to: "New" })).toEqual([
       {
-        body: {
-          kind: "verb",
+        body: ActivityLineBody.verb({
           verb: m.tickets_activity_title_changed(),
-          value: { kind: "text", text: "New" }
-        },
+          value: ActivityValue.text({ text: "New" })
+        }),
         cause: null
       }
     ])
@@ -99,28 +101,31 @@ describe("activityLines", () => {
   it("shows status, priority and type as from-to fields", () => {
     expect(
       lines({ kind: "status_changed", from: "todo", to: "done" })[0]?.body
-    ).toEqual({
-      kind: "field",
-      label: m.tickets_activity_field_status(),
-      from: { kind: "status", slug: "todo" },
-      to: { kind: "status", slug: "done" }
-    })
+    ).toEqual(
+      ActivityLineBody.field({
+        label: m.tickets_activity_field_status(),
+        from: ActivityValue.status({ slug: "todo" }),
+        to: ActivityValue.status({ slug: "done" })
+      })
+    )
     expect(
       lines({ kind: "priority_changed", from: "low", to: "high" })[0]?.body
-    ).toEqual({
-      kind: "field",
-      label: m.tickets_activity_field_priority(),
-      from: { kind: "priority", priority: "low" },
-      to: { kind: "priority", priority: "high" }
-    })
+    ).toEqual(
+      ActivityLineBody.field({
+        label: m.tickets_activity_field_priority(),
+        from: ActivityValue.priority({ priority: "low" }),
+        to: ActivityValue.priority({ priority: "high" })
+      })
+    )
     expect(
       lines({ kind: "type_changed", from: "chore", to: "bug" })[0]?.body
-    ).toEqual({
-      kind: "field",
-      label: m.tickets_activity_field_type(),
-      from: { kind: "type", type: "chore" },
-      to: { kind: "type", type: "bug" }
-    })
+    ).toEqual(
+      ActivityLineBody.field({
+        label: m.tickets_activity_field_type(),
+        from: ActivityValue.type({ type: typeKey("chore") }),
+        to: ActivityValue.type({ type: typeKey("bug") })
+      })
+    )
   })
 
   it("formats estimates and shows a missing one as none", () => {
@@ -130,12 +135,15 @@ describe("activityLines", () => {
         from: null,
         to: { unit: "points", value: 3 }
       })[0]?.body
-    ).toEqual({
-      kind: "field",
-      label: m.tickets_activity_field_estimate(),
-      from: { kind: "text", text: m.tickets_filters_estimate_none() },
-      to: { kind: "text", text: m.tickets_estimate_points({ count: 3 }) }
-    })
+    ).toEqual(
+      ActivityLineBody.field({
+        label: m.tickets_activity_field_estimate(),
+        from: ActivityValue.text({ text: m.tickets_filters_estimate_none() }),
+        to: ActivityValue.text({
+          text: m.tickets_estimate_points({ count: 3 })
+        })
+      })
+    )
   })
 
   it("gives added and removed assignees a line each, skipping empty sides", () => {
@@ -143,19 +151,17 @@ describe("activityLines", () => {
       lines({ kind: "assignees_changed", added: ["u1", "u2"], removed: ["u3"] })
     ).toEqual([
       {
-        body: {
-          kind: "verb",
+        body: ActivityLineBody.verb({
           verb: m.tickets_activity_assignees_added(),
-          value: { kind: "people", ids: ["u1", "u2"] }
-        },
+          value: ActivityValue.people({ ids: ["u1", "u2"] })
+        }),
         cause: null
       },
       {
-        body: {
-          kind: "verb",
+        body: ActivityLineBody.verb({
           verb: m.tickets_activity_assignees_removed(),
-          value: { kind: "people", ids: ["u3"] }
-        },
+          value: ActivityValue.people({ ids: ["u3"] })
+        }),
         cause: null
       }
     ])
@@ -168,53 +174,52 @@ describe("activityLines", () => {
     expect(lines({ kind: "tags_changed", added: ["ui"], removed: [] })).toEqual(
       [
         {
-          body: {
-            kind: "verb",
+          body: ActivityLineBody.verb({
             verb: m.tickets_activity_tags_added(),
-            value: { kind: "tags", names: ["ui"] }
-          },
+            value: ActivityValue.tags({ names: ["ui"] })
+          }),
           cause: null
         }
       ]
     )
     expect(
       lines({ kind: "tags_changed", added: [], removed: ["ui"] })[0]?.body
-    ).toEqual({
-      kind: "verb",
-      verb: m.tickets_activity_tags_removed(),
-      value: { kind: "tags", names: ["ui"] }
-    })
+    ).toEqual(
+      ActivityLineBody.verb({
+        verb: m.tickets_activity_tags_removed(),
+        value: ActivityValue.tags({ names: ["ui"] })
+      })
+    )
   })
 
   it("describes description edits and unarchiving in plain text", () => {
-    expect(lines({ kind: "description_edited" })[0]?.body).toEqual({
-      kind: "plain",
-      text: m.tickets_activity_description_edited()
-    })
-    expect(lines({ kind: "unarchived" })[0]?.body).toEqual({
-      kind: "plain",
-      text: m.tickets_activity_unarchived()
-    })
+    expect(lines({ kind: "description_edited" })[0]?.body).toEqual(
+      ActivityLineBody.plain({ text: m.tickets_activity_description_edited() })
+    )
+    expect(lines({ kind: "unarchived" })[0]?.body).toEqual(
+      ActivityLineBody.plain({ text: m.tickets_activity_unarchived() })
+    )
   })
 
   it("quotes an archive reason when there is one", () => {
-    expect(lines({ kind: "archived" })[0]?.body).toEqual({
-      kind: "plain",
-      text: m.tickets_activity_archived()
-    })
-    expect(lines({ kind: "archived", reason: "Duplicate" })[0]?.body).toEqual({
-      kind: "quoted",
-      text: m.tickets_activity_archived(),
-      quote: "Duplicate"
-    })
+    expect(lines({ kind: "archived" })[0]?.body).toEqual(
+      ActivityLineBody.plain({ text: m.tickets_activity_archived() })
+    )
+    expect(lines({ kind: "archived", reason: "Duplicate" })[0]?.body).toEqual(
+      ActivityLineBody.quoted({
+        text: m.tickets_activity_archived(),
+        quote: "Duplicate"
+      })
+    )
   })
 
   it("lists the tickets a split produced", () => {
-    expect(lines({ kind: "split", into: ["PP-5", "PP-6"] })[0]?.body).toEqual({
-      kind: "verb",
-      verb: m.tickets_activity_split(),
-      value: { kind: "literal", text: "PP-5, PP-6", icon: null }
-    })
+    expect(lines({ kind: "split", into: ["PP-5", "PP-6"] })[0]?.body).toEqual(
+      ActivityLineBody.verb({
+        verb: m.tickets_activity_split(),
+        value: ActivityValue.literal({ text: "PP-5, PP-6", icon: null })
+      })
+    )
   })
 
   it("names the group a ticket joined or left", () => {
@@ -223,16 +228,18 @@ describe("activityLines", () => {
       groupKind: "epic",
       name: "Launch"
     } as const
-    expect(lines({ kind: "group_added", ...group })[0]?.body).toEqual({
-      kind: "verb",
-      verb: m.tickets_activity_group_added(),
-      value: { kind: "group", groupKind: "epic", name: "Launch" }
-    })
-    expect(lines({ kind: "group_removed", ...group })[0]?.body).toEqual({
-      kind: "verb",
-      verb: m.tickets_activity_group_removed(),
-      value: { kind: "group", groupKind: "epic", name: "Launch" }
-    })
+    expect(lines({ kind: "group_added", ...group })[0]?.body).toEqual(
+      ActivityLineBody.verb({
+        verb: m.tickets_activity_group_added(),
+        value: ActivityValue.group({ groupKind: "epic", name: "Launch" })
+      })
+    )
+    expect(lines({ kind: "group_removed", ...group })[0]?.body).toEqual(
+      ActivityLineBody.verb({
+        verb: m.tickets_activity_group_removed(),
+        value: ActivityValue.group({ groupKind: "epic", name: "Launch" })
+      })
+    )
   })
 
   it("shows branches and pull requests with their git icon", () => {
@@ -281,11 +288,12 @@ describe("activityLines", () => {
       ]
     ] as const
     for (const [change, verb, text, icon] of cases) {
-      expect(lines(change)[0]?.body).toEqual({
-        kind: "verb",
-        verb,
-        value: { kind: "literal", text, icon }
-      })
+      expect(lines(change)[0]?.body).toEqual(
+        ActivityLineBody.verb({
+          verb,
+          value: ActivityValue.literal({ text, icon })
+        })
+      )
     }
   })
 
@@ -305,24 +313,24 @@ describe("activityLines", () => {
 
   it("shows a sprint move as one sprint field with its cause", () => {
     expect(
-      activityLines({
-        kind: "sprint_moved",
-        key: "a:b",
-        actor: null,
-        // @effect-diagnostics-next-line globalDate:off
-        at: new Date(0),
-        from: "Sprint 1",
-        to: "Sprint 2",
-        cause: "sprint_completed"
-      })
+      activityLines(
+        ActivityItem.sprint_moved({
+          key: "a:b",
+          actor: null,
+          // @effect-diagnostics-next-line globalDate:off
+          at: new Date(0),
+          from: "Sprint 1",
+          to: "Sprint 2",
+          cause: "sprint_completed"
+        })
+      )
     ).toEqual([
       {
-        body: {
-          kind: "field",
+        body: ActivityLineBody.field({
           label: m.tickets_activity_field_sprint(),
-          from: { kind: "group", groupKind: "sprint", name: "Sprint 1" },
-          to: { kind: "group", groupKind: "sprint", name: "Sprint 2" }
-        },
+          from: ActivityValue.group({ groupKind: "sprint", name: "Sprint 1" }),
+          to: ActivityValue.group({ groupKind: "sprint", name: "Sprint 2" })
+        }),
         cause: m.tickets_activity_cause_sprint_completed()
       }
     ])

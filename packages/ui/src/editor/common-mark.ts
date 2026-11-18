@@ -74,7 +74,7 @@ export const INLINE_MARKDOWN_TRANSFORMER: TextMatchTransformer = {
 
 export function commonMarkTransformers(
   transformers: ReadonlyArray<Transformer>
-): Array<Transformer> {
+) {
   const content = [...transformers]
   const commonMark = createCommonMarkTransformer(content)
   const nestedBlocks: TextMatchTransformer = {
@@ -107,9 +107,7 @@ export function commonMarkTransformers(
   return [commonMark, ...content]
 }
 
-function createCommonMarkTransformer(
-  transformers: ReadonlyArray<Transformer>
-): MultilineElementTransformer {
+function createCommonMarkTransformer(transformers: ReadonlyArray<Transformer>) {
   const transformer: MultilineElementTransformer = {
     type: "multiline-element",
     dependencies: [],
@@ -148,7 +146,7 @@ function exportList(
   list: ListNode,
   traverseChildren: (node: ElementNode) => string,
   depth = 0
-): string {
+) {
   const output: string[] = []
   const indent = " ".repeat(depth * 4)
   let index = list.getStart()
@@ -184,8 +182,8 @@ function exportList(
   return output.join("\n")
 }
 
-function hasListContinuation(list: ListNode): boolean {
-  return list.getChildren().some((item) => {
+const hasListContinuation: (list: ListNode) => boolean = (list) =>
+  list.getChildren().some((item) => {
     if (!$isListItemNode(item)) return false
     return item
       .getChildren()
@@ -195,4 +193,3 @@ function hasListContinuation(list: ListNode): boolean {
           : !child.isInline() && !$isTextNode(child) && !$isLineBreakNode(child)
       )
   })
-}

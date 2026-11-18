@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { JiraImportsPage } from "@/features/jira/components/JiraImportsPage"
 import { m } from "@/paraglide/messages"
 
@@ -7,12 +8,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/migrations/jira/")(
   {
     component: JiraImportsRoute,
     loader: ({ params }) => ({
-      crumb: {
-        type: "static" as const,
+      crumb: Crumb.static({
         label: m.jira_import_list_title(),
         to: "/orgs/$orgSlug/migrations/jira",
         params: { orgSlug: params.orgSlug }
-      }
+      })
     })
   }
 )

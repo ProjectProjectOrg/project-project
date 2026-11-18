@@ -17,7 +17,7 @@ const UNIT_MINUTES = new Map([
 ])
 
 // "2d 4h", "45m", "1w": a day is 8h and a week is 5d, up to 999h.
-const parseMinutes = (draft: string): number | null => {
+const parseMinutes = (draft: string) => {
   const parts = draft.trim().toLowerCase().split(/\s+/)
   let total = 0
   for (const part of parts) {

@@ -8,7 +8,7 @@ export type OrderedStackLayer = Readonly<{
 export const orderStackLayers = (
   ownBranch: string | null,
   stack: ReadonlyArray<TicketBranchEntry> | undefined
-): ReadonlyArray<OrderedStackLayer> => {
+) => {
   const layers = stack ?? []
   const ordered: Array<OrderedStackLayer> = []
   const placed = new Set<string>()
@@ -50,15 +50,13 @@ type StackTicket = Readonly<{
   archivedAt: Date | null
 }>
 
-export const ticketBranches = (
-  ticket: Pick<StackTicket, "branch" | "stack">
-): ReadonlySet<string> =>
+export const ticketBranches = (ticket: Pick<StackTicket, "branch" | "stack">) =>
   new Set([
     ...(ticket.branch === null ? [] : [ticket.branch]),
     ...(ticket.stack ?? []).map((layer) => layer.branch)
   ])
 
-export const stackLayerFor = (pr: StackPullRequest): TicketBranchEntry =>
+export const stackLayerFor = (pr: StackPullRequest) =>
   Object.assign(
     { branch: pr.branch, base: pr.base, pr: pr.number, prState: pr.state },
     pr.state === "open" && pr.draft ? { prDraft: true } : {},
@@ -69,7 +67,7 @@ export const planStackAttach = (
   ticket: StackTicket,
   pr: StackPullRequest,
   namedInBranch: boolean
-): TicketBranchEntry | null => {
+) => {
   if (ticket.branch === null || ticket.archivedAt !== null) return null
   const branches = ticketBranches(ticket)
   if (branches.has(pr.branch)) return null
@@ -80,7 +78,7 @@ export const planStackAttach = (
 export const planLayerPullRequest = (
   layer: TicketBranchEntry,
   pr: StackPullRequest
-): TicketBranchEntry | null => {
+) => {
   if (layer.pr !== undefined && pr.number < layer.pr) return null
   if (
     layer.pr === pr.number &&
@@ -105,7 +103,7 @@ export const planLayerPullRequest = (
 export const replaceLayer = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   layer: TicketBranchEntry
-): ReadonlyArray<TicketBranchEntry> =>
+) =>
   (stack ?? []).map((current) =>
     current.branch === layer.branch ? layer : current
   )

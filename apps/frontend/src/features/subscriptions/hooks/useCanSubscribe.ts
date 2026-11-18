@@ -6,7 +6,7 @@ import { project } from "@/features/projects/atoms/projects"
 import { useProjectRequest } from "@/features/projects/hooks/useProject"
 import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
 
-export function useCanSubscribe(): boolean {
+export function useCanSubscribe() {
   const detail = useAtomValue(project(useProjectRequest()))
   const viewerId = useAtomValue(currentUserId)
   return AsyncResult.isSuccess(detail) && canSubscribe(detail.value, viewerId)

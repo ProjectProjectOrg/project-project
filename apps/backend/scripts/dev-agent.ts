@@ -32,7 +32,6 @@ import {
 } from "./agent/registry"
 import {
   decodeSecrets,
-  type Secrets,
   childEnvironment,
   loginUrl,
   prepareFiles,
@@ -47,14 +46,14 @@ const decodeStorageOwner = Schema.decodeUnknownSync(
   Schema.Struct({ id: Schema.String })
 )
 
-async function secretsFor(environment: Environment): Promise<Secrets> {
+async function secretsFor(environment: Environment) {
   return readJson(
     path.join(registry.resources(environment), "secrets.json"),
     decodeSecrets
   )
 }
 
-async function findEnvironment(): Promise<Environment> {
+async function findEnvironment() {
   const environment = (await registry.read()).find(
     (entry) => entry.worktree === root
   )
@@ -65,7 +64,7 @@ async function findEnvironment(): Promise<Environment> {
   return environment
 }
 
-async function stop(environment: Environment): Promise<void> {
+async function stop(environment: Environment) {
   const resources = registry.resources(environment)
   const file = path.join(resources, "running.json")
   if (!(await exists(file))) return
@@ -86,7 +85,7 @@ async function stop(environment: Environment): Promise<void> {
   throw new Error("Server has not stopped; preserving environment")
 }
 
-async function clean(environment: Environment): Promise<void> {
+async function clean(environment: Environment) {
   await stop(environment)
   const resources = registry.resources(environment)
   const storage = path.join(environment.worktree, ".agent.local")
@@ -141,7 +140,7 @@ async function clean(environment: Environment): Promise<void> {
   )
 }
 
-async function start(): Promise<void> {
+async function start() {
   const environment = await registry.exclusive(async () => {
     const entries = await registry.read()
     const existing = entries.find((entry) => entry.worktree === root)
@@ -201,7 +200,7 @@ async function start(): Promise<void> {
   process.exitCode = await child.exited
 }
 
-async function serve(): Promise<void> {
+async function serve() {
   let running: Promise<void> | undefined
   await registry.exclusive(async () => {
     let environment = await findEnvironment()
@@ -286,7 +285,7 @@ async function serve(): Promise<void> {
   await running
 }
 
-async function main(): Promise<void> {
+async function main() {
   switch (operation) {
     case "start":
       return start()

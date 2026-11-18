@@ -2,7 +2,7 @@ import { isEpic } from "@pp/shared"
 import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "@pp/ui/icons"
 
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
 import { SquarePlusCorner } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { MARK_KINDS } from "@/features/tickets/components/ticket-marks/markKinds"
@@ -13,7 +13,7 @@ import { m } from "@/paraglide/messages"
 import { editable, editTicket, onLiveTicket } from "./commands"
 
 export const relationCommands: ReadonlyArray<Command> = [
-  {
+  Command.page({
     id: "ticket.parent",
     hotkey: appHotkeys["tickets.parent"],
     group: "ticketRelations",
@@ -26,8 +26,8 @@ export const relationCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: (context) => editable(context) && !isEpic(context.ticketData),
     page: "ticketParent"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.add-sub-ticket",
     group: "ticketRelations",
     label: ({ ticketData }) =>
@@ -39,8 +39,8 @@ export const relationCommands: ReadonlyArray<Command> = [
     when: (context) =>
       editable(context) && context.tickets.create && context.canHoldChildren,
     page: "ticketSubTicket"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.create-related",
     group: "ticketRelations",
     label: m.tickets_command_create_related,
@@ -49,8 +49,8 @@ export const relationCommands: ReadonlyArray<Command> = [
     tool: "create_ticket",
     when: (context) => onLiveTicket(context) && context.tickets.create,
     page: "ticketCreateRelated"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.flag",
     hotkey: appHotkeys["tickets.flag"],
     bulk: true,
@@ -68,8 +68,8 @@ export const relationCommands: ReadonlyArray<Command> = [
       if (ticket === null || ticketData === null) return
       env.open("ticketFlag")
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.unflag",
     hotkey: appHotkeys["tickets.flag"],
     bulk: true,
@@ -100,8 +100,8 @@ export const relationCommands: ReadonlyArray<Command> = [
       editTicket(ticket, env, { flag: null })
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.mark",
     group: "ticketRelations",
     label: m.tickets_command_mark_as,
@@ -116,9 +116,9 @@ export const relationCommands: ReadonlyArray<Command> = [
     ],
     when: editable,
     page: "ticketMarkAs"
-  },
-  ...MARK_KINDS.map(
-    ({ kind, icon, command }): Command => ({
+  }),
+  ...MARK_KINDS.map(({ kind, icon, command }) =>
+    Command.page({
       id: `ticket.mark.${kind}`,
       group: "ticketRelations",
       listed: "search",
@@ -130,7 +130,7 @@ export const relationCommands: ReadonlyArray<Command> = [
       page: `mark:${kind}`
     })
   ),
-  {
+  Command.page({
     id: "ticket.unmark",
     group: "ticketRelations",
     label: m.tickets_menu_remove_relation,
@@ -142,8 +142,8 @@ export const relationCommands: ReadonlyArray<Command> = [
       context.ticketDetail !== null &&
       removableRelations(context.ticketDetail.relations).length > 0,
     page: "ticketRemoveRelation"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.detach",
     group: "ticketRelations",
     label: ({ ticketData }) =>
@@ -162,5 +162,5 @@ export const relationCommands: ReadonlyArray<Command> = [
       editTicket(ticket, env, { parent: null })
       env.close()
     }
-  }
+  })
 ]

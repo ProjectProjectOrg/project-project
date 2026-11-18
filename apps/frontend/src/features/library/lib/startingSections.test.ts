@@ -14,14 +14,15 @@ import {
   sectionsToAdd,
   startingRows,
   withoutRow,
-  withSection
+  withSection,
+  StartingRow
 } from "./startingSections"
 
 const bug = BUILTIN_TYPES.find((type) => type.key === "bug")!
 const spike = GALLERY_TYPES.find((type) => type.key === "spike")!
 
-const keys = (list: ReturnType<typeof startingRows>) =>
-  list.map((row) => (row.kind === "text" ? "text" : row.key))
+const keys = (list: ReadonlyArray<StartingRow>) =>
+  list.map((row) => (StartingRow.$is("text")(row) ? "text" : row.key))
 
 const content = (key: string) =>
   BUILTIN_BLOCKS.find((block) => block.key === key)!.content
@@ -47,33 +48,33 @@ const legacy = [
 describe("startingRows", () => {
   it("lists a body of references as sections in order", () => {
     expect(startingRows(bug.body)).toEqual([
-      {
+      StartingRow.section({
         id: "section:expected-vs-actual:0",
-        kind: "section",
         key: "expected-vs-actual"
-      },
-      {
+      }),
+      StartingRow.section({
         id: "section:steps-to-reproduce:0",
-        kind: "section",
         key: "steps-to-reproduce"
-      },
-      { id: "section:environment:0", kind: "section", key: "environment" },
-      {
+      }),
+      StartingRow.section({
+        id: "section:environment:0",
+        key: "environment"
+      }),
+      StartingRow.section({
         id: "section:definition-of-done:0",
-        kind: "section",
         key: "definition-of-done"
-      }
+      })
     ])
   })
 
   it("keeps loose text and customized sections as their own rows", () => {
-    expect(startingRows(legacy).map((row) => row.kind)).toEqual([
+    expect(startingRows(legacy).map((row) => row._tag)).toEqual([
       "text",
       "section",
       "text",
       "custom"
     ])
-    expect(startingRows(spike.body).map((row) => row.kind)).toEqual([
+    expect(startingRows(spike.body).map((row) => row._tag)).toEqual([
       "section",
       "custom",
       "section"
@@ -82,8 +83,8 @@ describe("startingRows", () => {
 
   it("gives repeated sections distinct ids", () => {
     const body = bodyOfRows([
-      { id: "a", kind: "section", key: "context" },
-      { id: "b", kind: "section", key: "context" }
+      StartingRow.section({ id: "a", key: "context" }),
+      StartingRow.section({ id: "b", key: "context" })
     ])
     expect(startingRows(body).map((row) => row.id)).toEqual([
       "section:context:0",
@@ -105,7 +106,7 @@ describe("bodyOfRows", () => {
     const rows = startingRows(legacy)
     const moved = moveRow(rows, rows[1].id, 2)
     const reread = startingRows(bodyOfRows(moved))
-    expect(reread.map((row) => row.kind)).toEqual(["text", "custom", "section"])
+    expect(reread.map((row) => row._tag)).toEqual(["text", "custom", "section"])
     expect(reread[0]).toMatchObject({
       text: "Some words from an old template.\n\n## A loose heading\n\n- [ ] kept"
     })

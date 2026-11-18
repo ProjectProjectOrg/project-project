@@ -16,7 +16,7 @@ export type GithubInstall = Readonly<{
   error: string | null
 }>
 
-export function useGithubInstall(orgSlug: string): GithubInstall {
+export function useGithubInstall(orgSlug: string) {
   const req = githubOrgRequest(orgSlug)
   const start = useAtomSet(startGithubInstall(req), { mode: "promiseExit" })
   const state = useAtomValue(startGithubInstall(req))
@@ -40,5 +40,5 @@ export function useGithubInstall(orgSlug: string): GithubInstall {
             ),
           m.github_chip_install_app_failed_error
         )
-  }
+  } satisfies GithubInstall
 }

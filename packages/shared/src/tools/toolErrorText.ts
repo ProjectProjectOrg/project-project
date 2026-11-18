@@ -8,12 +8,12 @@ type Messages<E extends Readonly<{ _tag: string }>> = {
   ) => string
 }
 
-const asSentence = (text: string): string => {
+const asSentence = (text: string) => {
   const trimmed = text.trim()
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
 
-const editFailureMessage = (failure: string): string => {
+const editFailureMessage = (failure: string) => {
   const [code, count] = failure.split(":")
   const markup = failure.match(/^block_markup:(.*)$/s)
   if (markup) {

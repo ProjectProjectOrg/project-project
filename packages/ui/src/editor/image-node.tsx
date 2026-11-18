@@ -18,15 +18,15 @@ type SerializedImageNode = Readonly<Spread<ImagePayload, SerializedLexicalNode>>
 export class ImageNode extends DecoratorNode<ReactElement> {
   __image: ImagePayload
 
-  static getType(): string {
+  static getType() {
     return "markdown-image"
   }
 
-  static clone(node: ImageNode): ImageNode {
+  static clone(node: ImageNode) {
     return new ImageNode(node.__image, node.__key)
   }
 
-  static importJSON(serialized: SerializedImageNode): ImageNode {
+  static importJSON(serialized: SerializedImageNode) {
     const { url, alt, title } = serialized
     return $createImageNode({ url, alt, title })
   }
@@ -36,38 +36,38 @@ export class ImageNode extends DecoratorNode<ReactElement> {
     this.__image = image
   }
 
-  getImage(): ImagePayload {
+  getImage() {
     return this.getLatest().__image
   }
 
-  exportJSON(): SerializedImageNode {
+  exportJSON() {
     return { ...super.exportJSON(), ...this.__image }
   }
 
-  exportDOM(): DOMExportOutput {
+  exportDOM() {
     const { url, alt, title } = this.getImage()
     const element = document.createElement("img")
     element.setAttribute("src", defaultUrlTransform(url))
     element.setAttribute("alt", alt ?? "")
     if (title != null) element.setAttribute("title", title)
-    return { element }
+    return { element } satisfies DOMExportOutput
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const element = document.createElement("span")
     element.className = "inline-block align-top"
     return element
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): true {
+  isInline() {
     return true
   }
 
-  decorate(): ReactElement {
+  decorate() {
     const { url, alt, title } = this.__image
     return (
       <img
@@ -82,6 +82,6 @@ export class ImageNode extends DecoratorNode<ReactElement> {
   }
 }
 
-export function $createImageNode(image: ImagePayload): ImageNode {
+export function $createImageNode(image: ImagePayload) {
   return $applyNodeReplacement(new ImageNode(image))
 }

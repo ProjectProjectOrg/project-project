@@ -56,7 +56,7 @@ const triageDraft: BlockDraft = {
 const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
   resolveLibrary({ org, project }, true, EMPTY_LAYER)
 
-const layerWith = (blocks: ReadonlyArray<BlockDraft>): Layer => ({
+const layerWith = (blocks: ReadonlyArray<BlockDraft>) => ({
   ...EMPTY_LAYER,
   blocks
 })
@@ -101,7 +101,7 @@ const deferred = () => {
   return { promise, resolve }
 }
 
-const successValue = <A>(result: AsyncResult.AsyncResult<A, unknown>): A => {
+const successValue = <A>(result: AsyncResult.AsyncResult<A, unknown>) => {
   if (!AsyncResult.isSuccess(result)) throw new Error(`not a success`)
   return result.value
 }

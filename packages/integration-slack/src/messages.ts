@@ -51,29 +51,30 @@ export const ticketPreview = (
     status: string
     assignees: ReadonlyArray<string>
   }>
-): SlackUnfurl => ({
-  blocks: [
-    {
-      type: "section",
-      text: {
-        type: "plain_text",
-        text: `${input.id} · ${input.title}`.slice(0, 1000)
-      }
-    },
-    {
-      type: "context",
-      elements: [
-        {
+) =>
+  ({
+    blocks: [
+      {
+        type: "section",
+        text: {
           type: "plain_text",
-          text: [input.status, input.assignees.join(", ")]
-            .filter(Boolean)
-            .join(" · ")
-            .slice(0, 1000)
+          text: `${input.id} · ${input.title}`.slice(0, 1000)
         }
-      ]
-    }
-  ]
-})
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "plain_text",
+            text: [input.status, input.assignees.join(", ")]
+              .filter(Boolean)
+              .join(" · ")
+              .slice(0, 1000)
+          }
+        ]
+      }
+    ]
+  }) satisfies SlackUnfurl
 
 const actions = {
   ticket_created: "created",
@@ -91,7 +92,7 @@ export const notificationMessage = (
     url: string
     statusLabel: string | null
   }>
-): SlackMessage => {
+) => {
   const event = input.notification
   const title =
     event.kind === "test" ? event.title : `${event.id} · ${event.title}`
@@ -118,5 +119,5 @@ export const notificationMessage = (
         }
       }
     ]
-  }
+  } satisfies SlackMessage
 }

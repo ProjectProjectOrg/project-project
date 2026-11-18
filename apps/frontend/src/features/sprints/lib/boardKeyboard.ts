@@ -7,7 +7,7 @@ const letterArrows = new Map([
   ["l", "ArrowRight"]
 ])
 
-export const isBoardKey = (key: string): boolean =>
+export const isBoardKey = (key: string) =>
   letterArrows.has(key) || key.startsWith("Arrow")
 
 const navigationKey = (event: KeyboardEvent) => {
@@ -42,7 +42,7 @@ const observedChanges: MutationObserverInit = {
 const cardSelector = "[data-board-card]"
 const primarySelector = "[data-board-card] > [data-item-link]"
 
-const available = (element: HTMLElement): boolean =>
+const available = (element: HTMLElement) =>
   !element.closest('[inert], [hidden], [aria-hidden="true"]') &&
   !element.matches(":disabled")
 
@@ -57,10 +57,7 @@ const columnElement = (board: HTMLElement, status: string) =>
     (element) => element.dataset.boardColumn === status
   )
 
-const primary = (
-  board: HTMLElement,
-  position: Position
-): HTMLElement | null => {
+const primary = (board: HTMLElement, position: Position) => {
   const column = columnElement(board, position.status)
   if (!column) return null
   if (position.ticketId === null) {
@@ -76,7 +73,7 @@ const primary = (
   )
 }
 
-const positionOf = (element: HTMLElement): Position | null => {
+const positionOf = (element: HTMLElement) => {
   const column = element.closest<HTMLElement>("[data-board-column]")
   const status = column?.dataset.boardColumn
   if (status === undefined) return null
@@ -92,7 +89,7 @@ function nextPosition(
   columns: ReadonlyMap<string, BoardKeyboardColumn>,
   letterOrArrow: string,
   position: Position
-): Position | null | undefined {
+) {
   const key = letterArrows.get(letterOrArrow) ?? letterOrArrow
   const statuses = statusesOf(board)
   const columnIndex = statuses.indexOf(position.status)
@@ -126,7 +123,7 @@ function nextPosition(
   return next
 }
 
-const firstPosition = (board: HTMLElement): Position | null => {
+const firstPosition = (board: HTMLElement) => {
   const status = columnElements(board)[0]?.dataset.boardColumn
   if (status === undefined) return null
   const firstCard = Array.from(
@@ -143,7 +140,7 @@ const firstPosition = (board: HTMLElement): Position | null => {
 export const ticketPosition = (
   columns: ReadonlyMap<string, BoardKeyboardColumn>,
   ticketId: string
-): Position | null => {
+) => {
   const status = [...columns].find(([, column]) =>
     column.ticketIds.includes(ticketId)
   )?.[0]

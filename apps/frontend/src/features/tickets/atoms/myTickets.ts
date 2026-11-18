@@ -50,24 +50,23 @@ export type MyTicketsRequest = OrgTicketsRequest<"myTickets">
 export type MyTicketsByProjectRequest = OrgTicketsRequest<"myTicketsByProject">
 export type RecentTicketsRequest = OrgTicketsRequest<"recentTickets">
 
-export const myTicketsRequest = (orgSlug: string): MyTicketsRequest => ({
-  _view: "myTickets",
-  params: { orgSlug }
-})
+export const myTicketsRequest = (orgSlug: string) =>
+  ({
+    _view: "myTickets",
+    params: { orgSlug }
+  }) as const
 
-export const myTicketsByProjectRequest = (
-  orgSlug: string
-): MyTicketsByProjectRequest => ({
-  _view: "myTicketsByProject",
-  params: { orgSlug }
-})
+export const myTicketsByProjectRequest = (orgSlug: string) =>
+  ({
+    _view: "myTicketsByProject",
+    params: { orgSlug }
+  }) as const
 
-export const recentTicketsRequest = (
-  orgSlug: string
-): RecentTicketsRequest => ({
-  _view: "recentTickets",
-  params: { orgSlug }
-})
+export const recentTicketsRequest = (orgSlug: string) =>
+  ({
+    _view: "recentTickets",
+    params: { orgSlug }
+  }) as const
 
 export type OrgTicket = Readonly<{
   project: Project
@@ -109,7 +108,7 @@ type ScopedRequest = Readonly<{
 const scopedOf = (
   req: OrgTicketsRequest,
   projects: ReadonlyArray<Project>
-): ScopedRequest => ({
+) => ({
   req,
   scopes: projects.map((project) =>
     projectScope(req.params.orgSlug, project.slug)
@@ -151,7 +150,7 @@ const withProjects = (
   rows: ReadonlyArray<
     OrgTicketRow & Readonly<{ activity?: RecentTicketActivity }>
   >
-): ReadonlyArray<OrgTicket> => {
+) => {
   const bySlug = new Map(projects.map((project) => [project.slug, project]))
   return rows.flatMap(({ projectSlug, ticket, activity }) => {
     const project = bySlug.get(projectSlug)
@@ -159,9 +158,7 @@ const withProjects = (
   })
 }
 
-const dedupeRows = <Row extends OrgTicketRow>(
-  rows: ReadonlyArray<Row>
-): ReadonlyArray<Row> => {
+const dedupeRows = <Row extends OrgTicketRow>(rows: ReadonlyArray<Row>) => {
   const seen = new Set<string>()
   return rows.filter((row) => {
     const id = `${row.projectSlug}/${row.ticket.id}`
@@ -230,25 +227,28 @@ const myTicketsByProjectView = (req: MyTicketsByProjectRequest) => {
         )
         return AsyncResult.map(
           AsyncResult.all([visible, get(mineByProjectQuery(scoped))]),
-          ([, previews]): MyTicketsByProjectValue => ({
-            groups: previews
-              .flatMap(({ projectSlug, total, tickets }) => {
-                const project = bySlug.get(projectSlug)
-                if (!project) return []
-                return [
-                  {
-                    project,
-                    total,
-                    tickets: tickets.map((ticket) => ({
+          ([, previews]) => {
+            const value: MyTicketsByProjectValue = {
+              groups: previews
+                .flatMap(({ projectSlug, total, tickets }) => {
+                  const project = bySlug.get(projectSlug)
+                  if (!project) return []
+                  return [
+                    {
                       project,
-                      ticket,
-                      activity: null
-                    }))
-                  }
-                ]
-              })
-              .toSorted((a, b) => byProjectName(a.project, b.project))
-          })
+                      total,
+                      tickets: tickets.map((ticket) => ({
+                        project,
+                        ticket,
+                        activity: null
+                      }))
+                    }
+                  ]
+                })
+                .toSorted((a, b) => byProjectName(a.project, b.project))
+            }
+            return value
+          }
         )
       })
     },
@@ -269,14 +269,15 @@ const recentTicketsView = (req: RecentTicketsRequest) => {
         lastScoped = scoped
         return AsyncResult.map(
           AsyncResult.all([visible, get(recentQuery(scoped))]),
-          ([, rows]): OrgTicketsValue => {
+          ([, rows]) => {
             const tickets = withProjects(projects, rows)
-            return {
+            const value: OrgTicketsValue = {
               tickets,
               nextCursor: null,
               total: tickets.length,
               statusCounts: []
             }
+            return value
           }
         )
       })
@@ -355,7 +356,7 @@ const patchTickets = (
   key: OrgTicketKey,
   update: TicketUpdate,
   keeps: boolean | ((ticket: Ticket) => boolean)
-): ReadonlyArray<OrgTicket> =>
+) =>
   tickets.flatMap((item) => {
     if (!isKey(item, key)) return [item]
     const ticket = update(item.ticket)
@@ -371,7 +372,7 @@ const moveStatusCount = (
   projectSlug: string,
   from: Ticket["status"],
   to: Ticket["status"] | null
-): ReadonlyArray<AssignedStatusCount> => {
+) => {
   if (from === to) return counts
   const adjusted = counts.map((entry) =>
     entry.projectSlug !== projectSlug
@@ -469,14 +470,13 @@ const bindOrgTicketUpdates = <R extends OrgTicketsRequest>(
   family: (key: OrgTicketKey<R>) => TicketUpdateAtom
 ) => {
   const rows = Atom.family(
-    (scope: OrgTicketScope<R>): TicketUpdates =>
-      (id) =>
-        family({ ...scope, id })
+    (scope: OrgTicketScope<R>) =>
+      ((id) => family({ ...scope, id })) satisfies TicketUpdates
   )
   return Atom.family(
-    (req: R): OrgTicketUpdates =>
-      ({ viewerId, projectSlug }) =>
-        rows({ req, viewerId, projectSlug })
+    (req: R) =>
+      (({ viewerId, projectSlug }) =>
+        rows({ req, viewerId, projectSlug })) satisfies OrgTicketUpdates
   )
 }
 
@@ -509,7 +509,7 @@ export const myTicketBoard = Atom.family((req: MyTicketsRequest) => {
               )
             )
           ]),
-          ([value, projectStatuses]): MyTicketBoardValue => {
+          ([value, projectStatuses]) => {
             const merged = mergeStatusColumns(projectStatuses)
             const countByColumn = new Map<string, number>()
             for (const entry of value.statusCounts) {

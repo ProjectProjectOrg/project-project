@@ -18,7 +18,7 @@ import {
   type BlockLookup,
   type HintNodeKind,
   type HintSlot,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "@pp/shared"
 import {
   $copyNode,
@@ -55,11 +55,11 @@ export const $isTopLevelBlockNode = (
 ): node is TopLevelBlockNode =>
   $isTicketBlockNode(node) || $isSyncedBlockNode(node)
 
-export function $topLevelBlocks(): ReadonlyArray<TopLevelBlockNode> {
+export function $topLevelBlocks() {
   return $getRoot().getChildren().filter($isTopLevelBlockNode)
 }
 
-export function $findBlockAtSelection(): TopLevelBlockNode | null {
+export function $findBlockAtSelection() {
   const selection = $getSelection()
   const node = $isRangeSelection(selection)
     ? selection.anchor.getNode()
@@ -73,12 +73,12 @@ export function $findBlockAtSelection(): TopLevelBlockNode | null {
   return $isTopLevelBlockNode(block) ? block : null
 }
 
-const $isBlankParagraph = (node: LexicalNode): boolean =>
+const $isBlankParagraph = (node: LexicalNode) =>
   $isParagraphNode(node) &&
   node.getChildren().every($isTextNode) &&
   node.getTextContent().trim() === ""
 
-const $topLevelOf = (node: LexicalNode): LexicalNode | null =>
+const $topLevelOf = (node: LexicalNode) =>
   $isRootNode(node)
     ? null
     : $findMatchingParent(node, (candidate) =>
@@ -90,30 +90,33 @@ type InsertionPoint = Readonly<{
   leftovers: ReadonlyArray<LexicalNode>
 }>
 
-function $appendLine(): InsertionPoint {
+function $appendLine() {
   const line = $createParagraphNode()
   $getRoot().append(line)
-  return { after: line, leftovers: [line] }
+  return { after: line, leftovers: [line] } satisfies InsertionPoint
 }
 
-function $splitAtCaret(selection: RangeSelection): InsertionPoint {
+function $splitAtCaret(selection: RangeSelection) {
   const anchor = selection.anchor.getNode()
   const top = $topLevelOf(anchor)
   if (top === null) return $appendLine()
   const line = $isParagraphNode(anchor) ? anchor : anchor.getParent()
   if (!$isParagraphNode(top) || line !== top)
-    return { after: top, leftovers: [] }
+    return { after: top, leftovers: [] } satisfies InsertionPoint
   const right = selection.insertParagraph()
-  return { after: top, leftovers: right === null ? [top] : [top, right] }
+  return {
+    after: top,
+    leftovers: right === null ? [top] : [top, right]
+  } satisfies InsertionPoint
 }
 
-function $insertionPoint(): InsertionPoint | null {
+function $insertionPoint() {
   const selection = $getSelection()
   if (!$isRangeSelection(selection)) return null
   const block = $findBlockAtSelection()
   return block === null
     ? $splitAtCaret(selection)
-    : { after: block, leftovers: [] }
+    : ({ after: block, leftovers: [] } satisfies InsertionPoint)
 }
 
 type ImportedMarkdown = Readonly<{
@@ -124,7 +127,7 @@ type ImportedMarkdown = Readonly<{
 function $markdownNodes(
   markdown: string,
   transformers: ReadonlyArray<Transformer>
-): ImportedMarkdown {
+) {
   const selection = $getSelection()
   const saved = selection === null ? null : selection.clone()
   const container = $createParagraphNode()
@@ -134,10 +137,13 @@ function $markdownNodes(
   } finally {
     $setSelection(saved)
   }
-  return { container, nodes: container.getChildren() }
+  return {
+    container,
+    nodes: container.getChildren()
+  } satisfies ImportedMarkdown
 }
 
-const isHintOnlyParagraph = (text: string): boolean =>
+const isHintOnlyParagraph = (text: string) =>
   HINT.test(text) && stripHints(text).trim() === ""
 
 function $materializeHintLines(block: TicketBlockNode, content: string) {
@@ -151,7 +157,7 @@ function $materializeHintLines(block: TicketBlockNode, content: string) {
   })
 }
 
-const matchesHintKind = (node: LexicalNode, kind: HintNodeKind): boolean => {
+const matchesHintKind = (node: LexicalNode, kind: HintNodeKind) => {
   switch (kind) {
     case "heading":
       return $isHeadingNode(node)
@@ -164,10 +170,7 @@ const matchesHintKind = (node: LexicalNode, kind: HintNodeKind): boolean => {
   }
 }
 
-function $hintTarget(
-  block: TicketBlockNode,
-  slot: HintSlot
-): ElementNode | null {
+function $hintTarget(block: TicketBlockNode, slot: HintSlot) {
   const child = block.getChildAtIndex(slot.path[0])
   if (child === null || !matchesHintKind(child, slot.kind)) return null
   const target =
@@ -177,10 +180,7 @@ function $hintTarget(
   return $isElementNode(target) ? target : null
 }
 
-function $firstHintTarget(
-  block: TicketBlockNode,
-  lookup: BlockLookup
-): ElementNode | null {
+function $firstHintTarget(block: TicketBlockNode, lookup: BlockLookup) {
   const definition = lookup(block.getBlockType())
   if (definition === undefined) return null
   for (const slot of hintSlots(definition.content)) {
@@ -190,7 +190,7 @@ function $firstHintTarget(
   return null
 }
 
-export function $selectFirstHint(lookup: BlockLookup): boolean {
+export function $selectFirstHint(lookup: BlockLookup) {
   for (const block of $topLevelBlocks()) {
     if (!$isTicketBlockNode(block)) continue
     const target = $firstHintTarget(block, lookup)
@@ -239,7 +239,7 @@ export function $insertBlocksAt(
   markdown: string,
   transformers: ReadonlyArray<Transformer>,
   lookup: BlockLookup
-): ReadonlyArray<LexicalNode> {
+) {
   const point = $insertionPoint()
   if (point === null) return []
   const { container, nodes } = $markdownNodes(markdown, transformers)
@@ -258,11 +258,14 @@ export function $insertBlocksAt(
 export const missingBlocksMarkdown = (
   expanded: string,
   added: ReadonlyArray<string>
-): string => {
+) => {
   const remaining = [...added]
   const missing = parseTicketBlocks(expanded).filter(
     (segment: TicketBlockSegment) => {
-      if (segment.kind !== "block" || segment.type !== remaining[0])
+      if (
+        !TicketBlockSegment.$is("block")(segment) ||
+        segment.type !== remaining[0]
+      )
         return false
       remaining.shift()
       return true
@@ -275,7 +278,7 @@ export function $applyTemplate(
   expanded: string,
   transformers: ReadonlyArray<Transformer>,
   lookup: BlockLookup
-): ReadonlyArray<string> {
+) {
   const body = $convertToMarkdownString([...transformers])
   const merge = mergeTypeInto(body, expanded)
   const markdown =
@@ -292,7 +295,7 @@ export type BlockPlacement = "before" | "after"
 export const $blockNeighbour = (
   node: LexicalNode,
   direction: BlockDirection
-): LexicalNode | null => {
+) => {
   let candidate =
     direction === "up" ? node.getPreviousSibling() : node.getNextSibling()
   while (candidate !== null && $isBlankParagraph(candidate))
@@ -303,10 +306,7 @@ export const $blockNeighbour = (
   return candidate
 }
 
-export function $moveBlock(
-  node: TopLevelBlockNode,
-  direction: BlockDirection
-): LexicalNode | null {
+export function $moveBlock(node: TopLevelBlockNode, direction: BlockDirection) {
   const neighbour = $blockNeighbour(node, direction)
   if (neighbour === null) return null
   if (direction === "up") neighbour.insertBefore(node)
@@ -318,7 +318,7 @@ export function $moveBlockTo(
   node: TopLevelBlockNode,
   target: LexicalNode,
   placement: BlockPlacement
-): boolean {
+) {
   if (target.is(node)) return false
   const adjacent =
     placement === "before"
@@ -330,14 +330,14 @@ export function $moveBlockTo(
   return true
 }
 
-function $deepCopy<T extends LexicalNode>(node: T): T {
+function $deepCopy<T extends LexicalNode>(node: T) {
   const copy = $copyNode(node)
   if ($isElementNode(node) && $isElementNode(copy))
     copy.append(...node.getChildren().map($deepCopy))
   return copy
 }
 
-export function $duplicateBlock(node: TopLevelBlockNode): TopLevelBlockNode {
+export function $duplicateBlock(node: TopLevelBlockNode) {
   const copy = $deepCopy(node)
   node.insertAfter(copy)
   return copy
@@ -367,7 +367,7 @@ export function $unwrapBlock(
   node: TopLevelBlockNode,
   content: string,
   transformers: ReadonlyArray<Transformer>
-): ReadonlyArray<LexicalNode> {
+) {
   const block = $isSyncedBlockNode(node)
     ? $detachSyncedBlock(node, content, transformers)
     : node
@@ -380,7 +380,7 @@ export function $unwrapBlock(
 export function $blockMarkdown(
   node: TicketBlockNode,
   transformers: ReadonlyArray<Transformer>
-): string {
+) {
   return $convertToMarkdownString([...transformers], node)
 }
 
@@ -403,10 +403,7 @@ export function $resetBlock(
   else node.selectEnd()
 }
 
-const $isAtBlockStart = (
-  block: TicketBlockNode,
-  selection: RangeSelection
-): boolean => {
+const $isAtBlockStart = (block: TicketBlockNode, selection: RangeSelection) => {
   if (!selection.isCollapsed() || selection.anchor.offset !== 0) return false
   const first = block.getFirstChild()
   if (first === null) return false
@@ -417,9 +414,7 @@ const $isAtBlockStart = (
   )
 }
 
-export function $blankBlockAtCaret(
-  transformers: ReadonlyArray<Transformer>
-): TicketBlockNode | null {
+export function $blankBlockAtCaret(transformers: ReadonlyArray<Transformer>) {
   const selection = $getSelection()
   if (!$isRangeSelection(selection)) return null
   const block = $findBlockAtSelection()

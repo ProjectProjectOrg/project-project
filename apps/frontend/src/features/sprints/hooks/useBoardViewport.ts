@@ -1,9 +1,6 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react"
 
-export function useBoardViewport(ref: RefObject<HTMLDivElement | null>): {
-  readonly height: number | null
-  readonly hasRightOverflow: boolean
-} {
+export function useBoardViewport(ref: RefObject<HTMLDivElement | null>) {
   const [height, setHeight] = useState<number | null>(null)
   const [hasRightOverflow, setHasRightOverflow] = useState(true)
 

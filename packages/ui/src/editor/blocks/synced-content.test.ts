@@ -6,6 +6,7 @@ import {
   hintsAsEmphasis,
   splitLeadingHeading,
   syncedDisplayContent,
+  SyncedView,
   syncedView,
   toggleTaskAtLine
 } from "./synced-content"
@@ -14,7 +15,7 @@ const DOD = "definition-of-done"
 
 const withBlocks = (
   edit: (blocks: Library["blocks"]) => Library["blocks"]
-): Library => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
+) => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
 
 const SNAPSHOT = [
   "## Definition of done",
@@ -26,7 +27,7 @@ const SNAPSHOT = [
 describe("syncedView", () => {
   it("renders the live definition with this ticket's ticks", () => {
     const view = syncedView(lookupFor(BUILTIN_LIBRARY), DOD, SNAPSHOT, "synced")
-    expect(view.kind).toBe("live")
+    expect(view._tag).toBe("live")
     expect(view.content).toContain("- [x] Reviewed and merged")
     expect(view.content).toContain("- [ ] Docs updated where behaviour changed")
   })
@@ -35,10 +36,9 @@ describe("syncedView", () => {
     const library = withBlocks((blocks) =>
       blocks.filter((block) => block.key !== DOD)
     )
-    expect(syncedView(lookupFor(library), DOD, SNAPSHOT, "synced")).toEqual({
-      kind: "removed",
-      content: SNAPSHOT
-    })
+    expect(syncedView(lookupFor(library), DOD, SNAPSHOT, "synced")).toEqual(
+      SyncedView.removed({ content: SNAPSHOT })
+    )
   })
 
   it("treats a definition that is no longer synced as removed", () => {
@@ -47,7 +47,7 @@ describe("syncedView", () => {
         block.key === DOD ? { ...block, sync: false } : block
       )
     )
-    expect(syncedView(lookupFor(library), DOD, SNAPSHOT, "synced").kind).toBe(
+    expect(syncedView(lookupFor(library), DOD, SNAPSHOT, "synced")._tag).toBe(
       "removed"
     )
   })
@@ -59,7 +59,7 @@ describe("syncedView", () => {
       "",
       "reference"
     )
-    expect(view.kind).toBe("live")
+    expect(view._tag).toBe("live")
     expect(view.content).not.toContain("{{")
   })
 })
@@ -72,7 +72,7 @@ describe("syncedDisplayContent", () => {
       "",
       "reference"
     )
-    if (view.kind !== "live") throw new Error("expected a live view")
+    if (!SyncedView.$is("live")(view)) throw new Error("expected a live view")
     const shown = syncedDisplayContent(view, "reference")
     expect(shown).not.toContain("{{")
     expect(shown).toMatch(/^- \[ \] \*\S/m)
@@ -80,7 +80,7 @@ describe("syncedDisplayContent", () => {
 
   it("shows a synced block with this ticket's ticks", () => {
     const view = syncedView(lookupFor(BUILTIN_LIBRARY), DOD, SNAPSHOT, "synced")
-    if (view.kind !== "live") throw new Error("expected a live view")
+    if (!SyncedView.$is("live")(view)) throw new Error("expected a live view")
     expect(syncedDisplayContent(view, "synced")).toBe(view.content)
   })
 

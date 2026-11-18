@@ -54,7 +54,7 @@
           "unknownInEffectCatch": "error",
           "strictBooleanExpressions": "off",
           "lazyEffect": "off",
-          "preferSchemaOverJson": "error",
+          "globalJsonInEffect": "error",
           "schemaSyncInEffect": "error",
           "cryptoRandomUUID": "error",
           "cryptoRandomUUIDInEffect": "error",

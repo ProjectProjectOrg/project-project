@@ -56,11 +56,11 @@ const NO_PROJECT_TICKETS: TicketPermissions = {
   planSprints: true
 }
 
-const success = <A>(result: AsyncResult.AsyncResult<A, unknown>): A | null =>
+const success = <A>(result: AsyncResult.AsyncResult<A, unknown>) =>
   AsyncResult.isSuccess(result) ? result.value : null
 
 export const commandContext = Atom.family((key: CommandContextKey) =>
-  Atom.make((get): TargetContext => {
+  Atom.make((get) => {
     const { orgSlug, projectSlug, ticket } = key
     const org = get(orgActor(orgRequest(orgSlug)))
     const feedback = success(get(feedbackStatus(orgSlug)))

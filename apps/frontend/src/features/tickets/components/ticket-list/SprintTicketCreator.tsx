@@ -21,6 +21,7 @@ import { cn } from "@pp/ui/lib/utils"
 import type { ListboxState } from "@pp/ui/menu-listbox"
 import { MenuNote } from "@pp/ui/menu-note"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
+import * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
@@ -72,14 +73,15 @@ import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useAddableTicketSearch } from "./useAddableTicketSearch"
 import { useCreatorFocus } from "./useCreatorFocus"
 
-type Item =
-  | { kind: "create"; label: string }
-  | {
-      kind: "existing"
-      ticket: Ticket
-      added: boolean
-      otherSprintName: string | null
-    }
+type Item = Data.TaggedEnum<{
+  create: Readonly<{ label: string }>
+  existing: Readonly<{
+    ticket: Ticket
+    added: boolean
+    otherSprintName: string | null
+  }>
+}>
+const Item = Data.taggedEnum<Item>()
 
 const CREATE_VALUE = "__create"
 
@@ -156,17 +158,18 @@ export function SprintTicketCreator({
     const found = results.items.filter(
       (t) => addable(t) && !recentIds.has(t.id)
     )
-    const existing = (ticket: Ticket): Item => ({
-      kind: "existing",
-      ticket,
-      added: added.has(ticket.id),
-      otherSprintName: memberOfOtherSprint.get(ticket.id) ?? null
-    })
-    const row = (ticket: Ticket, group: string): CommandMenuItemData => ({
-      value: ticket.id,
-      label: `${ticket.id} ${ticket.title}`,
-      group
-    })
+    const existing = (ticket: Ticket) =>
+      Item.existing({
+        ticket,
+        added: added.has(ticket.id),
+        otherSprintName: memberOfOtherSprint.get(ticket.id) ?? null
+      })
+    const row = (ticket: Ticket, group: string) =>
+      ({
+        value: ticket.id,
+        label: `${ticket.id} ${ticket.title}`,
+        group
+      }) satisfies CommandMenuItemData
     const exactTitle = [...shownRecent, ...found].some(
       (t) => t.title.toLowerCase() === lowered
     )
@@ -174,7 +177,7 @@ export function SprintTicketCreator({
     return {
       items: new Map<string, Item>([
         ...(create
-          ? [[CREATE_VALUE, { kind: "create", label: trimmed }] as const]
+          ? [[CREATE_VALUE, Item.create({ label: trimmed })] as const]
           : []),
         ...[...shownRecent, ...found].map((t) => [t.id, existing(t)] as const)
       ]),
@@ -240,15 +243,12 @@ export function SprintTicketCreator({
 
   async function commit(item: Item | undefined) {
     if (!item) return
-    if (item.kind === "existing" && isEpic(item.ticket)) {
-      picker.open(item.ticket)
+    if (Item.$is("create")(item)) {
+      await createTicket(item.label)
       return
     }
-    if (item.kind === "existing") {
-      toggleAdded(item.ticket.id, item.added)
-      return
-    }
-    await createTicket(item.label)
+    if (isEpic(item.ticket)) picker.open(item.ticket)
+    else toggleAdded(item.ticket.id, item.added)
   }
 
   function addPendingEpic() {
@@ -311,7 +311,8 @@ export function SprintTicketCreator({
         onSelect={(item) => {
           const picked = items.get(item.value)
           if (
-            picked?.kind === "existing" &&
+            picked !== undefined &&
+            Item.$is("existing")(picked) &&
             pendingEpic?.id === picked.ticket.id
           ) {
             picker.close()
@@ -345,7 +346,7 @@ export function SprintTicketCreator({
               const item = items.get(row.value)
               if (item === undefined) return null
               const opened =
-                item.kind === "existing" && pendingEpic?.id === item.ticket.id
+                Item.$is("existing")(item) && pendingEpic?.id === item.ticket.id
               return (
                 <>
                   <CommandMenuItem
@@ -357,15 +358,16 @@ export function SprintTicketCreator({
                         "pointer-events-none opacity-35"
                     )}
                   >
-                    {item.kind === "create" ? (
-                      <CreateOption label={item.label} />
-                    ) : (
-                      <ExistingOption
-                        ticket={item.ticket}
-                        added={item.added}
-                        otherSprintName={item.otherSprintName}
-                      />
-                    )}
+                    {Item.$match(item, {
+                      create: ({ label }) => <CreateOption label={label} />,
+                      existing: ({ ticket, added, otherSprintName }) => (
+                        <ExistingOption
+                          ticket={ticket}
+                          added={added}
+                          otherSprintName={otherSprintName}
+                        />
+                      )
+                    })}
                   </CommandMenuItem>
                   <AnimatePresence initial={false}>
                     {opened && (
@@ -504,19 +506,27 @@ function CommandMenuKeys({
   return null
 }
 
-const noteFor = (
-  results: PagedSearchResults<Ticket>,
-  hasRows: boolean
-): Readonly<{ text: string; tone: "muted" | "error" }> | null => {
+type MenuNoteContent = Readonly<{ text: string; tone: "muted" | "error" }>
+
+const noteFor = (results: PagedSearchResults<Ticket>, hasRows: boolean) => {
   if (results.status === "failed") {
-    return { text: m.tickets_mention_tickets_failed(), tone: "error" }
+    return {
+      text: m.tickets_mention_tickets_failed(),
+      tone: "error"
+    } satisfies MenuNoteContent
   }
   if (hasRows) return null
   if (results.status === "loading" || results.status === "searching") {
-    return { text: m.tickets_mention_tickets_loading(), tone: "muted" }
+    return {
+      text: m.tickets_mention_tickets_loading(),
+      tone: "muted"
+    } satisfies MenuNoteContent
   }
   if (results.status === "ready") {
-    return { text: m.tickets_mention_tickets_empty(), tone: "muted" }
+    return {
+      text: m.tickets_mention_tickets_empty(),
+      tone: "muted"
+    } satisfies MenuNoteContent
   }
   return null
 }

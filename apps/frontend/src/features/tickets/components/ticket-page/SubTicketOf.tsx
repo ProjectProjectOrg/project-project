@@ -4,6 +4,7 @@ import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import {
@@ -12,7 +13,10 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SubTicketsChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
-import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import {
+  TicketPreview,
+  TicketPreviewTrigger
+} from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
@@ -47,7 +51,7 @@ export function SubTicketOf({
           : m.tickets_header_sub_ticket_of()}
       </span>
       <TicketPreviewTrigger
-        preview={{ kind: "ticket", id: parent.id }}
+        preview={TicketPreview.ticket({ id: parent.id })}
         render={
           <Button
             variant="ghost"
@@ -90,7 +94,7 @@ export function SubTicketOf({
           }}
           current={ticket.id}
           search={
-            from?.kind === "parent"
+            Predicate.isTagged(from, "parent")
               ? { from: "parent", parentId: from.parent }
               : undefined
           }

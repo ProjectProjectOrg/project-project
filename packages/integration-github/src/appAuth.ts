@@ -19,7 +19,7 @@ export const fetchWithTimeout = (
   fetch: typeof globalThis.fetch,
   input: string | URL | Request,
   init?: RequestInit
-): Promise<Response> => {
+) => {
   const timeoutSignal = AbortSignal.timeout(
     Duration.toMillis(GITHUB_REQUEST_TIMEOUT)
   )
@@ -29,7 +29,7 @@ export const fetchWithTimeout = (
   return fetch(input, { ...init, signal })
 }
 
-const normalizePrivateKey = (raw: string): string => {
+const normalizePrivateKey = (raw: string) => {
   const normalized = raw.replace(/\\n/g, "\n")
   if (normalized.includes("BEGIN")) return normalized
   return Buffer.from(normalized, "base64").toString("utf8")
@@ -42,9 +42,7 @@ export type GitHubAppCredentials = Readonly<{
   clientSecret: string
 }>
 
-export const appAuth = (
-  credentials: GitHubAppCredentials
-): Effect.Effect<GitHubAppAuth, GitHubError> =>
+export const appAuth = (credentials: GitHubAppCredentials) =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
     const githubAuthRequest = new Octokit({

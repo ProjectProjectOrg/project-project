@@ -7,7 +7,7 @@ import { DitheredBlocks } from "../blocks/dithered-blocks"
 import { hintsAsEmphasis } from "../blocks/synced-content"
 import { Markdown } from "../markdown"
 import { m } from "../messages"
-import type { SlashItem } from "./slash-menu-items"
+import { SlashItem } from "./slash-menu-items"
 
 export const BASIC_LITERALS: Readonly<Record<BasicBlockKind, string>> = {
   paragraph: "¶",
@@ -27,7 +27,7 @@ export const BASIC_LITERALS: Readonly<Record<BasicBlockKind, string>> = {
   hint: "{{ }}"
 }
 
-const basicSample = (kind: BasicBlockKind, label: string): string => {
+const basicSample = (kind: BasicBlockKind, label: string) => {
   switch (kind) {
     case "paragraph":
       return label
@@ -57,22 +57,19 @@ const basicSample = (kind: BasicBlockKind, label: string): string => {
   }
 }
 
-const previewMarkdown = (item: SlashItem, label: string): string | null => {
-  switch (item.kind) {
-    case "block":
-      return hintsAsEmphasis(item.definition.content)
-    case "basic":
-      return basicSample(item.basic, label)
-    case "gallery":
-      return null
-  }
-}
+const previewMarkdown = (item: SlashItem, label: string) =>
+  SlashItem.$match(item, {
+    block: ({ definition }) => hintsAsEmphasis(definition.content),
+    basic: ({ basic }) => basicSample(basic, label),
+    gallery: () => null
+  })
 
-const previewDescription = (item: SlashItem): string | null => {
-  if (item.kind === "block") return item.definition.description || null
-  if (item.kind === "gallery") return m.editor_slash_preview_gallery()
-  return null
-}
+const previewDescription = (item: SlashItem) =>
+  SlashItem.$match(item, {
+    block: ({ definition }) => definition.description || null,
+    basic: () => null,
+    gallery: () => m.editor_slash_preview_gallery()
+  })
 
 export function SlashMenuPreview({
   item,
@@ -100,7 +97,7 @@ export function SlashMenuPreview({
         <span className="flex items-center gap-2 text-body font-semibold">
           {icon}
           <span className="min-w-0 flex-1 truncate">{name}</span>
-          {item.kind === "basic" ? (
+          {SlashItem.$is("basic")(item) ? (
             <code className="shrink-0 rounded bg-muted px-1 font-mono text-micro text-muted-foreground">
               {BASIC_LITERALS[item.basic]}
             </code>

@@ -40,7 +40,7 @@ export const testUser = (id: string) =>
 export const orgScope = (
   role: OrgRole,
   overrides: Partial<Omit<OrgScope["Service"], "role" | "permissions">> = {}
-): OrgScope["Service"] => ({
+) => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",
@@ -56,7 +56,7 @@ export const projectScope = (
   overrides: Partial<
     Omit<ProjectScope["Service"], "orgRole" | "role" | "permissions">
   > = {}
-): ProjectScope["Service"] => ({
+) => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",

@@ -80,7 +80,7 @@ export type DescriptionHandle = Readonly<{
   focus: () => void
 }>
 
-const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
+const sameBody = (a: string, b: string) => a.trim() === b.trim()
 
 export function DescriptionField({
   ticket,
@@ -143,7 +143,7 @@ export function DescriptionField({
   }
 
   useImperativeHandle(ref, () => {
-    const markdownOf = (editor: LexicalEditorType): string =>
+    const markdownOf = (editor: LexicalEditorType) =>
       editor.getEditorState().read(() => $convertToMarkdownString(transformers))
     return {
       swapTemplate: (from, to) => {

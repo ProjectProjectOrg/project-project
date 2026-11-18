@@ -18,10 +18,7 @@ export type Delivery = Readonly<{
   actor: TicketActivityOutboxActor
 }>
 
-export const deliver = (
-  row: InboxRowValue | null,
-  delivery: Delivery
-): InboxRowValue => {
+export const deliver = (row: InboxRowValue | null, delivery: Delivery) => {
   const reasons = new Set(delivery.direct.map((entry) => entry.reason))
   const latest =
     row !== null && row.latestAt.getTime() > delivery.at.getTime()
@@ -65,7 +62,7 @@ export const deliver = (
         : 1,
     lastReadAt: row?.lastReadAt ?? null,
     readByClientName: row?.readByClientName ?? null
-  }
+  } satisfies InboxRowValue
 }
 
 export const resolve = (
@@ -73,7 +70,7 @@ export const resolve = (
   userId: string,
   resolutions: ReadonlyArray<InboxResolution>,
   at: Date
-): InboxRowValue => {
+) => {
   const direct = row.direct.filter(
     (entry) =>
       Date.parse(entry.at) > at.getTime() ||
@@ -84,20 +81,24 @@ export const resolve = (
       )
   )
   if (direct.length === row.direct.length) return row
-  return { ...row, direct, state: direct.length === 0 ? "done" : row.state }
+  return {
+    ...row,
+    direct,
+    state: direct.length === 0 ? "done" : row.state
+  } satisfies InboxRowValue
 }
 
 export const read = (
   row: InboxRowValue,
   at: Date,
   clientName: string | null
-): InboxRowValue =>
+) =>
   row.latestAt.getTime() > at.getTime()
     ? row
-    : {
+    : ({
         ...row,
         state: row.state === "done" ? "done" : "read",
         unreadCount: 0,
         lastReadAt: at,
         readByClientName: clientName
-      }
+      } satisfies InboxRowValue)

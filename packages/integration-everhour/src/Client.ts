@@ -283,55 +283,59 @@ const decodeUnknownWebhookResponse = Schema.decodeUnknownEffect(WebhookResponse)
 const decodeUnknownTeamResponse = Schema.decodeUnknownEffect(TeamResponse)
 const decodeErrorResponse = Schema.decodeUnknownOption(ErrorResponse)
 
-const mapUser = (user: typeof UserResponse.Type): EverhourUser => ({
-  id: String(user.id),
-  name: user.name,
-  email: user.email
-})
+const mapUser = (user: typeof UserResponse.Type) =>
+  ({
+    id: String(user.id),
+    name: user.name,
+    email: user.email
+  }) satisfies EverhourUser
 
-const mapProject = (project: typeof ProjectResponse.Type): EverhourProject => ({
-  id: String(project.id),
-  name: project.name,
-  type: project.type === "list" ? "list" : "board",
-  users: project.users === undefined ? null : project.users.map(String)
-})
+const mapProject = (project: typeof ProjectResponse.Type) =>
+  ({
+    id: String(project.id),
+    name: project.name,
+    type: project.type === "list" ? "list" : "board",
+    users: project.users === undefined ? null : project.users.map(String)
+  }) satisfies EverhourProject
 
-const mapSection = (section: typeof SectionResponse.Type): EverhourSection => ({
-  id: String(section.id),
-  name: section.name,
-  status: section.status === "archived" ? "archived" : "open"
-})
+const mapSection = (section: typeof SectionResponse.Type) =>
+  ({
+    id: String(section.id),
+    name: section.name,
+    status: section.status === "archived" ? "archived" : "open"
+  }) satisfies EverhourSection
 
-const mapTask = (task: typeof TaskResponse.Type): EverhourTask => ({
-  id: String(task.id),
-  name: task.name,
-  section: task.section,
-  labels: task.labels,
-  status: task.status === "closed" ? "closed" : "open"
-})
+const mapTask = (task: typeof TaskResponse.Type) =>
+  ({
+    id: String(task.id),
+    name: task.name,
+    section: task.section,
+    labels: task.labels,
+    status: task.status === "closed" ? "closed" : "open"
+  }) satisfies EverhourTask
 
-const mapTimer = (timer: typeof TimerResponse.Type): EverhourTimer => ({
-  id: timer.id,
-  status: timer.status === "active" ? "active" : "stopped",
-  taskId: timer.task === null ? null : String(timer.task.id),
-  userId: timer.user === null ? null : String(timer.user.id),
-  startedAt: timer.startedAt
-})
+const mapTimer = (timer: typeof TimerResponse.Type) =>
+  ({
+    id: timer.id,
+    status: timer.status === "active" ? "active" : "stopped",
+    taskId: timer.task === null ? null : String(timer.task.id),
+    userId: timer.user === null ? null : String(timer.user.id),
+    startedAt: timer.startedAt
+  }) satisfies EverhourTimer
 
-export const toTimeRecord = (
-  record: typeof TimeRecordResponse.Type
-): EverhourTimeRecord => ({
-  id: String(record.id),
-  taskId: record.task === null ? null : String(record.task.id),
-  userId: record.user === null ? null : String(record.user),
-  seconds: record.time,
-  date: record.date,
-  comment: record.comment,
-  history: record.history.map((entry) => ({
-    id: String(entry.id),
-    seconds: entry.time
-  }))
-})
+export const toTimeRecord = (record: typeof TimeRecordResponse.Type) =>
+  ({
+    id: String(record.id),
+    taskId: record.task === null ? null : String(record.task.id),
+    userId: record.user === null ? null : String(record.user),
+    seconds: record.time,
+    date: record.date,
+    comment: record.comment,
+    history: record.history.map((entry) => ({
+      id: String(entry.id),
+      seconds: entry.time
+    }))
+  }) satisfies EverhourTimeRecord
 
 const decodeUser = Function.compose(
   decodeUnknownUserResponse,
@@ -564,9 +568,7 @@ const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
 
 const make = Effect.gen(function* () {
   const fetch = yield* Effect.service(Fetch)
-  const tracking = <A>(
-    effect: Effect.Effect<A, EverhourTrackingError>
-  ): Effect.Effect<A, EverhourTrackingError> =>
+  const tracking = <A>(effect: Effect.Effect<A, EverhourTrackingError>) =>
     effect.pipe(Effect.provideService(FetchHttpClient.Fetch, fetch))
   const withFetch = <A>(effect: Effect.Effect<A, EverhourTrackingError>) =>
     tracking(effect).pipe(

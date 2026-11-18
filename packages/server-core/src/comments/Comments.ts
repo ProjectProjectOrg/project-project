@@ -27,6 +27,7 @@ import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 
 import type * as Markdown from "../markdown/Markdown"
@@ -159,18 +160,18 @@ const decodeSlug = Schema.decodeUnknownSync(Slug)
 const isTicketId = Schema.is(TicketId)
 const isSlug = Schema.is(Slug)
 
-const replyTo = (block: CommentBlock): CommentId | null =>
+const replyTo = (block: CommentBlock) =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
 
 const resolutionOf = (
   block: CommentBlock,
   userById: ReadonlyMap<string, User>
-): Comment["resolution"] =>
+) =>
   block.resolvedBy === undefined || block.resolvedAt === undefined
     ? null
     : { by: userById.get(block.resolvedBy) ?? null, at: block.resolvedAt }
 
-const ticketsOf = (block: CommentBlock): Comment["tickets"] =>
+const ticketsOf = (block: CommentBlock) =>
   (block.tickets ?? []).flatMap((link) =>
     extractMentionLinks(link).flatMap(({ parsed }) => {
       if (parsed?.type !== "ticket") return []
@@ -191,7 +192,7 @@ const withoutResolution = ({
   resolvedBy: _by,
   resolvedAt: _at,
   ...block
-}: CommentBlock): CommentBlock => block
+}: CommentBlock) => block
 
 const make = Effect.gen(function* () {
   const db = yield* Db
@@ -292,7 +293,7 @@ const make = Effect.gen(function* () {
       const authorById = new Map<string, User>(
         authors.map((user) => [user.id, user])
       )
-      return rows.flatMap((r): Comment[] => {
+      return rows.flatMap<Comment>((r) => {
         const block = blockById.get(r.id)
         if (!block) return []
         const author =
@@ -352,8 +353,8 @@ const make = Effect.gen(function* () {
       const scope = yield* ProjectScope
       const { orgSlug, slug, userId, projectId } = scope
       const validation = validateCommentBody(input.body)
-      if (!validation.ok) {
-        return yield* new InvalidCommentBody({ reason: validation.reason })
+      if (Result.isFailure(validation)) {
+        return yield* new InvalidCommentBody({ reason: validation.failure })
       }
       const [, author] = yield* Effect.all(
         [
@@ -451,9 +452,9 @@ const make = Effect.gen(function* () {
             })
           }
           const validation = validateCommentBody(comment.body)
-          if (!validation.ok) {
+          if (Result.isFailure(validation)) {
             return yield* new InvalidCommentBody({
-              reason: validation.reason
+              reason: validation.failure
             })
           }
           yield* validateBody(scope, comment.body)
@@ -483,14 +484,15 @@ const make = Effect.gen(function* () {
     const blocks = yield* Effect.forEach(input, (comment) =>
       Effect.map(
         newCommentId,
-        (id): CommentBlock => ({
-          id,
-          author: comment.author,
-          origin: "jira",
-          body: comment.body,
-          createdAt: comment.createdAt,
-          editedAt: comment.editedAt
-        })
+        (id) =>
+          ({
+            id,
+            author: comment.author,
+            origin: "jira",
+            body: comment.body,
+            createdAt: comment.createdAt,
+            editedAt: comment.editedAt
+          }) satisfies CommentBlock
       )
     )
     if (blocks.length === 0) return []
@@ -556,11 +558,7 @@ const make = Effect.gen(function* () {
       actor: ProjectScope["Service"],
       comment: CommentPolicy.Authored
     ) => boolean
-  ): Effect.Effect<
-    { authorId: string; createdAt: Date },
-    NotFound | Forbidden,
-    ProjectScope
-  > =>
+  ) =>
     Effect.gen(function* () {
       const scope = yield* ProjectScope
       const row = yield* db.query.commentIndex
@@ -592,8 +590,8 @@ const make = Effect.gen(function* () {
       const scope = yield* ProjectScope
       const { orgSlug, slug } = scope
       const validation = validateCommentBody(input.body)
-      if (!validation.ok) {
-        return yield* new InvalidCommentBody({ reason: validation.reason })
+      if (Result.isFailure(validation)) {
+        return yield* new InvalidCommentBody({ reason: validation.failure })
       }
       const meta = yield* authorizedComment(
         ticketId,

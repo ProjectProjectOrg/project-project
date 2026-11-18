@@ -10,7 +10,7 @@ export const coverCropStyle = (
   sourceAspect: number,
   containerAspect: number,
   crop: Crop
-): CSSProperties => {
+) => {
   const wide = sourceAspect > containerAspect
   const width = crop.zoom * 100 * (wide ? sourceAspect / containerAspect : 1)
   const height = crop.zoom * 100 * (wide ? 1 : containerAspect / sourceAspect)
@@ -25,5 +25,5 @@ export const coverCropStyle = (
     height: `${height}%`,
     left: offset(width, crop.x),
     top: offset(height, crop.y)
-  }
+  } satisfies CSSProperties
 }

@@ -11,7 +11,7 @@ const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["minute", 60]
 ]
 
-export function formatRelative(date: Date): string {
+export function formatRelative(date: Date) {
   const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" })
   const diff =
     (date.getTime() - DateTime.toEpochMillis(DateTime.nowUnsafe())) / 1000

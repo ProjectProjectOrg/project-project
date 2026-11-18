@@ -1,10 +1,10 @@
 import { useRef, type ReactNode } from "react"
 
 import { cn } from "../lib/utils"
-import { Dither, type TimeWarpZone } from "./dither"
+import { Dither, TimeWarpAnchor, type TimeWarpZone } from "./dither"
 
 const CLICK_WARP_ZONE: TimeWarpZone = {
-  anchor: { type: "click" },
+  anchor: TimeWarpAnchor.click(),
   radius: 0.7,
   strength: 3.2,
   falloff: 3.5
@@ -12,7 +12,7 @@ const CLICK_WARP_ZONE: TimeWarpZone = {
 
 const STATIC_WARP_ZONES: TimeWarpZone[] = [
   {
-    anchor: { type: "fraction", x: 0.5, y: 0.5 },
+    anchor: TimeWarpAnchor.fraction({ x: 0.5, y: 0.5 }),
     radius: 0.77,
     strength: 3,
     falloff: 4.85
@@ -22,7 +22,7 @@ const STATIC_WARP_ZONES: TimeWarpZone[] = [
 
 const ANIMATED_WARP_ZONES: TimeWarpZone[] = [
   {
-    anchor: { type: "fraction", x: 0.5, y: 0.5 },
+    anchor: TimeWarpAnchor.fraction({ x: 0.5, y: 0.5 }),
     radius: 0.85,
     strength: 2.4,
     falloff: 4.2

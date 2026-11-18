@@ -5,11 +5,7 @@ import {
   NotFound,
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
-  TicketId,
-  TicketStatus,
-  UserId,
-  TypeKey,
-  TicketRank
+  TicketStatus
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -20,41 +16,24 @@ import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { projectScope, testUser } from "../access/testing"
+import {
+  makeTicketDocument,
+  ticketId,
+  unexpected,
+  userId
+} from "../tickets/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Users from "../users/Users"
 import * as TicketActivity from "./TicketActivity"
 import * as TicketActivityFeed from "./TicketActivityFeed"
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
 const status = Schema.decodeUnknownSync(TicketStatus)
-const userId = Schema.decodeUnknownSync(UserId)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
-const unexpected = (method: string): Effect.Effect<never> =>
-  Effect.die(new Error(`unexpected ${method} call`))
-
-const ticket: TicketDocs.TicketDocument = {
-  id: ticketId("T-7"),
-  title: "Split me",
-  status: status("todo"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
+const ticket = makeTicketDocument("T-7", {
   splitFrom: ticketId("T-3"),
-  createdBy: "wouter",
-  createdAt: at("2026-10-01T09:00:00Z"),
-  updatedBy: "wouter",
-  updatedAt: at("2026-10-01T09:00:00Z"),
-  body: "",
-  commentsRegion: ""
-}
+  createdBy: "wouter"
+})
 
 const stored = (
   seq: number,
@@ -63,7 +42,7 @@ const stored = (
   actor: TicketActivity.StoredTicketActivity["actor"] = ActivityActor.user(
     "wouter"
   )
-): TicketActivity.StoredTicketActivity => ({
+) => ({
   id: `activity-${seq}`,
   seq,
   occurredAt: at(iso),

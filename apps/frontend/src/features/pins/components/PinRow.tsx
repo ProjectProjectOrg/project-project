@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
-import { sprintState, type PinTarget, type SidebarPin } from "@pp/shared"
+import { SidebarPin, sprintState, type PinTarget } from "@pp/shared"
 import { Pin, PinOff } from "@pp/ui/icons"
 import { SidebarRow, SidebarRowAction } from "@pp/ui/sidebar"
 import { Link } from "@tanstack/react-router"
@@ -24,8 +24,10 @@ type PinRowProps = Readonly<{
   onPinned?: () => void
 }>
 
-export const predictionOf = (pin: SidebarPin): PinPrediction =>
-  pin.kind === "ticket" ? { ticket: pin.ticket } : { sprint: pin.sprint }
+export const predictionOf = (pin: SidebarPin) =>
+  SidebarPin.isAnyOf(["ticket"])(pin)
+    ? { ticket: pin.ticket }
+    : { sprint: pin.sprint }
 
 export function PinRow(props: PinRowProps & Readonly<{ pinned: boolean }>) {
   const req = pinsRequest(props.orgSlug)
@@ -34,7 +36,7 @@ export function PinRow(props: PinRowProps & Readonly<{ pinned: boolean }>) {
     unpinItem({
       req,
       slug: props.slug,
-      kind: props.target.kind,
+      kind: props.target._tag,
       ref: props.target.ref
     })
   )

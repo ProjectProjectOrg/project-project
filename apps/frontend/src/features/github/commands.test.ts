@@ -1,11 +1,6 @@
 import { Org, Project, Effective } from "@pp/access/roles"
-import {
-  OrgActor,
-  ProjectActor,
-  ProjectDetail,
-  TicketDetail,
-  TicketId
-} from "@pp/shared"
+import { OrgActor, ProjectActor, ProjectDetail, TicketId } from "@pp/shared"
+import { makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as Option from "effect/Option"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -56,35 +51,12 @@ const project = Schema.decodeUnknownSync(ProjectDetail)({
   pendingMembers: [],
   permissions: {}
 })
-const detail = Schema.decodeUnknownSync(TicketDetail)({
-  id: "T-1",
-  title: "Ticket",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  repoId: "repo-b",
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch", baseBranch: "develop" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  creator: null,
-  updater: null,
-  body: ""
-})
+const detail = makeTicketDetail({ repoId: "repo-b" })
 
 const contextFor = (
   orgRole: Org.OrgRoleName,
   projectRole: Project.ProjectRoleName | null
-): CommandContext => {
+) => {
   const role = Option.getOrElse(
     Effective.roleOnProject(orgRole, projectRole),
     () => Project.projectStatement.role({})
@@ -112,10 +84,10 @@ const contextFor = (
     project,
     tickets: ticketPermissions(actor),
     canManageProject: actor.call("projects", "update")
-  }
+  } satisfies CommandContext
 }
 
-const environment = (): CommandEnv => ({
+const environment = () => ({
   registry: AtomRegistry.make(),
   execute: vi.fn<(atom: unknown, value: unknown) => void>(),
   navigate: vi.fn<CommandEnv["navigate"]>(),

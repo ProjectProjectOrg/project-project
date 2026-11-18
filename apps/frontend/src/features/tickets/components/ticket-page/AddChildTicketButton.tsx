@@ -19,7 +19,7 @@ import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "type">
 
-export function useAttachExistingTicket(parent: Parent): () => void {
+export function useAttachExistingTicket(parent: Parent) {
   const { orgSlug, slug } = useProjectRoute()
   const setCommandMenu = useAtomSet(commandMenuState)
   return () =>

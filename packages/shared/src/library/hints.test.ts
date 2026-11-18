@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   activeHintSlots,
   alignedHintSlots,
+  BlockOutlineNode,
   HINT,
   hintSlots,
   outlineBlockContent,
@@ -142,15 +143,15 @@ describe("stripDefinitionHints", () => {
 describe("outlineBlockContent", () => {
   it("splits headings, paragraphs and lists", () => {
     expect(outlineBlockContent(stripHints(STEPS))).toEqual([
-      { kind: "heading", text: "Steps to reproduce" },
-      { kind: "orderedList", items: ["", "", ""] }
+      BlockOutlineNode.text({ kind: "heading", text: "Steps to reproduce" }),
+      BlockOutlineNode.list({ kind: "orderedList", items: ["", "", ""] })
     ])
   })
 
   it("separates task lists from bullet lists", () => {
     expect(outlineBlockContent("- [ ] one\n- [x] two\n- three")).toEqual([
-      { kind: "taskList", items: ["one", "two"] },
-      { kind: "bulletList", items: ["three"] }
+      BlockOutlineNode.list({ kind: "taskList", items: ["one", "two"] }),
+      BlockOutlineNode.list({ kind: "bulletList", items: ["three"] })
     ])
   })
 
@@ -167,8 +168,11 @@ describe("outlineBlockContent", () => {
     ].join("\n")
 
     expect(outlineBlockContent(markdown)).toEqual([
-      { kind: "bulletList", items: ["one\nmore", "two\n- nested\nlazy"] },
-      { kind: "paragraph", text: "After." }
+      BlockOutlineNode.list({
+        kind: "bulletList",
+        items: ["one\nmore", "two\n- nested\nlazy"]
+      }),
+      BlockOutlineNode.text({ kind: "paragraph", text: "After." })
     ])
   })
 
@@ -248,8 +252,8 @@ describe("activeHintSlots", () => {
   it("shows every hint on a pristine block with its empty paragraphs present", () => {
     const ticket = [
       ...outlineBlockContent(stripHints(STEPS)),
-      { kind: "paragraph", text: "" }
-    ] as const
+      BlockOutlineNode.text({ kind: "paragraph", text: "" })
+    ]
 
     expect(activeHintSlots(STEPS, ticket)).toEqual(hintSlots(STEPS))
   })
@@ -278,30 +282,30 @@ describe("activeHintSlots", () => {
 
   it("matches a prefix given as rendered text", () => {
     const ticket = [
-      { kind: "heading", text: "Expected vs actual" },
-      { kind: "paragraph", text: "Expected: " },
-      { kind: "paragraph", text: "Actual:" }
-    ] as const
+      BlockOutlineNode.text({ kind: "heading", text: "Expected vs actual" }),
+      BlockOutlineNode.text({ kind: "paragraph", text: "Expected: " }),
+      BlockOutlineNode.text({ kind: "paragraph", text: "Actual:" })
+    ]
 
     expect(activeHintSlots(EXPECTED, ticket)).toHaveLength(2)
   })
 
   it("stops aligning at the first node type mismatch", () => {
     const ticket = [
-      { kind: "heading", text: "Steps to reproduce" },
-      { kind: "paragraph", text: "" },
-      { kind: "orderedList", items: ["", "", ""] },
-      { kind: "paragraph", text: "" }
-    ] as const
+      BlockOutlineNode.text({ kind: "heading", text: "Steps to reproduce" }),
+      BlockOutlineNode.text({ kind: "paragraph", text: "" }),
+      BlockOutlineNode.list({ kind: "orderedList", items: ["", "", ""] }),
+      BlockOutlineNode.text({ kind: "paragraph", text: "" })
+    ]
 
     expect(activeHintSlots(STEPS, ticket)).toEqual([])
   })
 
   it("hints only the items that are still empty", () => {
     const ticket = [
-      { kind: "heading", text: "Steps to reproduce" },
-      { kind: "orderedList", items: ["Sign in", ""] }
-    ] as const
+      BlockOutlineNode.text({ kind: "heading", text: "Steps to reproduce" }),
+      BlockOutlineNode.list({ kind: "orderedList", items: ["Sign in", ""] })
+    ]
 
     expect(activeHintSlots(STEPS, ticket).map((slot) => slot.hint)).toEqual([
       "What you do"
@@ -311,16 +315,20 @@ describe("activeHintSlots", () => {
   it("degrades to no hints for unrelated or empty content", () => {
     expect(activeHintSlots(STEPS, [])).toEqual([])
     expect(activeHintSlots("", outlineBlockContent(STEPS))).toEqual([])
-    expect(activeHintSlots(STEPS, [{ kind: "other", text: "```" }])).toEqual([])
+    expect(
+      activeHintSlots(STEPS, [
+        BlockOutlineNode.text({ kind: "other", text: "```" })
+      ])
+    ).toEqual([])
   })
 })
 
 describe("alignedHintSlots", () => {
   it("keeps filled slots and drops missing ones", () => {
     const ticket = [
-      { kind: "heading", text: "Steps to reproduce" },
-      { kind: "orderedList", items: ["Sign in", ""] }
-    ] as const
+      BlockOutlineNode.text({ kind: "heading", text: "Steps to reproduce" }),
+      BlockOutlineNode.list({ kind: "orderedList", items: ["Sign in", ""] })
+    ]
 
     expect(alignedHintSlots(STEPS, ticket).map((slot) => slot.path)).toEqual([
       [1, 0],

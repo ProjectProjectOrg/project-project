@@ -31,7 +31,7 @@ import {
   type TypeKey,
   type StatusPhase
 } from "@pp/shared"
-import { DateTime, Effect, Option, Schema } from "effect"
+import { Data, DateTime, Effect, Option, Schema } from "effect"
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
@@ -64,6 +64,7 @@ import {
   buildJiraStatusCreateOptions,
   buildTagCandidates,
   jiraDestinationTicketId,
+  JiraIdentityResolution,
   jiraRestrictionPolicy,
   resolveTagDestinations,
   skippedTagKeys,
@@ -202,45 +203,52 @@ export type JiraPublicationPlan = Readonly<{
   }>
 }>
 
-export type JiraPublicationPlanResult =
-  | Readonly<{
-      kind: "blocked"
-      blockers: ReadonlyArray<JiraPreflightFinding<JiraPreflightBlockerCode>>
-    }>
-  | Readonly<{ kind: "ready"; plan: JiraPublicationPlan }>
+export type JiraPublicationPlanResult = Data.TaggedEnum<{
+  blocked: Readonly<{
+    blockers: ReadonlyArray<JiraPreflightFinding<JiraPreflightBlockerCode>>
+  }>
+  ready: Readonly<{ plan: JiraPublicationPlan }>
+}>
+export const JiraPublicationPlanResult =
+  Data.taggedEnum<JiraPublicationPlanResult>()
 
 type JiraPublicationSource = JiraMappingSource &
   Pick<JiraMigrationManifest, "source" | "comments" | "migrationId"> &
   Readonly<{ version: 1 | 2 }>
-type JiraPublicationDraftResult =
-  | Readonly<{ kind: "blocked"; blockers: JiraPreflightResult["blockers"] }>
-  | Readonly<{
-      kind: "ready"
-      plan: Omit<JiraPublicationPlan, "manifestVersion"> &
-        Readonly<{ manifestVersion: 1 | 2 }>
-    }>
+type JiraPublicationDraftResult = Data.TaggedEnum<{
+  blocked: Readonly<{ blockers: JiraPreflightResult["blockers"] }>
+  ready: Readonly<{
+    plan: Omit<JiraPublicationPlan, "manifestVersion"> &
+      Readonly<{ manifestVersion: 1 | 2 }>
+  }>
+}>
+const JiraPublicationDraftResult = Data.taggedEnum<JiraPublicationDraftResult>()
 export function createJiraPublicationPlan(
   manifest: JiraMigrationManifest,
   mappings: JiraMigrationMappings,
   preflight: JiraPreflightResult,
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
-): JiraPublicationPlanResult {
+) {
   const result = createJiraPublicationDraft(
     manifest,
     mappings,
     preflight,
     attachmentUrlsBySourceId
   )
-  return result.kind === "blocked"
-    ? result
-    : { kind: "ready", plan: { ...result.plan, manifestVersion: 1 } }
+  return JiraPublicationDraftResult.$match(result, {
+    blocked: ({ blockers }) => JiraPublicationPlanResult.blocked({ blockers }),
+    ready: ({ plan }) =>
+      JiraPublicationPlanResult.ready({
+        plan: { ...plan, manifestVersion: 1 }
+      })
+  })
 }
 
 export function createJiraReferenceTargets(
   manifest: JiraPublicationSource,
   mappings: JiraMigrationMappings,
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
-): JiraReferenceTargets {
+) {
   const targets: Record<string, JiraReferenceTarget> = {}
   const resolvedAttachmentUrls = aliasJiraMediaReferences(
     manifest,
@@ -260,7 +268,7 @@ export function createJiraReferenceTargets(
     targets[jiraReferenceKey("jira-issue", issue.key)] = target
   }
   for (const mapping of mappings.identities) {
-    if (mapping.resolution.kind !== "link") continue
+    if (!JiraIdentityResolution.guards.link(mapping.resolution)) continue
     targets[jiraReferenceKey("jira-user", mapping.sourceAccountId)] = {
       url: formatMentionHref("user", mapping.resolution.userId)
     }
@@ -291,7 +299,7 @@ export function createJiraReferenceTargets(
 export function aliasJiraMediaReferences(
   manifest: JiraPublicationSource,
   urlsByAttachmentId: Readonly<Record<string, string>>
-): Readonly<Record<string, string>> {
+) {
   const aliased: Record<string, string> = { ...urlsByAttachmentId }
   const byFilename = groupBy(
     manifest.attachments,
@@ -371,7 +379,7 @@ function unresolvedJiraMediaReferences(
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
 
-const isEmbeddableAttachment = (attachment: JiraManifestAttachment): boolean =>
+const isEmbeddableAttachment = (attachment: JiraManifestAttachment) =>
   attachment.mimeType.toLowerCase().startsWith("image/") ||
   IMAGE_EXTENSIONS.test(attachment.filename.trim())
 
@@ -379,7 +387,7 @@ export function rewriteJiraPublicationText(
   text: JiraConvertedText,
   targets: JiraReferenceTargets,
   sourceSiteUrl: string
-): string {
+) {
   const destinations = new Map<string, JiraReferenceTarget>()
   for (const reference of text.references) {
     if (
@@ -414,8 +422,9 @@ function createJiraPublicationDraft(
   mappings: JiraMigrationMappings,
   preflight: JiraPreflightResult,
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
-): JiraPublicationDraftResult {
-  if (!preflight.ready) return { kind: "blocked", blockers: preflight.blockers }
+) {
+  if (!preflight.ready)
+    return JiraPublicationDraftResult.blocked({ blockers: preflight.blockers })
 
   const targets = createJiraReferenceTargets(
     manifest,
@@ -485,7 +494,7 @@ function createJiraPublicationDraft(
 
   const tickets = manifest.issues
     .filter((issue) => !excluded.issues.has(issue.id))
-    .map((issue): JiraStagedTicket => {
+    .map((issue) => {
       const identity =
         issue.assigneeAccountId === null
           ? undefined
@@ -513,8 +522,12 @@ function createJiraPublicationDraft(
           priorityMappingKey(issue.priorityId)
         ),
         tags: [...new Set(tags)].toSorted(compareStrings),
-        assignees: identity?.kind === "link" ? [identity.userId] : [],
-        createdBy: reporter?.kind === "link" ? reporter.userId : null,
+        assignees: JiraIdentityResolution.guards.link(identity)
+          ? [identity.userId]
+          : [],
+        createdBy: JiraIdentityResolution.guards.link(reporter)
+          ? reporter.userId
+          : null,
         parent: parentTicketId(hierarchy, ticketMappings, issue.id),
         body:
           issue.description === null
@@ -526,7 +539,7 @@ function createJiraPublicationDraft(
               ),
         createdAt: issue.createdAt,
         updatedAt: issue.updatedAt
-      }
+      } satisfies JiraStagedTicket
     })
     .toSorted((left, right) => compareStrings(left.id, right.id))
 
@@ -536,19 +549,18 @@ function createJiraPublicationDraft(
         !excluded.comments.has(comment.id) &&
         !excluded.issues.has(comment.issueId)
     )
-    .map((comment): JiraStagedComment => {
+    .map((comment) => {
       const identity = identityMappings.get(comment.authorAccountId)
       return {
         sourceCommentId: comment.id,
         ticketId: requireMapped(ticketMappings, comment.issueId),
-        author:
-          identity?.kind === "link"
-            ? { kind: "user", userId: identity.userId }
-            : {
-                kind: "jira",
-                displayName: comment.authorDisplayName,
-                accountId: comment.authorAccountId
-              },
+        author: JiraIdentityResolution.guards.link(identity)
+          ? { kind: "user", userId: identity.userId }
+          : {
+              kind: "jira",
+              displayName: comment.authorDisplayName,
+              accountId: comment.authorAccountId
+            },
         body: rewriteJiraPublicationText(
           comment.body,
           targets,
@@ -556,7 +568,7 @@ function createJiraPublicationDraft(
         ),
         createdAt: comment.createdAt,
         editedAt: jiraEditedAt(comment.createdAt, comment.updatedAt)
-      }
+      } satisfies JiraStagedComment
     })
     .toSorted(
       (left, right) =>
@@ -578,16 +590,17 @@ function createJiraPublicationDraft(
         attachment.downloadUrl !== null
     )
     .map(
-      (attachment): JiraStagedAttachment => ({
-        sourceAttachmentId: attachment.id,
-        ticketId: requireMapped(ticketMappings, attachment.issueId),
-        filename: attachment.filename,
-        contentType: attachment.mimeType,
-        byteSize: attachment.byteSize,
-        downloadUrl: requireString(attachment.downloadUrl),
-        destinationUrl: attachmentUrlsBySourceId[attachment.id] ?? null,
-        status: "pending"
-      })
+      (attachment) =>
+        ({
+          sourceAttachmentId: attachment.id,
+          ticketId: requireMapped(ticketMappings, attachment.issueId),
+          filename: attachment.filename,
+          contentType: attachment.mimeType,
+          byteSize: attachment.byteSize,
+          downloadUrl: requireString(attachment.downloadUrl),
+          destinationUrl: attachmentUrlsBySourceId[attachment.id] ?? null,
+          status: "pending"
+        }) satisfies JiraStagedAttachment
     )
     .toSorted((left, right) =>
       compareStrings(left.sourceAttachmentId, right.sourceAttachmentId)
@@ -607,22 +620,23 @@ function createJiraPublicationDraft(
   )
   const groups = manifest.groups
     .map(
-      (group): JiraStagedGroup => ({
-        sourceGroupId: group.id,
-        kind: group.kind,
-        name: group.name,
-        body: group.description ?? "",
-        ticketIds: publicationGroupTicketIds(
-          group,
-          excluded.issues,
-          ticketMappings,
-          openConflicts,
-          sprintSelections
-        ),
-        startsAt: group.startsAt,
-        endsAt: group.endsAt,
-        completedAt: group.completedAt
-      })
+      (group) =>
+        ({
+          sourceGroupId: group.id,
+          kind: group.kind,
+          name: group.name,
+          body: group.description ?? "",
+          ticketIds: publicationGroupTicketIds(
+            group,
+            excluded.issues,
+            ticketMappings,
+            openConflicts,
+            sprintSelections
+          ),
+          startsAt: group.startsAt,
+          endsAt: group.endsAt,
+          completedAt: group.completedAt
+        }) satisfies JiraStagedGroup
     )
     .toSorted((left, right) =>
       compareStrings(left.sourceGroupId, right.sourceGroupId)
@@ -662,8 +676,7 @@ function createJiraPublicationDraft(
     ticketMappings
   )
 
-  return {
-    kind: "ready",
+  return JiraPublicationDraftResult.ready({
     plan: {
       migrationId: manifest.migrationId,
       manifestVersion: manifest.version,
@@ -700,14 +713,14 @@ function createJiraPublicationDraft(
         markMigrationSucceeded: true
       }
     }
-  }
+  })
 }
 
 function parentTicketId(
   hierarchy: JiraHierarchy,
   ticketMappings: ReadonlyMap<string, string>,
   issueId: string
-): string | null {
+) {
   const parentIssueId = hierarchy.parents.get(issueId)
   return parentIssueId === undefined
     ? null
@@ -724,10 +737,10 @@ function stageJiraInvites(
     }>
   >,
   ticketMappings: ReadonlyMap<string, string>
-): ReadonlyArray<JiraStagedInvite> {
+) {
   const accountsByEmail = groupBy(
     identities.flatMap(({ sourceAccountId, resolution }) =>
-      resolution.kind === "invite"
+      JiraIdentityResolution.guards.invite(resolution)
         ? [{ sourceAccountId, email: resolution.email }]
         : []
     ),
@@ -771,14 +784,14 @@ function stageJiraInvites(
 export function jiraReferenceKey(
   kind: "jira-issue" | "jira-attachment" | "jira-user",
   sourceId: string
-): string {
+) {
   return `${kind}:${sourceId}`
 }
 
 function publicationRanks(
   tickets: ReadonlyArray<JiraStagedTicket>,
   jiraRanks: ReadonlyArray<Readonly<{ issueId: string; rank: string }>>
-): ReadonlyMap<string, string> {
+) {
   const jiraRank = new Map(
     jiraRanks.map(({ issueId, rank }) => [issueId, rank])
   )
@@ -800,7 +813,7 @@ function publicationGroupTicketIds(
   ticketMappings: ReadonlyMap<string, string>,
   openConflicts: ReadonlyMap<string, ReadonlySet<string>>,
   sprintSelections: ReadonlyMap<string, string | null>
-): ReadonlyArray<string> {
+) {
   return group.issueIds
     .filter((issueId) => {
       if (excludedIssueIds.has(issueId)) return false
@@ -816,7 +829,7 @@ function publicationGroupTicketIds(
 function excludedSourceRecords(
   manifest: JiraPublicationSource,
   mappings: JiraMigrationMappings
-): Readonly<{ issues: Set<string>; comments: Set<string> }> {
+) {
   const decisions = new Map(
     mappings.restrictions.map((mapping) => [
       mapping.restrictionId,
@@ -839,7 +852,7 @@ function jiraEditedAt(createdAt: string, updatedAt: string | null) {
     : updatedAt
 }
 
-function compareInstants(left: string, right: string): number {
+function compareInstants(left: string, right: string) {
   const leftTime = DateTime.make(left)
   const rightTime = DateTime.make(right)
   return Option.isSome(leftTime) && Option.isSome(rightTime)
@@ -848,7 +861,7 @@ function compareInstants(left: string, right: string): number {
     : compareStrings(left, right)
 }
 
-export function compareJiraIds(left: string, right: string): number {
+export function compareJiraIds(left: string, right: string) {
   return /^\d+$/.test(left) && /^\d+$/.test(right)
     ? left.length - right.length || compareStrings(left, right)
     : compareStrings(left, right)
@@ -857,23 +870,23 @@ export function compareJiraIds(left: string, right: string): number {
 function requireMapped<K extends string, V>(
   mappings: ReadonlyMap<K, V>,
   key: K
-): V {
+) {
   const value = mappings.get(key)
   if (value === undefined)
     throw new Error(`Missing approved mapping for ${key}`)
   return value
 }
 
-function requireString(value: string | null): string {
+function requireString(value: string | null) {
   if (value === null) throw new Error("Missing approved attachment source URL")
   return value
 }
 
-function priorityMappingKey(sourcePriorityId: string | null): string {
+function priorityMappingKey(sourcePriorityId: string | null) {
   return sourcePriorityId === null ? "priority:none" : sourcePriorityId
 }
 
-function compareStrings(left: string, right: string): number {
+function compareStrings(left: string, right: string) {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
@@ -986,7 +999,7 @@ export function jiraAttachmentId(
   migrationId: string,
   sourceAttachmentId: string,
   migrationCreatedAt: string
-): AttachmentId {
+) {
   const seed = createHash("sha256")
     .update(JSON.stringify([migrationId, sourceAttachmentId]))
     .digest()
@@ -1002,9 +1015,7 @@ export const jiraProjectIdFor = (migrationId: string) => {
   const hex = digest(JSON.stringify(["jira-project-v1", migrationId]))
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`
 }
-const normalizeConfiguration = (
-  configuration: JiraMigrationConfiguration
-): JiraMigrationConfiguration => ({
+const normalizeConfiguration = (configuration: JiraMigrationConfiguration) => ({
   ...configuration,
   identities: configuration.identities.toSorted((a, b) =>
     compareStrings(a.jiraAccountId, b.jiraAccountId)
@@ -1130,7 +1141,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
     )
     const skipped = new Set(input.configuration.skippedAttachmentIds)
     const attachments = input.manifest.attachments
-      .map((attachment): typeof PreparedAttachment.Encoded => {
+      .map((attachment) => {
         const id = jiraAttachmentId(
           input.manifest.migrationId,
           attachment.id,
@@ -1162,7 +1173,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
             : skipped.has(attachment.id)
               ? "skip"
               : "copy"
-        }
+        } satisfies typeof PreparedAttachment.Encoded
       })
       .toSorted((a, b) =>
         compareStrings(a.sourceAttachmentId, b.sourceAttachmentId)
@@ -1216,7 +1227,7 @@ export const placeJiraStatuses = <
   S extends Readonly<{ slug: string; icon: JiraStatusCreateOption["icon"] }>
 >(
   created: ReadonlyArray<S>
-): ReadonlyArray<S & Readonly<{ orderKey: string }>> => {
+) => {
   const placed: Array<Readonly<{ slug: string; orderKey: string }>> = [
     ...BASELINE_STATUS_SEED
   ]
@@ -1477,7 +1488,7 @@ function planJiraEstimates(
   manifest: JiraMigrationManifestV2,
   values: ReadonlyMap<string, Schema.Json>,
   importedIssueIds: ReadonlySet<string>
-): JiraEstimatePlan {
+) {
   const points = new Map<string, number>()
   for (const field of manifest.customFields) {
     if (!STORY_POINT_FIELDS.has(field.name.trim().toLowerCase())) continue
@@ -1531,7 +1542,7 @@ function planJiraEstimates(
         ? [...seconds.keys()].filter((issueId) => !points.has(issueId)).length
         : 0,
     found: new Set([...points.keys(), ...seconds.keys()]).size
-  }
+  } satisfies JiraEstimatePlan
 }
 
 const isoDay = (value: string | null | undefined) => {
@@ -1552,7 +1563,7 @@ export function jiraImportNote(
     resolution: string | null
     resolvedAt: string | null
   }>
-): string {
+) {
   const url = jiraIssueUrl(input.siteUrl, input.key)
   const resolvedOn = isoDay(input.resolvedAt)
   const dueDate = isoDay(input.dueDate)
@@ -1683,7 +1694,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       )
     }
     const draft = createJiraPublicationDraft(source, safeMappings, check, urls)
-    if (draft.kind === "blocked")
+    if (JiraPublicationDraftResult.$is("blocked")(draft))
       return yield* new JiraPublicationInvalid({
         reasons: draft.blockers.map((x) => x.code)
       })
@@ -1750,7 +1761,8 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       check.mappings.identities.map((x) => [x.sourceAccountId, x.resolution])
     )
     const unlinkedName = (accountId: string | null) =>
-      accountId === null || resolutions.get(accountId)?.kind === "link"
+      accountId === null ||
+      JiraIdentityResolution.guards.link(resolutions.get(accountId))
         ? null
         : (displayNames.get(accountId) ?? accountId)
     const ranks = publicationRanks(draft.plan.tickets, manifest.ranks)
@@ -1775,7 +1787,9 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         )
       }
     })
-    const ticketsById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
+    const ticketsById = new Map<string, (typeof tickets)[number]>(
+      tickets.map((ticket) => [ticket.id, ticket])
+    )
     const comments = draft.plan.comments.map((comment) => ({
       ...comment,
       id: `c_jira_${digest(JSON.stringify([manifest.migrationId, comment.sourceCommentId])).slice(0, 32)}`
@@ -2188,7 +2202,7 @@ export const jiraArchivePath = (migrationId: string) =>
 export const jiraReportPath = (migrationId: string) =>
   `${jiraImportPath(migrationId)}/report.md`
 
-const freezeJiraValue = <A>(value: A): A => {
+const freezeJiraValue = <A>(value: A) => {
   if (value !== null && typeof value === "object") {
     for (const child of Object.values(value)) freezeJiraValue(child)
     Object.freeze(value)

@@ -46,18 +46,16 @@ import {
   type Role,
   SprintCompletedImmutable,
   TicketId,
-  TicketStatus,
   UserId,
   GroupColor,
   CommentId,
   type GroupDetail,
   type TicketListQuery,
-  EMPTY_TICKET_RELATIONS,
   ProjectScope,
   Validation,
-  TypeKey,
-  TicketRank
+  TypeKey
 } from "@pp/shared"
+import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -88,10 +86,8 @@ const parseJson = (text: string) => JSON.parse(text)
 
 const decodeFailure = Schema.decodeUnknownSync(ToolFailure)
 
-const toResult = (
-  result: Readonly<{ isFailure: boolean; encoded: unknown }>
-): ToolResult =>
-  result.isFailure
+const toResult = (result: Readonly<{ isFailure: boolean; encoded: unknown }>) =>
+  (result.isFailure
     ? {
         isError: true,
         content: [{ type: "text", text: decodeFailure(result.encoded).message }]
@@ -100,9 +96,9 @@ const toResult = (
         content: [
           { type: "text", text: JSON.stringify(result.encoded, null, 2) }
         ]
-      }
+      }) satisfies ToolResult
 
-const register = (runtime: Context.Context<HandlerServices>): Registered => {
+const register = (runtime: Context.Context<HandlerServices>) => {
   const registered: Registered = new Map()
   for (const name of Object.keys(Tools.tools)) {
     if (!isToolName(name)) continue
@@ -132,29 +128,13 @@ const register = (runtime: Context.Context<HandlerServices>): Registered => {
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
-const fakeTicket = {
-  id: decodeTicketId("T-1"),
+const fakeTicket = makeTicket({
   title: "first",
-  status: TicketStatus.make("todo"),
   type: TypeKey.make("feat"),
-  priority: "med" as const,
-  rank: TicketRank.make("a0"),
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" as const },
-  assignees: [],
-  parent: null,
-  parentState: null,
-  archivedAt: null,
   createdBy: "u-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),
   updatedAt: isoDate("2026-05-10T00:00:00.000Z")
-}
+})
 
 const capturedListLimits: Array<number | undefined> = []
 const capturedListQueries: Array<TicketListQuery> = []
@@ -659,13 +639,10 @@ describe("MCP handlers → list_types size", () => {
 })
 
 describe("MCP handlers → write tools", () => {
-  const fakeTicketDetail = {
+  const fakeTicketDetail = makeTicketDetail({
     ...fakeTicket,
-    relations: EMPTY_TICKET_RELATIONS,
-    creator: null,
-    updater: null,
     body: "## Steps\n- repro\n"
-  }
+  })
 
   const captured: {
     create?: any
@@ -1179,14 +1156,13 @@ describe("MCP handlers → ticket types and edits", () => {
           return Effect.fail(new Validation({ reason: "unknown_type:nope" }))
         }
         state.create = input
-        return Effect.succeed({
-          ...fakeTicket,
-          relations: EMPTY_TICKET_RELATIONS,
-          creator: null,
-          updater: null,
-          title: input.title,
-          body: input.body ?? ""
-        })
+        return Effect.succeed(
+          makeTicketDetail({
+            ...fakeTicket,
+            title: input.title,
+            body: input.body ?? ""
+          })
+        )
       },
       update: (_id, input, _sort, expected) => {
         if (input.type === "nope") {
@@ -1200,13 +1176,10 @@ describe("MCP handlers → ticket types and edits", () => {
           return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
         }
         return Effect.succeed({
-          ticket: {
+          ticket: makeTicketDetail({
             ...fakeTicket,
-            relations: EMPTY_TICKET_RELATIONS,
-            creator: null,
-            updater: null,
             body: input.body ?? state.currentBody
-          },
+          }),
           orderKey: null
         })
       }
@@ -1218,13 +1191,12 @@ describe("MCP handlers → ticket types and edits", () => {
         if (state.concurrentBody !== undefined) {
           state.currentBody = state.concurrentBody
         }
-        return Effect.succeed({
-          ...fakeTicket,
-          relations: EMPTY_TICKET_RELATIONS,
-          creator: null,
-          updater: null,
-          body
-        })
+        return Effect.succeed(
+          makeTicketDetail({
+            ...fakeTicket,
+            body
+          })
+        )
       }
     })
   )
@@ -1425,13 +1397,10 @@ describe("MCP handlers → ticket types and edits", () => {
           update: (_id, input, _sort, expected) => {
             seen = expected
             return Effect.succeed({
-              ticket: {
+              ticket: makeTicketDetail({
                 ...fakeTicket,
-                relations: EMPTY_TICKET_RELATIONS,
-                creator: null,
-                updater: null,
                 body: input.body ?? ""
-              },
+              }),
               orderKey: null
             })
           }

@@ -11,7 +11,7 @@ import { EverhourHost } from "./Host"
 import * as TimeTracking from "./TimeTracking"
 import * as Webhooks from "./Webhooks"
 
-const unexpected = (method: string): Effect.Effect<never> =>
+const unexpected = (method: string) =>
   Effect.die(new Error(`unexpected ${method} call`))
 
 const fakeDb = (

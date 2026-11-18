@@ -1,6 +1,6 @@
 export type PageSlot = number | "gap"
 
-export const pageCount = (total: number, pageSize: number): number =>
+export const pageCount = (total: number, pageSize: number) =>
   total <= 0 ? 1 : Math.ceil(total / pageSize)
 
 export const pageAfterRemoval = (
@@ -10,14 +10,14 @@ export const pageAfterRemoval = (
     total: number
     removed: number
   }>
-): number =>
+) =>
   Math.min(input.page, pageCount(input.total - input.removed, input.pageSize))
 
 export const pageRange = (input: {
   readonly page: number
   readonly pageSize: number
   readonly total: number
-}): { readonly from: number; readonly to: number } => {
+}) => {
   if (input.total <= 0) return { from: 0, to: 0 }
   const from = (input.page - 1) * input.pageSize + 1
   return { from, to: Math.min(input.page * input.pageSize, input.total) }
@@ -27,7 +27,7 @@ export const pageWindow = (input: {
   readonly page: number
   readonly pages: number
   readonly span: number
-}): ReadonlyArray<PageSlot> => {
+}) => {
   const { page, pages, span } = input
   if (pages <= span) {
     return Array.from({ length: pages }, (_, index) => index + 1)

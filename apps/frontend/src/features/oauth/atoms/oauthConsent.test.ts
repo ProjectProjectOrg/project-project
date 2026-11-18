@@ -17,7 +17,7 @@ import {
 
 const fetchStub = stubFetch()
 
-const requestUrl = (input: RequestInfo | URL): URL =>
+const requestUrl = (input: RequestInfo | URL) =>
   new URL(
     input instanceof Request
       ? input.url

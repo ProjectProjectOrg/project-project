@@ -87,9 +87,7 @@ export class ProjectExport extends Context.Service<
   }>
 >()("@pp/server-core/projects/ProjectExport") {}
 
-const unique = <A>(values: Iterable<A>): ReadonlyArray<A> => [
-  ...new Set(values)
-]
+const unique = <A>(values: Iterable<A>) => [...new Set(values)]
 
 const make = Effect.gen(function* () {
   const db = yield* Db
@@ -229,13 +227,11 @@ const make = Effect.gen(function* () {
                 .headObject(c, row.objectKey)
                 .pipe(Effect.map((head) => head === null))
           }).pipe(
-            Effect.map(
-              (missing): StoredAttachment => ({
-                id: row.id,
-                objectKey: row.objectKey,
-                missing
-              })
-            )
+            Effect.map((missing) => ({
+              id: row.id,
+              objectKey: row.objectKey,
+              missing
+            }))
           ),
         { concurrency: 8 }
       )
@@ -443,12 +439,10 @@ const make = Effect.gen(function* () {
           name: PROJECT_EXPORT_MANIFEST_PATH,
           bytes: textEncoder.encode(manifestJson)
         },
-        ...portableFiles.map(
-          (file): TarEntry => ({
-            name: `${PROJECT_EXPORT_MARKDOWN_DIR}/${file.path}`,
-            bytes: file.bytes
-          })
-        )
+        ...portableFiles.map((file) => ({
+          name: `${PROJECT_EXPORT_MARKDOWN_DIR}/${file.path}`,
+          bytes: file.bytes
+        }))
       ]),
       attachmentEntries(connection, stored)
     )

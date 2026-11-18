@@ -33,7 +33,7 @@ const DEFINITION = transformersForMode("definition", undefined)
 
 const CONTEXT = "## Context\n\n{{Why this ticket exists}}"
 
-function makeEditor(): LexicalEditor {
+function makeEditor() {
   return createEditor({
     namespace: "editor-modes-test",
     nodes: [

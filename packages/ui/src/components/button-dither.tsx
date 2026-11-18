@@ -75,10 +75,10 @@ interface RGB {
   b: number
 }
 
-function clampStops(stops: DitherStops): DitherStops {
+function clampStops(stops: DitherStops) {
   const start = Math.min(Math.max(stops[0], 0), 1)
   const end = Math.min(Math.max(stops[1], start + 0.0001), 1)
-  return [start, end]
+  return [start, end] satisfies DitherStops
 }
 
 function cssGradient(
@@ -86,7 +86,7 @@ function cssGradient(
   to: string,
   direction: DitherDirection,
   stops: DitherStops
-): string {
+) {
   const [start, end] = clampStops(stops)
   return (
     `linear-gradient(${DIRECTION_TO_CSS_ANGLE[direction]}, ` +
@@ -94,7 +94,7 @@ function cssGradient(
   )
 }
 
-function resolveColor(value: string): string {
+function resolveColor(value: string) {
   if (!value.startsWith("var(")) return value
   if (typeof window === "undefined") return value
   const match = value.match(/var\(\s*(--[^,)\s]+)/)
@@ -105,7 +105,7 @@ function resolveColor(value: string): string {
   return resolved || value
 }
 
-function parseColorToRgb(value: string): RGB {
+function parseColorToRgb(value: string) {
   if (typeof window === "undefined") return { r: 0, g: 0, b: 0 }
   const canvas = document.createElement("canvas")
   canvas.width = 1
@@ -119,7 +119,7 @@ function parseColorToRgb(value: string): RGB {
   return { r: data[0], g: data[1], b: data[2] }
 }
 
-function useThemeRevision(): number {
+function useThemeRevision() {
   const [rev, setRev] = useState(0)
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -133,11 +133,11 @@ function useThemeRevision(): number {
   return rev
 }
 
-function lerp(a: number, b: number, t: number): number {
+function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }
 
-function easeOutCubic(t: number): number {
+function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3)
 }
 

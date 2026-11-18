@@ -9,10 +9,9 @@ export type GitAutomationRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const gitAutomationRequest = (
-  orgSlug: string,
-  slug: string
-): GitAutomationRequest => ({ params: { orgSlug, slug } })
+export const gitAutomationRequest = (orgSlug: string, slug: string) => ({
+  params: { orgSlug, slug }
+})
 
 const scopeOf = (req: GitAutomationRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -35,10 +34,11 @@ export const updateGitAutomation = Atom.family((req: GitAutomationRequest) =>
   coalescingMutation(gitAutomationFor(req), {
     name: "updateGitAutomation",
     idleTTL: "5 minutes",
-    predict: (value, input: UpdateGitAutomationInput): GitAutomation => ({
-      rules: { ...value.rules, ...input.rules },
-      forwardOnly: input.forwardOnly ?? value.forwardOnly
-    }),
+    predict: (value, input: UpdateGitAutomationInput) =>
+      ({
+        rules: { ...value.rules, ...input.rules },
+        forwardOnly: input.forwardOnly ?? value.forwardOnly
+      }) satisfies GitAutomation,
     merge: (pending, next) => {
       const merged = { ...pending, ...next }
       if (pending.rules === undefined && next.rules === undefined) return merged

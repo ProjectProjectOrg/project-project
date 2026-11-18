@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { FixReferenceAction, ReferenceKind } from "@pp/shared"
+import { FixReferenceAction, type ReferenceKind } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Hash, Link2, UserRound } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
@@ -163,13 +163,13 @@ function FixActions({
       <LinkTargetMenu
         kind={kind}
         label={linkLabel}
-        onPick={(to) => onFix({ kind: "link", to })}
+        onPick={(to) => onFix(FixReferenceAction.cases.link.make({ to }))}
       />
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => onFix({ kind: "plain" })}
+        onClick={() => onFix(FixReferenceAction.cases.plain.make({}))}
       >
         {plainLabel}
       </Button>

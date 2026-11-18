@@ -175,7 +175,7 @@ const HEARTBEAT_INTERVAL = "5 minutes"
 export const withHeartbeat = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   heartbeat: Effect.Effect<unknown, JiraError>
-): Effect.Effect<A, E, R> =>
+) =>
   Effect.scoped(
     Effect.gen(function* () {
       yield* Effect.forkScoped(
@@ -525,7 +525,7 @@ export const JIRA_DOCUMENT_BATCH_SIZE = 32
 
 export const jiraDocumentBatches = <A extends Readonly<{ path: string }>>(
   documents: ReadonlyArray<A>
-): ReadonlyArray<ReadonlyArray<A>> => {
+) => {
   const sorted = documents.toSorted((left, right) =>
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0
   )
@@ -719,10 +719,11 @@ const ErrorFacts = Schema.Struct({
   retryAfterMillis: fact(Schema.Finite)
 })
 const decodeErrorFacts = Schema.decodeUnknownOption(ErrorFacts)
+const noErrorFacts: typeof ErrorFacts.Type = {}
 const errorFacts = (error: unknown) =>
-  Option.getOrElse(decodeErrorFacts(error), (): typeof ErrorFacts.Type => ({}))
+  Option.getOrElse(decodeErrorFacts(error), () => noErrorFacts)
 
-export const errorDetail = (error: unknown): string | undefined => {
+export const errorDetail = (error: unknown) => {
   const facts = errorFacts(error)
   const parts = [
     facts._tag,
@@ -751,14 +752,14 @@ const classified = (
   reason: string,
   retryable: boolean,
   extra: Omit<JiraFailureClassification, "reason" | "retryable"> = {}
-): JiraFailureClassification => {
+) => {
   const detail = errorDetail(error)
   return {
     reason,
     retryable,
     ...extra,
     ...(detail === undefined ? {} : { detail })
-  }
+  } satisfies JiraFailureClassification
 }
 
 const transientClassified = (error: unknown, reason: string) => {
@@ -769,9 +770,7 @@ const transientClassified = (error: unknown, reason: string) => {
   })
 }
 
-export const classifyJiraFailure = (
-  error: unknown
-): JiraFailureClassification | null => {
+export const classifyJiraFailure = (error: unknown) => {
   const facts = errorFacts(error)
   switch (facts._tag) {
     case "JiraNotConnected":
@@ -813,7 +812,7 @@ export const classifyJiraFailure = (
   }
 }
 
-export const scanError = (error: unknown): JiraScanFailure => {
+export const scanError = (error: unknown) => {
   const failure =
     classifyJiraFailure(error) ??
     classified(error, "jira_migration_invalid_response", false)
@@ -894,14 +893,7 @@ const collectionSnapshotPage = <A>(
 const pageResponse = Effect.fn("Jira.scanPageResponse")(function* (
   input: JiraScanPageInput,
   client: Client.JiraClient["Service"]
-): Effect.fn.Return<
-  {
-    raw: Schema.Json
-    values: ReadonlyArray<Schema.Json>
-    nextCursor: string | null
-  },
-  Client.JiraCallError
-> {
+) {
   const { userId, cloudId, projectId, parentId, kind, cursor } = input
   const base = { userId, cloudId }
   const offset = cursor === null ? 0 : Number(cursor)

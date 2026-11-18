@@ -31,14 +31,7 @@ type LegacySprintFile = Readonly<{
   body: string
 }>
 
-export const migrateProjectSprints = (
-  orgSlug: string,
-  projectSlug: string
-): Effect.Effect<
-  SprintMigration | null,
-  Markdown.MarkdownError,
-  Markdown.Markdown
-> =>
+export const migrateProjectSprints = (orgSlug: string, projectSlug: string) =>
   Effect.gen(function* () {
     const markdown = yield* Markdown.Markdown
     const groupIds = yield* markdown.listGroupIds(orgSlug, projectSlug)
@@ -46,21 +39,21 @@ export const migrateProjectSprints = (
       groupIds,
       (id) =>
         markdown.readGroupFile(orgSlug, projectSlug, id).pipe(
-          Effect.map(
-            (file): ReadonlyArray<LegacySprintFile> =>
-              decodeLegacySprint(file.data).pipe(
-                Option.match({
-                  onNone: () => [],
-                  onSome: (sprint) => [
+          Effect.map((file) =>
+            decodeLegacySprint(file.data).pipe(
+              Option.match({
+                onNone: () => [],
+                onSome: (sprint) =>
+                  [
                     {
                       id: decodeGroupId(id),
                       sprint,
                       data: file.data,
                       body: file.body
                     }
-                  ]
-                })
-              )
+                  ] satisfies ReadonlyArray<LegacySprintFile>
+              })
+            )
           ),
           Effect.catchTag("NotFound", () => Effect.succeed([]))
         ),

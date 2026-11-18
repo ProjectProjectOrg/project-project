@@ -6,12 +6,12 @@ import {
   type BlockDefinition,
   type BlockLookup,
   type Library,
-  type TypeDefinition,
   type TypeKey
 } from "@pp/shared"
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { $applyTemplate } from "@pp/ui/editor/blocks/block-commands"
 import { $runSlashItem } from "@pp/ui/editor/slash-menu/slash-commands"
+import { SlashItem } from "@pp/ui/editor/slash-menu/slash-menu-items"
 import {
   $createParagraphNode,
   $getRoot,
@@ -34,7 +34,7 @@ const untouchedTemplate = (
   library: Library,
   body: string,
   from: TypeKey | null
-): TypeDefinition | null => {
+) => {
   const lookup = lookupFor(library)
   const comparable = stripHints(body)
   const current = from === null ? null : typeFor(library, from)
@@ -54,7 +54,7 @@ export const templateSwap = ({
   body,
   from,
   to
-}: TemplateSwapInput): TypeDefinition | null => {
+}: TemplateSwapInput) => {
   const next = to === null ? null : typeFor(library, to)
   if (next === null) return null
   if (body.trim() === "") return next
@@ -152,12 +152,11 @@ export function $appendSection(
   }
   $runSlashItem(
     editor,
-    {
-      kind: "block",
+    SlashItem.block({
       key: `block:${definition.key}`,
       definition,
       suggestedBy: null
-    },
+    }),
     { ...context, detach: false }
   )
 }

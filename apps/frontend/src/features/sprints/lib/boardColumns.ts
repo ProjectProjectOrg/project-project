@@ -11,10 +11,7 @@ export const EMPTY_BOARD_LAYOUT: BoardColumnLayout = {
   collapsed: []
 }
 
-export function toggleSlug(
-  slugs: ReadonlyArray<string>,
-  slug: string
-): ReadonlyArray<string> {
+export function toggleSlug(slugs: ReadonlyArray<string>, slug: string) {
   return slugs.includes(slug)
     ? slugs.filter((s) => s !== slug)
     : [...slugs, slug]
@@ -23,6 +20,6 @@ export function toggleSlug(
 export function visibleColumns<S extends string>(
   order: ReadonlyArray<S>,
   hidden: ReadonlyArray<string>
-): ReadonlyArray<S> {
+) {
   return order.filter((slug) => !hidden.includes(slug))
 }

@@ -27,7 +27,7 @@ export type AcceptedIcon = Readonly<{ url: string; treatment: IconTreatment }>
 export const draftPreviewUrl = (
   preview: IconPreview,
   treatment: IconTreatment
-): string => (treatment === "sticker" ? preview.cutoutUrl : preview.fullUrl)
+) => (treatment === "sticker" ? preview.cutoutUrl : preview.fullUrl)
 
 export type IconDraft = ReturnType<typeof useIconDraft>
 
@@ -73,10 +73,7 @@ export function useIconDraft() {
     }
   }, [])
 
-  const restyle = async (
-    treatment: IconTreatment,
-    tolerance: number
-  ): Promise<IconTreatment | null> => {
+  const restyle = async (treatment: IconTreatment, tolerance: number) => {
     const bitmap = bitmapRef.current
     if (!bitmap || !mounted.current) return null
     const token = ++restyleToken.current
@@ -124,7 +121,7 @@ export function useIconDraft() {
       tolerance: CUTOUT_DEFAULT_TOLERANCE
     },
     savedSource = false
-  ): Promise<AcceptedIcon | null> => {
+  ) => {
     if (!mounted.current) return null
     if (
       !isProjectIconContentType(file.type) ||
@@ -152,7 +149,10 @@ export function useIconDraft() {
       sourceUrl.current = url
       const treatment = await restyle(initial.treatment, initial.tolerance)
       return token === draftToken.current
-        ? { url, treatment: treatment ?? initial.treatment }
+        ? ({
+            url,
+            treatment: treatment ?? initial.treatment
+          } satisfies AcceptedIcon)
         : null
     } catch {
       if (token === draftToken.current) setRejected(true)

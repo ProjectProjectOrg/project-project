@@ -3,9 +3,7 @@ import { FigmaAuthInvalid, FigmaError } from "@pp/shared"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
-export function githubOAuthErrorMessage(
-  error: string | undefined
-): string | null {
+export function githubOAuthErrorMessage(error: string | undefined) {
   switch (error) {
     case undefined:
       return null
@@ -28,9 +26,7 @@ export function githubOAuthErrorMessage(
   }
 }
 
-export function figmaOAuthErrorMessage(
-  error: string | undefined
-): string | null {
+export function figmaOAuthErrorMessage(error: string | undefined) {
   switch (error) {
     case undefined:
       return null

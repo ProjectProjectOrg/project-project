@@ -3,7 +3,7 @@ import { m } from "@/paraglide/messages"
 export const deletePrompt = (input: {
   readonly count: number
   readonly referenced: number
-}): string => {
+}) => {
   if (input.referenced === 0) {
     return input.count === 1
       ? m.attachments_delete_confirm()

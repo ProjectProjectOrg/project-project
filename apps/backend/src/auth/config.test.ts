@@ -534,9 +534,7 @@ describe("organization role assignment access control", () => {
 
 type ConfiguredPlugin = NonNullable<typeof auth.options.plugins>[number]
 
-function configuredPlugin<Id extends ConfiguredPlugin["id"]>(
-  id: Id
-): Extract<ConfiguredPlugin, { readonly id: Id }> {
+function configuredPlugin<Id extends ConfiguredPlugin["id"]>(id: Id) {
   const plugin = auth.options.plugins?.find(
     (plugin): plugin is Extract<ConfiguredPlugin, Readonly<{ id: Id }>> =>
       plugin.id === id

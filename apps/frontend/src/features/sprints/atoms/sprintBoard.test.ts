@@ -1,6 +1,5 @@
 import {
   TicketRank,
-  EMPTY_TICKET_RELATIONS,
   Group,
   GroupDetail,
   GroupId,
@@ -12,6 +11,7 @@ import {
   UpdateTicketInput,
   TypeKey
 } from "@pp/shared"
+import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
@@ -33,35 +33,8 @@ const ticketBId = Schema.decodeSync(TicketId)("T-2")
 const todo = Schema.decodeSync(TicketStatus)("todo")
 const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
 
-const makeTicket = (
-  id: TicketId,
-  status: TicketStatus,
-  rank: string
-): Ticket => ({
-  id,
-  title: `Ticket ${id}`,
-  status,
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make(rank),
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-})
-
-const ticketA = makeTicket(ticketAId, todo, "a0")
-const ticketB = makeTicket(ticketBId, todo, "a1")
+const ticketA = makeTicket({ id: ticketAId, rank: TicketRank.make("a0") })
+const ticketB = makeTicket({ id: ticketBId, rank: TicketRank.make("a1") })
 
 const group: Group = {
   id: groupId,
@@ -81,15 +54,7 @@ const encodeGroup = Schema.encodeSync(GroupDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
 const encodeTicketUpdate = (ticket: TicketDetail) =>
   encodeTicketUpdateResultSync({ ticket, orderKey: null })
-const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
-const asTicketDetail = (t: Ticket): TicketDetail => ({
-  ...t,
-  parentState: null,
-  relations: EMPTY_TICKET_RELATIONS,
-  creator: null,
-  updater: null,
-  body: ""
-})
+const asGroupDetail = (g: Group) => ({ ...g, body: "" }) satisfies GroupDetail
 
 const req = boardRequest("acme", "web", groupId)
 
@@ -104,7 +69,7 @@ const routeByPath = (
     ]
   >,
   init?: RequestInit
-): Promise<Response> => {
+) => {
   const url = new URL(input instanceof Request ? input.url : String(input))
   const method =
     init?.method ?? (input instanceof Request ? input.method : "GET")
@@ -220,7 +185,7 @@ describe("sprintBoard", () => {
       finishOrder(
         Response.json(
           encodeTicketUpdate(
-            asTicketDetail({ ...ticketB, rank: TicketRank.make("Zy") })
+            makeTicketDetail({ ...ticketB, rank: TicketRank.make("Zy") })
           )
         )
       )
@@ -353,7 +318,7 @@ describe("updateBoardTicket", () => {
 
       finishPatch(
         Response.json(
-          encodeTicketUpdate(asTicketDetail({ ...ticketA, title: "Renamed" }))
+          encodeTicketUpdate(makeTicketDetail({ ...ticketA, title: "Renamed" }))
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -379,7 +344,7 @@ describe("updateBoardTicket", () => {
         payloads.push(payload)
         if (payload.type !== undefined) {
           served = confirmed
-          return Response.json(encodeTicketUpdate(asTicketDetail(confirmed)))
+          return Response.json(encodeTicketUpdate(makeTicketDetail(confirmed)))
         }
         return new Promise<Response>((resolve) => {
           finishFirst = resolve
@@ -412,7 +377,7 @@ describe("updateBoardTicket", () => {
       })
       await vi.waitFor(() => expect(payloads).toHaveLength(1))
       served = { ...ticketA, title: "Renamed" }
-      finishFirst?.(Response.json(encodeTicketUpdate(asTicketDetail(served))))
+      finishFirst?.(Response.json(encodeTicketUpdate(makeTicketDetail(served))))
       await vi.waitFor(() =>
         expect(payloads).toEqual([
           { title: "Renamed" },

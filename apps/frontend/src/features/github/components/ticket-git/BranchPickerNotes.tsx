@@ -65,7 +65,7 @@ export function BranchPagingNote({
   )
 }
 
-const pagingText = ({ view, searching }: BranchResults): string => {
+const pagingText = ({ view, searching }: BranchResults) => {
   if (view === null) return ""
   if (searching) return m.git_branch_picker_searching()
   if (view.loadingMore) return m.git_branch_picker_loading_more()

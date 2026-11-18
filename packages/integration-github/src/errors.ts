@@ -20,7 +20,7 @@ export type GitHubFailure =
 
 const HTTP_STATUS_KEY = "status"
 
-export const githubErrorMessage = (cause: unknown): string => {
+export const githubErrorMessage = (cause: unknown) => {
   if (!Predicate.isObject(cause)) return "GitHub error"
   const message = cause.message
   return Predicate.isString(message) ? message : "GitHub error"
@@ -29,17 +29,14 @@ export const githubErrorMessage = (cause: unknown): string => {
 const header = (
   headers: Readonly<{ [key: PropertyKey]: unknown }> | undefined,
   name: string
-): string | undefined => {
+) => {
   const found = headers
     ? Object.entries(headers).find(([key]) => key.toLowerCase() === name)
     : undefined
   return found && Predicate.isString(found[1]) ? found[1] : undefined
 }
 
-const parseRetryAfter = (
-  value: string | undefined,
-  nowSeconds: number
-): number | undefined => {
+const parseRetryAfter = (value: string | undefined, nowSeconds: number) => {
   if (!value) return undefined
   const trimmed = value.trim()
   if (/^\d+$/u.test(trimmed)) {
@@ -57,7 +54,7 @@ const graphqlErrorCodes = (
   error: Readonly<{
     [key: PropertyKey]: unknown
   }>
-): ReadonlyArray<string> => {
+) => {
   const errors = error.errors
   if (!Array.isArray(errors)) return []
   return errors.flatMap((entry) => {
@@ -80,7 +77,7 @@ export function mapHttpError(
   cause: unknown,
   nowSeconds: number,
   context?: Readonly<{ branch?: string }>
-): GitHubFailure {
+) {
   const err = Predicate.isObject(cause) ? cause : undefined
   const statusValue = err?.[HTTP_STATUS_KEY]
   const response = Predicate.isObject(err?.response) ? err.response : undefined
@@ -150,13 +147,7 @@ export type TaggedFailure = Readonly<{ _tag: string }>
 
 export const narrow =
   <const Allow extends ReadonlyArray<GitHubFailure["_tag"]>>(allow: Allow) =>
-  (
-    cause: unknown,
-    nowSecs: number
-  ):
-    | Extract<GitHubFailure, { _tag: Allow[number] }>
-    | RateLimited
-    | GitHubError => {
+  (cause: unknown, nowSecs: number) => {
     const err = mapHttpError(cause, nowSecs)
     if (Predicate.isTagged(err, "RateLimited")) return err
     if (isAllowedFailure(err, allow)) return err

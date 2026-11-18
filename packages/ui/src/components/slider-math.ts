@@ -5,13 +5,13 @@ export function valueToPixel(
   min: number,
   max: number,
   trackWidth: number
-): number {
+) {
   if (max === min) return 0
   const usable = trackWidth - THUMB_SIZE
   return ((v - min) / (max - min)) * usable
 }
 
-export function nearestStepIndex(v: number, steps: number[]): number {
+export function nearestStepIndex(v: number, steps: number[]) {
   let idx = 0
   for (let i = 1; i < steps.length; i++) {
     if (Math.abs(steps[i] - v) < Math.abs(steps[idx] - v)) idx = i
@@ -26,7 +26,7 @@ export function pixelToValue(
   step: number,
   trackWidth: number,
   stepValues: number[] | null = null
-): number {
+) {
   const usable = trackWidth - THUMB_SIZE
   if (usable <= 0) return min
   const raw = (px / usable) * (max - min) + min

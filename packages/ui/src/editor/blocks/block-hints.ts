@@ -8,11 +8,10 @@ import {
   HINT,
   activeHintSlots,
   alignedHintSlots,
+  BlockOutlineNode,
   outlineBlockContent,
   stripHints,
   type BlockLookup,
-  type BlockOutlineNode,
-  type HintListKind,
   type HintSlot
 } from "@pp/shared"
 import {
@@ -52,7 +51,7 @@ type OutlineEntry = Readonly<{
   texts: ReadonlyArray<string>
 }>
 
-const listKind = (list: ListNode): HintListKind => {
+const listKind = (list: ListNode) => {
   switch (list.getListType()) {
     case "check":
       return "taskList"
@@ -63,7 +62,7 @@ const listKind = (list: ListNode): HintListKind => {
   }
 }
 
-function $listEntry(list: ListNode): OutlineEntry {
+function $listEntry(list: ListNode) {
   const keys: Array<NodeKey | null> = []
   const texts: Array<string> = []
   for (const item of list.getChildren()) {
@@ -76,10 +75,14 @@ function $listEntry(list: ListNode): OutlineEntry {
     keys.push(item.getChecked() === true ? null : item.getKey())
     texts.push(item.getTextContent())
   }
-  return { node: { kind: listKind(list), items: texts }, keys, texts }
+  return {
+    node: BlockOutlineNode.list({ kind: listKind(list), items: texts }),
+    keys,
+    texts
+  } satisfies OutlineEntry
 }
 
-function $outlineEntry(child: LexicalNode): OutlineEntry {
+function $outlineEntry(child: LexicalNode) {
   const text = child.getTextContent()
   if ($isListNode(child)) return $listEntry(child)
   const kind = $isHeadingNode(child)
@@ -87,13 +90,14 @@ function $outlineEntry(child: LexicalNode): OutlineEntry {
     : $isParagraphNode(child)
       ? "paragraph"
       : "other"
-  return { node: { kind, text }, keys: [child.getKey()], texts: [text] }
+  return {
+    node: BlockOutlineNode.text({ kind, text }),
+    keys: [child.getKey()],
+    texts: [text]
+  } satisfies OutlineEntry
 }
 
-function $hintAt(
-  entries: ReadonlyArray<OutlineEntry>,
-  slot: HintSlot
-): ActiveHint | null {
+function $hintAt(entries: ReadonlyArray<OutlineEntry>, slot: HintSlot) {
   const entry = entries[slot.path[0]]
   if (entry === undefined) return null
   const index = slot.path.length === 2 ? slot.path[1] : 0
@@ -105,10 +109,7 @@ function $hintAt(
   return { key, hint, empty }
 }
 
-export function $blockHints(
-  block: TicketBlockNode,
-  lookup: BlockLookup
-): ReadonlyArray<ActiveHint> {
+export function $blockHints(block: TicketBlockNode, lookup: BlockLookup) {
   const definition = lookup(block.getBlockType())
   if (definition === undefined) return []
   const entries = block.getChildren().map($outlineEntry)
@@ -123,10 +124,7 @@ export function $blockHints(
 
 export type HintSlotLine = Readonly<{ key: NodeKey; active: boolean }>
 
-export function $blockSlotLines(
-  block: TicketBlockNode,
-  lookup: BlockLookup
-): ReadonlyArray<HintSlotLine> {
+export function $blockSlotLines(block: TicketBlockNode, lookup: BlockLookup) {
   const definition = lookup(block.getBlockType())
   if (definition === undefined) return []
   const entries = block.getChildren().map($outlineEntry)
@@ -143,13 +141,13 @@ export function $blockSlotLines(
   })
 }
 
-export function $activeHints(lookup: BlockLookup): ReadonlyArray<ActiveHint> {
+export function $activeHints(lookup: BlockLookup) {
   return $topLevelBlocks()
     .filter($isTicketBlockNode)
     .flatMap((block) => $blockHints(block, lookup))
 }
 
-function $atBarePrefixEnd(lookup: BlockLookup): boolean {
+function $atBarePrefixEnd(lookup: BlockLookup) {
   const selection = $getSelection()
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
   const anchor = selection.anchor.getNode()
@@ -174,10 +172,7 @@ function $atBarePrefixEnd(lookup: BlockLookup): boolean {
   })
 }
 
-function registerPrefixTyping(
-  editor: LexicalEditor,
-  lookup: BlockLookup
-): () => void {
+function registerPrefixTyping(editor: LexicalEditor, lookup: BlockLookup) {
   return mergeRegister(
     // A plain selection format routes the next keystroke through CONTROLLED_TEXT_INSERTION_COMMAND.
     editor.registerCommand(
@@ -209,16 +204,16 @@ function registerPrefixTyping(
   )
 }
 
-const $lineEnd = (element: ElementNode): readonly [LexicalNode, number] => {
+const $lineEnd = (element: ElementNode) => {
   const children = element.getChildren()
   const nested = children.findIndex($isListNode)
   const inline = nested === -1 ? children : children.slice(0, nested)
   const last = inline.at(-1)
-  if ($isTextNode(last)) return [last, last.getTextContentSize()]
-  return [element, inline.length]
+  if ($isTextNode(last)) return [last, last.getTextContentSize()] as const
+  return [element, inline.length] as const
 }
 
-const $isAtLineEnd = (element: ElementNode): boolean => {
+const $isAtLineEnd = (element: ElementNode) => {
   const selection = $getSelection()
   if (!$isRangeSelection(selection)) return false
   const [node, offset] = $lineEnd(element)
@@ -227,7 +222,7 @@ const $isAtLineEnd = (element: ElementNode): boolean => {
   )
 }
 
-const $typeaheadBeforeCaret = (editor: LexicalEditor): boolean => {
+const $typeaheadBeforeCaret = (editor: LexicalEditor) => {
   if (editor.getRootElement()?.hasAttribute("aria-controls") === true)
     return true
   const selection = $getSelection()
@@ -241,10 +236,7 @@ const $typeaheadBeforeCaret = (editor: LexicalEditor): boolean => {
   )
 }
 
-export function $hintTabTarget(
-  lookup: BlockLookup,
-  backwards: boolean
-): NodeKey | null {
+export function $hintTabTarget(lookup: BlockLookup, backwards: boolean) {
   const selection = $getSelection()
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return null
   const lines = $topLevelBlocks()
@@ -275,10 +267,7 @@ export function $selectHintLine(key: NodeKey, lookup: BlockLookup) {
   }
 }
 
-function registerHintTab(
-  editor: LexicalEditor,
-  lookup: BlockLookup
-): () => void {
+function registerHintTab(editor: LexicalEditor, lookup: BlockLookup) {
   return editor.registerCommand(
     KEY_TAB_COMMAND,
     (event) => {
@@ -294,15 +283,13 @@ function registerHintTab(
   )
 }
 
-const isHintOnlyParagraph = (node: BlockOutlineNode): boolean =>
+const isHintOnlyParagraph = (node: BlockOutlineNode) =>
   node.kind === "paragraph" &&
   HINT.test(node.text) &&
   stripHints(node.text).trim() === ""
 
-const matchesOutlineKind = (
-  child: LexicalNode,
-  node: BlockOutlineNode
-): boolean => $outlineEntry(child).node.kind === node.kind
+const matchesOutlineKind = (child: LexicalNode, node: BlockOutlineNode) =>
+  $outlineEntry(child).node.kind === node.kind
 
 export function $restoreHintLines(block: TicketBlockNode, content: string) {
   const definition = outlineBlockContent(content)
@@ -371,10 +358,7 @@ function restoreCreatedBlocks(
   )
 }
 
-export function registerBlockHints(
-  editor: LexicalEditor,
-  lookup: BlockLookup
-): () => void {
+export function registerBlockHints(editor: LexicalEditor, lookup: BlockLookup) {
   const painted = new Map<NodeKey, HTMLElement>()
   const unregister = mergeRegister(
     editor.registerMutationListener(

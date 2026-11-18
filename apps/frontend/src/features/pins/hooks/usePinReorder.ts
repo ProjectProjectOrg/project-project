@@ -16,7 +16,7 @@ export function usePinReorder(orgSlug: string, slug: string) {
       reorderPin({
         req: pinsRequest(orgSlug),
         slug,
-        kind: move.pin.kind,
+        kind: move.pin._tag,
         ref: move.pin.ref
       }),
       { orderKey: move.orderKey }

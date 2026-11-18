@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { PinTarget, TicketDetail } from "@pp/shared"
+import { PinTarget, type TicketDetail } from "@pp/shared"
 import { SidebarNote, SidebarRowGroup, SidebarSection } from "@pp/ui/sidebar"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -40,16 +40,16 @@ function useLivePrediction(
   orgSlug: string,
   slug: string,
   viewing: PinTarget | null
-): PinPrediction | null {
+) {
   const ticket = useAtomValue(
-    viewing?.kind === "ticket"
+    viewing !== null && PinTarget.isAnyOf(["ticket"])(viewing)
       ? ticketDetail(ticketRequest(orgSlug, slug, viewing.ref))
       : noTicket
   )
   const sprints = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
-  if (viewing?.kind === "ticket")
+  if (viewing !== null && PinTarget.isAnyOf(["ticket"])(viewing))
     return Result.isSuccess(ticket)
-      ? {
+      ? ({
           ticket: {
             id: ticket.value.id,
             title: ticket.value.title,
@@ -57,13 +57,17 @@ function useLivePrediction(
             archivedAt: ticket.value.archivedAt,
             parent: ticket.value.parent?.id ?? null
           }
-        }
+        } satisfies PinPrediction)
       : null
-  if (viewing?.kind === "sprint" && Result.isSuccess(sprints)) {
+  if (
+    viewing !== null &&
+    PinTarget.isAnyOf(["sprint"])(viewing) &&
+    Result.isSuccess(sprints)
+  ) {
     const sprint = sprints.value.find((each) => each.id === viewing.ref)
     return sprint === undefined
       ? null
-      : {
+      : ({
           sprint: {
             id: sprint.id,
             name: sprint.name,
@@ -71,7 +75,7 @@ function useLivePrediction(
             endsAt: sprint.endsAt,
             completedAt: sprint.completedAt
           }
-        }
+        } satisfies PinPrediction)
   }
   return null
 }

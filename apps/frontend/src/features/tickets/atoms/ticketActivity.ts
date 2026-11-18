@@ -17,7 +17,7 @@ export const ticketActivityRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): TicketActivityRequest => ({ params: { orgSlug, slug, id } })
+) => ({ params: { orgSlug, slug, id } })
 
 export type TicketActivityView = Readonly<{
   items: ReadonlyArray<TicketActivityEntry>
@@ -43,10 +43,7 @@ export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
     (get) => {
       const first = get(pageQuery(req, null))
       if (!AsyncResult.isSuccess(first)) {
-        return AsyncResult.map(
-          first,
-          (): TicketActivityView => ({ items: [], hasOlder: false })
-        )
+        return AsyncResult.map(first, () => ({ items: [], hasOlder: false }))
       }
       const items = [...first.value.items]
       let nextCursor = first.value.nextCursor

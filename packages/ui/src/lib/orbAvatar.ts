@@ -64,20 +64,21 @@ const rotation = (next: Random) => {
   const c = Math.cos(angle)
   const s = Math.sin(angle)
   const t = 1 - c
-  return ([x, y, z]: Vec): Vec => [
-    (t * ax * ax + c) * x +
-      (t * ax * ay - s * az) * y +
-      (t * ax * az + s * ay) * z,
-    (t * ax * ay + s * az) * x +
-      (t * ay * ay + c) * y +
-      (t * ay * az - s * ax) * z,
-    (t * ax * az - s * ay) * x +
-      (t * ay * az + s * ax) * y +
-      (t * az * az + c) * z
-  ]
+  return ([x, y, z]: Vec) =>
+    [
+      (t * ax * ax + c) * x +
+        (t * ax * ay - s * az) * y +
+        (t * ax * az + s * ay) * z,
+      (t * ax * ay + s * az) * x +
+        (t * ay * ay + c) * y +
+        (t * ay * az - s * ax) * z,
+      (t * ax * az - s * ay) * x +
+        (t * ay * az + s * ax) * y +
+        (t * az * az + c) * z
+    ] satisfies Vec
 }
 
-const lightDirection = (next: Random, lighting: Lighting): Vec => {
+const lightDirection = (next: Random, lighting: Lighting) => {
   const angle = next() * Math.PI * 2
   const spread = LIGHT_SPREAD[lighting]
   return normalize([
@@ -93,7 +94,7 @@ const shading = (lighting: Lighting, direction: Vec) => (normal: Vec) => {
   return Math.max(0, dot(normal, direction))
 }
 
-const crater = (next: Random): Crater => {
+const crater = (next: Random) => {
   const angle = next() * Math.PI * 2
   const distance = Math.sqrt(next()) * 0.8
   const x = Math.cos(angle) * distance
@@ -101,10 +102,10 @@ const crater = (next: Random): Crater => {
   return {
     center: [x, y, Math.sqrt(1 - x * x - y * y)],
     radius: 0.12 + next() * next() * 0.3
-  }
+  } satisfies Crater
 }
 
-export const orbAvatar = (userId: string): OrbAvatar => {
+export const orbAvatar = (userId: string) => {
   const next = random(hashId(`${userId}:orb`))
   const seed = hashId(`${userId}:noise`)
   const lighting = pick(next, LIGHTING)
@@ -189,17 +190,14 @@ export const orbAvatar = (userId: string): OrbAvatar => {
 }
 
 // The painted orb as a data URL, cached per user, size and density.
-export const orbAvatarUrl = (
-  userId: string,
-  size: number
-): string | undefined =>
+export const orbAvatarUrl = (userId: string, size: number) =>
   ditheredUrl(`orb:${userId}`, () => orbAvatar(userId), size)
 
 export const avatarInitials = (
   name: string | null | undefined,
   email: string | null | undefined,
   size: number
-): string => {
+) => {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return (email ?? "?").charAt(0).toUpperCase()
   const first = words[0].charAt(0).toUpperCase()

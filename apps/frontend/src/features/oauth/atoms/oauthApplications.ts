@@ -6,7 +6,7 @@ import { viewMutation } from "@/api/viewMutation"
 
 export type OAuthApplicationsRequest = Readonly<{}>
 
-export const oauthApplicationsRequest = (): OAuthApplicationsRequest => ({})
+export const oauthApplicationsRequest = () => ({})
 
 const oauthApplicationsQuery = (_req: OAuthApplicationsRequest) =>
   query("oauthApplications", "list", {

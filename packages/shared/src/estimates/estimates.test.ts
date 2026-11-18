@@ -9,13 +9,8 @@ import { summarizeEstimates, type EstimatedTicket } from "./estimates"
 const s = Schema.decodeUnknownSync(StatusSlug)
 const PHASES = statusPhaseLookup([])
 
-const ticket = (
-  status: string,
-  estimate: Estimate | null
-): EstimatedTicket => ({
-  status: s(status),
-  estimate
-})
+const ticket = (status: string, estimate: Estimate | null) =>
+  ({ status: s(status), estimate }) satisfies EstimatedTicket
 
 describe("summarizeEstimates", () => {
   it("sums points into committed, started and done, counting other units as unestimated", () => {

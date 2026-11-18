@@ -138,7 +138,7 @@ const ScanValueIdentity = Schema.Struct({
   accountId: Schema.optionalKey(Schema.String)
 })
 const decodeScanValueIdentity = Schema.decodeUnknownOption(ScanValueIdentity)
-const pageValueKey = (value: Schema.Json): string =>
+const pageValueKey = (value: Schema.Json) =>
   decodeScanValueIdentity(value).pipe(
     Option.map((identity) => String(identity.id ?? identity.accountId ?? "")),
     Option.getOrElse(() => "")
@@ -196,25 +196,24 @@ const embeddedWorklogs = (issue: C.JiraIssue) =>
     Option.map(({ worklogs }) => worklogs)
   )
 
-export const issueDetailKinds = (
-  issue: C.JiraIssue
-): ReadonlyArray<JiraScanKind> => [
-  ...(Option.isSome(embeddedComments(issue)) ? [] : ["comments" as const]),
-  "changelogs",
-  ...(Option.isSome(embeddedWorklogs(issue)) ? [] : ["worklogs" as const]),
-  ...(Option.exists(
-    decodeWatchCount(issue.fields["watches"]),
-    ({ watchCount }) => watchCount === 0
-  )
-    ? []
-    : ["watchers" as const]),
-  ...(Option.exists(
-    decodeVoteCount(issue.fields["votes"]),
-    ({ votes }) => votes === 0
-  )
-    ? []
-    : ["votes" as const])
-]
+export const issueDetailKinds = (issue: C.JiraIssue) =>
+  [
+    ...(Option.isSome(embeddedComments(issue)) ? [] : ["comments" as const]),
+    "changelogs",
+    ...(Option.isSome(embeddedWorklogs(issue)) ? [] : ["worklogs" as const]),
+    ...(Option.exists(
+      decodeWatchCount(issue.fields["watches"]),
+      ({ watchCount }) => watchCount === 0
+    )
+      ? []
+      : ["watchers" as const]),
+    ...(Option.exists(
+      decodeVoteCount(issue.fields["votes"]),
+      ({ votes }) => votes === 0
+    )
+      ? []
+      : ["votes" as const])
+  ] satisfies ReadonlyArray<JiraScanKind>
 
 export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
   context: JiraScanContext,
@@ -289,9 +288,10 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
     return issues.flatMap((issue) =>
       fetched.has(issue.id)
         ? []
-        : Option.getOrElse(select(issue), (): ReadonlyArray<A> => []).map(
-            (value) => ({ issueId: issue.id, value })
-          )
+        : Option.getOrElse(select(issue), () => []).map((value) => ({
+            issueId: issue.id,
+            value
+          }))
     )
   }
   const comments = [
@@ -729,7 +729,7 @@ const decodeManifestRecordIdentity = Schema.decodeUnknownOption(
     key: Schema.optional(Schema.String)
   })
 )
-const manifestRecordId = (value: unknown): string | null =>
+const manifestRecordId = (value: unknown) =>
   decodeManifestRecordIdentity(value).pipe(
     Option.flatMap((identity) =>
       Option.fromNullishOr(identity.id ?? identity.accountId ?? identity.key)

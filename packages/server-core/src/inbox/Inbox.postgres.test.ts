@@ -23,7 +23,7 @@ import { projectScope } from "../access/testing"
 import type { TicketScopedChange } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Markdown from "../markdown/Markdown"
-import type { InboxNotice } from "./events"
+import { InboxNotice } from "./events"
 import * as Inbox from "./Inbox"
 
 const { Client } = pg
@@ -211,8 +211,8 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         yield* subscribe(project, "T-1", project.bob)
         yield* record(project, ActivityActor.user(project.ann), {
           notices: [
-            { kind: "commented", authorId: project.ann, commentId: "c1" },
-            { kind: "mentioned", userId: project.carl, commentId: "c1" }
+            InboxNotice.commented({ authorId: project.ann, commentId: "c1" }),
+            InboxNotice.mentioned({ userId: project.carl, commentId: "c1" })
           ]
         })
         expect(yield* rows(project)).toMatchObject([
@@ -237,14 +237,16 @@ describe.skipIf(!databaseUrl)("inbox", () => {
       const project = yield* seedProject
       yield* subscribe(project, "T-1", project.bob)
       yield* record(project, ActivityActor.user(project.ann), {
-        notices: [{ kind: "mentioned", userId: project.bob, commentId: "c1" }]
+        notices: [
+          InboxNotice.mentioned({ userId: project.bob, commentId: "c1" })
+        ]
       })
       yield* record(
         project,
         ActivityActor.agent(project.bob, { id: "cc", name: "Claude Code" }),
         {
           notices: [
-            { kind: "commented", authorId: project.bob, commentId: "c2" }
+            InboxNotice.commented({ authorId: project.bob, commentId: "c2" })
           ]
         }
       )
@@ -326,7 +328,9 @@ describe.skipIf(!databaseUrl)("inbox", () => {
     Effect.gen(function* () {
       const project = yield* seedProject
       yield* record(project, ActivityActor.user(project.ann), {
-        notices: [{ kind: "mentioned", userId: project.bob, commentId: null }]
+        notices: [
+          InboxNotice.mentioned({ userId: project.bob, commentId: null })
+        ]
       })
       yield* Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
         activity.removeTicket(project.orgSlug, project.slug, "T-1")

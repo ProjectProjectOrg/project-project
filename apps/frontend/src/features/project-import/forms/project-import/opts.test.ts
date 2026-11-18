@@ -3,40 +3,39 @@ import { describe, expect, it } from "vitest"
 
 import { defaultProjectImportValues } from "./opts"
 
-const imported = (
-  source: NonNullable<ProjectImport["source"]>
-): ProjectImport => ({
-  id: "import-1",
-  status: "ready",
-  source,
-  counts: {
-    tickets: 3,
-    groups: 1,
-    attachments: 0,
-    missingAttachments: 0,
-    activity: 4
-  },
-  people: [
-    {
-      id: "source-ada",
-      name: "Ada",
-      email: "ada@example.com",
-      image: null,
-      suggestedUserId: "user-ada"
+const imported = (source: NonNullable<ProjectImport["source"]>) =>
+  ({
+    id: "import-1",
+    status: "ready",
+    source,
+    counts: {
+      tickets: 3,
+      groups: 1,
+      attachments: 0,
+      missingAttachments: 0,
+      activity: 4
     },
-    {
-      id: "source-bob",
-      name: "Bob",
-      email: "bob@example.com",
-      image: null,
-      suggestedUserId: null
-    }
-  ],
-  types: [],
-  integrations: [],
-  destination: null,
-  failureReason: null
-})
+    people: [
+      {
+        id: "source-ada",
+        name: "Ada",
+        email: "ada@example.com",
+        image: null,
+        suggestedUserId: "user-ada"
+      },
+      {
+        id: "source-bob",
+        name: "Bob",
+        email: "bob@example.com",
+        image: null,
+        suggestedUserId: null
+      }
+    ],
+    types: [],
+    integrations: [],
+    destination: null,
+    failureReason: null
+  }) satisfies ProjectImport
 
 describe("defaultProjectImportValues", () => {
   it("starts from the source project and preselects suggested members", () => {

@@ -18,9 +18,7 @@ export type RelationGroup = Readonly<{
   tickets: ReadonlyArray<LinkedTicket>
 }>
 
-export const relationGroups = (
-  relations: TicketRelations
-): ReadonlyArray<RelationGroup> =>
+export const relationGroups = (relations: TicketRelations) =>
   [
     { key: "blockedBy", unmark: "blockedBy", tickets: relations.blockedBy },
     { key: "blocking", unmark: "blocking", tickets: relations.blocking },
@@ -53,7 +51,7 @@ export function previewRelationGroups(
   relations: TicketRelations,
   relation: RelationPreviewKind,
   finished: ReadonlySet<string>
-): ReadonlyArray<RelationGroup> {
+) {
   return relationGroups(relations).flatMap((group) => {
     if (!PREVIEW_GROUPS[relation].includes(group.key)) return []
     const tickets = group.tickets.filter(
@@ -83,7 +81,7 @@ const MARK_GROUPS: Readonly<
 export const withoutRelation = (
   relations: TicketRelations,
   { kind, target }: MarkTicketInput
-): TicketRelations => {
+) => {
   const group = MARK_GROUPS[kind]
   return {
     ...relations,
@@ -120,7 +118,7 @@ export const pickBlock = (
   relations: TicketRelations,
   kind: MarkPickKind,
   target: string
-): PickBlock => {
+) => {
   const linked = LINKED_GROUPS[kind]
   if (linked !== null && hasTicket(relations[linked], target)) return "linked"
   const loop = LOOP_GROUPS[kind]
@@ -130,7 +128,7 @@ export const pickBlock = (
 export const openBlockers = (
   relations: TicketRelations,
   finished: ReadonlySet<string>
-): ReadonlyArray<LinkedTicket> =>
+) =>
   relations.blockedBy.filter(
     (ticket) => ticket.archivedAt === null && !finished.has(ticket.status)
   )

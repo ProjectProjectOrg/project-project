@@ -118,7 +118,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     id: string
     workflowExecutionId: string | null
     workflowAttempt: number
-  }): MigrationProjection.AttemptFence => ({
+  }) => ({
     migrationId: row.id,
     workflowExecutionId: row.workflowExecutionId!,
     workflowAttempt: row.workflowAttempt

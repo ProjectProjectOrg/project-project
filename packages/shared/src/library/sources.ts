@@ -12,15 +12,12 @@ export type BlockSource = Readonly<{
   content: string
 }>
 
-export const lines = (...parts: ReadonlyArray<string>): string =>
-  parts.join("\n")
+export const lines = (...parts: ReadonlyArray<string>) => parts.join("\n")
 
-export const references = (...keys: ReadonlyArray<string>): string =>
+export const references = (...keys: ReadonlyArray<string>) =>
   keys.map((key) => formatTicketBlock(key, "")).join("\n\n")
 
 const decodeBlockDrafts = Schema.decodeUnknownSync(Schema.Array(BlockDraft))
 
-export const blockDraftsFrom = (
-  sources: ReadonlyArray<BlockSource>
-): ReadonlyArray<BlockDraft> =>
+export const blockDraftsFrom = (sources: ReadonlyArray<BlockSource>) =>
   decodeBlockDrafts(sources.map((source) => ({ ...source, color: null })))

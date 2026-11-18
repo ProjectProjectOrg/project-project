@@ -7,9 +7,9 @@ import {
   Timer
 } from "@pp/ui/icons"
 
-import type {
+import {
   Command,
-  CommandContext
+  type CommandContext
 } from "@/features/command-menu/lib/commands"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
@@ -20,7 +20,7 @@ const projectPath = ({ orgSlug, projectSlug }: CommandContext) =>
 const inProject = (context: CommandContext) => context.projectSlug !== null
 
 export const projectCommands: ReadonlyArray<Command> = [
-  {
+  Command.page({
     id: "project.switch",
     hotkey: appHotkeys["nav.projects"],
     group: "navigation",
@@ -28,8 +28,8 @@ export const projectCommands: ReadonlyArray<Command> = [
     icon: FolderKanban,
     keywords: ["project", "go to", "open"],
     page: "switchProject"
-  },
-  {
+  }),
+  Command.page({
     id: "project.create",
     group: "create",
     label: m.chrome_command_menu_create_project,
@@ -37,8 +37,8 @@ export const projectCommands: ReadonlyArray<Command> = [
     keywords: ["new", "add"],
     when: ({ canCreateProjects }) => canCreateProjects,
     page: "createProject"
-  },
-  {
+  }),
+  Command.run({
     id: "project.backlog",
     hotkey: appHotkeys["nav.backlog"],
     group: "navigation",
@@ -49,8 +49,8 @@ export const projectCommands: ReadonlyArray<Command> = [
       env.navigate(projectPath(context))
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "project.sprints",
     hotkey: appHotkeys["nav.sprints"],
     group: "navigation",
@@ -62,8 +62,8 @@ export const projectCommands: ReadonlyArray<Command> = [
       env.navigate(`${projectPath(context)}/sprints`)
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "project.current-sprint",
     hotkey: appHotkeys["nav.current-sprint"],
     group: "navigation",
@@ -75,8 +75,8 @@ export const projectCommands: ReadonlyArray<Command> = [
       env.navigate(`${projectPath(context)}/sprints/current`)
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "project.about",
     hotkey: appHotkeys["nav.about"],
     group: "navigation",
@@ -88,5 +88,5 @@ export const projectCommands: ReadonlyArray<Command> = [
       env.navigate(`${projectPath(context)}/about`)
       env.close()
     }
-  }
+  })
 ]

@@ -21,7 +21,11 @@ import {
   JiraManifestSourceV2,
   canonicalJiraJson
 } from "./Manifest"
-import { jiraRestrictionPolicy, type JiraMigrationMappings } from "./Mappings"
+import {
+  JiraIdentityResolution,
+  jiraRestrictionPolicy,
+  type JiraMigrationMappings
+} from "./Mappings"
 import type { JiraPreflightResult } from "./Preflight"
 import type { JiraPublicationPlan } from "./PublicationPlan"
 import type {
@@ -31,7 +35,7 @@ import type {
 
 const decodeConvertedTextOption = Schema.decodeUnknownOption(JiraConvertedText)
 
-const archivedText = <A extends Schema.Json | null>(value: A): A => {
+const archivedText = <A extends Schema.Json | null>(value: A) => {
   const text = decodeConvertedTextOption(value)
   return Option.isSome(text) && Predicate.isObject(value)
     ? (Object.assign({}, value, {
@@ -187,7 +191,7 @@ const bytes = (value: number) =>
 
 export function buildJiraMigrationReportMarkdown(
   input: JiraMigrationOutcomeInput
-): string {
+) {
   const { manifest, mappings, plan, preflight } = input
   const statusNames = new Map(
     manifest.statuses.map(({ id, name }) => [id, name])
@@ -298,11 +302,11 @@ ${table(
   ["Jira account", "Linked to"],
   mappings.identities.map(({ sourceAccountId, resolution }) => [
     escapeCell(identityNames.get(sourceAccountId) ?? sourceAccountId),
-    resolution.kind === "link"
-      ? escapeCell(input.userLabelsById[resolution.userId] ?? resolution.userId)
-      : resolution.kind === "invite"
-        ? `_invited:_ ${escapeCell(resolution.email)}`
-        : "_not linked_"
+    JiraIdentityResolution.match(resolution, {
+      link: ({ userId }) => escapeCell(input.userLabelsById[userId] ?? userId),
+      invite: ({ email }) => `_invited:_ ${escapeCell(email)}`,
+      unlinked: () => "_not linked_"
+    })
   ])
 )}
 
@@ -478,7 +482,7 @@ export const skippedAttachmentsForArchive = (
     projectSlug: string
     siteUrl: string
   }>
-): ReadonlyArray<JiraSkippedAttachment> => {
+) => {
   const site = new URL(destination.siteUrl)
   if (site.protocol !== "https:") throw new Error("Invalid Jira site URL")
   const issues = recordsById(archive.categories.issues ?? [])
@@ -513,7 +517,7 @@ export const skippedAttachmentsForArchive = (
         sourceIssueUrl: jiraIssueUrl(site.origin, issue.key),
         targetTicketUrl: `/orgs/${encodeURIComponent(destination.orgSlug)}/projects/${encodeURIComponent(destination.projectSlug)}/tickets/${encodeURIComponent(ticketId)}`,
         replacement
-      }
+      } satisfies JiraSkippedAttachment
     })
 }
 export const JiraPlannedReport = Schema.Struct({
@@ -649,18 +653,19 @@ export function buildJiraArchiveV2(
           )
         : record
     )
-  categories.rawArtifacts = manifest.rawArtifacts.map((ref): Schema.Json => {
-    if (!exclude) return { ref, raw: values.get(ref.key)! }
-    const row = {
-      sourceId: ref.key,
-      category: "rawArtifacts",
-      restrictionSource: "mixed-envelope",
-      contentSha256: ref.sha256,
-      excludedReason: "opaque_envelope_content_omitted"
-    }
-    exclusions.push(row)
-    return { ...row, byteSize: ref.byteSize }
-  })
+  categories.rawArtifacts = exclude
+    ? manifest.rawArtifacts.map((ref) => {
+        const row = {
+          sourceId: ref.key,
+          category: "rawArtifacts",
+          restrictionSource: "mixed-envelope",
+          contentSha256: ref.sha256,
+          excludedReason: "opaque_envelope_content_omitted"
+        }
+        exclusions.push(row)
+        return { ...row, byteSize: ref.byteSize }
+      })
+    : manifest.rawArtifacts.map((ref) => ({ ref, raw: values.get(ref.key)! }))
   const metadata = {
     fieldDefinitions: manifest.fieldDefinitions,
     workflows: manifest.workflows,
@@ -888,19 +893,20 @@ const ticketLink = (summary: JiraReportSummary, ticketId: string | null) =>
     ? ""
     : `[${escapeCell(ticketId)}](/orgs/${encodeURIComponent(summary.destination.orgSlug)}/projects/${encodeURIComponent(summary.destination.slug)}/tickets/${encodeURIComponent(ticketId)})`
 
-const kindInfo = (kind: string): JiraFindingKindInfo =>
-  JIRA_FINDING_KINDS[kind] ?? {
+const kindInfo = (kind: string) =>
+  JIRA_FINDING_KINDS[kind] ??
+  ({
     section: "attention",
     title: kind,
     guidance: ""
-  }
+  } satisfies JiraFindingKindInfo)
 
 function renderFindingSection(
   summary: JiraReportSummary,
   findings: ReadonlyArray<JiraMigrationFinding>,
   section: JiraFindingSection,
   heading: string
-): ReadonlyArray<string> {
+) {
   const kinds = [
     ...new Set(
       findings

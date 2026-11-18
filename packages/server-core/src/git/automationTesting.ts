@@ -21,7 +21,7 @@ export const DEFAULT_GIT_AUTOMATION_CONFIG: GitAutomationConfig = {
 
 export const gitAutomationTestService = (
   config: GitAutomationConfig = DEFAULT_GIT_AUTOMATION_CONFIG
-): ProjectGitAutomation.ProjectGitAutomation["Service"] => ({
+) => ({
   get: () => Effect.die("git automation get is not stubbed"),
   configFor: () => Effect.succeed(config),
   update: () => Effect.die("git automation update is not stubbed")

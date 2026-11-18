@@ -1,8 +1,8 @@
-import type {
-  PinKind,
+import {
   PinTarget,
-  ReorderPinInput,
-  SidebarPin
+  type PinKind,
+  type ReorderPinInput,
+  type SidebarPin
 } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -17,15 +17,13 @@ import {
   type PinPrediction
 } from "@/features/pins/lib/pins"
 
-export type PinsRequest = Readonly<{
-  _view: "pins"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type PinsRequest = ReturnType<typeof pinsRequest>
 
-export const pinsRequest = (orgSlug: string): PinsRequest => ({
-  _view: "pins",
-  params: { orgSlug }
-})
+export const pinsRequest = (orgSlug: string) =>
+  ({
+    _view: "pins",
+    params: { orgSlug }
+  }) as const
 
 const pinsQuery = (req: PinsRequest) =>
   query("sidebarPins", "list", {
@@ -51,7 +49,7 @@ export const pinItem = Atom.family(
         withPredictedPin(pins, slug, input.payload, input.prediction),
       call: (client, { payload }) => {
         const params = { ...req.params, slug }
-        return payload.kind === "ticket"
+        return PinTarget.isAnyOf(["ticket"])(payload)
           ? client.sidebarPins.pin({ params, payload })
           : client.sidebarPins.pin({ params, payload })
       },
@@ -71,12 +69,12 @@ export const unpinItem = Atom.family(({ req, slug, kind, ref }: PinItemKey) =>
   viewMutation(pinsFor(req), {
     name: "unpinItem",
     predict: (pins: ReadonlyArray<SidebarPin>, _input: void) =>
-      withoutPin(pins, { projectSlug: slug, kind, ref }),
+      withoutPin(pins, { projectSlug: slug, _tag: kind, ref }),
     call: (client) =>
       client.sidebarPins.unpin({
         params: { ...req.params, slug, kind, ref }
       }),
-    confirm: (pins) => withoutPin(pins, { projectSlug: slug, kind, ref }),
+    confirm: (pins) => withoutPin(pins, { projectSlug: slug, _tag: kind, ref }),
     publish: () => [Keys.pins(req.params.orgSlug)]
   })
 )
@@ -85,7 +83,11 @@ export const reorderPin = Atom.family(({ req, slug, kind, ref }: PinItemKey) =>
   viewMutation(pinsFor(req), {
     name: "reorderPin",
     predict: (pins: ReadonlyArray<SidebarPin>, input: ReorderPinInput) =>
-      withOrderKey(pins, { projectSlug: slug, kind, ref }, input.orderKey),
+      withOrderKey(
+        pins,
+        { projectSlug: slug, _tag: kind, ref },
+        input.orderKey
+      ),
     call: (client, payload) =>
       client.sidebarPins.reorder({
         params: { ...req.params, slug, kind, ref },

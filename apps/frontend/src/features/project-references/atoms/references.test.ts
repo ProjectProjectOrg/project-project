@@ -1,4 +1,4 @@
-import { Conflict, type ReferenceToFix } from "@pp/shared"
+import { Conflict, FixReferenceAction, type ReferenceToFix } from "@pp/shared"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { expect, it, vi } from "vitest"
 
@@ -43,7 +43,7 @@ it("refreshes references after a fix fails partway through several tickets", asy
       kind: "user",
       target: first.target,
       ticketId: null,
-      action: { kind: "plain" }
+      action: FixReferenceAction.cases.plain.make({})
     })
     await vi.waitFor(() =>
       expect(registry.get(view)).toMatchObject({

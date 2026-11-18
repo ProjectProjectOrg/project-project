@@ -3,6 +3,7 @@ import type {
   TicketActivityActor,
   TicketActivityEntry
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
 export const ACTIVITY_GROUP_WINDOW_MS = 30 * 60 * 1000
 
@@ -19,7 +20,7 @@ export type ActivityDay = Readonly<{
   groups: ReadonlyArray<ActivityGroup>
 }>
 
-export const actorKey = (actor: TicketActivityActor | null): string => {
+export const actorKey = (actor: TicketActivityActor | null) => {
   if (actor === null) return "unknown"
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "imported")
@@ -28,7 +29,7 @@ export const actorKey = (actor: TicketActivityActor | null): string => {
   return `user:${actor.user.id}`
 }
 
-export const dayKey = (date: Date): string =>
+export const dayKey = (date: Date) =>
   `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 
 type OpenGroup = {
@@ -42,7 +43,7 @@ type OpenGroup = {
 
 export const groupActivity = (
   newestFirst: ReadonlyArray<TicketActivityEntry>
-): ReadonlyArray<ActivityDay> => {
+) => {
   const days: Array<{ key: string; day: Date; groups: Array<OpenGroup> }> = []
   for (const entry of newestFirst) {
     const key = dayKey(entry.occurredAt)
@@ -86,17 +87,18 @@ export const groupActivity = (
 
 export const SPRINT_MOVE_WINDOW_MS = 10 * 1000
 
-export type ActivityItem =
-  | Readonly<{ kind: "entry"; key: string; entry: TicketActivityEntry }>
-  | Readonly<{
-      kind: "sprint_moved"
-      key: string
-      actor: TicketActivityActor | null
-      at: Date
-      from: string
-      to: string
-      cause: ActivityCause | null
-    }>
+export type ActivityItem = Data.TaggedEnum<{
+  entry: Readonly<{ key: string; entry: TicketActivityEntry }>
+  sprint_moved: Readonly<{
+    key: string
+    actor: TicketActivityActor | null
+    at: Date
+    from: string
+    to: string
+    cause: ActivityCause | null
+  }>
+}>
+export const ActivityItem = Data.taggedEnum<ActivityItem>()
 
 type SprintMembership = Readonly<{
   entry: Extract<TicketActivityEntry, { kind: "change" }>
@@ -104,9 +106,7 @@ type SprintMembership = Readonly<{
   name: string
 }>
 
-const sprintMembership = (
-  entry: TicketActivityEntry
-): SprintMembership | null => {
+const sprintMembership = (entry: TicketActivityEntry) => {
   if (entry.kind !== "change") return null
   const { change } = entry
   if (change.kind !== "group_added" && change.kind !== "group_removed") {
@@ -117,18 +117,16 @@ const sprintMembership = (
     entry,
     direction: change.kind === "group_added" ? "added" : "removed",
     name: change.name
-  }
+  } satisfies SprintMembership
 }
 
-const pairs = (a: SprintMembership, b: SprintMembership): boolean =>
+const pairs = (a: SprintMembership, b: SprintMembership) =>
   a.direction !== b.direction &&
   a.entry.cause === b.entry.cause &&
   Math.abs(a.entry.occurredAt.getTime() - b.entry.occurredAt.getTime()) <=
     SPRINT_MOVE_WINDOW_MS
 
-export const activityItems = (
-  entries: ReadonlyArray<TicketActivityEntry>
-): ReadonlyArray<ActivityItem> => {
+export const activityItems = (entries: ReadonlyArray<TicketActivityEntry>) => {
   const merged = new Set<string>()
   const items: Array<ActivityItem> = []
   for (const entry of entries) {
@@ -145,21 +143,22 @@ export const activityItems = (
                 other !== null && pairs(own, other)
             )
     if (own === null || partner === undefined) {
-      items.push({ kind: "entry", key: entry.id, entry })
+      items.push(ActivityItem.entry({ key: entry.id, entry }))
       continue
     }
     merged.add(partner.entry.id)
     const [removed, added] =
       own.direction === "removed" ? [own, partner] : [partner, own]
-    items.push({
-      kind: "sprint_moved",
-      key: `${removed.entry.id}:${added.entry.id}`,
-      actor: added.entry.actor,
-      at: added.entry.occurredAt,
-      from: removed.name,
-      to: added.name,
-      cause: own.entry.cause
-    })
+    items.push(
+      ActivityItem.sprint_moved({
+        key: `${removed.entry.id}:${added.entry.id}`,
+        actor: added.entry.actor,
+        at: added.entry.occurredAt,
+        from: removed.name,
+        to: added.name,
+        cause: own.entry.cause
+      })
+    )
   }
   return items
 }

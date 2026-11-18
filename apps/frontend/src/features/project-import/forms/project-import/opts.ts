@@ -23,9 +23,7 @@ export type ProjectImportValues = typeof projectImportSchema.Encoded
 
 const isCreatableKey = Schema.is(CreatableProjectKey)
 
-export const defaultProjectImportValues = (
-  imported: ProjectImport
-): ProjectImportValues => {
+export const defaultProjectImportValues = (imported: ProjectImport) => {
   const name = imported.source?.name ?? ""
   const sourceKey = imported.source?.key ?? ""
   return {
@@ -43,9 +41,7 @@ export const defaultProjectImportValues = (
 
 const decodeRunInput = Schema.decodeSync(RunProjectImportInput)
 
-export const toRunProjectImportInput = (
-  values: ProjectImportValues
-): RunProjectImportInput =>
+export const toRunProjectImportInput = (values: ProjectImportValues) =>
   decodeRunInput({ ...values.destination, people: values.people })
 
 export const destinationValidator = Schema.toStandardSchemaV1(destinationSchema)

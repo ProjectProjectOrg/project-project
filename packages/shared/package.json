@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tickets/testing": "./src/tickets/testing.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "bun run --bun vitest run",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix"

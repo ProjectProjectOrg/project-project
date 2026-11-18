@@ -30,12 +30,12 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu } from "./BranchMenu"
+import { BranchMenu, BranchMenuRemoval } from "./BranchMenu"
 import { PANEL_CHROME } from "./gitPanelFrame"
 
 type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"
 
-export const layerTone = (layer: StackLayerState): LayerTone => {
+export const layerTone = (layer: StackLayerState) => {
   if (layer.deleted) return "deleted"
   if (layer.pr === null) return "none"
   if (layer.pr.state === "merged") return "merged"
@@ -95,12 +95,10 @@ const CHECKS = {
 const checksNote = (checks: ChecksStatus | null) =>
   checks === "failing" || checks === "pending" ? CHECKS[checks] : undefined
 
-type PullRequestCount = Readonly<{ merged: number; total: number }>
-
 export const stackPullRequestCount = (
   own: GitState | null,
   stack: ReadonlyArray<StackLayerState>
-): PullRequestCount => {
+) => {
   const ownPr =
     own === null
       ? []
@@ -160,13 +158,13 @@ const ownRow = (
   branch: string,
   base: string | null,
   pr: StackLayerState["pr"]
-): StackLayerState => ({ branch, base, depth: 0, pr, deleted: false })
+) => ({ branch, base, depth: 0, pr, deleted: false })
 
 export const ownLayer = (
   state: GitState,
   ticket: Pick<TicketDetail, "lastTransitionedPr">,
   defaultBase: string
-): StackLayerState | null =>
+) =>
   Match.value(state).pipe(
     Match.when({ tag: "no_branch" }, () => null),
     Match.when({ tag: "stale_branch" }, (current) => ({
@@ -408,8 +406,8 @@ function StackLayerRow({
         }
         removal={
           own
-            ? { kind: "ticket" }
-            : { kind: "stack", busy, onRemove: () => void onRemove() }
+            ? BranchMenuRemoval.ticket()
+            : BranchMenuRemoval.stack({ busy, onRemove: () => void onRemove() })
         }
       />
     </li>

@@ -1,4 +1,5 @@
-import { Ticket, TicketId } from "@pp/shared"
+import { TicketId } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -7,26 +8,7 @@ import { commandTarget, type CommandScope } from "./commandScopes"
 
 const id = Schema.decodeSync(TicketId)
 
-const row = Schema.decodeSync(Ticket)({
-  id: "T-3",
-  title: "Hovered",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z"
-})
+const row = makeTicket({ id: id("T-3") })
 
 const pointed: PointedTicket = {
   orgSlug: "acme",
@@ -37,10 +19,11 @@ const pointed: PointedTicket = {
   search: undefined
 }
 
-const selected = (ticketId: string): SelectedTicket => ({
-  ...row,
-  id: id(ticketId)
-})
+const selected = (ticketId: string) =>
+  ({
+    ...row,
+    id: id(ticketId)
+  }) satisfies SelectedTicket
 
 const openTicket: CommandScope = {
   ticket: { orgSlug: "acme", slug: "app", ticketId: id("T-1") }

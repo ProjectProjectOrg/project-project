@@ -85,10 +85,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     const refreshCalls = yield* Ref.make(0)
     const refreshEntered = yield* Deferred.make<void>()
     const now = yield* DateTime.now
-    const grant = (
-      accessToken: string,
-      refreshToken: string
-    ): OAuth.JiraTokenGrant => ({
+    const grant = (accessToken: string, refreshToken: string) => ({
       accessToken,
       refreshToken,
       expiresAt: DateTime.toDate(DateTime.add(now, { hours: 1 })),

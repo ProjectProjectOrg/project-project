@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
-import { Dither, type TimeWarpZone } from "@pp/ui/dither"
+import { Dither, TimeWarpAnchor, type TimeWarpZone } from "@pp/ui/dither"
 import { Logo, Wordmark } from "@pp/ui/logo"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -19,13 +19,14 @@ import {
   rawQueryFromSearch
 } from "@/features/oauth/lib/oauthQuery"
 import { m } from "@/paraglide/messages"
+import type { MessageFunction } from "@/paraglide/runtime"
 import { authClient } from "@/services/AuthClient"
 
 const routeApi = getRouteApi("/(public)/login")
 
 const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
   {
-    anchor: { type: "fraction", x: 0.5, y: 0.5 },
+    anchor: TimeWarpAnchor.fraction({ x: 0.5, y: 0.5 }),
     radius: 0.77,
     strength: 3,
     falloff: 4.85
@@ -71,7 +72,7 @@ export function LoginPage() {
 
   async function handleSocialSignIn(
     provider: "google" | "microsoft",
-    errorMessage: () => string
+    errorMessage: MessageFunction
   ) {
     setProviderError(null)
     try {

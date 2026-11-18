@@ -29,17 +29,17 @@ export const fitSlashMenu = ({
   bounds: SlashMenuBounds
   full: number
   list: number
-}>): SlashMenuFit => {
+}>) => {
   const left = bounds.left + SLASH_MENU_GUTTER
   const right = bounds.right - SLASH_MENU_GUTTER
   const room = Math.max(0, right - left)
   const preview = room >= full
   const width = preview ? full : Math.min(list, room)
   const start = Math.max(left, Math.min(anchorLeft, right - width))
-  return { preview, width, offset: start - anchorLeft }
+  return { preview, width, offset: start - anchorLeft } satisfies SlashMenuFit
 }
 
-export const slashMenuBounds = (root: HTMLElement | null): SlashMenuBounds => {
+export const slashMenuBounds = (root: HTMLElement | null) => {
   const column = root?.closest<HTMLElement>("[data-scroll-root]")
   const viewport = { left: 0, right: window.innerWidth }
   if (column === null || column === undefined) return viewport
@@ -58,14 +58,17 @@ export const placeSlashMenu = ({
   caret: SlashMenuSpan
   height: number
   bounds: SlashMenuSpan
-}>): SlashMenuPlacement => {
+}>) => {
   const above = caret.top - SLASH_MENU_GAP - height
   return above >= bounds.top + SLASH_MENU_GUTTER
-    ? { side: "above", top: above }
-    : { side: "below", top: caret.bottom + SLASH_MENU_GAP }
+    ? ({ side: "above", top: above } satisfies SlashMenuPlacement)
+    : ({
+        side: "below",
+        top: caret.bottom + SLASH_MENU_GAP
+      } satisfies SlashMenuPlacement)
 }
 
-export const slashMenuSpan = (root: HTMLElement | null): SlashMenuSpan => {
+export const slashMenuSpan = (root: HTMLElement | null) => {
   const column = root?.closest<HTMLElement>("[data-scroll-root]")
   const viewport = { top: 0, bottom: window.innerHeight }
   if (column === null || column === undefined) return viewport

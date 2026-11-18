@@ -57,6 +57,7 @@ import {
   boardEdit,
   boardMove,
   groupTicketsByStatus,
+  DropData,
   isDragData,
   isDropData
 } from "../lib/boardUtils"
@@ -181,7 +182,7 @@ function SprintBoardContent({
 
   useBoardCardDrop(!isCompleted && !reorderMode && canReorder, (src, dst) => {
     if (!isDragData(src) || !isDropData(dst)) return
-    if (dst.type === "card" && dst.id === src.id) return
+    if (DropData.guards.card(dst) && dst.id === src.id) return
 
     const status = dst.status !== src.status ? dst.status : undefined
     if (status !== undefined && !canTransition) return

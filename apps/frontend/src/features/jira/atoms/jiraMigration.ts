@@ -20,67 +20,57 @@ import {
   viewMutation
 } from "@/api/viewMutation"
 
-export type JiraOrgRequest = Readonly<{
-  _view: "jiraImports"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type JiraOrgRequest = ReturnType<typeof jiraOrgRequest>
 
-export type JiraProjectsRequest = Readonly<{
-  _view: "jiraProjects"
-  params: Readonly<{ cloudId: string }>
-}>
+export type JiraProjectsRequest = ReturnType<typeof jiraProjectsRequest>
 
-export type JiraMigrationRequest = Readonly<{
-  _view: "jiraImport"
-  params: Readonly<{ orgSlug: string; migrationId: string }>
-}>
+export type JiraMigrationRequest = ReturnType<typeof jiraMigrationRequest>
 
-export type JiraDestinationConflictsRequest = Readonly<{
-  _view: "jiraDestinationConflicts"
-  params: Readonly<{ orgSlug: string; migrationId: string }>
-  query: Readonly<{ expectedRevision: number }>
-}>
+export type JiraDestinationConflictsRequest = ReturnType<
+  typeof jiraDestinationConflictsRequest
+>
 
-export type JiraSkippedAttachmentsRequest = Readonly<{
-  _view: "jiraSkippedAttachments"
-  params: Readonly<{ orgSlug: string; migrationId: string }>
-}>
+export type JiraSkippedAttachmentsRequest = ReturnType<
+  typeof jiraSkippedAttachmentsRequest
+>
 
-export const jiraOrgRequest = (orgSlug: string): JiraOrgRequest => ({
-  _view: "jiraImports",
-  params: { orgSlug }
-})
+export const jiraOrgRequest = (orgSlug: string) =>
+  ({
+    _view: "jiraImports",
+    params: { orgSlug }
+  }) as const
 
-export const jiraProjectsRequest = (cloudId: string): JiraProjectsRequest => ({
-  _view: "jiraProjects",
-  params: { cloudId }
-})
+export const jiraProjectsRequest = (cloudId: string) =>
+  ({
+    _view: "jiraProjects",
+    params: { cloudId }
+  }) as const
 
-export const jiraMigrationRequest = (
-  orgSlug: string,
-  migrationId: string
-): JiraMigrationRequest => ({
-  _view: "jiraImport",
-  params: { orgSlug, migrationId }
-})
+export const jiraMigrationRequest = (orgSlug: string, migrationId: string) =>
+  ({
+    _view: "jiraImport",
+    params: { orgSlug, migrationId }
+  }) as const
 
 export const jiraDestinationConflictsRequest = (
   orgSlug: string,
   migrationId: string,
   expectedRevision: number
-): JiraDestinationConflictsRequest => ({
-  _view: "jiraDestinationConflicts",
-  params: { orgSlug, migrationId },
-  query: { expectedRevision }
-})
+) =>
+  ({
+    _view: "jiraDestinationConflicts",
+    params: { orgSlug, migrationId },
+    query: { expectedRevision }
+  }) as const
 
 export const jiraSkippedAttachmentsRequest = (
   orgSlug: string,
   migrationId: string
-): JiraSkippedAttachmentsRequest => ({
-  _view: "jiraSkippedAttachments",
-  params: { orgSlug, migrationId }
-})
+) =>
+  ({
+    _view: "jiraSkippedAttachments",
+    params: { orgSlug, migrationId }
+  }) as const
 
 export const jiraProfile = query("jira", "profile", {
   timeToLive: "1 minute"
@@ -138,20 +128,21 @@ export const jiraSkippedAttachments = Atom.family(
     })
 )
 
-const toSummary = (detail: JiraMigrationDetail): JiraMigrationSummary => ({
-  id: detail.id,
-  sourceCloudId: detail.sourceCloudId,
-  sourceProjectId: detail.sourceProjectId,
-  sourceProjectKey: detail.sourceProjectKey,
-  sourceProjectName: detail.sourceProjectName,
-  status: detail.status,
-  phase: detail.phase,
-  revision: detail.revision,
-  progress: detail.progress,
-  destinationProjectSlug: detail.destinationProjectSlug,
-  createdAt: detail.createdAt,
-  updatedAt: detail.updatedAt
-})
+const toSummary = (detail: JiraMigrationDetail) =>
+  ({
+    id: detail.id,
+    sourceCloudId: detail.sourceCloudId,
+    sourceProjectId: detail.sourceProjectId,
+    sourceProjectKey: detail.sourceProjectKey,
+    sourceProjectName: detail.sourceProjectName,
+    status: detail.status,
+    phase: detail.phase,
+    revision: detail.revision,
+    progress: detail.progress,
+    destinationProjectSlug: detail.destinationProjectSlug,
+    createdAt: detail.createdAt,
+    updatedAt: detail.updatedAt
+  }) satisfies JiraMigrationSummary
 
 const withoutImport = (
   imports: ReadonlyArray<JiraMigrationSummary>,
@@ -219,7 +210,7 @@ export type ConfigureJiraImportInput = Readonly<{
 const currentRevision = (
   result: AsyncResult.AsyncResult<JiraMigrationDetail, unknown>,
   previous: JiraMigrationDetail | undefined
-): number =>
+) =>
   Math.max(
     previous?.revision ?? 0,
     AsyncResult.isSuccess(result) ? result.value.revision : 0
@@ -262,18 +253,13 @@ export const invalidateAfterImport = Atom.family((req: JiraOrgRequest) =>
   )
 )
 
-export type JiraReportRequest = Readonly<{
-  _view: "jiraReport"
-  params: Readonly<{ orgSlug: string; migrationId: string }>
-}>
+export type JiraReportRequest = ReturnType<typeof jiraReportRequest>
 
-export const jiraReportRequest = (
-  orgSlug: string,
-  migrationId: string
-): JiraReportRequest => ({
-  _view: "jiraReport",
-  params: { orgSlug, migrationId }
-})
+export const jiraReportRequest = (orgSlug: string, migrationId: string) =>
+  ({
+    _view: "jiraReport",
+    params: { orgSlug, migrationId }
+  }) as const
 
 export const jiraMigrationReport = Atom.family((req: JiraReportRequest) =>
   query("jiraMigrations", "report", {

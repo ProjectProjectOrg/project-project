@@ -7,7 +7,7 @@ import {
 import { countBy, groupBy } from "./collections"
 import type { JiraParentDrop } from "./Hierarchy"
 import { isCoverageLimited, type JiraMigrationManifestV2 } from "./Manifest"
-import type { JiraIdentityResolution, JiraTagCandidate } from "./Mappings"
+import { JiraIdentityResolution, type JiraTagCandidate } from "./Mappings"
 
 export type JiraTextWarnings = Readonly<{
   issueId: string
@@ -57,7 +57,7 @@ export const jiraFinding = (
   sourceId: string | null = null,
   ticketId: string | null = null,
   jiraUrl: string | null = null
-): JiraMigrationFinding => ({
+) => ({
   kind,
   subject,
   sourceId,
@@ -148,9 +148,7 @@ const attachmentSkipReason = (
             ? `its type (${attachment.mimeType}) cannot be stored in ProjectProject`
             : "you chose to skip it"
 
-export function buildJiraFindings(
-  input: JiraFindingsInput
-): ReadonlyArray<JiraMigrationFinding> {
+export function buildJiraFindings(input: JiraFindingsInput) {
   const { manifest } = input
   const issues = new Map(manifest.issues.map((issue) => [issue.id, issue]))
   const keyOf = (issueId: string) => issues.get(issueId)?.key ?? issueId
@@ -308,10 +306,14 @@ export function buildJiraFindings(
     (issue) => issue.assigneeAccountId
   )) {
     const resolution = input.identities.get(accountId)
-    if (resolution === undefined || resolution.kind === "link") continue
+    if (
+      resolution === undefined ||
+      JiraIdentityResolution.guards.link(resolution)
+    )
+      continue
     const name = names.get(accountId) ?? accountId
     findings.push(
-      resolution.kind === "invite"
+      JiraIdentityResolution.guards.invite(resolution)
         ? jiraFinding(
             "assignee-invited",
             name,
@@ -330,12 +332,16 @@ export function buildJiraFindings(
     (issue) => issue.reporterAccountId
   )) {
     const resolution = input.identities.get(accountId)
-    if (resolution === undefined || resolution.kind === "link") continue
+    if (
+      resolution === undefined ||
+      JiraIdentityResolution.guards.link(resolution)
+    )
+      continue
     findings.push(
       jiraFinding(
         "reporter-replaced",
         names.get(accountId) ?? accountId,
-        resolution.kind === "invite"
+        JiraIdentityResolution.guards.invite(resolution)
           ? `Reporter of ${plural(keys.length, "issue")} (${listKeys(keys)}). Those tickets show you as creator until ${resolution.email} accepts the invitation.`
           : `Reporter of ${plural(keys.length, "issue")} (${listKeys(keys)}) but not linked, so those tickets show you as creator. The name is kept in each ticket's import note.`,
         accountId
@@ -349,12 +355,16 @@ export function buildJiraFindings(
   )
   for (const [accountId, count] of commentsByAuthor) {
     const resolution = input.identities.get(accountId)
-    if (resolution === undefined || resolution.kind === "link") continue
+    if (
+      resolution === undefined ||
+      JiraIdentityResolution.guards.link(resolution)
+    )
+      continue
     findings.push(
       jiraFinding(
         "comment-author-unlinked",
         names.get(accountId) ?? accountId,
-        resolution.kind === "invite"
+        JiraIdentityResolution.guards.invite(resolution)
           ? `Wrote ${plural(count, "comment")}; they show the Jira name until ${resolution.email} accepts the invitation and then become theirs.`
           : `Wrote ${plural(count, "comment")}; they keep the Jira name because the account is not linked to a member.`,
         accountId

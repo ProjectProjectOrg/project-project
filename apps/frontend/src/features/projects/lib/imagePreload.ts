@@ -1,6 +1,6 @@
 const pending = new Map<string, Promise<void>>()
 
-export const preloadImage = (url: string): Promise<void> => {
+export const preloadImage = (url: string) => {
   if (typeof window === "undefined" || typeof Image === "undefined")
     return Promise.resolve()
 

@@ -39,8 +39,7 @@ export type EpicSectionsValue = Readonly<{
   }>
 }>
 
-const sectionOf = (ticket: Ticket): EpicSectionKey =>
-  ticket.parent?.id ?? EPIC_SECTION_NONE
+const sectionOf = (ticket: Ticket) => ticket.parent?.id ?? EPIC_SECTION_NONE
 
 const moveRow = (
   sections: ReadonlyArray<EpicSectionValue>,
@@ -48,7 +47,7 @@ const moveRow = (
   from: EpicSectionKey,
   to: EpicSectionKey,
   dir: TicketSort["dir"]
-): ReadonlyArray<EpicSectionValue> => {
+) => {
   if (from === to || !sections.some((section) => section.key === to)) {
     return sections
   }
@@ -85,7 +84,7 @@ export const patchEpicSectionsRow = (
   patch: TicketEdit,
   query: TicketListQuery,
   now: Date
-): EpicSectionsValue => {
+) => {
   let patched: TicketRow | undefined
   let from: TicketStatus | undefined
   let fromSection: EpicSectionKey | undefined
@@ -161,7 +160,7 @@ export const replaceEpicSectionsRow = (
   ticket: Ticket,
   orderKey: string | null,
   sort: TicketSort
-): EpicSectionsValue => {
+) => {
   let fromSection: EpicSectionKey | undefined
   let replaced: TicketRow | undefined
   const sections = value.sections.map((section) => {

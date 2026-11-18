@@ -272,9 +272,7 @@ export const startsWith = (type: TicketType | null) =>
     ? `Starts with: ${new Intl.ListFormat("en", { style: "short", type: "unit" }).format(type.start)}`
     : "Starts with an empty description"
 
-export const typeItems = (
-  lastUsed: string
-): ReadonlyArray<SelectOption<string>> => [
+export const typeItems = (lastUsed: string) => [
   ...TYPES.map((option, index) => ({
     value: option.key,
     textValue: option.name,

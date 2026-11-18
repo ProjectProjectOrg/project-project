@@ -3,7 +3,7 @@ import { PROFILE_SECTIONS } from "@/features/profile/lib/profileSections"
 import { PROJECT_SETTINGS_SECTIONS } from "@/features/projects/lib/projectSettingsSections"
 import { m } from "@/paraglide/messages"
 
-import type { Command, CommandContext, CommandEnv } from "./lib/commands"
+import { Command, type CommandContext, type CommandEnv } from "./lib/commands"
 
 const go =
   (path: (orgSlug: string, projectSlug: string | null) => string) =>
@@ -13,8 +13,8 @@ const go =
   }
 
 export const settingsCommands: ReadonlyArray<Command> = [
-  ...PROJECT_SETTINGS_SECTIONS.map(
-    (section): Command => ({
+  ...PROJECT_SETTINGS_SECTIONS.map((section) =>
+    Command.run({
       id: `settings.project.${section.key}`,
       group: "navigation",
       parent: m.chrome_command_menu_settings_parent_project,
@@ -28,8 +28,8 @@ export const settingsCommands: ReadonlyArray<Command> = [
       )
     })
   ),
-  ...ORG_SETTINGS_SECTIONS.map(
-    (section): Command => ({
+  ...ORG_SETTINGS_SECTIONS.map((section) =>
+    Command.run({
       id: `settings.org.${section.key}`,
       group: "navigation",
       parent: m.chrome_command_menu_settings_parent_org,
@@ -41,8 +41,8 @@ export const settingsCommands: ReadonlyArray<Command> = [
       run: go((orgSlug) => section.to.replace("$orgSlug", orgSlug))
     })
   ),
-  ...PROFILE_SECTIONS.map(
-    (section): Command => ({
+  ...PROFILE_SECTIONS.map((section) =>
+    Command.run({
       id: `settings.profile.${section.to}`,
       group: "navigation",
       parent: m.chrome_command_menu_settings_group_profile,

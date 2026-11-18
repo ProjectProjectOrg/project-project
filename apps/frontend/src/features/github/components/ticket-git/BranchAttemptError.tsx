@@ -42,7 +42,7 @@ export function BranchAttemptError({ id }: Readonly<{ id: TicketId }>) {
 function createErrorText(
   state: Atom.Type<ReturnType<typeof createBranch>>,
   name: string
-): string | null {
+) {
   if (state.waiting) return null
   return mutationErrorText(
     state,
@@ -63,7 +63,7 @@ function createErrorText(
   )
 }
 
-function attachErrorText(state: AttachState, name: string): string | null {
+function attachErrorText(state: AttachState, name: string) {
   if (state.waiting) return null
   return mutationErrorText(
     state,

@@ -12,8 +12,6 @@ import {
   padNumericIdSort,
   ProjectScope,
   TagName,
-  TicketId,
-  TicketStatus,
   type ParentFilter,
   type TicketFilter,
   type TicketSort,
@@ -39,6 +37,13 @@ import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as Users from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
+import {
+  isoDate,
+  makeTicketDocument,
+  ticketId,
+  ticketStatus,
+  unexpected
+} from "./testing"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
@@ -59,12 +64,7 @@ if (databaseUrl) {
 
 const commentId = Schema.decodeUnknownSync(CommentId)
 const userIdSchema = Schema.decodeUnknownSync(UserId)
-const ticketId = Schema.decodeUnknownSync(TicketId)
-const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
-
-const unexpected = (method: string): Effect.Effect<never> =>
-  Effect.die(new Error(`unexpected ${method} call`))
 
 const FakeTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
   listIds: () => unexpected("TicketDocs.listIds"),
@@ -84,39 +84,20 @@ const TestLayer = Layer.mergeAll(
   TicketBranchIndex.layer
 ).pipe(Layer.provide(DatabaseLive))
 
-const rebuiltDocument: TicketDocs.TicketDocument = {
-  id: ticketId("T-41"),
-  title: "Restored ticket",
-  status: ticketStatus("todo"),
-  type: null,
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "test-user",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedBy: "test-user",
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  body: "# Restored ticket\n",
-  commentsRegion: ""
-}
-
 const indexedDocument = (
   id: string,
   overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument => ({
-  ...rebuiltDocument,
-  id: ticketId(id),
-  title: id,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  ...overrides
-})
+) =>
+  makeTicketDocument(id, {
+    createdBy: "test-user",
+    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
+    updatedBy: "test-user",
+    updatedAt: isoDate("2026-01-01T00:00:00.000Z"),
+    body: "# Restored ticket\n",
+    ...overrides
+  })
+
+const rebuiltDocument = indexedDocument("T-41", { title: "Restored ticket" })
 
 const RebuildTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
   listIds: () => Effect.succeed([rebuiltDocument.id]),
@@ -3137,7 +3118,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           const { index, project } = yield* seedStatusProject()
           const found = yield* index.sequence(project, byId, {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: sortById
           })
           expect(found).toEqual([
@@ -3154,8 +3135,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         const { index, project } = yield* seedStatusProject()
         const found = yield* index.sequence(project, byId, {
           viewerId: "viewer",
-          sections: {
-            kind: "explicit",
+          sections: TicketIndex.TicketIndexSectionOrder.explicit({
             sections: [
               {
                 key: "G-2",
@@ -3163,7 +3143,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               },
               { key: "ungrouped" }
             ]
-          },
+          }),
           within: sortById
         })
         expect(ids(found)).toEqual(["T-3", "T-1", "T-2", "T-4"])
@@ -3180,7 +3160,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           })
           const found = yield* index.sequence(project, byId, {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: { sort: { key: "manual", dir: "asc" } }
           })
           expect(ids(found)).toEqual(["T-2", "T-3", "T-4", "T-1"])
@@ -3213,7 +3193,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               {
                 viewerId: "viewer",
                 ticketIds: ["T-1", "T-2", "T-3", "T-4", "T-5"],
-                sections: { kind: "status" },
+                sections: TicketIndex.TicketIndexSectionOrder.status(),
                 within: {
                   sort: { key: "manual", dir: "asc" },
                   nestAcrossSections: true
@@ -3273,7 +3253,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           { ...byId, status: [ticketStatus("todo")] },
           {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: sortById
           }
         )

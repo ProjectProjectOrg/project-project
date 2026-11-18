@@ -50,25 +50,22 @@ export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
 )
 
-export type BacklogRequest = Readonly<{
-  _view: "backlog"
-  params: Readonly<{ orgSlug: string; slug: string }>
-  query: TicketListQuery
-}>
+export type BacklogRequest = ReturnType<typeof backlogRequest>
 
 export const backlogRequest = (
   orgSlug: string,
   slug: string,
   query: QueryWithView
-): BacklogRequest => ({
-  _view: "backlog",
-  params: { orgSlug, slug },
-  query: {
-    ...viewQuery(query),
-    status: undefined,
-    cursor: undefined
-  }
-})
+) =>
+  ({
+    _view: "backlog",
+    params: { orgSlug, slug },
+    query: {
+      ...viewQuery(query),
+      status: undefined,
+      cursor: undefined
+    }
+  }) as const
 
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -111,17 +108,17 @@ const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
     ]
   })
 
-const emptyBacklog = (): BacklogValue => ({
+const emptyBacklog: BacklogValue = {
   counts: { total: 0, byStatus: {} },
   sections: {}
-})
+}
 
 const backlogView = (req: BacklogRequest) =>
   Atom.readable(
     (get) => {
       const base = get(sectionsQuery(req))
       if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, emptyBacklog)
+        return AsyncResult.map(base, () => emptyBacklog)
       }
       const loaded = get(loadedPagesAtom(req))
       const created = get(createdKeys(scopeOf(req)))
@@ -200,7 +197,7 @@ const patchRow = (
   patch: TicketEdit,
   sort: TicketSort,
   now: Date
-): BacklogValue => {
+) => {
   let patched: TicketRow | undefined
   let from: TicketStatus | undefined
   const sections: Record<string, TicketRowPage> = {}
@@ -241,7 +238,7 @@ const replaceRow = (
   ticket: Ticket,
   orderKey: string | null,
   sort: TicketSort
-): BacklogValue => {
+) => {
   const sections: Record<string, TicketRowPage> = {}
   for (const [status, section] of Object.entries(value.sections)) {
     if (orderKey === null) {
@@ -327,7 +324,7 @@ const insertCreated = (
   req: BacklogRequest,
   value: BacklogValue,
   input: QuickCreateInput
-): BacklogValue => {
+) => {
   const status = input.payload.status ?? TicketStatus.make("todo")
   const section = value.sections[status] ?? { items: [], nextCursor: null }
   const row = placeholderRow(
@@ -365,7 +362,7 @@ const confirmCreated = (
   value: BacklogValue,
   created: Ticket,
   input: QuickCreateInput
-): BacklogValue => ({
+) => ({
   ...value,
   sections: Object.fromEntries(
     Object.entries(value.sections).map(([status, section]) => [

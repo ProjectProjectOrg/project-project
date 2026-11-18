@@ -1,3 +1,4 @@
+import { FixReferenceAction } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { applyReferenceFix, referenceCandidates } from "./references"
@@ -35,7 +36,7 @@ describe("applyReferenceFix", () => {
       applyReferenceFix(
         body,
         { kind: "user", target: "old-bob" },
-        { kind: "plain" }
+        FixReferenceAction.cases.plain.make({})
       )
     ).toContain("Ask Bob about")
   })
@@ -45,7 +46,7 @@ describe("applyReferenceFix", () => {
       applyReferenceFix(
         body,
         { kind: "link", target: "https://old.example/orgs/x/projects/y" },
-        { kind: "link", to: "PP-3" }
+        FixReferenceAction.cases.link.make({ to: "PP-3" })
       )
     ).toContain("See [old](mention:ticket/PP-3)")
   })

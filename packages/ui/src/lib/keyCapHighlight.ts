@@ -5,7 +5,7 @@ let pending: Readonly<{ key: string; timer: number }> | null = null
 
 const SEQUENCE_TIMEOUT_MS = 1000
 
-export const keyName = (event: KeyboardEvent): string =>
+export const keyName = (event: KeyboardEvent) =>
   event.key === " " ? "space" : event.key.toLowerCase()
 
 const light = (key: string) => {
@@ -35,7 +35,7 @@ const clear = () => {
 }
 
 // A character typed into a text field is text, not a shortcut.
-export const typesText = (event: KeyboardEvent): boolean =>
+export const typesText = (event: KeyboardEvent) =>
   event.key.length === 1 &&
   !event.metaKey &&
   !event.ctrlKey &&
@@ -74,7 +74,7 @@ const onKeyUp = (event: KeyboardEvent) => {
   }
 }
 
-export const installKeyCapHighlight = (): void => {
+export const installKeyCapHighlight = () => {
   if (installed) return
   installed = true
   document.addEventListener("keydown", onKeyDown, true)

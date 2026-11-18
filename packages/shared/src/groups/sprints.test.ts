@@ -14,12 +14,12 @@ import {
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const groupColor = Schema.decodeUnknownSync(GroupColor)
-const isoDate = (s: string): Date => DateTime.toDate(DateTime.makeUnsafe(s))
+const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
 const makeSprint = (
   id: string,
   overrides: Partial<Group> & { kind?: GroupKind } = {}
-): Group => ({
+) => ({
   id: groupId(id),
   name: id,
   kind: overrides.kind ?? "sprint",

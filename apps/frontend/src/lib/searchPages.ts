@@ -6,7 +6,7 @@ export type SearchPage<A> = Readonly<{
 export const appendPage = <A extends Readonly<{ id: string }>>(
   loaded: SearchPage<A>,
   next: SearchPage<A>
-): SearchPage<A> => {
+) => {
   const seen = new Set(loaded.items.map((item) => item.id))
   return {
     items: [

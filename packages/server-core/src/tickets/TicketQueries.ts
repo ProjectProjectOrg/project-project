@@ -23,7 +23,7 @@ import {
   ProjectScope,
   type ProjectTicketsPreview,
   RECENT_TICKETS_LIMIT,
-  type RecentTicketActivity,
+  RecentTicketActivity,
   type RecentTicketRow,
   sprintSectionKey,
   summarizeEstimates,
@@ -42,7 +42,7 @@ import {
   type TicketTextHit,
   type TicketTextSearchQuery,
   type TicketTitle,
-  type TicketListSource,
+  TicketListSource,
   type TicketSequence,
   type TicketSections,
   type TicketSort,
@@ -99,30 +99,32 @@ type RecentCandidate = Readonly<{
 const touchedEventCandidate = (
   event: TicketIndex.TicketIndexTouchedEvent | null,
   users: ReadonlyMap<string, User>
-): RecentCandidate | null => {
+) => {
   if (event === null) return null
   const actor = presentActor(event.actor, users)
   if (event.change.kind === "status_changed") {
     return actor === null
       ? null
-      : {
+      : ({
           at: event.occurredAt,
-          activity: {
-            tag: "status_changed",
+          activity: RecentTicketActivity.cases.status_changed.make({
             actor,
             at: event.occurredAt,
             from: event.change.from,
             to: event.change.to
-          }
-        }
+          })
+        } satisfies RecentCandidate)
   }
   return {
     at: event.occurredAt,
     activity:
       actor === null
-        ? { tag: "assigned", at: event.occurredAt }
-        : { tag: "assigned", actor, at: event.occurredAt }
-  }
+        ? RecentTicketActivity.cases.assigned.make({ at: event.occurredAt })
+        : RecentTicketActivity.cases.assigned.make({
+            actor,
+            at: event.occurredAt
+          })
+  } satisfies RecentCandidate
 }
 
 export function recentActivityOf(
@@ -135,7 +137,7 @@ export function recentActivityOf(
     }>,
   viewerId: UserId,
   users: ReadonlyMap<string, User>
-): RecentTicketActivity {
+) {
   const candidates: ReadonlyArray<RecentCandidate | null> = [
     touchedEventCandidate(entry.statusEvent, users),
     touchedEventCandidate(entry.assignedEvent, users),
@@ -143,12 +145,16 @@ export function recentActivityOf(
       ? null
       : {
           at: entry.lastCommentAt,
-          activity: { tag: "commented", at: entry.lastCommentAt }
+          activity: RecentTicketActivity.cases.commented.make({
+            at: entry.lastCommentAt
+          })
         },
     entry.entry.createdBy === viewerId
       ? {
           at: entry.entry.createdAt,
-          activity: { tag: "created", at: entry.entry.createdAt }
+          activity: RecentTicketActivity.cases.created.make({
+            at: entry.entry.createdAt
+          })
         }
       : null
   ]
@@ -159,12 +165,12 @@ export function recentActivityOf(
         : best,
     null
   )
-  return latest?.activity ?? { tag: "assigned" }
+  return latest?.activity ?? RecentTicketActivity.cases.assigned.make({})
 }
 
 const touchedActorIds = (
   entries: ReadonlyArray<TicketIndex.TicketIndexTouchedEntry>
-): ReadonlyArray<string> => [
+) => [
   ...new Set(
     entries.flatMap(({ assignedEvent, statusEvent }) =>
       [assignedEvent, statusEvent].flatMap((event) => {
@@ -180,7 +186,7 @@ function ticketPage(
   query: TicketListQuery,
   view: GitView,
   limit: number
-): TicketListPage {
+) {
   const page = paginateSorted(entries, {
     cursor: undefined,
     limit,
@@ -345,7 +351,7 @@ const make = Effect.gen(function* () {
   const groupMembers = (
     documents: ReadonlyArray<GroupDocs.GroupDocument>,
     groupIds: ReadonlyArray<GroupIdFilter>
-  ): TicketIndex.TicketIndexMembers => {
+  ) => {
     const selected = documents.filter((group) => groupIds.includes(group.id))
     return {
       sprints: selected.flatMap((group) =>
@@ -362,11 +368,7 @@ const make = Effect.gen(function* () {
 
   const resolveGroupMembers = (
     groupIds: ReadonlyArray<GroupIdFilter> | undefined
-  ): Effect.Effect<
-    TicketIndex.TicketIndexMembers | undefined,
-    Markdown.MarkdownError,
-    ProjectScope
-  > =>
+  ) =>
     groupIds === undefined || groupIds.length === 0
       ? Effect.succeed(undefined)
       : Effect.map(groups.documents(), (documents) =>
@@ -412,9 +414,7 @@ const make = Effect.gen(function* () {
     }
   })
 
-  const gitViewsFor = (
-    scopes: ReadonlyArray<ProjectScope["Service"]>
-  ): Effect.Effect<ReadonlyMap<string, GitView>> =>
+  const gitViewsFor = (scopes: ReadonlyArray<ProjectScope["Service"]>) =>
     Effect.forEach(
       scopes,
       (scope) =>
@@ -429,7 +429,7 @@ const make = Effect.gen(function* () {
   const orgTicketRows = (
     scopeOf: ReadonlyMap<string, ProjectScope["Service"]>,
     entries: ReadonlyArray<TicketIndex.TicketIndexOrgEntry>
-  ): Effect.Effect<ReadonlyArray<OrgTicketRow>> =>
+  ) =>
     Effect.gen(function* () {
       const projectIds = new Set(
         entries.map(({ project }) => project.projectId)
@@ -437,13 +437,16 @@ const make = Effect.gen(function* () {
       const views = yield* gitViewsFor(
         [...scopeOf.values()].filter((scope) => projectIds.has(scope.projectId))
       )
-      return entries.map(({ project, entry }) => ({
-        projectSlug: project.slug,
-        ticket: indexEntryToTicket(
-          entry,
-          views.get(project.projectId) ?? hiddenGit
-        )
-      }))
+      return entries.map(
+        ({ project, entry }) =>
+          ({
+            projectSlug: project.slug,
+            ticket: indexEntryToTicket(
+              entry,
+              views.get(project.projectId) ?? hiddenGit
+            )
+          }) satisfies OrgTicketRow
+      )
     })
 
   const assignedScope = (userId: string) =>
@@ -505,15 +508,13 @@ const make = Effect.gen(function* () {
         return found ? [found] : []
       })
     )
-    return previews.map(
-      ({ project, total, entries }): ProjectTicketsPreview => ({
-        projectSlug: project.slug,
-        total,
-        tickets: entries.map((entry) =>
-          indexEntryToTicket(entry, views.get(project.projectId) ?? hiddenGit)
-        )
-      })
-    )
+    return previews.map(({ project, total, entries }) => ({
+      projectSlug: project.slug,
+      total,
+      tickets: entries.map((entry) =>
+        indexEntryToTicket(entry, views.get(project.projectId) ?? hiddenGit)
+      )
+    }))
   })
 
   const recent = Effect.fn("TicketQueries.recent")(function* () {
@@ -530,12 +531,10 @@ const make = Effect.gen(function* () {
     const actors = yield* users.fullByIds(touchedActorIds(entries))
     const actorsById = new Map(actors.map((actor) => [actor.id, actor]))
     const viewerId = makeUserId(userId)
-    return rows.map(
-      (row, index): RecentTicketRow => ({
-        ...row,
-        activity: recentActivityOf(entries[index], viewerId, actorsById)
-      })
-    )
+    return rows.map((row, index) => ({
+      ...row,
+      activity: recentActivityOf(entries[index], viewerId, actorsById)
+    }))
   })
 
   const listInGroup = Effect.fn("TicketQueries.listInGroup")(function* (
@@ -605,9 +604,8 @@ const make = Effect.gen(function* () {
   const titles = Effect.fn("TicketQueries.titles")(function* () {
     const scope = yield* ProjectScope
     const entries = yield* ticketIndex.list(scope)
-    return entries.flatMap(
-      (entry): ReadonlyArray<TicketTitle> =>
-        entry.archivedAt === null ? [{ id: entry.id, title: entry.title }] : []
+    return entries.flatMap((entry) =>
+      entry.archivedAt === null ? [{ id: entry.id, title: entry.title }] : []
     )
   })
 
@@ -673,7 +671,7 @@ const make = Effect.gen(function* () {
         user.name
       ])
     )
-    return top.flatMap(({ id, title, match }): ReadonlyArray<TicketTextHit> => {
+    return top.flatMap<TicketTextHit>(({ id, title, match }) => {
       if (match.where === "title")
         return [{ id, title, match: { where: "title" } }]
       if (match.where === "description") {
@@ -797,8 +795,8 @@ const make = Effect.gen(function* () {
         }
       : undefined
     return sections.map(
-      (sprint): TicketIndex.TicketIndexSection & { key: GroupIdFilter } =>
-        sprint === null
+      (sprint) =>
+        (sprint === null
           ? { key: "ungrouped", members: unscheduled }
           : {
               key: sprint.id,
@@ -807,7 +805,7 @@ const make = Effect.gen(function* () {
                 tickets: [],
                 outsideSprints: null
               }
-            }
+            }) satisfies TicketIndex.TicketIndexSection & { key: GroupIdFilter }
     )
   })
 
@@ -906,7 +904,7 @@ const make = Effect.gen(function* () {
     }
   })
 
-  const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
+  const parentSectionQuery = (query: TicketListQuery) => ({
     ...query,
     type: query.type?.length ? query.type : undefined,
     excludeType: [...(query.excludeType ?? []), EPIC_TYPE],
@@ -943,7 +941,7 @@ const make = Effect.gen(function* () {
     query: TicketListQuery,
     view: Effect.Success<typeof gitView>,
     keep: (section: TicketEpicSection) => boolean
-  ): TicketEpicSections => {
+  ) => {
     const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
     const pages = sectionsWanted.map(({ key, parent }) => {
       const result = bySection.get(key)
@@ -985,9 +983,7 @@ const make = Effect.gen(function* () {
     }
   }
 
-  const byTitle = (
-    entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>
-  ): ReadonlyArray<Readonly<{ key: EpicSectionKey; parent: TicketParent }>> =>
+  const byTitle = (entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>) =>
     entries
       .map(({ entry }) => ({
         key: entry.id,
@@ -1109,7 +1105,7 @@ const make = Effect.gen(function* () {
         ...options,
         viewerId: scope.userId
       })
-    if (source.kind === "sprintBoard") {
+    if (TicketListSource.isAnyOf(["sprintBoard"])(source)) {
       const documents = yield* groups.documents()
       if (!documents.some((group) => group.id === source.groupId)) {
         return yield* new NotFound()
@@ -1123,7 +1119,7 @@ const make = Effect.gen(function* () {
         },
         {
           members: groupMembers(documents, [source.groupId]),
-          sections: { kind: "status" },
+          sections: TicketIndex.TicketIndexSectionOrder.status(),
           within: {
             sort: { key: "manual", dir: "asc" },
             nestAcrossSections: true
@@ -1137,7 +1133,7 @@ const make = Effect.gen(function* () {
         const members = yield* resolveGroupMembers(query.groupId)
         return yield* find(query, {
           members,
-          sections: { kind: "status" },
+          sections: TicketIndex.TicketIndexSectionOrder.status(),
           within
         })
       }
@@ -1145,7 +1141,12 @@ const make = Effect.gen(function* () {
         const members = yield* sprintSectionMembers(query)
         return yield* find(
           { ...query, groupId: undefined },
-          { sections: { kind: "explicit", sections: members }, within }
+          {
+            sections: TicketIndex.TicketIndexSectionOrder.explicit({
+              sections: members
+            }),
+            within
+          }
         )
       }
       case "epic": {
@@ -1155,7 +1156,9 @@ const make = Effect.gen(function* () {
         )
         return yield* find(parentSectionQuery(query), {
           members,
-          sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
+          sections: TicketIndex.TicketIndexSectionOrder.parent({
+            keys: wanted.map(({ key }) => key)
+          }),
           within
         })
       }
@@ -1167,10 +1170,9 @@ const make = Effect.gen(function* () {
         )
         return yield* find(parentSectionQuery(query), {
           members,
-          sections: {
-            kind: "ticketParent",
+          sections: TicketIndex.TicketIndexSectionOrder.ticketParent({
             keys: wanted.map(({ key }) => key)
-          },
+          }),
           within
         })
       }
@@ -1187,7 +1189,9 @@ const make = Effect.gen(function* () {
     const scope = yield* queryable(query)
     const tickets = yield* ticketIndex.sequence(scope, query, {
       viewerId: scope.userId,
-      sections: { kind: "explicit", sections: [{ key: parent.id }] },
+      sections: TicketIndex.TicketIndexSectionOrder.explicit({
+        sections: [{ key: parent.id }]
+      }),
       within: { sort: CHILD_TICKET_SORT }
     })
     return {

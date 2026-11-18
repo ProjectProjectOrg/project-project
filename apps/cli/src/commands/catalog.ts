@@ -131,7 +131,7 @@ const pagerFlag = Flag.Boolean("pager").pipe(
 const isToolName = (name: string): name is ToolName =>
   Object.hasOwn(Tools.tools, name)
 
-const entryFor = (tool: Tool.Any): ReadonlyArray<CatalogEntry> => {
+const entryFor = (tool: Tool.Any) => {
   const name = tool.name
   if (!isToolName(name)) return []
   return Option.match(Context.getOption(tool.annotations, ToolCli), {

@@ -33,7 +33,7 @@ import { TicketBlockExtension } from "./ticket-block-extension"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
-const pristine = (key: string): string => {
+const pristine = (key: string) => {
   const definition = lookup(key)
   if (definition === undefined) throw new Error(`no block ${key}`)
   return formatTicketBlock(key, stripHints(definition.content))
@@ -45,7 +45,7 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup()
 })
 
-function mount(markdown: string): LexicalEditor {
+function mount(markdown: string) {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "block-hints-test",
@@ -78,7 +78,7 @@ function mount(markdown: string): LexicalEditor {
   return editor
 }
 
-const hintsOf = (editor: LexicalEditor): ReadonlyArray<string> =>
+const hintsOf = (editor: LexicalEditor) =>
   [
     ...(editor.getRootElement()?.querySelectorAll<HTMLElement>("[data-hint]") ??
       [])
@@ -87,10 +87,10 @@ const hintsOf = (editor: LexicalEditor): ReadonlyArray<string> =>
       `${element.tagName.toLowerCase()}${element.dataset.hintEmpty === undefined ? "+" : ""}:${element.dataset.hint}`
   )
 
-const markdownOf = (editor: LexicalEditor): string =>
+const markdownOf = (editor: LexicalEditor) =>
   editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
 
-function elementAt(path: ReadonlyArray<number>): ElementNode {
+function elementAt(path: ReadonlyArray<number>) {
   let node: LexicalNode | null = $getRoot()
   for (const index of path) {
     if (!$isElementNode(node)) throw new Error("no element")
@@ -115,7 +115,7 @@ const caretAt = (
     { discrete: true }
   )
 
-const caretPath = (editor: LexicalEditor): ReadonlyArray<number> =>
+const caretPath = (editor: LexicalEditor) =>
   editor.read(() => {
     const selection = $getSelection()
     if (!$isRangeSelection(selection)) return []

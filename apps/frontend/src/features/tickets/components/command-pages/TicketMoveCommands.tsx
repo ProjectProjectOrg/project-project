@@ -24,7 +24,10 @@ import {
   moveTicket,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { useMoveDestination } from "@/features/tickets/hooks/useMoveDestination"
+import {
+  MoveDestination,
+  useMoveDestination
+} from "@/features/tickets/hooks/useMoveDestination"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -138,14 +141,14 @@ function MoveStatusStep({
   )
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const statuses = target.state === "ready" ? target.statuses : []
-  const defaultStatus = target.state === "ready" ? target.defaultStatus : null
+  const ready = MoveDestination.$is("ready")(target) ? target : null
+  const statuses = ready?.statuses ?? []
+  const defaultStatus = ready?.defaultStatus ?? null
   const ordered = [
     ...statuses.filter((status) => status.slug === defaultStatus),
     ...statuses.filter((status) => status.slug !== defaultStatus)
   ]
-  const description =
-    target.state === "ready" ? target.notes.join(" ") : undefined
+  const description = ready?.notes.join(" ")
 
   return (
     <CommandFrame
@@ -157,7 +160,9 @@ function MoveStatusStep({
       onBack={onBack}
       notice={
         failure ??
-        (target.state === "failed" ? m.tickets_move_destination_error() : null)
+        (MoveDestination.$is("failed")(target)
+          ? m.tickets_move_destination_error()
+          : null)
       }
       items={ordered.map((status) => ({
         value: status.slug,

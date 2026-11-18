@@ -114,7 +114,7 @@ const decodeGroupId = Schema.decodeUnknownEffect(GroupId)
 function toDocument(
   { snapshot, ...group }: typeof GroupFrontmatter.Type,
   body: string
-): GroupDetail {
+) {
   return {
     ...group,
     ...(group.kind === "sprint" ? { tickets: [] } : {}),
@@ -134,10 +134,7 @@ function toDocument(
   }
 }
 
-const groupFrontmatter = ({
-  snapshot,
-  ...document
-}: GroupDocument): Record<string, unknown> => {
+const groupFrontmatter = ({ snapshot, ...document }: GroupDocument) => {
   const { tickets, ...data } = encodeFrontmatter({
     ...document,
     ...(snapshot === undefined
@@ -161,7 +158,7 @@ const annotateGroupDoc = <A, E, R>(
   slug: string,
   attributes: Record<string, unknown>,
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => {
+) => {
   const annotations = {
     module: "GroupDocs",
     operation,
@@ -229,7 +226,7 @@ const make = Effect.gen(function* () {
     after: GroupDocument | null,
     activity: GroupActivityOptions,
     effect: Effect.Effect<A, E>
-  ): Effect.Effect<A, E, ActivityActor> =>
+  ) =>
     ticketActivity.record(
       orgSlug,
       slug,

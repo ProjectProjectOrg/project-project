@@ -8,7 +8,7 @@ export function keepInPlace(
   anchor: Element,
   change: () => void,
   edge: Edge = "top"
-): void {
+) {
   const root = anchor.closest<HTMLElement>("[data-scroll-root]")
   if (!root) {
     change()
@@ -29,20 +29,20 @@ export function keepInPlace(
   root.scrollTop = target
 }
 
-function edgeOf(element: Element, edge: Edge): number {
+function edgeOf(element: Element, edge: Edge) {
   const rect = element.getBoundingClientRect()
   return edge === "top" ? rect.top : rect.bottom
 }
 
-function spacerOf(root: HTMLElement): HTMLElement | null {
+function spacerOf(root: HTMLElement) {
   return root.querySelector<HTMLElement>(":scope > [data-scroll-spacer]")
 }
 
-function setHeight(spacer: HTMLElement, height: number): void {
+function setHeight(spacer: HTMLElement, height: number) {
   spacer.style.height = height > 0 ? `${height}px` : ""
 }
 
-function watch(root: HTMLElement, spacer: HTMLElement): void {
+function watch(root: HTMLElement, spacer: HTMLElement) {
   if (watched.has(root)) return
   watched.add(root)
   const content = root.querySelector(":scope > [data-scroll-content]")

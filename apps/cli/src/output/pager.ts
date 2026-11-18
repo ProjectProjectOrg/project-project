@@ -21,17 +21,14 @@ export const pagingEnabled = (env: Env) => {
   return chosen !== "" && chosen !== "cat"
 }
 
-export const pagerCommand = (
-  env: Env,
-  version: () => number = lessVersion
-): ReadonlyArray<string> | undefined => {
+export const pagerCommand = (env: Env, version: () => number = lessVersion) => {
   if (!pagingEnabled(env)) return undefined
   return version() >= 600 ? ["less", "--header=1"] : ["less"]
 }
 
 const PASSED_TO_LESS = ["TERM", "COLORTERM", "LANG", "LC_ALL", "LC_CTYPE"]
 
-export const lessEnv = (env: Env): Record<string, string> => ({
+export const lessEnv = (env: Env) => ({
   ...Object.fromEntries(
     PASSED_TO_LESS.flatMap((name) => {
       const value = env[name]
@@ -75,10 +72,10 @@ const open = Effect.sync(() => {
 
 type Opened = Effect.Success<typeof open>
 
-const sinkFor = (opened: Opened): PagerSink =>
+const sinkFor = (opened: Opened) =>
   opened === undefined
     ? stdoutSink
-    : {
+    : ({
         write: (text) =>
           opened.state.closed
             ? Effect.succeed(false)
@@ -91,7 +88,7 @@ const sinkFor = (opened: Opened): PagerSink =>
                   return false
                 })
               )
-      }
+      } satisfies PagerSink)
 
 const close = (opened: Opened) =>
   opened === undefined

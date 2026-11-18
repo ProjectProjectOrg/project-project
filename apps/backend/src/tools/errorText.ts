@@ -61,5 +61,5 @@ export const toolFailureOf = Match.type<unknown>().pipe(
   Match.orElse(() => undefined)
 )
 
-export const toolErrorMessage = (error: unknown): string | undefined =>
+export const toolErrorMessage = (error: unknown) =>
   toolFailureOf(error)?.message

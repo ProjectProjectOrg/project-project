@@ -13,25 +13,24 @@ import {
   withoutLegacyTicketType
 } from "./typeMigration"
 
-const template = (
-  key: string,
-  overrides: Partial<LegacyTemplate> = {}
-): LegacyTemplate => ({
-  key,
-  name: `Template ${key}`,
-  icon: "Siren",
-  color: null,
-  description: `About ${key}`,
-  priority: "high",
-  tags: [],
-  body: `Body of ${key}`,
-  ...overrides
-})
+const template = (key: string, overrides: Partial<LegacyTemplate> = {}) =>
+  ({
+    key,
+    name: `Template ${key}`,
+    icon: "Siren",
+    color: null,
+    description: `About ${key}`,
+    priority: "high",
+    tags: [],
+    body: `Body of ${key}`,
+    ...overrides
+  }) satisfies LegacyTemplate
 
-const layer = (overrides: Partial<LegacyLayer>): LegacyLayer => ({
-  ...EMPTY_LEGACY_LAYER,
-  ...overrides
-})
+const layer = (overrides: Partial<LegacyLayer>) =>
+  ({
+    ...EMPTY_LEGACY_LAYER,
+    ...overrides
+  }) satisfies LegacyLayer
 
 const summary = (steps: ReturnType<typeof planOrgLayer>["steps"]) =>
   steps.map((step) =>

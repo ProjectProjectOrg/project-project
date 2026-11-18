@@ -179,11 +179,11 @@ export type EditorMessages = Readonly<{
 
 let current: EditorMessages | null = null
 
-export function provideEditorMessages(messages: EditorMessages): void {
+export function provideEditorMessages(messages: EditorMessages) {
   current = messages
 }
 
-const provided = (): EditorMessages => {
+const provided = () => {
   if (current === null)
     throw new Error(
       "Editor messages read before provideEditorMessages was called."
@@ -196,7 +196,7 @@ const provided = (): EditorMessages => {
 export const m: EditorMessages = new Proxy({} as EditorMessages, {
   get:
     (_target, key: string) =>
-    (...args: ReadonlyArray<unknown>): string =>
+    (...args: ReadonlyArray<unknown>) =>
       (
         provided()[key as keyof EditorMessages] as (
           ...a: ReadonlyArray<unknown>

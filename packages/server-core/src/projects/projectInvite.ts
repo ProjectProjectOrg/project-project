@@ -21,7 +21,7 @@ export type ProjectInviteInput = Readonly<{
 export const issueProjectInvite = (
   db: Db["Service"],
   input: ProjectInviteInput
-): Effect.Effect<string> =>
+) =>
   db
     .transaction(() =>
       Effect.gen(function* () {

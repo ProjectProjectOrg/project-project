@@ -76,7 +76,7 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.orDie)
     return rows
-      .flatMap((row): ReadonlyArray<OAuthApplication> => {
+      .flatMap((row) => {
         if (!row.createdAt) return []
         const timestamps = [row.lastAccessAt, row.lastRefreshAt].filter(
           (value): value is Date => value instanceof Date

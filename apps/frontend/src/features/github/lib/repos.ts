@@ -9,9 +9,7 @@ type ProjectRepos = Readonly<{
   githubRepos: ReadonlyArray<GithubConnection>
 }>
 
-export const connectedRepos = (
-  detail: ProjectRepos
-): ReadonlyArray<GithubConnection> =>
+export const connectedRepos = (detail: ProjectRepos) =>
   detail.githubRepos.length > 0
     ? detail.githubRepos
     : detail.github === null
@@ -21,16 +19,16 @@ export const connectedRepos = (
 export const ticketRepo = (
   detail: ProjectRepos,
   repoId: string | null | undefined
-): GithubConnection | null =>
+) =>
   repoId == null
     ? detail.github
     : (connectedRepos(detail).find((repo) => repo.repoId === repoId) ?? null)
 
 export const repoSlug = (
   repo: Readonly<{ repoOwner: string; repoName: string }>
-): string => `${repo.repoOwner}/${repo.repoName}`
+) => `${repo.repoOwner}/${repo.repoName}`
 
-export const connectedRepoIdsKey = (detail: ProjectRepos): string =>
+export const connectedRepoIdsKey = (detail: ProjectRepos) =>
   connectedRepos(detail)
     .map((repo) => repo.repoId)
     .toSorted()
@@ -39,17 +37,17 @@ export const connectedRepoIdsKey = (detail: ProjectRepos): string =>
 export const branchListRepoId = (
   repos: ReadonlyArray<GithubConnection>,
   repo: GithubConnection
-): string | undefined => (repos.length > 1 ? repo.repoId : undefined)
+) => (repos.length > 1 ? repo.repoId : undefined)
 
 const withRepos = <Detail extends ProjectRepos>(
   detail: Detail,
   repos: ReadonlyArray<GithubConnection>
-): Detail => ({ ...detail, github: repos[0] ?? null, githubRepos: repos })
+) => ({ ...detail, github: repos[0] ?? null, githubRepos: repos })
 
 export const withConnectedRepo = <Detail extends ProjectRepos>(
   detail: Detail,
   repo: GithubConnection
-): Detail => {
+) => {
   const repos = connectedRepos(detail)
   return withRepos(
     detail,
@@ -64,7 +62,7 @@ export const withConnectedRepo = <Detail extends ProjectRepos>(
 export const withoutConnectedRepo = <Detail extends ProjectRepos>(
   detail: Detail,
   repoId: string
-): Detail =>
+) =>
   withRepos(
     detail,
     connectedRepos(detail).filter((repo) => repo.repoId !== repoId)
@@ -74,7 +72,7 @@ export const withConfirmedRepo = <Detail extends ProjectRepos>(
   detail: Detail,
   confirmed: ProjectRepos,
   repoId: string
-): Detail => {
+) => {
   const repo = connectedRepos(confirmed).find(
     (current) => current.repoId === repoId
   )
@@ -88,17 +86,17 @@ export const withConfirmedRepo = <Detail extends ProjectRepos>(
 
 const integrationStatus = (
   installations: GithubOrgIntegrationStatus["installations"]
-): GithubOrgIntegrationStatus["status"] =>
-  installations.length === 0
+) =>
+  (installations.length === 0
     ? "not_connected"
     : installations.some((installation) => installation.status === "broken")
       ? "broken"
-      : "active"
+      : "active") satisfies GithubOrgIntegrationStatus["status"]
 
 export const withoutGithubApp = (
   status: GithubOrgIntegrationStatus,
   appId: string
-): GithubOrgIntegrationStatus => {
+) => {
   const installations = status.installations.filter(
     (installation) => installation.appId !== appId
   )
@@ -106,24 +104,28 @@ export const withoutGithubApp = (
     status: integrationStatus(installations),
     apps: status.apps.filter((app) => app.id !== appId),
     installations
-  }
+  } satisfies GithubOrgIntegrationStatus
 }
 
 export const withoutGithubInstallation = (
   status: GithubOrgIntegrationStatus,
   installationId: string
-): GithubOrgIntegrationStatus => {
+) => {
   const installations = status.installations.filter(
     (installation) => installation.id !== installationId
   )
-  return { ...status, status: integrationStatus(installations), installations }
+  return {
+    ...status,
+    status: integrationStatus(installations),
+    installations
+  } satisfies GithubOrgIntegrationStatus
 }
 
 export const withInstallationAccess = (
   status: GithubOrgIntegrationStatus,
   installationId: string,
   access: UpdateGithubInstallationInput
-): GithubOrgIntegrationStatus => ({
+) => ({
   ...status,
   installations: status.installations.map((installation) =>
     installation.id === installationId
@@ -136,7 +138,7 @@ export const withConfirmedInstallation = (
   status: GithubOrgIntegrationStatus,
   confirmed: GithubOrgIntegrationStatus,
   installationId: string
-): GithubOrgIntegrationStatus => {
+) => {
   const installation = confirmed.installations.find(
     (current) => current.id === installationId
   )
@@ -153,7 +155,7 @@ export const withConfirmedInstallation = (
 export const toggledProjectSlug = <Slug extends string>(
   slugs: ReadonlyArray<Slug>,
   slug: Slug
-): ReadonlyArray<Slug> =>
+) =>
   slugs.includes(slug)
     ? slugs.filter((current) => current !== slug)
     : [...slugs, slug]

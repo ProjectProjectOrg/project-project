@@ -4,13 +4,7 @@ import { useState } from "react"
 
 import { mutationErrorText } from "@/lib/mutationError"
 
-export function useSave<A, R, E>(
-  save: (input: A) => Promise<Exit.Exit<R, E>>
-): Readonly<{
-  waiting: boolean
-  error: string | null
-  run: (input: A) => Promise<Exit.Exit<R, E>>
-}> {
+export function useSave<A, R, E>(save: (input: A) => Promise<Exit.Exit<R, E>>) {
   const [state, setState] = useState<
     Readonly<{ waiting: boolean; error: string | null }>
   >({ waiting: false, error: null })

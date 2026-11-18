@@ -11,7 +11,7 @@ type VirtualAnchor = {
   contextElement: Element
 }
 
-const unscaledRect = (element: Element): DOMRect => {
+const unscaledRect = (element: Element) => {
   const rect = element.getBoundingClientRect()
   // `scale` is "none", "0.97" or "0.97 0.97"; mid-transition it reads the
   // current animated value.
@@ -30,7 +30,7 @@ const unscaledRect = (element: Element): DOMRect => {
 
 const anchors = new WeakMap<Element, VirtualAnchor>()
 
-const anchorFor = (element: Element): VirtualAnchor => {
+const anchorFor = (element: Element) => {
   const cached = anchors.get(element)
   if (cached) return cached
   const anchor = {
@@ -53,9 +53,7 @@ function PopupAnchorProvider({ children }: { children: React.ReactNode }) {
 }
 
 /** A ref for the trigger, merged with any ref the caller passed. */
-function useTriggerAnchorRef<T extends Element>(
-  ref: React.Ref<T> | undefined
-): React.RefCallback<T> {
+function useTriggerAnchorRef<T extends Element>(ref: React.Ref<T> | undefined) {
   const trigger = React.useContext(TriggerElementContext)
   return React.useCallback(
     (element: T | null) => {

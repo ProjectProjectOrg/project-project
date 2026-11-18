@@ -241,7 +241,7 @@ function ChosenLabel({
 const labelFor = (
   items: ReadonlyArray<SelectOption<string>>,
   value: string | ReadonlyArray<string>
-): ReactNode => {
+) => {
   if (typeof value === "string")
     return items.find((option) => option.value === value)?.label ?? value
   return value

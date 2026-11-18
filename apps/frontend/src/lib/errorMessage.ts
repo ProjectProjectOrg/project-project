@@ -119,7 +119,7 @@ export type AppError =
 
 const invitationNotAcceptableMessage = (
   reason: InvitationNotAcceptableReason
-): string => {
+) => {
   switch (reason) {
     case "expired":
       return m.auth_invites_accept_error_expired()
@@ -146,14 +146,14 @@ const BLOCK_ISSUE_MESSAGES = {
 const isBlockIssueCode = (code: string): code is BlockIssueCode =>
   Object.hasOwn(BLOCK_ISSUE_MESSAGES, code)
 
-const invalidBlocksMessage = (detail: string): string => {
+const invalidBlocksMessage = (detail: string) => {
   const [code = "", line = "?"] = detail.split(":")
   return isBlockIssueCode(code)
     ? BLOCK_ISSUE_MESSAGES[code]({ line })
     : m.templates_error_invalid_blocks({ line })
 }
 
-const validationMessage = (reason: string): string => {
+const validationMessage = (reason: string) => {
   const separator = reason.indexOf(":")
   const kind = separator === -1 ? reason : reason.slice(0, separator)
   const detail = separator === -1 ? "" : reason.slice(separator + 1)
@@ -213,7 +213,7 @@ const validationMessage = (reason: string): string => {
   }
 }
 
-const conflictMessage = (reason: string): string => {
+const conflictMessage = (reason: string) => {
   switch (reason) {
     case "move_ticket_changed":
     case "move_id_taken":
@@ -419,7 +419,7 @@ export const errorMessage = Match.type<unknown>()
     Match.orElse(() => m.error_unknown())
   )
 
-export const figmaStatusErrorMessage = (reason: string): string => {
+export const figmaStatusErrorMessage = (reason: string) => {
   const error: AppError = (() => {
     switch (reason) {
       case "figma_not_connected":
@@ -443,7 +443,7 @@ type OAuthConsentFailure = Atom.Failure<ReturnType<typeof submitConsentAtom>>
 export const statusSaveErrorMessage = (
   error: StatusSaveFailure,
   fallback: () => string = m.tickets_status_create_error_fallback
-): string =>
+) =>
   Match.value(error).pipe(
     Match.tag("Conflict", ({ reason }) => {
       switch (reason) {
@@ -460,14 +460,14 @@ export const statusSaveErrorMessage = (
     Match.orElse(fallback)
   )
 
-export const oauthConsentErrorMessage = (error: OAuthConsentFailure): string =>
+export const oauthConsentErrorMessage = (error: OAuthConsentFailure) =>
   Match.value(error).pipe(
     Match.tag("Validation", () => m.auth_oauth_consent_error_invalid_link()),
     Match.tag("Unauthorized", () => m.auth_oauth_consent_error_session()),
     Match.orElse(() => m.auth_oauth_consent_error_retry())
   )
 
-export const emailFailureMessage = (reason: EmailFailureReason): string =>
+export const emailFailureMessage = (reason: EmailFailureReason) =>
   ({
     authentication: m.org_email_error_authentication,
     connection: m.org_email_error_connection,
@@ -481,5 +481,5 @@ export const emailFailureMessage = (reason: EmailFailureReason): string =>
     settings_changed: m.org_email_error_settings_changed
   })[reason]()
 
-export const describeCause = (cause: Cause.Cause<unknown>): string =>
+export const describeCause = (cause: Cause.Cause<unknown>) =>
   errorMessage(Cause.squash(cause))

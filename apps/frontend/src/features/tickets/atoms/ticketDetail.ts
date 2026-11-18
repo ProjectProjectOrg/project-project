@@ -20,20 +20,13 @@ import { withoutRelation } from "../lib/relationGroups"
 import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
 import { coalescingTicketUpdate } from "./ticketRows"
 
-export type TicketRequest = Readonly<{
-  _view: "ticketDetail"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: TicketId
-  }>
-}>
+export type TicketRequest = ReturnType<typeof ticketRequest>
 
-export const ticketRequest = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): TicketRequest => ({ _view: "ticketDetail", params: { orgSlug, slug, id } })
+export const ticketRequest = (orgSlug: string, slug: string, id: TicketId) =>
+  ({
+    _view: "ticketDetail",
+    params: { orgSlug, slug, id }
+  }) as const
 
 const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

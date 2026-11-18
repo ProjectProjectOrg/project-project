@@ -11,20 +11,21 @@ type EventTicket = Pick<
 const ticketEvent = (
   kind: "ticket_created" | "ticket_completed" | "ticket_reopened" | null,
   ticket: EventTicket
-): ReadonlyArray<ProjectEvent> =>
+) =>
   kind && ticket.archivedAt === null
-    ? [{ kind, id: ticket.id, title: ticket.title, status: ticket.status }]
+    ? ([
+        { kind, id: ticket.id, title: ticket.title, status: ticket.status }
+      ] satisfies ReadonlyArray<ProjectEvent>)
     : []
 
-export const ticketCreatedEvents = (
-  ticket: TicketDocs.TicketDocument
-): ReadonlyArray<ProjectEvent> => ticketEvent("ticket_created", ticket)
+export const ticketCreatedEvents = (ticket: TicketDocs.TicketDocument) =>
+  ticketEvent("ticket_created", ticket)
 
 export const ticketEvents = (
   before: EventTicket,
   after: EventTicket,
   finished: ReadonlySet<string>
-): ReadonlyArray<ProjectEvent> => {
+) => {
   const wasFinished = finished.has(before.status)
   const isFinished = finished.has(after.status)
   return ticketEvent(
@@ -42,13 +43,10 @@ type SprintEventKind = (typeof SprintEvent.Type)["kind"]
 export const sprintEvents = (
   before: GroupDocs.GroupDocument | null,
   after: GroupDocs.GroupDocument | null
-): ReadonlyArray<ProjectEvent> => {
+) => {
   const previous = before?.kind === "sprint" ? before : null
   const sprint = after?.kind === "sprint" ? after : null
-  const event = (
-    kind: SprintEventKind,
-    group: GroupDocs.GroupDocument
-  ): ProjectEvent => ({
+  const event = (kind: SprintEventKind, group: GroupDocs.GroupDocument) => ({
     kind,
     id: group.id,
     title: group.name,

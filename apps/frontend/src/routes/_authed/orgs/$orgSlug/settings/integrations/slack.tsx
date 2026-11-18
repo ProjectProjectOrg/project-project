@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { SlackIntegrationPage } from "@/features/slack/components/SlackIntegrationPage"
 import { m } from "@/paraglide/messages"
 
@@ -8,6 +9,6 @@ export const Route = createFileRoute(
 )({
   component: SlackIntegrationPage,
   loader: () => ({
-    crumb: { type: "static" as const, label: m.slack_heading() }
+    crumb: Crumb.static({ label: m.slack_heading() })
   })
 })

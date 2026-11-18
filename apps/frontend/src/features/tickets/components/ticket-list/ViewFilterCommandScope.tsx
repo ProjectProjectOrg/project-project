@@ -3,7 +3,7 @@ import { FilterX, SlidersHorizontal } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import {
   FILTER_DIMENSION_META,
   useFilterOptions
@@ -40,7 +40,7 @@ export function ViewFilterCommandScope({
     const prefetch = (choice: FilterChoice) =>
       onQueryPrefetch({ ...query, ...toggleChoice(query, choice) })
     const commands: Array<Command> = [
-      {
+      Command.page({
         id: "view.filter",
         hotkey: appHotkeys["tickets.filter"],
         group: "view",
@@ -48,10 +48,10 @@ export function ViewFilterCommandScope({
         icon: SlidersHorizontal,
         keywords: ["filters", "show only", "narrow"],
         page: "viewFilter"
-      },
+      }),
       ...(activeFilterCount(query, dimensions) > 0
         ? [
-            {
+            Command.run({
               id: "view.clear-filters",
               group: "view",
               label: m.tickets_filters_clear_all,
@@ -61,11 +61,11 @@ export function ViewFilterCommandScope({
                 onQueryChange({ ...query, ...clearedFilters(dimensions) })
                 env.close()
               }
-            } satisfies Command
+            })
           ]
         : []),
-      ...options.map(
-        (option): Command => ({
+      ...options.map((option) =>
+        Command.run({
           id: `view.filter.${option.key}`,
           group: "view",
           listed: "search",

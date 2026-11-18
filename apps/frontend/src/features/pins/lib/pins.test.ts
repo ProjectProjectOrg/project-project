@@ -1,4 +1,10 @@
-import { GroupId, SidebarPin, StatusSlug, TicketId } from "@pp/shared"
+import {
+  GroupId,
+  PinTarget,
+  SidebarPin,
+  StatusSlug,
+  TicketId
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -6,6 +12,7 @@ import {
   movedPin,
   nestPins,
   showsLiveRow,
+  type PinNode,
   withoutPin,
   withPredictedPin
 } from "./pins"
@@ -18,7 +25,7 @@ const todo = Schema.decodeSync(StatusSlug)("todo")
 const ticketPin = (projectSlug: string, id: string, orderKey: string) =>
   decodePin({
     projectSlug,
-    kind: "ticket",
+    _tag: "ticket",
     ref: id,
     orderKey,
     ticket: { id, title: id, status: "todo", archivedAt: null }
@@ -40,7 +47,7 @@ describe("withPredictedPin", () => {
     const next = withPredictedPin(
       pins,
       "web",
-      { kind: "ticket", ref: ticketId("WEB-2") },
+      PinTarget.cases.ticket.make({ ref: ticketId("WEB-2") }),
       { ticket: linked("WEB-2") }
     )
     expect(next.map((pin) => pin.ref)).toEqual(["API-1", "WEB-2", "WEB-1"])
@@ -51,7 +58,7 @@ describe("withPredictedPin", () => {
     const next = withPredictedPin(
       pins,
       "web",
-      { kind: "ticket", ref: ticketId("WEB-1") },
+      PinTarget.cases.ticket.make({ ref: ticketId("WEB-1") }),
       { ticket: linked("WEB-1") }
     )
     expect(next.map((pin) => pin.ref)).toEqual(["WEB-1"])
@@ -63,7 +70,7 @@ describe("withPredictedPin", () => {
       withPredictedPin(
         pins,
         "web",
-        { kind: "sprint", ref: groupId("G-1") },
+        PinTarget.cases.sprint.make({ ref: groupId("G-1") }),
         { ticket: linked("WEB-2") }
       )
     ).toBe(pins)
@@ -76,15 +83,13 @@ describe("withoutPin", () => {
       ticketPin("api", "API-1", "a0"),
       ticketPin("web", "API-1", "a0")
     ]
-    expect(
-      withoutPin(pins, { projectSlug: "web", kind: "ticket", ref: "API-1" })
-    ).toEqual([pins[0]])
+    expect(withoutPin(pins, pins[1])).toEqual([pins[0]])
   })
 })
 
 describe("showsLiveRow", () => {
-  const ticket = { kind: "ticket", ref: ticketId("WEB-1") } as const
-  const sprint = { kind: "sprint", ref: groupId("G-2") } as const
+  const ticket = PinTarget.cases.ticket.make({ ref: ticketId("WEB-1") })
+  const sprint = PinTarget.cases.sprint.make({ ref: groupId("G-2") })
 
   it("shows the page you are on until it is pinned", () => {
     expect(showsLiveRow(ticket, null, false)).toBe(true)
@@ -141,16 +146,16 @@ describe("movedPin", () => {
 
 type Row = Readonly<{ id: string; parent: string | null }>
 
-const ticket = (id: string, parent: string | null = null): Row => ({
+const ticket = (id: string, parent: string | null = null) => ({
   id,
   parent
 })
-const sprint = (id: string): Row => ({ id, parent: null })
+const sprint = (id: string) => ({ id, parent: null })
 
 // A tree as nested ids: a leaf is its id, a parent is [id, children].
-const renderTree = (
-  nodes: ReturnType<typeof nestPins<Row>>
-): ReadonlyArray<unknown> =>
+const renderTree: (
+  nodes: ReadonlyArray<PinNode<Row>>
+) => ReadonlyArray<unknown> = (nodes) =>
   nodes.map((node) =>
     node.children.length === 0
       ? node.row.id

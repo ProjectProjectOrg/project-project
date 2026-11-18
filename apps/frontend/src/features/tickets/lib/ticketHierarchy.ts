@@ -10,9 +10,7 @@ export type TicketHierarchy = Readonly<{
   holdsChildren: boolean
 }>
 
-export function ticketHierarchy(
-  ticket: Pick<Ticket, "type" | "parent">
-): TicketHierarchy {
+export function ticketHierarchy(ticket: Pick<Ticket, "type" | "parent">) {
   return {
     subTicketOf:
       ticket.parent !== null && !isEpic(ticket.parent) ? ticket.parent : null,

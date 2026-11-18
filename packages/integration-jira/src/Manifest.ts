@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-export const canonicalJiraJson = (value: Schema.Json): string => {
+export const canonicalJiraJson: (value: Schema.Json) => string = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonicalJiraJson).join(",")}]`
   if (value !== null && typeof value === "object")
     return `{${Object.entries(value)
@@ -481,7 +481,7 @@ export type JiraMigrationManifestV2 = typeof JiraMigrationManifestV2.Type
 
 export function normalizeJiraMigrationManifestV2(
   manifest: JiraMigrationManifestV2
-): JiraMigrationManifestV2 {
+) {
   return {
     ...manifest,
     fieldDefinitions: sortBy(manifest.fieldDefinitions, ({ id }) => id),
@@ -542,9 +542,7 @@ export function normalizeJiraMigrationManifestV2(
   }
 }
 
-export function normalizeJiraManifest(
-  manifest: JiraMigrationManifest
-): JiraMigrationManifest {
+export function normalizeJiraManifest(manifest: JiraMigrationManifest) {
   return {
     ...manifest,
     identities: sortBy(manifest.identities, ({ accountId }) => accountId),
@@ -586,27 +584,21 @@ export function normalizeJiraManifest(
   }
 }
 
-function compareStrings(left: string, right: string): number {
+function compareStrings(left: string, right: string) {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
-function compareNullableStrings(
-  left: string | null,
-  right: string | null
-): number {
+function compareNullableStrings(left: string | null, right: string | null) {
   if (left === right) return 0
   if (left === null) return -1
   if (right === null) return 1
   return compareStrings(left, right)
 }
 
-function sortStrings(values: ReadonlyArray<string>): Array<string> {
+function sortStrings(values: ReadonlyArray<string>) {
   return values.toSorted(compareStrings)
 }
 
-function sortBy<A>(
-  values: ReadonlyArray<A>,
-  key: (value: A) => string
-): Array<A> {
+function sortBy<A>(values: ReadonlyArray<A>, key: (value: A) => string) {
   return values.toSorted((left, right) => compareStrings(key(left), key(right)))
 }

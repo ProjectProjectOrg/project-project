@@ -17,10 +17,10 @@ export const PinOrderKey = Schema.String.pipe(
 })
 export type PinOrderKey = typeof PinOrderKey.Type
 
-export const PinTarget = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("ticket"), ref: TicketId }),
-  Schema.Struct({ kind: Schema.Literal("sprint"), ref: GroupId })
-])
+export const PinTarget = Schema.TaggedUnion({
+  ticket: { ref: TicketId },
+  sprint: { ref: GroupId }
+})
 export type PinTarget = typeof PinTarget.Type
 
 export const PinnedSprint = Schema.Struct({
@@ -40,22 +40,20 @@ export const PinnedTicket = Schema.Struct({
 })
 export type PinnedTicket = typeof PinnedTicket.Type
 
-export const SidebarPin = Schema.Union([
-  Schema.Struct({
+export const SidebarPin = Schema.TaggedUnion({
+  ticket: {
     projectSlug: Slug,
-    kind: Schema.Literal("ticket"),
     ref: TicketId,
     orderKey: PinOrderKey,
     ticket: PinnedTicket
-  }),
-  Schema.Struct({
+  },
+  sprint: {
     projectSlug: Slug,
-    kind: Schema.Literal("sprint"),
     ref: GroupId,
     orderKey: PinOrderKey,
     sprint: PinnedSprint
-  })
-])
+  }
+})
 export type SidebarPin = typeof SidebarPin.Type
 
 export const ReorderPinInput = Schema.Struct({ orderKey: PinOrderKey })

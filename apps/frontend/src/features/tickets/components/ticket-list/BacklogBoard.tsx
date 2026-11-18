@@ -49,6 +49,7 @@ import {
   boardEdit,
   boardMove,
   boardStatusesFor,
+  DropData,
   isDragData,
   isDropData
 } from "@/features/sprints/lib/boardUtils"
@@ -160,7 +161,7 @@ function BacklogBoardContent({
 
   useBoardCardDrop(!reorderMode && canDrag, (src, dst) => {
     if (!isDragData(src) || !isDropData(dst)) return
-    if (dst.type === "card" && dst.id === src.id) return
+    if (DropData.guards.card(dst) && dst.id === src.id) return
     const row = columnsRef.current
       .find((column) => column.status === src.status)
       ?.rows.find((r) => r.ticket.id === src.id)
@@ -264,7 +265,7 @@ type BoardColumn = Readonly<{
 function buildColumns(
   snapshot: BacklogValue,
   statusSlugs: ReadonlyArray<TicketStatus>
-): ReadonlyArray<BoardColumn> {
+) {
   return statusSlugs.map((status) => {
     const page = snapshot.sections[status]
     const rows = page?.items ?? []
@@ -274,7 +275,7 @@ function buildColumns(
       tickets: rows.map((row) => row.ticket),
       count: snapshot.counts.byStatus[status] ?? 0,
       nextCursor: page?.nextCursor ?? null
-    }
+    } satisfies BoardColumn
   })
 }
 

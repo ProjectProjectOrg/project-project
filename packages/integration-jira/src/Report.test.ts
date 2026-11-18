@@ -2,9 +2,12 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import type { JiraMigrationManifest } from "./Manifest"
-import { JiraMigrationMappings } from "./Mappings"
+import { JiraIdentityResolution, JiraMigrationMappings } from "./Mappings"
 import type { JiraPreflightResult } from "./Preflight"
-import { createJiraPublicationPlan } from "./PublicationPlan"
+import {
+  createJiraPublicationPlan,
+  JiraPublicationPlanResult
+} from "./PublicationPlan"
 import { JiraPlannedArchive } from "./Report"
 import {
   buildJiraMigrationArchive,
@@ -27,7 +30,7 @@ const convertedText = (markdown: string) => ({
   adf: {}
 })
 
-const manifest = (): JiraMigrationManifest => ({
+const manifest: JiraMigrationManifest = {
   version: 1,
   migrationId: "migration-1",
   source: {
@@ -158,7 +161,7 @@ const manifest = (): JiraMigrationManifest => ({
     { kind: "worklogs", cursor: null, records: [{ id: "worklog-1" }] },
     { kind: "issues", cursor: null, records: [] }
   ]
-})
+}
 
 const mappings = () =>
   decodeJiraMigrationMappingsSync({
@@ -166,9 +169,12 @@ const mappings = () =>
     identities: [
       {
         sourceAccountId: "account-linked",
-        resolution: { kind: "link", userId: "user-1" }
+        resolution: JiraIdentityResolution.cases.link.make({ userId: "user-1" })
       },
-      { sourceAccountId: "account-unlinked", resolution: { kind: "unlinked" } }
+      {
+        sourceAccountId: "account-unlinked",
+        resolution: JiraIdentityResolution.cases.unlinked.make({})
+      }
     ],
     statuses: [{ sourceStatusId: "status-1", destinationStatusSlug: "done" }],
     issueTypes: [{ sourceIssueTypeId: "type-1", destinationType: "feat" }],
@@ -204,13 +210,14 @@ const preflight: JiraPreflightResult = {
   ]
 }
 
-const outcome = (): JiraMigrationOutcomeInput => {
-  const source = manifest()
+const outcome = () => {
+  const source = manifest
   const decisions = mappings()
   const planned = createJiraPublicationPlan(source, decisions, preflight, {
     "attachment-1": "/api/orgs/acme/attachments/A1"
   })
-  if (planned.kind !== "ready") throw new Error("expected a ready plan")
+  if (!JiraPublicationPlanResult.$is("ready")(planned))
+    throw new Error("expected a ready plan")
   return {
     migrationId: "migration-1",
     orgSlug: "acme",
@@ -222,7 +229,7 @@ const outcome = (): JiraMigrationOutcomeInput => {
     copiedAttachmentIds: ["attachment-1"],
     userLabelsById: { "user-1": "ada" },
     completedAt: "2026-09-16T09:00:00Z"
-  }
+  } satisfies JiraMigrationOutcomeInput
 }
 
 describe("buildJiraMigrationReportMarkdown", () => {

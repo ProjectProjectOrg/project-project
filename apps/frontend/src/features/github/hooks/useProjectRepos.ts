@@ -8,7 +8,7 @@ import { useProjectRequest } from "@/features/projects/hooks/useProject"
 
 const NO_REPOS: ReadonlyArray<GithubConnection> = []
 
-export function useProjectRepos(): ReadonlyArray<GithubConnection> {
+export function useProjectRepos() {
   const result = useAtomValue(project(useProjectRequest()))
   return Result.isSuccess(result) ? connectedRepos(result.value) : NO_REPOS
 }

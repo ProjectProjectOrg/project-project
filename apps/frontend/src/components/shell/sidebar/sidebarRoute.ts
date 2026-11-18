@@ -1,4 +1,5 @@
-import { GroupId, TicketId, type PinTarget } from "@pp/shared"
+import { GroupId, PinTarget, TicketId } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -9,37 +10,37 @@ export type ProjectRoute = Readonly<{
   sub: string | null
 }>
 
-export type SidebarScope =
-  | Readonly<{ kind: "dashboard"; page: "overview" | "projects" | null }>
-  | Readonly<{
-      kind: "project"
-      slug: string
-      route: ProjectRoute
-      viewing: PinTarget | null
-    }>
-  | Readonly<{ kind: "none" }>
+export type SidebarScope = Data.TaggedEnum<{
+  dashboard: Readonly<{ page: "overview" | "projects" | null }>
+  project: Readonly<{
+    slug: string
+    route: ProjectRoute
+    viewing: PinTarget | null
+  }>
+  none: {}
+}>
+export const SidebarScope = Data.taggedEnum<SidebarScope>()
 
 const SETTINGS_PATH =
   /^\/(?:profile|orgs\/[^/]+\/settings|orgs\/[^/]+\/projects\/[^/]+\/settings)(?:\/|$)/
 
-export const isSettingsPath = (pathname: string): boolean =>
-  SETTINGS_PATH.test(pathname)
+export const isSettingsPath = (pathname: string) => SETTINGS_PATH.test(pathname)
 
 const PROJECT_SECTIONS = ["sprints", "about", "settings"] as const
 
 const decodeTicketId = Schema.decodeUnknownOption(TicketId)
 const decodeGroupId = Schema.decodeUnknownOption(GroupId)
 
-const viewingIn = (section: string, sub: string): PinTarget | null => {
+const viewingIn = (section: string, sub: string) => {
   if (section === "tickets")
     return Option.match(decodeTicketId(sub), {
       onNone: () => null,
-      onSome: (ref) => ({ kind: "ticket" as const, ref })
+      onSome: (ref) => PinTarget.cases.ticket.make({ ref })
     })
   if (section === "sprints" && sub !== "current")
     return Option.match(decodeGroupId(sub), {
       onNone: () => null,
-      onSome: (ref) => ({ kind: "sprint" as const, ref })
+      onSome: (ref) => PinTarget.cases.sprint.make({ ref })
     })
   return null
 }
@@ -48,33 +49,31 @@ export function sidebarScope(
   pathname: string,
   orgSlug: string | null,
   fromSprint: string | undefined
-): SidebarScope {
-  if (orgSlug === null) return { kind: "none" }
+) {
+  if (orgSlug === null) return SidebarScope.none()
   const orgPrefix = `/orgs/${orgSlug}`
   if (pathname !== orgPrefix && !pathname.startsWith(`${orgPrefix}/`))
-    return { kind: "none" }
+    return SidebarScope.none()
   const [area = "", slug = "", section = "", sub = ""] = pathname
     .slice(orgPrefix.length + 1)
     .split("/")
-  if (area === "settings") return { kind: "none" }
+  if (area === "settings") return SidebarScope.none()
   if (area !== "projects")
-    return { kind: "dashboard", page: area === "" ? "overview" : null }
-  if (slug === "") return { kind: "dashboard", page: "projects" }
+    return SidebarScope.dashboard({ page: area === "" ? "overview" : null })
+  if (slug === "") return SidebarScope.dashboard({ page: "projects" })
   const viewing = viewingIn(section, sub)
   if (section === "tickets" && fromSprint !== undefined)
-    return {
-      kind: "project",
+    return SidebarScope.project({
       slug,
       route: { page: "sprints", sub: fromSprint },
       viewing
-    }
+    })
   const page = PROJECT_SECTIONS.find((key) => key === section) ?? "backlog"
-  return {
-    kind: "project",
+  return SidebarScope.project({
     slug,
     route: { page, sub: sub || null },
     viewing
-  }
+  })
 }
 
 export const PROJECT_PAGE_PATHS = {
@@ -95,7 +94,7 @@ export function projectNavActive(
   route: ProjectRoute,
   activeSprintId: string | null,
   viewingPinned: boolean
-): ProjectNavActive {
+) {
   if (viewingPinned) return null
   if (route.page === "sprints") {
     const onCurrent =
@@ -122,7 +121,7 @@ export function panelTransition(
   from: string,
   to: string,
   order: ReadonlyArray<string>
-): PanelTransition {
+) {
   if (from === to) return "none"
   if (to === SETTINGS_PANEL) return "forward"
   if (from === SETTINGS_PANEL) return "back"

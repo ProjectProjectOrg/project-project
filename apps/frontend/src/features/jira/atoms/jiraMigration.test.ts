@@ -11,35 +11,36 @@ import {
 } from "./jiraMigration"
 
 const fetchStub = stubFetch()
-const detail = (id: string): JiraMigrationDetail => ({
-  id,
-  sourceCloudId: "cloud",
-  sourceProjectId: "source",
-  sourceProjectKey: "SRC",
-  sourceProjectName: "Source",
-  status: "ready",
-  phase: "configuration",
-  revision: 1,
-  progress: { phase: "configuration", done: 1, total: 1 },
-  destinationProjectSlug: null,
-  createdAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
-  scanSummary: null,
-  requirements: null,
-  configuration: null,
-  failedAttachmentIds: [],
-  actions: {
-    canConfigure: true,
-    canRun: true,
-    canRescan: true,
-    canCancel: false,
-    canRetry: false,
-    canDiscard: true
-  },
-  failure: null,
-  reportPath: null,
-  finishedAt: null
-})
+const detail = (id: string) =>
+  ({
+    id,
+    sourceCloudId: "cloud",
+    sourceProjectId: "source",
+    sourceProjectKey: "SRC",
+    sourceProjectName: "Source",
+    status: "ready",
+    phase: "configuration",
+    revision: 1,
+    progress: { phase: "configuration", done: 1, total: 1 },
+    destinationProjectSlug: null,
+    createdAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2026-09-23T00:00:00.000Z"),
+    scanSummary: null,
+    requirements: null,
+    configuration: null,
+    failedAttachmentIds: [],
+    actions: {
+      canConfigure: true,
+      canRun: true,
+      canRescan: true,
+      canCancel: false,
+      canRetry: false,
+      canDiscard: true
+    },
+    failure: null,
+    reportPath: null,
+    finishedAt: null
+  }) satisfies JiraMigrationDetail
 const encoded = (id: string, revision = 1) =>
   Response.json(encodeJiraMigrationDetailSync({ ...detail(id), revision }))
 
@@ -125,22 +126,23 @@ import { stubFetch } from "@/api/testFetch"
 
 const encodeJiraMigrationDetailSync = Schema.encodeSync(JiraMigrationDetail)
 
-const configuration = (name: string): JiraMigrationConfiguration => ({
-  destination: {
-    name,
-    slug: Slug.make("engineering"),
-    key: CreatableProjectKey.make("ENG")
-  },
-  identities: [],
-  statuses: [],
-  issueTypes: [],
-  priorities: [],
-  tags: [],
-  activeFutureSprintChoices: [],
-  restrictedContent: { policy: "exclude" },
-  skippedAttachmentIds: [],
-  attachmentSkipsAccepted: false
-})
+const configuration = (name: string) =>
+  ({
+    destination: {
+      name,
+      slug: Slug.make("engineering"),
+      key: CreatableProjectKey.make("ENG")
+    },
+    identities: [],
+    statuses: [],
+    issueTypes: [],
+    priorities: [],
+    tags: [],
+    activeFutureSprintChoices: [],
+    restrictedContent: { policy: "exclude" },
+    skippedAttachmentIds: [],
+    attachmentSkipsAccepted: false
+  }) satisfies JiraMigrationConfiguration
 
 const decodeConfigureBody = Schema.decodeUnknownSync(
   Schema.Struct({

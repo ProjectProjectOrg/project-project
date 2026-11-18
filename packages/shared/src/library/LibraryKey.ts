@@ -14,7 +14,7 @@ export const RESERVED_TYPE_KEYS: ReadonlyArray<string> = [
   NO_TYPE_FILTER
 ]
 
-export const isReservedTypeKey = (key: string): boolean =>
+export const isReservedTypeKey = (key: string) =>
   RESERVED_TYPE_KEYS.includes(key)
 
 const libraryKey = Schema.String.pipe(

@@ -15,11 +15,12 @@ import {
   TicketId,
   TicketListQuery,
   TicketStatus,
-  TypeFilter,
-  type TicketListSource
+  TicketListSource,
+  TypeFilter
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 const BooleanParam = Schema.Union([
@@ -98,9 +99,9 @@ export type TicketNavigationSearch =
   | typeof SprintBoardSearch.Type
   | typeof ParentSearch.Type
 
-export type TicketPageSource =
-  | TicketListSource
-  | Readonly<{ kind: "parent"; parent: TicketId }>
+const TicketParentSource = Schema.TaggedStruct("parent", { parent: TicketId })
+
+export type TicketPageSource = TicketListSource | typeof TicketParentSource.Type
 
 const TicketActions = {
   focusBody: Schema.optional(Schema.Literal("1")),
@@ -126,9 +127,7 @@ const decodeQuery = Schema.decodeUnknownSync(
   Schema.toCodecStringTree(TicketListQuery)
 )
 
-export function ticketQueryFromSearch(
-  search: TicketListSearch
-): TicketListQuery {
+export function ticketQueryFromSearch(search: TicketListSearch) {
   return decodeQuery({
     ...search,
     sort: {
@@ -138,9 +137,7 @@ export function ticketQueryFromSearch(
   })
 }
 
-export function ticketSearchFromQuery(
-  query: TicketListQuery
-): TicketListSearch {
+export function ticketSearchFromQuery(query: TicketListQuery) {
   const {
     sort,
     hasBranch,
@@ -163,46 +160,55 @@ export function ticketSearchFromQuery(
     flagged: encodeBoolean(flagged),
     sort: defaultSort ? undefined : query.sort.key,
     dir: defaultSort ? undefined : query.sort.dir
-  }
+  } satisfies TicketListSearch
 }
 
-export function ticketSearchFromSource(
-  source: TicketListSource
-): TicketNavigationSearch {
+export function ticketSearchFromSource(source: TicketListSource) {
   const query = ticketSearchFromQuery(source.query)
-  return source.kind === "sections"
-    ? { ...query, from: source.kind, group: source.grouping }
-    : { ...query, from: source.kind, sprint: source.groupId }
+  return TicketListSource.isAnyOf(["sections"])(source)
+    ? ({
+        ...query,
+        from: source._tag,
+        group: source.grouping
+      } satisfies TicketNavigationSearch)
+    : ({
+        ...query,
+        from: source._tag,
+        sprint: source.groupId
+      } satisfies TicketNavigationSearch)
 }
 
 export function ticketPageSearch(
   from: TicketPageSource | undefined,
   sprint: GroupId | undefined
-): TicketDetailSearch {
-  if (from === undefined) return {}
-  if (from.kind === "parent") return { from: "parent", parentId: from.parent }
+) {
+  if (from === undefined) return {} satisfies TicketDetailSearch
+  if (Predicate.isTagged(from, "parent"))
+    return {
+      from: "parent",
+      parentId: from.parent
+    } satisfies TicketDetailSearch
   const search = ticketSearchFromSource(from)
   return search.from === "sections" && sprint !== undefined
-    ? { ...search, sprint }
-    : search
+    ? ({ ...search, sprint } satisfies TicketDetailSearch)
+    : (search satisfies TicketDetailSearch)
 }
 
-export function sprintFromSearch(
-  search: TicketDetailSearch
-): GroupId | undefined {
+export function sprintFromSearch(search: TicketDetailSearch) {
   return search.from === "sections" || search.from === "sprintBoard"
     ? search.sprint
     : undefined
 }
 
-export function ticketSourceFromSearch(
-  search: TicketDetailSearch
-): TicketPageSource | undefined {
+export function ticketSourceFromSearch(search: TicketDetailSearch) {
   if (search.from === undefined) return undefined
   if (search.from === "parent")
-    return { kind: "parent", parent: search.parentId }
+    return TicketParentSource.make({ parent: search.parentId })
   const query = ticketQueryFromSearch(search)
   return search.from === "sections"
-    ? { kind: search.from, grouping: search.group, query }
-    : { kind: search.from, groupId: search.sprint, query }
+    ? TicketListSource.cases.sections.make({ grouping: search.group, query })
+    : TicketListSource.cases.sprintBoard.make({
+        groupId: search.sprint,
+        query
+      })
 }

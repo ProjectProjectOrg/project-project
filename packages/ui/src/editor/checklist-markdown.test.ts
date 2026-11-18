@@ -19,7 +19,7 @@ import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
 import { TicketBlockExtension } from "./blocks/ticket-block-extension"
 import { MARKDOWN_TRANSFORMERS } from "./editor-transformers"
 
-function editorWith(markdown: string): LexicalEditor {
+function editorWith(markdown: string) {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "checklist-shortcut-test",
@@ -65,10 +65,10 @@ function typeInto(editor: LexicalEditor, itemText: string, typed: string) {
   editor.update(() => {}, { discrete: true })
 }
 
-const markdownOf = (editor: LexicalEditor): string =>
+const markdownOf = (editor: LexicalEditor) =>
   editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
 
-const listTypes = (editor: LexicalEditor): ReadonlyArray<string> =>
+const listTypes = (editor: LexicalEditor) =>
   editor.read(() =>
     $getRoot()
       .getChildren()

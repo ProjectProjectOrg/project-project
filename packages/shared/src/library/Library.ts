@@ -21,7 +21,7 @@ const WHEEL_HEXES: ReadonlySet<string> = new Set(
   STORED_COLORS.map((swatch) => swatch.hex)
 )
 
-export const isWheelHex = (value: string): boolean =>
+export const isWheelHex = (value: string) =>
   WHEEL_HEXES.has(value.toLowerCase())
 
 export const LibraryOrigin = Schema.Literals(["builtin", "org", "project"])

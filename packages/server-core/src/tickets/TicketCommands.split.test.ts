@@ -61,7 +61,7 @@ const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeUserId = Schema.decodeUnknownSync(UserId)
 
-function unexpected(method: string): Effect.Effect<never> {
+function unexpected(method: string) {
   return Effect.die(new Error(`unexpected ${method} call`))
 }
 
@@ -120,19 +120,20 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   list: () =>
     Effect.sync(() => {
       return [...sprintTicketOrders].map(
-        ([sprintId, tickets]): Group => ({
-          id: decodeGroupId(sprintId),
-          name: sprintId,
-          kind: "sprint",
-          color: decodeGroupColor("#777777"),
-          tickets: tickets.map((ticketId) => decodeTicketId(ticketId)),
-          startsAt: null,
-          endsAt: null,
-          completedAt: null,
-          createdBy: "user-1",
-          createdAt: groupTimestamp,
-          updatedAt: groupTimestamp
-        })
+        ([sprintId, tickets]) =>
+          ({
+            id: decodeGroupId(sprintId),
+            name: sprintId,
+            kind: "sprint",
+            color: decodeGroupColor("#777777"),
+            tickets: tickets.map((ticketId) => decodeTicketId(ticketId)),
+            startsAt: null,
+            endsAt: null,
+            completedAt: null,
+            createdBy: "user-1",
+            createdAt: groupTimestamp,
+            updatedAt: groupTimestamp
+          }) satisfies Group
       )
     }),
   documents: () =>
@@ -170,62 +171,59 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
       const before = beforeSprintAssignment
       beforeSprintAssignment = Effect.void
       yield* before
-      return yield* Effect.suspend(
-        (): Effect.Effect<void, Conflict | Markdown.MarkdownError> => {
-          if (
-            options?.from !== undefined &&
-            (sprintMemberships.get(ticketId) ?? null) !== options.from
-          ) {
-            return new Conflict({ reason: "sprint_membership_changed" })
-          }
-          sprintAssignmentAttempts += 1
-          if (sprintAssignmentAttempts === failSprintAssignmentAt) {
-            return new Markdown.MarkdownError({
-              cause: new Error("sprint write failed"),
-              message: "sprint write failed"
-            })
-          }
-          sprintAssignments.push({ ticketId, sprintId })
-          for (const [id, tickets] of sprintTicketOrders) {
-            sprintTicketOrders.set(
-              id,
-              tickets.filter((candidate) => candidate !== ticketId)
-            )
-          }
-          if (sprintId === null) sprintMemberships.delete(ticketId)
-          else {
-            sprintMemberships.set(ticketId, sprintId)
-            sprintTicketOrders.set(sprintId, [
-              ...(sprintTicketOrders.get(sprintId) ?? []),
-              ticketId
-            ])
-          }
-          return afterSprintAssignment(ticketId, sprintId)
-        }
-      )
+      if (
+        options?.from !== undefined &&
+        (sprintMemberships.get(ticketId) ?? null) !== options.from
+      ) {
+        return yield* new Conflict({ reason: "sprint_membership_changed" })
+      }
+      sprintAssignmentAttempts += 1
+      if (sprintAssignmentAttempts === failSprintAssignmentAt) {
+        return yield* new Markdown.MarkdownError({
+          cause: new Error("sprint write failed"),
+          message: "sprint write failed"
+        })
+      }
+      sprintAssignments.push({ ticketId, sprintId })
+      for (const [id, tickets] of sprintTicketOrders) {
+        sprintTicketOrders.set(
+          id,
+          tickets.filter((candidate) => candidate !== ticketId)
+        )
+      }
+      if (sprintId === null) sprintMemberships.delete(ticketId)
+      else {
+        sprintMemberships.set(ticketId, sprintId)
+        sprintTicketOrders.set(sprintId, [
+          ...(sprintTicketOrders.get(sprintId) ?? []),
+          ticketId
+        ])
+      }
+      return yield* afterSprintAssignment(ticketId, sprintId)
     }),
   removeTicketFromAllGroups: () => Effect.void
 } satisfies Groups.Groups["Service"])
 
-const fakeUser = (id: string): User => ({
-  id: decodeUserId(id),
-  email: `${id}@example.com`,
-  name: id,
-  username: null,
-  image: null,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  activeOrgSlug: null,
-  personalGithub: { connected: false },
-  editorPreference: "github",
-  personalEverhour: {
-    connected: false,
-    everhourUserId: null,
-    name: null,
-    email: null,
-    lastVerifiedAt: null,
-    lastCheckError: null
-  }
-})
+const fakeUser = (id: string) =>
+  ({
+    id: decodeUserId(id),
+    email: `${id}@example.com`,
+    name: id,
+    username: null,
+    image: null,
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+    activeOrgSlug: null,
+    personalGithub: { connected: false },
+    editorPreference: "github",
+    personalEverhour: {
+      connected: false,
+      everhourUserId: null,
+      name: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    }
+  }) satisfies User
 
 const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),

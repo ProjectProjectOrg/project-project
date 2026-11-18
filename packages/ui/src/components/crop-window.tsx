@@ -29,7 +29,7 @@ export const cropWindowRect = ({
   zoom: number
   x: number
   y: number
-}): CropWindowRect => {
+}) => {
   const covered =
     sourceWidth / sourceHeight > aspect
       ? { width: sourceHeight * aspect, height: sourceHeight }

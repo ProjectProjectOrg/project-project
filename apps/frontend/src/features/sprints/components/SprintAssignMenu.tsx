@@ -20,7 +20,7 @@ type SelectProps = ComponentProps<typeof Select>
 const NO_SPRINT = "__no-sprint"
 const NEW_SPRINT = "__new-sprint"
 
-function rangeText(s: Group): string {
+function rangeText(s: Group) {
   if (!s.startsAt || !s.endsAt) return ""
   const fmt = new Intl.DateTimeFormat(getLocale(), {
     month: "short",
@@ -45,7 +45,7 @@ export type SprintAssignMenuProps = {
 export function pickDefaultSprint(
   sprints: ReadonlyArray<Group>,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
-): Group | null {
+) {
   return (
     pickActiveSprint(sprints, now) ??
     pickEarliestPlannedSprint(sprints, now) ??

@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import type { JiraMigrationManifest } from "./Manifest"
-import { JiraMigrationMappings } from "./Mappings"
+import { JiraIdentityResolution, JiraMigrationMappings } from "./Mappings"
 import { preflightJiraMigration } from "./Preflight"
 
 const makeIssue = (id: string, key: string, issueNumber: number) => ({
@@ -26,143 +26,144 @@ const makeIssue = (id: string, key: string, issueNumber: number) => ({
   raw: {}
 })
 
-const makeManifest = (): JiraMigrationManifest => ({
-  version: 1,
-  migrationId: "migration-1",
-  source: {
-    cloudId: "cloud-1",
-    siteUrl: "https://example.atlassian.net",
-    projectId: "10000",
-    projectKey: "APP",
-    projectName: "Application",
-    productType: "software",
-    scannedAt: "2026-09-14T12:00:00Z"
-  },
-  identities: [
-    {
-      accountId: "account-1",
-      displayName: "Jira User",
-      emailAddress: null,
-      active: true,
-      accountType: "atlassian",
-      raw: {}
-    }
-  ],
-  statuses: [
-    {
-      id: "status-1",
-      name: "In progress",
-      categoryKey: "indeterminate",
-      raw: {}
-    }
-  ],
-  issueTypes: [{ id: "type-1", name: "Sub-task", subtask: true, raw: {} }],
-  priorities: [{ id: "priority-1", name: "High", raw: {} }],
-  components: [],
-  issues: [makeIssue("issue-1", "APP-1", 1)],
-  comments: [],
-  attachments: [
-    {
-      id: "attachment-ok",
-      issueId: "issue-1",
-      filename: "ok.png",
-      mimeType: "image/png",
-      byteSize: 25 * 1024 * 1024,
-      downloadUrl: "https://example.atlassian.net/ok.png",
-      jiraUrl: "https://example.atlassian.net/browse/APP-1",
-      downloadAllowed: true,
-      raw: {}
+const makeManifest = () =>
+  ({
+    version: 1,
+    migrationId: "migration-1",
+    source: {
+      cloudId: "cloud-1",
+      siteUrl: "https://example.atlassian.net",
+      projectId: "10000",
+      projectKey: "APP",
+      projectName: "Application",
+      productType: "software",
+      scannedAt: "2026-09-14T12:00:00Z"
     },
-    {
-      id: "attachment-large",
-      issueId: "issue-1",
-      filename: "large.png",
-      mimeType: "image/png",
-      byteSize: 25 * 1024 * 1024 + 1,
-      downloadUrl: "https://example.atlassian.net/large.png",
-      jiraUrl: null,
-      downloadAllowed: true,
-      raw: {}
-    },
-    {
-      id: "attachment-type",
-      issueId: "issue-1",
-      filename: "notes.txt",
-      mimeType: "video/x-matroska",
-      byteSize: 20,
-      downloadUrl: "https://example.atlassian.net/notes.txt",
-      jiraUrl: null,
-      downloadAllowed: true,
-      raw: {}
-    },
-    {
-      id: "attachment-forbidden",
-      issueId: "issue-1",
-      filename: "hidden.pdf",
-      mimeType: "application/pdf",
-      byteSize: 20,
-      downloadUrl: null,
-      jiraUrl: null,
-      downloadAllowed: false,
-      raw: {}
-    }
-  ],
-  groups: [
-    {
-      id: "sprint-done",
-      kind: "sprint",
-      name: "Completed",
-      description: null,
-      state: "completed",
-      issueIds: ["issue-1"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: "2026-08-01T00:00:00Z",
-      raw: {}
-    },
-    {
-      id: "sprint-active",
-      kind: "sprint",
-      name: "Active",
-      description: null,
-      state: "active",
-      issueIds: ["issue-1"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      raw: {}
-    },
-    {
-      id: "sprint-future",
-      kind: "sprint",
-      name: "Future",
-      description: null,
-      state: "future",
-      issueIds: ["issue-1"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      raw: {}
-    }
-  ],
-  restrictions: [
-    {
-      id: "restriction-1",
-      targetKind: "issue",
-      targetId: "issue-1",
-      source: "security-level",
-      raw: {}
-    }
-  ],
-  coverage: [
-    {
-      category: "issues",
-      visibility: "visible-only",
-      reason: "connected-account permissions"
-    }
-  ],
-  rawPages: []
-})
+    identities: [
+      {
+        accountId: "account-1",
+        displayName: "Jira User",
+        emailAddress: null,
+        active: true,
+        accountType: "atlassian",
+        raw: {}
+      }
+    ],
+    statuses: [
+      {
+        id: "status-1",
+        name: "In progress",
+        categoryKey: "indeterminate",
+        raw: {}
+      }
+    ],
+    issueTypes: [{ id: "type-1", name: "Sub-task", subtask: true, raw: {} }],
+    priorities: [{ id: "priority-1", name: "High", raw: {} }],
+    components: [],
+    issues: [makeIssue("issue-1", "APP-1", 1)],
+    comments: [],
+    attachments: [
+      {
+        id: "attachment-ok",
+        issueId: "issue-1",
+        filename: "ok.png",
+        mimeType: "image/png",
+        byteSize: 25 * 1024 * 1024,
+        downloadUrl: "https://example.atlassian.net/ok.png",
+        jiraUrl: "https://example.atlassian.net/browse/APP-1",
+        downloadAllowed: true,
+        raw: {}
+      },
+      {
+        id: "attachment-large",
+        issueId: "issue-1",
+        filename: "large.png",
+        mimeType: "image/png",
+        byteSize: 25 * 1024 * 1024 + 1,
+        downloadUrl: "https://example.atlassian.net/large.png",
+        jiraUrl: null,
+        downloadAllowed: true,
+        raw: {}
+      },
+      {
+        id: "attachment-type",
+        issueId: "issue-1",
+        filename: "notes.txt",
+        mimeType: "video/x-matroska",
+        byteSize: 20,
+        downloadUrl: "https://example.atlassian.net/notes.txt",
+        jiraUrl: null,
+        downloadAllowed: true,
+        raw: {}
+      },
+      {
+        id: "attachment-forbidden",
+        issueId: "issue-1",
+        filename: "hidden.pdf",
+        mimeType: "application/pdf",
+        byteSize: 20,
+        downloadUrl: null,
+        jiraUrl: null,
+        downloadAllowed: false,
+        raw: {}
+      }
+    ],
+    groups: [
+      {
+        id: "sprint-done",
+        kind: "sprint",
+        name: "Completed",
+        description: null,
+        state: "completed",
+        issueIds: ["issue-1"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: "2026-08-01T00:00:00Z",
+        raw: {}
+      },
+      {
+        id: "sprint-active",
+        kind: "sprint",
+        name: "Active",
+        description: null,
+        state: "active",
+        issueIds: ["issue-1"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        raw: {}
+      },
+      {
+        id: "sprint-future",
+        kind: "sprint",
+        name: "Future",
+        description: null,
+        state: "future",
+        issueIds: ["issue-1"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        raw: {}
+      }
+    ],
+    restrictions: [
+      {
+        id: "restriction-1",
+        targetKind: "issue",
+        targetId: "issue-1",
+        source: "security-level",
+        raw: {}
+      }
+    ],
+    coverage: [
+      {
+        category: "issues",
+        visibility: "visible-only",
+        reason: "connected-account permissions"
+      }
+    ],
+    rawPages: []
+  }) satisfies JiraMigrationManifest
 
 const environment = {
   existingProjectSlugs: [] as ReadonlyArray<string>,
@@ -234,7 +235,9 @@ describe("preflightJiraMigration", () => {
       identities: [
         {
           sourceAccountId: "account-1",
-          resolution: { kind: "link", userId: "user-1" }
+          resolution: JiraIdentityResolution.cases.link.make({
+            userId: "user-1"
+          })
         }
       ],
       statuses: [
@@ -283,7 +286,10 @@ describe("preflightJiraMigration", () => {
     const mappings = decodeMappings({
       project: { slug: "application", key: "APP", name: "Application" },
       identities: [
-        { sourceAccountId: "account-1", resolution: { kind: "unlinked" } }
+        {
+          sourceAccountId: "account-1",
+          resolution: JiraIdentityResolution.cases.unlinked.make({})
+        }
       ],
       statuses: [
         { sourceStatusId: "status-1", destinationStatusSlug: "in_progress" }

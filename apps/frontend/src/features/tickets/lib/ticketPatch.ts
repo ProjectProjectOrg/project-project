@@ -16,7 +16,7 @@ export const parentRef = ({
   id,
   title,
   type
-}: Pick<Ticket, "id" | "title" | "type">): TicketParent => ({
+}: Pick<Ticket, "id" | "title" | "type">) => ({
   id,
   title,
   type
@@ -37,9 +37,7 @@ export type TicketEdit = Omit<
     position?: TicketMove
   }>
 
-const flagInput = (
-  flag: TicketFlag | null | undefined
-): Pick<UpdateTicketInput, "flag"> => {
+const flagInput = (flag: TicketFlag | null | undefined) => {
   if (flag === undefined) return {}
   if (flag === null) return { flag: null }
   return { flag: flag.reason === undefined ? {} : { reason: flag.reason } }
@@ -50,7 +48,7 @@ export const toUpdateInput = ({
   flag,
   position,
   ...edit
-}: TicketEdit): UpdateTicketInput => ({
+}: TicketEdit) => ({
   ...edit,
   ...(parent === undefined ? {} : { parent: parent?.id ?? null }),
   ...(position === undefined ? {} : { position: position.to }),
@@ -65,10 +63,7 @@ const composed = <A>(
     ? (next ?? pending)
     : composeListEdit(pending, next)
 
-export const mergeTicketEdit = (
-  pending: TicketEdit,
-  next: TicketEdit
-): TicketEdit => {
+export const mergeTicketEdit = (pending: TicketEdit, next: TicketEdit) => {
   return {
     ...pending,
     ...next,
@@ -77,7 +72,7 @@ export const mergeTicketEdit = (
   }
 }
 
-export const toBulkPatch = (edit: TicketEdit): BulkTicketPatch => {
+export const toBulkPatch = (edit: TicketEdit) => {
   const {
     title: _title,
     body: _body,
@@ -94,11 +89,10 @@ export const fromBulkPatch = ({
   position: _position,
   flag,
   ...edit
-}: BulkTicketPatch): TicketEdit =>
-  flag === null ? { ...edit, flag: null } : edit
+}: BulkTicketPatch) => (flag === null ? { ...edit, flag: null } : edit)
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
-export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
+export function applyTicketPatch(ticket: Ticket, patch: TicketEdit) {
   return {
     ...ticket,
     title: patch.title ?? ticket.title,
@@ -124,7 +118,7 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
 export function applyTicketDetailPatch(
   ticket: TicketDetail,
   patch: TicketEdit
-): TicketDetail {
+) {
   return {
     ...ticket,
     ...applyTicketPatch(ticket, patch),

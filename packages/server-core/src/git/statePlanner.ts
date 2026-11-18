@@ -11,7 +11,6 @@ import type * as GitHub from "../github/GitHub"
 import {
   pickPullRequestTicket,
   pullRequestTicketReferences,
-  type PullRequestTicketPick,
   type ResolveTicketId
 } from "./pullRequestReference"
 import {
@@ -34,7 +33,7 @@ const pickBranchTicket = (
   knownIds: ReadonlySet<string>,
   openPullRequestText: ReadonlyMap<string, GitHub.RawPullRequestText>,
   resolveId: ResolveTicketId
-): Option.Option<PullRequestTicketPick> =>
+) =>
   pickPullRequestTicket(
     pullRequestTicketReferences(
       {
@@ -49,7 +48,7 @@ const pickBranchTicket = (
 const chainBottom = (
   branches: ReadonlySet<string>,
   prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry>
-): string | null => {
+) => {
   const bottoms = [...branches].filter((branch) => {
     const base = prByBranch.get(branch)?.baseRefName
     return base === undefined || !branches.has(base)
@@ -68,7 +67,7 @@ export function planAutomaticBranchLinks(
   prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
   knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id)),
   resolveId: ResolveTicketId = identity
-): ReadonlyMap<TicketId, string> {
+) {
   const attachedBranches = new Set(
     tickets.flatMap((ticket) => [...ticketBranches(ticket)])
   )
@@ -115,14 +114,14 @@ export function planAutomaticStacks(
   prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
   knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id)),
   resolveId: ResolveTicketId = identity
-): ReadonlyMap<TicketId, ReadonlyArray<TicketBranchEntry>> {
+) {
   const byId = new Map(tickets.map((ticket) => [ticket.id, ticket]))
   const attached = new Set([
     ...ownLinks.values(),
     ...tickets.flatMap((ticket) => [...ticketBranches(ticket)])
   ])
   const stacks = new Map<TicketId, Array<TicketBranchEntry>>()
-  const attach = (branch: string): boolean => {
+  const attach = (branch: string) => {
     const pick = pickBranchTicket(
       branch,
       knownIds,
@@ -176,7 +175,7 @@ export function planAutomaticStacks(
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   context: LandingContext<GitHub.RawBranchEntry>
-): ReadonlyArray<TicketBranchEntry> =>
+) =>
   (stack ?? []).map((layer) => {
     const pr = context.prByBranch.get(layer.branch)
     return pr === undefined
@@ -201,7 +200,7 @@ type LandingContext<T extends MergeCandidate = MergeCandidate> = Readonly<{
 export const pullRequestLanded = (
   pr: MergeCandidate,
   context: LandingContext
-): boolean => {
+) => {
   const visited = new Set<MergeCandidate>()
   const pending = [pr]
   while (pending.length > 0) {
@@ -237,14 +236,15 @@ export const stackPullRequest = (
   branch: string,
   pr: GitHub.RawBranchEntry,
   context: LandingContext
-): StackPullRequest => ({
-  branch,
-  base: pr.baseRefName,
-  number: pr.number,
-  state: pr.state,
-  draft: pr.draft,
-  landed: pullRequestLanded(pr, context)
-})
+) =>
+  ({
+    branch,
+    base: pr.baseRefName,
+    number: pr.number,
+    state: pr.state,
+    draft: pr.draft,
+    landed: pullRequestLanded(pr, context)
+  }) satisfies StackPullRequest
 
 export interface TicketGitStateInput {
   readonly id: TicketId
@@ -285,7 +285,7 @@ export interface TicketGitStatePlan {
 export function planPullRequestPatch(
   ticket: TicketGitStateInput,
   pr: PullRequestWebhookInput
-): TicketGitStatePatch | null {
+) {
   if (pr.state === "merged") {
     const samePr = ticket.pr === pr.number
     const landed =
@@ -294,25 +294,29 @@ export function planPullRequestPatch(
       ticket.prState === "merged" &&
       (ticket.lastTransitionedPr === pr.number) === landed
       ? null
-      : {
+      : ({
           pr: pr.number,
           prState: "merged",
           prDraft: false,
           lastTransitionedPr: landed ? pr.number : null
-        }
+        } satisfies TicketGitStatePatch)
   }
   const draft = pr.state === "open" && pr.draft
   return ticket.pr === pr.number &&
     ticket.prState === pr.state &&
     ticket.prDraft === draft
     ? null
-    : { pr: pr.number, prState: pr.state, prDraft: draft }
+    : ({
+        pr: pr.number,
+        prState: pr.state,
+        prDraft: draft
+      } satisfies TicketGitStatePatch)
 }
 
 export function planPullRequestWebhookTicket(
   ticket: TicketGitStateInput,
   pr: PullRequestWebhookInput
-): TicketGitStatePatch | null {
+) {
   if (
     ticket.pr === pr.number &&
     ticket.prState === "merged" &&
@@ -327,7 +331,7 @@ export const withPullRequestBase = (
   planned: TicketGitStatePatch | null,
   ticket: Pick<TicketGitStateInput, "pr" | "prBase">,
   pr: Readonly<{ number: number; base: string }>
-): TicketGitStatePatch | null => {
+) => {
   if (planned !== null) return { ...planned, prBase: pr.base }
   return ticket.pr === pr.number && ticket.prBase !== pr.base
     ? { prBase: pr.base }
@@ -338,7 +342,7 @@ export function planTicketGitStates(
   tickets: ReadonlyArray<TicketGitStateInput>,
   raw: GitHub.RawProjectStates,
   now: Date
-): TicketGitStatePlan {
+) {
   const states: Record<string, GitState> = {}
   const writes: TicketGitStateWrite[] = []
 
@@ -414,5 +418,5 @@ export function planTicketGitStates(
     }
   }
 
-  return { states, writes }
+  return { states, writes } satisfies TicketGitStatePlan
 }

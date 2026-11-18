@@ -47,7 +47,7 @@ import { slashMenuSections } from "./slash-menu-items"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
-const block = (key: string): string => {
+const block = (key: string) => {
   const definition = lookup(key)
   if (definition === undefined) throw new Error(`no block ${key}`)
   return formatTicketBlock(key, stripHints(definition.content))
@@ -56,7 +56,7 @@ const block = (key: string): string => {
 const chore = BUILTIN_TYPES.find((template) => template.key === "chore")
 if (chore === undefined) throw new Error("no chore template")
 
-function editorWith(markdown: string): LexicalEditor {
+function editorWith(markdown: string) {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "slash-insert-test",
@@ -92,7 +92,7 @@ function $caretAfter(text: string) {
   node.select(offset, offset)
 }
 
-const describeNode = (node: LexicalNode): string =>
+const describeNode = (node: LexicalNode) =>
   $isTicketBlockNode(node)
     ? `block:${node.getBlockType()}`
     : `${node.getType()}:${node.getTextContent()}`
@@ -100,7 +100,7 @@ const describeNode = (node: LexicalNode): string =>
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true })
 
-const read = <A>(editor: LexicalEditor, fn: () => A): A =>
+const read = <A>(editor: LexicalEditor, fn: () => A) =>
   editor.getEditorState().read(fn)
 
 const outline = (editor: LexicalEditor) =>

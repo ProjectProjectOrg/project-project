@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, type ReactNode } from "react"
 
+import { AsyncFailure } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
 import { m } from "@/paraglide/messages"
 
@@ -157,10 +158,10 @@ function OrgEntryList({
       {AsyncResult.isFailure(usage) ? (
         <ReadFailure
           failure={AsyncResult.matchWithError(usage, {
-            onInitial: () => ({ kind: "defect", defect: null }) as const,
-            onSuccess: () => ({ kind: "defect", defect: null }) as const,
-            onError: (error) => ({ kind: "error", error }) as const,
-            onDefect: (defect) => ({ kind: "defect", defect }) as const
+            onInitial: () => AsyncFailure.defect({ defect: null }),
+            onSuccess: () => AsyncFailure.defect({ defect: null }),
+            onError: (error) => AsyncFailure.error({ error }),
+            onDefect: (defect) => AsyncFailure.defect({ defect })
           })}
           onRetry={refreshUsage}
           className="px-0.5"
@@ -176,7 +177,7 @@ function OrgEntryList({
   )
 }
 
-export const asIsText = (usage: EntryUsage): string => {
+export const asIsText = (usage: EntryUsage) => {
   if (usage.projects === 0) return m.templates_types_usage_no_projects()
   if (usage.asIs === usage.projects)
     return usage.projects === 1

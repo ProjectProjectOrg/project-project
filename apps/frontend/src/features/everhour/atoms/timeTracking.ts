@@ -17,7 +17,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
-import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
+import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 
@@ -48,7 +48,7 @@ export type ProjectTimeRequest = Readonly<{
   entityId: TicketId | GroupId | null
 }>
 
-export const activeTimerRequest = (orgSlug: string): ActiveTimerRequest => ({
+export const activeTimerRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 
@@ -56,19 +56,19 @@ export const ticketTimeRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): TicketTimeRequest => ({ params: { orgSlug, slug, id } })
+) => ({ params: { orgSlug, slug, id } })
 
 export const sprintTimerRequest = (
   orgSlug: string,
   slug: string,
   id: GroupId
-): SprintTimerRequest => ({ params: { orgSlug, slug, id } })
+) => ({ params: { orgSlug, slug, id } })
 
 export const projectTimeRequest = (
   orgSlug: string,
   slug: string,
   entityId: TicketId | GroupId | null
-): ProjectTimeRequest => ({
+) => ({
   params: { orgSlug, slug },
   entityId
 })
@@ -141,7 +141,7 @@ const ticketTimePanelView = (req: TicketTimeRequest) => {
           get(time),
           get(timer)
         ]),
-        ([profile, workTypes, time, activeTimer]): TicketTimePanelValue => ({
+        ([profile, workTypes, time, activeTimer]) => ({
           profile,
           workTypes,
           time,
@@ -169,7 +169,7 @@ const optimisticTimer = (
     groupId?: GroupId
   }>,
   input: StartTimerInput | StartSprintTimerInput
-): ActiveTimer => ({
+) => ({
   slug: params.slug,
   ticketId: params.id ?? null,
   ticketTitle: null,
@@ -184,7 +184,7 @@ const previousTicketKey = (
   orgSlug: string,
   timer: ActiveTimer | null,
   except?: Readonly<{ slug: string; id: TicketId }>
-): ReactivityKey | null =>
+) =>
   timer?.ticketId &&
   (except === undefined ||
     timer.slug !== except.slug ||

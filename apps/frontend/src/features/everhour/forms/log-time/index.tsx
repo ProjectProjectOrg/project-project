@@ -31,7 +31,7 @@ const isoDay = (date: Date) => {
 const todayIso = () => isoDay(DateTime.toDate(DateTime.nowUnsafe()))
 
 // The form keeps the day as "YYYY-MM-DD"; the picker works in Dates.
-const dayOfIso = (iso: string): Date | undefined =>
+const dayOfIso = (iso: string) =>
   Option.getOrUndefined(
     Option.map(
       parseDayAt(iso, DateTime.nowUnsafe(), { allowPast: true }),

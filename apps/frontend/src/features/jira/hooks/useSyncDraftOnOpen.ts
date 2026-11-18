@@ -11,7 +11,7 @@ export function useSyncDraftOnOpen(
   form: JiraImportForm,
   saved: JiraMigrationConfiguration | null,
   persist: (draft: JiraImportDraft) => void
-): void {
+) {
   const [behind] = useState(() => configurationBehind(form.state.values, saved))
   useEffect(() => {
     if (behind) persist(form.state.values)

@@ -130,9 +130,7 @@ const make = Effect.gen(function* () {
         where: { projectId: scope.projectId }
       })
       .pipe(
-        Effect.map(
-          (rows): ReadonlySet<string> => new Set(rows.map((row) => row.userId))
-        ),
+        Effect.map((rows) => new Set(rows.map((row) => row.userId))),
         Effect.orDie
       )
   })
@@ -145,7 +143,7 @@ const make = Effect.gen(function* () {
       .for("share")
       .pipe(Effect.orDie)
 
-  const pmCount = (projectId: string): Effect.Effect<number> =>
+  const pmCount = (projectId: string) =>
     db.query.projectMember
       .findMany({
         columns: { userId: true },
@@ -162,10 +160,7 @@ const make = Effect.gen(function* () {
         Effect.orDie
       )
 
-  const memberRole = (
-    projectId: string,
-    targetUserId: string
-  ): Effect.Effect<Role | null> =>
+  const memberRole = (projectId: string, targetUserId: string) =>
     db.query.projectMember
       .findFirst({
         columns: { roleId: true },
@@ -185,7 +180,7 @@ const make = Effect.gen(function* () {
   const requireAnotherPm = (
     indexRow: typeof projectIndex.$inferSelect,
     targetRole: Role
-  ): Effect.Effect<void, LastProjectPmBlocked> =>
+  ) =>
     Effect.gen(function* () {
       if (targetRole !== "pm") return
       if ((yield* pmCount(indexRow.id)) > 1) return

@@ -49,9 +49,7 @@ const AdfNodeSchema: Schema.Codec<AdfNode> = Schema.Struct({
   text: Schema.optional(Schema.String),
   attrs: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
   marks: Schema.optional(Schema.Array(AdfMarkSchema)),
-  content: Schema.optional(
-    Schema.Array(Schema.suspend((): Schema.Codec<AdfNode> => AdfNodeSchema))
-  )
+  content: Schema.optional(Schema.Array(Schema.suspend(() => AdfNodeSchema)))
 })
 
 const decodeAdfNode = Schema.decodeUnknownOption(AdfNodeSchema)
@@ -96,14 +94,14 @@ const PANEL_LABELS: Readonly<Record<string, string>> = {
 const JIRA_KEY_IN_TEXT =
   /(?<![\p{L}\p{N}_/-])([A-Z][A-Z0-9_]{1,9}-[1-9][0-9]*)(?![\p{L}\p{N}_])/gu
 
-export function convertAdfToMarkdown(input: Schema.Json): AdfConversionResult {
+export function convertAdfToMarkdown(input: Schema.Json) {
   const decoded = decodeAdfNode(input)
   if (Option.isNone(decoded) || decoded.value.type !== "doc") {
     return {
       markdown: "",
       warnings: [{ path: [], nodeType: "doc", reason: "invalid-document" }],
       references: []
-    }
+    } satisfies AdfConversionResult
   }
 
   const state: ConversionState = {
@@ -115,13 +113,13 @@ export function convertAdfToMarkdown(input: Schema.Json): AdfConversionResult {
     markdown: renderBlocks(decoded.value.content ?? [], state, ["content"]),
     warnings: state.warnings,
     references: state.references
-  }
+  } satisfies AdfConversionResult
 }
 
 export function rewriteJiraReferences(
   result: AdfConversionResult,
   destinations: ReadonlyMap<string, AdfReferenceDestination>
-): string {
+) {
   return result.references.reduce((markdown, reference) => {
     const destination = destinations.get(reference.placeholder)
     const marks = referenceMarks(reference.placeholder)
@@ -143,7 +141,7 @@ export function rewriteJiraReferences(
   }, result.markdown)
 }
 
-export function escapeMarkdownText(text: string): string {
+export function escapeMarkdownText(text: string) {
   return escapeLineStarts(escapeText(text))
 }
 
@@ -151,7 +149,7 @@ function renderBlocks(
   nodes: ReadonlyArray<AdfNode>,
   state: ConversionState,
   path: Path
-): string {
+) {
   return nodes
     .map((node, index) => renderBlock(node, state, [...path, index]))
     .filter(Boolean)
@@ -159,11 +157,11 @@ function renderBlocks(
     .trim()
 }
 
-function renderBlock(
+const renderBlock: (
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) => string = (node, state, path) => {
   switch (node.type) {
     case "paragraph":
       return renderParagraph(node, state, path)
@@ -218,7 +216,7 @@ function renderUnknownContent(
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) {
   const children = node.content ?? []
   if (children.length === 0)
     return escapeMarkdownText(safeReadableFallback(node, state, path))
@@ -227,19 +225,11 @@ function renderUnknownContent(
     : renderChildBlocks(node, state, path)
 }
 
-function renderChildBlocks(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderChildBlocks(node: AdfNode, state: ConversionState, path: Path) {
   return renderBlocks(node.content ?? [], state, [...path, "content"])
 }
 
-function renderParagraph(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderParagraph(node: AdfNode, state: ConversionState, path: Path) {
   return escapeLineStarts(renderInlineChildren(node, state, path))
 }
 
@@ -247,7 +237,7 @@ function renderInlineChildren(
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) {
   return (node.content ?? [])
     .map((child, index) =>
       renderInline(child, state, [...path, "content", index])
@@ -255,11 +245,11 @@ function renderInlineChildren(
     .join("")
 }
 
-function renderInline(
+const renderInline: (
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) => string = (node, state, path) => {
   switch (node.type) {
     case "hardBreak":
       return "  \n"
@@ -415,7 +405,7 @@ function renderMediaContainer(
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) {
   const children = node.content ?? []
   const media = children
     .flatMap((child, index) =>
@@ -438,11 +428,7 @@ function renderMediaContainer(
   return [media, ...rest].filter(Boolean).join("\n\n")
 }
 
-function renderMedia(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderMedia(node: AdfNode, state: ConversionState, path: Path) {
   const sourceId = stringAttribute(node, "id")
   if (sourceId === null)
     return escapeText(safeReadableFallback(node, state, path))
@@ -466,7 +452,7 @@ function renderListItemContent(
   state: ConversionState,
   itemPath: Path,
   contentIndent: number
-): Readonly<{ label: string; rest: ReadonlyArray<string> }> {
+) {
   const children = item.content ?? []
   const first = children[0]
   const labelled = first !== undefined && first.type === "paragraph"
@@ -486,13 +472,13 @@ function renderListItemContent(
   return { label, rest }
 }
 
-function renderList(
+const renderList: (
   node: AdfNode,
   state: ConversionState,
   path: Path,
   kind: "bullet" | "ordered",
   indentation: number
-): string {
+) => string = (node, state, path, kind, indentation) => {
   const start = numberAttribute(node, "order") ?? 1
   return (node.content ?? [])
     .map((item, index) => {
@@ -510,12 +496,12 @@ function renderList(
     .join("\n")
 }
 
-function renderTaskList(
+const renderTaskList: (
   node: AdfNode,
   state: ConversionState,
   path: Path,
   indentation: number
-): string {
+) => string = (node, state, path, indentation) => {
   return (node.content ?? [])
     .map((item, index) => {
       const itemPath = [...path, "content", index]
@@ -546,11 +532,7 @@ function renderTaskLabel(item: AdfNode, state: ConversionState, path: Path) {
   )
 }
 
-function renderDecisionList(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderDecisionList(node: AdfNode, state: ConversionState, path: Path) {
   return (node.content ?? [])
     .map(
       (item, index) =>
@@ -559,11 +541,7 @@ function renderDecisionList(
     .join("\n")
 }
 
-function renderTable(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderTable(node: AdfNode, state: ConversionState, path: Path) {
   const sourceRows = node.content ?? []
   const rows = sourceRows.map((row, rowIndex) =>
     (row.content ?? []).map((cell, cellIndex) =>
@@ -598,11 +576,7 @@ function renderTable(
   ].join("\n")
 }
 
-function renderCodeBlock(
-  node: AdfNode,
-  state: ConversionState,
-  path: Path
-): string {
+function renderCodeBlock(node: AdfNode, state: ConversionState, path: Path) {
   const text = (node.content ?? [])
     .map((child, index) =>
       safeSourceText(child.text ?? "", state, [...path, "content", index])
@@ -613,7 +587,7 @@ function renderCodeBlock(
   return `${fence}${language}\n${text.replace(/\n$/, "")}\n${fence}`
 }
 
-function quote(content: string): string {
+function quote(content: string) {
   let fenced = false
   return content
     .split("\n")
@@ -624,13 +598,13 @@ function quote(content: string): string {
     .join("\n")
 }
 
-function inlineCode(text: string): string {
+function inlineCode(text: string) {
   const fence = "`".repeat(Math.max(1, longestRun(text, "`") + 1))
   const content = /^[` ]|[` ]$/.test(text) ? ` ${text} ` : text
   return `${fence}${content}${fence}`
 }
 
-function longestRun(value: string, character: string): number {
+function longestRun(value: string, character: string) {
   let longest = 0
   let current = 0
   for (const currentCharacter of value) {
@@ -645,19 +619,19 @@ function stringAttribute(
     attrs?: Readonly<Record<string, Schema.Json>> | undefined
   }>,
   key: string
-): string | null {
+) {
   const attribute = value.attrs?.[key]
   return typeof attribute === "string" ? attribute : null
 }
 
-function numberAttribute(node: AdfNode, key: string): number | null {
+function numberAttribute(node: AdfNode, key: string) {
   const attribute = node.attrs?.[key]
   return typeof attribute === "number" && Number.isFinite(attribute)
     ? attribute
     : null
 }
 
-function escapeText(text: string): string {
+function escapeText(text: string) {
   return text
     .replaceAll("\\", "\\\\")
     .replaceAll("*", "\\*")
@@ -669,7 +643,7 @@ function escapeText(text: string): string {
     .replace(/<(?=[A-Za-z/!?])/g, "\\<")
 }
 
-function escapeLineStarts(text: string): string {
+function escapeLineStarts(text: string) {
   return text
     .split("\n")
     .map((line) =>
@@ -683,7 +657,7 @@ function escapeLineStarts(text: string): string {
     .join("\n")
 }
 
-function escapeUrl(url: string): string {
+function escapeUrl(url: string) {
   return url.replace(/([\\()\s])/g, (character) =>
     character === " " ? "%20" : `\\${character}`
   )
@@ -694,18 +668,16 @@ function markdownLinkWithMarks(
   url: string,
   marks: ReadonlyArray<TextMark>,
   embed = false
-): string {
+) {
   return `${embed ? "!" : ""}[${renderMarkedText(text, marks)}](${escapeUrl(url)})`
 }
 
-function jiraIssueId(url: string): string | null {
+function jiraIssueId(url: string) {
   const match = /\/browse\/([^/?#]+)/i.exec(url)
   return match?.[1] ?? null
 }
 
-function jiraLinkReference(
-  marks: ReadonlyArray<AdfMark>
-): Readonly<{ url: string; sourceId: string }> | null {
+function jiraLinkReference(marks: ReadonlyArray<AdfMark>) {
   for (const mark of marks) {
     if (mark.type !== "link") continue
     const url = stringAttribute(mark, "href")
@@ -720,7 +692,7 @@ function addReference(
   state: ConversionState,
   reference: Omit<AdfReference, "placeholder">,
   marks: ReadonlyArray<TextMark> = []
-): string {
+) {
   const markSuffix = marks.length === 0 ? "" : `:${marks.join(",")}`
   const placeholder = `jira-reference:${state.references.length.toString().padStart(6, "0")}${markSuffix}`
   state.references.push({ ...reference, placeholder })
@@ -731,7 +703,7 @@ function safeReadableFallback(
   node: AdfNode,
   state: ConversionState,
   path: Path
-): string {
+) {
   const fallback =
     node.text ??
     stringAttribute(node, "text") ??
@@ -751,18 +723,14 @@ function warn(
   path: Path,
   nodeType: string,
   reason: string
-): void {
+) {
   const key = `${nodeType}\u0000${reason}`
   if (state.warned.has(key)) return
   state.warned.add(key)
   state.warnings.push({ path, nodeType, reason })
 }
 
-function safeSourceText(
-  text: string,
-  state: ConversionState,
-  path: Path
-): string {
+function safeSourceText(text: string, state: ConversionState, path: Path) {
   const reservedMarker =
     /<!--\s*(?:comments:(?:start|end)|comment:[A-Za-z0-9_-]+)\s*-->/g
   return text.replace(reservedMarker, (marker) => {
@@ -773,40 +741,30 @@ function safeSourceText(
 
 type TextMark = "strong" | "em" | "strike" | "code"
 
-function supportedTextMarks(marks: ReadonlyArray<AdfMark>): Array<TextMark> {
-  return marks.flatMap((mark) =>
-    mark.type === "strong" ||
-    mark.type === "em" ||
-    mark.type === "strike" ||
-    mark.type === "code"
-      ? [mark.type]
-      : []
+function isTextMark(mark: string): mark is TextMark {
+  return (
+    mark === "strong" || mark === "em" || mark === "strike" || mark === "code"
   )
 }
 
-function referenceMarks(placeholder: string): Array<TextMark> {
-  const encoded = /jira-reference:\d{6}(?::([^]+))?/.exec(placeholder)?.[1]
-  if (!encoded) return []
-  return encoded
-    .split(",")
-    .flatMap((mark) =>
-      mark === "strong" || mark === "em" || mark === "strike" || mark === "code"
-        ? [mark]
-        : []
-    )
+function supportedTextMarks(marks: ReadonlyArray<AdfMark>) {
+  return marks.map((mark) => mark.type).filter(isTextMark)
 }
 
-function renderMarkedText(
-  text: string,
-  marks: ReadonlyArray<TextMark>
-): string {
+function referenceMarks(placeholder: string) {
+  const encoded = /jira-reference:\d{6}(?::([^]+))?/.exec(placeholder)?.[1]
+  if (!encoded) return []
+  return encoded.split(",").filter(isTextMark)
+}
+
+function renderMarkedText(text: string, marks: ReadonlyArray<TextMark>) {
   return wrapMarks(
     marks.includes("code") ? inlineCode(text) : escapeText(text),
     marks
   )
 }
 
-function wrapMarks(rendered: string, marks: ReadonlyArray<TextMark>): string {
+function wrapMarks(rendered: string, marks: ReadonlyArray<TextMark>) {
   let wrapped = rendered
   for (const mark of marks) {
     if (mark === "strong") wrapped = `**${wrapped}**`
@@ -816,7 +774,7 @@ function wrapMarks(rendered: string, marks: ReadonlyArray<TextMark>): string {
   return wrapped
 }
 
-function indent(value: string, amount: number): string {
+function indent(value: string, amount: number) {
   const prefix = " ".repeat(amount)
   return value
     .split("\n")

@@ -20,7 +20,8 @@ export type Scope = Readonly<{
   project: Option.Option<Sourced>
 }>
 
-const sourced = (value: string, source: Source): Sourced => ({ value, source })
+const sourced = (value: string, source: Source) =>
+  ({ value, source }) satisfies Sourced
 
 const explicit = (flag: Option.Option<string>, variable: string) =>
   Option.match(flag, {
@@ -69,16 +70,18 @@ export const allPages = <A, E, R>(
     E,
     R
   >,
-  cursor?: string
-): Effect.Effect<ReadonlyArray<A>, E, R> =>
-  Effect.flatMap(page(cursor), (current) =>
-    current.nextCursor === null
-      ? Effect.succeed(current.items)
-      : Effect.map(allPages(page, current.nextCursor), (rest) => [
-          ...current.items,
-          ...rest
-        ])
-  )
+  first?: string
+) =>
+  Effect.gen(function* () {
+    const items: Array<A> = []
+    let cursor = first
+    for (;;) {
+      const current = yield* page(cursor)
+      items.push(...current.items)
+      if (current.nextCursor === null) return items
+      cursor = current.nextCursor
+    }
+  })
 
 const pageInput = (cursor: string | undefined) =>
   cursor === undefined ? { limit: 200 } : { limit: 200, cursor }
@@ -93,7 +96,9 @@ export const myOrgs = (server: SavedServer) =>
     )
   ).pipe(
     Effect.map((orgs) =>
-      orgs.map((org): OrgChoice => ({ slug: org.slug, name: org.name }))
+      orgs.map(
+        (org) => ({ slug: org.slug, name: org.name }) satisfies OrgChoice
+      )
     )
   )
 
@@ -108,11 +113,12 @@ export const orgProjects = (server: SavedServer, org: string) =>
   ).pipe(
     Effect.map((projects) =>
       projects.map(
-        (project): ProjectChoice => ({
-          slug: project.slug,
-          name: project.name,
-          key: project.key
-        })
+        (project) =>
+          ({
+            slug: project.slug,
+            name: project.name,
+            key: project.key
+          }) satisfies ProjectChoice
       )
     )
   )

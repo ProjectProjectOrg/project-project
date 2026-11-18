@@ -31,9 +31,7 @@ export function activeFilterCount(
   }).length
 }
 
-export function clearedFilters(
-  dimensions: ReadonlyArray<FilterDimension>
-): Partial<TicketFilter> {
+export function clearedFilters(dimensions: ReadonlyArray<FilterDimension>) {
   return Object.fromEntries(
     dimensions.map((dimension) => [FILTER_KEYS[dimension], undefined])
   )

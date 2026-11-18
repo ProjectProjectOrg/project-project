@@ -8,6 +8,7 @@ import {
 } from "react"
 
 import {
+  BoardDropData,
   boardSlotAttribute,
   isBoardCardDrag,
   isBoardDrop
@@ -31,7 +32,7 @@ export function useBoardDropGap(
   status: string,
   ids: ReadonlyArray<string>,
   enabled: boolean
-): BoardDrag | null {
+) {
   const [drag, setDrag] = useState<BoardDrag | null>(null)
   const latest = useRef(ids)
   useLayoutEffect(() => {
@@ -52,11 +53,13 @@ export function useBoardDropGap(
       const index =
         target?.status !== status
           ? null
-          : target.type === "column"
-            ? items.length
-            : target.id === card.id
-              ? items.indexOf(card.id)
-              : items.indexOf(target.id) + (target.edge === "bottom" ? 1 : 0)
+          : BoardDropData.match(target, {
+              column: () => items.length,
+              card: (drop) =>
+                drop.id === card.id
+                  ? items.indexOf(card.id)
+                  : items.indexOf(drop.id) + (drop.edge === "bottom" ? 1 : 0)
+            })
       const height =
         source.element
           .closest(`[${boardSlotAttribute}]`)
@@ -86,7 +89,7 @@ export const boardDropOffset = (
   drag: BoardDrag | null,
   index: number,
   sourceIndex: number
-): number =>
+) =>
   drag === null || index === sourceIndex
     ? 0
     : (sourceIndex >= 0 && index > sourceIndex ? -drag.height : 0) +

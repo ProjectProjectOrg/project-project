@@ -217,7 +217,7 @@ const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const LEGACY_TEMPLATES_FOLDER = "templates"
 
-function ensureSafeSlug(slug: string): Effect.Effect<void, MarkdownError> {
+function ensureSafeSlug(slug: string) {
   if (!SAFE_SLUG.test(slug)) {
     return Effect.fail(
       new MarkdownError({ cause: undefined, message: `unsafe slug: ${slug}` })
@@ -251,10 +251,7 @@ const make = Effect.gen(function* () {
   const projectFilePath = (orgSlug: string, slug: string) =>
     path.join(projectDir(orgSlug, slug), "project.md")
 
-  const ensureSafeOrgAndProject = (
-    orgSlug: string,
-    slug: string
-  ): Effect.Effect<void, MarkdownError> =>
+  const ensureSafeOrgAndProject = (orgSlug: string, slug: string) =>
     Effect.gen(function* () {
       yield* ensureSafeSlug(orgSlug)
       yield* ensureSafeSlug(slug)
@@ -267,7 +264,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeOrgAndProject(orgSlug, slug)
     const file = projectFilePath(orgSlug, slug)
     const raw = yield* fs.readFileString(file, "utf8").pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -292,7 +289,7 @@ const make = Effect.gen(function* () {
       yield* ensureSafeOrgAndProject(orgSlug, slug)
       const file = projectFilePath(orgSlug, slug)
       const content = yield* fs.readFileString(file, "utf8").pipe(
-        Effect.mapError((cause): NotFound | MarkdownError =>
+        Effect.mapError((cause) =>
           Match.value(cause.reason).pipe(
             Match.tag("NotFound", () => new NotFound()),
             Match.orElse(
@@ -354,7 +351,7 @@ const make = Effect.gen(function* () {
   })
 
   const isSafeTicketId = Schema.is(TicketId)
-  const ensureSafeId = (id: string): Effect.Effect<void, MarkdownError> =>
+  const ensureSafeId = (id: string) =>
     isSafeTicketId(id)
       ? Effect.void
       : Effect.fail(
@@ -387,7 +384,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeId(id)
     const file = ticketFilePath(orgSlug, slug, id)
     const raw = yield* fs.readFileString(file, "utf8").pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -426,7 +423,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeId(id)
     const file = ticketFilePath(orgSlug, slug, id)
     const content = yield* fs.readFileString(file, "utf8").pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -473,7 +470,7 @@ const make = Effect.gen(function* () {
         )
       )
       yield* fs.link(temporary, file).pipe(
-        Effect.mapError((cause): MarkdownError | TicketIdTaken =>
+        Effect.mapError((cause) =>
           Match.value(cause.reason).pipe(
             Match.tag("AlreadyExists", () => new TicketIdTaken()),
             Match.orElse(
@@ -572,7 +569,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeId(id)
     const file = ticketFilePath(orgSlug, slug, id)
     yield* fs.remove(file).pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -612,7 +609,7 @@ const make = Effect.gen(function* () {
   })
 
   const SAFE_GROUP_ID = /^G-[1-9][0-9]*$/
-  const ensureSafeGroupId = (id: string): Effect.Effect<void, MarkdownError> =>
+  const ensureSafeGroupId = (id: string) =>
     SAFE_GROUP_ID.test(id)
       ? Effect.void
       : Effect.fail(
@@ -637,7 +634,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeGroupId(id)
     const file = groupFilePath(orgSlug, slug, id)
     const raw = yield* fs.readFileString(file, "utf8").pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -666,7 +663,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeGroupId(id)
     const file = groupFilePath(orgSlug, slug, id)
     const content = yield* fs.readFileString(file, "utf8").pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -702,7 +699,7 @@ const make = Effect.gen(function* () {
         )
       )
     yield* fs.writeFileString(file, content, { flag: "wx" }).pipe(
-      Effect.mapError((cause): MarkdownError | GroupIdTaken =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("AlreadyExists", () => new GroupIdTaken()),
           Match.orElse(
@@ -779,7 +776,7 @@ const make = Effect.gen(function* () {
     yield* ensureSafeGroupId(id)
     const file = groupFilePath(orgSlug, slug, id)
     yield* fs.remove(file).pipe(
-      Effect.mapError((cause): NotFound | MarkdownError =>
+      Effect.mapError((cause) =>
         Match.value(cause.reason).pipe(
           Match.tag("NotFound", () => new NotFound()),
           Match.orElse(
@@ -818,20 +815,18 @@ const make = Effect.gen(function* () {
       .filter((id) => SAFE_GROUP_ID.test(id))
   })
 
-  const isSafeLibraryKey = (key: string): boolean =>
+  const isSafeLibraryKey = (key: string) =>
     SAFE_SLUG.test(key) && key.length <= LIBRARY_KEY_MAX_LENGTH
 
   const ensureSafeLibraryScope = (
     orgSlug: string,
     projectSlug: string | null
-  ): Effect.Effect<void, MarkdownError> =>
+  ) =>
     projectSlug === null
       ? ensureSafeSlug(orgSlug)
       : ensureSafeOrgAndProject(orgSlug, projectSlug)
 
-  const ensureSafeLibraryKey = (
-    key: string
-  ): Effect.Effect<void, MarkdownError> =>
+  const ensureSafeLibraryKey = (key: string) =>
     isSafeLibraryKey(key)
       ? Effect.void
       : Effect.fail(
@@ -863,10 +858,7 @@ const make = Effect.gen(function* () {
     key: string
   ) => path.join(libraryDir(orgSlug, projectSlug, kind), `${key}.md`)
 
-  const readLibraryFile = (
-    dir: string,
-    key: string
-  ): Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError> => {
+  const readLibraryFile = (dir: string, key: string) => {
     const file = path.join(dir, `${key}.md`)
     return fs.readFileString(file, "utf8").pipe(
       Effect.map((content) => [{ key, content }]),
@@ -877,9 +869,7 @@ const make = Effect.gen(function* () {
     )
   }
 
-  const listLibraryDir = (
-    dir: string
-  ): Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError> =>
+  const listLibraryDir = (dir: string) =>
     Effect.gen(function* () {
       const entries = yield* fs.readDirectory(dir).pipe(
         Effect.catchReason("PlatformError", "NotFound", () =>
@@ -938,9 +928,7 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const listSlugDirs = (
-    dir: string
-  ): Effect.Effect<ReadonlyArray<string>, MarkdownError> =>
+  const listSlugDirs = (dir: string) =>
     fs.readDirectory(dir).pipe(
       Effect.catchReason("PlatformError", "NotFound", () =>
         Effect.succeed<ReadonlyArray<string>>([])

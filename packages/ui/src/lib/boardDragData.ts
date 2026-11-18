@@ -2,23 +2,20 @@ import * as Schema from "effect/Schema"
 
 // What a board drags and where it drops (see components/board-drag.tsx).
 
-export const BoardCardDragData = Schema.Struct({
-  type: Schema.Literal("card"),
+export const BoardCardDragData = Schema.TaggedStruct("card", {
   id: Schema.String,
   status: Schema.String
 })
 export type BoardCardDragData = typeof BoardCardDragData.Type
 
-export const BoardCardDropData = Schema.Struct({
-  type: Schema.Literal("card"),
+export const BoardCardDropData = Schema.TaggedStruct("card", {
   id: Schema.String,
   status: Schema.String,
   edge: Schema.Literals(["top", "bottom"])
 })
 export type BoardCardDropData = typeof BoardCardDropData.Type
 
-export const BoardColumnDropData = Schema.Struct({
-  type: Schema.Literal("column"),
+export const BoardColumnDropData = Schema.TaggedStruct("column", {
   status: Schema.String
 })
 export type BoardColumnDropData = typeof BoardColumnDropData.Type
@@ -26,7 +23,7 @@ export type BoardColumnDropData = typeof BoardColumnDropData.Type
 export const BoardDropData = Schema.Union([
   BoardCardDropData,
   BoardColumnDropData
-])
+]).pipe(Schema.toTaggedUnion("_tag"))
 export type BoardDropData = typeof BoardDropData.Type
 
 const isCardDrop = Schema.is(BoardCardDropData)

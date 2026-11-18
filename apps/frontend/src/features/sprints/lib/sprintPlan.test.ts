@@ -5,12 +5,13 @@ import { describe, expect, it } from "vitest"
 import {
   averageDone,
   loadByAssignee,
+  PlanMeasure,
   planTotals,
   usualDone
 } from "./sprintPlan"
 
 const decodeEstimate = Schema.decodeSync(Estimate)
-const points = { kind: "estimate", unit: "points" } as const
+const points = PlanMeasure.estimate({ unit: "points" })
 
 const ticket = (
   value: number | null,

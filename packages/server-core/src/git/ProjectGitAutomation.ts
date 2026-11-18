@@ -38,7 +38,7 @@ export const gitAutomationFromRows = (
     Pick<typeof projectGitAutomation.$inferSelect, "event" | "statusSlug">
   >,
   forwardOnly: boolean
-): GitAutomation => {
+) => {
   const bySlug = new Map(rows.map((row) => [row.event, row.statusSlug]))
   return {
     rules: decodeRules(

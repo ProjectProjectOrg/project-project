@@ -10,20 +10,21 @@ const NOW = date("2026-05-09T00:00:00.000Z")
 const groupId = Schema.decodeSync(GroupId)
 const groupColor = Schema.decodeSync(GroupColor)
 
-const sprint = (id: string, overrides: Partial<Group> = {}): Group => ({
-  id: groupId(id),
-  name: id,
-  kind: "sprint",
-  tickets: [],
-  color: groupColor("#777777"),
-  startsAt: null,
-  endsAt: null,
-  completedAt: null,
-  createdBy: "user-1",
-  createdAt: date("2026-01-01T00:00:00.000Z"),
-  updatedAt: date("2026-01-01T00:00:00.000Z"),
-  ...overrides
-})
+const sprint = (id: string, overrides: Partial<Group> = {}) =>
+  ({
+    id: groupId(id),
+    name: id,
+    kind: "sprint",
+    tickets: [],
+    color: groupColor("#777777"),
+    startsAt: null,
+    endsAt: null,
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: date("2026-01-01T00:00:00.000Z"),
+    updatedAt: date("2026-01-01T00:00:00.000Z"),
+    ...overrides
+  }) satisfies Group
 
 describe("toggled", () => {
   it("adds an unselected value at the end", () => {

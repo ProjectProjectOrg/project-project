@@ -24,8 +24,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
-  type JSX
+  useState
 } from "react"
 
 import { TypeaheadPortal } from "../../editor/typeahead-portal"
@@ -46,27 +45,33 @@ const MENTION_TRIGGER = "@"
 const PEOPLE_LIMIT = 3
 const TICKET_LIMIT = 8
 
-const exactItems = (
-  results: MentionResults,
-  query: string
-): ReadonlyArray<MentionCandidate> =>
+const exactItems = (results: MentionResults, query: string) =>
   results.status === "searching" && isProseQuery(query) ? [] : results.items
 
 const ticketNote = (
   results: MentionResults,
   items: ReadonlyArray<MentionCandidate>
-): MenuNoteContent | null => {
+) => {
   if (items.length > 0) return null
   if (results.status === "failed") {
-    return { text: m.tickets_mention_tickets_failed(), tone: "error" }
+    return {
+      text: m.tickets_mention_tickets_failed(),
+      tone: "error"
+    } satisfies MenuNoteContent
   }
   if (results.status === "loading" || results.status === "searching") {
-    return { text: m.tickets_mention_tickets_loading(), tone: "muted" }
+    return {
+      text: m.tickets_mention_tickets_loading(),
+      tone: "muted"
+    } satisfies MenuNoteContent
   }
-  return { text: m.tickets_mention_tickets_empty(), tone: "muted" }
+  return {
+    text: m.tickets_mention_tickets_empty(),
+    tone: "muted"
+  } satisfies MenuNoteContent
 }
 
-export function MentionsPlugin(): JSX.Element | null {
+export function MentionsPlugin() {
   const [editor] = useLexicalComposerContext()
   const scope = useMentionScope()
   const slug = scope?.slug ?? ""
@@ -84,7 +89,7 @@ export function MentionsPlugin(): JSX.Element | null {
   const query = queryString ?? ""
   const hasTickets = slug !== ""
 
-  const groups = useMemo((): ReadonlyArray<MenuGroup> => {
+  const groups = useMemo(() => {
     const ticketItems = exactItems(ticketResults, query)
     const ticketGroup: MenuGroup = {
       provider: tickets,
@@ -181,9 +186,7 @@ export function MentionsPlugin(): JSX.Element | null {
 
 function useMentionChipDeletion(editor: LexicalEditor) {
   useEffect(() => {
-    const adjacentNode = (
-      direction: "previous" | "next"
-    ): LexicalNode | null => {
+    const adjacentNode = (direction: "previous" | "next") => {
       const sel = $getSelection()
       if (!$isRangeSelection(sel) || !sel.isCollapsed()) return null
       const anchor = sel.anchor

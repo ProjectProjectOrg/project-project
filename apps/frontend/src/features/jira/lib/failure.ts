@@ -121,7 +121,7 @@ const jiraFailureKind = (
     JiraMigrationDetail,
     "status" | "failure" | "failedAttachmentIds"
   >
-): JiraFailureKind => {
+) => {
   if (detail.status === "reconnect_required") return "jira_access"
   if (detail.failedAttachmentIds.length > 0) return "attachments"
   const reason = detail.failure?.reason ?? null
@@ -178,18 +178,21 @@ export type JiraFailurePlan = Readonly<{
   secondary: ReadonlyArray<JiraFailureAction>
 }>
 
-export function jiraFailurePlan(detail: FailureDetail): JiraFailurePlan {
+export function jiraFailurePlan(detail: FailureDetail) {
   const kind = jiraFailureKind(detail)
   const actions = preferred[kind].filter((action) => available[action](detail))
   const [primary = null, ...secondary] = actions
-  return { kind, primary, secondary }
+  return { kind, primary, secondary } satisfies JiraFailurePlan
 }
 
 export const jiraStoppedActions = (
   detail: FailureDetail,
   kind: "failed" | "cancelled" | "unavailable"
-): ReadonlyArray<JiraFailureAction> => {
-  if (kind !== "failed") return detail.actions.canRescan ? ["scan_again"] : []
+) => {
+  if (kind !== "failed")
+    return (
+      detail.actions.canRescan ? ["scan_again"] : []
+    ) satisfies ReadonlyArray<JiraFailureAction>
   const plan = jiraFailurePlan(detail)
   return plan.primary === null ? [] : [plan.primary, ...plan.secondary]
 }

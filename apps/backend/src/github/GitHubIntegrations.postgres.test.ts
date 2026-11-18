@@ -50,14 +50,13 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 const accessibleInstallations: Array<GitHubInstallationAccount> = []
 
-const installationAccount = (
-  installationId: string
-): GitHubInstallationAccount => ({
-  installationId,
-  accountId: `account-${installationId}`,
-  accountLogin: `account-${installationId}`,
-  accountType: "Organization"
-})
+const installationAccount = (installationId: string) =>
+  ({
+    installationId,
+    accountId: `account-${installationId}`,
+    accountLogin: `account-${installationId}`,
+    accountType: "Organization"
+  }) satisfies GitHubInstallationAccount
 
 const githubConfig = ConfigProvider.fromUnknown({
   BETTER_AUTH_URL: "https://pp.test"
@@ -70,21 +69,22 @@ const makeGithub = (
   ) => Effect.succeed(`token-${code}`),
   listAppUserInstallations: GitHub.GitHub["Service"]["listAppUserInstallations"] = () =>
     Effect.succeed(accessibleInstallations)
-): GitHub.GitHub["Service"] => ({
-  getInstallationAccount: (_appId, installationId) =>
-    Effect.succeed(installationAccount(installationId)),
-  convertAppManifest: () => Effect.die("not used in callback tests"),
-  listInstallationRepos: () => Effect.die("not used in callback tests"),
-  verifyInstallationRepo: () => Effect.die("not used in callback tests"),
-  exchangeAppUserCode,
-  listAppUserInstallations,
-  createBranchAsUser: () => Effect.die("not used in callback tests"),
-  openPullRequestAsUser: () => Effect.die("not used in callback tests"),
-  fetchInstallationProjectStates: () =>
-    Effect.die("not used in callback tests"),
-  listInstallationBranches: () => Effect.die("not used in callback tests"),
-  branchExistsInstallation: () => Effect.die("not used in callback tests")
-})
+) =>
+  ({
+    getInstallationAccount: (_appId, installationId) =>
+      Effect.succeed(installationAccount(installationId)),
+    convertAppManifest: () => Effect.die("not used in callback tests"),
+    listInstallationRepos: () => Effect.die("not used in callback tests"),
+    verifyInstallationRepo: () => Effect.die("not used in callback tests"),
+    exchangeAppUserCode,
+    listAppUserInstallations,
+    createBranchAsUser: () => Effect.die("not used in callback tests"),
+    openPullRequestAsUser: () => Effect.die("not used in callback tests"),
+    fetchInstallationProjectStates: () =>
+      Effect.die("not used in callback tests"),
+    listInstallationBranches: () => Effect.die("not used in callback tests"),
+    branchExistsInstallation: () => Effect.die("not used in callback tests")
+  }) satisfies GitHub.GitHub["Service"]
 
 const fakeSecrets = Layer.succeed(SecretCrypto.SecretCrypto, {
   seal: (plaintext) =>
@@ -676,7 +676,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           const cache = yield* ProjectStateCache
           const webhooks = yield* GitHubWebhooks.GitHubWebhooks
           let reads = 0
-          const fetch = Effect.sync((): RawProjectStates => {
+          const fetch = Effect.sync(() => {
             reads += 1
             return {
               defaultBranch: "main",
@@ -685,7 +685,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
               mergedPrsByBranch: new Map(),
               openPullRequestText: new Map(),
               fetchedAt: date("2026-04-01T00:00:00Z")
-            }
+            } satisfies RawProjectStates
           })
           yield* cache.cachedProjectStates(
             "repo",
@@ -743,7 +743,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           const webhooks = yield* GitHubWebhooks.GitHubWebhooks
           let reads = 0
           let finished = false
-          const fetch = Effect.sync((): RawProjectStates => {
+          const fetch = Effect.sync(() => {
             reads += 1
             return {
               defaultBranch: "main",
@@ -752,7 +752,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
               mergedPrsByBranch: new Map(),
               openPullRequestText: new Map(),
               fetchedAt: date("2026-04-01T00:00:00Z")
-            }
+            } satisfies RawProjectStates
           })
           yield* cache.cachedProjectStates("repo", "123", "repo", fetch)
           const body = yield* Schema.encodeEffect(

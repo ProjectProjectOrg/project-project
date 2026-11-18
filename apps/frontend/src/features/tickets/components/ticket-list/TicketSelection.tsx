@@ -63,7 +63,7 @@ export function TicketSelectionProvider({
   useCommandScope(scope)
   const root = useRef<HTMLDivElement>(null)
 
-  const rowKeyFor = (target: EventTarget | null): string | null => {
+  const rowKeyFor = (target: EventTarget | null) => {
     const list = root.current
     if (list === null) return null
     if (target instanceof Element && list.contains(target)) {
@@ -127,26 +127,24 @@ export function TicketSelectionProvider({
   )
 }
 
-const selectionScope = (
-  registry: AtomRegistry,
-  store: SelectionStore
-): CommandScope => ({
-  clearSelection: () => registry.set(store.selection, emptySelection),
-  updateSelection: (slug, tickets, patch) =>
-    updateSelected(registry, store, slug, tickets, patch),
-  selection: () => {
-    const keys = [...registry.get(store.selection).keys]
-    const [first] = keys
-    if (first === undefined || keys.length < 2) return null
-    return {
-      slug: projectOfKey(first),
-      tickets: keys.flatMap((key) => {
-        const ticket = registry.get(store.known).get(key)
-        return ticket === undefined ? [] : [ticket]
-      })
+const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
+  ({
+    clearSelection: () => registry.set(store.selection, emptySelection),
+    updateSelection: (slug, tickets, patch) =>
+      updateSelected(registry, store, slug, tickets, patch),
+    selection: () => {
+      const keys = [...registry.get(store.selection).keys]
+      const [first] = keys
+      if (first === undefined || keys.length < 2) return null
+      return {
+        slug: projectOfKey(first),
+        tickets: keys.flatMap((key) => {
+          const ticket = registry.get(store.known).get(key)
+          return ticket === undefined ? [] : [ticket]
+        })
+      }
     }
-  }
-})
+  }) satisfies CommandScope
 
 export type SelectionEntry = Readonly<{
   key: string
@@ -210,9 +208,7 @@ export function useForgetTicket(key: string) {
   }
 }
 
-export function useSelectedTickets(
-  key: string
-): () => ReadonlyArray<SelectedTicket> {
+export function useSelectedTickets(key: string) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
   return () => {
@@ -253,7 +249,7 @@ export function useSelectionActions(key: string) {
       : [...registry.get(store.selection).keys].flatMap(
           (each) => registry.get(store.known).get(each)?.id ?? []
         )
-  const patchBulk = (patch: BulkTicketPatch): boolean => {
+  const patchBulk = (patch: BulkTicketPatch) => {
     if (!acting) return false
     void updateSelected(
       registry,
@@ -271,7 +267,7 @@ export function useSelectionActions(key: string) {
     clear: () => {
       if (store !== null) registry.set(store.selection, emptySelection)
     },
-    patch: (edit: TicketEdit): boolean => patchBulk(toBulkPatch(edit)),
+    patch: (edit: TicketEdit) => patchBulk(toBulkPatch(edit)),
     patchBulk
   }
 }

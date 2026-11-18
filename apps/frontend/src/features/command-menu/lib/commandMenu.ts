@@ -1,4 +1,5 @@
 import type { Group, Ticket, TicketId } from "@pp/shared"
+import * as Data from "effect/Data"
 
 import type { FilterOption } from "@/features/tickets/hooks/useFilterOptions"
 import type {
@@ -25,7 +26,7 @@ export type PointedTicket = TicketContext &
 export const pointedAt = (
   pointed: PointedTicket | null,
   ticket: TicketContext | null
-): PointedTicket | null =>
+) =>
   pointed !== null &&
   ticket !== null &&
   pointed.ticketId === ticket.ticketId &&
@@ -124,25 +125,24 @@ type Frame = Readonly<{
 
 type Step = Frame & Readonly<{ from: ReturnPoint | null }>
 
-export type CommandMenuState = Frame &
-  Readonly<{
-    open: boolean
-    row: PointedTicket | null
-    trail: ReadonlyArray<Step>
-    search: string
-    focus: string | null
-  }>
+export type CommandMenuState = Data.TaggedEnum<{
+  closed: {}
+  open: Frame &
+    Readonly<{
+      row: PointedTicket | null
+      trail: ReadonlyArray<Step>
+      search: string
+      focus: string | null
+    }>
+}>
+export const CommandMenuState = Data.taggedEnum<CommandMenuState>()
 
-export const CLOSED_COMMAND_MENU: CommandMenuState = {
-  open: false,
-  row: null,
-  ticket: null,
-  selection: [],
-  pages: ["root"],
-  trail: [],
-  search: "",
-  focus: null
-}
+export type OpenCommandMenu = Data.TaggedEnum.Value<CommandMenuState, "open">
+
+export const CLOSED_COMMAND_MENU = CommandMenuState.closed()
+
+export const commandMenuRow = (state: CommandMenuState) =>
+  CommandMenuState.$is("open")(state) ? state.row : null
 
 const SELECTION_PAGES: ReadonlySet<CommandPage> = new Set<CommandPage>([
   "root",
@@ -163,16 +163,19 @@ export const openCommandMenu = (
   page: CommandPage = "root",
   selection: ReadonlyArray<SelectedTicket> = [],
   pointed: PointedTicket | null = null
-): CommandMenuState => ({
-  ...CLOSED_COMMAND_MENU,
-  open: true,
-  row: pointedAt(pointed, ticket),
-  ticket,
-  selection: selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
-  pages: [page]
-})
+) =>
+  CommandMenuState.open({
+    row: pointedAt(pointed, ticket),
+    ticket,
+    selection:
+      selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
+    pages: [page],
+    trail: [],
+    search: "",
+    focus: null
+  })
 
-const deselect = <F extends Frame>(frame: F, ticketId: TicketId): F => {
+const deselect = <F extends Frame>(frame: F, ticketId: TicketId) => {
   const selection = frame.selection.filter((each) => each.id !== ticketId)
   const [first] = selection
   if (first === undefined) return { ...frame, selection }
@@ -187,55 +190,56 @@ const deselect = <F extends Frame>(frame: F, ticketId: TicketId): F => {
 }
 
 export const deselectFromCommandMenu = (
-  state: CommandMenuState,
+  state: OpenCommandMenu,
   ticketId: TicketId
-): CommandMenuState => ({
-  ...deselect(state, ticketId),
-  trail: state.trail.map((step) => deselect(step, ticketId))
-})
+) =>
+  ({
+    ...deselect(state, ticketId),
+    trail: state.trail.map((step) => deselect(step, ticketId))
+  }) satisfies OpenCommandMenu
 
-const deeper = (
-  state: CommandMenuState,
-  from: ReturnPoint | null
-): CommandMenuState => ({
-  ...state,
-  trail: [
-    ...state.trail,
-    {
-      ticket: state.ticket,
-      selection: state.selection,
-      pages: state.pages,
-      from
-    }
-  ],
-  search: "",
-  focus: null
-})
+const deeper = (state: OpenCommandMenu, from: ReturnPoint | null) =>
+  ({
+    ...state,
+    trail: [
+      ...state.trail,
+      {
+        ticket: state.ticket,
+        selection: state.selection,
+        pages: state.pages,
+        from
+      }
+    ],
+    search: "",
+    focus: null
+  }) satisfies OpenCommandMenu
 
 export const actOnTicket = (
-  state: CommandMenuState,
+  state: OpenCommandMenu,
   ticket: TicketContext,
   from: ReturnPoint
-): CommandMenuState => ({
-  ...deeper(state, from),
-  ticket,
-  selection: [],
-  pages: ["root"]
-})
+) =>
+  ({
+    ...deeper(state, from),
+    ticket,
+    selection: [],
+    pages: ["root"]
+  }) satisfies OpenCommandMenu
 
 export const pushCommandPage = (
-  state: CommandMenuState,
+  state: OpenCommandMenu,
   page: CommandPage,
   from: ReturnPoint | null = null
-): CommandMenuState => ({
-  ...deeper(state, from),
-  pages: [...state.pages, page]
-})
+) =>
+  ({
+    ...deeper(state, from),
+    pages: [...state.pages, page]
+  }) satisfies OpenCommandMenu
 
-export const currentCommandPage = (state: CommandMenuState): CommandPage =>
+export const currentCommandPage = (state: OpenCommandMenu) =>
   state.pages.at(-1) ?? "root"
 
-const stepBack = (state: CommandMenuState): Step | null => {
+const stepBack = (state: OpenCommandMenu) => {
   const last = state.trail.at(-1)
   if (last !== undefined) return last
   if (state.pages[0] !== "root") {
@@ -244,14 +248,19 @@ const stepBack = (state: CommandMenuState): Step | null => {
       selection: state.selection,
       pages: ["root"],
       from: null
-    }
+    } satisfies Step
   }
   return state.ticket === null
     ? null
-    : { ticket: null, selection: [], pages: ["root"], from: null }
+    : ({
+        ticket: null,
+        selection: [],
+        pages: ["root"],
+        from: null
+      } satisfies Step)
 }
 
-export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
+export const backCommandMenu = (state: OpenCommandMenu) => {
   const step = stepBack(state)
   if (step === null) return state
   return {
@@ -262,5 +271,5 @@ export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
     trail: state.trail.slice(0, -1),
     search: step.from?.search ?? "",
     focus: step.from?.value ?? null
-  }
+  } satisfies OpenCommandMenu
 }

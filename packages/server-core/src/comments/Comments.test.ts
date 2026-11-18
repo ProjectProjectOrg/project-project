@@ -5,16 +5,8 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
-import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
-import {
-  ActivityActor,
-  CommentId,
-  TicketId,
-  TicketStatus,
-  UserId,
-  ProjectScope,
-  TicketRank
-} from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { ActivityActor, CommentId, ProjectScope } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
@@ -32,6 +24,12 @@ import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
+import {
+  makeTicketDocument,
+  ticketId,
+  unexpected,
+  userId
+} from "../tickets/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Users from "../users/Users"
@@ -55,35 +53,9 @@ if (databaseUrl) {
   process.env.DATABASE_URL = databaseUrl
 }
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
-const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
-const userId = Schema.decodeSync(UserId)
 const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 
-const unexpected = (method: string): Effect.Effect<never> =>
-  Effect.die(new Error(`unexpected ${method} call`))
-
-const document: TicketDocs.TicketDocument = {
-  id: ticketId("T-1"),
-  title: "Comments",
-  status: ticketStatus("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: at("2026-01-01T00:00:00.000Z"),
-  updatedBy: "user-1",
-  updatedAt: at("2026-01-01T00:00:00.000Z"),
-  body: "# Comments\n",
-  commentsRegion: ""
-}
+const document = makeTicketDocument("T-1", { body: "# Comments\n" })
 
 const projectId = randomUUID()
 
@@ -231,7 +203,7 @@ const makeLayer = (
 
 const makeTicketDocs = (
   overrides: Partial<TicketDocs.TicketDocs["Service"]> = {}
-): TicketDocs.TicketDocs["Service"] => {
+) => {
   const service: TicketDocs.TicketDocs["Service"] = {
     listIds: () => unexpected("TicketDocs.listIds"),
     read: () => Effect.succeed(document),

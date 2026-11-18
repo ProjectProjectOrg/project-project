@@ -7,7 +7,7 @@ import {
   planStackAttach
 } from "./stack"
 
-const layer = (branch: string, base?: string): TicketBranchEntry =>
+const layer = (branch: string, base?: string) =>
   base === undefined ? { branch } : { branch, base }
 
 const order = (

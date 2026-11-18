@@ -17,11 +17,11 @@ const isRevisionConflictDetail = Schema.is(
   })
 )
 
-export const isJiraStorageUnavailable = (error: TaggedError): boolean =>
+export const isJiraStorageUnavailable = (error: TaggedError) =>
   isJiraUnavailableDetail(error) && error.reason === "storage_unavailable"
 
-export const isJiraReconnectError = (error: TaggedError): boolean =>
+export const isJiraReconnectError = (error: TaggedError) =>
   isReconnectRequired(error) || isNotConnected(error)
 
-export const isRevisionConflict = (error: TaggedError): boolean =>
+export const isRevisionConflict = (error: TaggedError) =>
   isRevisionConflictDetail(error)

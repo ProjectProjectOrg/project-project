@@ -7,6 +7,7 @@ import {
 } from "react"
 
 import {
+  BannerImageEvent,
   bannerImageReducer,
   initialBannerImageState,
   shouldLoadBannerImage,
@@ -39,7 +40,7 @@ export function useBannerImage(
     measured: boolean
     editing: boolean
   }>
-): BannerImage {
+) {
   const { identity, measured, editing } = options
   const [state, dispatch] = useReducer(
     bannerImageReducer<HTMLImageElement>,
@@ -59,10 +60,10 @@ export function useBannerImage(
   useEffect(() => {
     if (!measured) return undefined
     if (cacheKey === null) {
-      dispatch({ type: "lookupSkipped" })
+      dispatch(BannerImageEvent.lookupSkipped())
       return undefined
     }
-    dispatch({ type: "lookupStarted" })
+    dispatch(BannerImageEvent.lookupStarted())
     let cancelled = false
     let release: (() => void) | undefined
     void readReadyBannerRender(cacheKey).then((lease) => {
@@ -72,13 +73,13 @@ export function useBannerImage(
       }
       if (lease) {
         release = lease.release
-        dispatch({ type: "lookupHit", url: lease.render.url })
+        dispatch(BannerImageEvent.lookupHit({ url: lease.render.url }))
       } else {
         const ready = peekBannerRender(cacheKey)
         if (ready && bannerRenderUrl(ready.key) === bannerRenderUrl(cacheKey)) {
           release = retainBannerRender(ready.url)
-          dispatch({ type: "lookupHit", url: ready.url })
-        } else dispatch({ type: "lookupMissed" })
+          dispatch(BannerImageEvent.lookupHit({ url: ready.url }))
+        } else dispatch(BannerImageEvent.lookupMissed())
       }
     })
     return () => {
@@ -97,14 +98,15 @@ export function useBannerImage(
     void photo.decode().then(
       () => {
         if (cancelled) return
-        dispatch({
-          type: "imageLoaded",
-          size: { width: photo.naturalWidth, height: photo.naturalHeight }
-        })
-        dispatch({ type: "imageDecoded", image: photo })
+        dispatch(
+          BannerImageEvent.imageLoaded({
+            size: { width: photo.naturalWidth, height: photo.naturalHeight }
+          })
+        )
+        dispatch(BannerImageEvent.imageDecoded({ image: photo }))
       },
       () => {
-        if (!cancelled) dispatch({ type: "decodeFailed" })
+        if (!cancelled) dispatch(BannerImageEvent.decodeFailed())
       }
     )
     return () => {
@@ -112,17 +114,17 @@ export function useBannerImage(
     }
   }, [source, load, state.shaderImage])
 
-  const onPainted = useCallback(() => dispatch({ type: "painted" }), [])
+  const onPainted = useCallback(() => dispatch(BannerImageEvent.painted()), [])
   const onRenderStarted = useCallback(
-    () => dispatch({ type: "renderStarted" }),
+    () => dispatch(BannerImageEvent.renderStarted()),
     []
   )
   const onRenderReady = useCallback(
-    (url: string) => dispatch({ type: "lookupHit", url }),
+    (url: string) => dispatch(BannerImageEvent.lookupHit({ url })),
     []
   )
   const onPlaceholderFailed = useCallback(
-    () => dispatch({ type: "imageFailed" }),
+    () => dispatch(BannerImageEvent.imageFailed()),
     []
   )
 
@@ -139,9 +141,7 @@ export function useBannerImage(
 const placeholderSizes = new Map<string, BannerImageSize>()
 const PLACEHOLDER_LIMIT = 24
 
-export function usePlaceholderSize(
-  placeholder: string | null
-): BannerImageSize | null {
+export function usePlaceholderSize(placeholder: string | null) {
   const [loaded, setLoaded] = useState<Readonly<{
     src: string
     size: BannerImageSize

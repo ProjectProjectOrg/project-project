@@ -28,7 +28,7 @@ export function childEnvironment(
   environment: Environment,
   secrets: Secrets,
   port: string
-): Record<string, string> {
+) {
   const inherited = Object.fromEntries(
     [
       "PATH",
@@ -55,10 +55,7 @@ export function childEnvironment(
   }
 }
 
-export async function loginUrl(
-  root: string,
-  env: Record<string, string>
-): Promise<string> {
+export async function loginUrl(root: string, env: Record<string, string>) {
   const child = Bun.spawn(
     [process.execPath, "--no-env-file", "apps/backend/scripts/agent/login.ts"],
     { cwd: root, env, stdout: "pipe", stderr: "pipe" }
@@ -78,7 +75,7 @@ async function waitForServer(
   child: Subprocess<"ignore", "inherit", "inherit">,
   url: string,
   signal: AbortSignal
-): Promise<void> {
+) {
   for (let attempt = 0; attempt < 180; attempt++) {
     if (signal.aborted) throw new Error("Agent startup stopped")
     if (child.exitCode !== null)
@@ -98,7 +95,7 @@ export async function runServers(
   env: Record<string, string>,
   fresh: boolean,
   ready: () => Promise<void>
-): Promise<void> {
+) {
   const resources = registry.resources(environment)
   const runningFile = path.join(resources, "running.json")
   if (await exists(runningFile))
@@ -206,7 +203,7 @@ export async function runServers(
   }
 }
 
-export async function prepareFiles(environment: Environment): Promise<void> {
+export async function prepareFiles(environment: Environment) {
   const directory = path.join(environment.worktree, ".agent.local")
   if (await Bun.file(path.join(directory, "owner.json")).exists())
     throw new Error("Worktree storage already exists; refusing to overwrite it")

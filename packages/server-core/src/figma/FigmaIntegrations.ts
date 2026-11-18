@@ -42,13 +42,13 @@ import * as Figma from "./Figma"
 
 export const TOKEN_EXPIRY_SKEW_MS = 5 * 60 * 1000
 
-export const isTokenExpired = (expiresAt: Date, now: Date): boolean =>
+export const isTokenExpired = (expiresAt: Date, now: Date) =>
   expiresAt.getTime() - now.getTime() <= TOKEN_EXPIRY_SKEW_MS
 
 export const chooseCredential = (input: {
   readonly personalToken: string | null
   readonly projectToken: string | null
-}): Figma.FigmaCredential | null => {
+}) => {
   if (input.personalToken !== null) {
     return Figma.FigmaCredential.Bearer({ token: input.personalToken })
   }
@@ -168,14 +168,14 @@ export const figmaOAuthClient: Effect.Effect<FigmaOAuthClient, FigmaError> =
     )
   )
 
-export const figmaRedirectUri = (baseUrl: string): string =>
+export const figmaRedirectUri = (baseUrl: string) =>
   new URL(FIGMA_OAUTH_CALLBACK_PATH, baseUrl).toString()
 
 export const figmaAuthorizeUrl = (input: {
   readonly clientId: string
   readonly redirectUri: string
   readonly state: string
-}): string => {
+}) => {
   const url = new URL(FIGMA_AUTHORIZE_URL)
   url.searchParams.set("client_id", input.clientId)
   url.searchParams.set("redirect_uri", input.redirectUri)
@@ -230,7 +230,7 @@ export const toTokenGrant = (
   payload: typeof FigmaTokenResponse.Type,
   now: Date,
   fallbackRefreshToken: string | null
-): FigmaTokenGrant | null => {
+) => {
   const refreshToken = payload.refresh_token ?? fallbackRefreshToken
   if (refreshToken === null) return null
   const seconds = payload.expires_in ?? DEFAULT_TOKEN_TTL_SECONDS
@@ -248,7 +248,7 @@ export const exchangeAuthorizationCode = (input: {
   readonly redirectUri: string
   readonly code: string
   readonly now: Date
-}): Effect.Effect<FigmaTokenGrant, FigmaAuthInvalid | FigmaError> =>
+}) =>
   Effect.gen(function* () {
     const response = yield* postForm(
       `${FIGMA_API_BASE}/v1/oauth/token`,
@@ -288,14 +288,14 @@ export const exchangeAuthorizationCode = (input: {
     return grant
   })
 
-export const isGrantRejection = (status: number): boolean =>
+export const isGrantRejection = (status: number) =>
   status === 400 || status === 401
 
 export const refreshAccessToken = (input: {
   readonly client: FigmaOAuthClient
   readonly refreshToken: string
   readonly now: Date
-}): Effect.Effect<FigmaTokenGrant, FigmaAuthInvalid | FigmaError> =>
+}) =>
   Effect.gen(function* () {
     const response = yield* postForm(
       `${FIGMA_API_BASE}/v1/oauth/refresh`,
@@ -334,10 +334,7 @@ export const resolveCredential = <E = never>(input: {
   ) => Effect.Effect<FigmaTokenGrant, FigmaAuthInvalid | FigmaError>
   readonly persist: (grant: FigmaTokenGrant) => Effect.Effect<void, E>
   readonly onGrantRejected: Effect.Effect<void>
-}): Effect.Effect<
-  Figma.FigmaCredential,
-  FigmaNotConnected | FigmaAuthInvalid | FigmaError | E
-> =>
+}) =>
   Effect.gen(function* () {
     const personal = input.personal
     const chosen = chooseCredential({
@@ -376,8 +373,7 @@ export const consumeOauthStateQuery = (
 
 export const requireConsumedState = (
   rows: ReadonlyArray<{ readonly id: string }>
-): Effect.Effect<void, FigmaAuthInvalid> =>
-  rows.length === 0 ? Effect.fail(new FigmaAuthInvalid()) : Effect.void
+) => (rows.length === 0 ? Effect.fail(new FigmaAuthInvalid()) : Effect.void)
 
 export const startOauthFlow = (input: {
   readonly db: EffectPgDatabase<typeof relations>
@@ -385,10 +381,7 @@ export const startOauthFlow = (input: {
   readonly client: Effect.Effect<FigmaOAuthClient, FigmaError>
   readonly redirectUri: Effect.Effect<string>
   readonly userId: string
-}): Effect.Effect<
-  { readonly authorizeUrl: string; readonly state: string },
-  FigmaError
-> =>
+}) =>
   Effect.gen(function* () {
     const { clientId } = yield* input.client
     const uri = yield* input.redirectUri
@@ -409,9 +402,7 @@ export const startOauthFlow = (input: {
     }
   })
 
-const notConnectedStatus = (
-  storageConnected: boolean
-): FigmaProjectIntegrationStatus => ({
+const notConnectedStatus = (storageConnected: boolean) => ({
   connected: false,
   handle: null,
   connectedAt: null,

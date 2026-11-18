@@ -3,7 +3,7 @@ import { Button } from "@pp/ui/button"
 
 import { scanFacts } from "@/features/jira/lib/facts"
 import { formatDateTime, formatNumber } from "@/features/jira/lib/format"
-import { jiraVisibility } from "@/features/jira/lib/warnings"
+import { JiraVisibility, jiraVisibility } from "@/features/jira/lib/warnings"
 import { m } from "@/paraglide/messages"
 
 import { ConfirmAction } from "../ConfirmAction"
@@ -67,15 +67,15 @@ export function ScanSummary({
               </FactRow>
             ))}
           </FactList>
-          {visibility.kind === "limited" ? null : (
+          {JiraVisibility.$is("limited")(visibility) ? null : (
             <p className="pt-1 text-body text-muted-foreground">
-              {visibility.kind === "complete"
+              {JiraVisibility.$is("complete")(visibility)
                 ? m.jira_import_scan_visibility_none()
                 : m.jira_import_scan_visibility_account()}
             </p>
           )}
         </FactBlock>
-        {visibility.kind === "limited" ? (
+        {JiraVisibility.$is("limited")(visibility) ? (
           <FactBlock
             title={m.jira_import_scan_visibility_title()}
             description={m.jira_import_scan_visibility_description()}

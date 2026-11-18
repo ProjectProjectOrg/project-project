@@ -1,10 +1,7 @@
 import type { Group, GroupDetail, UpdateGroupInput } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 
-export function applySprintPatch(
-  sprint: Group,
-  patch: UpdateGroupInput
-): Group {
+export function applySprintPatch(sprint: Group, patch: UpdateGroupInput) {
   return {
     ...sprint,
     name: patch.name ?? sprint.name,
@@ -20,7 +17,7 @@ export function applySprintPatch(
 export function applySprintDetailPatch(
   sprint: GroupDetail,
   patch: UpdateGroupInput
-): GroupDetail {
+) {
   return {
     ...applySprintPatch(sprint, patch),
     body: patch.body ?? sprint.body

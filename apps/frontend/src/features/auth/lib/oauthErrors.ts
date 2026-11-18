@@ -1,8 +1,6 @@
 import { m } from "@/paraglide/messages"
 
-export function signInOAuthErrorMessage(
-  error: string | undefined
-): string | null {
+export function signInOAuthErrorMessage(error: string | undefined) {
   switch (error) {
     case undefined:
       return null
@@ -15,7 +13,7 @@ export function signInOAuthErrorMessage(
   }
 }
 
-export function signInErrorCallbackURL(search: string): string {
+export function signInErrorCallbackURL(search: string) {
   const params = new URLSearchParams(search)
   params.delete("error")
   params.delete("error_description")

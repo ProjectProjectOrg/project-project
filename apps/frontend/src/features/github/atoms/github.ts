@@ -49,7 +49,7 @@ export type GithubOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export const githubOrgRequest = (orgSlug: string): GithubOrgRequest => ({
+export const githubOrgRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 
@@ -63,7 +63,7 @@ export const githubReposRequest = (
   slug: string,
   q: string,
   installationId?: string
-): GithubReposRequest => ({
+) => ({
   params: { orgSlug, slug },
   query: { q: q.trim() === "" ? undefined : q.trim(), installationId }
 })
@@ -78,7 +78,7 @@ export const branchesRequest = (
   slug: string,
   q: string,
   repoId?: string
-): BranchesRequest => ({
+) => ({
   params: { orgSlug, slug },
   query: { q: q.trim() === "" ? undefined : q.trim(), repoId }
 })
@@ -128,7 +128,7 @@ type GitStatesSnapshot = Readonly<{
 }>
 
 const connectedRepoIds = Atom.family((req: ProjectRequest) =>
-  Atom.readable((get): string | undefined => {
+  Atom.readable((get) => {
     const detail = Option.getOrUndefined(
       AsyncResult.value(get(confirmedProject(req)))
     )
@@ -200,10 +200,8 @@ export const githubIntegration = Atom.family((req: GithubOrgRequest) =>
   Atom.optimistic(githubIntegrationQuery(req))
 )
 
-const repoPage = (
-  repos: ReadonlyArray<GithubRepo>,
-  hasMore: boolean
-): GithubRepoPage => ({ repos, hasMore })
+const repoPage = (repos: ReadonlyArray<GithubRepo>, hasMore: boolean) =>
+  ({ repos, hasMore }) satisfies GithubRepoPage
 
 export const githubRepos = Atom.family((req: GithubReposRequest) =>
   Atom.optimistic(
@@ -289,16 +287,13 @@ export const branches = Atom.family((req: BranchesRequest) => {
       const first = get(branchPage(req, null))
       if (!AsyncResult.isSuccess(first)) {
         readCursors = []
-        return AsyncResult.map(
-          first,
-          (): BranchListView => ({
-            items: [],
-            totalCount: 0,
-            hasMore: false,
-            loadingMore: false,
-            loadMoreFailed: false
-          })
-        )
+        return AsyncResult.map(first, () => ({
+          items: [],
+          totalCount: 0,
+          hasMore: false,
+          loadingMore: false,
+          loadMoreFailed: false
+        }))
       }
       const items = [...first.value.items]
       const cursors: Array<string> = []
@@ -483,7 +478,7 @@ export type GithubInstallationChoicesRequest = Readonly<{
 export const githubInstallationChoicesRequest = (
   orgSlug: string,
   state: string
-): GithubInstallationChoicesRequest => ({
+) => ({
   params: { orgSlug },
   query: { state }
 })
@@ -514,7 +509,7 @@ export const chooseGithubInstallation = Atom.family((req: GithubOrgRequest) =>
   )
 )
 
-const gitStateBaseBranch = (state: GitState | undefined): string => {
+const gitStateBaseBranch = (state: GitState | undefined) => {
   if (state === undefined) return ""
   return Match.value(state).pipe(
     Match.when({ tag: "no_branch" }, (current) => current.baseBranch ?? ""),
@@ -527,7 +522,7 @@ const withGitState = (
   value: GitStatesResponse,
   id: TicketId,
   state: GitState
-): GitStatesResponse => ({
+) => ({
   ...value,
   states: { ...value.states, [id]: state }
 })
@@ -536,8 +531,10 @@ const createBranchPayload = ({
   name,
   baseBranch,
   repoId
-}: CreateBranchMutationInput): CreateBranchInput =>
-  repoId === undefined ? { name, baseBranch } : { name, baseBranch, repoId }
+}: CreateBranchMutationInput) =>
+  (repoId === undefined
+    ? { name, baseBranch }
+    : { name, baseBranch, repoId }) satisfies CreateBranchInput
 
 const branchKeys = (req: ProjectRequest, id: TicketId) => [
   Keys.ticketsIn(scopeOf(req)),
@@ -590,7 +587,7 @@ const withStack = (
   value: GitStatesResponse,
   id: TicketId,
   stack: ReadonlyArray<StackLayerState>
-): GitStatesResponse => ({
+) => ({
   ...value,
   stacks: { ...value.stacks, [id]: stack }
 })

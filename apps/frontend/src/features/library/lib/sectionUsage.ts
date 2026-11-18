@@ -1,19 +1,20 @@
 import {
   parseTicketBlocks,
   type Library,
-  type TypeDefinition
+  type TypeDefinition,
+  TicketBlockSegment
 } from "@pp/shared"
 
-const sectionKeysOf = (type: TypeDefinition): ReadonlySet<string> =>
+const sectionKeysOf = (type: TypeDefinition) =>
   new Set(
     parseTicketBlocks(type.body).flatMap((segment) =>
-      segment.kind === "block" ? [segment.type] : []
+      TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
     )
   )
 
 export type SectionUsage = ReadonlyMap<string, ReadonlyArray<TypeDefinition>>
 
-export const usageBySection = (library: Library): SectionUsage => {
+export const usageBySection = (library: Library) => {
   const usage = new Map<string, Array<TypeDefinition>>()
   for (const type of library.types) {
     if (type.hidden) continue
@@ -23,7 +24,5 @@ export const usageBySection = (library: Library): SectionUsage => {
   return usage
 }
 
-export const typesUsingSection = (
-  library: Library,
-  key: string
-): ReadonlyArray<TypeDefinition> => usageBySection(library).get(key) ?? []
+export const typesUsingSection = (library: Library, key: string) =>
+  usageBySection(library).get(key) ?? []

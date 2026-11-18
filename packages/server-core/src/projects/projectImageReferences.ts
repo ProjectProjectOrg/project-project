@@ -10,9 +10,7 @@ import { and, eq, sql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
-export const iconImageSlots = (
-  iconImage: ProjectIconImage | null
-): { icon: string | null; iconSource: string | null } => ({
+export const iconImageSlots = (iconImage: ProjectIconImage | null) => ({
   icon: iconImage?.type === "sticker" ? iconImage.renderedAttachmentId : null,
   iconSource: iconImage?.sourceAttachmentId ?? null
 })

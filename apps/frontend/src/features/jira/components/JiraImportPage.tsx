@@ -48,7 +48,8 @@ import {
   isConfiguringJiraImport,
   jiraImportScreen,
   jiraImportStage,
-  type JiraImportScreen
+  type JiraImportScreen,
+  type JiraImportStep
 } from "@/features/jira/lib/stages"
 import {
   orgLibraryFor,
@@ -123,7 +124,9 @@ function JiraImportView({
   const navigation = useImportStep(!isConfiguringJiraImport(detail.status))
   const lifecycle = useJiraImportLifecycle(orgSlug, detail, navigation.clear)
   const draft = useJiraImportDraft(orgSlug, detail.id)
-  const [landing] = useState(() => jiraImportLanding(detail, types))
+  const [landing] = useState<JiraImportStep>(() =>
+    jiraImportLanding(detail, types)
+  )
   const requirements = detail.requirements
   const summary = detail.scanSummary
   const hasScan = requirements !== null && summary !== null

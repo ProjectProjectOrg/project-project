@@ -1,5 +1,6 @@
 import { rewriteMentionsInMovedTicket } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Result from "effect/Result"
 import { describe, expect, it } from "vitest"
 
 import type { CommentBlock } from "./comments-region"
@@ -14,33 +15,34 @@ import {
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
-const sample = (): ReadonlyArray<CommentBlock> => [
-  {
-    id: "c_a",
-    author: { kind: "user", userId: "github_42" },
-    origin: "native",
-    createdAt: isoDate("2026-05-07T10:00:00.000Z"),
-    editedAt: isoDate("2026-05-07T10:04:00.000Z"),
-    resolvedBy: "github_88",
-    resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
-    body: "Looks good. cc [Wouter](mention:user/github_88)."
-  },
-  {
-    id: "c_b",
-    author: {
-      kind: "imported",
-      displayName: "Former Jira User",
-      source: "jira",
-      sourceId: "jira-account-88"
+const sample = () =>
+  [
+    {
+      id: "c_a",
+      author: { kind: "user", userId: "github_42" },
+      origin: "native",
+      createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+      editedAt: isoDate("2026-05-07T10:04:00.000Z"),
+      resolvedBy: "github_88",
+      resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
+      body: "Looks good. cc [Wouter](mention:user/github_88)."
     },
-    origin: "jira",
-    createdAt: isoDate("2026-05-07T10:06:00.000Z"),
-    editedAt: null,
-    replyTo: "c_a",
-    tickets: ["[T-23](mention:ticket/T-23)"],
-    body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
-  }
-]
+    {
+      id: "c_b",
+      author: {
+        kind: "imported",
+        displayName: "Former Jira User",
+        source: "jira",
+        sourceId: "jira-account-88"
+      },
+      origin: "jira",
+      createdAt: isoDate("2026-05-07T10:06:00.000Z"),
+      editedAt: null,
+      replyTo: "c_a",
+      tickets: ["[T-23](mention:ticket/T-23)"],
+      body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
+    }
+  ] satisfies ReadonlyArray<CommentBlock>
 
 describe("splitDescriptionAndCommentsRegion", () => {
   it("returns full body and empty region when no markers", () => {
@@ -181,17 +183,27 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
 
 describe("validateCommentBody", () => {
   it("accepts normal markdown", () => {
-    expect(validateCommentBody("Hello\n\n```ts\nlet x = 1\n```").ok).toBe(true)
+    expect(
+      Result.isSuccess(validateCommentBody("Hello\n\n```ts\nlet x = 1\n```"))
+    ).toBe(true)
   })
   it("rejects bodies containing the comments marker pattern", () => {
-    expect(validateCommentBody("hi <!-- comment:fake -->").ok).toBe(false)
-    expect(validateCommentBody("hi <!--   comment:fake -->").ok).toBe(false)
-    expect(validateCommentBody("<!-- comments:start -->").ok).toBe(false)
-    expect(validateCommentBody("<!-- comments:end -->").ok).toBe(false)
+    expect(
+      Result.isFailure(validateCommentBody("hi <!-- comment:fake -->"))
+    ).toBe(true)
+    expect(
+      Result.isFailure(validateCommentBody("hi <!--   comment:fake -->"))
+    ).toBe(true)
+    expect(
+      Result.isFailure(validateCommentBody("<!-- comments:start -->"))
+    ).toBe(true)
+    expect(Result.isFailure(validateCommentBody("<!-- comments:end -->"))).toBe(
+      true
+    )
   })
   it("rejects empty bodies", () => {
-    expect(validateCommentBody("").ok).toBe(false)
-    expect(validateCommentBody("   \n  ").ok).toBe(false)
+    expect(Result.isFailure(validateCommentBody(""))).toBe(true)
+    expect(Result.isFailure(validateCommentBody("   \n  "))).toBe(true)
   })
 })
 

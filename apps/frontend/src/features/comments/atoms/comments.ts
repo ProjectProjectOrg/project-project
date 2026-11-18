@@ -18,20 +18,13 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
 
-export type CommentsRequest = Readonly<{
-  _view: "comments"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: TicketId
-  }>
-}>
+export type CommentsRequest = ReturnType<typeof commentsRequest>
 
-export const commentsRequest = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): CommentsRequest => ({ _view: "comments", params: { orgSlug, slug, id } })
+export const commentsRequest = (orgSlug: string, slug: string, id: TicketId) =>
+  ({
+    _view: "comments",
+    params: { orgSlug, slug, id }
+  }) as const
 
 const scopeOf = (req: CommentsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -77,22 +70,18 @@ const commentsView = (req: CommentsRequest) =>
       const identities = get(createdKeys(req))
       const outbox = get(commentOutbox(req))
       return AsyncResult.map(get(commentsQuery(req)), (value) => [
-        ...value.map(
-          (comment): CommentViewRow => ({
-            comment,
-            key: identities.get(comment.id) ?? comment.id,
-            pending: false,
-            failed: null
-          })
-        ),
-        ...outbox.map(
-          (entry): CommentViewRow => ({
-            comment: placeholderComment({ req, ...entry }, entry.input),
-            key: entry.clientId,
-            pending: false,
-            failed: entry
-          })
-        )
+        ...value.map<CommentViewRow>((comment) => ({
+          comment,
+          key: identities.get(comment.id) ?? comment.id,
+          pending: false,
+          failed: null
+        })),
+        ...outbox.map<CommentViewRow>((entry) => ({
+          comment: placeholderComment({ req, ...entry }, entry.input),
+          key: entry.clientId,
+          pending: false,
+          failed: entry
+        }))
       ])
     },
     (refresh) => refresh(commentsQuery(req))
@@ -112,24 +101,22 @@ export type CreateCommentKey = Readonly<{
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 const decodeSlug = Schema.decodeUnknownSync(Slug)
 
-const placeholderComment = (
-  key: CreateCommentKey,
-  input: CreateCommentInput
-): Comment => ({
-  id: decodeCommentId(
-    `c_${key.clientId.replaceAll(/[^A-Za-z0-9_-]/g, "_") || "pending"}`
-  ),
-  ticketId: key.req.params.id,
-  projectSlug: decodeSlug(key.req.params.slug),
-  author: { kind: "user", user: key.author },
-  body: input.body,
-  createdAt: key.createdAt,
-  editedAt: null,
-  replyTo: input.replyTo ?? null,
-  resolution: null,
-  tickets: [],
-  origin: "native"
-})
+const placeholderComment = (key: CreateCommentKey, input: CreateCommentInput) =>
+  ({
+    id: decodeCommentId(
+      `c_${key.clientId.replaceAll(/[^A-Za-z0-9_-]/g, "_") || "pending"}`
+    ),
+    ticketId: key.req.params.id,
+    projectSlug: decodeSlug(key.req.params.slug),
+    author: { kind: "user", user: key.author },
+    body: input.body,
+    createdAt: key.createdAt,
+    editedAt: null,
+    replyTo: input.replyTo ?? null,
+    resolution: null,
+    tickets: [],
+    origin: "native"
+  }) satisfies Comment
 
 export const createComment = Atom.family((key: CreateCommentKey) =>
   viewMutation(comments(key.req), {
@@ -263,10 +250,7 @@ export const resolveThread = Atom.family(
     })
 )
 
-const withoutEntry = (
-  outbox: ReadonlyArray<OutboxEntry>,
-  clientId: string
-): ReadonlyArray<OutboxEntry> =>
+const withoutEntry = (outbox: ReadonlyArray<OutboxEntry>, clientId: string) =>
   outbox.filter((entry) => entry.clientId !== clientId)
 
 // Keeps a send that failed in the thread, as a failed comment.
@@ -274,7 +258,7 @@ export const parkFailedComment = (
   registry: Registry.AtomRegistry,
   req: CommentsRequest,
   entry: OutboxEntry
-): void => {
+) => {
   const outbox = commentOutbox(req)
   registry.set(outbox, [
     ...withoutEntry(registry.get(outbox), entry.clientId),
@@ -286,7 +270,7 @@ export const discardFailedComment = (
   registry: Registry.AtomRegistry,
   req: CommentsRequest,
   clientId: string
-): void => {
+) => {
   const outbox = commentOutbox(req)
   registry.set(outbox, withoutEntry(registry.get(outbox), clientId))
 }
@@ -299,7 +283,7 @@ export const retryFailedComment = async (
   req: CommentsRequest,
   entry: OutboxEntry,
   body: string = entry.input.body
-): Promise<void> => {
+) => {
   const input = { ...entry.input, body }
   discardFailedComment(registry, req, entry.clientId)
   const result = await fireMutation(

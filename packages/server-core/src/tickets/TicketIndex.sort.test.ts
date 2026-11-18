@@ -6,10 +6,10 @@ import * as TicketIndex from "./TicketIndex"
 
 const dialect = new PgDialect()
 
-const render = (sort: TicketSort): string =>
+const render = (sort: TicketSort) =>
   dialect.sqlToQuery(TicketIndex.ticketSortExpression(sort)).sql
 
-const renderCursor = (sort: TicketSort, id: string, value: string): string => {
+const renderCursor = (sort: TicketSort, id: string, value: string) => {
   const expression = TicketIndex.ticketSortExpression(sort)
   const condition = TicketIndex.ticketCursorCondition(
     { sort, cursor: encodeCursor({ id, sort: value }) },
@@ -19,7 +19,7 @@ const renderCursor = (sort: TicketSort, id: string, value: string): string => {
   return dialect.sqlToQuery(condition).sql
 }
 
-const occurrences = (haystack: string, needle: string): number =>
+const occurrences = (haystack: string, needle: string) =>
   haystack.split(needle).length - 1
 
 describe("ticketSortExpression", () => {

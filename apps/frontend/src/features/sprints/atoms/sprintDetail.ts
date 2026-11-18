@@ -7,20 +7,13 @@ import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { applySprintDetailPatch } from "./sprintPatch"
 
-export type SprintRequest = Readonly<{
-  _view: "sprintDetail"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: GroupId
-  }>
-}>
+export type SprintRequest = ReturnType<typeof sprintRequest>
 
-export const sprintRequest = (
-  orgSlug: string,
-  slug: string,
-  id: GroupId
-): SprintRequest => ({ _view: "sprintDetail", params: { orgSlug, slug, id } })
+export const sprintRequest = (orgSlug: string, slug: string, id: GroupId) =>
+  ({
+    _view: "sprintDetail",
+    params: { orgSlug, slug, id }
+  }) as const
 
 const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

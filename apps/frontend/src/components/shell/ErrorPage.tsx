@@ -78,7 +78,7 @@ export function ErrorPage({
   )
 }
 
-function detailMessage(error: unknown): string | null {
+function detailMessage(error: unknown) {
   if (!error) return null
   if (Predicate.isObject(error) && "_tag" in error) return errorMessage(error)
   if (error instanceof Error) return error.message

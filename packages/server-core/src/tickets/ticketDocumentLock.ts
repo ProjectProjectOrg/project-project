@@ -36,9 +36,7 @@ export class TicketDocumentLock extends Context.Service<
   }
 >()("@pp/server-core/tickets/ticketDocumentLock") {}
 
-export const make = (
-  lock: KeyedLock.KeyedLock["Service"]
-): TicketDocumentLock["Service"] =>
+export const make = (lock: KeyedLock.KeyedLock["Service"]) =>
   TicketDocumentLock.of({
     withTicketDocumentLock: (orgSlug, projectSlug, ticketId, effect) =>
       lock.withLock(

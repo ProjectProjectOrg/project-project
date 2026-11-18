@@ -2,7 +2,7 @@ import type { Comment, CommentAuthor, TicketId } from "@pp/shared"
 
 import type { TicketLocation } from "@/features/tickets/lib/ticketClipboard"
 
-export const commentAuthorName = (author: CommentAuthor): string =>
+export const commentAuthorName = (author: CommentAuthor) =>
   author.kind === "user"
     ? author.user.name || author.user.email
     : author.displayName
@@ -11,10 +11,10 @@ export const commentUrl = (
   { orgSlug, slug }: TicketLocation,
   ticketId: TicketId,
   commentId: Comment["id"]
-): string =>
+) =>
   `${window.location.origin}/orgs/${orgSlug}/projects/${slug}/tickets/${ticketId}#${commentId}`
 
-const markdownBody = (body: string): string =>
+const markdownBody = (body: string) =>
   body.replace(/^(?:[ \t]*\n)+/u, "").trimEnd()
 
 export const commentMarkdown = (
@@ -24,7 +24,7 @@ export const commentMarkdown = (
   ],
   ticketId: TicketId,
   url: string
-): string =>
+) =>
   [
     `**${commentAuthorName(first.author)}** · [${ticketId}](${url})`,
     markdownBody(first.body),

@@ -1,3 +1,5 @@
+import * as Data from "effect/Data"
+
 export type BannerImageSize = Readonly<{ width: number; height: number }>
 
 export type BannerImageState<I> = Readonly<{
@@ -10,17 +12,22 @@ export type BannerImageState<I> = Readonly<{
   shaderFailed: boolean
 }>
 
-export type BannerImageEvent<I> =
-  | Readonly<{ type: "lookupSkipped" }>
-  | Readonly<{ type: "lookupStarted" }>
-  | Readonly<{ type: "lookupHit"; url: string }>
-  | Readonly<{ type: "lookupMissed" }>
-  | Readonly<{ type: "imageLoaded"; size: BannerImageSize }>
-  | Readonly<{ type: "imageDecoded"; image: I }>
-  | Readonly<{ type: "decodeFailed" }>
-  | Readonly<{ type: "imageFailed" }>
-  | Readonly<{ type: "renderStarted" }>
-  | Readonly<{ type: "painted" }>
+export type BannerImageEvent<I> = Data.TaggedEnum<{
+  lookupSkipped: {}
+  lookupStarted: {}
+  lookupHit: Readonly<{ url: string }>
+  lookupMissed: {}
+  imageLoaded: Readonly<{ size: BannerImageSize }>
+  imageDecoded: Readonly<{ image: I }>
+  decodeFailed: {}
+  imageFailed: {}
+  renderStarted: {}
+  painted: {}
+}>
+interface BannerImageEventDefinition extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: BannerImageEvent<this["A"]>
+}
+export const BannerImageEvent = Data.taggedEnum<BannerImageEventDefinition>()
 
 export const initialBannerImageState: BannerImageState<never> = {
   lookup: "idle",
@@ -35,34 +42,29 @@ export const initialBannerImageState: BannerImageState<never> = {
 export const bannerImageReducer = <I>(
   state: BannerImageState<I>,
   event: BannerImageEvent<I>
-): BannerImageState<I> => {
-  switch (event.type) {
-    case "lookupSkipped":
-      return { ...state, lookup: "miss" }
-    case "lookupStarted":
-      return { ...state, lookup: "pending" }
-    case "lookupHit":
-      return { ...state, lookup: "hit", cachedRender: event.url }
-    case "lookupMissed":
-      return { ...state, lookup: "miss" }
-    case "imageLoaded":
-      return { ...state, naturalSize: event.size }
-    case "imageDecoded":
-      return { ...state, shaderImage: event.image }
-    case "decodeFailed":
-      return { ...state, shaderFailed: true }
-    case "imageFailed":
-      return { ...state, placeholderFailed: true }
-    case "renderStarted":
-      return state.painted ? { ...state, painted: false } : state
-    case "painted":
-      return state.painted ? state : { ...state, painted: true }
-    default:
-      return state
-  }
-}
+) =>
+  BannerImageEvent.$match(event, {
+    lookupSkipped: () =>
+      ({ ...state, lookup: "miss" }) satisfies BannerImageState<I>,
+    lookupStarted: () =>
+      ({ ...state, lookup: "pending" }) satisfies BannerImageState<I>,
+    lookupHit: ({ url }) =>
+      ({
+        ...state,
+        lookup: "hit",
+        cachedRender: url
+      }) satisfies BannerImageState<I>,
+    lookupMissed: () =>
+      ({ ...state, lookup: "miss" }) satisfies BannerImageState<I>,
+    imageLoaded: ({ size }) => ({ ...state, naturalSize: size }),
+    imageDecoded: ({ image }) => ({ ...state, shaderImage: image }),
+    decodeFailed: () => ({ ...state, shaderFailed: true }),
+    imageFailed: () => ({ ...state, placeholderFailed: true }),
+    renderStarted: () => (state.painted ? { ...state, painted: false } : state),
+    painted: () => (state.painted ? state : { ...state, painted: true })
+  })
 
 export const shouldLoadBannerImage = (
   state: BannerImageState<unknown>,
   editing: boolean
-): boolean => state.lookup === "miss" || editing
+) => state.lookup === "miss" || editing

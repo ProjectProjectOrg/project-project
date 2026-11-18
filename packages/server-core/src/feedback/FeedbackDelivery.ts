@@ -142,29 +142,32 @@ const makeFeedbackDelivery = Effect.gen(function* () {
     id: string,
     attempt: number,
     cause: Cause.Cause<unknown>
-  ): Effect.fn.Return<DeliveryOutcome> {
+  ) {
     yield* recordError(id, Cause.pretty(cause).slice(0, 2000))
     yield* Effect.logWarning("feedback delivery failed; will retry", {
       id,
       attempt
     })
-    return { kind: "retry", seconds: backoffSeconds(attempt) }
+    return {
+      kind: "retry",
+      seconds: backoffSeconds(attempt)
+    } satisfies DeliveryOutcome
   })
 
   const deliver = Effect.fn("FeedbackDelivery.deliver")(function* (
     id: string,
     attempt: number
-  ): Effect.fn.Return<DeliveryOutcome> {
+  ) {
     const [row] = yield* db
       .select({ payload: feedbackOutbox.payload })
       .from(feedbackOutbox)
       .where(and(eq(feedbackOutbox.id, id), isNull(feedbackOutbox.finishedAt)))
       .limit(1)
       .pipe(Effect.orDie)
-    if (!row) return { kind: "done" }
+    if (!row) return { kind: "done" } satisfies DeliveryOutcome
     if (Option.isNone(config.targetUrl)) {
       yield* abandon(id, "sending_disabled")
-      return { kind: "done" }
+      return { kind: "done" } satisfies DeliveryOutcome
     }
     const report = yield* decodeReport(row.payload).pipe(Effect.orDie)
     const targetUrl = config.targetUrl.value

@@ -114,14 +114,14 @@ export const ticketIndexProject = {
   slug: "p"
 } satisfies TicketProject
 
-export function unexpected(method: string): Effect.Effect<never> {
+export function unexpected(method: string) {
   return Effect.die(new Error(`unexpected ${method} call`))
 }
 
 export function makeTicketDocument(
   id: string,
   overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument {
+) {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
@@ -144,7 +144,7 @@ export function makeTicketDocument(
     body: "",
     commentsRegion: "",
     ...overrides
-  }
+  } satisfies TicketDocs.TicketDocument
 }
 
 export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
@@ -351,12 +351,13 @@ export const makeSprintGroups = (
   const files = new Map(
     sprints.map((sprint) => [sprint.id, { ...sprint, tickets: [], body: "" }])
   )
-  const live = (file: GroupDetail): GroupDetail => ({
-    ...file,
-    tickets: [...documents.values()].flatMap((document) =>
-      document.sprint === file.id ? [document.id] : []
-    )
-  })
+  const live = (file: GroupDetail) =>
+    ({
+      ...file,
+      tickets: [...documents.values()].flatMap((document) =>
+        document.sprint === file.id ? [document.id] : []
+      )
+    }) satisfies GroupDetail
   return makeFakeGroups({
     list: () => Effect.sync(() => [...files.values()].map(live)),
     documents: () => Effect.succeed([...files.values()]),
@@ -370,15 +371,13 @@ export const makeSprintGroups = (
     ensureSprintAssignable: (sprintIds) =>
       Effect.forEach(
         sprintIds,
-        (
-          sprintId
-        ): Effect.Effect<void, NotFound | SprintCompletedImmutable> => {
-          const file = files.get(sprintId)
-          if (file === undefined) return Effect.fail(new NotFound())
-          return file.completedAt === null
-            ? Effect.void
-            : Effect.fail(new SprintCompletedImmutable())
-        },
+        (sprintId) =>
+          Effect.gen(function* () {
+            const file = files.get(sprintId)
+            if (file === undefined) return yield* new NotFound()
+            if (file.completedAt !== null)
+              return yield* new SprintCompletedImmutable()
+          }),
         { discard: true }
       ),
     ...overrides
@@ -387,7 +386,7 @@ export const makeSprintGroups = (
 
 export const makeFakeAttachments = (
   overrides: Partial<Attachments.Attachments["Service"]> = {}
-): Layer.Layer<Attachments.Attachments> =>
+) =>
   Layer.succeed(Attachments.Attachments, {
     prepare: () => unexpected("Attachments.prepare"),
     commit: () => unexpected("Attachments.commit"),
@@ -406,7 +405,7 @@ export const makeFakeAttachments = (
 
 export const makeFakeFigmaLinks = (
   overrides: Partial<FigmaLinks.FigmaLinks["Service"]> = {}
-): Layer.Layer<FigmaLinks.FigmaLinks> =>
+) =>
   Layer.succeed(FigmaLinks.FigmaLinks, {
     reconcileTicket: () => Effect.void,
     listForTicket: () => unexpected("FigmaLinks.listForTicket"),
@@ -451,25 +450,26 @@ export const makeRecordingAttachments = () => {
   }
 }
 
-export const fakeUser = (id: string): User => ({
-  id: userId(id),
-  email: `${id}@example.com`,
-  name: id,
-  username: null,
-  image: null,
-  createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-  activeOrgSlug: null,
-  personalGithub: { connected: false },
-  editorPreference: "github",
-  personalEverhour: {
-    connected: false,
-    everhourUserId: null,
-    name: null,
-    email: null,
-    lastVerifiedAt: null,
-    lastCheckError: null
-  }
-})
+export const fakeUser = (id: string) =>
+  ({
+    id: userId(id),
+    email: `${id}@example.com`,
+    name: id,
+    username: null,
+    image: null,
+    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
+    activeOrgSlug: null,
+    personalGithub: { connected: false },
+    editorPreference: "github",
+    personalEverhour: {
+      connected: false,
+      everhourUserId: null,
+      name: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    }
+  }) satisfies User
 
 export const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
@@ -546,7 +546,7 @@ export const priorityOrdinal = { high: 3, med: 2, low: 1 } as const
 export const ticketSortValue = (
   document: TicketDocs.TicketDocument,
   query: TicketListQuery
-): string => {
+) => {
   switch (query.sort.key) {
     case "manual":
       return document.rank
@@ -605,11 +605,10 @@ export const matchingDocuments = (
 
 export const decodeStatusSlug = Schema.decodeSync(StatusSlug)
 
-export const querySectionsVia =
-  (
-    index: Pick<TicketIndex.TicketIndex["Service"], "list" | "query" | "count">
-  ): TicketIndex.TicketIndex["Service"]["querySections"] =>
-  (project, query, options) =>
+export const querySectionsVia = (
+  index: Pick<TicketIndex.TicketIndex["Service"], "list" | "query" | "count">
+) =>
+  ((project, query, options) =>
     Effect.gen(function* () {
       const out = new Map<
         string,
@@ -646,7 +645,7 @@ export const querySectionsVia =
         const all = yield* index.list(project)
         const byId = new Map(all.map((entry) => [entry.id, entry]))
         const byEpic = options.sections === "parent"
-        const sectionOf = (entry: TicketIndex.TicketIndexEntry): string => {
+        const sectionOf = (entry: TicketIndex.TicketIndexEntry) => {
           const parent =
             entry.parent === null ? undefined : byId.get(entry.parent.id)
           if (parent === undefined) return EPIC_SECTION_NONE
@@ -696,20 +695,23 @@ export const querySectionsVia =
         out.set(section.key, { counts, entries })
       }
       return out
-    })
+    })) satisfies TicketIndex.TicketIndex["Service"]["querySections"]
 
 export const relationEdgesOfDocuments = (
   documents: Map<string, TicketDocs.TicketDocument>
-): ReadonlyArray<RelationEdge> =>
+) =>
   [...documents.values()].flatMap((document) =>
     TicketIndex.ticketRelationRowsFor(
       { orgSlug: "", organizationId: "", projectId: "", slug: "" },
       document
-    ).map((row) => ({
-      from: document.id,
-      to: ticketId(row.toTicketId),
-      kind: row.kind
-    }))
+    ).map(
+      (row) =>
+        ({
+          from: document.id,
+          to: ticketId(row.toTicketId),
+          kind: row.kind
+        }) satisfies RelationEdge
+    )
   )
 
 export const relationsOfDocuments = (
@@ -717,7 +719,7 @@ export const relationsOfDocuments = (
   ticketId: string
 ) =>
   relationsFromRows(
-    relationEdgesOfDocuments(documents).flatMap((edge): Array<RelationRow> => {
+    relationEdgesOfDocuments(documents).flatMap((edge) => {
       const direction =
         edge.from === ticketId ? "out" : edge.to === ticketId ? "in" : null
       if (direction === null) return []
@@ -734,7 +736,7 @@ export const relationsOfDocuments = (
             archivedAt: other.archivedAt
           }
         }
-      ]
+      ] satisfies Array<RelationRow>
     })
   )
 
@@ -748,34 +750,35 @@ const inRepository = (
 
 export const fakeRanks = (
   documents: ReadonlyMap<string, TicketDocs.TicketDocument>
-): Pick<TicketIndex.TicketIndex["Service"], "topRank" | "rankGap"> => ({
-  topRank: () =>
-    Effect.sync(
-      () =>
-        [...documents.values()]
-          .map((document) => document.rank)
-          .toSorted()[0] ?? null
-    ),
-  rankGap: (_project, anchorId, side, excludeId) =>
-    Effect.sync(() => {
-      const anchor = documents.get(anchorId)
-      if (anchor === undefined) return null
-      const others = [...documents.values()].flatMap((document) =>
-        document.id === excludeId ? [] : [document.rank]
-      )
-      if (side === "after") {
-        const upper =
-          others.filter((rank) => rank > anchor.rank).toSorted()[0] ?? null
-        return { lower: anchor.rank, upper }
-      }
-      const lower =
-        others
-          .filter((rank) => rank < anchor.rank)
-          .toSorted()
-          .at(-1) ?? null
-      return { lower, upper: anchor.rank }
-    })
-})
+) =>
+  ({
+    topRank: (_project) =>
+      Effect.sync(
+        () =>
+          [...documents.values()]
+            .map((document) => document.rank)
+            .toSorted()[0] ?? null
+      ),
+    rankGap: (_project, anchorId, side, excludeId) =>
+      Effect.sync(() => {
+        const anchor = documents.get(anchorId)
+        if (anchor === undefined) return null
+        const others = [...documents.values()].flatMap((document) =>
+          document.id === excludeId ? [] : [document.rank]
+        )
+        if (side === "after") {
+          const upper =
+            others.filter((rank) => rank > anchor.rank).toSorted()[0] ?? null
+          return { lower: anchor.rank, upper }
+        }
+        const lower =
+          others
+            .filter((rank) => rank < anchor.rank)
+            .toSorted()
+            .at(-1) ?? null
+        return { lower, upper: anchor.rank }
+      })
+  }) satisfies Pick<TicketIndex.TicketIndex["Service"], "topRank" | "rankGap">
 
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]

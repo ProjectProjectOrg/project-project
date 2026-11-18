@@ -22,12 +22,12 @@ export const THEME_ITEMS = [
 const STORAGE_KEY = "projectproject:theme"
 const themeCodec = createLocalStorageStringCodec(ThemePreference)
 
-function systemPrefersDark(): boolean {
+function systemPrefersDark() {
   if (typeof window === "undefined") return false
   return window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
-function resolve(pref: ThemePreference): ResolvedTheme {
+function resolve(pref: ThemePreference) {
   if (pref === "system") return systemPrefersDark() ? "dark" : "light"
   return pref
 }

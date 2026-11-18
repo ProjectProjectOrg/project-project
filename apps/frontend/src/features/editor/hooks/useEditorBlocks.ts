@@ -18,7 +18,7 @@ export function useEditorBlocks(
   slug: string,
   ticketType: TypeKey | null,
   onMakeDefinitionError: (message: string) => void
-): EditorBlocks | undefined {
+) {
   const navigate = useNavigate()
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(orgSlug, slug))
@@ -51,14 +51,14 @@ export function useEditorBlocks(
     () =>
       library === null
         ? undefined
-        : {
+        : ({
             mode: "ticket",
             library,
             ticketType,
             canEdit: { org: canEditOrg, project: library.canEdit },
             onEditDefinition,
             onMakeDefinition
-          },
+          } satisfies EditorBlocks),
     [library, ticketType, canEditOrg, onEditDefinition, onMakeDefinition]
   )
 }

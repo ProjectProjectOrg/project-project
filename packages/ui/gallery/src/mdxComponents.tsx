@@ -12,9 +12,7 @@ import { Demo } from "./Demo"
 import { Heading } from "./Heading"
 import { InlineCode } from "./InlineCode"
 
-const codeElementOf = (
-  children: ReactNode
-): ReactElement<{ className?: string; children?: ReactNode }> | undefined =>
+const codeElementOf = (children: ReactNode) =>
   Children.toArray(children).find(
     (
       child
@@ -22,10 +20,10 @@ const codeElementOf = (
       isValidElement(child)
   )
 
-const languageOf = (children: ReactNode): string =>
+const languageOf = (children: ReactNode) =>
   codeElementOf(children)?.props.className?.replace("language-", "") ?? "tsx"
 
-const codeOf = (children: ReactNode): string => {
+const codeOf = (children: ReactNode) => {
   const code = codeElementOf(children)?.props.children
   return Children.toArray(code)
     .filter((part) => typeof part === "string")

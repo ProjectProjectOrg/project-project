@@ -161,7 +161,7 @@ type SlashMenuLayout = Readonly<{
   left: number
 }>
 
-const sameLayout = (a: SlashMenuLayout | null, b: SlashMenuLayout): boolean =>
+const sameLayout = (a: SlashMenuLayout | null, b: SlashMenuLayout) =>
   a !== null &&
   a.fit.preview === b.fit.preview &&
   a.fit.width === b.fit.width &&
@@ -169,9 +169,7 @@ const sameLayout = (a: SlashMenuLayout | null, b: SlashMenuLayout): boolean =>
   a.placement.side === b.placement.side &&
   a.placement.top === b.placement.top
 
-type TriggerRect = Readonly<{ left: number; top: number; bottom: number }>
-
-const triggerRect = (query: string, fallback: DOMRect): TriggerRect => {
+const triggerRect = (query: string, fallback: DOMRect) => {
   const selection = window.getSelection()
   if (selection === null || selection.rangeCount === 0)
     return { left: fallback.left, top: fallback.top, bottom: fallback.bottom }
@@ -201,7 +199,7 @@ function useSlashMenuLayout(
   menuRef: RefObject<HTMLDivElement | null>,
   root: HTMLElement | null,
   query: string
-): SlashMenuLayout | null {
+) {
   const [layout, setLayout] = useState<SlashMenuLayout | null>(null)
   const measure = useCallback(() => {
     const frame = frameRef.current

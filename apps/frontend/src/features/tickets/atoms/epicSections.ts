@@ -3,7 +3,6 @@ import {
   type EpicSectionKey,
   type Ticket,
   type TicketId,
-  type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -47,27 +46,23 @@ import {
   recordCreatedKey
 } from "./ticketRows"
 
-export type EpicSectionsRequest = Readonly<{
-  _view: "epicSections"
-  by: ParentGrouping
-  params: Readonly<{ orgSlug: string; slug: string }>
-  query: TicketListQuery
-}>
+export type EpicSectionsRequest = ReturnType<typeof epicSectionsRequest>
 
 export const epicSectionsRequest = (
   orgSlug: string,
   slug: string,
   query: QueryWithView,
   by: ParentGrouping
-): EpicSectionsRequest => ({
-  _view: "epicSections",
-  by,
-  params: { orgSlug, slug },
-  query: {
-    ...viewQuery(query),
-    cursor: undefined
-  }
-})
+) =>
+  ({
+    _view: "epicSections",
+    by,
+    params: { orgSlug, slug },
+    query: {
+      ...viewQuery(query),
+      cursor: undefined
+    }
+  }) as const
 
 const scopeOf = (req: EpicSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -116,14 +111,15 @@ const viewerOf = (get: Atom.AtomContext, req: EpicSectionsRequest) => ({
   )
 })
 
-const emptyEpicSections = (
-  viewer: EpicSectionsValue["viewer"]
-): EpicSectionsValue => ({
-  total: 0,
-  counts: { total: 0, byStatus: {} },
-  sections: [],
-  viewer
-})
+const emptyEpicSections = (viewer: EpicSectionsValue["viewer"]) => {
+  const empty: EpicSectionsValue = {
+    total: 0,
+    counts: { total: 0, byStatus: {} },
+    sections: [],
+    viewer
+  }
+  return empty
+}
 
 const epicSectionsView = (req: EpicSectionsRequest) =>
   Atom.readable(
@@ -265,7 +261,7 @@ const insertCreated = (
   key: EpicSectionKey,
   value: EpicSectionsValue,
   input: QuickCreateInput
-): EpicSectionsValue => {
+) => {
   const existing = value.sections.find((section) => section.key === key)
   if (existing === undefined) return value
   const status = input.payload.status ?? TicketStatus.make("todo")
@@ -315,7 +311,7 @@ const confirmCreated = (
   value: EpicSectionsValue,
   created: Ticket,
   input: QuickCreateInput
-): EpicSectionsValue => ({
+) => ({
   ...value,
   sections: value.sections.map((section) =>
     section.key !== key

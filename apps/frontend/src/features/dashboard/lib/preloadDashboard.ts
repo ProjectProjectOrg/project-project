@@ -23,7 +23,7 @@ const PROJECT_PRELOAD_CONCURRENCY = 4
 const projectSlugsOf = (
   lists: ReadonlyArray<Option.Option<OrgTicketsValue>>,
   byProject: Option.Option<MyTicketsByProjectValue>
-): ReadonlySet<string> =>
+) =>
   new Set([
     ...lists.flatMap((value) =>
       Option.isSome(value)

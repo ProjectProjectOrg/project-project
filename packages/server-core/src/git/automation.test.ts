@@ -12,7 +12,7 @@ import { DEFAULT_GIT_AUTOMATION_CONFIG } from "./automationTesting"
 
 const status = Schema.decodeSync(StatusSlug)
 
-const ticket = (overrides: Partial<TicketGitFields> = {}): TicketGitFields => ({
+const ticket = (overrides: Partial<TicketGitFields> = {}) => ({
   status: status("todo"),
   branch: null,
   pr: null,

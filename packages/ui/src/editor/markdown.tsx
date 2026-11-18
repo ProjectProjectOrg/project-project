@@ -4,7 +4,8 @@ import {
   parseFigmaUrl,
   parseAttachmentUrl,
   parseMentionHref,
-  parseTicketBlocks
+  parseTicketBlocks,
+  TicketBlockSegment
 } from "@pp/shared"
 import {
   Children,
@@ -40,7 +41,11 @@ import {
   SyncedChip,
   syncedChipLabel
 } from "./blocks/synced-block"
-import { splitLeadingHeading, syncedView } from "./blocks/synced-content"
+import {
+  splitLeadingHeading,
+  SyncedView,
+  syncedView
+} from "./blocks/synced-content"
 import { previewableUrl } from "./links/link-preview-url"
 import { PreviewLink } from "./links/preview-link"
 import { FigmaTargetContext, MarkdownFigma } from "./markdown-figma"
@@ -66,10 +71,10 @@ const prismPlugin = [
   Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]
 >[number]
 
-const linkedAttachmentContent = (
+const linkedAttachmentContent: (
   children: ReactNode,
   morphId: string
-): ReactNode =>
+) => ReactNode = (children, morphId) =>
   Children.map(children, (child, index) => {
     if (
       !isValidElement<{ src?: string; alt?: string; children?: ReactNode }>(
@@ -123,7 +128,7 @@ export function Markdown({
   const morphId = useId()
   const segments = parseTicketBlocks(children)
   const framed =
-    blocks === "frame" && segments.some((segment) => segment.kind === "block")
+    blocks === "frame" && segments.some(TicketBlockSegment.$is("block"))
   const references =
     segments.length > 1 ? linkReferenceDefinitions(children) : ""
   return (
@@ -139,7 +144,7 @@ export function Markdown({
         >
           {segments.map((segment, index) => {
             const id = `${morphId}-${index}`
-            if (segment.kind === "markdown")
+            if (TicketBlockSegment.$is("markdown")(segment))
               return (
                 <MarkdownSegment key={index} text={segment.text} morphId={id} />
               )
@@ -189,7 +194,7 @@ function SyncedMarkdownBlock({
 }: Readonly<{ blockType: string; snapshot: string; morphId: string }>) {
   const lookup = useBlockLookup()
   const view = syncedView(lookup, blockType, snapshot, "synced")
-  if (view.kind === "removed") {
+  if (SyncedView.$is("removed")(view)) {
     const { heading, rest } = splitLeadingHeading(view.content)
     return (
       <BlockFrame blockType={blockType}>

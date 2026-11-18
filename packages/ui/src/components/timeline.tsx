@@ -243,7 +243,7 @@ export function TimelineAppear({
 
 // For something that changes the rail's shape over time (a swap that eases
 // open): has the rail follow it for `ms`.
-export function useTimelineRailFollow(): (ms: number) => void {
+export function useTimelineRailFollow() {
   const rail = use(RailContext)
   return useCallback((ms: number) => rail?.follow(ms), [rail])
 }

@@ -1,23 +1,18 @@
 import { expect, it } from "@effect/vitest"
 import { Db } from "@pp/db"
-import { TicketStatus, TypeKey, TicketRank } from "@pp/shared"
-import { TicketId } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 import { ConnectionError, SqlError } from "effect/sql/SqlError"
 import * as TestClock from "effect/testing/TestClock"
 
 import { databaseLayer } from "../../test/database"
 import * as TicketIndexServices from "./indexLayer"
+import { makeTicketDocument } from "./testing"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
-
-const ticketId = Schema.decodeUnknownSync(TicketId)
 
 const project: TicketProject = {
   orgSlug: "acme",
@@ -26,27 +21,7 @@ const project: TicketProject = {
   slug: "foo"
 }
 
-const document: TicketDocs.TicketDocument = {
-  id: ticketId("T-1"),
-  title: "Publish me",
-  status: TicketStatus.make("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedBy: "user-1",
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  body: "# Publish me\n",
-  commentsRegion: ""
-}
+const document = makeTicketDocument("T-1")
 
 const makeDb = (failures: number) => {
   const state = { attempts: 0 }

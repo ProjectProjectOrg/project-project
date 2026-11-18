@@ -37,13 +37,14 @@ import {
   pointedTicket
 } from "@/features/command-menu/atoms/commandMenu"
 import {
+  commandMenuRow,
   pointedAt,
   type TicketContext
 } from "@/features/command-menu/lib/commandMenu"
-import type {
+import {
   Command,
-  CommandContext,
-  CommandEnv
+  type CommandContext,
+  type CommandEnv
 } from "@/features/command-menu/lib/commands"
 import {
   removeTicketFromSprint,
@@ -92,7 +93,7 @@ export const editTicket = (
 export const openTicket = (ticket: TicketContext, env: CommandEnv) => {
   const row =
     pointedAt(env.registry.get(pointedTicket), ticket) ??
-    pointedAt(env.registry.get(commandMenuState).row, ticket)
+    pointedAt(commandMenuRow(env.registry.get(commandMenuState)), ticket)
   env.close()
   env.navigate(
     `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}`,
@@ -145,7 +146,7 @@ const ticketLink = (context: CommandContext) =>
     : `${window.location.origin}/orgs/${context.ticket.orgSlug}/projects/${context.ticket.slug}/tickets/${context.ticket.ticketId}`
 
 export const ticketCommands: ReadonlyArray<Command> = [
-  {
+  Command.page({
     id: "ticket.status",
     hotkey: appHotkeys["tickets.status"],
     bulk: true,
@@ -155,8 +156,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: editable,
     page: "ticketStatus"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.priority",
     hotkey: appHotkeys["tickets.priority"],
     bulk: true,
@@ -166,8 +167,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: editable,
     page: "ticketPriority"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.assign",
     hotkey: appHotkeys["tickets.assign"],
     bulk: true,
@@ -177,8 +178,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: assignable,
     page: "ticketAssignee"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.assign-me",
     hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
@@ -195,8 +196,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       editTicket(ticket, env, { assignees: { add: [viewerId] } })
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.unassign-me",
     hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
@@ -213,8 +214,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       editTicket(ticket, env, { assignees: { remove: [viewerId] } })
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.sprint",
     hotkey: appHotkeys["tickets.sprint"],
     bulk: true,
@@ -228,8 +229,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       context.tickets.planSprints &&
       !isEpic(context.ticketData),
     page: "ticketSprint"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.unplan",
     group: "ticket",
     label: m.tickets_command_remove_from_sprint,
@@ -254,8 +255,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.move",
     group: "ticket",
     label: m.tickets_command_move_to_project,
@@ -264,8 +265,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "move_ticket",
     when: (context) => onLiveTicket(context) && context.tickets.move,
     page: "ticketMove"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.estimate",
     hotkey: appHotkeys["tickets.estimate"],
     bulk: true,
@@ -279,8 +280,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       context.project !== null &&
       context.project.estimation !== "off",
     page: "ticketEstimate"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.type",
     hotkey: appHotkeys["tickets.type"],
     bulk: true,
@@ -291,8 +292,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: editable,
     page: "ticketType"
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.tags",
     hotkey: appHotkeys["tickets.tags"],
     bulk: true,
@@ -303,8 +304,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: editable,
     page: "ticketTags"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.copy-id",
     hotkey: appHotkeys["tickets.copy-id"],
     group: "ticketActions",
@@ -315,8 +316,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       if (ticket !== null) env.copy(ticket.ticketId)
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.copy-link",
     hotkey: appHotkeys["tickets.copy-link"],
     group: "ticketActions",
@@ -327,9 +328,9 @@ export const ticketCommands: ReadonlyArray<Command> = [
       env.copy(ticketLink(context))
       env.close()
     }
-  },
-  ...COPY_FORMATS.map(
-    ({ id, label, icon, keywords, text }): Command => ({
+  }),
+  ...COPY_FORMATS.map(({ id, label, icon, keywords, text }) =>
+    Command.run({
       id: `ticket.copy-${id}`,
       group: "ticketActions",
       label,
@@ -346,7 +347,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
       }
     })
   ),
-  {
+  Command.run({
     id: "ticket.open",
     hotkey: appHotkeys["tickets.open"],
     group: "ticketActions",
@@ -358,8 +359,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       if (ticket === null) return
       openTicket(ticket, env)
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.split",
     group: "ticketActions",
     label: m.tickets_split_menu_item,
@@ -373,8 +374,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
         `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}/split`
       )
     }
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.archive",
     hotkey: appHotkeys["tickets.archive"],
     bulk: true,
@@ -388,8 +389,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       ticketData !== null &&
       ticketData.archivedAt === null,
     page: "ticketArchive"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.unarchive",
     group: "ticketActions",
     label: m.tickets_command_unarchive,
@@ -410,8 +411,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.subscribe",
     group: "ticketActions",
     label: m.tickets_subscribe_command,
@@ -431,8 +432,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.unsubscribe",
     group: "ticketActions",
     label: m.tickets_unsubscribe_command,
@@ -452,8 +453,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.toggle-subscription",
     hotkey: appHotkeys["tickets.subscribe"],
     group: "ticketActions",
@@ -484,8 +485,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
         () => undefined
       )
     }
-  },
-  {
+  }),
+  Command.page({
     id: "ticket.delete",
     bulk: true,
     group: "ticketActions",
@@ -495,8 +496,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     listed: "search",
     when: ({ ticket, tickets }) => ticket !== null && tickets.delete,
     page: "ticketDelete"
-  },
-  {
+  }),
+  Command.run({
     id: "ticket.create",
     hotkey: appHotkeys["tickets.create-anywhere"],
     group: "create",
@@ -510,5 +511,5 @@ export const ticketCommands: ReadonlyArray<Command> = [
       env.registry.set(newTicketRequest, { orgSlug, projectSlug })
       env.open("createTicket")
     }
-  }
+  })
 ]

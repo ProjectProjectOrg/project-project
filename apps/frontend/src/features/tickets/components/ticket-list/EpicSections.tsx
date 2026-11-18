@@ -6,6 +6,7 @@ import {
   type Member,
   type TicketId,
   type TicketListQuery,
+  TicketListSource,
   TicketStatus
 } from "@pp/shared"
 import { Inbox, ListTree } from "@pp/ui/icons"
@@ -104,11 +105,12 @@ export function EpicSections(props: Props) {
         className="flex flex-col gap-1"
       >
         <TicketViewSourceContext
-          value={ticketSearchFromSource({
-            kind: "sections",
-            grouping: active.req.by,
-            query: viewQuery(active.query)
-          })}
+          value={ticketSearchFromSource(
+            TicketListSource.cases.sections.make({
+              grouping: active.req.by,
+              query: viewQuery(active.query)
+            })
+          )}
         >
           {active.value.sections.map((section) => (
             <EpicSection

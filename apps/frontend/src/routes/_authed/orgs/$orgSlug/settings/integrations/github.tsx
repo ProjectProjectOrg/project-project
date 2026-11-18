@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { GithubIntegrationPage } from "@/features/github/components/GithubIntegrationPage"
 import { m } from "@/paraglide/messages"
 
@@ -14,9 +15,6 @@ export const Route = createFileRoute(
   component: GithubIntegrationPage,
   validateSearch: Schema.toStandardSchemaV1(GithubIntegrationSearchSchema),
   loader: () => ({
-    crumb: {
-      type: "static" as const,
-      label: m.project_settings_github_heading()
-    }
+    crumb: Crumb.static({ label: m.project_settings_github_heading() })
   })
 })

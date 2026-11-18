@@ -114,20 +114,19 @@ type PullRequestWebhookPatch = Partial<
   >
 >
 
-const mergeLanded = (change: GitHubPullRequestWebhookChange): boolean =>
+const mergeLanded = (change: GitHubPullRequestWebhookChange) =>
   change.state === "merged" &&
   (change.landed ?? change.baseBranch === change.defaultBranch)
 
-const stackPullRequest = (
-  change: GitHubPullRequestWebhookChange
-): StackPullRequest => ({
-  branch: change.branch,
-  base: change.baseBranch,
-  number: change.number,
-  state: change.state,
-  draft: change.draft,
-  landed: mergeLanded(change)
-})
+const stackPullRequest = (change: GitHubPullRequestWebhookChange) =>
+  ({
+    branch: change.branch,
+    base: change.baseBranch,
+    number: change.number,
+    state: change.state,
+    draft: change.draft,
+    landed: mergeLanded(change)
+  }) satisfies StackPullRequest
 
 const writePullRequestWebhook = (
   deps: PullRequestWebhookDeps,
@@ -137,7 +136,7 @@ const writePullRequestWebhook = (
   patchFor: (
     ticket: TicketDocs.TicketDocument
   ) => Effect.Effect<PullRequestWebhookPatch | null>
-): Effect.Effect<void, Markdown.MarkdownError> =>
+) =>
   Effect.gen(function* () {
     if (
       claim !== null &&
@@ -213,7 +212,7 @@ export const applyPullRequestWebhookToTicket = (
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.Effect<void, Markdown.MarkdownError> =>
+) =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,
@@ -255,7 +254,7 @@ export const applyPullRequestWebhookToLayer = (
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.Effect<void, Markdown.MarkdownError> =>
+) =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,
@@ -283,7 +282,7 @@ const landAwaitingMerge = (
   deliveryId: string | null,
   base: Readonly<{ branch: string; mergedAt: Date }>,
   mergedAtByPr: ReadonlyMap<number, Date>
-): Effect.Effect<Date | null, Markdown.MarkdownError> =>
+) =>
   Effect.gen(function* () {
     let landedAt: Date | null = null
     yield* deps.ticketDocumentLock.withTicketDocumentLock(
@@ -338,7 +337,7 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
     deliveryId: string | null,
     mergedAt: Date | null,
     mergedAtByPr: ReadonlyMap<number, Date>
-  ): Effect.fn.Return<void, Markdown.MarkdownError> {
+  ) {
     if (mergedAt === null) return
     const visited = new Set([branch])
     let frontier: ReadonlyArray<Readonly<{ branch: string; mergedAt: Date }>> =
@@ -386,7 +385,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null,
   isDefaultRepository = true
-): Effect.fn.Return<void, Markdown.MarkdownError> {
+) {
   const logSkipped = (
     reason: PullRequestLinkSkip,
     extra: Readonly<{

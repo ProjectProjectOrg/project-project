@@ -17,7 +17,7 @@ export type DitherScene = Readonly<{
 }>
 
 // The device pixel ratio, between 1 and 3.
-export const pixelRatio = (): number =>
+export const pixelRatio = () =>
   Math.min(3, Math.max(1, window.devicePixelRatio || 1))
 
 const paint = ({ palette, field }: DitherScene, size: number, dpr: number) => {
@@ -52,7 +52,7 @@ export const ditheredUrl = (
   key: string,
   scene: () => DitherScene,
   size: number
-): string | undefined => {
+) => {
   if (typeof window === "undefined") return undefined
   const dpr = pixelRatio()
   const id = `${key}:${size}:${dpr}`

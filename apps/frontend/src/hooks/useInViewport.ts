@@ -5,9 +5,7 @@ interface Options {
   threshold?: number | number[]
 }
 
-export function useInViewport<T extends Element>(
-  options: Options = {}
-): [React.RefObject<T | null>, boolean] {
+export function useInViewport<T extends Element>(options: Options = {}) {
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
 
@@ -33,5 +31,5 @@ export function useInViewport<T extends Element>(
     return () => observer.disconnect()
   }, [options.rootMargin, options.threshold])
 
-  return [ref, inView]
+  return [ref, inView] as const
 }

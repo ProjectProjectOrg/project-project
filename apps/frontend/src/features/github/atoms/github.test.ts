@@ -1,7 +1,9 @@
-import { TicketId } from "@pp/shared"
+import { TicketDetail, TicketId } from "@pp/shared"
 import type { GitStatesResponse } from "@pp/shared"
+import { makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
+import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
@@ -35,7 +37,7 @@ vi.mock("@/services/AuthClient", () => ({
 
 const fetchStub = stubFetch()
 
-const pathOf = (input: RequestInfo | URL): string =>
+const pathOf = (input: RequestInfo | URL) =>
   new URL(
     input instanceof Request ? input.url : String(input),
     "http://localhost"
@@ -90,29 +92,14 @@ const rateLimited: GitStatesResponse = {
   refreshStatus: "rate_limited"
 }
 
-const ticketDetail = {
-  id: "T-1",
-  title: "Ticket",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  branch: "feat/T-1",
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "branch_no_pr", name: "feat/T-1", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-09-15T10:00:00.000Z",
-  updatedAt: "2026-09-15T10:00:00.000Z",
-  creator: null,
-  updater: null,
-  body: ""
-}
+const ticketDetail = (overrides: Partial<TicketDetail> = {}) =>
+  Schema.encodeSync(TicketDetail)(
+    makeTicketDetail({
+      branch: "feat/T-1",
+      gitState: { tag: "branch_no_pr", name: "feat/T-1", baseBranch: "main" },
+      ...overrides
+    })
+  )
 
 const user = {
   id: "user-1",
@@ -247,7 +234,7 @@ describe("createBranch", () => {
           "T-1": { tag: "branch_no_pr", name: "feat/T-1", baseBranch: "main" }
         }
       }
-      finishCreate?.(Response.json(ticketDetail))
+      finishCreate?.(Response.json(ticketDetail()))
 
       await vi.waitFor(() => expect(finishRefetch).toBeDefined())
       const held = registry.get(view)
@@ -324,11 +311,12 @@ describe("clearBranch", () => {
       expect(optimistic.value.stacks?.["T-1"]).toEqual([])
 
       finishClear?.(
-        Response.json({
-          ...ticketDetail,
-          branch: null,
-          gitState: { tag: "no_branch", baseBranch: "main" }
-        })
+        Response.json(
+          ticketDetail({
+            branch: null,
+            gitState: { tag: "no_branch", baseBranch: "main" }
+          })
+        )
       )
       await vi.waitFor(() => {
         const cleared = registry.get(view)
@@ -760,13 +748,14 @@ describe.each([
       const path = pathOf(input)
       if (path.endsWith(endpoint))
         return Promise.resolve(
-          Response.json({
-            ...ticketDetail,
-            stack: [
-              { ...layer, pr: { ...pr, title: "", checks: null } },
-              ...remaining
-            ]
-          })
+          Response.json(
+            ticketDetail({
+              stack: [
+                { ...layer, pr: { ...pr, title: "", checks: null } },
+                ...remaining
+              ]
+            })
+          )
         )
       if (path.endsWith("/git-states")) {
         reads += 1

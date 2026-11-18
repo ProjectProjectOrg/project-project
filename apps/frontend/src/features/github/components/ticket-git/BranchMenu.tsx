@@ -18,6 +18,7 @@ import {
   Unlink,
   X
 } from "@pp/ui/icons"
+import * as Data from "effect/Data"
 import { useRef, useState, type ReactElement } from "react"
 
 import { clearBranch } from "@/features/github/atoms/github"
@@ -31,9 +32,11 @@ import { m } from "@/paraglide/messages"
 import { usePreferredBranchLink } from "./BranchChip"
 import { BranchPicker } from "./BranchPicker"
 
-export type BranchMenuRemoval =
-  | Readonly<{ kind: "ticket" }>
-  | Readonly<{ kind: "stack"; busy: boolean; onRemove: () => void }>
+export type BranchMenuRemoval = Data.TaggedEnum<{
+  ticket: {}
+  stack: Readonly<{ busy: boolean; onRemove: () => void }>
+}>
+export const BranchMenuRemoval = Data.taggedEnum<BranchMenuRemoval>()
 
 export type BranchMenuPr = Readonly<{ href: string; label: string }>
 
@@ -61,7 +64,7 @@ export function BranchMenu({
   const anchor = useRef<HTMLSpanElement>(null)
   const [open, setOpen] = useState(false)
   const [stacking, setStacking] = useState(false)
-  const removable = removal.kind === "stack" || canClear
+  const removable = BranchMenuRemoval.$is("stack")(removal) || canClear
 
   return (
     <>
@@ -111,7 +114,7 @@ export function BranchMenu({
             </DropdownMenuItem>
           )}
           {removable && <DropdownMenuSeparator />}
-          {removal.kind === "stack" ? (
+          {BranchMenuRemoval.$is("stack")(removal) ? (
             <DropdownMenuItem
               disabled={removal.busy}
               onClick={removal.onRemove}

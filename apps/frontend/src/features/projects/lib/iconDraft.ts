@@ -1,5 +1,7 @@
 import type { AttachmentId, ProjectIconImage } from "@pp/shared"
+import * as Predicate from "effect/Predicate"
 
+import type { IconSource } from "@/features/projects/forms/project-icon/opts"
 import {
   analyzeCutout,
   hasAlpha,
@@ -26,25 +28,26 @@ export type IconCrop = {
 
 export const CUTOUT_APPLY_MAX_EDGE = 512
 
-export type IconDraftValues = {
-  readonly source: { readonly kind: "emoji" | "image"; readonly emoji: string }
-  readonly crop: IconCrop
-  readonly treatment: {
-    readonly kind: IconTreatment
-    readonly tolerance: number
-  }
-}
+export type IconDraftValues = Readonly<{
+  source: Pick<typeof IconSource.Type, "_tag" | "emoji">
+  crop: IconCrop
+  treatment: Readonly<{
+    kind: IconTreatment
+    tolerance: number
+  }>
+}>
 
 export const appliedIconTreatment = (
   iconImage: ProjectIconImage | null,
   fallbackTolerance: number
-): { readonly kind: IconTreatment; readonly tolerance: number } => ({
-  kind: iconImage?.type === "full_bleed" ? "full_bleed" : "sticker",
-  tolerance:
-    iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
-      ? iconImage.cutoutTolerance
-      : fallbackTolerance
-})
+) =>
+  ({
+    kind: iconImage?.type === "full_bleed" ? "full_bleed" : "sticker",
+    tolerance:
+      iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
+        ? iconImage.cutoutTolerance
+        : fallbackTolerance
+  }) satisfies IconDraftValues["treatment"]
 
 export const iconPreviewChanged = (
   values: IconDraftValues,
@@ -54,8 +57,8 @@ export const iconPreviewChanged = (
   },
   pickedNewFile: boolean,
   fallbackTolerance: number
-): boolean => {
-  if (values.source.kind === "emoji")
+) => {
+  if (Predicate.isTagged(values.source, "emoji"))
     return applied.iconImage !== null || values.source.emoji !== applied.icon
   if (applied.iconImage === null || pickedNewFile) return true
   const treatment = appliedIconTreatment(applied.iconImage, fallbackTolerance)
@@ -68,25 +71,23 @@ export const iconPreviewChanged = (
   )
 }
 
-export const resolveIconTreatment = (
-  classification: IconClassification
-): IconTreatment =>
+export const resolveIconTreatment = (classification: IconClassification) =>
   classification.treatment === "full_bleed" || !classification.clean
-    ? "full_bleed"
-    : "sticker"
+    ? ("full_bleed" as const)
+    : ("sticker" as const)
 
 export const buildIconImage = (input: {
   readonly classification: IconClassification
   readonly sourceAttachmentId: AttachmentId
   readonly renderedAttachmentId: AttachmentId
   readonly crop: IconCrop
-}): ProjectIconImage => {
+}) => {
   if (resolveIconTreatment(input.classification) === "full_bleed") {
     return {
       type: "full_bleed",
       sourceAttachmentId: input.sourceAttachmentId,
       crop: input.crop
-    }
+    } satisfies ProjectIconImage
   }
   return {
     type: "sticker",
@@ -96,7 +97,7 @@ export const buildIconImage = (input: {
       ? null
       : input.classification.tolerance,
     crop: input.crop
-  }
+  } satisfies ProjectIconImage
 }
 
 export const analyseAt = (
@@ -127,17 +128,17 @@ export const analyseAt = (
 
 const rejectionReason = (
   checks: ReadonlyArray<{ readonly id: string; readonly passed: boolean }>
-): CutoutRejection | null => {
+) => {
   if (checks.every((check) => check.passed)) return null
   return checks.some((check) => check.id === "minSize" && !check.passed)
-    ? "too_small"
-    : "background"
+    ? ("too_small" as const)
+    : ("background" as const)
 }
 
 export const compositeToBlob = (
   source: RgbaImage,
   alpha: Uint8ClampedArray | null
-): Promise<Blob> => {
+) => {
   const canvas = document.createElement("canvas")
   canvas.width = source.width
   canvas.height = source.height
@@ -147,7 +148,7 @@ export const compositeToBlob = (
   if (alpha)
     for (let p = 0; p < alpha.length; p++) out.data[p * 4 + 3] = alpha[p]
   ctx.putImageData(out, 0, 0)
-  return new Promise((resolve, reject) =>
+  return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
       "image/png"

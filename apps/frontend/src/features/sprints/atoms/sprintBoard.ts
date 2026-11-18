@@ -11,20 +11,13 @@ import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
 import { sprintQuery, sprintRequest } from "./sprintDetail"
 
-export type BoardRequest = Readonly<{
-  _view: "sprintBoard"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: GroupId
-  }>
-}>
+export type BoardRequest = ReturnType<typeof boardRequest>
 
-export const boardRequest = (
-  orgSlug: string,
-  slug: string,
-  id: GroupId
-): BoardRequest => ({ _view: "sprintBoard", params: { orgSlug, slug, id } })
+export const boardRequest = (orgSlug: string, slug: string, id: GroupId) =>
+  ({
+    _view: "sprintBoard",
+    params: { orgSlug, slug, id }
+  }) as const
 
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -54,10 +47,11 @@ const boardView = (req: BoardRequest) => {
       const combined = AsyncResult.all([get(sprint), get(ticketsQuery(req))])
       return AsyncResult.map(
         combined,
-        ([group, tickets]): BoardValue => ({
-          tickets: tickets.toSorted(compareByRank),
-          completedAt: group.completedAt
-        })
+        ([group, tickets]) =>
+          ({
+            tickets: tickets.toSorted(compareByRank),
+            completedAt: group.completedAt
+          }) satisfies BoardValue
       )
     },
     (refresh) => {

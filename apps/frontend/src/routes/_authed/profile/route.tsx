@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { SettingsLayout } from "@/components/shell/settings/SettingsLayout"
 import { figmaProfileAtom } from "@/features/figma/atoms/figma"
 import {
@@ -16,11 +17,7 @@ export const Route = createFileRoute("/_authed/profile")({
     registry.mount(slackProfiles({}))()
     registry.mount(oauthApplicationsAtom(oauthApplicationsRequest()))()
     return {
-      crumb: {
-        type: "static" as const,
-        label: m.profile_crumb_label(),
-        to: "/profile"
-      }
+      crumb: Crumb.static({ label: m.profile_crumb_label(), to: "/profile" })
     }
   }
 })

@@ -1,6 +1,8 @@
 import type { TicketFlag } from "@pp/shared"
 
-export const flagFor = (reason: string, by: string, at: Date): TicketFlag => {
+export const flagFor = (reason: string, by: string, at: Date) => {
   const trimmed = reason.trim()
-  return trimmed === "" ? { by, at } : { reason: trimmed, by, at }
+  return trimmed === ""
+    ? ({ by, at } satisfies TicketFlag)
+    : ({ reason: trimmed, by, at } satisfies TicketFlag)
 }

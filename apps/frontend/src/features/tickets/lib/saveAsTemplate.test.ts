@@ -18,7 +18,7 @@ import {
 const definition = (
   key: string,
   origin: BlockDefinition["origin"] = "project"
-): BlockDefinition => ({
+) => ({
   ...GALLERY_BLOCKS.find((block) => block.key === key)!,
   origin,
   shadows: null,

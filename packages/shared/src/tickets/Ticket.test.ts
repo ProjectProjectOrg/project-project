@@ -1,15 +1,27 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { makeTicketDetail } from "./testing"
 import {
   CreateTicketInput,
   StoredTicketType,
+  TicketDetail,
   TicketId,
   UpdateTicketInput
 } from "./Ticket"
 import { TicketActivityChange } from "./TicketActivity"
 
 const decodeTicketId = Schema.decodeUnknownExit(TicketId)
+
+describe("TicketDetail", () => {
+  it("decodes a response without estimate, flag, parent state or relations", () => {
+    const ticket = makeTicketDetail()
+    const { estimate, flag, parentState, relations, ...older } =
+      Schema.encodeSync(TicketDetail)(ticket)
+
+    expect(Schema.decodeUnknownSync(TicketDetail)(older)).toEqual(ticket)
+  })
+})
 
 describe("TicketId", () => {
   it("accepts legacy T-prefixed ids", () => {

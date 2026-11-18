@@ -29,7 +29,7 @@ import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SprintContext } from "@/features/command-menu/lib/commandMenu"
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import {
   completeSprint,
   sprintListRequest,
@@ -64,16 +64,17 @@ export const goTo = (
   icon: Command["icon"],
   to: string,
   group: Command["group"] = "navigation"
-): Command => ({
-  id,
-  group,
-  label,
-  icon,
-  run: (_context, env) => {
-    env.navigate(to)
-    env.close()
-  }
-})
+) =>
+  Command.run({
+    id,
+    group,
+    label,
+    icon,
+    run: (_context, env) => {
+      env.navigate(to)
+      env.close()
+    }
+  })
 
 const VIEWS = [
   { view: "list", label: m.sprints_command_view_list, icon: Rows3 },
@@ -83,23 +84,22 @@ const VIEWS = [
 export const viewCommands = (
   current: ProjectView,
   show: (view: "list" | "board") => void
-): ReadonlyArray<Command> =>
-  VIEWS.flatMap(
-    ({ view, label, icon }): ReadonlyArray<Command> =>
-      view === current
-        ? []
-        : [
-            {
-              id: `view.${view}`,
-              group: "view",
-              label,
-              icon,
-              run: (_context, env) => {
-                show(view)
-                env.close()
-              }
+) =>
+  VIEWS.flatMap(({ view, label, icon }) =>
+    view === current
+      ? []
+      : [
+          Command.run({
+            id: `view.${view}`,
+            group: "view",
+            label,
+            icon,
+            run: (_context, env) => {
+              show(view)
+              env.close()
             }
-          ]
+          })
+        ]
   )
 
 const lifecycleCommands = (
@@ -107,13 +107,13 @@ const lifecycleCommands = (
   canPlan: boolean,
   update: (patch: UpdateGroupInput) => void,
   completeEmpty: (() => void) | null
-): ReadonlyArray<Command> => {
+) => {
   if (!canPlan) return []
   const state = sprintState(sprint)
   const commands: Array<Command> = []
   if (state === "planned") {
     commands.push(
-      {
+      Command.run({
         id: "sprint.start",
         group: "sprint",
         label: m.sprints_start_button,
@@ -122,39 +122,41 @@ const lifecycleCommands = (
           update(startSprintPatch(sprint, nowDate()))
           env.close()
         }
-      },
-      {
+      }),
+      Command.page({
         id: "sprint.schedule",
         group: "sprint",
         label: m.sprints_command_schedule,
         icon: CalendarClock,
         page: "sprintSchedule"
-      }
+      })
     )
     if (sprint.startsAt !== null) {
-      commands.push({
-        id: "sprint.unschedule",
-        group: "sprint",
-        label: m.sprints_unschedule,
-        icon: CalendarX,
-        run: (_context, env) => {
-          update({ startsAt: null, endsAt: null })
-          env.close()
-        }
-      })
+      commands.push(
+        Command.run({
+          id: "sprint.unschedule",
+          group: "sprint",
+          label: m.sprints_unschedule,
+          icon: CalendarX,
+          run: (_context, env) => {
+            update({ startsAt: null, endsAt: null })
+            env.close()
+          }
+        })
+      )
     }
   }
   if (state === "active") {
     commands.push(
       completeEmpty === null
-        ? {
+        ? Command.page({
             id: "sprint.complete",
             group: "sprint",
             label: m.sprints_command_complete,
             icon: Trophy,
             page: "sprintComplete"
-          }
-        : {
+          })
+        : Command.run({
             id: "sprint.complete",
             group: "sprint",
             label: m.sprints_complete_button,
@@ -163,20 +165,22 @@ const lifecycleCommands = (
               completeEmpty()
               env.close()
             }
-          }
+          })
     )
   }
   if (state === "completed") {
-    commands.push({
-      id: "sprint.reopen",
-      group: "sprint",
-      label: m.sprints_reopen_button,
-      icon: RotateCcw,
-      run: (_context, env) => {
-        update({ completedAt: null })
-        env.close()
-      }
-    })
+    commands.push(
+      Command.run({
+        id: "sprint.reopen",
+        group: "sprint",
+        label: m.sprints_reopen_button,
+        icon: RotateCcw,
+        run: (_context, env) => {
+          update({ completedAt: null })
+          env.close()
+        }
+      })
+    )
   }
   return commands
 }
@@ -186,7 +190,7 @@ export function useSprintActions({
   slug,
   sprint,
   canPlan
-}: SprintContext): ReadonlyArray<Command> {
+}: SprintContext) {
   const update = useAtomSet(
     updateSprint({ req: sprintListRequest(orgSlug, slug), groupId: sprint.id })
   )
@@ -211,59 +215,69 @@ export function useSprintActions({
       )
     ]
     if (state !== "completed") {
-      commands.push({
-        id: "sprint.create-ticket",
-        hotkey: appHotkeys["tickets.create-anywhere"],
-        group: "sprint",
-        label: () => m.sprints_command_create_ticket({ name: sprint.name }),
-        icon: Plus,
-        keywords: ["new", "add", "issue", "ticket"],
-        when: ({ tickets }) => tickets.create,
-        run: (_context, env) => {
-          env.registry.set(newTicketRequest, {
-            orgSlug,
-            projectSlug: slug,
-            sprint: sprint.id
-          })
-          env.open("createTicket")
-        }
-      })
+      commands.push(
+        Command.run({
+          id: "sprint.create-ticket",
+          hotkey: appHotkeys["tickets.create-anywhere"],
+          group: "sprint",
+          label: () => m.sprints_command_create_ticket({ name: sprint.name }),
+          icon: Plus,
+          keywords: ["new", "add", "issue", "ticket"],
+          when: ({ tickets }) => tickets.create,
+          run: (_context, env) => {
+            env.registry.set(newTicketRequest, {
+              orgSlug,
+              projectSlug: slug,
+              sprint: sprint.id
+            })
+            env.open("createTicket")
+          }
+        })
+      )
     }
     if (planning) {
-      commands.push({
-        id: "sprint.add-tickets",
-        group: "sprint",
-        label: m.sprints_command_add_tickets,
-        icon: ListPlus,
-        page: "sprintAddTickets"
-      })
-      if (sprint.startsAt !== null) {
-        commands.push({
-          id: "sprint.length",
+      commands.push(
+        Command.page({
+          id: "sprint.add-tickets",
           group: "sprint",
-          label: m.sprints_command_length,
-          icon: CalendarRange,
-          page: "sprintLength"
+          label: m.sprints_command_add_tickets,
+          icon: ListPlus,
+          page: "sprintAddTickets"
         })
+      )
+      if (sprint.startsAt !== null) {
+        commands.push(
+          Command.page({
+            id: "sprint.length",
+            group: "sprint",
+            label: m.sprints_command_length,
+            icon: CalendarRange,
+            page: "sprintLength"
+          })
+        )
       }
-      commands.push({
-        id: "sprint.rename",
-        group: "sprint",
-        label: m.sprints_command_rename,
-        icon: Pencil,
-        page: "sprintRename"
-      })
+      commands.push(
+        Command.page({
+          id: "sprint.rename",
+          group: "sprint",
+          label: m.sprints_command_rename,
+          icon: Pencil,
+          page: "sprintRename"
+        })
+      )
     }
     if (canPlan) {
-      commands.push({
-        id: "sprint.delete",
-        group: "sprint",
-        label: m.sprints_command_delete,
-        icon: Trash2,
-        listed: "search",
-        keywords: ["remove"],
-        page: "sprintDelete"
-      })
+      commands.push(
+        Command.page({
+          id: "sprint.delete",
+          group: "sprint",
+          label: m.sprints_command_delete,
+          icon: Trash2,
+          listed: "search",
+          keywords: ["remove"],
+          page: "sprintDelete"
+        })
+      )
     }
     return commands
   }, [orgSlug, slug, sprint, canPlan, update, complete, unfinished])
@@ -306,18 +320,20 @@ export function SprintCommandScope({
     }
     const commands: Array<Command> = [...actions]
     if (view !== "description") {
-      commands.push({
-        id: "sprint.goal",
-        group: "sprint",
-        label: planning
-          ? m.sprints_command_edit_goal
-          : m.sprints_command_open_goal,
-        icon: FileText,
-        run: (_context, env) => {
-          show("description")
-          env.close()
-        }
-      })
+      commands.push(
+        Command.run({
+          id: "sprint.goal",
+          group: "sprint",
+          label: planning
+            ? m.sprints_command_edit_goal
+            : m.sprints_command_open_goal,
+          icon: FileText,
+          run: (_context, env) => {
+            show("description")
+            env.close()
+          }
+        })
+      )
     }
     commands.push(...viewCommands(view, show))
     if (active !== null && active.id !== sprint.id) {
@@ -350,18 +366,20 @@ export function SprintCommandScope({
         )
       )
     }
-    commands.push({
-      id: "sprint.copy-link",
-      group: "miscellaneous",
-      label: m.sprints_command_copy_link,
-      icon: Link2,
-      run: (_context, env) => {
-        env.copy(
-          `${window.location.origin}${sprintPath(orgSlug, slug, sprint)}`
-        )
-        env.close()
-      }
-    })
+    commands.push(
+      Command.run({
+        id: "sprint.copy-link",
+        group: "miscellaneous",
+        label: m.sprints_command_copy_link,
+        icon: Link2,
+        run: (_context, env) => {
+          env.copy(
+            `${window.location.origin}${sprintPath(orgSlug, slug, sprint)}`
+          )
+          env.close()
+        }
+      })
+    )
     return { sprint: context, commands }
   }, [
     context,

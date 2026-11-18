@@ -9,10 +9,15 @@ import {
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { describe, expect, it } from "vitest"
 
-import { startingType, startingTypes, typeStart } from "./creatorType"
+import {
+  startingType,
+  startingTypes,
+  TypeStart,
+  typeStart
+} from "./creatorType"
 
 const BUILTIN = resolveLibrary({ org: EMPTY_LAYER, project: null }, false)
-const builtin = (key: string): TypeDefinition => {
+const builtin = (key: string) => {
   const found = BUILTIN.types.find((type) => type.key === key)
   if (found === undefined) throw new Error(`no ${key}`)
   return found
@@ -23,10 +28,11 @@ const spike: TypeDefinition = {
   name: "Spike",
   body: formatTicketBlock("context", "")
 }
-const library = (...types: ReadonlyArray<TypeDefinition>): Library => ({
-  ...BUILTIN,
-  types: [...BUILTIN.types, ...types]
-})
+const library = (...types: ReadonlyArray<TypeDefinition>) =>
+  ({
+    ...BUILTIN,
+    types: [...BUILTIN.types, ...types]
+  }) satisfies Library
 
 describe("startingType", () => {
   it("starts on the remembered type when the project still offers it", () => {
@@ -56,15 +62,16 @@ describe("typeStart", () => {
   const lookup = lookupFor(BUILTIN)
 
   it("names a type's sections in order", () => {
-    expect(typeStart(builtin("bug"), lookup)).toEqual({
-      kind: "sections",
-      names: [
-        "Expected vs actual",
-        "Steps to reproduce",
-        "Environment",
-        "Definition of done"
-      ]
-    })
+    expect(typeStart(builtin("bug"), lookup)).toEqual(
+      TypeStart.sections({
+        names: [
+          "Expected vs actual",
+          "Steps to reproduce",
+          "Environment",
+          "Definition of done"
+        ]
+      })
+    )
   })
 
   it("skips a section the library no longer has", () => {
@@ -75,20 +82,17 @@ describe("typeStart", () => {
         formatTicketBlock("context", "")
       ].join("\n\n")
     }
-    expect(typeStart(type, lookup)).toEqual({
-      kind: "sections",
-      names: ["Context"]
-    })
+    expect(typeStart(type, lookup)).toEqual(
+      TypeStart.sections({ names: ["Context"] })
+    )
   })
 
   it("says the description starts empty without a type or sections", () => {
-    expect(typeStart(null, lookup)).toEqual({ kind: "empty" })
-    expect(typeStart({ ...spike, body: "" }, lookup)).toEqual({
-      kind: "empty"
-    })
-    expect(typeStart({ ...spike, body: "Notes" }, lookup)).toEqual({
-      kind: "text"
-    })
+    expect(typeStart(null, lookup)).toEqual(TypeStart.empty())
+    expect(typeStart({ ...spike, body: "" }, lookup)).toEqual(TypeStart.empty())
+    expect(typeStart({ ...spike, body: "Notes" }, lookup)).toEqual(
+      TypeStart.text()
+    )
   })
 })
 

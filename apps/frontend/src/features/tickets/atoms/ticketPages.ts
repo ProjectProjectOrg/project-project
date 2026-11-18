@@ -26,7 +26,7 @@ export const ticketPageRequest = (
   q: string,
   cursor: string | null,
   filter: TicketPageFilter = {}
-): TicketPageRequest => ({
+) => ({
   params: { orgSlug, slug },
   q: q === "" ? undefined : q,
   cursor: cursor ?? undefined,

@@ -13,7 +13,7 @@ import { $isAttachmentNode } from "./attachment-node"
 
 // An image attachment in the editor: sized to its saved width, resizable, and broken-aware.
 
-export const contentWidth = (element: HTMLElement | null): number | null => {
+export const contentWidth = (element: HTMLElement | null) => {
   if (element === null) return null
   const style = getComputedStyle(element)
   const inner =
@@ -42,7 +42,7 @@ export function AttachmentImage({
 
   const dragStart = useRef<{ width: number; container: number } | null>(null)
 
-  const measure = (offsetX: number): number => {
+  const measure = (offsetX: number) => {
     const img = imgRef.current
     const start = dragStart.current
     if (!img || !start) return ATTACHMENT_MIN_WIDTH

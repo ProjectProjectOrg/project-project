@@ -8,7 +8,7 @@ export const ATTACHMENT_PAGE_SIZE = 50
 
 export const isAttachmentDeletable = (row: {
   readonly status: AttachmentStatus
-}): boolean => row.status !== "pending"
+}) => row.status !== "pending"
 
 export const ATTACHMENT_MIN_WIDTH = 96
 
@@ -19,7 +19,7 @@ export const clampAttachmentWidth = (input: {
   readonly naturalWidth: number
   readonly naturalHeight: number
   readonly containerWidth: number
-}): number => {
+}) => {
   const ceilingFromContainer = Math.max(
     input.containerWidth,
     ATTACHMENT_MIN_WIDTH
@@ -79,7 +79,7 @@ const normalizeContentType = (value: string) =>
 export const attachmentUploadContentType = (
   filename: string,
   declaredType: string
-): string => {
+) => {
   const contentType = normalizeContentType(declaredType)
   if (
     contentType !== "" &&
@@ -96,27 +96,27 @@ export const attachmentUploadContentType = (
   return contentType
 }
 
-export const isAllowedAttachmentContentType = (value: string): boolean =>
+export const isAllowedAttachmentContentType = (value: string) =>
   (ATTACHMENT_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )
 
-export const isRasterImageContentType = (value: string): boolean =>
+export const isRasterImageContentType = (value: string) =>
   (RASTER_IMAGE_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )
 
-export const isVideoContentType = (value: string): boolean =>
+export const isVideoContentType = (value: string) =>
   (VIDEO_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )
 
-export const attachmentMaxBytes = (contentType: string): number =>
+export const attachmentMaxBytes = (contentType: string) =>
   isVideoContentType(contentType)
     ? ATTACHMENT_VIDEO_MAX_BYTES
     : ATTACHMENT_MAX_BYTES
 
-export const isProjectIconContentType = (value: string): boolean =>
+export const isProjectIconContentType = (value: string) =>
   (PROJECT_ICON_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )

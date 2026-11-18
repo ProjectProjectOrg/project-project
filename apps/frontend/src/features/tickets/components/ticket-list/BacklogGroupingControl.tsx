@@ -3,18 +3,19 @@ import { CircleDot, Layers, ListTree, Timer } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { m } from "@/paraglide/messages"
 
 import type { GroupingOption } from "./GroupingMenu"
 import { OptionPicker } from "./toolbar/shared"
 
-const groupingOptions = (): ReadonlyArray<GroupingOption<BacklogGrouping>> => [
-  { key: "status", label: m.tickets_grouping_status(), icon: CircleDot },
-  { key: "sprint", label: m.tickets_grouping_sprint(), icon: Timer },
-  { key: "epic", label: m.tickets_grouping_epic(), icon: Layers },
-  { key: "parent", label: m.tickets_grouping_parent(), icon: ListTree }
-]
+const groupingOptions = () =>
+  [
+    { key: "status", label: m.tickets_grouping_status(), icon: CircleDot },
+    { key: "sprint", label: m.tickets_grouping_sprint(), icon: Timer },
+    { key: "epic", label: m.tickets_grouping_epic(), icon: Layers },
+    { key: "parent", label: m.tickets_grouping_parent(), icon: ListTree }
+  ] satisfies ReadonlyArray<GroupingOption<BacklogGrouping>>
 
 export function BacklogGroupingControl({
   value,
@@ -27,8 +28,8 @@ export function BacklogGroupingControl({
     () => ({
       commands: groupingOptions()
         .filter((option) => option.key !== value)
-        .map(
-          (option): Command => ({
+        .map((option) =>
+          Command.run({
             id: `view.group-by.${option.key}`,
             group: "view",
             label: () => m.tickets_grouping_label({ label: option.label }),

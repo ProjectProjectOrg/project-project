@@ -13,7 +13,7 @@ import {
   type TicketStatus
 } from "@pp/shared"
 
-import { boardMove } from "@/features/sprints/lib/boardUtils"
+import { BoardMoveDrop, boardMove } from "@/features/sprints/lib/boardUtils"
 
 import type { TicketEdit } from "./ticketPatch"
 import { compareByRank, predictRanks } from "./ticketRank"
@@ -41,10 +41,7 @@ export type BulkDrop = Readonly<{
 
 export type RowGap = TicketId | "end"
 
-export function sectionEdit(
-  row: DraggedRow,
-  to: ListDropTarget
-): TicketEdit | null {
+export function sectionEdit(row: DraggedRow, to: ListDropTarget) {
   if (row.section === to.key) return {}
   if (to.grouping === "status") return { status: to.key }
   if (to.grouping === "sprint") {
@@ -63,7 +60,7 @@ export function movingGap(
   column: ReadonlyArray<Pick<Ticket, "id">>,
   rowId: TicketId,
   gap: RowGap
-): RowGap | null {
+) {
   const index = column.findIndex((ticket) => ticket.id === rowId)
   if (index < 0) return gap
   const next = column[index + 1]?.id ?? "end"
@@ -76,7 +73,7 @@ export function listDropEdit(
   column: ReadonlyArray<Pick<Ticket, "id" | "rank">>,
   gap: RowGap | null,
   ordered: boolean
-): TicketEdit | null {
+) {
   const edit = sectionEdit(row, to)
   if (edit === null) return null
   const at = ordered && gap !== null ? movingGap(column, row.id, gap) : null
@@ -88,17 +85,14 @@ export function listDropEdit(
           column,
           row.id,
           at === "end"
-            ? { type: "column" }
-            : { type: "card", id: at, edge: "top" }
+            ? BoardMoveDrop.column()
+            : BoardMoveDrop.card({ id: at, edge: "top" })
         )
   const next = position === undefined ? edit : { ...edit, position }
   return Object.keys(next).length === 0 ? null : next
 }
 
-export function groupEdit(
-  rows: ReadonlyArray<DraggedRow>,
-  to: ListDropTarget
-): TicketEdit | null {
+export function groupEdit(rows: ReadonlyArray<DraggedRow>, to: ListDropTarget) {
   const edits = rows.map((row) => sectionEdit(row, to))
   if (edits.includes(null)) return null
   return (
@@ -110,7 +104,7 @@ export function bulkGapPosition(
   column: ReadonlyArray<Pick<Ticket, "id">>,
   movingIds: ReadonlyArray<TicketId>,
   gap: RowGap
-): TicketPosition | null {
+) {
   const stays = (ticket: Pick<Ticket, "id">) => !movingIds.includes(ticket.id)
   const index = gap === "end" ? -1 : column.findIndex(({ id }) => id === gap)
   const next = index < 0 ? undefined : column.slice(index).find(stays)
@@ -125,7 +119,7 @@ export function listBulkDrop(
   column: ReadonlyArray<Pick<Ticket, "id" | "rank">>,
   gap: RowGap | null,
   ordered: boolean
-): BulkDrop | null {
+) {
   const edit = groupEdit(rows, to)
   if (edit === null) return null
   const tickets = rows.toSorted(compareByRank).map(({ id }) => id)

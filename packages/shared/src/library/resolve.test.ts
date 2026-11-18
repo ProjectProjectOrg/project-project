@@ -1,7 +1,11 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { formatTicketBlock, parseTicketBlocks } from "../tickets/blocks"
+import {
+  formatTicketBlock,
+  parseTicketBlocks,
+  TicketBlockSegment
+} from "../tickets/blocks"
 import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
 import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
 import { BlockDraft, Library, TypeDraft } from "./Library"
@@ -31,16 +35,15 @@ const blockDraft = Schema.decodeUnknownSync(BlockDraft)
 const typeDraft = Schema.decodeUnknownSync(TypeDraft)
 const isLibrary = Schema.is(Library)
 
-const layer = (overrides: Partial<Layer>): Layer => ({
+const layer = (overrides: Partial<Layer>) => ({
   ...EMPTY_LAYER,
   ...overrides
 })
 
-const withoutBuiltins = (layers: LibraryLayers, canEdit: boolean): Library =>
+const withoutBuiltins = (layers: LibraryLayers, canEdit: boolean) =>
   resolveLibrary(layers, canEdit, EMPTY_LAYER)
 
-const resolveBase = (layers: LibraryLayers): Library =>
-  resolveLibrary(layers, false)
+const resolveBase = (layers: LibraryLayers) => resolveLibrary(layers, false)
 
 const adoptedAll = withoutBuiltins(
   {
@@ -216,11 +219,11 @@ describe("built-in base layer", () => {
       expect(expanded.trim()).not.toBe("")
       expect(
         parseTicketBlocks(expanded).flatMap((segment) =>
-          segment.kind === "block" ? [segment.type] : []
+          TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
         )
       ).toEqual(
         parseTicketBlocks(type.body).flatMap((segment) =>
-          segment.kind === "block" ? [segment.type] : []
+          TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
         )
       )
     }

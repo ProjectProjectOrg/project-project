@@ -36,7 +36,7 @@ export function useStatusReorder(
   orgSlug: string,
   slug: string,
   scopeKey: string
-): StatusReorder {
+) {
   const [reorder, setReorder] = useState<{
     key: string
     order: ReadonlyArray<StatusSlug> | null
@@ -123,7 +123,7 @@ export function useStatusReorder(
 function withHiddenInPlace(
   all: ReadonlyArray<StatusSlug>,
   visible: ReadonlyArray<StatusSlug>
-): ReadonlyArray<StatusSlug> {
+) {
   const known = new Set(all)
   const moved = visible.filter((s) => known.has(s))
   const movedSet = new Set(moved)

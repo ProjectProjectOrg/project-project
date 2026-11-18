@@ -38,9 +38,7 @@ export class TicketActivityFeed extends Context.Service<
   }>
 >()("@pp/server-core/activity/TicketActivityFeed") {}
 
-const parseCursor = (
-  cursor: string | undefined
-): Effect.Effect<TicketActivity.ActivityPageCursor | null, Validation> =>
+const parseCursor = (cursor: string | undefined) =>
   cursor === undefined
     ? Effect.succeed(null)
     : Effect.try({
@@ -56,7 +54,7 @@ const parseCursor = (
         catch: () => new Validation({ reason: "invalid_cursor" })
       })
 
-const cursorOf = (entry: TicketActivity.StoredTicketActivity): string =>
+const cursorOf = (entry: TicketActivity.StoredTicketActivity) =>
   encodeCursor({
     id: String(entry.seq),
     sort: DateTime.formatIso(DateTime.fromDateUnsafe(entry.occurredAt))

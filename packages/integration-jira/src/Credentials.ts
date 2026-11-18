@@ -76,11 +76,12 @@ const REFRESH_WAIT_MILLIS = 60_000
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
 
-const disconnected = (): JiraConnection => ({
-  status: "disconnected",
-  reconnectReason: null,
-  connectedAt: null
-})
+const disconnected = () =>
+  ({
+    status: "disconnected",
+    reconnectReason: null,
+    connectedAt: null
+  }) satisfies JiraConnection
 
 const connectionFromRow = (
   row: Readonly<{
@@ -88,18 +89,18 @@ const connectionFromRow = (
     reconnectReason: "invalid_grant" | "missing_scopes" | null
     connectedAt: Date
   }>
-): JiraConnection =>
+) =>
   row.status === "active"
-    ? {
+    ? ({
         status: "connected",
         reconnectReason: null,
         connectedAt: DateTime.fromDateUnsafe(row.connectedAt)
-      }
-    : {
+      } satisfies JiraConnection)
+    : ({
         status: "reconnect_required",
         reconnectReason: row.reconnectReason ?? "invalid_grant",
         connectedAt: DateTime.fromDateUnsafe(row.connectedAt)
-      }
+      } satisfies JiraConnection)
 
 const make = Effect.gen(function* () {
   const db = yield* Db
@@ -330,10 +331,7 @@ const make = Effect.gen(function* () {
   const accessTokenFor = Effect.fn("JiraCredentials.accessTokenFor")(function* (
     userId: string,
     options?: Readonly<{ forceRefresh?: boolean }>
-  ): Effect.fn.Return<
-    JiraAccessToken,
-    JiraNotConnected | JiraReconnectRequired | JiraRateLimited | JiraError
-  > {
+  ) {
     const startedAt = yield* DateTime.now
     const deadline = DateTime.toEpochMillis(startedAt) + REFRESH_WAIT_MILLIS
     let forceRefresh = options?.forceRefresh === true

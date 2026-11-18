@@ -51,7 +51,7 @@ export const CHECKS: Readonly<
   }
 }
 
-export const reportedChecks = (checks: string | undefined): Checks | null =>
+export const reportedChecks = (checks: string | undefined) =>
   checks === "passing" || checks === "failing" || checks === "pending"
     ? checks
     : null
@@ -91,7 +91,7 @@ export const PULL_REQUEST_LOOKS: Readonly<Record<PullRequestKind, Look>> = {
   }
 }
 
-export const pullRequestKind = (pr: PullRequest): PullRequestKind =>
+export const pullRequestKind = (pr: PullRequest) =>
   pr.tag === "pr_merged"
     ? "merged"
     : pr.tag === "pr_closed"

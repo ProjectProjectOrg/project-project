@@ -100,12 +100,12 @@ const userRecord = (user: JiraUser | null | undefined) =>
         raw: user
       }
 
-const issueNumber = (key: string): number => {
+const issueNumber = (key: string) => {
   const value = Number(key.slice(key.lastIndexOf("-") + 1))
   return Number.isInteger(value) && value > 0 ? value : 1
 }
 
-const suggestedSlug = (name: string): string => {
+const suggestedSlug = (name: string) => {
   const normalized = name
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
@@ -117,17 +117,14 @@ const suggestedSlug = (name: string): string => {
   return normalized || "jira-project"
 }
 
-const suggestedKey = (key: string, name: string): string => {
+const suggestedKey = (key: string, name: string) => {
   if (/^[A-Z][A-Z0-9]{1,9}$/.test(key)) return key
   const normalized = name.toUpperCase().replace(/[^A-Z0-9]/g, "")
   const prefixed = /^[A-Z]/.test(normalized) ? normalized : `J${normalized}`
   return (prefixed.slice(0, 10) || "JIRA").padEnd(2, "X")
 }
 
-const suggestedIssueType = (
-  name: string,
-  hierarchyLevel: number | null
-): TypeKey | null => {
+const suggestedIssueType = (name: string, hierarchyLevel: number | null) => {
   const lower = name.toLowerCase()
   return isJiraEpicLevel({ name, hierarchyLevel })
     ? EPIC_TYPE
@@ -208,7 +205,7 @@ const repairedReference = (
   id: string,
   name: string,
   issueKey: string
-): JiraMigrationFinding =>
+) =>
   jiraFinding(
     "source-reference-repaired",
     `${label} "${name}"`,

@@ -11,9 +11,7 @@ import type { ImportedFile } from "./importTransform"
 
 const decodeType = Schema.decodeUnknownSync(TypeDraft)
 
-export const importedTypes = (
-  files: ReadonlyArray<ImportedFile>
-): ReadonlyArray<TypeDraft> =>
+export const importedTypes = (files: ReadonlyArray<ImportedFile>) =>
   files.flatMap((file) => {
     const match = /^types\/([a-z0-9_-]+)\.md$/.exec(file.path)
     if (match === null) return []
@@ -25,9 +23,7 @@ export const importedTypes = (
 export const planImportedTypes = (
   types: ReadonlyArray<TypeDraft>,
   destination: Library["types"]
-): ReadonlyArray<
-  Readonly<{ sourceKey: string; key: string; name: string }>
-> => {
+) => {
   const keys = new Set(destination.map((type) => type.key.toString()))
   const names = new Set(destination.map((type) => type.name))
   return types.map((type) => {

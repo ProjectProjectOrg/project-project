@@ -12,17 +12,15 @@ export type TicketTarget = Readonly<{
 
 export const ticketCommandValue = (
   target: Pick<TicketTarget, "projectSlug" | "id">
-): string => `open-ticket:${target.projectSlug}/${target.id}`
+) => `open-ticket:${target.projectSlug}/${target.id}`
 
-const matchDetail = (
-  match: TicketTextHit["match"] | undefined
-): CommandFrameItem["detail"] => {
+const matchDetail = (match: TicketTextHit["match"] | undefined) => {
   if (match === undefined || match.where === "title") return undefined
   return {
     author: match.where === "comment" ? match.author : undefined,
     text: match.snippet.text,
     ranges: match.snippet.ranges
-  }
+  } satisfies CommandFrameItem["detail"]
 }
 
 const TITLE_RANK = 55
@@ -42,18 +40,19 @@ export const ticketItem = (
   target: TicketTarget,
   group: string,
   options: Readonly<{ inSearch?: boolean }> = {}
-): CommandFrameItem => ({
-  value: ticketCommandValue(target),
-  prefix: target.id,
-  label: target.title,
-  detail: matchDetail(target.match),
-  rank:
-    options.inSearch === true
-      ? (target.score ?? matchRank(target.match))
-      : undefined,
-  actionable: options.inSearch,
-  peekable: options.inSearch,
-  group,
-  searchOnly: options.inSearch,
-  prefiltered: options.inSearch
-})
+) =>
+  ({
+    value: ticketCommandValue(target),
+    prefix: target.id,
+    label: target.title,
+    detail: matchDetail(target.match),
+    rank:
+      options.inSearch === true
+        ? (target.score ?? matchRank(target.match))
+        : undefined,
+    actionable: options.inSearch,
+    peekable: options.inSearch,
+    group,
+    searchOnly: options.inSearch,
+    prefiltered: options.inSearch
+  }) satisfies CommandFrameItem

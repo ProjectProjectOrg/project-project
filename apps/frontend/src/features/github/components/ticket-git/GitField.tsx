@@ -18,7 +18,7 @@ import { canStackOn } from "@/features/github/lib/stacking"
 import { textLinkClass } from "@/lib/textLink"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu, type BranchMenuPr } from "./BranchMenu"
+import { BranchMenu, BranchMenuRemoval, type BranchMenuPr } from "./BranchMenu"
 import type { GitPanelFrame } from "./gitPanelFrame"
 import { PrLink } from "./PrLink"
 
@@ -47,7 +47,7 @@ export function GitField({
         github={github}
         branch={view.branch}
         openPr={view.openPr}
-        removal={{ kind: "ticket" }}
+        removal={BranchMenuRemoval.ticket()}
         canStack={canStackOn(state)}
         trigger={
           <Button
@@ -120,19 +120,16 @@ const baseNote = (base: string, defaultBase: string) =>
 
 export const pendingLabel = (
   state: Extract<GitState, { tag: "branch_pending" }>
-): string =>
+) =>
   Match.value(state.pendingOperation).pipe(
     Match.when("create", () => m.git_create_branch_checking()),
     Match.when("connect", () => m.git_connect_branch_checking()),
     Match.orElse(() => m.git_live_state_pending())
   )
 
-const fieldView = (
-  state: LinkedState,
-  repoSlug: string,
-  defaultBase: string
-): FieldView =>
+const fieldView = (state: LinkedState, repoSlug: string, defaultBase: string) =>
   Match.value(state).pipe(
+    Match.withReturnType<FieldView>(),
     Match.discriminatorsExhaustive("tag")({
       branch_pending: (s) => ({
         branch: s.name,

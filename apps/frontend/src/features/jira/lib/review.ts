@@ -16,11 +16,11 @@ export type ReviewReadiness = Readonly<{
 export const failedFilesChosen = (
   failedAttachmentIds: ReadonlyArray<string>,
   skippedAttachmentIds: ReadonlyArray<string>
-): boolean =>
+) =>
   failedAttachmentIds.length === 0 ||
   failedAttachmentIds.some((id) => skippedAttachmentIds.includes(id))
 
-export const reviewNeeds = (readiness: ReviewReadiness): string | null => {
+export const reviewNeeds = (readiness: ReviewReadiness) => {
   if (readiness.conflictCount > 0)
     return m.jira_import_review_needs_destination()
   if (
@@ -33,20 +33,16 @@ export const reviewNeeds = (readiness: ReviewReadiness): string | null => {
   return null
 }
 
-export const reviewBlocked = (readiness: ReviewReadiness): boolean =>
+export const reviewBlocked = (readiness: ReviewReadiness) =>
   !readiness.conflictsChecked ||
   reviewNeeds(readiness) !== null ||
   readiness.saveFailed ||
   readiness.saving
 
-type RestrictedIssue = NonNullable<
-  JiraMigrationRequirements["restrictedContent"]["issues"]
->[number]
-
 export const excludedIssues = (
   requirements: JiraMigrationRequirements,
   draft: JiraImportDraft
-): ReadonlyArray<RestrictedIssue> =>
+) =>
   draft.review.restrictedContent.policy === "exclude"
     ? (requirements.restrictedContent.issues ?? [])
     : []

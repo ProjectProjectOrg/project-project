@@ -3,7 +3,7 @@ import * as Option from "effect/Option"
 const isLoopback = (host: string) =>
   host === "localhost" || host.startsWith("127.") || host === "[::1]"
 
-export const originOf = (address: string): Option.Option<string> => {
+export const originOf = (address: string) => {
   const trimmed = address.trim().replace(/\/+$/, "")
   if (trimmed === "") return Option.none()
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)

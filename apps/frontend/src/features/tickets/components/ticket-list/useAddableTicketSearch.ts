@@ -50,7 +50,7 @@ export type AddableTickets = Readonly<{
   results: PagedSearchResults<Ticket>
 }>
 
-export function useAddableTicketSearch(query: string | null): AddableTickets {
+export function useAddableTicketSearch(query: string | null) {
   const { orgSlug, slug } = useProjectRoute()
   const statusesResult = useAtomValue(
     statusesFor(statusesRequest(orgSlug, slug))
@@ -85,5 +85,5 @@ export function useAddableTicketSearch(query: string | null): AddableTickets {
       )
       .slice(0, RECENT_LIMIT)
   }, [query, open, recentResult, slug])
-  return { recent, results }
+  return { recent, results } satisfies AddableTickets
 }

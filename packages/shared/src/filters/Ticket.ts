@@ -180,28 +180,20 @@ export const OrgTicketRow = Schema.Struct({
 })
 export type OrgTicketRow = typeof OrgTicketRow.Type
 
-export const RecentTicketActivity = Schema.Union([
-  Schema.Struct({
-    tag: Schema.Literal("commented"),
-    at: Schema.DateFromString
-  }),
-  Schema.Struct({
-    tag: Schema.Literal("created"),
-    at: Schema.DateFromString
-  }),
-  Schema.Struct({
-    tag: Schema.Literal("assigned"),
+export const RecentTicketActivity = Schema.TaggedUnion({
+  commented: { at: Schema.DateFromString },
+  created: { at: Schema.DateFromString },
+  assigned: {
     actor: Schema.optional(TicketActivityActor),
     at: Schema.optional(Schema.DateFromString)
-  }),
-  Schema.Struct({
-    tag: Schema.Literal("status_changed"),
+  },
+  status_changed: {
     actor: TicketActivityActor,
     at: Schema.DateFromString,
     from: TicketStatus,
     to: TicketStatus
-  })
-])
+  }
+})
 export type RecentTicketActivity = typeof RecentTicketActivity.Type
 
 export const RecentTicketRow = Schema.Struct({
@@ -294,7 +286,7 @@ export const SprintSectionKey = Schema.Union([
 ])
 export type SprintSectionKey = typeof SprintSectionKey.Type
 
-export const sprintSectionKey = (groupId: GroupId | null): SprintSectionKey =>
+export const sprintSectionKey = (groupId: GroupId | null) =>
   groupId === null ? SPRINT_SECTION_UNSCHEDULED : groupId
 
 export const TicketSprintSection = Schema.Struct({
@@ -342,22 +334,10 @@ export const BacklogGrouping = Schema.Literals([
 ])
 export type BacklogGrouping = typeof BacklogGrouping.Type
 
-const TicketSectionsSource = Schema.Struct({
-  kind: Schema.Literal("sections"),
-  grouping: BacklogGrouping,
-  query: TicketListQuery
+export const TicketListSource = Schema.TaggedUnion({
+  sections: { grouping: BacklogGrouping, query: TicketListQuery },
+  sprintBoard: { groupId: GroupId, query: TicketListQuery }
 })
-
-const TicketSprintBoardSource = Schema.Struct({
-  kind: Schema.Literal("sprintBoard"),
-  groupId: GroupId,
-  query: TicketListQuery
-})
-
-export const TicketListSource = Schema.Union([
-  TicketSectionsSource,
-  TicketSprintBoardSource
-])
 export type TicketListSource = typeof TicketListSource.Type
 
 export const TicketSequenceEntry = Schema.Struct({

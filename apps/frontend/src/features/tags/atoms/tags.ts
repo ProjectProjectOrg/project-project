@@ -22,15 +22,13 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 
-export type TagsRequest = Readonly<{
-  _view: "tags"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type TagsRequest = ReturnType<typeof tagsRequest>
 
-export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({
-  _view: "tags",
-  params: { orgSlug, slug }
-})
+export const tagsRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "tags",
+    params: { orgSlug, slug }
+  }) as const
 
 const scopeOf = (req: TagsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -64,14 +62,7 @@ export const tagUsage = Atom.family((req: TagsRequest) =>
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-export type TagEditorRequest = Readonly<{
-  _view: "tagEditor"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: TicketId
-  }>
-}>
+export type TagEditorRequest = ReturnType<typeof tagEditorRequest>
 
 export type AppliedTag = Readonly<{
   key: TagName
@@ -83,11 +74,11 @@ export type TagEditorValue = Readonly<{
   applied: ReadonlyArray<AppliedTag>
 }>
 
-export const tagEditorRequest = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): TagEditorRequest => ({ _view: "tagEditor", params: { orgSlug, slug, id } })
+export const tagEditorRequest = (orgSlug: string, slug: string, id: TicketId) =>
+  ({
+    _view: "tagEditor",
+    params: { orgSlug, slug, id }
+  }) as const
 
 const tagsRequestOf = (req: TagEditorRequest) =>
   tagsRequest(req.params.orgSlug, req.params.slug)
@@ -102,10 +93,13 @@ const tagEditorQuery = (req: TagEditorRequest) => {
     (get) =>
       AsyncResult.map(
         AsyncResult.all([get(tags), get(ticket)] as const),
-        ([tags, ticket]): TagEditorValue => ({
-          tags,
-          applied: ticket.tags.map((name) => ({ key: name, name }))
-        })
+        ([tags, ticket]) => {
+          const value: TagEditorValue = {
+            tags,
+            applied: ticket.tags.map((name) => ({ key: name, name }))
+          }
+          return value
+        }
       ),
     (refresh) => {
       refresh(tags)
@@ -122,7 +116,7 @@ const updateEditorValue = (
   value: TagEditorValue,
   name: TagName,
   patch: UpdateTagInput
-): TagEditorValue => {
+) => {
   const nextName = patch.name
   return {
     tags: value.tags.map((tag) =>
@@ -140,33 +134,26 @@ const updateEditorValue = (
   }
 }
 
-const deleteEditorTag = (
-  value: TagEditorValue,
-  name: TagName
-): TagEditorValue => ({
+const deleteEditorTag = (value: TagEditorValue, name: TagName) => ({
   tags: value.tags.filter((tag) => tag.name !== name),
   applied: value.applied.filter((tag) => tag.name !== name)
 })
 
-const syntheticTag = (input: CreateTagInput): Tag => ({
-  name: input.name,
-  color: input.color ?? makeTagColor("#7c3aed"),
-  createdBy: "",
-  createdAt: DateTime.toDate(DateTime.nowUnsafe())
-})
+const syntheticTag = (input: CreateTagInput) =>
+  ({
+    name: input.name,
+    color: input.color ?? makeTagColor("#7c3aed"),
+    createdBy: "",
+    createdAt: DateTime.toDate(DateTime.nowUnsafe())
+  }) satisfies Tag
 
-const createEditorTag = (
-  value: TagEditorValue,
-  input: CreateTagInput
-): TagEditorValue => ({
-  ...value,
-  tags: [...value.tags, syntheticTag(input)]
-})
+const createEditorTag = (value: TagEditorValue, input: CreateTagInput) =>
+  ({
+    ...value,
+    tags: [...value.tags, syntheticTag(input)]
+  }) satisfies TagEditorValue
 
-const applyEditorTags = (
-  value: TagEditorValue,
-  edit: ListEdit<TagName>
-): TagEditorValue => ({
+const applyEditorTags = (value: TagEditorValue, edit: ListEdit<TagName>) => ({
   ...value,
   applied: applyListEdit(
     value.applied.map((tag) => tag.name),
@@ -186,7 +173,7 @@ const confirmEditorUpdate = (
   name: TagName,
   requestedName: TagName | undefined,
   updated: Tag
-): TagEditorValue => ({
+) => ({
   tags: value.tags.map((tag) =>
     tag.name === name || tag.name === requestedName ? updated : tag
   ),

@@ -153,10 +153,11 @@ const record = (
       [],
       {
         subscriptions: subscriptions.map(
-          (subscribe): SubscriptionIntent => ({
-            ticketId: ticketId("T-1"),
-            ...subscribe
-          })
+          (subscribe) =>
+            ({
+              ticketId: ticketId("T-1"),
+              ...subscribe
+            }) satisfies SubscriptionIntent
         )
       }
     )

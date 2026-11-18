@@ -1,17 +1,18 @@
-import type { ReferenceToFix } from "@pp/shared"
+import { FixReferenceAction, type ReferenceToFix } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { groupReferences, withoutFixed } from "./referenceGroups"
 
 const reference = (
   overrides: Partial<ReferenceToFix> & Pick<ReferenceToFix, "ticketId">
-): ReferenceToFix => ({
-  kind: "user",
-  target: "u-old",
-  label: "@jan",
-  snippet: "ask @jan",
-  ...overrides
-})
+) =>
+  ({
+    kind: "user",
+    target: "u-old",
+    label: "@jan",
+    snippet: "ask @jan",
+    ...overrides
+  }) satisfies ReferenceToFix
 
 describe("groupReferences", () => {
   it("groups occurrences by kind and target, then by ticket, in first-seen order, showing a repeated snippet once", () => {
@@ -69,7 +70,7 @@ describe("withoutFixed", () => {
           kind: "user",
           target: "u-old",
           ticketId: null,
-          action: { kind: "plain" }
+          action: FixReferenceAction.cases.plain.make({})
         }
       ).items
     ).toEqual([items[2]])
@@ -83,7 +84,7 @@ describe("withoutFixed", () => {
           kind: "user",
           target: "u-old",
           ticketId: "PP-2",
-          action: { kind: "link", to: "u-new" }
+          action: FixReferenceAction.cases.link.make({ to: "u-new" })
         }
       ).items
     ).toEqual([items[0], items[2]])

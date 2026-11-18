@@ -7,7 +7,7 @@ import { m } from "@/paraglide/messages"
 
 export type ProjectLinkValues = Readonly<{ label: string; url: string }>
 
-const normalizeLinkUrl = (raw: string): string => {
+const normalizeLinkUrl = (raw: string) => {
   const url = raw.trim()
   if (/^[a-z][a-z\d+.-]*:\/\//i.test(url)) return url
   return `${isLocalAddress(url) ? "http" : "https"}://${url}`
@@ -15,9 +15,7 @@ const normalizeLinkUrl = (raw: string): string => {
 
 const isProjectLink = Schema.is(ProjectLink)
 
-export const toProjectLink = (
-  values: ProjectLinkValues
-): ProjectLink | null => {
+export const toProjectLink = (values: ProjectLinkValues) => {
   const url = normalizeLinkUrl(values.url)
   if (!URL.canParse(url)) return null
   const link = { label: values.label.trim() || linkHost(url), url }
