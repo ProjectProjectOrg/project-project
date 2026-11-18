@@ -41,12 +41,14 @@ export function PriorityMenu({
   value,
   onChange,
   trigger,
+  label,
   disabled = false,
   className = "w-44"
 }: Readonly<{
   value: TicketPriority | null
   onChange: (priority: TicketPriority) => void
   trigger: ReactElement
+  label?: string
   disabled?: boolean
   className?: string
 }>) {
@@ -54,6 +56,7 @@ export function PriorityMenu({
     <DropdownMenu disabled={disabled}>
       <ShortcutTooltip
         hotkey={appHotkeys["tickets.priority"]}
+        label={label}
         keyLabels={keyLabels()}
       >
         <DropdownMenuTrigger render={trigger} />
@@ -96,6 +99,7 @@ export function PrioritySelect({
     <PriorityMenu
       value={selected}
       onChange={onChange}
+      label={priorityLabel}
       trigger={
         <Button
           type="button"
@@ -104,10 +108,8 @@ export function PrioritySelect({
           size={showLabel ? undefined : "square-6"}
           onClick={(e) => stopPropagation && e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-          title={priorityLabel}
-          className={meta.className}
         >
-          <Icon className="size-3.5" strokeWidth={1.75} />
+          <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
           {showLabel && (
             <span className="text-foreground">{priorityLabel}</span>
           )}

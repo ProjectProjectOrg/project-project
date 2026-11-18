@@ -219,7 +219,6 @@ export function DescriptionField({
       <div
         data-block-rail-host
         data-block-rail-inset
-        data-description
         role="presentation"
         className={cn(
           "relative px-3 [&_.lexical-content]:min-h-0",

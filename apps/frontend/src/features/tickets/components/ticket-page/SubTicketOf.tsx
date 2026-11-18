@@ -78,11 +78,7 @@ export function SubTicketOf({
           <span className="shrink-0 text-body text-muted-foreground tabular-nums">
             {parent.id}
           </span>
-          <MiddleTruncate
-            value={parent.title}
-            title={undefined}
-            className="text-foreground"
-          />
+          <MiddleTruncate value={parent.title} className="text-foreground" />
         </span>
       </TicketPreviewTrigger>
       {parentState !== null && (

@@ -146,7 +146,7 @@ export function TicketPropertySubmenus({
               <CircleDot className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_status()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-48">
+            <DropdownMenuSubContent className="max-w-72 min-w-48">
               <DropdownMenuRadioGroup
                 items={statusItems}
                 value={ticket.status ?? null}
@@ -162,7 +162,7 @@ export function TicketPropertySubmenus({
               <SignalHigh className="size-4" strokeWidth={1.75} />
               {m.tickets_command_set_priority()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-40">
+            <DropdownMenuSubContent className="max-w-72 min-w-40">
               <DropdownMenuRadioGroup
                 items={priorityItems}
                 value={ticket.priority ?? null}
@@ -178,7 +178,7 @@ export function TicketPropertySubmenus({
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-44">
+            <DropdownMenuSubContent className="max-w-72 min-w-44">
               <DropdownMenuRadioGroup
                 items={typeItems}
                 value={

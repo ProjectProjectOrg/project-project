@@ -1,7 +1,11 @@
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import * as React from "react"
 
-import { MenuControlProvider, useMenuRoot } from "../lib/menuClose"
+import {
+  MenuControlProvider,
+  MenuPickedContext,
+  useMenuRoot
+} from "../lib/menuClose"
 import { cn } from "../lib/utils"
 import { DropdownMenuPortal, pickNumberedItem } from "./dropdown-menu"
 import { MenuHighlight } from "./menu-highlight"
@@ -15,11 +19,13 @@ function ContextMenu({
   const root = useMenuRoot(givenActions, onOpenChange)
   return (
     <MenuControlProvider value={root.control}>
-      <ContextMenuPrimitive.Root
-        {...props}
-        actionsRef={root.ref}
-        onOpenChange={root.onOpenChange}
-      />
+      <MenuPickedContext value={root.picked}>
+        <ContextMenuPrimitive.Root
+          {...props}
+          actionsRef={root.ref}
+          onOpenChange={root.onOpenChange}
+        />
+      </MenuPickedContext>
     </MenuControlProvider>
   )
 }

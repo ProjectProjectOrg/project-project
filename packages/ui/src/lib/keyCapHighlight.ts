@@ -5,7 +5,7 @@ let pending: Readonly<{ key: string; timer: number }> | null = null
 
 const SEQUENCE_TIMEOUT_MS = 1000
 
-const keyName = (event: KeyboardEvent): string =>
+export const keyName = (event: KeyboardEvent): string =>
   event.key === " " ? "space" : event.key.toLowerCase()
 
 const light = (key: string) => {
@@ -34,8 +34,19 @@ const clear = () => {
   pressedByCode.clear()
 }
 
+// A character typed into a text field is text, not a shortcut.
+const typesText = (event: KeyboardEvent): boolean =>
+  event.key.length === 1 &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  !event.altKey &&
+  event.target instanceof HTMLElement &&
+  (event.target.isContentEditable ||
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement)
+
 const onKeyDown = (event: KeyboardEvent) => {
-  if (event.repeat) return
+  if (event.repeat || typesText(event)) return
   clearPending()
   const key = keyName(event)
   pressedByCode.set(event.code, key)
