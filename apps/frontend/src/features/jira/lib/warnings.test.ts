@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { jiraVisibility } from "./warnings"
+import { JiraVisibility, jiraVisibility } from "./warnings"
 
 const warning = (category: string, detail: string | null) => ({
   category,
@@ -10,7 +10,7 @@ const warning = (category: string, detail: string | null) => ({
 
 describe("jiraVisibility", () => {
   it("says nothing is missing when there are no warnings", () => {
-    expect(jiraVisibility([])).toEqual({ kind: "complete" })
+    expect(jiraVisibility([])).toEqual(JiraVisibility.complete())
   })
 
   it("collapses generic permission warnings into one statement", () => {
@@ -20,7 +20,7 @@ describe("jiraVisibility", () => {
         warning("mystery", null),
         warning("mystery-two", "jira-permissions")
       ])
-    ).toEqual({ kind: "account" })
+    ).toEqual(JiraVisibility.account())
   })
 
   it("groups by category and reason and lists other data once", () => {
@@ -32,8 +32,8 @@ describe("jiraVisibility", () => {
       warning("worklogs", "jira-permissions")
     ])
 
-    expect(visibility.kind).toBe("limited")
-    if (visibility.kind !== "limited") return
+    expect(JiraVisibility.$is("limited")(visibility)).toBe(true)
+    if (!JiraVisibility.$is("limited")(visibility)) return
     expect(visibility.rows.map((row) => row.label)).toEqual([
       "Comments",
       "Work logs",

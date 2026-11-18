@@ -13,7 +13,7 @@ import {
 } from "@/features/jira/lib/draft"
 import { excludedIssues } from "@/features/jira/lib/review"
 import type { JiraSetupCounts } from "@/features/jira/lib/setup"
-import { jiraVisibility } from "@/features/jira/lib/warnings"
+import { JiraVisibility, jiraVisibility } from "@/features/jira/lib/warnings"
 import { m } from "@/paraglide/messages"
 
 import type { JiraImportForm } from "./opts"
@@ -167,14 +167,14 @@ export function LeftBehindBlock({
     skippedTags.length === 0 &&
     forced.length === 0 &&
     failed.length === 0 &&
-    visibility.kind === "complete"
+    JiraVisibility.$is("complete")(visibility)
   return (
     <FactBlock
       title={m.jira_import_review_left_title()}
       description={
         nothing
           ? m.jira_import_review_left_none()
-          : visibility.kind === "account"
+          : JiraVisibility.$is("account")(visibility)
             ? m.jira_import_scan_visibility_account()
             : undefined
       }
@@ -203,7 +203,7 @@ export function LeftBehindBlock({
       {failed.length > 0 ? (
         <FailedAttachments form={form} failed={failed} commit={commit} />
       ) : null}
-      {visibility.kind === "limited" ? (
+      {JiraVisibility.$is("limited")(visibility) ? (
         <FactList>
           {visibility.rows.map((row) => (
             <FactRow key={`${row.label}:${row.detail}`} label={row.label}>

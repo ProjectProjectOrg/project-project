@@ -5,28 +5,32 @@ import {
   type StatusPhaseOf,
   type Ticket
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
 import { formatEstimateAmount } from "@/features/tickets/lib/estimateMeta"
 import { m } from "@/paraglide/messages"
 
-export type PlanMeasure =
-  | Readonly<{ kind: "estimate"; unit: "points" | "time" }>
-  | Readonly<{ kind: "count" }>
+export type PlanMeasure = Data.TaggedEnum<{
+  estimate: { readonly unit: "points" | "time" }
+  count: {}
+}>
+export const PlanMeasure = Data.taggedEnum<PlanMeasure>()
 
 export const planMeasure = (mode: EstimationMode) =>
   mode === "points" || mode === "time"
-    ? ({ kind: "estimate", unit: mode } satisfies PlanMeasure)
-    : ({ kind: "count" } satisfies PlanMeasure)
+    ? PlanMeasure.estimate({ unit: mode })
+    : PlanMeasure.count()
 
 export const formatAmount = (measure: PlanMeasure, amount: number) =>
-  measure.kind === "estimate"
-    ? formatEstimateAmount(measure.unit, amount)
-    : m.sprints_overview_ticket_count({ count: amount })
+  PlanMeasure.$match(measure, {
+    estimate: ({ unit }) => formatEstimateAmount(unit, amount),
+    count: () => m.sprints_overview_ticket_count({ count: amount })
+  })
 
 type Weighed = Pick<Ticket, "estimate">
 
 const weightOf = (ticket: Weighed, measure: PlanMeasure) => {
-  if (measure.kind === "count") return 1
+  if (PlanMeasure.$is("count")(measure)) return 1
   const estimate = activeEstimate(ticket.estimate, measure.unit)
   return estimate === null ? null : estimateRank(estimate)
 }

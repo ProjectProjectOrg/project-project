@@ -3,6 +3,7 @@ import type {
   TicketActivityActor,
   TicketActivityEntry
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
 export const ACTIVITY_GROUP_WINDOW_MS = 30 * 60 * 1000
 
@@ -86,17 +87,18 @@ export const groupActivity = (
 
 export const SPRINT_MOVE_WINDOW_MS = 10 * 1000
 
-export type ActivityItem =
-  | Readonly<{ kind: "entry"; key: string; entry: TicketActivityEntry }>
-  | Readonly<{
-      kind: "sprint_moved"
-      key: string
-      actor: TicketActivityActor | null
-      at: Date
-      from: string
-      to: string
-      cause: ActivityCause | null
-    }>
+export type ActivityItem = Data.TaggedEnum<{
+  entry: { readonly key: string; readonly entry: TicketActivityEntry }
+  sprint_moved: {
+    readonly key: string
+    readonly actor: TicketActivityActor | null
+    readonly at: Date
+    readonly from: string
+    readonly to: string
+    readonly cause: ActivityCause | null
+  }
+}>
+export const ActivityItem = Data.taggedEnum<ActivityItem>()
 
 type SprintMembership = Readonly<{
   entry: Extract<TicketActivityEntry, { kind: "change" }>
@@ -141,21 +143,22 @@ export const activityItems = (entries: ReadonlyArray<TicketActivityEntry>) => {
                 other !== null && pairs(own, other)
             )
     if (own === null || partner === undefined) {
-      items.push({ kind: "entry", key: entry.id, entry })
+      items.push(ActivityItem.entry({ key: entry.id, entry }))
       continue
     }
     merged.add(partner.entry.id)
     const [removed, added] =
       own.direction === "removed" ? [own, partner] : [partner, own]
-    items.push({
-      kind: "sprint_moved",
-      key: `${removed.entry.id}:${added.entry.id}`,
-      actor: added.entry.actor,
-      at: added.entry.occurredAt,
-      from: removed.name,
-      to: added.name,
-      cause: own.entry.cause
-    })
+    items.push(
+      ActivityItem.sprint_moved({
+        key: `${removed.entry.id}:${added.entry.id}`,
+        actor: added.entry.actor,
+        at: added.entry.occurredAt,
+        from: removed.name,
+        to: added.name,
+        cause: own.entry.cause
+      })
+    )
   }
   return items
 }

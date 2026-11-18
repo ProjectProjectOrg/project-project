@@ -12,6 +12,7 @@ import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
 import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
+import type * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
@@ -42,7 +43,7 @@ import { statusSaveErrorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 type Props = Readonly<{
-  entry: Extract<PhaseEntry, { kind: "status" }>
+  entry: Data.TaggedEnum.Value<PhaseEntry, "status">
   statuses: ReadonlyArray<ProjectStatus>
   count: number
   dragging: boolean

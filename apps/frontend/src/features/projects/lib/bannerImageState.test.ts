@@ -4,7 +4,7 @@ import {
   bannerImageReducer,
   initialBannerImageState,
   shouldLoadBannerImage,
-  type BannerImageEvent,
+  BannerImageEvent,
   type BannerImageState
 } from "./bannerImageState"
 
@@ -19,27 +19,27 @@ const run = (...events: ReadonlyArray<BannerImageEvent<Photo>>) =>
 describe("bannerImageReducer", () => {
   it("waits for the cache lookup before loading the photo", () => {
     expect(shouldLoadBannerImage(run(), false)).toBe(false)
-    expect(shouldLoadBannerImage(run({ type: "lookupStarted" }), false)).toBe(
-      false
-    )
+    expect(
+      shouldLoadBannerImage(run(BannerImageEvent.lookupStarted()), false)
+    ).toBe(false)
     expect(
       shouldLoadBannerImage(
-        run({ type: "lookupStarted" }, { type: "lookupMissed" }),
+        run(BannerImageEvent.lookupStarted(), BannerImageEvent.lookupMissed()),
         false
       )
     ).toBe(true)
   })
 
   it("loads the photo at once when there is nothing to look up", () => {
-    expect(shouldLoadBannerImage(run({ type: "lookupSkipped" }), false)).toBe(
-      true
-    )
+    expect(
+      shouldLoadBannerImage(run(BannerImageEvent.lookupSkipped()), false)
+    ).toBe(true)
   })
 
   it("skips the photo on a cache hit unless the banner is being edited", () => {
     const hit = run(
-      { type: "lookupStarted" },
-      { type: "lookupHit", url: "blob:render" }
+      BannerImageEvent.lookupStarted(),
+      BannerImageEvent.lookupHit({ url: "blob:render" })
     )
     expect(hit.cachedRender).toBe("blob:render")
     expect(shouldLoadBannerImage(hit, false)).toBe(false)
@@ -48,9 +48,9 @@ describe("bannerImageReducer", () => {
 
   it("keeps the displayed render while looking up its replacement", () => {
     const relooked = run(
-      { type: "lookupStarted" },
-      { type: "lookupHit", url: "blob:render" },
-      { type: "lookupStarted" }
+      BannerImageEvent.lookupStarted(),
+      BannerImageEvent.lookupHit({ url: "blob:render" }),
+      BannerImageEvent.lookupStarted()
     )
     expect(relooked).toMatchObject({
       lookup: "pending",
@@ -60,9 +60,9 @@ describe("bannerImageReducer", () => {
 
   it("keeps the cached render when the lookup is skipped", () => {
     const skipped = run(
-      { type: "lookupStarted" },
-      { type: "lookupHit", url: "blob:render" },
-      { type: "lookupSkipped" }
+      BannerImageEvent.lookupStarted(),
+      BannerImageEvent.lookupHit({ url: "blob:render" }),
+      BannerImageEvent.lookupSkipped()
     )
     expect(skipped).toMatchObject({
       lookup: "miss",
@@ -73,10 +73,10 @@ describe("bannerImageReducer", () => {
   it("records the photo size, then the decoded photo, then the first paint", () => {
     const photo = { id: "photo" }
     const painted = run(
-      { type: "lookupSkipped" },
-      { type: "imageLoaded", size: { width: 1200, height: 400 } },
-      { type: "imageDecoded", image: photo },
-      { type: "painted" }
+      BannerImageEvent.lookupSkipped(),
+      BannerImageEvent.imageLoaded({ size: { width: 1200, height: 400 } }),
+      BannerImageEvent.imageDecoded({ image: photo }),
+      BannerImageEvent.painted()
     )
     expect(painted).toMatchObject({
       naturalSize: { width: 1200, height: 400 },
@@ -88,16 +88,18 @@ describe("bannerImageReducer", () => {
   })
 
   it("returns the same state for a repeated paint", () => {
-    const painted = run({ type: "painted" })
-    expect(bannerImageReducer(painted, { type: "painted" })).toBe(painted)
+    const painted = run(BannerImageEvent.painted())
+    expect(bannerImageReducer(painted, BannerImageEvent.painted())).toBe(
+      painted
+    )
   })
 
   it("tracks a failed photo and a failed decode separately", () => {
-    expect(run({ type: "imageFailed" })).toMatchObject({
+    expect(run(BannerImageEvent.imageFailed())).toMatchObject({
       placeholderFailed: true,
       shaderFailed: false
     })
-    expect(run({ type: "decodeFailed" })).toMatchObject({
+    expect(run(BannerImageEvent.decodeFailed())).toMatchObject({
       placeholderFailed: false,
       shaderFailed: true
     })

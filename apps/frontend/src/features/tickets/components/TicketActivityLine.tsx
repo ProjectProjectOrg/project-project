@@ -32,11 +32,11 @@ import type { ReactNode } from "react"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
-import type {
-  ActivityLine,
+import {
   ActivityLineBody,
-  ActivityLiteralIcon,
-  ActivityValue
+  ActivityValue,
+  type ActivityLine,
+  type ActivityLiteralIcon
 } from "@/features/tickets/lib/activityLines"
 import {
   PRIORITY_LABELS,
@@ -201,68 +201,62 @@ function ActivityValueView({
   value,
   lookups
 }: Readonly<{ value: ActivityValue; lookups: ActivityLookups }>) {
-  switch (value.kind) {
-    case "text":
-      return <span className="text-foreground">{value.text}</span>
-    case "literal": {
-      const icon = value.icon === null ? null : LITERAL_ICONS[value.icon]
+  return ActivityValue.$match(value, {
+    text: ({ text }) => <span className="text-foreground">{text}</span>,
+    literal: ({ text, icon }) => {
+      const shown = icon === null ? null : LITERAL_ICONS[icon]
       return (
-        <Value icon={icon?.icon} iconClassName={icon?.className}>
-          <TimelineLiteral>{value.text}</TimelineLiteral>
+        <Value icon={shown?.icon} iconClassName={shown?.className}>
+          <TimelineLiteral>{text}</TimelineLiteral>
         </Value>
       )
-    }
-    case "status":
-      return <StatusValue slug={value.slug} statuses={lookups.statuses} />
-    case "priority":
-      return <PriorityValue priority={value.priority} />
-    case "type":
-      return <TypeValue type={value.type} types={lookups.types} />
-    case "group":
-      return <Value icon={GROUP_ICONS[value.groupKind]}>{value.name}</Value>
-    case "people":
-      return <People ids={value.ids} members={lookups.members} />
-    case "ticket":
-      return <TicketValue id={value.id} />
-  }
-  return <Tags names={value.names} tags={lookups.tags} />
+    },
+    status: ({ slug }) => (
+      <StatusValue slug={slug} statuses={lookups.statuses} />
+    ),
+    priority: ({ priority }) => <PriorityValue priority={priority} />,
+    type: ({ type }) => <TypeValue type={type} types={lookups.types} />,
+    group: ({ groupKind, name }) => (
+      <Value icon={GROUP_ICONS[groupKind]}>{name}</Value>
+    ),
+    people: ({ ids }) => <People ids={ids} members={lookups.members} />,
+    tags: ({ names }) => <Tags names={names} tags={lookups.tags} />,
+    ticket: ({ id }) => <TicketValue id={id} />
+  })
 }
 
 function ActivityLineBodyView({
   body,
   lookups
 }: Readonly<{ body: ActivityLineBody; lookups: ActivityLookups }>) {
-  switch (body.kind) {
-    case "plain":
-      return body.text
-    case "verb":
-      return (
-        <>
-          {body.verb} <ActivityValueView value={body.value} lookups={lookups} />
-        </>
-      )
-    case "field":
-      return (
-        <>
-          {body.label}{" "}
-          <TimelineChange
-            from={<ActivityValueView value={body.from} lookups={lookups} />}
-            to={<ActivityValueView value={body.to} lookups={lookups} />}
-            toLabel={m.tickets_activity_field_to()}
-          />
-        </>
-      )
-  }
-  return (
-    <>
-      {body.text}{" "}
-      <TimelineQuote>
-        <Markdown size="compact" blocks="flat">
-          {body.quote}
-        </Markdown>
-      </TimelineQuote>
-    </>
-  )
+  return ActivityLineBody.$match(body, {
+    plain: ({ text }) => text,
+    verb: ({ verb, value }) => (
+      <>
+        {verb} <ActivityValueView value={value} lookups={lookups} />
+      </>
+    ),
+    field: ({ label, from, to }) => (
+      <>
+        {label}{" "}
+        <TimelineChange
+          from={<ActivityValueView value={from} lookups={lookups} />}
+          to={<ActivityValueView value={to} lookups={lookups} />}
+          toLabel={m.tickets_activity_field_to()}
+        />
+      </>
+    ),
+    quoted: ({ text, quote }) => (
+      <>
+        {text}{" "}
+        <TimelineQuote>
+          <Markdown size="compact" blocks="flat">
+            {quote}
+          </Markdown>
+        </TimelineQuote>
+      </>
+    )
+  })
 }
 
 export function ActivityLineView({

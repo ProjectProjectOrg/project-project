@@ -35,6 +35,7 @@ import { useCanCreateBranches } from "@/features/github/hooks/useCanCreateBranch
 import { useProjectRepos } from "@/features/github/hooks/useProjectRepos"
 import {
   branchMenuFilter,
+  BranchPickerEntry,
   branchPickerEntries,
   defaultBranchName
 } from "@/features/github/lib/branchPicker"
@@ -216,29 +217,32 @@ function BranchPickerList({
             </DropdownMenuItem>
           ) : null}
           {entries.map((entry) =>
-            entry.kind === "create" ? (
-              <CreateBranchSubmenu
-                key={`create:${github.repoId}:${entry.name}`}
-                ticket={ticket}
-                github={github}
-                repoId={repoId}
-                suggestedName={entry.name}
-                onDone={onDone}
-              />
-            ) : (
-              <DropdownMenuItem
-                key={`branch:${entry.branch.name}`}
-                label={entry.branch.name}
-                onClick={() => void connect(entry.branch.name)}
-              >
-                <GitBranch />
-                <MiddleTruncate
-                  value={entry.branch.name}
-                  className="flex-1 text-foreground tabular-nums"
+            BranchPickerEntry.$match(entry, {
+              create: ({ name }) => (
+                <CreateBranchSubmenu
+                  key={`create:${github.repoId}:${name}`}
+                  ticket={ticket}
+                  github={github}
+                  repoId={repoId}
+                  suggestedName={name}
+                  onDone={onDone}
                 />
-                <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
-              </DropdownMenuItem>
-            )
+              ),
+              branch: ({ branch }) => (
+                <DropdownMenuItem
+                  key={`branch:${branch.name}`}
+                  label={branch.name}
+                  onClick={() => void connect(branch.name)}
+                >
+                  <GitBranch />
+                  <MiddleTruncate
+                    value={branch.name}
+                    className="flex-1 text-foreground tabular-nums"
+                  />
+                  <BranchBadge branch={branch} defaultBase={defaultBase} />
+                </DropdownMenuItem>
+              )
+            })
           )}
         </DropdownMenuList>
       </BranchResultsFrame>

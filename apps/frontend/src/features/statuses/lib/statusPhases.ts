@@ -9,13 +9,16 @@ import {
   type StatusPhase,
   type StatusSlug
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import { generateKeyBetween } from "fractional-indexing"
 
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export type PhaseEntry =
-  | Readonly<{ kind: "phase"; phase: StatusPhase }>
-  | Readonly<{ kind: "status"; status: ProjectStatus }>
+export type PhaseEntry = Data.TaggedEnum<{
+  phase: { readonly phase: StatusPhase }
+  status: { readonly status: ProjectStatus }
+}>
+export const PhaseEntry = Data.taggedEnum<PhaseEntry>()
 
 export const isPinnedStatus = (slug: string) =>
   slug === PHASE_ANCHOR.started || slug === PHASE_ANCHOR.finished
@@ -23,10 +26,10 @@ export const isPinnedStatus = (slug: string) =>
 export const phaseEntries = (statuses: ReadonlyArray<ProjectStatus>) => {
   const sorted = [...statuses].toSorted(compareByOrderKey)
   return STATUS_PHASES.flatMap<PhaseEntry>((phase) => [
-    { kind: "phase", phase },
+    PhaseEntry.phase({ phase }),
     ...sorted.flatMap((status) =>
       statusPhaseOf(statuses, status.slug) === phase
-        ? [{ kind: "status" as const, status }]
+        ? [PhaseEntry.status({ status })]
         : []
     )
   ])
@@ -34,7 +37,7 @@ export const phaseEntries = (statuses: ReadonlyArray<ProjectStatus>) => {
 
 const statusIndex = (entries: ReadonlyArray<PhaseEntry>, slug: string) =>
   entries.findIndex(
-    (entry) => entry.kind === "status" && entry.status.slug === slug
+    (entry) => PhaseEntry.$is("status")(entry) && entry.status.slug === slug
   )
 
 export const placeStatus = (
@@ -43,7 +46,12 @@ export const placeStatus = (
 ) => {
   const at = statusIndex(entries, slug)
   const entry = entries[at]
-  if (entry?.kind !== "status" || isPinnedStatus(slug)) return null
+  if (
+    entry === undefined ||
+    !PhaseEntry.$is("status")(entry) ||
+    isPinnedStatus(slug)
+  )
+    return null
   const moved = entry.status
 
   const groups: Record<StatusPhase, Array<ProjectStatus>> = {
@@ -55,11 +63,11 @@ export const placeStatus = (
   let target: StatusPhase = "unstarted"
   let index = 0
   for (const [i, e] of entries.entries()) {
-    if (e.kind === "phase") phase = e.phase
+    if (PhaseEntry.$is("phase")(e)) phase = e.phase
     if (i === at) {
       target = phase
       index = groups[phase].length
-    } else if (e.kind === "status") groups[phase].push(e.status)
+    } else if (PhaseEntry.$is("status")(e)) groups[phase].push(e.status)
   }
 
   if (slug === PHASE_ANCHOR.unstarted && target !== "unstarted") {

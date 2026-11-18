@@ -7,18 +7,16 @@ import {
 } from "@/features/projects/lib/iconCutout"
 import { appFormOptions } from "@/lib/form"
 
-export const IconSource = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("emoji"),
+export const IconSource = Schema.TaggedUnion({
+  emoji: {
     emoji: Schema.NonEmptyString,
     objectUrl: Schema.NullOr(Schema.String)
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("image"),
+  },
+  image: {
     emoji: Schema.String,
     objectUrl: Schema.String
-  })
-])
+  }
+})
 
 export const IconCropShape = Schema.Struct({
   x: Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 1 })),
@@ -60,7 +58,7 @@ export const iconFormOpts = (icon: string, hasImage: boolean) =>
   appFormOptions.looseSchema(iconFormSchema, {
     defaultValues: {
       source: {
-        kind: hasImage ? "image" : "emoji",
+        _tag: hasImage ? "image" : "emoji",
         emoji: icon,
         objectUrl: null
       },

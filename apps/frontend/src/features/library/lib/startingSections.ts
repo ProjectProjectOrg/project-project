@@ -6,30 +6,31 @@ import {
   type Library,
   TicketBlockSegment
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
-export type StartingRow =
-  | Readonly<{ id: string; kind: "section"; key: string }>
-  | Readonly<{
-      id: string
-      kind: "custom"
-      key: string
-      content: string
-      sync: boolean
-    }>
-  | Readonly<{ id: string; kind: "text"; text: string }>
+export type StartingRow = Data.TaggedEnum<{
+  section: { readonly id: string; readonly key: string }
+  custom: {
+    readonly id: string
+    readonly key: string
+    readonly content: string
+    readonly sync: boolean
+  }
+  text: { readonly id: string; readonly text: string }
+}>
+export const StartingRow = Data.taggedEnum<StartingRow>()
 
 const rowOf = (segment: TicketBlockSegment, id: string) => {
   if (TicketBlockSegment.$is("markdown")(segment))
-    return { id, kind: "text", text: segment.text } satisfies StartingRow
+    return StartingRow.text({ id, text: segment.text })
   return segment.content.trim() === ""
-    ? ({ id, kind: "section", key: segment.type } satisfies StartingRow)
-    : ({
+    ? StartingRow.section({ id, key: segment.type })
+    : StartingRow.custom({
         id,
-        kind: "custom",
         key: segment.type,
         content: segment.content,
         sync: segment.sync === true
-      } satisfies StartingRow)
+      })
 }
 
 const idBase = (segment: TicketBlockSegment) =>
@@ -47,19 +48,15 @@ export const startingRows = (body: string) => {
   })
 }
 
-const segmentOf = (row: StartingRow) => {
-  if (row.kind === "text")
-    return TicketBlockSegment.markdown({ text: row.text })
-  if (row.kind === "section")
-    return TicketBlockSegment.block({ type: row.key, content: "" })
-  return row.sync
-    ? TicketBlockSegment.block({
-        type: row.key,
-        content: row.content,
-        sync: true
-      })
-    : TicketBlockSegment.block({ type: row.key, content: row.content })
-}
+const segmentOf = (row: StartingRow) =>
+  StartingRow.$match(row, {
+    text: ({ text }) => TicketBlockSegment.markdown({ text }),
+    section: ({ key }) => TicketBlockSegment.block({ type: key, content: "" }),
+    custom: ({ key, content, sync }) =>
+      sync
+        ? TicketBlockSegment.block({ type: key, content, sync: true })
+        : TicketBlockSegment.block({ type: key, content })
+  })
 
 export const bodyOfRows = (rows: ReadonlyArray<StartingRow>) =>
   serializeTicketBlocks(rows.map(segmentOf))
@@ -81,15 +78,13 @@ export const withoutRow = (rows: ReadonlyArray<StartingRow>, id: string) =>
 
 export const withSection = (rows: ReadonlyArray<StartingRow>, key: string) => [
   ...rows,
-  {
-    id: `section:${key}:added:${rows.length}`,
-    kind: "section",
-    key
-  } satisfies StartingRow
+  StartingRow.section({ id: `section:${key}:added:${rows.length}`, key })
 ]
 
 const sectionKeysIn = (rows: ReadonlyArray<StartingRow>) =>
-  new Set(rows.flatMap((row) => (row.kind === "text" ? [] : [row.key])))
+  new Set(
+    rows.flatMap((row) => (StartingRow.$is("text")(row) ? [] : [row.key]))
+  )
 
 export const sectionsToAdd = (
   library: Library,

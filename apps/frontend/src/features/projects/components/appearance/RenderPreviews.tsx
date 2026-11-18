@@ -3,7 +3,7 @@ import { cn } from "@pp/ui/lib/utils"
 
 import {
   LiveIconImage,
-  type LiveIcon
+  LiveIcon
 } from "@/features/projects/components/appearance/IconPreviewTile"
 import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
@@ -37,7 +37,7 @@ export function RenderPreviews({
   const header = (
     <ProjectIconTile
       orgSlug={orgSlug}
-      icon={live?.kind === "emoji" ? live.emoji : icon}
+      icon={live && LiveIcon.$is("emoji")(live) ? live.emoji : icon}
       iconImage={live ? null : iconImage}
       color={color}
       tone={tone}
@@ -45,7 +45,9 @@ export function RenderPreviews({
       size="md"
       seed={slug}
       iconNode={
-        live?.kind === "image" ? <LiveIconImage live={live} /> : undefined
+        live && LiveIcon.$is("image")(live) ? (
+          <LiveIconImage live={live} />
+        ) : undefined
       }
     />
   )
@@ -53,7 +55,7 @@ export function RenderPreviews({
   const sidebar = (
     <ProjectIconTile
       orgSlug={orgSlug}
-      icon={live?.kind === "emoji" ? live.emoji : icon}
+      icon={live && LiveIcon.$is("emoji")(live) ? live.emoji : icon}
       iconImage={live ? null : iconImage}
       color={color}
       tone={tone}
@@ -61,7 +63,9 @@ export function RenderPreviews({
       size="xs"
       seed={slug}
       iconNode={
-        live?.kind === "image" ? <LiveIconImage live={live} /> : undefined
+        live && LiveIcon.$is("image")(live) ? (
+          <LiveIconImage live={live} />
+        ) : undefined
       }
     />
   )

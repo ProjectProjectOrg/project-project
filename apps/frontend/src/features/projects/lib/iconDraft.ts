@@ -1,5 +1,7 @@
 import type { AttachmentId, ProjectIconImage } from "@pp/shared"
+import * as Predicate from "effect/Predicate"
 
+import type { IconSource } from "@/features/projects/forms/project-icon/opts"
 import {
   analyzeCutout,
   hasAlpha,
@@ -27,7 +29,7 @@ export type IconCrop = {
 export const CUTOUT_APPLY_MAX_EDGE = 512
 
 export type IconDraftValues = {
-  readonly source: { readonly kind: "emoji" | "image"; readonly emoji: string }
+  readonly source: Pick<typeof IconSource.Type, "_tag" | "emoji">
   readonly crop: IconCrop
   readonly treatment: {
     readonly kind: IconTreatment
@@ -56,7 +58,7 @@ export const iconPreviewChanged = (
   pickedNewFile: boolean,
   fallbackTolerance: number
 ) => {
-  if (values.source.kind === "emoji")
+  if (Predicate.isTagged(values.source, "emoji"))
     return applied.iconImage !== null || values.source.emoji !== applied.icon
   if (applied.iconImage === null || pickedNewFile) return true
   const treatment = appliedIconTreatment(applied.iconImage, fallbackTolerance)

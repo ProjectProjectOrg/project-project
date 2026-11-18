@@ -1,4 +1,5 @@
 import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import * as Data from "effect/Data"
 import { useEffect } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
@@ -36,14 +37,15 @@ const warmFilter =
     )
   }
 
-type HubRow =
-  | Readonly<{
-      kind: "dimension"
-      value: string
-      dimension: ValueFilterDimension
-      summary: string
-    }>
-  | Readonly<{ kind: "toggle"; value: string; option: FilterOption }>
+type HubRow = Data.TaggedEnum<{
+  dimension: {
+    readonly value: string
+    readonly dimension: ValueFilterDimension
+    readonly summary: string
+  }
+  toggle: { readonly value: string; readonly option: FilterOption }
+}>
+const HubRow = Data.taggedEnum<HubRow>()
 
 const hubRows = (options: ReadonlyArray<FilterOption>) =>
   [
@@ -53,21 +55,18 @@ const hubRows = (options: ReadonlyArray<FilterOption>) =>
       (option) => option.choice.dimension === dimension
     )
     if (!isValueDimension(dimension)) {
-      return inDimension.map((option) => ({
-        kind: "toggle",
-        value: option.key,
-        option
-      }))
+      return inDimension.map((option) =>
+        HubRow.toggle({ value: option.key, option })
+      )
     }
     return [
-      {
-        kind: "dimension",
+      HubRow.dimension({
         value: `dimension:${dimension}`,
         dimension,
         summary: inDimension
           .flatMap((option) => (option.chosen ? [option.label] : []))
           .join(", ")
-      }
+      })
     ]
   })
 
@@ -81,36 +80,44 @@ export function ViewFilterPage({ context, onBack, env }: CommandPageProps) {
       placeholder={m.tickets_command_filter_placeholder()}
       onBack={onBack}
       warmPeek={warmFilter(context, options)}
-      items={rows.map((row) =>
-        row.kind === "toggle"
-          ? {
-              value: row.value,
-              label: row.option.label,
-              icon: row.option.icon
-            }
-          : {
-              value: row.value,
-              label: FILTER_DIMENSION_META[row.dimension].label(),
-              icon: FILTER_DIMENSION_META[row.dimension].icon
-            }
+      items={rows.map(
+        HubRow.$match({
+          toggle: ({ value, option }) => ({
+            value,
+            label: option.label,
+            icon: option.icon
+          }),
+          dimension: ({ value, dimension }) => ({
+            value,
+            label: FILTER_DIMENSION_META[dimension].label(),
+            icon: FILTER_DIMENSION_META[dimension].icon
+          })
+        })
       )}
       onSelect={(item) => {
         const row = rowFor(item.value)
-        if (row?.kind === "dimension") env.open(`filter:${row.dimension}`)
-        if (row?.kind === "toggle") context.view?.toggle(row.option.choice)
+        if (row === undefined) return
+        HubRow.$match(row, {
+          dimension: ({ dimension }) => env.open(`filter:${dimension}`),
+          toggle: ({ option }) => context.view?.toggle(option.choice)
+        })
       }}
       renderItem={(item) => {
         const row = rowFor(item.value)
         return (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {row?.kind === "dimension" && (
+            {row !== undefined && HubRow.$is("dimension")(row) && (
               <span className="max-w-1/2 truncate text-muted-foreground">
                 {row.summary}
               </span>
             )}
             <CommandMenuCheck
-              checked={row?.kind === "toggle" && row.option.chosen}
+              checked={
+                row !== undefined &&
+                HubRow.$is("toggle")(row) &&
+                row.option.chosen
+              }
               label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>

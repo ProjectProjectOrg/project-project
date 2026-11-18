@@ -27,7 +27,7 @@ import {
   ownedBy,
   planTotals,
   usualDone,
-  type PlanMeasure
+  PlanMeasure
 } from "@/features/sprints/lib/sprintPlan"
 import { formatEstimateValue } from "@/features/tickets/lib/estimateMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
@@ -58,7 +58,7 @@ export function AssigneeLoadCard({
   const { committed, unestimated } = planTotals(tickets, measure)
   const amount = formatAmount(
     measure,
-    measure.kind === "estimate" ? committed : tickets.length
+    PlanMeasure.$is("estimate")(measure) ? committed : tickets.length
   )
   const name = member?.name ?? m.sprints_load_unassigned()
   return (
@@ -85,7 +85,7 @@ export function AssigneeLoadCard({
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-body font-semibold">{name}</span>
             <span className="text-caption text-muted-foreground tabular-nums">
-              {measure.kind === "count"
+              {PlanMeasure.$is("count")(measure)
                 ? assignee === null
                   ? m.sprints_load_card_unowned_count({ amount })
                   : m.sprints_load_card_summary_count({
@@ -114,7 +114,7 @@ export function AssigneeLoadCard({
           />
         )}
         <TicketPeek tickets={tickets} measure={measure} />
-        {measure.kind === "estimate" && unestimated > 0 && (
+        {PlanMeasure.$is("estimate")(measure) && unestimated > 0 && (
           <span className="text-caption text-state-warning">
             {m.sprints_load_unestimated({ count: unestimated })}
           </span>
@@ -168,7 +168,7 @@ function TrackRecord({
   planning: SprintPlanning
 }>) {
   const { history, phaseOf, active } = planning
-  if (phaseOf === null || measure.kind === "count") return null
+  if (phaseOf === null || PlanMeasure.$is("count")(measure)) return null
   const usual = usualDone(history, measure, phaseOf, assignee)
   const open = active
     ? planTotals(
@@ -244,10 +244,9 @@ function TicketPeek({
         {listed.map((ticket) => {
           const meta = statusMetaFor(ticket.status, projectStatuses)
           const Icon = meta.icon
-          const estimate =
-            measure.kind === "estimate"
-              ? activeEstimate(ticket.estimate, measure.unit)
-              : null
+          const estimate = PlanMeasure.$is("estimate")(measure)
+            ? activeEstimate(ticket.estimate, measure.unit)
+            : null
           return (
             <li
               key={ticket.id}

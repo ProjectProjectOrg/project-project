@@ -45,6 +45,7 @@ import { actorKey } from "@/features/tickets/lib/activityGroups"
 import {
   timelineEvents,
   timelineRows,
+  TimelineRow,
   type TimelineComment,
   type TimelineLine,
   type TimelineOrder
@@ -281,7 +282,7 @@ export function TicketTimeline<C>({
     <div className="space-y-3">
       <Timeline className="[--timeline-inset:var(--ticket-box-offset)]">
         {rows.map((row) =>
-          row.kind === "comment" ? (
+          TimelineRow.$is("comment")(row) ? (
             <TimelineEntry key={row.key}>
               {renderComment(row.comment)}
             </TimelineEntry>

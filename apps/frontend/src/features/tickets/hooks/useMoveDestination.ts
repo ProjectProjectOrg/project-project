@@ -7,6 +7,7 @@ import {
   type StatusSlug,
   type TicketDetail
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import {
@@ -27,14 +28,16 @@ import { moveNotes } from "@/features/tickets/lib/moveNotes"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export type MoveDestination =
-  | Readonly<{ state: "loading" | "failed" }>
-  | Readonly<{
-      state: "ready"
-      statuses: ReadonlyArray<ProjectStatus>
-      defaultStatus: StatusSlug | null
-      notes: ReadonlyArray<string>
-    }>
+export type MoveDestination = Data.TaggedEnum<{
+  loading: {}
+  failed: {}
+  ready: {
+    readonly statuses: ReadonlyArray<ProjectStatus>
+    readonly defaultStatus: StatusSlug | null
+    readonly notes: ReadonlyArray<string>
+  }
+}>
+export const MoveDestination = Data.taggedEnum<MoveDestination>()
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
@@ -64,7 +67,7 @@ export function useMoveDestination(
     Result.isFailure(projectResult) ||
     Result.isFailure(libraryResult)
   ) {
-    return { state: "failed" } satisfies MoveDestination
+    return MoveDestination.failed()
   }
   if (
     !Result.isSuccess(statusesResult) ||
@@ -72,7 +75,7 @@ export function useMoveDestination(
     !Result.isSuccess(projectResult) ||
     !Result.isSuccess(libraryResult)
   ) {
-    return { state: "loading" } satisfies MoveDestination
+    return MoveDestination.loading()
   }
   const statuses = statusesResult.value.toSorted(compareByOrderKey)
   const slugs = statuses.map((status) => status.slug)
@@ -88,8 +91,7 @@ export function useMoveDestination(
     estimation: projectResult.value.estimation
   })
   const defaultSlug = defaultMoveStatus(ticket.status, slugs)
-  return {
-    state: "ready",
+  return MoveDestination.ready({
     statuses,
     defaultStatus:
       statuses.find((status) => status.slug === defaultSlug)?.slug ?? null,
@@ -101,5 +103,5 @@ export function useMoveDestination(
       },
       Result.isSuccess(source) ? source.value.members : NO_MEMBERS
     )
-  } satisfies MoveDestination
+  })
 }

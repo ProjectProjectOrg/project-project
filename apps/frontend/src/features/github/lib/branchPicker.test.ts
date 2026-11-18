@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   baseBranchOrder,
+  BranchPickerEntry,
   branchPickerEntries,
   branchSearchView,
   defaultBranchName,
@@ -36,7 +37,10 @@ describe("sanitizeBranchName", () => {
 
 const names = (entries: ReturnType<typeof branchPickerEntries>) =>
   entries.map((entry) =>
-    entry.kind === "create" ? `+${entry.name}` : entry.branch.name
+    BranchPickerEntry.$match(entry, {
+      create: ({ name }) => `+${name}`,
+      branch: ({ branch }) => branch.name
+    })
   )
 
 describe("mentionsTicket", () => {

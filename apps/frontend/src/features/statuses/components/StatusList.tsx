@@ -18,7 +18,7 @@ import {
   moveStatus,
   phaseEntries,
   placeStatus,
-  type PhaseEntry
+  PhaseEntry
 } from "@/features/statuses/lib/statusPhases"
 import {
   countsRequest,
@@ -57,9 +57,10 @@ export function StatusList() {
 const INSTANT_LAYOUT = { layout: { duration: 0 } }
 
 const entryKey = (entry: PhaseEntry) =>
-  entry.kind === "status"
-    ? `status:${entry.status.slug}`
-    : `phase:${entry.phase}`
+  PhaseEntry.$match(entry, {
+    status: ({ status }) => `status:${status.slug}`,
+    phase: ({ phase }) => `phase:${phase}`
+  })
 
 function PhasedStatuses({
   statuses
@@ -86,16 +87,16 @@ function PhasedStatuses({
   }
   let phase: StatusPhase = "unstarted"
   for (const entry of entries) {
-    if (entry.kind === "phase") phase = entry.phase
-    if (entry.kind === "status")
+    if (PhaseEntry.$is("phase")(entry)) phase = entry.phase
+    if (PhaseEntry.$is("status")(entry))
       phaseCounts[phase] += byStatus[entry.status.slug] ?? 0
   }
 
   const creatingAt = order.findIndex(
-    (entry) => entry.kind === "phase" && entry.phase === creating
+    (entry) => PhaseEntry.$is("phase")(entry) && entry.phase === creating
   )
   const nextPhaseAt = order.findIndex(
-    (entry, i) => i > creatingAt && entry.kind === "phase"
+    (entry, i) => i > creatingAt && PhaseEntry.$is("phase")(entry)
   )
   const draftAt =
     creating === null ? -1 : nextPhaseAt === -1 ? order.length : nextPhaseAt
@@ -124,44 +125,42 @@ function PhasedStatuses({
         onReorder={(next) => setDragOrder(next)}
         className="divide-y divide-border"
       >
-        {order.map((entry, i) => {
-          switch (entry.kind) {
-            case "phase":
-              return [
-                i === draftAt ? draft : null,
-                <Reorder.Item
-                  key={entryKey(entry)}
-                  value={entry}
-                  dragListener={false}
-                  transition={dragging ? undefined : INSTANT_LAYOUT}
-                  className="list-none"
-                >
-                  <StatusPhaseHeader
-                    label={PHASE_LABEL[entry.phase]()}
-                    ticketCount={phaseCounts[entry.phase]}
-                    onAdd={canManage ? () => setCreating(entry.phase) : null}
-                  />
-                </Reorder.Item>
-              ]
-            case "status":
-              return (
-                <StatusRow
-                  key={entryKey(entry)}
-                  entry={entry}
-                  statuses={statuses}
-                  count={byStatus[entry.status.slug] ?? 0}
-                  dragging={dragging}
-                  onDragStart={() => {
-                    if (!dragging) setDragOrder(entries)
-                  }}
-                  onDragEnd={() => commitDrop(entry.status.slug)}
-                  onMove={(delta) =>
-                    moveStatus(entries, entry.status.slug, delta)
-                  }
+        {order.map((entry, i) =>
+          PhaseEntry.$match(entry, {
+            phase: (phaseEntry) => [
+              i === draftAt ? draft : null,
+              <Reorder.Item
+                key={entryKey(phaseEntry)}
+                value={phaseEntry}
+                dragListener={false}
+                transition={dragging ? undefined : INSTANT_LAYOUT}
+                className="list-none"
+              >
+                <StatusPhaseHeader
+                  label={PHASE_LABEL[phaseEntry.phase]()}
+                  ticketCount={phaseCounts[phaseEntry.phase]}
+                  onAdd={canManage ? () => setCreating(phaseEntry.phase) : null}
                 />
-              )
-          }
-        })}
+              </Reorder.Item>
+            ],
+            status: (statusEntry) => (
+              <StatusRow
+                key={entryKey(statusEntry)}
+                entry={statusEntry}
+                statuses={statuses}
+                count={byStatus[statusEntry.status.slug] ?? 0}
+                dragging={dragging}
+                onDragStart={() => {
+                  if (!dragging) setDragOrder(entries)
+                }}
+                onDragEnd={() => commitDrop(statusEntry.status.slug)}
+                onMove={(delta) =>
+                  moveStatus(entries, statusEntry.status.slug, delta)
+                }
+              />
+            )
+          })
+        )}
         {draftAt === order.length ? draft : null}
       </Reorder.Group>
     </SettingsGroup>

@@ -1,11 +1,14 @@
 import type { BranchListItem } from "@pp/shared"
+import * as Data from "effect/Data"
 
 import type { BranchListView } from "@/features/github/atoms/github"
 import { slugify } from "@/lib/slug"
 
-export type BranchPickerEntry =
-  | Readonly<{ kind: "create"; name: string }>
-  | Readonly<{ kind: "branch"; branch: BranchListItem }>
+export type BranchPickerEntry = Data.TaggedEnum<{
+  create: { readonly name: string }
+  branch: { readonly branch: BranchListItem }
+}>
+export const BranchPickerEntry = Data.taggedEnum<BranchPickerEntry>()
 
 export const defaultBranchName = (
   template: string | null,
@@ -38,11 +41,7 @@ export const withoutTicketId = (branch: string, ticketId: string) => {
   return stripped === "" ? branch : stripped
 }
 
-const toEntry = (branch: BranchListItem) =>
-  ({
-    kind: "branch",
-    branch
-  }) satisfies BranchPickerEntry
+const toEntry = (branch: BranchListItem) => BranchPickerEntry.branch({ branch })
 
 export const branchPickerEntries = ({
   query,
@@ -74,7 +73,7 @@ export const branchPickerEntries = ({
   const name = typed === "" ? suggested : typed
   const create: ReadonlyArray<BranchPickerEntry> =
     canCreate && name !== "" && !items.some((branch) => branch.name === name)
-      ? [{ kind: "create", name }]
+      ? [BranchPickerEntry.create({ name })]
       : []
   const leading = ticketBranches.map(toEntry)
   const trailing = [...defaults, ...rest].map(toEntry)

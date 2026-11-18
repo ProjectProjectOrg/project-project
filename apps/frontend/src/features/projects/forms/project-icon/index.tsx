@@ -3,6 +3,7 @@ import { attachmentUrl, ProjectIcon, type ProjectIconImage } from "@pp/shared"
 import { transitions } from "@pp/ui/lib/springs"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
+import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
@@ -17,8 +18,10 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { StepSummaryRow } from "@/features/projects/components/appearance/AppearanceCard"
-import type { LiveIcon } from "@/features/projects/components/appearance/IconPreviewTile"
-import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
+import {
+  IconPreviewTile,
+  LiveIcon
+} from "@/features/projects/components/appearance/IconPreviewTile"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   CUTOUT_DEFAULT_TOLERANCE,
@@ -93,7 +96,7 @@ export function ProjectIconForm({
     defaultValues: {
       ...iconFormOpts(icon, iconImage !== null).defaultValues,
       source: {
-        kind: iconImage ? ("image" as const) : ("emoji" as const),
+        _tag: iconImage ? ("image" as const) : ("emoji" as const),
         emoji: icon,
         objectUrl: iconImage
           ? attachmentUrl(orgSlug, iconImage.sourceAttachmentId)
@@ -112,7 +115,7 @@ export function ProjectIconForm({
       if (busy) return
       draft.setRejected(false)
       setTreatmentBlocked(false)
-      if (value.source.kind === "emoji") {
+      if (Predicate.isTagged(value.source, "emoji")) {
         const saved = await update({
           icon: makeProjectIcon(value.source.emoji),
           iconImage: null
@@ -210,12 +213,11 @@ export function ProjectIconForm({
   const thumb = (src: string | null) =>
     src ? (
       <IconPreviewTile
-        live={{
-          kind: "image",
+        live={LiveIcon.image({
           src,
           crop: values.crop,
           treatment: values.treatment.kind
-        }}
+        })}
         size={28}
         radius={8}
       />
@@ -244,20 +246,23 @@ export function ProjectIconForm({
     CUTOUT_DEFAULT_TOLERANCE
   )
 
+  const pickedEmoji = Predicate.isTagged(values.source, "emoji")
+    ? values.source.emoji
+    : null
+
   useEffect(() => {
     if (!onLiveChange) return undefined
     onLiveChange(
       !changed
         ? null
-        : values.source.kind === "emoji"
-          ? { kind: "emoji", emoji: values.source.emoji }
+        : pickedEmoji !== null
+          ? LiveIcon.emoji({ emoji: pickedEmoji })
           : previewUrl
-            ? {
-                kind: "image",
+            ? LiveIcon.image({
                 src: previewUrl,
                 crop: values.crop,
                 treatment: values.treatment.kind
-              }
+              })
             : null
     )
     return () => onLiveChange(null)
@@ -266,14 +271,13 @@ export function ProjectIconForm({
     changed,
     previewUrl,
     values.crop,
-    values.source.kind,
-    values.source.emoji,
+    pickedEmoji,
     values.treatment.kind
   ])
 
   const sourceDetail =
-    values.source.kind === "emoji"
-      ? `${m.project_icon_source_emoji_tab()} · ${values.source.emoji}`
+    pickedEmoji !== null
+      ? `${m.project_icon_source_emoji_tab()} · ${pickedEmoji}`
       : (draft.fileName() ?? m.project_appearance_icon_custom())
 
   const removeImage = async () => {
@@ -342,7 +346,7 @@ export function ProjectIconForm({
               busy={busy}
               error={failed}
               onAdvance={() => {
-                if (form.state.values.source.kind === "emoji") {
+                if (Predicate.isTagged(form.state.values.source, "emoji")) {
                   void form.handleSubmit()
                   return
                 }

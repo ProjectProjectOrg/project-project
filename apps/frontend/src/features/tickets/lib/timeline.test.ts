@@ -1,7 +1,12 @@
 import type { TicketActivityEntry } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { timelineEvents, timelineRows, type TimelineOrder } from "./timeline"
+import {
+  timelineEvents,
+  timelineRows,
+  TimelineRow,
+  type TimelineOrder
+} from "./timeline"
 
 const at = (time: string) => {
   const [hour, minute] = time.split(":").map(Number)
@@ -35,7 +40,7 @@ const rows = (
 
 const shape = (...args: Parameters<typeof rows>) =>
   rows(...args).map((row) =>
-    row.kind === "comment"
+    TimelineRow.$is("comment")(row)
       ? row.comment.key
       : row.lines.map((line) => line.key).join(",")
   )
@@ -85,7 +90,12 @@ describe("timeline", () => {
     const folds = rows(
       [...entries("n", 12, 5), ...entries("m", 11, 4), ...entries("o", 10, 3)],
       [comment("note", "11:00"), comment("later", "12:00")]
-    ).map((row) => (row.kind === "run" ? row.fold : row.comment.key))
+    ).map((row) =>
+      TimelineRow.$match(row, {
+        run: ({ fold }) => fold,
+        comment: ({ comment }) => comment.key
+      })
+    )
     expect(folds).toEqual([3, "note", 4, "later", 3])
   })
 
@@ -98,7 +108,12 @@ describe("timeline", () => {
         entry("a", "10:01")
       ],
       []
-    ).map((row) => (row.kind === "run" ? row.fold : row.comment.key))
+    ).map((row) =>
+      TimelineRow.$match(row, {
+        run: ({ fold }) => fold,
+        comment: ({ comment }) => comment.key
+      })
+    )
     expect(folds).toEqual([0])
   })
 })

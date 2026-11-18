@@ -1,4 +1,5 @@
 import { GroupId, PinTarget, TicketId } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -9,15 +10,16 @@ export type ProjectRoute = Readonly<{
   sub: string | null
 }>
 
-export type SidebarScope =
-  | Readonly<{ kind: "dashboard"; page: "overview" | "projects" | null }>
-  | Readonly<{
-      kind: "project"
-      slug: string
-      route: ProjectRoute
-      viewing: PinTarget | null
-    }>
-  | Readonly<{ kind: "none" }>
+export type SidebarScope = Data.TaggedEnum<{
+  dashboard: { readonly page: "overview" | "projects" | null }
+  project: {
+    readonly slug: string
+    readonly route: ProjectRoute
+    readonly viewing: PinTarget | null
+  }
+  none: {}
+}>
+export const SidebarScope = Data.taggedEnum<SidebarScope>()
 
 const SETTINGS_PATH =
   /^\/(?:profile|orgs\/[^/]+\/settings|orgs\/[^/]+\/projects\/[^/]+\/settings)(?:\/|$)/
@@ -48,36 +50,30 @@ export function sidebarScope(
   orgSlug: string | null,
   fromSprint: string | undefined
 ) {
-  if (orgSlug === null) return { kind: "none" } satisfies SidebarScope
+  if (orgSlug === null) return SidebarScope.none()
   const orgPrefix = `/orgs/${orgSlug}`
   if (pathname !== orgPrefix && !pathname.startsWith(`${orgPrefix}/`))
-    return { kind: "none" } satisfies SidebarScope
+    return SidebarScope.none()
   const [area = "", slug = "", section = "", sub = ""] = pathname
     .slice(orgPrefix.length + 1)
     .split("/")
-  if (area === "settings") return { kind: "none" } satisfies SidebarScope
+  if (area === "settings") return SidebarScope.none()
   if (area !== "projects")
-    return {
-      kind: "dashboard",
-      page: area === "" ? "overview" : null
-    } satisfies SidebarScope
-  if (slug === "")
-    return { kind: "dashboard", page: "projects" } satisfies SidebarScope
+    return SidebarScope.dashboard({ page: area === "" ? "overview" : null })
+  if (slug === "") return SidebarScope.dashboard({ page: "projects" })
   const viewing = viewingIn(section, sub)
   if (section === "tickets" && fromSprint !== undefined)
-    return {
-      kind: "project",
+    return SidebarScope.project({
       slug,
       route: { page: "sprints", sub: fromSprint },
       viewing
-    } satisfies SidebarScope
+    })
   const page = PROJECT_SECTIONS.find((key) => key === section) ?? "backlog"
-  return {
-    kind: "project",
+  return SidebarScope.project({
     slug,
     route: { page, sub: sub || null },
     viewing
-  } satisfies SidebarScope
+  })
 }
 
 export const PROJECT_PAGE_PATHS = {
