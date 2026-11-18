@@ -1,5 +1,6 @@
 export * from "./api"
 export { OrgPath, ProjectPath } from "./http/paths"
+export { RequestValidation } from "./http/RequestValidation"
 export * from "./colors"
 export * from "./errors"
 export * from "./filters"

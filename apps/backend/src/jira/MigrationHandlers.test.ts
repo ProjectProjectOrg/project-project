@@ -46,6 +46,7 @@ import { HttpApiTest } from "effect/http-api"
 import { expect } from "vitest"
 
 import { OrgAccessLive, ProjectAccessLive } from "../access/AccessMiddleware"
+import { RequestValidationLive } from "../http/RequestValidation"
 import { JiraHandlerLive } from "./Handlers"
 import { JiraMigrationsHandlerLive } from "./MigrationHandlers"
 
@@ -89,7 +90,7 @@ const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
   )
 )
 
-const authentication = Layer.merge(
+const authentication = Layer.mergeAll(
   Layer.succeed(Authentication)({
     sessionCookie: (effect) =>
       effect.pipe(
@@ -97,7 +98,8 @@ const authentication = Layer.merge(
         Effect.provideService(ActivityActor, ActivityActor.user(user.id))
       )
   }),
-  Layer.succeed(FeedbackIntakeGuard)((effect) => effect)
+  Layer.succeed(FeedbackIntakeGuard)((effect) => effect),
+  RequestValidationLive
 )
 const dependenciesFor = (
   failure?: Client.JiraCallError,

@@ -81,6 +81,7 @@ import { BetterAuthLive } from "./auth/BetterAuth"
 import { EverhourHostLive } from "./everhour/HostLive"
 import { FeedbackIntakeGuardLive } from "./feedback/FeedbackIntakeGuard"
 import { GitHubLive } from "./github/GitHubLive"
+import { RequestValidationLive } from "./http/RequestValidation"
 import { JiraDestinationQueriesLive } from "./jira/DestinationQueriesLive"
 import { JiraHostLive } from "./jira/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
@@ -254,6 +255,7 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
     AuthenticationLive,
     OrgAccessLive,
     ProjectAccessLive,
+    RequestValidationLive,
     FeedbackIntakeGuardLive
   ).pipe(
     Layer.provideMerge(

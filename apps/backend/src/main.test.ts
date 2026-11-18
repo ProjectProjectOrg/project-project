@@ -57,6 +57,7 @@ import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 
 import { AuthHandlerLive } from "./auth/Handlers"
+import { RequestValidationLive } from "./http/RequestValidation"
 import {
   ApiRouterLive,
   GITHUB_WEBHOOK_MAX_BODY_BYTES,
@@ -83,6 +84,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(
   Layer.provide(HealthHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(Layer.mock(BetterAuth.BetterAuth, {})),
+  Layer.provide(RequestValidationLive),
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: () => Effect.fail(new Unauthorized())
