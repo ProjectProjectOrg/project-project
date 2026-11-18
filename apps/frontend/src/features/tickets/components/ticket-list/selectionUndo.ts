@@ -1,7 +1,6 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 /*
  * Undo for the selection bar: a bulk change sets one value on every ticket,
@@ -32,7 +31,7 @@ export function groupBy<V>(
 // The updates that put back what a change touched, per old value.
 export function restoreOf(
   tickets: ReadonlyArray<SelectedTicket>,
-  change: TicketEdit
+  change: BulkTicketPatch
 ) {
   const back = <V>(
     valueOf: (ticket: SelectedTicket) => V,

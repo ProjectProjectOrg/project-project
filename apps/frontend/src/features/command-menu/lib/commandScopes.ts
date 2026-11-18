@@ -1,5 +1,7 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
+import type { Restore } from "@/features/tickets/components/ticket-list/selectionUndo"
+
 import {
   openCommandMenu,
   type PointedTicket,
@@ -19,10 +21,13 @@ export type CommandScope = Readonly<{
   ticket?: TicketContext
   selection?: () => ScopedSelection | null
   clearSelection?: () => void
+  // Applies a change to the selection and offers Undo: by the given
+  // restore, or by what the selection knows of the tickets before it.
   updateSelection?: (
     slug: string,
     tickets: ReadonlyArray<TicketId>,
-    patch: BulkTicketPatch
+    patch: BulkTicketPatch,
+    restore?: ReadonlyArray<Restore>
   ) => Promise<boolean>
   sprint?: SprintContext
   view?: ViewContext
