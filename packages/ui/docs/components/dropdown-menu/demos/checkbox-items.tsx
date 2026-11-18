@@ -147,11 +147,83 @@ function ColumnMenu() {
   )
 }
 
+type TagState = "on" | "off" | "mixed"
+
+// How many of four selected tickets carry each tag.
+const ON_SELECTION: Readonly<Record<string, number>> = {
+  bug: 4,
+  frontend: 2,
+  backend: 0,
+  design: 1,
+  "needs-review": 0,
+  performance: 3
+}
+
+const stateOf = (count: number) =>
+  (count === 0 ? "off" : count === 4 ? "on" : "mixed") satisfies TagState
+
+// Labels on a selection of tickets: a tag on some of them is mixed (a
+// dash). A click puts it on all of them, then on none, then back to mixed.
+function SelectionTagMenu() {
+  const menu = useOverviewMenu()
+  const [states, setStates] = useState<Readonly<Record<string, TagState>>>(() =>
+    Object.fromEntries(
+      TAGS.map((tag) => [tag.name, stateOf(ON_SELECTION[tag.name] ?? 0)])
+    )
+  )
+  const cycle = (name: string) =>
+    setStates((current) => {
+      const start = stateOf(ON_SELECTION[name] ?? 0)
+      const now = current[name] ?? start
+      const after = new Map<TagState, TagState>([
+        ["mixed", "on"],
+        ["on", "off"],
+        ["off", start === "mixed" ? "mixed" : "on"]
+      ])
+      return { ...current, [name]: after.get(now) ?? start }
+    })
+  return (
+    <DropdownMenu {...menu} modal={false}>
+      <DropdownMenuTrigger
+        render={<Button variant="secondary" className="w-56" />}
+      >
+        Labels on 4 tickets
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {TAGS.map((tag) => {
+          const state = states[tag.name] ?? "off"
+          return (
+            <DropdownMenuCheckboxItem
+              key={tag.name}
+              label={tag.name}
+              checked={state === "on"}
+              mixed={state === "mixed"}
+              closeOnClick={false}
+              onCheckedChange={() => cycle(tag.name)}
+            >
+              <span
+                aria-hidden
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: tag.color }}
+              />
+              <span className="min-w-0 truncate">{tag.name}</span>
+              <span data-menu-meta className={menuItemMetaClass}>
+                {ON_SELECTION[tag.name] ?? 0}
+              </span>
+            </DropdownMenuCheckboxItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export default function CheckboxItems() {
   return (
-    <div className="flex items-start gap-6">
+    <div className="flex flex-wrap items-start gap-6">
       <TagMenu />
       <ColumnMenu />
+      <SelectionTagMenu />
     </div>
   )
 }

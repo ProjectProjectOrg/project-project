@@ -525,6 +525,16 @@ const radioIndicatorClass =
 const checkboxTickClass =
   "fill-none stroke-current stroke-2 [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard group-data-[checked]/check:[stroke-dashoffset:0] group-data-[checked]/check:duration-160 group-data-[checked]/check:delay-90 motion-reduce:transition-none"
 
+// Mixed is unchecked to Base UI: undo the unchecked dimming, and show the
+// indicator (a dash) as a checked one shows its tick.
+const checkboxMixedClass =
+  "text-foreground data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:opacity-100 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:saturate-100"
+
+const checkboxMixedIndicatorClass = "mr-0 w-4 opacity-100"
+
+// Only while mixed: otherwise Base UI's own aria-checked stands.
+const mixedProps = { "aria-checked": "mixed" } as const
+
 const radioDotClass =
   "origin-center fill-current [scale:0] transition-[scale] duration-80 ease-standard group-data-[checked]/check:[scale:1] group-data-[checked]/check:duration-260 group-data-[checked]/check:delay-60 group-data-[checked]/check:ease-spring motion-reduce:transition-none"
 
@@ -532,29 +542,45 @@ function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
+  mixed = false,
   separated = false,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.CheckboxItem> & {
   separated?: boolean
+  // A third state, for a pick over several things at once (labels on a
+  // selection of tickets): on some of them. It shows a dash where the
+  // check goes, keeps its icon at full strength, and reads as "mixed".
+  // `checked` stays false while it's mixed.
+  mixed?: boolean
 }) {
   const item = (
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
-      className={cn(menuItemClass, checkboxItemClass, className)}
+      data-mixed={mixed ? "" : undefined}
+      className={cn(
+        menuItemClass,
+        checkboxItemClass,
+        mixed && checkboxMixedClass,
+        className
+      )}
       checked={checked}
+      {...(mixed ? mixedProps : undefined)}
       {...props}
     >
       <MenuPrimitive.CheckboxItemIndicator
         keepMounted
         aria-hidden
         data-slot="dropdown-menu-checkbox-indicator"
-        className={checkboxIndicatorClass}
+        className={cn(
+          checkboxIndicatorClass,
+          mixed && checkboxMixedIndicatorClass
+        )}
       >
         <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
           <path
             pathLength={1}
-            d="M3.8 8.4 L6.6 11.1 L12.2 5"
-            className={checkboxTickClass}
+            d={mixed ? "M4.5 8 H11.5" : "M3.8 8.4 L6.6 11.1 L12.2 5"}
+            className={cn(checkboxTickClass, mixed && "[stroke-dashoffset:0]")}
           />
         </svg>
       </MenuPrimitive.CheckboxItemIndicator>

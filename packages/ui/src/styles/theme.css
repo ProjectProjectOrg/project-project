@@ -1527,7 +1527,8 @@
    real surface underneath. The cutout is the avatar's own shape: a squircle
    (|x|^4 + |y|^4 = 1, what corner-shape: squircle draws at a 50% radius),
    2px larger on every side. */
-[data-slot="avatar-group"] > :not(:last-child) {
+[data-slot="avatar-group"] > :not(:last-child),
+[data-slot="avatar-group"][data-animated] > * {
   --avatar-gap: 2px;
   --avatar-cut-size: calc(var(--avatar-size) + var(--avatar-gap) * 2);
   -webkit-mask-image: var(--avatar-squircle), linear-gradient(#000 0 0);
@@ -1538,18 +1539,39 @@
   mask-size:
     var(--avatar-cut-size) var(--avatar-cut-size),
     100% 100%;
+  /* Centred on the next avatar: 1.5 avatars in, less the overlap. */
   -webkit-mask-position:
-    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
-      calc(var(--avatar-gap) * -1),
+    calc(
+        var(--avatar-size) * 1.5 - var(--avatar-overlap) -
+          var(--avatar-cut-size) / 2
+      )
+      calc(var(--avatar-size) / 2 - var(--avatar-cut-size) / 2),
     0 0;
   mask-position:
-    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
-      calc(var(--avatar-gap) * -1),
+    calc(
+        var(--avatar-size) * 1.5 - var(--avatar-overlap) -
+          var(--avatar-cut-size) / 2
+      )
+      calc(var(--avatar-size) / 2 - var(--avatar-cut-size) / 2),
     0 0;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+}
+
+/* An animated stack (AvatarStack animated) keeps the cutout on every
+   avatar and sizes it instead: none where no one stays after it (the last,
+   or the one before a person leaving), so the gap shrinks into the leaving
+   avatar and grows around an arriving one, on the morph's curve, instead of
+   lingering until the leaving one is gone. */
+[data-slot="avatar-group"][data-animated] > * {
+  transition-property: mask-size, mask-position;
+  transition-duration: 260ms;
+  transition-timing-function: var(--ease-standard);
+}
+[data-slot="avatar-group"][data-animated] > :not(:has(~ :not([data-leaving]))) {
+  --avatar-cut-size: 0px;
 }
 
 /* Centre the initials in the part of a stacked avatar the cutout leaves. */

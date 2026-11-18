@@ -62,7 +62,7 @@ export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
                   params={{ orgSlug, slug, id: parent.id }}
                   preload="intent"
                   draggable={false}
-                  aria-label={parent.title}
+                  aria-label={`${parent.id} ${parent.title}`}
                   className={cn(parentLinkClass, "flex")}
                 />
               }

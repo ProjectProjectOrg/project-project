@@ -130,6 +130,10 @@ A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a check
 
 A checked row gets a leading mark and a full-colour, semibold label. Unchecked rows are ordinary rows: icons and avatars in full colour, labels and keys in the muted text colour, which meets WCAG AA contrast (6.9:1 on the dark menu surface, 6.0:1 on the light one). Fading is kept for disabled rows, so "not chosen" never reads as "not available". Screen readers hear the state from `aria-checked`.
 
+### Some of a selection is mixed
+
+A checkbox row that speaks for several things at once (labels on a selection of tickets) has a third state: `mixed`, set on some of them. It shows a dash where the check goes, keeps its label and icon at full strength, and reads as "mixed" to screen readers. A click puts it on all of them, then on none, then back to mixed. Keep `checked` false while it's mixed.
+
 ### Radio rows keep the mark's slot
 
 Radio rows reserve the 16px leading slot, chosen or not, so picking another option never shifts the labels. A checkbox row has no slot until it is ticked: ticking opens the slot and draws the tick, and unticking rewinds it.
@@ -192,7 +196,7 @@ The avatar menu in the sidebar. A header with the signed-in account sits above t
 
 ### Multi-select pickers
 
-The tag picker and board column picker as the app uses them: a marker, a label and a count per row, with the selection reading at a glance.
+The tag picker and board column picker as the app uses them: a marker, a label and a count per row, with the selection reading at a glance. The third menu is labels on a selection of four tickets: a tag on some of them is mixed.
 
 <Demo name="checkbox-items" title="Checkbox items" className="min-h-96 place-items-start" />
 

@@ -132,7 +132,7 @@ export const TICKETS: ReadonlyArray<SampleTicket> = [
   CRASH
 ]
 
-const STATUS = {
+export const STATUS = {
   todo: {
     icon: CircleDashed,
     label: "Todo",
@@ -147,7 +147,7 @@ const STATUS = {
   done: { icon: CircleCheck, label: "Done", className: "text-emerald-600" }
 } as const
 
-const PRIORITY = {
+export const PRIORITY = {
   urgent: { icon: PriorityHigh, label: "High", className: "text-state-danger" },
   medium: {
     icon: PriorityMedium,

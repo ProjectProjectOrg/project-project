@@ -51,6 +51,7 @@ import {
   type TicketRowPage
 } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
+import { useStableValue } from "@/hooks/useStableValue"
 import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
@@ -129,6 +130,17 @@ export function SprintSections(props: Props) {
         }
       : null
   const active = useDeferredOnRequestChange(latest)
+  // One object while the search stays the same: every row reads it.
+  const viewSource = useStableValue(
+    active
+      ? ticketSearchFromSource(
+          TicketListSource.cases.sections.make({
+            grouping: "sprint",
+            query: viewQuery(active.query)
+          })
+        )
+      : undefined
+  )
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
     groups && active ? (
@@ -137,14 +149,7 @@ export function SprintSections(props: Props) {
         style={{ overflowAnchor: "none" }}
         className="flex flex-col gap-1"
       >
-        <TicketViewSourceContext
-          value={ticketSearchFromSource(
-            TicketListSource.cases.sections.make({
-              grouping: "sprint",
-              query: viewQuery(active.query)
-            })
-          )}
-        >
+        <TicketViewSourceContext value={viewSource}>
           {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
             const id = sprintSectionKey(sprint?.id ?? null)
             const section = active.value.sections.find(

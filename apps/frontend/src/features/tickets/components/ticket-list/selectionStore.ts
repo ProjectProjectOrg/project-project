@@ -12,18 +12,30 @@ import {
   type TicketSelection
 } from "@/features/tickets/lib/ticketSelection"
 
-type SelectionFailure = Readonly<{ count: number; retry: () => void }>
+// A change that didn't land: how many tickets it missed, and a retry
+// (resolving to whether it landed this time, when it can tell).
+type SelectionFailure = Readonly<{
+  count: number
+  retry: () => Promise<boolean> | void
+}>
 
+// The store's own atoms are written before anything reads them (the lists
+// record their tickets in `known` while no bar is up yet), so they keep
+// their values with no subscribers (keepAlive).
 export const createSelectionStore = () => {
-  const selection = Atom.make<TicketSelection>(emptySelection)
+  const selection = Atom.make<TicketSelection>(emptySelection).pipe(
+    Atom.keepAlive
+  )
   return {
     selection,
     count: Atom.map(selection, ({ keys }) => keys.size),
     isSelected: Atom.family((key: string) =>
       Atom.map(selection, ({ keys }) => keys.has(key))
     ),
-    failure: Atom.make<SelectionFailure | null>(null),
-    known: Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map()),
+    failure: Atom.make<SelectionFailure | null>(null).pipe(Atom.keepAlive),
+    known: Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map()).pipe(
+      Atom.keepAlive
+    ),
     views: new Map<string, BulkTicketUpdateAtom>(),
     orders: new Set<() => ReadonlyArray<string>>()
   }
@@ -51,7 +63,7 @@ export const updateSelected = (
         if (!Result.isFailure(result)) return true
         registry.set(store.failure, {
           count: ids.length,
-          retry: () => void updateSelected(registry, store, slug, ids, patch)
+          retry: () => updateSelected(registry, store, slug, ids, patch)
         })
         return false
       })
