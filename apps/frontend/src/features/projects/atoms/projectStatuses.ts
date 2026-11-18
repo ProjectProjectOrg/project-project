@@ -20,16 +20,13 @@ import { query } from "@/api/query"
 import { fireMutation, viewMutation } from "@/api/viewMutation"
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export type StatusesRequest = Readonly<{
-  _view: "statuses"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type StatusesRequest = ReturnType<typeof statusesRequest>
 
 export const statusesRequest = (orgSlug: string, slug: string) =>
   ({
     _view: "statuses",
     params: { orgSlug, slug }
-  }) satisfies StatusesRequest
+  }) as const
 
 const scopeOf = (req: StatusesRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

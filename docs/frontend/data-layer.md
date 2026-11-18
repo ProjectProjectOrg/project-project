@@ -11,10 +11,10 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
 2. **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, and the query stays module-private. Family keys are request objects, never concatenated strings, so there is nothing to parse back apart:
 
    ```ts
-   export type TagsRequest = Readonly<{
-     _view: "tags"
-     params: Readonly<{ orgSlug: string; slug: string }>
-   }>
+   export const tagsRequest = (orgSlug: string, slug: string) =>
+     ({ _view: "tags", params: { orgSlug, slug } }) as const
+
+   export type TagsRequest = ReturnType<typeof tagsRequest>
 
    const tagsQuery = (req: TagsRequest) =>
      query("tags", "list", {
@@ -28,7 +28,7 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
    )
    ```
 
-   Each view's request carries a `_view` literal and is built by its own builder (`tagsRequest`, `backlogRequest`, `sprintSectionsRequest`), so two views with the same params cannot take each other's request: `updateBacklogTicket({ req: sprintSectionsReq, id })` does not compile. Requests shared by several reads on purpose (`ProjectRequest`, `OrgRequest`) stay unbranded.
+   Each view's request carries a `_view` literal and is built by its own builder (`tagsRequest`, `backlogRequest`, `sprintSectionsRequest`), and its type is derived from that builder rather than declared beside it, so two views with the same params cannot take each other's request: `updateBacklogTicket({ req: sprintSectionsReq, id })` does not compile. Requests shared by several reads on purpose (`ProjectRequest`, `OrgRequest`) stay unbranded.
 
    `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
 

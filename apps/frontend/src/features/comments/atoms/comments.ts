@@ -18,20 +18,13 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
 
-export type CommentsRequest = Readonly<{
-  _view: "comments"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: TicketId
-  }>
-}>
+export type CommentsRequest = ReturnType<typeof commentsRequest>
 
 export const commentsRequest = (orgSlug: string, slug: string, id: TicketId) =>
   ({
     _view: "comments",
     params: { orgSlug, slug, id }
-  }) satisfies CommentsRequest
+  }) as const
 
 const scopeOf = (req: CommentsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

@@ -17,16 +17,13 @@ import {
   type PinPrediction
 } from "@/features/pins/lib/pins"
 
-export type PinsRequest = Readonly<{
-  _view: "pins"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type PinsRequest = ReturnType<typeof pinsRequest>
 
 export const pinsRequest = (orgSlug: string) =>
   ({
     _view: "pins",
     params: { orgSlug }
-  }) satisfies PinsRequest
+  }) as const
 
 const pinsQuery = (req: PinsRequest) =>
   query("sidebarPins", "list", {

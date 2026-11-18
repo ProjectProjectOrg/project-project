@@ -54,19 +54,19 @@ export const myTicketsRequest = (orgSlug: string) =>
   ({
     _view: "myTickets",
     params: { orgSlug }
-  }) satisfies MyTicketsRequest
+  }) as const
 
 export const myTicketsByProjectRequest = (orgSlug: string) =>
   ({
     _view: "myTicketsByProject",
     params: { orgSlug }
-  }) satisfies MyTicketsByProjectRequest
+  }) as const
 
 export const recentTicketsRequest = (orgSlug: string) =>
   ({
     _view: "recentTickets",
     params: { orgSlug }
-  }) satisfies RecentTicketsRequest
+  }) as const
 
 export type OrgTicket = Readonly<{
   project: Project

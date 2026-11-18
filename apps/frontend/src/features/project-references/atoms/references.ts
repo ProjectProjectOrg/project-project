@@ -8,16 +8,13 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 import { withoutFixed } from "@/features/project-references/lib/referenceGroups"
 
-export type ReferencesRequest = Readonly<{
-  _view: "references"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type ReferencesRequest = ReturnType<typeof referencesRequest>
 
 export const referencesRequest = (orgSlug: string, slug: string) =>
   ({
     _view: "references",
     params: { orgSlug, slug }
-  }) satisfies ReferencesRequest
+  }) as const
 
 const referencesQuery = (req: ReferencesRequest) =>
   query("projectReferences", "list", {

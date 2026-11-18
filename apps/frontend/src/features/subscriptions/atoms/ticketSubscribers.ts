@@ -5,10 +5,9 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 
-export type TicketSubscribersRequest = Readonly<{
-  _view: "ticketSubscribers"
-  params: Readonly<{ orgSlug: string; slug: string; id: TicketId }>
-}>
+export type TicketSubscribersRequest = ReturnType<
+  typeof ticketSubscribersRequest
+>
 
 export const ticketSubscribersRequest = (
   orgSlug: string,
@@ -18,7 +17,7 @@ export const ticketSubscribersRequest = (
   ({
     _view: "ticketSubscribers",
     params: { orgSlug, slug, id }
-  }) satisfies TicketSubscribersRequest
+  }) as const
 
 const subscribersQuery = (req: TicketSubscribersRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)

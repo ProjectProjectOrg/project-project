@@ -50,11 +50,7 @@ export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
 )
 
-export type BacklogRequest = Readonly<{
-  _view: "backlog"
-  params: Readonly<{ orgSlug: string; slug: string }>
-  query: TicketListQuery
-}>
+export type BacklogRequest = ReturnType<typeof backlogRequest>
 
 export const backlogRequest = (
   orgSlug: string,
@@ -69,7 +65,7 @@ export const backlogRequest = (
       status: undefined,
       cursor: undefined
     }
-  }) satisfies BacklogRequest
+  }) as const
 
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

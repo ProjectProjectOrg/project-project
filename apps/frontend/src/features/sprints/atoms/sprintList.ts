@@ -27,16 +27,13 @@ import { bulkBatches } from "@/features/tickets/atoms/bulkTickets"
 
 import { applySprintPatch } from "./sprintPatch"
 
-export type SprintListRequest = Readonly<{
-  _view: "sprintList"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type SprintListRequest = ReturnType<typeof sprintListRequest>
 
 export const sprintListRequest = (orgSlug: string, slug: string) =>
   ({
     _view: "sprintList",
     params: { orgSlug, slug }
-  }) satisfies SprintListRequest
+  }) as const
 
 const scopeOf = (req: SprintListRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

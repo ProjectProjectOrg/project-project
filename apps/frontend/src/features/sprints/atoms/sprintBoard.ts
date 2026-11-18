@@ -11,20 +11,13 @@ import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
 import { sprintQuery, sprintRequest } from "./sprintDetail"
 
-export type BoardRequest = Readonly<{
-  _view: "sprintBoard"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: GroupId
-  }>
-}>
+export type BoardRequest = ReturnType<typeof boardRequest>
 
 export const boardRequest = (orgSlug: string, slug: string, id: GroupId) =>
   ({
     _view: "sprintBoard",
     params: { orgSlug, slug, id }
-  }) satisfies BoardRequest
+  }) as const
 
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

@@ -22,16 +22,13 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 
-export type TagsRequest = Readonly<{
-  _view: "tags"
-  params: Readonly<{ orgSlug: string; slug: string }>
-}>
+export type TagsRequest = ReturnType<typeof tagsRequest>
 
 export const tagsRequest = (orgSlug: string, slug: string) =>
   ({
     _view: "tags",
     params: { orgSlug, slug }
-  }) satisfies TagsRequest
+  }) as const
 
 const scopeOf = (req: TagsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -65,14 +62,7 @@ export const tagUsage = Atom.family((req: TagsRequest) =>
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-export type TagEditorRequest = Readonly<{
-  _view: "tagEditor"
-  params: Readonly<{
-    orgSlug: string
-    slug: string
-    id: TicketId
-  }>
-}>
+export type TagEditorRequest = ReturnType<typeof tagEditorRequest>
 
 export type AppliedTag = Readonly<{
   key: TagName
@@ -88,7 +78,7 @@ export const tagEditorRequest = (orgSlug: string, slug: string, id: TicketId) =>
   ({
     _view: "tagEditor",
     params: { orgSlug, slug, id }
-  }) satisfies TagEditorRequest
+  }) as const
 
 const tagsRequestOf = (req: TagEditorRequest) =>
   tagsRequest(req.params.orgSlug, req.params.slug)
