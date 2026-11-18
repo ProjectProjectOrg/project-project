@@ -1422,6 +1422,17 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.orDie)
 
+  const withFlagReason = (
+    document: TicketDocs.TicketDocument,
+    rewrite: (text: string) => string
+  ): TicketDocs.TicketDocument =>
+    document.flag?.reason === undefined
+      ? document
+      : {
+          ...document,
+          flag: { ...document.flag, reason: rewrite(document.flag.reason) }
+        }
+
   const repointMentionsOfMovedTickets = (
     source: TicketProject,
     context: MoveMentionContext
@@ -1450,21 +1461,22 @@ const make = Effect.gen(function* () {
                 source.slug,
                 id,
                 (existing) => {
-                  const body = rewriteMentionsOfMovedTickets(
-                    existing.body,
-                    context,
-                    source.slug
-                  )
-                  const commentsRegion = rewriteMentionsOfMovedTickets(
-                    existing.commentsRegion,
-                    context,
-                    source.slug
+                  const rewrite = (text: string) =>
+                    rewriteMentionsOfMovedTickets(text, context, source.slug)
+                  const next = withFlagReason(
+                    {
+                      ...existing,
+                      body: rewrite(existing.body),
+                      commentsRegion: rewrite(existing.commentsRegion)
+                    },
+                    rewrite
                   )
                   return Effect.succeed(
-                    body === existing.body &&
-                      commentsRegion === existing.commentsRegion
+                    next.body === existing.body &&
+                      next.commentsRegion === existing.commentsRegion &&
+                      next.flag?.reason === existing.flag?.reason
                       ? existing
-                      : { ...existing, body, commentsRegion }
+                      : next
                   )
                 },
                 undefined,
@@ -1567,33 +1579,36 @@ const make = Effect.gen(function* () {
             original.id === rootId ? input.status : undefined
           )
           const linked = sameRepository ? original : withoutGitLink(original)
-          return {
-            ...linked,
-            id: moved[index].to,
-            status: makeTicketStatus(fields.status ?? plan.statuses[0]),
-            tags: fields.tags,
-            assignees: [...fields.assignees],
-            estimate: fields.keepsEstimate ? original.estimate : undefined,
-            parent:
-              original.id === rootId
-                ? undefined
-                : makeOptionalTicketId(newIdOf(original.parent)),
-            splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
-            blockedBy: movedAlong(original.blockedBy),
-            relatedTo: movedAlong(original.relatedTo),
-            duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
-            movedFrom: [
-              ...(original.movedFrom ?? []),
-              formatMovedFrom(source.slug, original.id)
-            ],
-            updatedBy: userId,
-            updatedAt: now,
-            body: rewriteMentionsInMovedTicket(original.body, mentions),
-            commentsRegion: rewriteMentionsInMovedTicket(
-              original.commentsRegion,
-              mentions
-            )
-          } satisfies TicketDocs.TicketDocument
+          return withFlagReason(
+            {
+              ...linked,
+              id: moved[index].to,
+              status: makeTicketStatus(fields.status ?? plan.statuses[0]),
+              tags: fields.tags,
+              assignees: [...fields.assignees],
+              estimate: fields.keepsEstimate ? original.estimate : undefined,
+              parent:
+                original.id === rootId
+                  ? undefined
+                  : makeOptionalTicketId(newIdOf(original.parent)),
+              splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
+              blockedBy: movedAlong(original.blockedBy),
+              relatedTo: movedAlong(original.relatedTo),
+              duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
+              movedFrom: [
+                ...(original.movedFrom ?? []),
+                formatMovedFrom(source.slug, original.id)
+              ],
+              updatedBy: userId,
+              updatedAt: now,
+              body: rewriteMentionsInMovedTicket(original.body, mentions),
+              commentsRegion: rewriteMentionsInMovedTicket(
+                original.commentsRegion,
+                mentions
+              )
+            },
+            (text) => rewriteMentionsInMovedTicket(text, mentions)
+          )
         })
 
         const created: Array<TicketDocs.TicketDocument> = []

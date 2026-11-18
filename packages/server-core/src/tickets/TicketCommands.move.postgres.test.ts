@@ -14,6 +14,7 @@ import {
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
@@ -302,6 +303,48 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
             [root, { kind: "moved", fromProject: "inbox", fromId: "T-1" }],
             [child, { kind: "moved", fromProject: "inbox", fromId: "T-2" }]
           ])
+        })
+      )
+    }
+  )
+
+  it.effect(
+    "keeps ticket mentions in flag reasons pointing at the right tickets",
+    () => {
+      const { documents, put, layer } = fixture()
+      const at = DateTime.toDate(DateTime.makeUnsafe("2026-11-12T09:00:00Z"))
+      put(
+        makeTicketDocument("T-1", {
+          flag: {
+            reason: "Waiting on [T-3](mention:ticket/T-3)",
+            by: userId,
+            at
+          }
+        })
+      )
+      put(
+        makeTicketDocument("T-3", {
+          flag: {
+            reason: "Needs [T-1](mention:ticket/T-1) first",
+            by: userId,
+            at
+          }
+        })
+      )
+      return run(
+        layer,
+        Effect.gen(function* () {
+          const commands = yield* TicketCommands.TicketCommands
+          const result = yield* commands.move("T-1", {
+            toProject: slug("product")
+          })
+
+          expect(documents.get(result.id)?.flag?.reason).toBe(
+            "Waiting on [T-3](mention:ticket/inbox/T-3)"
+          )
+          expect(documents.get("T-3")?.flag?.reason).toBe(
+            `Needs [${result.id}](mention:ticket/product/${result.id}) first`
+          )
         })
       )
     }
