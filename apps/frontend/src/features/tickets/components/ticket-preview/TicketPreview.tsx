@@ -67,7 +67,7 @@ export function TicketPreviewTrigger({
 }: Readonly<{ preview: TicketPreview }> &
   Omit<
     ComponentProps<typeof PreviewCard.Trigger>,
-    "handle" | "payload" | "delay" | "onPointerEnter"
+    "handle" | "payload" | "delay" | "closeDelay" | "onPointerEnter"
   >) {
   const project = useProjectRequest()
   const warm = useWarmPreview()
@@ -76,6 +76,7 @@ export function TicketPreviewTrigger({
       handle={ticketPreview}
       payload={{ project, preview }}
       delay={PREVIEW_DELAY_MS}
+      closeDelay={0}
       onPointerEnter={() => warm(preview)}
       onClick={
         preview.kind === "ticket"
