@@ -350,7 +350,7 @@ function DropdownMenuItem({
       className={cn(
         menuItemClass,
         "data-[inset]:pl-8",
-        "data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:text-destructive",
+        "data-[variant=destructive]:text-destructive data-[variant=destructive]:lit:text-destructive",
         "data-[variant=destructive]:[&_svg]:text-destructive!",
         className
       )}
@@ -517,7 +517,7 @@ function DropdownMenuConfirmItem<E = unknown>({
 }
 
 const checkboxItemClass =
-  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
+  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground lit:duration-0 motion-reduce:transition-none"
 
 const checkboxIndicatorClass =
   "-mr-2 w-0 shrink-0 opacity-0 transition-[width,margin,opacity] duration-[160ms,160ms,80ms] delay-[40ms,40ms,0ms] ease-standard data-[checked]:mr-0 data-[checked]:w-4 data-[checked]:opacity-100 data-[checked]:duration-[260ms,260ms,60ms] data-[checked]:delay-0 data-[checked]:ease-spring motion-reduce:transition-none"

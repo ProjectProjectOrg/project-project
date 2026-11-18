@@ -28,7 +28,7 @@ export const menuSurfaceClass = `relative max-h-[var(--available-height)] min-w-
 export const menuPopupClass = `${menuSurfaceClass} ${popupMotionClass}`
 
 export const menuItemClass =
-  "relative flex cursor-pointer items-center gap-2 rounded-md [corner-shape:var(--button-corner)] border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-(--menu-foreground) outline-hidden [&_svg]:text-muted-foreground data-[highlighted]:[&_svg]:text-foreground transition-colors data-[highlighted]:text-foreground data-[highlighted]:duration-0 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 data-[highlighted]:[&_svg]:stroke-[2] data-[highlighted]:[&_svg]:duration-0 [&_svg:not([class*='size-'])]:size-4"
+  "relative flex cursor-pointer items-center gap-2 rounded-md [corner-shape:var(--button-corner)] border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-(--menu-foreground) outline-hidden [&_svg]:text-muted-foreground lit:[&_svg]:text-foreground transition-colors lit:text-foreground lit:duration-0 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 lit:[&_svg]:stroke-[2] lit:[&_svg]:duration-0 [&_svg:not([class*='size-'])]:size-4"
 
 export const menuLabelClass = "px-2 py-1.5 text-caption text-muted-foreground"
 

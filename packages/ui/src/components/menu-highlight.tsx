@@ -28,6 +28,7 @@ const CHOICE_ROW = "[role=menuitemradio], [role=option]"
 const CHOSEN_ROW =
   "[role=menuitemradio][data-checked]:not([data-disabled]), [role=option][data-selected]:not([data-disabled])"
 const RESTING = "data-menu-resting"
+const HELD = "data-menu-held"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const HIGHLIGHT_INSET = 1
 
@@ -101,12 +102,15 @@ const measureHighlight = (
   const element = active ?? resting
   if (element === undefined) return null
   return {
-    top: element.offsetTop + HIGHLIGHT_INSET,
-    left: element.offsetLeft,
-    width: element.offsetWidth,
-    height: element.offsetHeight - HIGHLIGHT_INSET * 2,
-    tone: toneOf(element)
-  } satisfies HighlightRect
+    element,
+    rect: {
+      top: element.offsetTop + HIGHLIGHT_INSET,
+      left: element.offsetLeft,
+      width: element.offsetWidth,
+      height: element.offsetHeight - HIGHLIGHT_INSET * 2,
+      tone: toneOf(element)
+    } satisfies HighlightRect
+  }
 }
 
 const sameRect = (a: HighlightRect | null, b: HighlightRect | null) =>
@@ -186,22 +190,34 @@ function useHighlightRect(
     session: 0
   })
 
+  // While the highlight holds on a row the pointer has left, the row keeps
+  // its lit look (`data-menu-held`), so its text never dims under the fill.
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
-    return container
-      ? observeHighlight(container, (pointer) =>
-          setState((previous) => {
-            const rect = measureHighlight(
-              container,
-              selector,
-              pointer,
-              restOnFirst,
-              previous.rect !== null
-            )
-            return rect === "hold" ? previous : nextHighlight(previous, rect)
-          })
+    if (!container) return undefined
+    let lit: HTMLElement | undefined
+    const stop = observeHighlight(container, (pointer) =>
+      setState((previous) => {
+        const next = measureHighlight(
+          container,
+          selector,
+          pointer,
+          restOnFirst,
+          previous.rect !== null
         )
-      : undefined
+        if (next === "hold") {
+          lit?.setAttribute(HELD, "")
+          return previous
+        }
+        lit?.removeAttribute(HELD)
+        lit = next?.element
+        return nextHighlight(previous, next?.rect ?? null)
+      })
+    )
+    return () => {
+      stop()
+      lit?.removeAttribute(HELD)
+    }
   }, [anchorRef, selector, restOnFirst])
 
   return state

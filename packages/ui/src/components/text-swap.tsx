@@ -73,7 +73,7 @@ function TextSwap({
   )
   if (!announce) return swap
   return (
-    <span aria-live="polite">
+    <span aria-live="polite" className="flex min-w-0">
       <span className="sr-only">{children}</span>
       {swap}
     </span>
