@@ -7,7 +7,11 @@ import {
 } from "@pp/ui/input-group"
 import { Kbd, KbdShortcut, type KeyLabels } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
-import { menuItemClass, menuSurfaceClass } from "@pp/ui/menu-styles"
+import {
+  menuItemClass,
+  menuSurfaceClass,
+  popupSurfaceClass
+} from "@pp/ui/menu-styles"
 import type { ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {
@@ -75,7 +79,12 @@ export default function InTheApp() {
       </Case>
 
       <Case caption="Sprint › add an epic's tickets (picker footer)">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] border border-border/60 bg-card p-2 [corner-shape:var(--button-corner)]">
+        <div
+          className={cn(
+            popupSurfaceClass,
+            "flex flex-wrap items-center justify-between gap-2 p-2"
+          )}
+        >
           <span className="flex items-center gap-1 text-micro text-muted-foreground">
             <KbdShortcut size="sm" keys="↑↓" keyLabels={KEY_LABELS} />
             <Kbd size="sm">Space</Kbd>

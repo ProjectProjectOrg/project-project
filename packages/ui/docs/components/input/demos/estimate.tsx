@@ -1,5 +1,6 @@
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import { useId, useState, type FormEvent } from "react"
 
 const parseMinutes = (text: string) => {
@@ -39,7 +40,7 @@ export default function Estimate() {
   return (
     <form
       onSubmit={submit}
-      className="flex w-64 flex-col gap-2 rounded-2xl bg-popover p-3 corner-squircle"
+      className={`${popupSurfaceClass} flex w-64 flex-col gap-2 p-3`}
     >
       <label htmlFor={id} className="text-caption text-muted-foreground">
         Time estimate

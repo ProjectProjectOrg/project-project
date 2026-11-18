@@ -29,7 +29,7 @@ export function Hitbox({
     <button
       type="button"
       className={cn(
-        "group/hitbox cursor-pointer outline-none before:absolute before:content-[''] focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default",
+        "group/hitbox focus-ring cursor-pointer before:absolute before:content-[''] disabled:cursor-default",
         "rounded-[20px]",
         mode === "absolute"
           ? "absolute inset-0"

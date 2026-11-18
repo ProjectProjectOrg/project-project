@@ -128,7 +128,7 @@ A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a check
 
 ### Checked rows step forward, unchecked rows stay plain
 
-A checked row gets a leading mark and a full-colour, semibold label. Unchecked rows are ordinary rows: icons and avatars in full colour, labels and keys in the muted text colour, which meets WCAG AA contrast (6.9:1 on the dark menu surface, 6.0:1 on the light one). Fading is kept for disabled rows, so "not chosen" never reads as "not available". Screen readers hear the state from `aria-checked`.
+A checked row gets a leading mark and a full-colour, semibold label. Unchecked rows are ordinary rows: icons and avatars in full colour, labels in the menu text colour (`--menu-foreground`) and keys muted. Labels meet WCAG AA comfortably: 9.2:1 on the dark menu fill (8.0:1 on a raised one), 6.0:1 on the light one. Fading is kept for disabled rows, so "not chosen" never reads as "not available". Screen readers hear the state from `aria-checked`.
 
 ### Some of a selection is mixed
 
@@ -164,7 +164,7 @@ A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its wa
 
 ### Hover and press match the buttons
 
-The highlight that glides between rows takes the ghost button's fills: `--hover` on hover, `--active` while pressed. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
+The highlight that glides between rows takes `--menu-hover` on hover and `--menu-active` while pressed: the ghost button's fills in light, lifted in dark so they still show on the raised menu fill. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
 
 ### Menu actions confirm in place
 

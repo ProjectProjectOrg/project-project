@@ -101,7 +101,7 @@ The palette is a menu you type into, so a row *is* a `DropdownMenuItem`, 1:1. It
 
 ### Hover, then press
 
-The highlight glides between rows on `--hover`. It fills with `--active` while the pointer is down on a row. These are the ghost button's fills, the same ones the dropdown highlight uses, so pressing a row feels like pressing a button. The fill changes over 80ms.
+The highlight glides between rows on `--hover`. It fills with `--active` while the pointer is down on a row. These are the ghost button's fills, so pressing a row feels like pressing a button. (Dropdown menus use `--menu-hover` and `--menu-active`, lifted in dark for the raised menu fill; ⌘K sits on its own panel and keeps the plain fills.) The fill changes over 80ms.
 
 ### The keyboard and the pointer share one highlight
 
@@ -117,11 +117,11 @@ The input's text, the group headings and the row icons share one left edge, 14px
 
 ### Squircle surface
 
-The ⌘K dialog and the slash menu use a 20px radius shaped by `--button-corner`. That is close to the tab pill's 16px corner plus its 6px inset, so the inner and outer corners read as concentric.
+The ⌘K dialog and the slash menu wear the popup skin every floating panel shares (`popupSurfaceClass`: the `--tooltip` fill and `--tooltip-edge` hairline, no border or drop shadow) with 19px corners shaped by `--button-corner`. That is close to the tab pill's 16px corner plus its 6px inset, so the inner and outer corners read as concentric. With a peek open, the list column keeps the same fill and a `--segment-line` divider.
 
 ### The rest of the palette is as designed
 
-The surface, tabs, input, scroll fade, footer hints and open pulse were already polished before this pass and are deliberately unchanged.
+The tabs, input, scroll fade, footer hints and open pulse were already polished before this pass and are deliberately unchanged.
 
 ## Examples
 

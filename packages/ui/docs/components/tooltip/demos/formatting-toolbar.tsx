@@ -12,6 +12,7 @@ import {
   Strikethrough,
   TextQuote
 } from "@pp/ui/icons"
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
 import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
 import { useState } from "react"
@@ -45,7 +46,7 @@ export default function FormattingToolbar() {
         <div
           role="toolbar"
           aria-label="Formatting"
-          className="flex items-center gap-0.5 rounded-xl border border-border/60 bg-card p-1"
+          className={`${popupSurfaceClass} flex items-center gap-0.5 rounded-[16px] p-1`}
         >
           <ToggleGroup
             multiple

@@ -66,6 +66,10 @@ import {
 | `TimelineChange` | `from → to`; screen readers hear `toLabel` instead of the arrow |
 | `TimelineQuote` | quoted text under the line |
 | `TimelineSkeleton` | loading, announced with `label` |
+| `TimelineFold` | rows that fold open right under what opens them (a run's changes, a thread's earlier replies): the height eases open, rows come in one after another and the rail follows; `list` makes it an `<ol>` |
+| `TimelineAppear` | something that arrives while you watch (a comment just placed): its space eases open, it rises in, and the rail follows; only what mounts with `appear` animates |
+| `useTimelineRailFollow` | returns a function that has the rail follow a shape change for a given number of ms |
+| `timelineEase`, `timelineFoldSeconds` | the fold's curve and duration, for parts that move with it (Comment) |
 
 ## Rules
 

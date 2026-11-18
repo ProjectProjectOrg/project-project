@@ -27,7 +27,7 @@ import { LogoLoader } from "./logo"
 const buttonVariants = cva(
   [
     "group relative inline-flex cursor-pointer items-center justify-center whitespace-nowrap outline-none",
-    "motion-safe:transition-all motion-safe:duration-100 motion-safe:active:scale-[0.97]",
+    "motion-safe:transition-control motion-safe:duration-100 motion-safe:active:scale-[0.97]",
     // Disabled keeps pointer events so the not-allowed cursor shows; hover
     // and press styles are guarded with not-disabled. Loading is disabled
     // too, but stays at full strength with a progress cursor.

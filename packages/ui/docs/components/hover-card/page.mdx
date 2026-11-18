@@ -69,11 +69,11 @@ It replaced Base UI's Preview Card and keeps what that gave: it opens on hover a
 
 ### One family of hovers
 
-It wears the tooltip's skin: the raised fill (`--tooltip`: white in light, a lifted grey in dark), the hairline and top light (`--tooltip-edge`), 14px squircle corners and no shadow. Opening and closing match the tooltip too: a fade and a scale from 96% over 160ms ease-out. Menus and click-opened popovers keep the popup surface, so a hover never reads as a menu.
+It wears the tooltip's skin: the raised fill (`--tooltip`: white in light, a lifted grey in dark), the hairline and top light (`--tooltip-edge`), 14px squircle corners and no shadow. Opening and closing match the tooltip too: a fade and a scale from 96% over 160ms ease-out. Menus and click-opened popovers wear the same skin (`popupSurfaceClass`), so everything that floats is one family; a hover card differs only in its smaller corners and in opening on hover.
 
 ### Padding follows the content
 
-Text gets 10px by 8px (the default). Lists of tickets are menu rows (`TicketLines`), so the card pads like a menu (`p-1`) and the rows take the menu's highlight, which tells you they can be clicked. A card that only shows (git, the sprint estimate) sets `pointer-events-none`, so it never catches the pointer on its way past.
+Text gets 10px by 8px (the default). Lists of tickets are menu rows (`TicketLines`), so the card pads them 4px in (`p-1`) and the rows take the menu's highlight, which tells you they can be clicked. A card that only shows (git, the sprint estimate) sets `pointer-events-none`, so it never catches the pointer on its way past.
 
 ## Examples
 

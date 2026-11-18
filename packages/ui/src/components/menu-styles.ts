@@ -4,9 +4,10 @@ import { createContext, use } from "react"
 // popovers, pickers, the composer): the tooltip's raised skin, like hover
 // cards. --tooltip fill with the --tooltip-edge hairline and top light, no
 // border or drop shadow, so everything that floats reads as one family.
-// 19px squircle corners.
+// 19px squircle corners. Fields inside take --field-popup and
+// --field-hover-popup: a shallow well whose hover stays below the fill.
 export const popupSurfaceClass =
-  "z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)]"
+  "z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)] [--field:var(--field-popup)] [--field-hover:var(--field-hover-popup)]"
 
 // Whether content sits inside a popup. Every popup provides it, and a popup
 // opened from inside one takes the raised fill (--tooltip-raised).
@@ -20,6 +21,12 @@ export function useRaisedPopupClass() {
 
 export const popupMotionClass =
   "data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none"
+
+// For a menu opened at the pointer (a context menu): no slide, only the
+// fade and zoom out of the pointer, so the menu never sweeps under it and
+// highlights a row (or opens a submenu) on its way in.
+export const atPointerMotionClass =
+  "[--tw-enter-translate-x:0]! [--tw-enter-translate-y:0]!"
 
 // Rows sit 5px in, so the popup's 19px corners are concentric with a row's
 // 14px highlight.

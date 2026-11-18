@@ -191,9 +191,9 @@ function compactEstimateTrigger(
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       className={cn(
-        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-caption text-muted-foreground tabular-nums transition-[color,background-color] outline-none hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none data-[popup-open]:bg-hover data-[popup-open]:opacity-100",
+        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-caption text-muted-foreground tabular-nums transition-[color,background-color,opacity] duration-[150ms,150ms,var(--highlight-glide)] ease-standard outline-none in-data-keyboard-navigation:duration-[150ms,150ms,0ms] hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none data-[popup-open]:bg-hover data-[popup-open]:opacity-100",
         active === null &&
-          "opacity-0 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100",
+          "opacity-0 row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100",
         className
       )}
     >
