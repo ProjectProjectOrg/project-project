@@ -7,9 +7,6 @@
 
 FROM oven/bun:1.4.4-slim AS bun
 
-# `turbo prune` keeps only the workspaces the frontend depends on, split into
-# `json/` (manifests + pruned lockfile) and `full/` (source), so new
-# workspaces need no changes here.
 FROM node:24.15.0-bookworm-slim AS prune
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app

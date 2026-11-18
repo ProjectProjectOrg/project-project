@@ -10,9 +10,6 @@
 
 FROM oven/bun:1.4.4-slim AS bun
 
-# `turbo prune` keeps only the workspaces the backend depends on, split into
-# `json/` (manifests + pruned lockfile) and `full/` (source), so new
-# workspaces need no changes here.
 FROM node:24.15.0-bookworm-slim AS prune
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
@@ -36,9 +33,7 @@ RUN bun install --frozen-lockfile --production --omit=peer --filter @pp/backend
 FROM oven/bun:1.4.4-alpine AS runtime
 WORKDIR /app
 
-# Bring deps over and then layer in source. Bun's isolated linker keeps each
-# workspace's dependency links beside that workspace. The backend lives at
-# packages/backend in the image because deploy docs and compose use that path.
+# docker-compose.prod.yml and docs/deploy.md run the backend from packages/backend.
 COPY --from=deps /app ./
 COPY --from=prune /app/out/full/ ./
 COPY tsconfig.base.json ./
