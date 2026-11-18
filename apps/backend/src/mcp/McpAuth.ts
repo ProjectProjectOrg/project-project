@@ -1,6 +1,6 @@
 import { type Headers as HttpHeaders, HttpServerResponse } from "effect/http"
 
-import { type AuthRejection, callerAuthMiddleware } from "../auth/CallerAuth"
+import { AuthRejection, callerAuthMiddleware } from "../auth/CallerAuth"
 import { mcpResource } from "../auth/config"
 
 const jsonRpcError = (
@@ -17,11 +17,10 @@ const jsonRpcError = (
     { status, headers }
   )
 
-const respond = (rejection: AuthRejection) =>
-  rejection.kind === "banned"
-    ? jsonRpcError("Forbidden", 403)
-    : jsonRpcError(rejection.message, rejection.status, {
-        "www-authenticate": rejection.wwwAuthenticate
-      })
+const respond = AuthRejection.$match({
+  banned: () => jsonRpcError("Forbidden", 403),
+  unauthorized: ({ message, status, wwwAuthenticate }) =>
+    jsonRpcError(message, status, { "www-authenticate": wwwAuthenticate })
+})
 
 export const McpAuthMiddlewareLive = callerAuthMiddleware(mcpResource, respond)

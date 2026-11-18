@@ -1119,7 +1119,7 @@ const make = Effect.gen(function* () {
         },
         {
           members: groupMembers(documents, [source.groupId]),
-          sections: { kind: "status" },
+          sections: TicketIndex.TicketIndexSectionOrder.status(),
           within: {
             sort: { key: "manual", dir: "asc" },
             nestAcrossSections: true
@@ -1133,7 +1133,7 @@ const make = Effect.gen(function* () {
         const members = yield* resolveGroupMembers(query.groupId)
         return yield* find(query, {
           members,
-          sections: { kind: "status" },
+          sections: TicketIndex.TicketIndexSectionOrder.status(),
           within
         })
       }
@@ -1141,7 +1141,12 @@ const make = Effect.gen(function* () {
         const members = yield* sprintSectionMembers(query)
         return yield* find(
           { ...query, groupId: undefined },
-          { sections: { kind: "explicit", sections: members }, within }
+          {
+            sections: TicketIndex.TicketIndexSectionOrder.explicit({
+              sections: members
+            }),
+            within
+          }
         )
       }
       case "epic": {
@@ -1151,7 +1156,9 @@ const make = Effect.gen(function* () {
         )
         return yield* find(parentSectionQuery(query), {
           members,
-          sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
+          sections: TicketIndex.TicketIndexSectionOrder.parent({
+            keys: wanted.map(({ key }) => key)
+          }),
           within
         })
       }
@@ -1163,10 +1170,9 @@ const make = Effect.gen(function* () {
         )
         return yield* find(parentSectionQuery(query), {
           members,
-          sections: {
-            kind: "ticketParent",
+          sections: TicketIndex.TicketIndexSectionOrder.ticketParent({
             keys: wanted.map(({ key }) => key)
-          },
+          }),
           within
         })
       }
@@ -1183,7 +1189,9 @@ const make = Effect.gen(function* () {
     const scope = yield* queryable(query)
     const tickets = yield* ticketIndex.sequence(scope, query, {
       viewerId: scope.userId,
-      sections: { kind: "explicit", sections: [{ key: parent.id }] },
+      sections: TicketIndex.TicketIndexSectionOrder.explicit({
+        sections: [{ key: parent.id }]
+      }),
       within: { sort: CHILD_TICKET_SORT }
     })
     return {

@@ -5,6 +5,7 @@ import {
   type ActivityCause,
   type InboxEventEncoded
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Schema from "effect/Schema"
 
 import { actorColumns } from "../activity/actorRow"
@@ -15,10 +16,12 @@ import {
   type SubscriptionSource
 } from "../subscriptions/intents"
 
-export type InboxNotice =
-  | Readonly<{ kind: "assigned"; userId: string }>
-  | Readonly<{ kind: "mentioned"; userId: string; commentId: string | null }>
-  | Readonly<{ kind: "commented"; authorId: string; commentId: string }>
+export type InboxNotice = Data.TaggedEnum<{
+  assigned: { readonly userId: string }
+  mentioned: { readonly userId: string; readonly commentId: string | null }
+  commented: { readonly authorId: string; readonly commentId: string }
+}>
+export const InboxNotice = Data.taggedEnum<InboxNotice>()
 
 export type InboxInput = Readonly<{
   ticketId: string
@@ -47,30 +50,25 @@ export const inboxNotices = (
   after: SubscriptionSource
 ) => [
   ...(before === null
-    ? after.assignees.map((userId) => ({ kind: "assigned" as const, userId }))
+    ? after.assignees.map((userId) => InboxNotice.assigned({ userId }))
     : []),
-  ...newlyMentioned(before?.body ?? "", after.body).map((userId) => ({
-    kind: "mentioned" as const,
-    userId,
-    commentId: null
-  })),
+  ...newlyMentioned(before?.body ?? "", after.body).map((userId) =>
+    InboxNotice.mentioned({ userId, commentId: null })
+  ),
   ...commentChanges(before?.commentsRegion ?? "", after.commentsRegion)
     .filter((comment) => comment.native)
     .flatMap((comment) => [
       ...(comment.isNew && comment.authorId !== null
         ? [
-            {
-              kind: "commented" as const,
+            InboxNotice.commented({
               authorId: comment.authorId,
               commentId: comment.commentId
-            }
+            })
           ]
         : []),
-      ...comment.mentioned.map((userId) => ({
-        kind: "mentioned" as const,
-        userId,
-        commentId: comment.commentId
-      }))
+      ...comment.mentioned.map((userId) =>
+        InboxNotice.mentioned({ userId, commentId: comment.commentId })
+      )
     ])
 ]
 
@@ -148,22 +146,21 @@ export const stageInbox = (input: InboxInput) => {
   }
 
   for (const notice of input.notices) {
-    if (notice.kind === "commented") {
-      subscribers.push(
-        encodeEvent({ kind: "commented", commentId: notice.commentId })
-      )
-      resolve.push({ kind: "mentioned", userId: notice.authorId })
-    } else if (notice.kind === "mentioned") {
-      direct.push({
-        userId: notice.userId,
-        event: encodeEvent({ kind: "mentioned", commentId: notice.commentId })
-      })
-    } else {
-      direct.push({
-        userId: notice.userId,
-        event: encodeEvent({ kind: "assigned" })
-      })
-    }
+    InboxNotice.$match(notice, {
+      commented: ({ authorId, commentId }) => {
+        subscribers.push(encodeEvent({ kind: "commented", commentId }))
+        resolve.push({ kind: "mentioned", userId: authorId })
+      },
+      mentioned: ({ userId, commentId }) => {
+        direct.push({
+          userId,
+          event: encodeEvent({ kind: "mentioned", commentId })
+        })
+      },
+      assigned: ({ userId }) => {
+        direct.push({ userId, event: encodeEvent({ kind: "assigned" }) })
+      }
+    })
   }
 
   const delivered = resolve.some((resolution) => resolution.kind === "all")

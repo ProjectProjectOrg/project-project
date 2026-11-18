@@ -31,7 +31,7 @@ import {
   type TypeKey,
   type StatusPhase
 } from "@pp/shared"
-import { DateTime, Effect, Option, Schema } from "effect"
+import { Data, DateTime, Effect, Option, Schema } from "effect"
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
@@ -64,6 +64,7 @@ import {
   buildJiraStatusCreateOptions,
   buildTagCandidates,
   jiraDestinationTicketId,
+  JiraIdentityResolution,
   jiraRestrictionPolicy,
   resolveTagDestinations,
   skippedTagKeys,
@@ -202,23 +203,28 @@ export type JiraPublicationPlan = Readonly<{
   }>
 }>
 
-export type JiraPublicationPlanResult =
-  | Readonly<{
-      kind: "blocked"
-      blockers: ReadonlyArray<JiraPreflightFinding<JiraPreflightBlockerCode>>
-    }>
-  | Readonly<{ kind: "ready"; plan: JiraPublicationPlan }>
+export type JiraPublicationPlanResult = Data.TaggedEnum<{
+  blocked: {
+    readonly blockers: ReadonlyArray<
+      JiraPreflightFinding<JiraPreflightBlockerCode>
+    >
+  }
+  ready: { readonly plan: JiraPublicationPlan }
+}>
+export const JiraPublicationPlanResult =
+  Data.taggedEnum<JiraPublicationPlanResult>()
 
 type JiraPublicationSource = JiraMappingSource &
   Pick<JiraMigrationManifest, "source" | "comments" | "migrationId"> &
   Readonly<{ version: 1 | 2 }>
-type JiraPublicationDraftResult =
-  | Readonly<{ kind: "blocked"; blockers: JiraPreflightResult["blockers"] }>
-  | Readonly<{
-      kind: "ready"
-      plan: Omit<JiraPublicationPlan, "manifestVersion"> &
-        Readonly<{ manifestVersion: 1 | 2 }>
-    }>
+type JiraPublicationDraftResult = Data.TaggedEnum<{
+  blocked: { readonly blockers: JiraPreflightResult["blockers"] }
+  ready: {
+    readonly plan: Omit<JiraPublicationPlan, "manifestVersion"> &
+      Readonly<{ manifestVersion: 1 | 2 }>
+  }
+}>
+const JiraPublicationDraftResult = Data.taggedEnum<JiraPublicationDraftResult>()
 export function createJiraPublicationPlan(
   manifest: JiraMigrationManifest,
   mappings: JiraMigrationMappings,
@@ -231,12 +237,13 @@ export function createJiraPublicationPlan(
     preflight,
     attachmentUrlsBySourceId
   )
-  return result.kind === "blocked"
-    ? result
-    : ({
-        kind: "ready",
-        plan: { ...result.plan, manifestVersion: 1 }
-      } satisfies JiraPublicationPlanResult)
+  return JiraPublicationDraftResult.$match(result, {
+    blocked: ({ blockers }) => JiraPublicationPlanResult.blocked({ blockers }),
+    ready: ({ plan }) =>
+      JiraPublicationPlanResult.ready({
+        plan: { ...plan, manifestVersion: 1 }
+      })
+  })
 }
 
 export function createJiraReferenceTargets(
@@ -263,7 +270,7 @@ export function createJiraReferenceTargets(
     targets[jiraReferenceKey("jira-issue", issue.key)] = target
   }
   for (const mapping of mappings.identities) {
-    if (mapping.resolution.kind !== "link") continue
+    if (!JiraIdentityResolution.guards.link(mapping.resolution)) continue
     targets[jiraReferenceKey("jira-user", mapping.sourceAccountId)] = {
       url: formatMentionHref("user", mapping.resolution.userId)
     }
@@ -419,10 +426,7 @@ function createJiraPublicationDraft(
   attachmentUrlsBySourceId: Readonly<Record<string, string>>
 ) {
   if (!preflight.ready)
-    return {
-      kind: "blocked",
-      blockers: preflight.blockers
-    } satisfies JiraPublicationDraftResult
+    return JiraPublicationDraftResult.blocked({ blockers: preflight.blockers })
 
   const targets = createJiraReferenceTargets(
     manifest,
@@ -520,8 +524,12 @@ function createJiraPublicationDraft(
           priorityMappingKey(issue.priorityId)
         ),
         tags: [...new Set(tags)].toSorted(compareStrings),
-        assignees: identity?.kind === "link" ? [identity.userId] : [],
-        createdBy: reporter?.kind === "link" ? reporter.userId : null,
+        assignees: JiraIdentityResolution.guards.link(identity)
+          ? [identity.userId]
+          : [],
+        createdBy: JiraIdentityResolution.guards.link(reporter)
+          ? reporter.userId
+          : null,
         parent: parentTicketId(hierarchy, ticketMappings, issue.id),
         body:
           issue.description === null
@@ -548,14 +556,13 @@ function createJiraPublicationDraft(
       return {
         sourceCommentId: comment.id,
         ticketId: requireMapped(ticketMappings, comment.issueId),
-        author:
-          identity?.kind === "link"
-            ? { kind: "user", userId: identity.userId }
-            : {
-                kind: "jira",
-                displayName: comment.authorDisplayName,
-                accountId: comment.authorAccountId
-              },
+        author: JiraIdentityResolution.guards.link(identity)
+          ? { kind: "user", userId: identity.userId }
+          : {
+              kind: "jira",
+              displayName: comment.authorDisplayName,
+              accountId: comment.authorAccountId
+            },
         body: rewriteJiraPublicationText(
           comment.body,
           targets,
@@ -671,8 +678,7 @@ function createJiraPublicationDraft(
     ticketMappings
   )
 
-  return {
-    kind: "ready",
+  return JiraPublicationDraftResult.ready({
     plan: {
       migrationId: manifest.migrationId,
       manifestVersion: manifest.version,
@@ -709,7 +715,7 @@ function createJiraPublicationDraft(
         markMigrationSucceeded: true
       }
     }
-  } satisfies JiraPublicationDraftResult
+  })
 }
 
 function parentTicketId(
@@ -736,7 +742,7 @@ function stageJiraInvites(
 ) {
   const accountsByEmail = groupBy(
     identities.flatMap(({ sourceAccountId, resolution }) =>
-      resolution.kind === "invite"
+      JiraIdentityResolution.guards.invite(resolution)
         ? [{ sourceAccountId, email: resolution.email }]
         : []
     ),
@@ -1690,7 +1696,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       )
     }
     const draft = createJiraPublicationDraft(source, safeMappings, check, urls)
-    if (draft.kind === "blocked")
+    if (JiraPublicationDraftResult.$is("blocked")(draft))
       return yield* new JiraPublicationInvalid({
         reasons: draft.blockers.map((x) => x.code)
       })
@@ -1757,7 +1763,8 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       check.mappings.identities.map((x) => [x.sourceAccountId, x.resolution])
     )
     const unlinkedName = (accountId: string | null) =>
-      accountId === null || resolutions.get(accountId)?.kind === "link"
+      accountId === null ||
+      JiraIdentityResolution.guards.link(resolutions.get(accountId))
         ? null
         : (displayNames.get(accountId) ?? accountId)
     const ranks = publicationRanks(draft.plan.tickets, manifest.ranks)

@@ -35,7 +35,7 @@ import {
   cycleSlashTab,
   slashMenuView,
   slashTriggerMatch,
-  type SlashItem,
+  SlashItem,
   type SlashMode,
   type SlashTab
 } from "./slash-menu-items"
@@ -179,7 +179,7 @@ export function SlashMenuPlugin({
       const detach = detachRef.current
       detachRef.current = false
       const { item } = option
-      if (item.kind === "gallery") {
+      if (SlashItem.$is("gallery")(item)) {
         editor.update(() => {
           nodeToReplace?.remove()
           closeMenu()

@@ -11,6 +11,7 @@ import {
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { $applyTemplate } from "@pp/ui/editor/blocks/block-commands"
 import { $runSlashItem } from "@pp/ui/editor/slash-menu/slash-commands"
+import { SlashItem } from "@pp/ui/editor/slash-menu/slash-menu-items"
 import {
   $createParagraphNode,
   $getRoot,
@@ -151,12 +152,11 @@ export function $appendSection(
   }
   $runSlashItem(
     editor,
-    {
-      kind: "block",
+    SlashItem.block({
       key: `block:${definition.key}`,
       definition,
       suggestedBy: null
-    },
+    }),
     { ...context, detach: false }
   )
 }

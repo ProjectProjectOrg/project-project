@@ -57,7 +57,11 @@ describe("validateUploadRequest", () => {
         contentType: "image/svg+xml",
         byteSize: 1024
       })
-    ).toEqual({ kind: "type", contentType: "image/svg+xml" })
+    ).toEqual(
+      Attachments.AttachmentValidationError.type({
+        contentType: "image/svg+xml"
+      })
+    )
   })
 
   it("rejects an executable", () => {
@@ -66,7 +70,11 @@ describe("validateUploadRequest", () => {
         contentType: "application/x-msdownload",
         byteSize: 1024
       })
-    ).toEqual({ kind: "type", contentType: "application/x-msdownload" })
+    ).toEqual(
+      Attachments.AttachmentValidationError.type({
+        contentType: "application/x-msdownload"
+      })
+    )
   })
 
   it("rejects a file over the cap", () => {
@@ -75,7 +83,11 @@ describe("validateUploadRequest", () => {
         contentType: "image/png",
         byteSize: ATTACHMENT_MAX_BYTES + 1
       })
-    ).toEqual({ kind: "size", maxBytes: ATTACHMENT_MAX_BYTES })
+    ).toEqual(
+      Attachments.AttachmentValidationError.size({
+        maxBytes: ATTACHMENT_MAX_BYTES
+      })
+    )
   })
 
   it("gives video its own, larger cap", () => {
@@ -90,7 +102,11 @@ describe("validateUploadRequest", () => {
         contentType: "video/mp4",
         byteSize: ATTACHMENT_VIDEO_MAX_BYTES + 1
       })
-    ).toEqual({ kind: "size", maxBytes: ATTACHMENT_VIDEO_MAX_BYTES })
+    ).toEqual(
+      Attachments.AttachmentValidationError.size({
+        maxBytes: ATTACHMENT_VIDEO_MAX_BYTES
+      })
+    )
   })
 
   it("accepts a file exactly at the cap", () => {
@@ -108,7 +124,11 @@ describe("validateUploadRequest", () => {
         contentType: "image/png",
         byteSize: 0
       })
-    ).toEqual({ kind: "size", maxBytes: ATTACHMENT_MAX_BYTES })
+    ).toEqual(
+      Attachments.AttachmentValidationError.size({
+        maxBytes: ATTACHMENT_MAX_BYTES
+      })
+    )
   })
 
   it("checks the type before the size", () => {
@@ -117,7 +137,11 @@ describe("validateUploadRequest", () => {
         contentType: "image/svg+xml",
         byteSize: ATTACHMENT_MAX_BYTES + 1
       })
-    ).toEqual({ kind: "type", contentType: "image/svg+xml" })
+    ).toEqual(
+      Attachments.AttachmentValidationError.type({
+        contentType: "image/svg+xml"
+      })
+    )
   })
 
   it("tolerates a content type with parameters", () => {

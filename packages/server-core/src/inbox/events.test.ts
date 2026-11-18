@@ -14,7 +14,12 @@ import {
   type CommentBlock
 } from "../comments/comments-region"
 import type { SubscriptionSource } from "../subscriptions/intents"
-import { inboxNotices, stageInbox, type InboxInput } from "./events"
+import {
+  InboxNotice,
+  inboxNotices,
+  stageInbox,
+  type InboxInput
+} from "./events"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const status = Schema.decodeUnknownSync(TicketStatus)
@@ -178,7 +183,7 @@ describe("stageInbox", () => {
     expect(
       stageInbox({
         ...base,
-        notices: [{ kind: "commented", authorId: "ann", commentId: "c1" }]
+        notices: [InboxNotice.commented({ authorId: "ann", commentId: "c1" })]
       })
     ).toMatchObject({
       subscribers: [{ kind: "commented", commentId: "c1" }],
@@ -200,14 +205,14 @@ describe("inboxNotices", () => {
         ])
       })
     ).toEqual([
-      { kind: "commented", authorId: "carl", commentId: "c2" },
-      { kind: "mentioned", userId: "bob", commentId: "c2" }
+      InboxNotice.commented({ authorId: "carl", commentId: "c2" }),
+      InboxNotice.mentioned({ userId: "bob", commentId: "c2" })
     ])
   })
 
   it("assigns the people on a new ticket", () => {
     expect(
       inboxNotices(null, { ...source, assignees: [userId("bob")] })
-    ).toEqual([{ kind: "assigned", userId: "bob" }])
+    ).toEqual([InboxNotice.assigned({ userId: "bob" })])
   })
 })

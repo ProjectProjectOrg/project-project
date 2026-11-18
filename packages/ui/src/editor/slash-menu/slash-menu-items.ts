@@ -8,6 +8,7 @@ import {
   type TypeKey,
   TicketBlockSegment
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
 import {
   BASIC_BLOCK_KINDS,
@@ -35,15 +36,16 @@ const BASIC_ALIASES: Record<BasicBlockKind, ReadonlyArray<string>> = {
   hint: ["placeholder", "prompt"]
 }
 
-export type SlashItem =
-  | Readonly<{
-      kind: "block"
-      key: string
-      definition: BlockDefinition
-      suggestedBy: string | null
-    }>
-  | Readonly<{ kind: "basic"; key: string; basic: BasicBlockKind }>
-  | Readonly<{ kind: "gallery"; key: string }>
+export type SlashItem = Data.TaggedEnum<{
+  block: {
+    readonly key: string
+    readonly definition: BlockDefinition
+    readonly suggestedBy: string | null
+  }
+  basic: { readonly key: string; readonly basic: BasicBlockKind }
+  gallery: { readonly key: string }
+}>
+export const SlashItem = Data.taggedEnum<SlashItem>()
 
 export type SlashSectionKey = "suggested" | "blocks" | "basic"
 
@@ -129,18 +131,17 @@ const suggestedDefinitions = (
 const suggestedItems = (input: SlashMenuInput) =>
   input.query !== ""
     ? []
-    : suggestedDefinitions(input).map<SlashItem>(({ definition, by }) => ({
-        kind: "block",
-        key: `suggested:${definition.key}`,
-        definition,
-        suggestedBy: by
-      }))
+    : suggestedDefinitions(input).map(({ definition, by }) =>
+        SlashItem.block({
+          key: `suggested:${definition.key}`,
+          definition,
+          suggestedBy: by
+        })
+      )
 
 const blockItems = (input: SlashMenuInput) => {
   const suggested = new Set(
-    suggestedItems(input).flatMap((item) =>
-      item.kind === "block" ? [item.definition.key] : []
-    )
+    suggestedItems(input).map((item) => item.definition.key)
   )
   return visibleBlocks(input.library).flatMap<SlashItem>((definition) =>
     !suggested.has(definition.key) &&
@@ -150,12 +151,11 @@ const blockItems = (input: SlashMenuInput) => {
       definition.description
     ])
       ? [
-          {
-            kind: "block",
+          SlashItem.block({
             key: `block:${definition.key}`,
             definition,
             suggestedBy: null
-          }
+          })
         ]
       : []
   )
@@ -193,7 +193,7 @@ const basicItems = (input: SlashMenuInput) =>
       basic,
       ...BASIC_ALIASES[basic]
     ])
-      ? [{ kind: "basic", key: `basic:${basic}`, basic }]
+      ? [SlashItem.basic({ key: `basic:${basic}`, basic })]
       : []
   )
 
@@ -210,7 +210,7 @@ const TAB_SECTIONS: Record<SlashTab, ReadonlyArray<SlashSectionKey>> = {
   markdown: ["basic"]
 }
 
-const GALLERY_ITEM: SlashItem = { kind: "gallery", key: "gallery:block" }
+const GALLERY_ITEM = SlashItem.gallery({ key: "gallery:block" })
 
 export const slashMenuSections = (input: SlashMenuInput) =>
   (
@@ -240,18 +240,12 @@ const libraryIsEmpty = (library: Library, section: SlashSectionKey) =>
 const namedByQuery = (input: SlashMenuInput, item: SlashItem) => {
   const needle = input.query.toLowerCase()
   const starts = (text: string) => text.toLowerCase().startsWith(needle)
-  switch (item.kind) {
-    case "block":
-      return starts(item.definition.name)
-    case "basic":
-      return [
-        input.basicLabel(item.basic),
-        item.basic,
-        ...BASIC_ALIASES[item.basic]
-      ].some(starts)
-    case "gallery":
-      return false
-  }
+  return SlashItem.$match(item, {
+    block: ({ definition }) => starts(definition.name),
+    basic: ({ basic }) =>
+      [input.basicLabel(basic), basic, ...BASIC_ALIASES[basic]].some(starts),
+    gallery: () => false
+  })
 }
 
 const rankedByQuery = (
@@ -297,7 +291,8 @@ const tabSections = (
 const countOf = (sections: ReadonlyArray<SlashSection>) =>
   sections.reduce(
     (total, section) =>
-      total + section.items.filter((item) => item.kind !== "gallery").length,
+      total +
+      section.items.filter((item) => !SlashItem.$is("gallery")(item)).length,
     0
   )
 

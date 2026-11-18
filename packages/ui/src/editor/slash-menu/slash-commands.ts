@@ -16,7 +16,7 @@ import { $insertBasicBlock } from "../../editor/basic-blocks"
 import { $insertBlocksAt } from "../blocks/block-commands"
 import type { EditorBlocksMode } from "../blocks/editor-blocks"
 import { m } from "../messages"
-import type { SlashItem } from "./slash-menu-items"
+import { SlashItem } from "./slash-menu-items"
 
 export function $typeSlashTrigger() {
   const current = $getSelection()
@@ -51,22 +51,15 @@ export function $runSlashItem(
     mode?: EditorBlocksMode
   }>
 ) {
-  switch (item.kind) {
-    case "block":
+  SlashItem.$match(item, {
+    block: ({ definition }) =>
       $insertBlocksAt(
-        blockMarkdown(
-          item.definition,
-          context.detach,
-          context.mode ?? "ticket"
-        ),
+        blockMarkdown(definition, context.detach, context.mode ?? "ticket"),
         context.transformers,
         context.lookup
-      )
-      return
-    case "basic":
-      $insertBasicBlock(editor, item.basic, m.editor_slash_hint_placeholder())
-      return
-    case "gallery":
-      return
-  }
+      ),
+    basic: ({ basic }) =>
+      $insertBasicBlock(editor, basic, m.editor_slash_hint_placeholder()),
+    gallery: () => undefined
+  })
 }

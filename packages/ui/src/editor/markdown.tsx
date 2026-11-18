@@ -41,7 +41,11 @@ import {
   SyncedChip,
   syncedChipLabel
 } from "./blocks/synced-block"
-import { splitLeadingHeading, syncedView } from "./blocks/synced-content"
+import {
+  splitLeadingHeading,
+  SyncedView,
+  syncedView
+} from "./blocks/synced-content"
 import { previewableUrl } from "./links/link-preview-url"
 import { PreviewLink } from "./links/preview-link"
 import { FigmaTargetContext, MarkdownFigma } from "./markdown-figma"
@@ -190,7 +194,7 @@ function SyncedMarkdownBlock({
 }: Readonly<{ blockType: string; snapshot: string; morphId: string }>) {
   const lookup = useBlockLookup()
   const view = syncedView(lookup, blockType, snapshot, "synced")
-  if (view.kind === "removed") {
+  if (SyncedView.$is("removed")(view)) {
     const { heading, rest } = splitLeadingHeading(view.content)
     return (
       <BlockFrame blockType={blockType}>

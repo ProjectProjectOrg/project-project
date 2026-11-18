@@ -1,3 +1,4 @@
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import {
   HttpRouter,
@@ -10,25 +11,27 @@ import { ToolCaller } from "../tools/ToolCaller"
 import { bearerVerifier } from "./BearerAuth"
 import { bearerChallenge, resourceChallenge } from "./resourceChallenge"
 
-export type AuthRejection =
-  | Readonly<{
-      kind: "unauthorized"
-      status: number
-      message: string
-      wwwAuthenticate: string
-    }>
-  | Readonly<{ kind: "banned" }>
+export type AuthRejection = Data.TaggedEnum<{
+  unauthorized: {
+    readonly status: number
+    readonly message: string
+    readonly wwwAuthenticate: string
+  }
+  banned: {}
+}>
+export const AuthRejection = Data.taggedEnum<AuthRejection>()
 
 export const callerAuthMiddleware = (
   resource: string,
   respond: (rejection: AuthRejection) => HttpServerResponse.HttpServerResponse
 ) => {
-  const unauthorized = respond({
-    kind: "unauthorized",
-    status: 401,
-    message: "Unauthorized",
-    wwwAuthenticate: bearerChallenge(resource)
-  })
+  const unauthorized = respond(
+    AuthRejection.unauthorized({
+      status: 401,
+      message: "Unauthorized",
+      wwwAuthenticate: bearerChallenge(resource)
+    })
+  )
   const rejected = (cause: unknown) =>
     Effect.flatMap(
       resourceChallenge(cause, resource),
@@ -39,7 +42,7 @@ export const callerAuthMiddleware = (
             cause
           ).pipe(Effect.andThen(Effect.die(cause))),
         onSome: (found) =>
-          Effect.succeed(respond({ kind: "unauthorized", ...found }))
+          Effect.succeed(respond(AuthRejection.unauthorized(found)))
       })
     )
   return HttpRouter.middleware(
@@ -57,7 +60,7 @@ export const callerAuthMiddleware = (
             TokenRejected: (e) => rejected(e.cause),
             InvalidAccessToken: () => Effect.succeed(unauthorized),
             ConsentRevoked: () => Effect.succeed(unauthorized),
-            UserBanned: () => Effect.succeed(respond({ kind: "banned" }))
+            UserBanned: () => Effect.succeed(respond(AuthRejection.banned()))
           })
         )
     })

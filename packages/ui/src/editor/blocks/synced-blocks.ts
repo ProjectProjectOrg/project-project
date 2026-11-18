@@ -17,7 +17,7 @@ import {
   DETACH_SYNCED_BLOCK_COMMAND,
   SyncedBlockNode
 } from "./synced-block-node"
-import { syncedView } from "./synced-content"
+import { SyncedView, syncedView } from "./synced-content"
 import { $createTicketBlockNode } from "./ticket-block-node"
 
 export function $detachSyncedBlock(
@@ -61,7 +61,7 @@ export function registerSyncedBlocks(
         node.getSnapshot(),
         node.getMode()
       )
-      if (view.kind === "removed") {
+      if (SyncedView.$is("removed")(view)) {
         onSourceRemoved($copyRemovedSource(node, transformers).getKey())
         return
       }

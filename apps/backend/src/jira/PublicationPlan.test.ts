@@ -4,7 +4,10 @@ import type {
   JiraMigrationManifest
 } from "@pp/integration-jira/Manifest"
 import { JiraMigrationManifestV2 } from "@pp/integration-jira/Manifest"
-import { JiraMigrationMappings } from "@pp/integration-jira/Mappings"
+import {
+  JiraIdentityResolution,
+  JiraMigrationMappings
+} from "@pp/integration-jira/Mappings"
 import type * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import type { JiraPreflightResult } from "@pp/integration-jira/Preflight"
 import {
@@ -17,6 +20,7 @@ import {
 import {
   createJiraPublicationPlan,
   createJiraReferenceTargets,
+  JiraPublicationPlanResult,
   rewriteJiraPublicationText
 } from "@pp/integration-jira/PublicationPlan"
 import {
@@ -219,11 +223,11 @@ const mappings = () =>
     identities: [
       {
         sourceAccountId: "account-linked",
-        resolution: { kind: "link", userId: "user-1" }
+        resolution: JiraIdentityResolution.cases.link.make({ userId: "user-1" })
       },
       {
         sourceAccountId: "account-unlinked",
-        resolution: { kind: "unlinked" }
+        resolution: JiraIdentityResolution.cases.unlinked.make({})
       }
     ],
     statuses: [{ sourceStatusId: "status-1", destinationStatusSlug: "done" }],
@@ -361,8 +365,8 @@ describe("createJiraPublicationPlan", () => {
       { "attachment-1": "/api/orgs/acme/attachments/A1" }
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.visibility).toBe("hidden")
     expect(result.plan.archivePath).toBe("imports/jira/migration-1")
     expect(result.plan.createdStatuses).toEqual([])
@@ -430,11 +434,15 @@ describe("createJiraPublicationPlan", () => {
         identities: [
           {
             sourceAccountId: "account-linked",
-            resolution: { kind: "link", userId: "user-1" }
+            resolution: JiraIdentityResolution.cases.link.make({
+              userId: "user-1"
+            })
           },
           {
             sourceAccountId: "account-unlinked",
-            resolution: { kind: "invite", email: "former@example.com" }
+            resolution: JiraIdentityResolution.cases.invite.make({
+              email: "former@example.com"
+            })
           }
         ]
       },
@@ -442,8 +450,8 @@ describe("createJiraPublicationPlan", () => {
       { "attachment-1": "/api/orgs/acme/attachments/A1" }
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.invites).toEqual([
       {
         email: "former@example.com",
@@ -482,7 +490,9 @@ describe("createJiraPublicationPlan", () => {
       {}
     )
 
-    expect(result).toEqual({ kind: "blocked", blockers: [blocker] })
+    expect(result).toEqual(
+      JiraPublicationPlanResult.blocked({ blockers: [blocker] })
+    )
   })
 
   it("deduplicates identical created status descriptors deterministically", () => {
@@ -530,8 +540,8 @@ describe("createJiraPublicationPlan", () => {
       {}
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.createdStatuses).toHaveLength(1)
     expect(result.plan.createdStatuses[0]).toMatchObject({
       slug: "qa_review",
@@ -580,8 +590,8 @@ describe("createJiraPublicationPlan", () => {
       { "attachment-1": "/api/orgs/acme/attachments/A1" }
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1"])
     expect(result.plan.tags.map(({ name }) => name)).not.toContain(
       "secret-label"

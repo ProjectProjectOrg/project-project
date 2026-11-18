@@ -14,6 +14,7 @@ import {
   buildJiraStatusCreateOptions,
   buildTagCandidates,
   findTagCollisions,
+  JiraIdentityResolution,
   resolveTagDestinations,
   skippedTagKeys,
   type JiraMappingSource,
@@ -114,7 +115,7 @@ export function preflightJiraMigration(
     if (!decision) {
       addFinding(blockers, "missing-identity-decision", identity.accountId)
     } else if (
-      decision.resolution.kind === "link" &&
+      JiraIdentityResolution.guards.link(decision.resolution) &&
       !environment.existingUserIds.includes(decision.resolution.userId)
     ) {
       addFinding(

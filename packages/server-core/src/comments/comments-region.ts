@@ -2,6 +2,7 @@ import { type CommentOrigin, ImportedAuthor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
@@ -122,20 +123,12 @@ const blockAuthor = (author: (typeof CommentBlockData.Type)["author"]) => {
 const decodeUnknownCommentBlockDataOption =
   Schema.decodeUnknownOption(CommentBlockData)
 
-export type ValidationResult =
-  | Readonly<{ ok: true }>
-  | Readonly<{ ok: false; reason: string }>
+const invalidBody = (reason: string) => Result.fail(reason)
 
 export function validateCommentBody(body: string) {
-  if (!body.trim())
-    return { ok: false, reason: "empty" } satisfies ValidationResult
-  if (FORBIDDEN_BODY.test(body)) {
-    return {
-      ok: false,
-      reason: "contains_marker_pattern"
-    } satisfies ValidationResult
-  }
-  return { ok: true } satisfies ValidationResult
+  if (!body.trim()) return invalidBody("empty")
+  if (FORBIDDEN_BODY.test(body)) return invalidBody("contains_marker_pattern")
+  return Result.succeed(body)
 }
 
 export function splitDescriptionAndCommentsRegion(full: string) {
