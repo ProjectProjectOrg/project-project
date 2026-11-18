@@ -1,7 +1,7 @@
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { Activity, useEffect, useMemo, useState } from "react"
+import { Activity, useDeferredValue, useEffect, useMemo, useState } from "react"
 
 import {
   useProject,
@@ -112,18 +112,16 @@ export function RetainedProjectViews() {
     navigate,
     router
   ])
-  const backlogView = useProjectView(
-    orgSlug,
-    slug,
-    lastBacklog?.view,
-    "backlog"
-  ).view
-  const sprintView = useProjectView(
-    orgSlug,
-    slug,
-    lastSprint?.search.view,
-    "sprints"
-  ).view
+  // The stored view updates synchronously (it's an external store), which
+  // rendered the whole new list or board inside the click. Deferred, the
+  // switcher answers in the click's own frame and the view renders after it
+  // without blocking a paint.
+  const backlogView = useDeferredValue(
+    useProjectView(orgSlug, slug, lastBacklog?.view, "backlog").view
+  )
+  const sprintView = useDeferredValue(
+    useProjectView(orgSlug, slug, lastSprint?.search.view, "sprints").view
+  )
   const boardActive = (sprint ? sprintView : backlogView) === "board"
   const querySearch = (
     query: TicketListQuery,
