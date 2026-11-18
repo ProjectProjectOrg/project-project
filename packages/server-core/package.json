@@ -7,7 +7,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "vitest run --no-file-parallelism",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix"

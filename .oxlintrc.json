@@ -17,6 +17,10 @@
     {
       "name": "anti-slop-effect",
       "specifier": "./tools/oxlint/anti-slop/effect/index.ts"
+    },
+    {
+      "name": "landmines-testing",
+      "specifier": "@interfere/landmines/testing"
     }
   ],
   "options": {
@@ -244,6 +248,26 @@
       "rules": {
         "vitest/require-to-throw-message": "off",
         "vitest/valid-expect": "off",
+        "landmines-testing/no-fixed-sleep": [
+          "error",
+          {
+            "allow": {
+              "packages/integration-slack/src/socketMode.test.ts": 1
+            }
+          }
+        ],
+        "landmines-testing/no-flake-masking": [
+          "error",
+          {
+            "allow": {
+              "apps/backend/scripts/agent/migration.test.ts": 2,
+              "apps/backend/src/jira/Migrations.commands.test.ts": 15,
+              "apps/backend/src/jira/WorkflowRestart.postgres.test.ts": 1,
+              "apps/backend/src/slack/Slack.postgres.test.ts": 3,
+              "packages/integration-slack/src/socketMode.test.ts": 1
+            }
+          }
+        ],
         "eslint/no-restricted-imports": [
           "error",
           {
