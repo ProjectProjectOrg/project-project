@@ -31,7 +31,8 @@ import { spring, transitions } from "@pp/ui/lib/springs"
 
 | Timing | Duration | For |
 | --- | --- | --- |
-| `spring.fast` | 80ms, exits in 60 | Highlights following the pointer or keys (menus, hover highlight), slider thumbs |
+| `spring.snap` | 50ms | The menu row highlight, which follows the pointer through rows and trails behind it at anything slower |
+| `spring.fast` | 80ms, exits in 60 | Highlights following the pointer or keys (list and sidebar hover highlight), slider thumbs |
 | `spring.moderate` | 160ms, exits in 120 | Bars and panels changing size (progress, the command menu, merge and split) |
 | `spring.slow` | 240ms, slight bounce | The rare large move that may feel physical (a multi-step flow's panels) |
 | `transitions.fade` | 150ms | Opacity |

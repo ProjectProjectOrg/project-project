@@ -195,7 +195,7 @@ There is no chromatic brand primary. The visual "primary" is **foreground** — 
 A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled treatment lives here.
 
 - **Card** (`oklch(1 0 0)` / `oklch(0.205 0 0)` dark): raised content surface.
-- **Popover** (same as Card): floating surface under menus and pickers. Every popup shares `popupSurfaceClass` (card fill, 60% hairline, no shadow, 19px squircle corners).
+- **Popover** (same as Card): the `--popover` token. Floating panels no longer use it: every popup shares `popupSurfaceClass` (the tooltip's raised skin: `--tooltip` fill, `--tooltip-edge` hairline and top light, no shadow, 19px squircle corners), like hover cards and tooltips.
 - **Muted** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): wells and placeholders, one clear step off the page in both themes.
 - **Muted Foreground** (`oklch(0.5 0 0)` / `oklch(0.708 0 0)` dark): secondary text, icon strokes at rest, placeholder text. Holds 4.5:1 on every surface, pressed rows included (lowest: 4.6:1 on the light frame under `--active`).
 - **Accent** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): the active item in a rail or sidebar. Not a hover fill — hover uses the overlays below.
@@ -285,7 +285,7 @@ The system is **flat by default**. No decorative drop shadows on rectangles, no 
 
 1. **Tonal layering.** Three layers, in the same order in both themes: the frame (`--background`), the page one step up (`--page`), and cards, popups and fields above it (`--card`, `--field`). Light: `0.955 → 0.982 → white`. Dark: `0.145 → 0.219`, with cards at `0.205`. The steps are small on purpose.
 2. **Hairline borders.** A single 1px `--border` separates surfaces that share tone.
-3. **No shadows on popups.** Popovers, dropdowns, selects, context menus and hover cards share `popupSurfaceClass`: card fill plus the 60% hairline, nothing else. The hairline and the tonal step separate them from the page.
+3. **No shadows on popups.** Popovers, dropdowns, selects, context menus, hover cards and tooltips share the tooltip's raised skin (`--tooltip` fill, `--tooltip-edge` hairline and top light; `popupSurfaceClass` for click-opened panels). The hairline and the tonal step separate them from the page.
 
 ### The surface ladder
 
@@ -314,7 +314,7 @@ Components that **elevate** read the surface level they sit on instead of hard-c
 - **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a white card: a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
 - **Dragged list row:** substrate + 1 while it is being dragged.
-- **Menus and popovers** keep `--card` with the 60% hairline (`popupSurfaceClass`) and no shadow. A deliberate choice: the card fill reads better here than a substrate + 2 lift.
+- **Popovers and menus** use the tooltip's raised skin (`popupSurfaceClass`: `--tooltip`, `--tooltip-edge`), like hover cards, so everything that floats reads as one family. A popup opened from inside another (a select in View options) steps up to `--tooltip-raised` (`oklch(0.33 0 0)` in dark; light stays white and relies on the edge), so it floats above its parent instead of reading as a cut-out of it.
 
 Everything that only changes state on hover or press uses the overlays instead and needs no surface level.
 

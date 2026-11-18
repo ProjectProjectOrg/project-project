@@ -188,6 +188,20 @@
   --tooltip: oklch(1 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(0 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 70%);
+  /* A menu row's highlight and checked fill on the tooltip skin. In light
+     they match --hover and --active; dark lifts them, since the raised
+     fill swallows a 4% tint. */
+  --menu-hover: var(--hover);
+  --menu-active: var(--active);
+  /* A popup opened from inside another popup (a select in a popover) steps
+     one level up, so it floats above the surface it came from instead of
+     reading as a cut-out of it. Light mode is already white: the edge
+     carries it there. */
+  --tooltip-raised: var(--tooltip);
+  /* A menu row's text at rest. Light keeps it muted; dark lifts it between
+     muted and the foreground, since grey on the raised fill reads washed
+     out. Highlighted rows take the full foreground. */
+  --menu-foreground: var(--muted-foreground);
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
@@ -339,6 +353,10 @@
   --tooltip: oklch(0.29 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(1 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 7%);
+  --menu-hover: rgb(255 255 255 / 0.08);
+  --menu-active: rgb(255 255 255 / 0.13);
+  --tooltip-raised: oklch(0.33 0 0);
+  --menu-foreground: oklch(0.86 0 0);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
@@ -425,6 +443,8 @@
   --color-rail: var(--rail);
   --color-field: var(--field);
   --color-active: var(--active);
+  --color-menu-hover: var(--menu-hover);
+  --color-menu-active: var(--menu-active);
   --color-tint: var(--tint);
   --color-tint-hover: var(--tint-hover);
   --color-background: var(--background);
@@ -548,23 +568,6 @@
       var(--theme-clip-radius, 150vmax) at var(--theme-clip-x, 50%)
         var(--theme-clip-y, 50%)
     );
-  }
-}
-
-/* Base UI leaves a few frames with no submenu between rows: hold the closing one up to 50ms, until the next is placed. */
-[data-slot="dropdown-menu-sub-content"][data-closed] {
-  animation: submenu-hold 50ms steps(1, end);
-}
-:root:has(
-    [data-slot="dropdown-menu-sub-positioner"]:not([style*="opacity: 0"])
-      > [data-open]
-  )
-  [data-slot="dropdown-menu-sub-content"][data-closed] {
-  visibility: hidden;
-}
-@keyframes submenu-hold {
-  to {
-    opacity: 1;
   }
 }
 
@@ -937,11 +940,11 @@
 }
 
 /* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
-   Hover and press match the buttons: plain rows take the ghost button's
-   --hover, then --active while pressed; destructive rows the destructive
-   button's fill, then its hover mix. */
+   Plain rows take --menu-hover, then --menu-active while pressed (the
+   ghost button's fills, lifted in dark for the tooltip skin); destructive
+   rows the destructive button's fill, then its hover mix. */
 [data-slot="menu-highlight"] {
-  background-color: var(--hover);
+  background-color: var(--menu-hover);
   transition: background-color 80ms var(--ease-standard);
 }
 [data-slot="menu-highlight"][data-tone="destructive"] {
@@ -949,7 +952,7 @@
 }
 [data-menu-highlight-host]:has([data-highlighted]:active)
   [data-slot="menu-highlight"] {
-  background-color: var(--active);
+  background-color: var(--menu-active);
 }
 [data-menu-highlight-host]:has([data-highlighted]:active)
   [data-slot="menu-highlight"][data-tone="destructive"] {

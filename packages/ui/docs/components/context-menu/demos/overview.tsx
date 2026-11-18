@@ -67,7 +67,7 @@ export default function Overview() {
       >
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-1 top-1 block h-[34px] translate-y-px rounded-md bg-hover"
+          className="pointer-events-none absolute inset-x-[5px] top-[5px] block h-[34px] translate-y-px rounded-md bg-menu-hover"
         />
         <div data-highlighted="" className={cn(menuItemClass, "relative")}>
           <Plus strokeWidth={1.75} />

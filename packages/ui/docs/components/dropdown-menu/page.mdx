@@ -150,6 +150,14 @@ A row's shortcut is `DropdownMenuShortcut keys="…"`: small Kbd keys (⌘ ⇧ �
 
 A menu whose first row is a choice (a status picker, a priority submenu) is a picker: with nothing hovered, the highlight rests on the checked row, and a keyboard open starts there too, so arrow keys step on from the current value. An action menu with a few choices further down starts at its top like any other menu.
 
+### Rows are lit in dark mode
+
+A row's text at rest is `--menu-foreground`: in dark it sits between the muted grey and the foreground (`oklch(0.86 0 0)`), because grey on the raised menu fill read washed out and full white was too loud; light keeps it muted. The highlighted row takes the full foreground. Icons stay muted until the row is highlighted. A destructive row is red in both themes.
+
+### Submenus open at once and fade out
+
+A submenu opens the moment the pointer reaches its row (`delay={0}`), and a closing one fades out over 80ms. Base UI keeps a popup mounted until its exit transition ends, so moving from one submenu row to the next never shows a frame without a submenu: the next one is already open while the last one fades. Escape and keyboard closes skip the fade (`data-instant`). The highlight glides between rows on `spring.snap` (50ms) so it never trails the pointer.
+
 ### A pick closes the menu as it was
 
 A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its way out: the menu fades out showing the selection it opened with, and the new value shows on the page. A selection changing inside a menu that is leaving reads as two events at once. The next open shows the new value. Escape and an outside click close the same way.
