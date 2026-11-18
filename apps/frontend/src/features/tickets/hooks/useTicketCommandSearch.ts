@@ -32,19 +32,12 @@ const RECENT_LIMIT = 6
 const PROJECT_BONUS = 20
 const TITLE_LIMIT = 20
 const TEXT_SEARCH_MIN = 3
-const SEARCHING_DELAY_MS = 120
 const TEXT_SEARCH_WAIT_MS = 150
 
 export type TicketCommandSearch = Readonly<{
   recent: ReadonlyArray<TicketTarget>
   found: ReadonlyArray<TicketTarget>
-  searching: boolean
 }>
-
-function useDelayedFlag(on: boolean, wait: number) {
-  const [settled] = useDebouncedValue(on, { wait })
-  return on && settled
-}
 
 const titleScore = (
   ticket: Readonly<{ id: string; title: string }>,
@@ -107,14 +100,8 @@ export function useTicketCommandSearch(
     !current &&
     shownText.query !== "" &&
     (query.startsWith(shownText.query) || shownText.query.startsWith(query))
-  const failed =
-    textSearch && debounced === query && Result.isFailure(textResult)
   const textHits = current || held ? shownText.hits : []
-  const searching = useDelayedFlag(
-    textQuery && !current && !held && !failed,
-    SEARCHING_DELAY_MS
-  )
-  if (query === "") return { recent: [], found: [], searching: false }
+  if (query === "") return { recent: [], found: [] }
 
   const recent = (
     Result.isSuccess(recentResult) ? recentResult.value.tickets : []
@@ -134,7 +121,7 @@ export function useTicketCommandSearch(
           ]
     })
     .slice(0, RECENT_LIMIT)
-  if (projectSlug === null) return { recent, found: [], searching: false }
+  if (projectSlug === null) return { recent, found: [] }
 
   const titles = titleMatches(
     Result.isSuccess(titlesResult) ? titlesResult.value : [],
@@ -154,5 +141,5 @@ export function useTicketCommandSearch(
     seen.add(value)
     return true
   })
-  return { recent, found, searching }
+  return { recent, found }
 }

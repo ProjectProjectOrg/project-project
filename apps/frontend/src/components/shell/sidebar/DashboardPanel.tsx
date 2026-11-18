@@ -62,7 +62,7 @@ function OrgSettingsRow({ orgSlug }: Readonly<{ orgSlug: string }>) {
       render={
         <Link
           activeOptions={{ exact: true, includeSearch: false }}
-          to="/orgs/$orgSlug/settings"
+          to="/settings/orgs/$orgSlug"
           params={{ orgSlug }}
         />
       }

@@ -27,33 +27,6 @@ const openExternal = (url: string) => {
 }
 
 export const gitCommands: ReadonlyArray<Command> = [
-  Command.page({
-    id: "git.register-app",
-    group: "settings",
-    label: m.github_command_register_app,
-    parent: m.chrome_command_menu_settings_parent_org,
-    icon: GitBranch,
-    keywords: ["github", "app", "registration", "credentials", "setup"],
-    when: ({ orgActor }) => orgActor.call("projects", "startGithubAppManifest"),
-    page: "githubRegisterApp"
-  }),
-  Command.page({
-    id: "git.connect-installation",
-    group: "settings",
-    label: m.github_apps_install_button,
-    parent: m.chrome_command_menu_settings_parent_org,
-    icon: GitBranch,
-    keywords: [
-      "github",
-      "app",
-      "installation",
-      "account",
-      "organization",
-      "repository access"
-    ],
-    when: ({ orgActor }) => orgActor.call("projects", "startGithubInstall"),
-    page: "githubInstallApp"
-  }),
   Command.run({
     id: "git.connect-repo",
     group: "settings",
@@ -65,7 +38,7 @@ export const gitCommands: ReadonlyArray<Command> = [
       projectActor?.call("projects", "connectGithub") === true,
     run: ({ orgSlug, projectSlug }, env) => {
       env.navigate(
-        `/orgs/${orgSlug}/projects/${projectSlug ?? ""}/settings/integrations`
+        `/settings/orgs/${orgSlug}/projects/${projectSlug ?? ""}/integrations`
       )
       env.close()
     }

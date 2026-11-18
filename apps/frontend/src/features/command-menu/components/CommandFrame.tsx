@@ -39,7 +39,7 @@ import {
 export type CommandFrameItem = CommandMenuItemData &
   Readonly<{
     keywords?: ReadonlyArray<string>
-    parent?: string
+    parent?: ReadonlyArray<string>
     prefix?: string
     aside?: ReactNode
     searchOnly?: boolean

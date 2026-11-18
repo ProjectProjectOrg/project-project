@@ -5,7 +5,11 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
-import { orgActor, orgRequest } from "@/features/organizations/atoms/orgs"
+import {
+  orgActor,
+  orgDetail,
+  orgRequest
+} from "@/features/organizations/atoms/orgs"
 import {
   project,
   projectActor,
@@ -103,6 +107,7 @@ export const commandContext = Atom.family((key: CommandContextKey) =>
           )
     return {
       orgSlug,
+      orgName: success(get(orgDetail(orgRequest(orgSlug))))?.name ?? null,
       orgActor: org,
       projectSlug,
       ticket,

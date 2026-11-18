@@ -149,7 +149,9 @@ export const makeSlackDelivery = Effect.gen(function* () {
         "status" in event
           ? ticketLink(baseUrl, row.orgSlug, row.slug, event.id)
           : new URL(
-              `/orgs/${row.orgSlug}/projects/${row.slug}${event.kind === "test" ? "/settings/integrations" : `/sprints/${event.id}`}`,
+              event.kind === "test"
+                ? `/settings/orgs/${row.orgSlug}/projects/${row.slug}/integrations`
+                : `/orgs/${row.orgSlug}/projects/${row.slug}/sprints/${event.id}`,
               baseUrl
             ).toString()
       const outcome = yield* Effect.gen(function* () {

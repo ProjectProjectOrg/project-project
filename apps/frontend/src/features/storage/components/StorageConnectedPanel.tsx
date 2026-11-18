@@ -55,7 +55,7 @@ export function StorageConnectedPanel({
                 size="sm"
                 render={
                   <Link
-                    to="/orgs/$orgSlug/settings/integrations/storage/files"
+                    to="/settings/orgs/$orgSlug/integrations/storage/files"
                     params={{ orgSlug }}
                   />
                 }

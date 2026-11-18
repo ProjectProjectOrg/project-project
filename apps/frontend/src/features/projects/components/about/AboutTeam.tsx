@@ -18,7 +18,7 @@ export function AboutTeam({
 }: Readonly<Pick<ProjectDetail, "members" | "pendingMembers">>) {
   const { orgSlug, slug } = useProjectRoute()
   const team = {
-    to: "/orgs/$orgSlug/projects/$slug/settings/team",
+    to: "/settings/orgs/$orgSlug/projects/$slug/team",
     params: { orgSlug, slug }
   } as const
   const hidden = members.length - VISIBLE_MEMBERS

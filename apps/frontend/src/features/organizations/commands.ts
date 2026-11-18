@@ -27,8 +27,8 @@ export const organizationCommands: ReadonlyArray<Command> = [
     run: ({ orgSlug, routeProjectSlug }, env) => {
       env.navigate(
         routeProjectSlug === null
-          ? `/orgs/${orgSlug}/settings`
-          : `/orgs/${orgSlug}/projects/${routeProjectSlug}/settings`
+          ? `/settings/orgs/${orgSlug}`
+          : `/settings/orgs/${orgSlug}/projects/${routeProjectSlug}`
       )
       env.close()
     }

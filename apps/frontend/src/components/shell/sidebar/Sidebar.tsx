@@ -23,7 +23,7 @@ import {
 } from "@/components/shell/sidebar/sidebarRoute"
 import { usePanelTransition } from "@/components/shell/sidebar/usePanelTransition"
 import { ProjectBannerWarmup } from "@/features/projects/components/ProjectBannerWarmup"
-import { useOrgProjects } from "@/features/projects/hooks/useOrgProjects"
+import { useScopedProject } from "@/features/projects/hooks/useScopedProject"
 
 export function Sidebar({ user }: Readonly<{ user: User }>) {
   return (
@@ -45,8 +45,23 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
   if (!isSettingsPath(location.pathname) && backHref !== location.href)
     setBackHref(location.href)
 
-  const projects = useOrgProjects(orgSlug)
-  const scope = sidebarScope(location.pathname, orgSlug, sprint)
+  // In settings the rail switches projects: the one the settings show is
+  // lit, and every tile opens its own project's settings.
+  const { project: settingsProject, projects } = useScopedProject(
+    orgSlug,
+    slug ?? null
+  )
+  const routeScope = sidebarScope(location.pathname, orgSlug, sprint)
+  const scope =
+    inSettings &&
+    !SidebarScope.$is("project")(routeScope) &&
+    settingsProject !== null
+      ? SidebarScope.project({
+          slug: settingsProject.slug,
+          route: { page: "settings", sub: null },
+          viewing: null
+        })
+      : routeScope
   const inProject = SidebarScope.$is("project")(scope) ? scope : null
   const project =
     inProject === null
@@ -89,6 +104,7 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
           <SettingsSidebar
             orgSlug={orgSlug}
             projectSlug={slug ?? null}
+            project={settingsProject}
             backHref={backHref}
           />
         ) : project !== undefined && orgSlug !== null && inProject !== null ? (

@@ -25,6 +25,7 @@ const decodeStatus = Schema.decodeSync(TicketStatus)
 
 const context: CommandContext = {
   orgSlug: "acme",
+  orgName: null,
   orgActor: OrgActor.none,
   projectActor: null,
   projectSlug: null,
@@ -142,8 +143,8 @@ describe("org.settings", () => {
       env
     )
     expect(navigate.mock.calls).toEqual([
-      ["/orgs/acme/settings"],
-      ["/orgs/acme/projects/web/settings"]
+      ["/settings/orgs/acme"],
+      ["/settings/orgs/acme/projects/web"]
     ])
   })
 })

@@ -27,7 +27,7 @@ import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/slack"
+  "/_authed/settings/orgs/$orgSlug/integrations/slack"
 )
 
 export function SlackIntegrationPage() {
@@ -130,7 +130,7 @@ function PersonalAccountRow({ orgSlug }: Readonly<{ orgSlug: string }>) {
           <Button
             variant="tertiary"
             size="sm"
-            render={<Link to="/profile/connections" />}
+            render={<Link to="/settings/profile/connections" />}
           >
             {m.org_integrations_personal_button()}
           </Button>

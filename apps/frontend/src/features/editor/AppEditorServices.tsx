@@ -107,7 +107,7 @@ export function AppEditorServices({
         navigate: (href) => void router.navigate({ href }),
         useMentionSearch,
         mentionHref: {
-          user: (scope) => `${projectPath(scope)}/settings/team`,
+          user: (scope) => `/settings${projectPath(scope)}/team`,
           ticket: (scope, ticketId) =>
             `${projectPath(scope)}/tickets/${encodeURIComponent(ticketId)}`
         },
@@ -126,19 +126,16 @@ export function AppEditorServices({
         useFigmaLinks,
         openBlockGallery: () => {
           const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
-          const search = { tab: "sections" as const }
           if (params.orgSlug === undefined) return
           if (params.slug === undefined)
             void router.navigate({
-              to: "/orgs/$orgSlug/settings/types",
-              params: { orgSlug: params.orgSlug },
-              search
+              to: "/settings/orgs/$orgSlug/types/sections",
+              params: { orgSlug: params.orgSlug }
             })
           else
             void router.navigate({
-              to: "/orgs/$orgSlug/projects/$slug/settings/types",
-              params: { orgSlug: params.orgSlug, slug: params.slug },
-              search
+              to: "/settings/orgs/$orgSlug/projects/$slug/types/sections",
+              params: { orgSlug: params.orgSlug, slug: params.slug }
             })
         },
         renderPdf

@@ -13,7 +13,7 @@ import {
   orgRequest
 } from "@/features/organizations/atoms/orgs"
 
-const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/members")
+const routeApi = getRouteApi("/_authed/settings/orgs/$orgSlug/members")
 
 export function OrgMembersSettings() {
   const { orgSlug } = routeApi.useParams()

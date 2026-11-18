@@ -69,9 +69,11 @@ export function ViewFilterCommandScope({
           id: `view.filter.${option.key}`,
           group: "view",
           listed: "search",
-          parent: option.chosen
-            ? m.tickets_command_filter_remove_parent
-            : m.tickets_command_filter_parent,
+          parent: () => [
+            option.chosen
+              ? m.tickets_command_filter_remove_parent()
+              : m.tickets_command_filter_parent()
+          ],
           label: () =>
             isValueDimension(option.choice.dimension)
               ? m.tickets_command_filter_value({

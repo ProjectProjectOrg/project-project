@@ -64,6 +64,7 @@ const contextFor = (
   const actor = ProjectActor.make(role.grants, "user-1")
   return {
     orgSlug: "acme",
+    orgName: null,
     projectSlug: "app",
     routeProjectSlug: "app",
     orgActor: OrgActor.make(Org.orgRoles[orgRole].grants),
@@ -104,12 +105,12 @@ describe("GitHub command permissions", () => {
     {
       orgRole: "owner",
       projectRole: null,
-      expected: ["git.register-app", "git.connect-installation"]
+      expected: []
     },
     {
       orgRole: "admin",
       projectRole: null,
-      expected: ["git.register-app", "git.connect-installation"]
+      expected: []
     },
     {
       orgRole: "member",

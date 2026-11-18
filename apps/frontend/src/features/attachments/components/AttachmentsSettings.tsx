@@ -8,7 +8,7 @@ import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/storage/files"
+  "/_authed/settings/orgs/$orgSlug/integrations/storage/files"
 )
 
 export function AttachmentsSettings() {

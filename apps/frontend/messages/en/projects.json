@@ -160,7 +160,6 @@
   "org_members_make_owner": "Make owner",
   "org_members_transfer_confirm_prompt": "Make {name} the owner? You'll become an admin.",
   "org_members_transfer_in_progress": "Transferring…",
-  "org_settings_crumb": "Settings",
   "org_settings_danger_heading": "Danger zone",
   "org_settings_general_description": "Manage your organization name and identity.",
   "org_settings_general_tab": "General",

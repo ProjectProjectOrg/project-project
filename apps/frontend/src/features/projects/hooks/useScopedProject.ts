@@ -12,10 +12,13 @@ import {
 
 const lastProjectCodec = createLocalStorageStringCodec(Schema.String)
 
-export function useScopedProject(orgSlug: string, routeSlug: string | null) {
+export function useScopedProject(
+  orgSlug: string | null,
+  routeSlug: string | null
+) {
   const viewerId = useAtomValue(currentUserId)
   const [lastSlug, setLastSlug] = useLocalStorageState(
-    `projectproject:sidebar-project:${viewerId ?? ""}:${orgSlug}`,
+    `projectproject:sidebar-project:${viewerId ?? ""}:${orgSlug ?? ""}`,
     lastProjectCodec,
     ""
   )

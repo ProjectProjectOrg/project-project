@@ -23,7 +23,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/figma"
+  "/_authed/settings/orgs/$orgSlug/integrations/figma"
 )
 
 export function FigmaIntegrationPage() {
@@ -74,7 +74,7 @@ export function FigmaIntegrationPage() {
               size="sm"
               render={
                 <Link
-                  to="/orgs/$orgSlug/settings/integrations/storage"
+                  to="/settings/orgs/$orgSlug/integrations/storage"
                   params={{ orgSlug }}
                 />
               }
@@ -96,7 +96,7 @@ export function FigmaIntegrationPage() {
             <Button
               variant="tertiary"
               size="sm"
-              render={<Link to="/profile/connections" />}
+              render={<Link to="/settings/profile/connections" />}
             >
               {m.org_integrations_personal_button()}
             </Button>

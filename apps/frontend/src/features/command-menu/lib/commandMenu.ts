@@ -105,6 +105,7 @@ export type CommandPage =
   | "createTicket"
   | "sendFeedback"
   | "theme"
+  | "settings"
   | "shortcuts"
   | "editorPreference"
   | "viewFilter"

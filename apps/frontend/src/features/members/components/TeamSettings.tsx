@@ -18,7 +18,7 @@ import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/projects/$slug/settings/team"
+  "/_authed/settings/orgs/$orgSlug/projects/$slug/team"
 )
 
 export function TeamSettings() {

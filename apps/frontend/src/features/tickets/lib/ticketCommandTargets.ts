@@ -27,8 +27,6 @@ const TITLE_RANK = 55
 const DESCRIPTION_RANK = 32
 const COMMENT_RANK = 28
 
-export const SEARCHING_RANK = DESCRIPTION_RANK
-
 const matchRank = (match: TicketTextHit["match"] | undefined) =>
   match === undefined || match.where === "title"
     ? TITLE_RANK

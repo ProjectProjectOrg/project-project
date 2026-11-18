@@ -120,3 +120,14 @@ export function perProjectState(
     label: m.org_integrations_status_per_project()
   })
 }
+
+// What connecting the org's GitHub takes next: registering an app, or
+// installing the one it has. Null once it's connected, or while unknown.
+export function useGithubSetupStep(orgSlug: string, enabled = true) {
+  const result = useAtomValue(
+    enabled ? githubIntegration(githubOrgRequest(orgSlug)) : disabledState
+  )
+  if (!Result.isSuccess(result) || result.value.status !== "not_connected")
+    return null
+  return result.value.apps.length === 0 ? "register" : "install"
+}

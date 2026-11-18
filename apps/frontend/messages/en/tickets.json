@@ -640,7 +640,6 @@
   "tickets_command_stack_branch": "Stack branch",
   "tickets_command_stack_branch_placeholder": "Search branches to stack…",
   "tickets_command_unlink_branch": "Unlink branch",
-  "tickets_command_searching": "Searching tickets…",
   "tickets_peek_no_description": "No description",
   "tickets_command_create_from_search": "Create ticket “{title}”",
   "tickets_command_create_from_search_body": "Press Enter to turn it into a ticket.",

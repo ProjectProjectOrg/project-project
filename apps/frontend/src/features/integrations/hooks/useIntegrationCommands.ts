@@ -11,6 +11,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 
 import { me } from "@/features/auth/atoms/auth"
 import type { CommandContext } from "@/features/command-menu/lib/commands"
+import { orgScopeName } from "@/features/command-menu/settingsCommands"
 import {
   integrationCommands,
   type IntegrationCommandEntry
@@ -21,13 +22,13 @@ import { m } from "@/paraglide/messages"
 import {
   useEmailState,
   useGithubAppState,
+  useGithubSetupStep,
   useSlackState,
   useStorageState
 } from "./useOrgIntegrations"
 
 export function useIntegrationCommands(context: CommandContext) {
-  const { orgSlug, projectSlug } = context
-  const viewer = useAtomValue(me())
+  const { orgSlug } = context
   const actor = useOrgActor(orgSlug)
   const canManageStorage = actor.call("storage", "connect")
   const canManageGithub = actor.call("projects", "githubInstallationChoices")
@@ -35,10 +36,28 @@ export function useIntegrationCommands(context: CommandContext) {
   const canManageEmail = actor.call("orgEmail", "get")
   const storage = useStorageState(orgSlug, canManageStorage)
   const github = useGithubAppState(orgSlug, canManageGithub)
+  const githubStep = useGithubSetupStep(orgSlug, canManageGithub)
+  const githubConnect =
+    githubStep === "register" &&
+    actor.call("projects", "startGithubAppManifest")
+      ? {
+          label: m.github_command_register_app(),
+          page: "githubRegisterApp" as const
+        }
+      : githubStep === "install" && actor.call("projects", "startGithubInstall")
+        ? {
+            label: m.github_command_connect_installation(),
+            page: "githubInstallApp" as const
+          }
+        : undefined
+  const viewer = useAtomValue(me())
   const slack = useSlackState(orgSlug, canManageSlack)
   const email = useEmailState(orgSlug, canManageEmail)
-  const orgParent = m.chrome_command_menu_settings_parent_org
-  const orgPath = `/orgs/${orgSlug}/settings/integrations`
+  const orgParent = (scope: CommandContext) => [
+    orgScopeName(scope),
+    m.org_settings_integrations_tab()
+  ]
+  const orgPath = `/settings/orgs/${orgSlug}/integrations`
   const providers = [
     {
       key: "github",
@@ -53,7 +72,8 @@ export function useIntegrationCommands(context: CommandContext) {
         "installation"
       ],
       allowed: canManageGithub,
-      state: github
+      state: github,
+      connect: githubConnect
     },
     {
       key: "storage",
@@ -102,6 +122,12 @@ export function useIntegrationCommands(context: CommandContext) {
       allowed: true
     }
   ]
+  const profileParent = () => [
+    m.chrome_command_menu_settings_group_profile(),
+    m.profile_section_connections_title()
+  ]
+  const connections = "/settings/profile/connections"
+  const personal = Result.isSuccess(viewer) ? viewer.value : null
   const entries: ReadonlyArray<IntegrationCommandEntry> = [
     ...providers.map((provider) => ({
       ...provider,
@@ -109,82 +135,46 @@ export function useIntegrationCommands(context: CommandContext) {
       parent: orgParent,
       to: `${orgPath}/${provider.key}`
     })),
-    ...providers.flatMap((provider) =>
-      ["github", "figma", "everhour", "slack"].includes(provider.key)
-        ? [
-            {
-              id: `settings.project.integration.${provider.key}`,
-              name: provider.name,
-              icon: provider.icon,
-              keywords: provider.keywords,
-              parent: m.chrome_command_menu_settings_parent_project,
-              to: `/orgs/${orgSlug}/projects/${projectSlug ?? ""}/settings/integrations`,
-              allowed:
-                projectSlug !== null &&
-                (provider.key === "github"
-                  ? context.projectActor?.call("projects", "connectGithub") ===
-                    true
-                  : context.canManageProject)
-            }
-          ]
-        : []
-    ),
     {
       id: "settings.profile.integration.github",
       name:
-        Result.isSuccess(viewer) && !viewer.value.personalGithub.connected
+        personal?.personalGithub.connected === false
           ? m.profile_command_connect_github()
           : m.profile_command_github(),
       icon: GitBranch,
-      keywords: [
-        "github",
-        "personal",
-        "account",
-        "oauth",
-        "connection",
-        "connect",
-        "reconnect"
-      ],
-      parent: m.chrome_command_menu_settings_group_profile,
-      to: "/profile/connections",
+      keywords: ["github", "personal", "account", "oauth", "branches"],
+      parent: profileParent,
+      to: connections,
       allowed: true
     },
     {
       id: "settings.profile.integration.everhour",
       name:
-        Result.isSuccess(viewer) && !viewer.value.personalEverhour.connected
-          ? m.profile_everhour_connect_button()
+        personal?.personalEverhour.connected === false
+          ? m.profile_command_connect_everhour()
           : m.profile_command_everhour(),
       icon: Timer,
-      keywords: [
-        "everhour",
-        "personal",
-        "account",
-        "time",
-        "tracking",
-        "api key",
-        "setup"
-      ],
-      parent: m.chrome_command_menu_settings_group_profile,
-      to: "/profile/connections",
+      keywords: ["everhour", "personal", "account", "time", "api key"],
+      parent: profileParent,
+      to: connections,
       allowed: true
     },
     {
       id: "settings.profile.integration.slack",
-      name: m.slack_heading(),
+      name: m.profile_command_slack(),
       icon: MessagesSquare,
-      keywords: ["personal", "account", "oauth", "connection"],
-      parent: m.chrome_command_menu_settings_group_profile,
-      to: "/profile/connections",
+      keywords: ["slack", "personal", "account", "oauth"],
+      parent: profileParent,
+      to: connections,
       allowed: true
     },
     {
       id: "settings.profile.integration.figma",
-      name: m.figma_profile_title(),
+      name: m.profile_command_figma(),
       icon: Shapes,
-      keywords: ["personal", "account", "design", "oauth", "connection"],
-      parent: m.chrome_command_menu_settings_group_profile,
-      to: "/profile/connections",
+      keywords: ["figma", "personal", "account", "design", "oauth"],
+      parent: profileParent,
+      to: connections,
       allowed: true
     }
   ]

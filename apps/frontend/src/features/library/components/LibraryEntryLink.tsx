@@ -23,26 +23,26 @@ export function LibraryEntryLink({
     return kind === "type" ? (
       <Link
         {...rest}
-        to="/orgs/$orgSlug/settings/types/$typeKey"
+        to="/settings/orgs/$orgSlug/types/$typeKey"
         params={{ ...scope.req.params, typeKey: entryKey }}
       />
     ) : (
       <Link
         {...rest}
-        to="/orgs/$orgSlug/settings/types/sections/$sectionKey"
+        to="/settings/orgs/$orgSlug/types/sections/$sectionKey"
         params={{ ...scope.req.params, sectionKey: entryKey }}
       />
     )
   return kind === "type" ? (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/projects/$slug/settings/types/$typeKey"
+      to="/settings/orgs/$orgSlug/projects/$slug/types/$typeKey"
       params={{ ...scope.req.params, typeKey: entryKey }}
     />
   ) : (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/projects/$slug/settings/types/sections/$sectionKey"
+      to="/settings/orgs/$orgSlug/projects/$slug/types/sections/$sectionKey"
       params={{ ...scope.req.params, sectionKey: entryKey }}
     />
   )
@@ -55,24 +55,24 @@ export function useOpenEntry() {
       if (scope.layer === "org") {
         if (kind === "type")
           void navigate({
-            to: "/orgs/$orgSlug/settings/types/$typeKey",
+            to: "/settings/orgs/$orgSlug/types/$typeKey",
             params: { ...scope.req.params, typeKey: entryKey }
           })
         else
           void navigate({
-            to: "/orgs/$orgSlug/settings/types/sections/$sectionKey",
+            to: "/settings/orgs/$orgSlug/types/sections/$sectionKey",
             params: { ...scope.req.params, sectionKey: entryKey }
           })
         return
       }
       if (kind === "type")
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/types/$typeKey",
+          to: "/settings/orgs/$orgSlug/projects/$slug/types/$typeKey",
           params: { ...scope.req.params, typeKey: entryKey }
         })
       else
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/types/sections/$sectionKey",
+          to: "/settings/orgs/$orgSlug/projects/$slug/types/sections/$sectionKey",
           params: { ...scope.req.params, sectionKey: entryKey }
         })
     },
@@ -83,23 +83,32 @@ export function useOpenEntry() {
 type ListLinkProps = LinkChrome &
   Readonly<{ scope: LibraryScope; kind: LibraryKind }>
 
-const searchFor = (kind: LibraryKind) =>
-  kind === "section" ? { tab: "sections" as const } : {}
-
 export function LibraryListLink({ scope, kind, ...rest }: ListLinkProps) {
-  return scope.layer === "org" ? (
+  if (scope.layer === "org")
+    return kind === "type" ? (
+      <Link
+        {...rest}
+        to="/settings/orgs/$orgSlug/types"
+        params={scope.req.params}
+      />
+    ) : (
+      <Link
+        {...rest}
+        to="/settings/orgs/$orgSlug/types/sections"
+        params={scope.req.params}
+      />
+    )
+  return kind === "type" ? (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/settings/types"
+      to="/settings/orgs/$orgSlug/projects/$slug/types"
       params={scope.req.params}
-      search={searchFor(kind)}
     />
   ) : (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/projects/$slug/settings/types"
+      to="/settings/orgs/$orgSlug/projects/$slug/types/sections"
       params={scope.req.params}
-      search={searchFor(kind)}
     />
   )
 }
@@ -108,17 +117,28 @@ export function useOpenList() {
   const navigate = useNavigate()
   return useCallback(
     (scope: LibraryScope, kind: LibraryKind) => {
-      if (scope.layer === "org")
+      if (scope.layer === "org") {
+        if (kind === "type")
+          void navigate({
+            to: "/settings/orgs/$orgSlug/types",
+            params: scope.req.params
+          })
+        else
+          void navigate({
+            to: "/settings/orgs/$orgSlug/types/sections",
+            params: scope.req.params
+          })
+        return
+      }
+      if (kind === "type")
         void navigate({
-          to: "/orgs/$orgSlug/settings/types",
-          params: scope.req.params,
-          search: searchFor(kind)
+          to: "/settings/orgs/$orgSlug/projects/$slug/types",
+          params: scope.req.params
         })
       else
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/types",
-          params: scope.req.params,
-          search: searchFor(kind)
+          to: "/settings/orgs/$orgSlug/projects/$slug/types/sections",
+          params: scope.req.params
         })
     },
     [navigate]
@@ -130,26 +150,26 @@ export function LibraryNewLink({ scope, kind, ...rest }: ListLinkProps) {
     return kind === "type" ? (
       <Link
         {...rest}
-        to="/orgs/$orgSlug/settings/types/new"
+        to="/settings/orgs/$orgSlug/types/new"
         params={scope.req.params}
       />
     ) : (
       <Link
         {...rest}
-        to="/orgs/$orgSlug/settings/types/sections/new"
+        to="/settings/orgs/$orgSlug/types/sections/new"
         params={scope.req.params}
       />
     )
   return kind === "type" ? (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/projects/$slug/settings/types/new"
+      to="/settings/orgs/$orgSlug/projects/$slug/types/new"
       params={scope.req.params}
     />
   ) : (
     <Link
       {...rest}
-      to="/orgs/$orgSlug/projects/$slug/settings/types/sections/new"
+      to="/settings/orgs/$orgSlug/projects/$slug/types/sections/new"
       params={scope.req.params}
     />
   )

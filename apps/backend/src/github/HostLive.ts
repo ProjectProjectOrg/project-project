@@ -103,7 +103,7 @@ export const GitHubHostLive = Layer.effect(
         const base = yield* baseUrl
         return project
           ? `${base}/orgs/${orgSlug}/projects/${project.slug}?githubInstall=success`
-          : `${base}/orgs/${orgSlug}/settings/integrations?githubInstall=success`
+          : `${base}/settings/orgs/${orgSlug}/integrations?githubInstall=success`
       }
     )
     const installationChoiceRedirect = Effect.fn(
@@ -111,7 +111,7 @@ export const GitHubHostLive = Layer.effect(
     )(function* (organizationId: string, state: string) {
       const orgSlug = yield* organizationSlug(organizationId)
       const url = new URL(
-        `${yield* baseUrl}/orgs/${orgSlug}/settings/integrations/github`
+        `${yield* baseUrl}/settings/orgs/${orgSlug}/integrations/github`
       )
       url.searchParams.set("installChoice", state)
       return url.toString()

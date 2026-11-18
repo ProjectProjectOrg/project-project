@@ -54,6 +54,7 @@ import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkA
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 
+import { SettingsCommands } from "./components/SettingsCommands"
 import { ShortcutSheetPage } from "./components/ShortcutSheet"
 import { ThemeCommands } from "./components/ThemeCommands"
 import type { CommandPage } from "./lib/commandMenu"
@@ -172,6 +173,7 @@ export const COMMAND_PAGES: Readonly<
   createTicket: CreateTicketPage,
   sendFeedback: SendFeedbackPage,
   theme: ThemeCommands,
+  settings: SettingsCommands,
   shortcuts: ShortcutSheetPage,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,

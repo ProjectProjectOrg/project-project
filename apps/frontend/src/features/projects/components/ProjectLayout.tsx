@@ -1,7 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
-import { getRouteApi, Outlet } from "@tanstack/react-router"
+import type { ProjectDetail } from "@pp/shared"
+import { Outlet } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
+import type { ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -21,13 +23,60 @@ import {
 import { ticketKeyWidth } from "@/features/tickets/lib/ticketKeyWidth"
 import { m } from "@/paraglide/messages"
 
-const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/$slug")
+type ProjectParams = Readonly<{ orgSlug: string; slug: string }>
 
-export function ProjectLayout() {
-  const { orgSlug, slug } = routeApi.useParams()
+export function ProjectLayout({ orgSlug, slug }: ProjectParams) {
+  const projectUpdate = useAtomValue(
+    updateProject(projectRequest(orgSlug, slug))
+  )
+  return (
+    <ProjectScope orgSlug={orgSlug} slug={slug}>
+      {(value, waiting) => (
+        <>
+          <ProjectGitStatePolling enabled={value.github !== null} />
+          <div
+            key={`${orgSlug}/${slug}`}
+            data-page-banner={value.banner ? "" : undefined}
+            className="relative isolate flex flex-1 flex-col gap-3"
+            style={{ "--ticket-key-width": ticketKeyWidth(value) }}
+          >
+            <ProjectBanner
+              orgSlug={orgSlug}
+              slug={slug}
+              banner={value.banner}
+              waiting={waiting && projectUpdate.waiting}
+              pageBackdrop
+            />
+            <Outlet />
+            <RetainedProjectViews key={`${orgSlug}/${slug}`} />
+          </div>
+        </>
+      )}
+    </ProjectScope>
+  )
+}
+
+// A project's settings: the project's context without its banner and views.
+export function ProjectSettingsLayout({ orgSlug, slug }: ProjectParams) {
+  return (
+    <ProjectScope orgSlug={orgSlug} slug={slug}>
+      {() => <Outlet />}
+    </ProjectScope>
+  )
+}
+
+// Loads a project and provides it to everything under it, or shows why it
+// can't.
+function ProjectScope({
+  orgSlug,
+  slug,
+  children
+}: ProjectParams &
+  Readonly<{
+    children: (value: ProjectDetail, waiting: boolean) => ReactNode
+  }>) {
   const req = projectRequest(orgSlug, slug)
   const projectResult = useAtomValue(project(req))
-  const projectUpdate = useAtomValue(updateProject(req))
 
   return Result.matchWithError(projectResult, {
     onInitial: () => (
@@ -63,23 +112,7 @@ export function ProjectLayout() {
     ),
     onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={req}>
-        <ProjectGitStatePolling enabled={value.github !== null} />
-        <div
-          key={`${orgSlug}/${slug}`}
-          data-page-banner={value.banner ? "" : undefined}
-          className="relative isolate flex flex-1 flex-col gap-3"
-          style={{ "--ticket-key-width": ticketKeyWidth(value) }}
-        >
-          <ProjectBanner
-            orgSlug={orgSlug}
-            slug={slug}
-            banner={value.banner}
-            waiting={waiting && projectUpdate.waiting}
-            pageBackdrop
-          />
-          <Outlet />
-          <RetainedProjectViews key={`${orgSlug}/${slug}`} />
-        </div>
+        {children(value, waiting)}
       </ProjectContext.Provider>
     )
   })

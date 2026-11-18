@@ -210,7 +210,7 @@ function BranchPickerList({
           {needsGithub ? (
             <DropdownMenuItem
               label={m.git_branch_picker_connect_github()}
-              render={<Link to="/profile/connections" />}
+              render={<Link to="/settings/profile/connections" />}
             >
               <Plus />
               {m.git_branch_picker_connect_github()}

@@ -41,15 +41,15 @@ export function CommandFrameRow({
             <span className="min-w-0 truncate">{item.label}</span>
           </span>
         )}
-        {parent !== undefined && (
-          <>
-            <span className="shrink-0 text-muted-foreground">{parent}</span>
+        {parent?.map((part, index) => (
+          <span key={index} className="flex shrink-0 items-center gap-1">
+            <span className="text-muted-foreground">{part}</span>
             <ChevronRight
               className="size-3.5 shrink-0 text-muted-foreground"
               strokeWidth={1.75}
             />
-          </>
-        )}
+          </span>
+        ))}
         {prefix === undefined && (
           <span className={cn("min-w-0 truncate", aside == null && "flex-1")}>
             {item.label}

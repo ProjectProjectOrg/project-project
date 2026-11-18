@@ -10,7 +10,6 @@ import {
 import { ORG_SETTINGS_SECTIONS } from "@/features/organizations/lib/orgSettingsSections"
 import { PROFILE_SECTIONS } from "@/features/profile/lib/profileSections"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
-import { useScopedProject } from "@/features/projects/hooks/useScopedProject"
 import { PROJECT_SETTINGS_SECTIONS } from "@/features/projects/lib/projectSettingsSections"
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -27,10 +26,12 @@ const projectRowClass =
 export function SettingsSidebar({
   orgSlug,
   projectSlug,
+  project,
   backHref
 }: Readonly<{
   orgSlug: string | null
   projectSlug: string | null
+  project: Project | null
   backHref: string | null
 }>) {
   const router = useRouter()
@@ -54,7 +55,9 @@ export function SettingsSidebar({
       <SettingsRailNav>
         {orgSlug ? (
           <>
-            <ProjectGroup orgSlug={orgSlug} projectSlug={projectSlug} />
+            {project === null ? null : (
+              <ProjectGroup orgSlug={orgSlug} project={project} />
+            )}
             <OrgGroup orgSlug={orgSlug} />
           </>
         ) : null}
@@ -66,13 +69,8 @@ export function SettingsSidebar({
 
 function ProjectGroup({
   orgSlug,
-  projectSlug
-}: {
-  orgSlug: string
-  projectSlug: string | null
-}) {
-  const { project } = useScopedProject(orgSlug, projectSlug)
-  if (!project) return null
+  project
+}: Readonly<{ orgSlug: string; project: Project }>) {
   return (
     <SettingsGroup label={m.chrome_sidebar_project_section_label()}>
       <div className={projectRowClass}>
@@ -82,7 +80,7 @@ function ProjectGroup({
         <SettingsRailLink
           key={section.key}
           index={INDEX.project + index}
-          to={`/orgs/$orgSlug/projects/$slug/settings/${section.key}`}
+          to={`/settings/orgs/$orgSlug/projects/$slug/${section.key}`}
           params={{ orgSlug, slug: project.slug }}
           icon={section.icon}
           label={section.label}

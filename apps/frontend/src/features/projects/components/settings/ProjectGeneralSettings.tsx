@@ -26,7 +26,7 @@ import { useSave } from "@/hooks/useSave"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/projects/$slug/settings/general"
+  "/_authed/settings/orgs/$orgSlug/projects/$slug/general"
 )
 
 export function ProjectGeneralSettings() {

@@ -21,8 +21,7 @@ export type SidebarScope = Data.TaggedEnum<{
 }>
 export const SidebarScope = Data.taggedEnum<SidebarScope>()
 
-const SETTINGS_PATH =
-  /^\/(?:profile|orgs\/[^/]+\/settings|orgs\/[^/]+\/projects\/[^/]+\/settings)(?:\/|$)/
+const SETTINGS_PATH = /^\/settings(?:\/|$)/
 
 export const isSettingsPath = (pathname: string) => SETTINGS_PATH.test(pathname)
 
@@ -51,13 +50,23 @@ export function sidebarScope(
   fromSprint: string | undefined
 ) {
   if (orgSlug === null) return SidebarScope.none()
+  const settingsPrefix = `/settings/orgs/${orgSlug}/projects/`
+  if (pathname.startsWith(settingsPrefix)) {
+    const [slug = "", sub = ""] = pathname
+      .slice(settingsPrefix.length)
+      .split("/")
+    return SidebarScope.project({
+      slug,
+      route: { page: "settings", sub: sub || null },
+      viewing: null
+    })
+  }
   const orgPrefix = `/orgs/${orgSlug}`
   if (pathname !== orgPrefix && !pathname.startsWith(`${orgPrefix}/`))
     return SidebarScope.none()
   const [area = "", slug = "", section = "", sub = ""] = pathname
     .slice(orgPrefix.length + 1)
     .split("/")
-  if (area === "settings") return SidebarScope.none()
   if (area !== "projects")
     return SidebarScope.dashboard({ page: area === "" ? "overview" : null })
   if (slug === "") return SidebarScope.dashboard({ page: "projects" })
@@ -80,7 +89,7 @@ export const PROJECT_PAGE_PATHS = {
   backlog: "/orgs/$orgSlug/projects/$slug",
   sprints: "/orgs/$orgSlug/projects/$slug/sprints",
   about: "/orgs/$orgSlug/projects/$slug/about",
-  settings: "/orgs/$orgSlug/projects/$slug/settings"
+  settings: "/settings/orgs/$orgSlug/projects/$slug"
 } as const satisfies Record<ProjectPage, string>
 
 export type ProjectNavActive =

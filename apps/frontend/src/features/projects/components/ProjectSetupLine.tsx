@@ -38,7 +38,7 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
     detail.members.length < 2 && !detail.setup.invitePeopleDismissedAt
       ? {
           key: "invite",
-          to: "/orgs/$orgSlug/projects/$slug/settings/team" as const,
+          to: "/settings/orgs/$orgSlug/projects/$slug/team" as const,
           label: m.project_setup_invite_people(),
           icon: UserPlus,
           dismiss: () =>
@@ -50,7 +50,7 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
     brokenGithub || (!detail.github && !detail.setup.connectGithubDismissedAt)
       ? {
           key: "github",
-          to: "/orgs/$orgSlug/projects/$slug/settings/integrations" as const,
+          to: "/settings/orgs/$orgSlug/projects/$slug/integrations" as const,
           label: m.project_setup_connect_github(),
           icon: GitBranch,
           dismiss: detail.github
