@@ -30,8 +30,10 @@ docs/                         # Architecture, deploy, integration guides, specs
   accepts `^22.18.0 || >=24.11.0`.
 - [Bun](https://bun.sh) 1.4.4 (`packageManager`) — installs dependencies and
   runs the backend.
-- Docker with Compose — provides local Postgres for development and creates an
-  isolated database for each `bun run test`. The test suite needs no `.env`.
+- Docker with Compose — provides local Postgres for development. Each
+  `bun run test` creates an isolated database on the agent-only Postgres
+  server (see `docs/agent-development.md`) and drops it afterwards, so tests
+  never touch your development database. The test suite needs no `.env`.
 
 ## Getting started
 
