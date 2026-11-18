@@ -133,10 +133,10 @@ export function ListSectionHeader({
             ? // Typing a ticket: the bar becomes the field it holds.
               "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
             : cn(
-                "cursor-pointer select-none hover:duration-0 [&:hover:not(:has(button:hover,a:hover))]:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
+                "cursor-pointer select-none hover:duration-0 hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
                 // Pressed: one step darker, unless the press is on one of
                 // the header's own controls (a chip, the chevron, the "+").
-                "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
+                "[&:active:not(:has(button:active,a:active,[data-popup-open],[data-section-detail]:active))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
               )
         )}
       >
@@ -205,8 +205,9 @@ export function ListSectionHeader({
                     // with its own hover. Clicks on them don't toggle.
                     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops a pointer click on a chip from toggling the section; the chips are controls of their own
                     <span
+                      data-section-detail=""
                       onClick={(event) => event.stopPropagation()}
-                      className="ml-auto hidden items-center gap-1 text-caption text-muted-foreground sm:flex"
+                      className="ml-auto hidden cursor-default items-center gap-1 text-caption text-muted-foreground sm:flex"
                     >
                       {detail}
                     </span>
