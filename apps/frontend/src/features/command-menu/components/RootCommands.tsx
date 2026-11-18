@@ -17,7 +17,6 @@ import {
 } from "@/features/tickets/components/TicketPeek"
 import { useTicketCommandSearch } from "@/features/tickets/hooks/useTicketCommandSearch"
 import {
-  SEARCHING_RANK,
   ticketCommandValue,
   ticketItem,
   type TicketTarget
@@ -56,7 +55,7 @@ export const commandItem = (command: Command, context: CommandContext) => ({
   icon: command.icon,
   group: GROUP_LABELS[command.group](),
   keywords: command.keywords,
-  parent: command.parent?.(),
+  parent: command.parent?.(context),
   aside: command.aside?.(context),
   searchOnly: command.listed === "search",
   shortcut: command.hotkey?.hotkey ?? undefined,
@@ -66,7 +65,6 @@ export const commandItem = (command: Command, context: CommandContext) => ({
 })
 
 const PROJECT_VALUE = "open-project:"
-const SEARCHING_VALUE = "searching-tickets"
 const isTicketId = Schema.is(TicketId)
 const PREFETCH_AROUND = 2
 
@@ -116,7 +114,7 @@ export function RootCommands({
     initialFocus: string | null
   }>) {
   const [search, setSearch] = useState(initialSearch)
-  const { recent, found, searching } = useTicketCommandSearch(context, search)
+  const { recent, found } = useTicketCommandSearch(context, search)
   const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
   const self = context.ticket
   const onOwnPage = useIsOnTicketPage(self)
@@ -163,21 +161,7 @@ export function RootCommands({
       }),
       actionable: !isContextTicket(self, target),
       enterLabel: m.chrome_command_menu_open_ticket()
-    })),
-    ...(searching && tickets.length === 0
-      ? [
-          {
-            value: SEARCHING_VALUE,
-            label: m.tickets_command_searching(),
-            icon: Search,
-            group: m.tickets_command_group_results(),
-            searchOnly: true,
-            prefiltered: true,
-            rank: SEARCHING_RANK,
-            disabled: true
-          }
-        ]
-      : [])
+    }))
   ]
   return (
     <CommandFrame

@@ -4,32 +4,32 @@ import { m } from "@/paraglide/messages"
 
 export type ProfileSection = Readonly<{
   to:
-    | "/profile/account"
-    | "/profile/preferences"
-    | "/profile/connections"
-    | "/profile/agents"
+    | "/settings/profile/account"
+    | "/settings/profile/preferences"
+    | "/settings/profile/connections"
+    | "/settings/profile/agents"
   label: string
   icon: typeof UserRound
 }>
 
 export const PROFILE_SECTIONS: ReadonlyArray<ProfileSection> = [
   {
-    to: "/profile/account",
+    to: "/settings/profile/account",
     label: m.profile_section_account_title(),
     icon: UserRound
   },
   {
-    to: "/profile/preferences",
+    to: "/settings/profile/preferences",
     label: m.profile_section_preferences_title(),
     icon: SlidersHorizontal
   },
   {
-    to: "/profile/connections",
+    to: "/settings/profile/connections",
     label: m.profile_section_connections_title(),
     icon: Plug
   },
   {
-    to: "/profile/agents",
+    to: "/settings/profile/agents",
     label: m.profile_section_connected_agents_title(),
     icon: Bot
   }

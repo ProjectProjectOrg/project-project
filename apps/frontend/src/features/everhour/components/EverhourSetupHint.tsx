@@ -14,7 +14,7 @@ export function EverhourSetupHint({ onDismiss }: { onDismiss?: () => void }) {
           {m.time_setup_hint()}
         </p>
         <Link
-          to="/orgs/$orgSlug/projects/$slug/settings/integrations"
+          to="/settings/orgs/$orgSlug/projects/$slug/integrations"
           params={{ orgSlug, slug }}
           className="w-fit text-caption font-semibold text-foreground underline-offset-2 transition-colors hover:underline"
         >

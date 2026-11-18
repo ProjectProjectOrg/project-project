@@ -187,7 +187,7 @@ function SetupNote() {
         <DropdownMenuItem
           render={
             <Link
-              to="/orgs/$orgSlug/settings/integrations/github"
+              to="/settings/orgs/$orgSlug/integrations/github"
               params={{ orgSlug }}
             />
           }

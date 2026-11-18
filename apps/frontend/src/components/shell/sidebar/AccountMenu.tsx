@@ -82,7 +82,7 @@ export function AccountMenu({
         ) : orgSlug ? (
           <OrgSettingsItem orgSlug={orgSlug} />
         ) : (
-          <SettingsItem link={<Link to="/profile/preferences" />} />
+          <SettingsItem link={<Link to="/settings/profile/preferences" />} />
         )}
         <DropdownMenuSeparator />
         <div
@@ -144,7 +144,7 @@ function ProjectSettingsItem({
     <SettingsItem
       link={
         <Link
-          to="/orgs/$orgSlug/projects/$slug/settings"
+          to="/settings/orgs/$orgSlug/projects/$slug"
           params={{ orgSlug, slug }}
         />
       }
@@ -158,9 +158,9 @@ function OrgSettingsItem({ orgSlug }: { orgSlug: string }) {
     <SettingsItem
       link={
         canManage ? (
-          <Link to="/orgs/$orgSlug/settings" params={{ orgSlug }} />
+          <Link to="/settings/orgs/$orgSlug" params={{ orgSlug }} />
         ) : (
-          <Link to="/profile/preferences" />
+          <Link to="/settings/profile/preferences" />
         )
       }
     />

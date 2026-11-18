@@ -125,7 +125,7 @@ function ProjectTile({
         ) : (
           <Link
             activeOptions={{ exact: true, includeSearch: false }}
-            to={`/orgs/$orgSlug/projects/$slug/settings/${settingsSection.key}`}
+            to={`/settings/orgs/$orgSlug/projects/$slug/${settingsSection.key}`}
             params={params}
           />
         )

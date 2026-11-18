@@ -24,7 +24,7 @@ const decodeFigmaCallbackQueryOption = Schema.decodeOption(FigmaCallbackQuery)
 const profileSettingsUrl = (params?: Record<string, string>) =>
   Effect.gen(function* () {
     const baseUrl = yield* publicBaseUrl.pipe(Effect.orDie)
-    const url = new URL("/profile/connections", baseUrl)
+    const url = new URL("/settings/profile/connections", baseUrl)
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         url.searchParams.set(key, value)

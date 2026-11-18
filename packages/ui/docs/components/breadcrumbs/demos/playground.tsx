@@ -19,6 +19,7 @@ type State = Readonly<{
   sprint: boolean
   ticket: number | null
   parent: boolean
+  about: boolean
 }>
 
 const INITIAL: State = {
@@ -27,7 +28,8 @@ const INITIAL: State = {
   loading: false,
   sprint: false,
   ticket: 0,
-  parent: false
+  parent: false,
+  about: false
 }
 
 // The demo's links are buttons, so clicking one doesn't leave the page.
@@ -70,10 +72,16 @@ export default function Playground() {
               render={link}
             />
           )}
-          {!state.dashboard && state.sprint ? (
+          {!state.dashboard && state.about ? (
+            <BreadcrumbItem key="about" label="About" />
+          ) : null}
+          {!state.dashboard && !state.about && state.sprint ? (
             <BreadcrumbItem key="sprint" label="Sprint 24" render={link} />
           ) : null}
-          {!state.dashboard && ticket !== null && state.parent ? (
+          {!state.dashboard &&
+          !state.about &&
+          ticket !== null &&
+          state.parent ? (
             <BreadcrumbItem
               key="parent"
               prefix={PARENT[0]}
@@ -81,7 +89,7 @@ export default function Playground() {
               render={link}
             />
           ) : null}
-          {state.dashboard || ticket === null ? null : (
+          {state.dashboard || state.about || ticket === null ? null : (
             <BreadcrumbItem key="ticket" prefix={ticket[0]} label={ticket[1]} />
           )}
         </Breadcrumbs>
@@ -131,6 +139,13 @@ export default function Playground() {
           onClick={() => set({ parent: !state.parent })}
         >
           {state.parent ? "Hide parent" : "From parent"}
+        </Button>
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => set({ about: !state.about })}
+        >
+          {state.about ? "Back to ticket" : "About page"}
         </Button>
         <Button
           variant="secondary"

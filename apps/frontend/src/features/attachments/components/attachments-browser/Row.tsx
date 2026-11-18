@@ -160,7 +160,7 @@ function TicketCell({
     }
     return (
       <Link
-        to="/orgs/$orgSlug/projects/$slug/settings/general"
+        to="/settings/orgs/$orgSlug/projects/$slug/general"
         params={{ orgSlug, slug: row.projectSlug }}
         className="text-body transition-colors hover:text-foreground"
       >

@@ -21,7 +21,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/everhour"
+  "/_authed/settings/orgs/$orgSlug/integrations/everhour"
 )
 
 export function EverhourIntegrationPage() {
@@ -67,7 +67,7 @@ export function EverhourIntegrationPage() {
             <Button
               variant="tertiary"
               size="sm"
-              render={<Link to="/profile/connections" />}
+              render={<Link to="/settings/profile/connections" />}
             >
               {m.org_integrations_personal_button()}
             </Button>

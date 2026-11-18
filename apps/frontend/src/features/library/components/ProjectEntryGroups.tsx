@@ -217,9 +217,12 @@ function EntryGroups({
           action={
             permissions.org ? (
               <Link
-                to="/orgs/$orgSlug/settings/types"
+                to={
+                  kind === "section"
+                    ? "/settings/orgs/$orgSlug/types/sections"
+                    : "/settings/orgs/$orgSlug/types"
+                }
                 params={{ orgSlug: scope.req.params.orgSlug }}
-                search={kind === "section" ? { tab: "sections" } : {}}
                 className="rounded-sm text-caption text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               >
                 {m.templates_types_org_settings_link()}

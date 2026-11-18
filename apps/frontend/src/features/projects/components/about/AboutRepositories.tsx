@@ -19,7 +19,7 @@ export function AboutRepositories({
       inset="link"
       label={
         <SectionLink
-          to="/orgs/$orgSlug/projects/$slug/settings/integrations"
+          to="/settings/orgs/$orgSlug/projects/$slug/integrations"
           params={{ orgSlug, slug }}
           label={m.project_about_repositories_label()}
         />

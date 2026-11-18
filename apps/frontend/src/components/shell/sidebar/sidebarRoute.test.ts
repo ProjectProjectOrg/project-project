@@ -19,17 +19,17 @@ describe("sidebarScope", () => {
 
   it("keeps org settings and profile out of every scope", () => {
     expect(
-      sidebarScope("/orgs/acme/settings/general", "acme", undefined)
+      sidebarScope("/settings/orgs/acme/general", "acme", undefined)
     ).toEqual(SidebarScope.none())
-    expect(sidebarScope("/profile/account", "acme", undefined)).toEqual(
-      SidebarScope.none()
-    )
+    expect(
+      sidebarScope("/settings/profile/account", "acme", undefined)
+    ).toEqual(SidebarScope.none())
   })
 
   it("scopes a project's settings to the project", () => {
     expect(
       sidebarScope(
-        "/orgs/acme/projects/web/settings/workflow",
+        "/settings/orgs/acme/projects/web/workflow",
         "acme",
         undefined
       )

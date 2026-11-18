@@ -169,7 +169,7 @@ export function StatusSelect({
             <DropdownMenuItem
               onClick={() =>
                 void navigate({
-                  to: "/orgs/$orgSlug/projects/$slug/settings/workflow",
+                  to: "/settings/orgs/$orgSlug/projects/$slug/workflow",
                   params: { orgSlug, slug }
                 })
               }

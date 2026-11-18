@@ -415,7 +415,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       const { redirectUrl } = yield* callback(fixture.state, "existing")
       const choiceUrl = new URL(redirectUrl)
       expect(choiceUrl.pathname).toBe(
-        `/orgs/github-${fixture.organizationId}/settings/integrations/github`
+        `/settings/orgs/github-${fixture.organizationId}/integrations/github`
       )
       expect(choiceUrl.searchParams.get("installChoice")).toBe(fixture.state)
 
@@ -436,7 +436,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           integrations.chooseInstallation(fixture.state, fixture.installationId)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer))
       expect(chosen.redirectUrl).toBe(
-        `https://pp.test/orgs/github-${fixture.organizationId}/settings/integrations?githubInstall=success`
+        `https://pp.test/settings/orgs/github-${fixture.organizationId}/integrations?githubInstall=success`
       )
       const connected = yield* Effect.promise(() =>
         pool.query(

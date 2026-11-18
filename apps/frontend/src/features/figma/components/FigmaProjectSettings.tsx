@@ -156,7 +156,7 @@ function FigmaProjectContent({
           size="sm"
           render={
             <Link
-              to="/orgs/$orgSlug/settings/integrations/storage"
+              to="/settings/orgs/$orgSlug/integrations/storage"
               params={{ orgSlug }}
             />
           }

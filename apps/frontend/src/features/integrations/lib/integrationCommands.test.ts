@@ -18,6 +18,7 @@ import {
 
 const context: CommandContext = {
   orgSlug: "acme",
+  orgName: null,
   orgActor: OrgActor.none,
   projectActor: null,
   projectSlug: null,
@@ -55,9 +56,9 @@ const entry: IntegrationCommandEntry = {
   id: "storage",
   name: "Object storage",
   icon: HardDrive,
-  parent: () => "Organization settings",
+  parent: () => ["Organization settings"],
   keywords: ["s3", "uploads", "attachments"],
-  to: "/orgs/acme/settings/integrations/storage",
+  to: "/settings/orgs/acme/integrations/storage",
   allowed: true,
   prerequisite: true
 }
@@ -125,9 +126,17 @@ describe("integration commands", () => {
     ({ state, prerequisite, suggested }) => {
       const commands = integrationCommands([{ ...entry, state, prerequisite }])
       expect(commands[0]?.listed).toBe(suggested ? "always" : "search")
-      expect(commands[0]?.group).toBe(suggested ? "setup" : "navigation")
+      expect(commands[0]?.group).toBe(suggested ? "setup" : "settings")
     }
   )
+
+  it("offers to connect an optional integration without suggesting it", () => {
+    const [command] = integrationCommands([
+      { ...entry, prerequisite: false, state: missing }
+    ])
+    expect(command?.label(context)).toBe("Connect Object storage")
+    expect(command?.listed).toBe("search")
+  })
 
   it("hides settings the viewer cannot access", () => {
     expect(
@@ -173,7 +182,7 @@ describe("integration commands", () => {
     command.run(context, env)
     registry.dispose()
     expect(navigate).toHaveBeenCalledWith(
-      "/orgs/acme/settings/integrations/storage"
+      "/settings/orgs/acme/integrations/storage"
     )
     expect(close).toHaveBeenCalledOnce()
   })

@@ -49,6 +49,7 @@ export type CommandGroup = (typeof COMMAND_GROUPS)[number]
 
 export type CommandContext = Readonly<{
   orgSlug: string
+  orgName: string | null
   orgActor: OrgActor
   projectActor: ProjectActor | null
   projectSlug: string | null
@@ -89,7 +90,7 @@ type CommandFields = Readonly<{
   group: CommandGroup
   label: (context: CommandContext) => string
   aside?: (context: CommandContext) => ReactNode
-  parent?: () => string
+  parent?: (context: CommandContext) => ReadonlyArray<string>
   listed?: "always" | "search" | "never"
   icon: IconComponent
   keywords?: ReadonlyArray<string>

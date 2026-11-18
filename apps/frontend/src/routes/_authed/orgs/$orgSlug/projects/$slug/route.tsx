@@ -1,38 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Crumb } from "@/components/shell/Breadcrumbs"
-import {
-  everhourProjectRequest,
-  everhourProjectStatusAtom
-} from "@/features/everhour/atoms/everhour"
-import {
-  projectLibraryFor,
-  projectLibraryRequest
-} from "@/features/library/atoms/library"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
-import {
-  statusesFor,
-  statusesRequest
-} from "@/features/projects/atoms/projectStatuses"
 import { ProjectLayout } from "@/features/projects/components/ProjectLayout"
-import {
-  sprintList,
-  sprintListRequest
-} from "@/features/sprints/atoms/sprintList"
+import { mountProject } from "@/features/projects/lib/mountProject"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
-  component: ProjectLayout,
+  component: ProjectRoute,
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
-    const { registry } = context
-    registry.mount(project(projectRequest(orgSlug, slug)))()
-    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
-    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    registry.mount(projectLibraryFor(projectLibraryRequest(orgSlug, slug)))()
-    registry.mount(
-      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
-    )()
+    mountProject(context.registry, orgSlug, slug)
     return {
       crumb: [
         Crumb.static({
@@ -45,3 +22,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     }
   }
 })
+
+function ProjectRoute() {
+  const { orgSlug, slug } = Route.useParams()
+  return <ProjectLayout orgSlug={orgSlug} slug={slug} />
+}

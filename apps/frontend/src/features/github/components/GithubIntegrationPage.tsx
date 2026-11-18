@@ -16,7 +16,7 @@ import { useGithubAppState } from "@/features/integrations/hooks/useOrgIntegrati
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/github"
+  "/_authed/settings/orgs/$orgSlug/integrations/github"
 )
 
 export function GithubIntegrationPage() {

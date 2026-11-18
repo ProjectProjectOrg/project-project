@@ -20,7 +20,7 @@ import { OrgDangerZone } from "@/features/organizations/components/settings/OrgD
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/general")
+const routeApi = getRouteApi("/_authed/settings/orgs/$orgSlug/general")
 
 export function OrgGeneralSettings() {
   const { orgSlug } = routeApi.useParams()

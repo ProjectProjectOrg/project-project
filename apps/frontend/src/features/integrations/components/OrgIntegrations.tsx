@@ -19,7 +19,7 @@ import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/integrations/")
+const routeApi = getRouteApi("/_authed/settings/orgs/$orgSlug/integrations/")
 
 type Entry = Readonly<{
   kind: IntegrationKind
@@ -46,14 +46,14 @@ export function OrgIntegrations() {
       name: m.project_settings_github_heading(),
       description: m.org_integrations_github_card(),
       state: github,
-      to: "/orgs/$orgSlug/settings/integrations/github"
+      to: "/settings/orgs/$orgSlug/integrations/github"
     },
     {
       kind: "storage",
       name: m.storage_heading(),
       description: m.org_integrations_storage_card(),
       state: storage,
-      to: "/orgs/$orgSlug/settings/integrations/storage"
+      to: "/settings/orgs/$orgSlug/integrations/storage"
     },
     ...(canManageEmail
       ? [
@@ -62,7 +62,7 @@ export function OrgIntegrations() {
             name: m.org_email_heading(),
             description: m.org_integrations_email_card(),
             state: email,
-            to: "/orgs/$orgSlug/settings/integrations/email"
+            to: "/settings/orgs/$orgSlug/integrations/email"
           } satisfies Entry
         ]
       : []),
@@ -73,7 +73,7 @@ export function OrgIntegrations() {
             name: m.slack_heading(),
             description: m.org_integrations_slack_card(),
             state: slack,
-            to: "/orgs/$orgSlug/settings/integrations/slack"
+            to: "/settings/orgs/$orgSlug/integrations/slack"
           } satisfies Entry
         ]
       : []),
@@ -82,14 +82,14 @@ export function OrgIntegrations() {
       name: m.project_settings_everhour_heading(),
       description: m.org_integrations_everhour_card(),
       state: perProjectState(false, storage),
-      to: "/orgs/$orgSlug/settings/integrations/everhour"
+      to: "/settings/orgs/$orgSlug/integrations/everhour"
     },
     {
       kind: "figma",
       name: m.figma_project_title(),
       description: m.org_integrations_figma_card(),
       state: perProjectState(true, storage),
-      to: "/orgs/$orgSlug/settings/integrations/figma"
+      to: "/settings/orgs/$orgSlug/integrations/figma"
     }
   ]
   if (

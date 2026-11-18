@@ -19,7 +19,7 @@ import {
 import { SlackProfileSettings } from "@/features/slack/components/ProfileSettings"
 import { m } from "@/paraglide/messages"
 
-const routeApi = getRouteApi("/_authed/profile/connections")
+const routeApi = getRouteApi("/_authed/settings/profile/connections")
 
 export function Connections() {
   const search = routeApi.useSearch()

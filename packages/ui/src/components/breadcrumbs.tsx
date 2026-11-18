@@ -351,13 +351,6 @@ function BreadcrumbItem({
 
   return (
     <>
-      {index > 0 ? (
-        <ChevronRight
-          aria-hidden
-          strokeWidth={1.75}
-          className="size-3.5 shrink-0 text-muted-foreground"
-        />
-      ) : null}
       <span
         ref={ref}
         data-slot="breadcrumb-item"
@@ -402,6 +395,21 @@ function BreadcrumbItem({
           <span className="sr-only">{loadingLabel}</span>
         ) : null}
         {link}
+      </span>
+      {/* The chevron after a crumb belongs to it, so it stays put while the
+          crumbs after it swap, and only opens or closes as the crumb stops
+          or starts being the last. */}
+      <span
+        aria-hidden
+        className={cn(
+          "flex shrink-0 overflow-clip transition-[width,opacity] duration-260 ease-standard motion-reduce:transition-opacity",
+          isLast ? "w-0 opacity-0" : "w-3.5 opacity-100"
+        )}
+      >
+        <ChevronRight
+          strokeWidth={1.75}
+          className="size-3.5 shrink-0 text-muted-foreground"
+        />
       </span>
     </>
   )

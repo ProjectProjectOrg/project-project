@@ -99,7 +99,7 @@ export function GithubChip({
           <DropdownMenuItem
             render={
               <Link
-                to="/orgs/$orgSlug/projects/$slug/settings/integrations"
+                to="/settings/orgs/$orgSlug/projects/$slug/integrations"
                 params={{ orgSlug, slug }}
               >
                 <Settings2 />

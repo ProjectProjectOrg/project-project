@@ -25,7 +25,7 @@ import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/projects/$slug/settings/integrations"
+  "/_authed/settings/orgs/$orgSlug/projects/$slug/integrations"
 )
 
 export function IntegrationsSettings() {

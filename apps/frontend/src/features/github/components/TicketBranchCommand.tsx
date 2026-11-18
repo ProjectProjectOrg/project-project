@@ -99,7 +99,7 @@ function CreateTicketBranch({
       onSelect={(item) => {
         env.close()
         if (item.value === CONNECT) {
-          env.navigate("/profile/connections")
+          env.navigate("/settings/profile/connections")
           return
         }
         registry.set(branchAttempt(detail.id), { action: "create", name })

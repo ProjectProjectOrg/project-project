@@ -15,7 +15,7 @@ import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
-  "/_authed/orgs/$orgSlug/settings/integrations/email"
+  "/_authed/settings/orgs/$orgSlug/integrations/email"
 )
 
 export function EmailSettings() {

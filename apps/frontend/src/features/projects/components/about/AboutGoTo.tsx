@@ -33,7 +33,7 @@ export function AboutGoTo() {
         icon={Settings}
         label={m.project_detail_tab_settings()}
         link={
-          <Link to="/orgs/$orgSlug/projects/$slug/settings" params={params} />
+          <Link to="/settings/orgs/$orgSlug/projects/$slug" params={params} />
         }
       />
     </MetaRow>

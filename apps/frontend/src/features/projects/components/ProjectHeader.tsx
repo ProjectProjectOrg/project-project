@@ -400,7 +400,7 @@ function ProjectMenu() {
         <DropdownMenuItem
           render={
             <Link
-              to="/orgs/$orgSlug/projects/$slug/settings"
+              to="/settings/orgs/$orgSlug/projects/$slug"
               params={{ orgSlug, slug }}
             />
           }

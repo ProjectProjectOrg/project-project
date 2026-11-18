@@ -49,7 +49,7 @@ const startRoute = Effect.gen(function* () {
       const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
-        "/profile",
+        "/settings/profile",
         "jira_oauth_start_failed"
       )
     })
@@ -59,7 +59,7 @@ const startRoute = Effect.gen(function* () {
       const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
-        "/profile",
+        "/settings/profile",
         "jira_oauth_start_failed"
       )
     })
@@ -80,14 +80,14 @@ const callbackRoute = Effect.gen(function* () {
   if (!code || !state) {
     return redirect(
       config.publicBaseUrl,
-      "/profile",
+      "/settings/profile",
       "jira_oauth_callback_invalid"
     )
   }
   const credentials = yield* Credentials.JiraCredentials
   const returnPath = yield* credentials
     .returnPathForState(session.user.id, state)
-    .pipe(Effect.orElseSucceed(() => "/profile"))
+    .pipe(Effect.orElseSucceed(() => "/settings/profile"))
   const result = yield* Effect.result(
     credentials.completeConnect(session.user.id, code, state)
   )
@@ -111,7 +111,7 @@ const callbackRoute = Effect.gen(function* () {
       const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
-        "/profile",
+        "/settings/profile",
         "jira_oauth_callback_failed"
       )
     })

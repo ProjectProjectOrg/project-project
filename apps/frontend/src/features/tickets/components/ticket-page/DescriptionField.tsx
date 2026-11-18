@@ -290,7 +290,7 @@ export function DescriptionField({
       {!storageActive && canConnectStorage && (
         <div className="mt-2 px-3">
           <Link
-            to="/orgs/$orgSlug/settings/integrations/storage"
+            to="/settings/orgs/$orgSlug/integrations/storage"
             params={{ orgSlug }}
             className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
           >

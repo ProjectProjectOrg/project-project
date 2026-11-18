@@ -152,7 +152,7 @@ function EverhourSettingsContent({
         <Button
           variant="tertiary"
           size="sm"
-          render={<Link to="/profile/connections" />}
+          render={<Link to="/settings/profile/connections" />}
         >
           {m.project_settings_everhour_connect_profile_button()}
         </Button>

@@ -153,6 +153,7 @@
   "github_command_add_repository": "Add GitHub repository",
   "github_command_branch_repository": "Repository: {repo}",
   "github_command_choose_repository": "Choose a repository",
+  "github_command_connect_installation": "Connect GitHub account or organization",
   "github_command_install_description": "Choose which App to install or connect to a GitHub account or organization.",
   "github_command_register_app": "Register GitHub App",
   "github_command_repository_description": "Choose the repository for this ticket’s branch.",

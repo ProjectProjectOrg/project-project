@@ -104,7 +104,7 @@ export function IntegrationDetail({
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">
         <Link
-          to="/orgs/$orgSlug/settings/integrations"
+          to="/settings/orgs/$orgSlug/integrations"
           params={{ orgSlug }}
           className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-caption text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >

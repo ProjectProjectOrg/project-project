@@ -1,6 +1,6 @@
 export type Searchable = Readonly<{
   label: string
-  parent?: string
+  parent?: ReadonlyArray<string>
   prefix?: string
   keywords?: ReadonlyArray<string>
 }>
@@ -86,7 +86,7 @@ const wordScore = (item: Searchable, label: string, word: string) =>
   best([
     textScore(label, word, { start: 60, contains: 30 }),
     acronymScore(label, word),
-    ...[item.parent, item.prefix].map((text) =>
+    ...[...(item.parent ?? []), item.prefix].map((text) =>
       text === undefined
         ? null
         : textScore(text.toLowerCase(), word, { start: 40, contains: 20 })

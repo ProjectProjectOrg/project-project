@@ -20,7 +20,7 @@ Every state, one per row: the page alone, a trail, a ticket and a sub-ticket (it
 
 ## Playground
 
-Change the trail the ways the app does. Next project and Next ticket keep their crumb and roll the new text in. Open sprint, From parent and Open ticket add a crumb, which opens its width and fades in while the crumbs after it slide along; closing it fades it out and closes the gap. From parent shows the parent as its key; hover it for the title. Dashboard rolls the root crumb from Projects into Dashboard and drops the rest. Reload project shows the skeleton over the name for a moment, without moving anything.
+Change the trail the ways the app does. Next project and Next ticket keep their crumb and roll the new text in. Open sprint, From parent and Open ticket add a crumb, which opens its width and fades in while the crumbs after it slide along; closing it fades it out and closes the gap. From parent shows the parent as its key; hover it for the title. About page swaps the ticket for a different crumb: the new one grows in as the old one shrinks away, while the project crumb and the chevron after it stay put. Dashboard rolls the root crumb from Projects into Dashboard and drops the rest. Reload project shows the skeleton over the name for a moment, without moving anything.
 
 <Demo name="playground" title="Change the trail" />
 
@@ -61,7 +61,7 @@ import { Link } from "@tanstack/react-router"
 
 ### Keys are identity
 
-A crumb's React key is its identity. Crumbs have no layout animation: they slide along with the widths that open and close, and a measured jump (the page scrolling back to the top on navigation) would otherwise fly them in from far away. The same key on the next render is the same crumb: it stays mounted, rolls new text through `TextSwap`, and glides if it moves. A new key enters, a key that's gone exits. Choose the key by what should read as "the same thing": the app keys the project, sprint, parent and ticket crumbs by their role (another project is the same crumb with a new name) and its static section and page titles by their depth (General and Team are the same crumb). Never key by position: inserting a parent would turn the ticket into the parent.
+A crumb's React key is its identity. Crumbs have no layout animation: they slide along with the widths that open and close, and a measured jump (the page scrolling back to the top on navigation) would otherwise fly them in from far away. The same key on the next render is the same crumb: it stays mounted, rolls new text through `TextSwap`, and glides if it moves. A new key enters, a key that's gone exits. Choose the key by what should read as "the same thing": the app keys the project, sprint, parent and ticket crumbs by their role (another project is the same crumb with a new name), the org and Profile crumbs as one scope crumb (moving from your profile to an org rolls the name), and its static section and page titles by how far they sit after the last of those (General after the org and Integrations after a project are the same crumb, so leaving the project closes only its crumb while the title slides along and rolls). Never key by position: inserting a parent would turn the ticket into the parent.
 
 ### The root always swaps
 
@@ -83,7 +83,7 @@ On a sub-ticket opened from its parent, the parent crumb shows only the parent's
 
 ### The page is the last crumb
 
-The last crumb is the current page: foreground text, `aria-current="page"`, never a link. Earlier crumbs are muted links. A chevron separates crumbs and belongs to the crumb after it, so it comes and goes with that crumb.
+The last crumb is the current page: foreground text, `aria-current="page"`, never a link. Earlier crumbs are muted links. A chevron separates crumbs and belongs to the crumb before it: it stays put while the crumbs after it swap, and opens or closes only as its crumb stops or starts being the last.
 
 ### Never cut off
 

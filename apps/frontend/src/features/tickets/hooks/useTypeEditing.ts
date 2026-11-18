@@ -25,12 +25,12 @@ export function useTypeEditing(orgSlug: string, slug: string) {
     canEdit,
     openTypes: () =>
       void navigate({
-        to: "/orgs/$orgSlug/projects/$slug/settings/types",
+        to: "/settings/orgs/$orgSlug/projects/$slug/types",
         params: { orgSlug, slug }
       }),
     openType: (typeKey: TypeKey) =>
       void navigate({
-        to: "/orgs/$orgSlug/projects/$slug/settings/types/$typeKey",
+        to: "/settings/orgs/$orgSlug/projects/$slug/types/$typeKey",
         params: { orgSlug, slug, typeKey }
       })
   }

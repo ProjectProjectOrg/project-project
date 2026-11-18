@@ -8,7 +8,7 @@ export const profileCommands: ReadonlyArray<Command> = [
     id: "profile.editor",
     group: "settings",
     label: m.profile_command_editor,
-    parent: m.chrome_command_menu_settings_group_profile,
+    parent: () => [m.chrome_command_menu_settings_group_profile()],
     icon: CodeXml,
     keywords: [
       "preferences",
@@ -16,16 +16,16 @@ export const profileCommands: ReadonlyArray<Command> = [
       "vscode",
       "vs code",
       "cursor",
-      "github.dev",
+      "web editor",
       "open branch"
     ],
     page: "editorPreference"
   }),
   Command.run({
     id: "profile.cli",
-    group: "navigation",
+    group: "settings",
     label: m.profile_command_cli,
-    parent: m.chrome_command_menu_settings_group_profile,
+    parent: () => [m.chrome_command_menu_settings_group_profile()],
     icon: Terminal,
     keywords: [
       "pp",
@@ -38,15 +38,15 @@ export const profileCommands: ReadonlyArray<Command> = [
     ],
     listed: "search",
     run: (_context, env) => {
-      env.navigate("/profile/agents")
+      env.navigate("/settings/profile/agents")
       env.close()
     }
   }),
   Command.run({
     id: "profile.mcp",
-    group: "navigation",
+    group: "settings",
     label: m.profile_command_mcp,
-    parent: m.chrome_command_menu_settings_group_profile,
+    parent: () => [m.chrome_command_menu_settings_group_profile()],
     icon: Bot,
     keywords: [
       "agents",
@@ -61,7 +61,7 @@ export const profileCommands: ReadonlyArray<Command> = [
     ],
     listed: "search",
     run: (_context, env) => {
-      env.navigate("/profile/agents")
+      env.navigate("/settings/profile/agents")
       env.close()
     }
   })

@@ -109,7 +109,7 @@ export function ProjectPanel({
             render={
               <Link
                 activeOptions={{ exact: true, includeSearch: false }}
-                to="/orgs/$orgSlug/projects/$slug/settings"
+                to="/settings/orgs/$orgSlug/projects/$slug"
                 params={params}
               />
             }
