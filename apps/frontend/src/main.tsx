@@ -9,10 +9,11 @@ import {
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
+import { m } from "@/paraglide/messages"
+
 import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
-import { m } from "./paraglide/messages"
 import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
 
