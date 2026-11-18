@@ -1,12 +1,12 @@
 import * as Data from "effect/Data"
 
 export type TicketBlockSegment = Data.TaggedEnum<{
-  markdown: { readonly text: string }
-  block: {
-    readonly type: string
-    readonly content: string
-    readonly sync?: boolean
-  }
+  markdown: Readonly<{ text: string }>
+  block: Readonly<{
+    type: string
+    content: string
+    sync?: boolean
+  }>
 }>
 
 export const TicketBlockSegment = Data.taggedEnum<TicketBlockSegment>()

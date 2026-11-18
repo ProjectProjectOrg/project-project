@@ -23,8 +23,8 @@ export type HintListKind = "bulletList" | "orderedList" | "taskList"
 export type HintTextKind = "heading" | "paragraph" | "other"
 
 export type BlockOutlineNode = Data.TaggedEnum<{
-  text: { readonly kind: HintTextKind; readonly text: string }
-  list: { readonly kind: HintListKind; readonly items: ReadonlyArray<string> }
+  text: Readonly<{ kind: HintTextKind; text: string }>
+  list: Readonly<{ kind: HintListKind; items: ReadonlyArray<string> }>
 }>
 
 export const BlockOutlineNode = Data.taggedEnum<BlockOutlineNode>()
@@ -43,14 +43,14 @@ type OutlineLine = Data.TaggedEnum<{
   fence: {}
   break: {}
   leaf: {}
-  heading: { readonly text: string }
-  text: { readonly text: string }
-  item: {
-    readonly kind: HintListKind
-    readonly text: string
-    readonly indent: number
-    readonly contentOffset: number
-  }
+  heading: Readonly<{ text: string }>
+  text: Readonly<{ text: string }>
+  item: Readonly<{
+    kind: HintListKind
+    text: string
+    indent: number
+    contentOffset: number
+  }>
 }>
 
 const OutlineLine = Data.taggedEnum<OutlineLine>()

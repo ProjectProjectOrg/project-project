@@ -25,7 +25,7 @@ export const startingType = (
 }
 
 export type TypeStart = Data.TaggedEnum<{
-  sections: { readonly names: ReadonlyArray<string> }
+  sections: Readonly<{ names: ReadonlyArray<string> }>
   text: {}
   empty: {}
 }>

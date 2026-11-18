@@ -11,12 +11,12 @@ export type ProjectRoute = Readonly<{
 }>
 
 export type SidebarScope = Data.TaggedEnum<{
-  dashboard: { readonly page: "overview" | "projects" | null }
-  project: {
-    readonly slug: string
-    readonly route: ProjectRoute
-    readonly viewing: PinTarget | null
-  }
+  dashboard: Readonly<{ page: "overview" | "projects" | null }>
+  project: Readonly<{
+    slug: string
+    route: ProjectRoute
+    viewing: PinTarget | null
+  }>
   none: {}
 }>
 export const SidebarScope = Data.taggedEnum<SidebarScope>()

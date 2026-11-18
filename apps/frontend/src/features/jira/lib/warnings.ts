@@ -52,7 +52,7 @@ export type JiraVisibilityRow = Readonly<{
 export type JiraVisibility = Data.TaggedEnum<{
   complete: {}
   account: {}
-  limited: { readonly rows: ReadonlyArray<JiraVisibilityRow> }
+  limited: Readonly<{ rows: ReadonlyArray<JiraVisibilityRow> }>
 }>
 export const JiraVisibility = Data.taggedEnum<JiraVisibility>()
 

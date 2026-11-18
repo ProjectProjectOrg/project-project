@@ -13,10 +13,10 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { slackOrg, slackOrgRequest } from "@/features/slack/atoms/slack"
 import { m } from "@/paraglide/messages"
 
-type Status = {
-  readonly tone: IntegrationTone
-  readonly label: string
-}
+type Status = Readonly<{
+  tone: IntegrationTone
+  label: string
+}>
 
 export type IntegrationState = Data.TaggedEnum<{
   loading: Status

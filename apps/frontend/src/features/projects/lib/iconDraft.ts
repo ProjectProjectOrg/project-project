@@ -28,14 +28,14 @@ export type IconCrop = {
 
 export const CUTOUT_APPLY_MAX_EDGE = 512
 
-export type IconDraftValues = {
-  readonly source: Pick<typeof IconSource.Type, "_tag" | "emoji">
-  readonly crop: IconCrop
-  readonly treatment: {
-    readonly kind: IconTreatment
-    readonly tolerance: number
-  }
-}
+export type IconDraftValues = Readonly<{
+  source: Pick<typeof IconSource.Type, "_tag" | "emoji">
+  crop: IconCrop
+  treatment: Readonly<{
+    kind: IconTreatment
+    tolerance: number
+  }>
+}>
 
 export const appliedIconTreatment = (
   iconImage: ProjectIconImage | null,

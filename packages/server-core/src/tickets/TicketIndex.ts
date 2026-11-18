@@ -205,9 +205,9 @@ export type TicketIndexSections = ReadonlyMap<
 
 export type TicketIndexSectionOrder = Data.TaggedEnum<{
   status: {}
-  parent: { readonly keys: ReadonlyArray<string> }
-  ticketParent: { readonly keys: ReadonlyArray<string> }
-  explicit: { readonly sections: ReadonlyArray<TicketIndexSection> }
+  parent: Readonly<{ keys: ReadonlyArray<string> }>
+  ticketParent: Readonly<{ keys: ReadonlyArray<string> }>
+  explicit: Readonly<{ sections: ReadonlyArray<TicketIndexSection> }>
 }>
 export const TicketIndexSectionOrder =
   Data.taggedEnum<TicketIndexSectionOrder>()

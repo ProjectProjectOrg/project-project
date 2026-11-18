@@ -5,8 +5,8 @@ import type { BranchListView } from "@/features/github/atoms/github"
 import { slugify } from "@/lib/slug"
 
 export type BranchPickerEntry = Data.TaggedEnum<{
-  create: { readonly name: string }
-  branch: { readonly branch: BranchListItem }
+  create: Readonly<{ name: string }>
+  branch: Readonly<{ branch: BranchListItem }>
 }>
 export const BranchPickerEntry = Data.taggedEnum<BranchPickerEntry>()
 

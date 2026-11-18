@@ -38,12 +38,12 @@ const warmFilter =
   }
 
 type HubRow = Data.TaggedEnum<{
-  dimension: {
-    readonly value: string
-    readonly dimension: ValueFilterDimension
-    readonly summary: string
-  }
-  toggle: { readonly value: string; readonly option: FilterOption }
+  dimension: Readonly<{
+    value: string
+    dimension: ValueFilterDimension
+    summary: string
+  }>
+  toggle: Readonly<{ value: string; option: FilterOption }>
 }>
 const HubRow = Data.taggedEnum<HubRow>()
 

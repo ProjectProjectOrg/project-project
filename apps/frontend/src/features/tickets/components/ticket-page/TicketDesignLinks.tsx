@@ -24,12 +24,12 @@ import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { m } from "@/paraglide/messages"
 
 export type TicketDesignLink = Data.TaggedEnum<{
-  figma: {
-    readonly url: string
-    readonly label: string
-    readonly reference: FigmaRef
-  }
-  paper: { readonly url: string; readonly label: string }
+  figma: Readonly<{
+    url: string
+    label: string
+    reference: FigmaRef
+  }>
+  paper: Readonly<{ url: string; label: string }>
 }>
 export const TicketDesignLink = Data.taggedEnum<TicketDesignLink>()
 

@@ -74,12 +74,12 @@ import { useAddableTicketSearch } from "./useAddableTicketSearch"
 import { useCreatorFocus } from "./useCreatorFocus"
 
 type Item = Data.TaggedEnum<{
-  create: { readonly label: string }
-  existing: {
-    readonly ticket: Ticket
-    readonly added: boolean
-    readonly otherSprintName: string | null
-  }
+  create: Readonly<{ label: string }>
+  existing: Readonly<{
+    ticket: Ticket
+    added: boolean
+    otherSprintName: string | null
+  }>
 }>
 const Item = Data.taggedEnum<Item>()
 

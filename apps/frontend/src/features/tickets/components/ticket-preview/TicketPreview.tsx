@@ -65,17 +65,17 @@ import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 export type TicketPreview = Data.TaggedEnum<{
-  ticket: { readonly id: TicketId; readonly shortcut?: HotkeyChord }
-  relations: { readonly id: TicketId; readonly relation: RelationPreviewKind }
-  subTickets: {
-    readonly id: TicketId
-    readonly label: string
-    readonly current?: TicketId
-    readonly search?: TicketDetailSearch
-  }
-  flag: { readonly id: TicketId; readonly flag: TicketFlag }
-  tag: { readonly name: TagName }
-  tags: { readonly names: ReadonlyArray<TagName> }
+  ticket: Readonly<{ id: TicketId; shortcut?: HotkeyChord }>
+  relations: Readonly<{ id: TicketId; relation: RelationPreviewKind }>
+  subTickets: Readonly<{
+    id: TicketId
+    label: string
+    current?: TicketId
+    search?: TicketDetailSearch
+  }>
+  flag: Readonly<{ id: TicketId; flag: TicketFlag }>
+  tag: Readonly<{ name: TagName }>
+  tags: Readonly<{ names: ReadonlyArray<TagName> }>
 }>
 export const TicketPreview = Data.taggedEnum<TicketPreview>()
 

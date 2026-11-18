@@ -11,7 +11,7 @@ import { formatEstimateAmount } from "@/features/tickets/lib/estimateMeta"
 import { m } from "@/paraglide/messages"
 
 export type PlanMeasure = Data.TaggedEnum<{
-  estimate: { readonly unit: "points" | "time" }
+  estimate: Readonly<{ unit: "points" | "time" }>
   count: {}
 }>
 export const PlanMeasure = Data.taggedEnum<PlanMeasure>()

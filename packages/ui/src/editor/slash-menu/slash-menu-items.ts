@@ -37,13 +37,13 @@ const BASIC_ALIASES: Record<BasicBlockKind, ReadonlyArray<string>> = {
 }
 
 export type SlashItem = Data.TaggedEnum<{
-  block: {
-    readonly key: string
-    readonly definition: BlockDefinition
-    readonly suggestedBy: string | null
-  }
-  basic: { readonly key: string; readonly basic: BasicBlockKind }
-  gallery: { readonly key: string }
+  block: Readonly<{
+    key: string
+    definition: BlockDefinition
+    suggestedBy: string | null
+  }>
+  basic: Readonly<{ key: string; basic: BasicBlockKind }>
+  gallery: Readonly<{ key: string }>
 }>
 export const SlashItem = Data.taggedEnum<SlashItem>()
 

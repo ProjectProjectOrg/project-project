@@ -19,22 +19,22 @@ import {
 import { m } from "@/paraglide/messages"
 
 export type Crumb = Data.TaggedEnum<{
-  static: {
-    readonly label: string
-    readonly to?: string
-    readonly params?: Record<string, string>
-  }
-  project: { readonly orgSlug: string; readonly slug: string }
-  ticket: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-  sprint: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly groupId: GroupId
-  }
+  static: Readonly<{
+    label: string
+    to?: string
+    params?: Record<string, string>
+  }>
+  project: Readonly<{ orgSlug: string; slug: string }>
+  ticket: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+  sprint: Readonly<{
+    orgSlug: string
+    slug: string
+    groupId: GroupId
+  }>
 }>
 export const Crumb = Data.taggedEnum<Crumb>()
 

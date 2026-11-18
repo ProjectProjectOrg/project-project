@@ -5,12 +5,12 @@ import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import type { IconCrop, IconTreatment } from "@/features/projects/lib/iconDraft"
 
 export type LiveIcon = Data.TaggedEnum<{
-  emoji: { readonly emoji: string }
-  image: {
-    readonly src: string
-    readonly crop: IconCrop
-    readonly treatment: IconTreatment
-  }
+  emoji: Readonly<{ emoji: string }>
+  image: Readonly<{
+    src: string
+    crop: IconCrop
+    treatment: IconTreatment
+  }>
 }>
 export const LiveIcon = Data.taggedEnum<LiveIcon>()
 

@@ -17,9 +17,9 @@ import {
 } from "../subscriptions/intents"
 
 export type InboxNotice = Data.TaggedEnum<{
-  assigned: { readonly userId: string }
-  mentioned: { readonly userId: string; readonly commentId: string | null }
-  commented: { readonly authorId: string; readonly commentId: string }
+  assigned: Readonly<{ userId: string }>
+  mentioned: Readonly<{ userId: string; commentId: string | null }>
+  commented: Readonly<{ authorId: string; commentId: string }>
 }>
 export const InboxNotice = Data.taggedEnum<InboxNotice>()
 

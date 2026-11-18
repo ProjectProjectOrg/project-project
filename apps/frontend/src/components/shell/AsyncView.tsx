@@ -5,8 +5,8 @@ import type { ReactNode } from "react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 
 export type AsyncFailure<E> = Data.TaggedEnum<{
-  error: { readonly error: E }
-  defect: { readonly defect: unknown }
+  error: Readonly<{ error: E }>
+  defect: Readonly<{ defect: unknown }>
 }>
 interface AsyncFailureDefinition extends Data.TaggedEnum.WithGenerics<1> {
   readonly taggedEnum: AsyncFailure<this["A"]>

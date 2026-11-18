@@ -22,27 +22,27 @@ export type ActivityLiteralIcon =
   | "pr_closed"
 
 export type ActivityValue = Data.TaggedEnum<{
-  text: { readonly text: string }
-  literal: { readonly text: string; readonly icon: ActivityLiteralIcon | null }
-  status: { readonly slug: string }
-  priority: { readonly priority: TicketPriority }
-  type: { readonly type: TypeKey | null }
-  group: { readonly groupKind: GroupKind; readonly name: string }
-  people: { readonly ids: ReadonlyArray<string> }
-  tags: { readonly names: ReadonlyArray<string> }
-  ticket: { readonly id: string }
+  text: Readonly<{ text: string }>
+  literal: Readonly<{ text: string; icon: ActivityLiteralIcon | null }>
+  status: Readonly<{ slug: string }>
+  priority: Readonly<{ priority: TicketPriority }>
+  type: Readonly<{ type: TypeKey | null }>
+  group: Readonly<{ groupKind: GroupKind; name: string }>
+  people: Readonly<{ ids: ReadonlyArray<string> }>
+  tags: Readonly<{ names: ReadonlyArray<string> }>
+  ticket: Readonly<{ id: string }>
 }>
 export const ActivityValue = Data.taggedEnum<ActivityValue>()
 
 export type ActivityLineBody = Data.TaggedEnum<{
-  plain: { readonly text: string }
-  verb: { readonly verb: string; readonly value: ActivityValue }
-  field: {
-    readonly label: string
-    readonly from: ActivityValue
-    readonly to: ActivityValue
-  }
-  quoted: { readonly text: string; readonly quote: string }
+  plain: Readonly<{ text: string }>
+  verb: Readonly<{ verb: string; value: ActivityValue }>
+  field: Readonly<{
+    label: string
+    from: ActivityValue
+    to: ActivityValue
+  }>
+  quoted: Readonly<{ text: string; quote: string }>
 }>
 export const ActivityLineBody = Data.taggedEnum<ActivityLineBody>()
 

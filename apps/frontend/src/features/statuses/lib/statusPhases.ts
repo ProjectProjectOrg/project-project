@@ -15,8 +15,8 @@ import { generateKeyBetween } from "fractional-indexing"
 import { compareByOrderKey } from "@/lib/orderKey"
 
 export type PhaseEntry = Data.TaggedEnum<{
-  phase: { readonly phase: StatusPhase }
-  status: { readonly status: ProjectStatus }
+  phase: Readonly<{ phase: StatusPhase }>
+  status: Readonly<{ status: ProjectStatus }>
 }>
 export const PhaseEntry = Data.taggedEnum<PhaseEntry>()
 

@@ -9,14 +9,14 @@ import {
 import * as Data from "effect/Data"
 
 export type StartingRow = Data.TaggedEnum<{
-  section: { readonly id: string; readonly key: string }
-  custom: {
-    readonly id: string
-    readonly key: string
-    readonly content: string
-    readonly sync: boolean
-  }
-  text: { readonly id: string; readonly text: string }
+  section: Readonly<{ id: string; key: string }>
+  custom: Readonly<{
+    id: string
+    key: string
+    content: string
+    sync: boolean
+  }>
+  text: Readonly<{ id: string; text: string }>
 }>
 export const StartingRow = Data.taggedEnum<StartingRow>()
 

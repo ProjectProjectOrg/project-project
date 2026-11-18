@@ -7,12 +7,12 @@ import {
 } from "./attachment-transformer"
 
 export type PastedPart = Data.TaggedEnum<{
-  text: { readonly value: string }
-  attachment: {
-    readonly kind: "image" | "file"
-    readonly alt: string
-    readonly url: string
-  }
+  text: Readonly<{ value: string }>
+  attachment: Readonly<{
+    kind: "image" | "file"
+    alt: string
+    url: string
+  }>
 }>
 export const PastedPart = Data.taggedEnum<PastedPart>()
 

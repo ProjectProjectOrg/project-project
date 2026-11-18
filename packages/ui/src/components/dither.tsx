@@ -21,7 +21,7 @@ const FRAME_GATE_MS = TARGET_FRAME_MS - 2
 
 export type TimeWarpAnchor = Data.TaggedEnum<{
   click: {}
-  fraction: { readonly x: number; readonly y: number }
+  fraction: Readonly<{ x: number; y: number }>
 }>
 export const TimeWarpAnchor = Data.taggedEnum<TimeWarpAnchor>()
 

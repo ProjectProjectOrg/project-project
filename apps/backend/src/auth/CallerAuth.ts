@@ -12,11 +12,11 @@ import { bearerVerifier } from "./BearerAuth"
 import { bearerChallenge, resourceChallenge } from "./resourceChallenge"
 
 export type AuthRejection = Data.TaggedEnum<{
-  unauthorized: {
-    readonly status: number
-    readonly message: string
-    readonly wwwAuthenticate: string
-  }
+  unauthorized: Readonly<{
+    status: number
+    message: string
+    wwwAuthenticate: string
+  }>
   banned: {}
 }>
 export const AuthRejection = Data.taggedEnum<AuthRejection>()

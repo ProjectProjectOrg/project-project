@@ -15,10 +15,10 @@ export type BannerImageState<I> = Readonly<{
 export type BannerImageEvent<I> = Data.TaggedEnum<{
   lookupSkipped: {}
   lookupStarted: {}
-  lookupHit: { readonly url: string }
+  lookupHit: Readonly<{ url: string }>
   lookupMissed: {}
-  imageLoaded: { readonly size: BannerImageSize }
-  imageDecoded: { readonly image: I }
+  imageLoaded: Readonly<{ size: BannerImageSize }>
+  imageDecoded: Readonly<{ image: I }>
   decodeFailed: {}
   imageFailed: {}
   renderStarted: {}

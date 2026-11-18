@@ -9,8 +9,8 @@ import * as Data from "effect/Data"
 export type SyncedBlockMode = "synced" | "reference"
 
 export type SyncedView = Data.TaggedEnum<{
-  live: { readonly content: string; readonly definition: BlockDefinition }
-  removed: { readonly content: string }
+  live: Readonly<{ content: string; definition: BlockDefinition }>
+  removed: Readonly<{ content: string }>
 }>
 export const SyncedView = Data.taggedEnum<SyncedView>()
 

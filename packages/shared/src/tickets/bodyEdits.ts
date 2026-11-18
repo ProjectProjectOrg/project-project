@@ -50,11 +50,11 @@ export const TicketBodyEdits = Schema.Array(TicketBodyEdit).pipe(
 
 export type TicketBodyEditFailure = Data.TaggedEnum<{
   NoMatch: {}
-  MultipleMatches: { readonly count: number }
+  MultipleMatches: Readonly<{ count: number }>
   BlockNotFound: {}
-  BlockAmbiguous: { readonly count: number }
+  BlockAmbiguous: Readonly<{ count: number }>
   BlockSynced: {}
-  BlockMarkup: { readonly issue: string }
+  BlockMarkup: Readonly<{ issue: string }>
 }>
 
 export const TicketBodyEditFailure = Data.taggedEnum<TicketBodyEditFailure>()

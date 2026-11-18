@@ -108,8 +108,8 @@ const toDate = (day: DateTime.Zoned) => DateTime.toDateUtc(day)
 type Preview = Data.TaggedEnum<{
   empty: {}
   unreadable: {}
-  day: { readonly value: Date }
-  range: { readonly value: DateRange }
+  day: Readonly<{ value: Date }>
+  range: Readonly<{ value: DateRange }>
 }>
 const Preview = Data.taggedEnum<Preview>()
 

@@ -34,7 +34,7 @@ import { BranchPicker } from "./BranchPicker"
 
 export type BranchMenuRemoval = Data.TaggedEnum<{
   ticket: {}
-  stack: { readonly busy: boolean; readonly onRemove: () => void }
+  stack: Readonly<{ busy: boolean; onRemove: () => void }>
 }>
 export const BranchMenuRemoval = Data.taggedEnum<BranchMenuRemoval>()
 

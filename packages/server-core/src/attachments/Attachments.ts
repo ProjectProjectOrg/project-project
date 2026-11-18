@@ -208,8 +208,8 @@ export const isServableStatus = (status: "pending" | "live" | "orphaned") =>
   status === "live" || status === "orphaned"
 
 export type AttachmentValidationError = Data.TaggedEnum<{
-  type: { readonly contentType: string }
-  size: { readonly maxBytes: number }
+  type: Readonly<{ contentType: string }>
+  size: Readonly<{ maxBytes: number }>
 }>
 export const AttachmentValidationError =
   Data.taggedEnum<AttachmentValidationError>()

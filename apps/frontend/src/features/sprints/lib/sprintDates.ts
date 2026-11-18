@@ -114,9 +114,9 @@ export const startSprintPatch = (
 
 export type SprintCountdown = Data.TaggedEnum<{
   noEnd: {}
-  left: { readonly days: number }
+  left: Readonly<{ days: number }>
   lastDay: {}
-  ended: { readonly days: number }
+  ended: Readonly<{ days: number }>
 }>
 export const SprintCountdown = Data.taggedEnum<SprintCountdown>()
 

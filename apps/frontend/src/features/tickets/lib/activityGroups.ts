@@ -88,15 +88,15 @@ export const groupActivity = (
 export const SPRINT_MOVE_WINDOW_MS = 10 * 1000
 
 export type ActivityItem = Data.TaggedEnum<{
-  entry: { readonly key: string; readonly entry: TicketActivityEntry }
-  sprint_moved: {
-    readonly key: string
-    readonly actor: TicketActivityActor | null
-    readonly at: Date
-    readonly from: string
-    readonly to: string
-    readonly cause: ActivityCause | null
-  }
+  entry: Readonly<{ key: string; entry: TicketActivityEntry }>
+  sprint_moved: Readonly<{
+    key: string
+    actor: TicketActivityActor | null
+    at: Date
+    from: string
+    to: string
+    cause: ActivityCause | null
+  }>
 }>
 export const ActivityItem = Data.taggedEnum<ActivityItem>()
 

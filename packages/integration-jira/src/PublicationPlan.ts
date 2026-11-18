@@ -204,12 +204,10 @@ export type JiraPublicationPlan = Readonly<{
 }>
 
 export type JiraPublicationPlanResult = Data.TaggedEnum<{
-  blocked: {
-    readonly blockers: ReadonlyArray<
-      JiraPreflightFinding<JiraPreflightBlockerCode>
-    >
-  }
-  ready: { readonly plan: JiraPublicationPlan }
+  blocked: Readonly<{
+    blockers: ReadonlyArray<JiraPreflightFinding<JiraPreflightBlockerCode>>
+  }>
+  ready: Readonly<{ plan: JiraPublicationPlan }>
 }>
 export const JiraPublicationPlanResult =
   Data.taggedEnum<JiraPublicationPlanResult>()
@@ -218,11 +216,11 @@ type JiraPublicationSource = JiraMappingSource &
   Pick<JiraMigrationManifest, "source" | "comments" | "migrationId"> &
   Readonly<{ version: 1 | 2 }>
 type JiraPublicationDraftResult = Data.TaggedEnum<{
-  blocked: { readonly blockers: JiraPreflightResult["blockers"] }
-  ready: {
-    readonly plan: Omit<JiraPublicationPlan, "manifestVersion"> &
+  blocked: Readonly<{ blockers: JiraPreflightResult["blockers"] }>
+  ready: Readonly<{
+    plan: Omit<JiraPublicationPlan, "manifestVersion"> &
       Readonly<{ manifestVersion: 1 | 2 }>
-  }
+  }>
 }>
 const JiraPublicationDraftResult = Data.taggedEnum<JiraPublicationDraftResult>()
 export function createJiraPublicationPlan(

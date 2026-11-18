@@ -13,8 +13,8 @@ export type TimelineComment<C> = Readonly<{
 }>
 
 export type TimelineEvent<C> = Data.TaggedEnum<{
-  activity: { readonly at: Date; readonly entry: TicketActivityEntry }
-  comment: { readonly at: Date; readonly comment: TimelineComment<C> }
+  activity: Readonly<{ at: Date; entry: TicketActivityEntry }>
+  comment: Readonly<{ at: Date; comment: TimelineComment<C> }>
 }>
 interface TimelineEventDefinition extends Data.TaggedEnum.WithGenerics<1> {
   readonly taggedEnum: TimelineEvent<this["A"]>
@@ -29,12 +29,12 @@ export type TimelineLine = Readonly<{
 }>
 
 export type TimelineRow<C> = Data.TaggedEnum<{
-  run: {
-    readonly key: string
-    readonly lines: ReadonlyArray<TimelineLine>
-    readonly fold: number
-  }
-  comment: { readonly key: string; readonly comment: TimelineComment<C> }
+  run: Readonly<{
+    key: string
+    lines: ReadonlyArray<TimelineLine>
+    fold: number
+  }>
+  comment: Readonly<{ key: string; comment: TimelineComment<C> }>
 }>
 interface TimelineRowDefinition extends Data.TaggedEnum.WithGenerics<1> {
   readonly taggedEnum: TimelineRow<this["A"]>

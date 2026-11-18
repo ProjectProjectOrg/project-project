@@ -31,11 +31,11 @@ import { compareByOrderKey } from "@/lib/orderKey"
 export type MoveDestination = Data.TaggedEnum<{
   loading: {}
   failed: {}
-  ready: {
-    readonly statuses: ReadonlyArray<ProjectStatus>
-    readonly defaultStatus: StatusSlug | null
-    readonly notes: ReadonlyArray<string>
-  }
+  ready: Readonly<{
+    statuses: ReadonlyArray<ProjectStatus>
+    defaultStatus: StatusSlug | null
+    notes: ReadonlyArray<string>
+  }>
 }>
 export const MoveDestination = Data.taggedEnum<MoveDestination>()
 
