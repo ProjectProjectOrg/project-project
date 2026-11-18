@@ -62,7 +62,11 @@ export function useEditMode({
       },
       { discrete: true }
     )
-    editor.focus()
+    editor.focus(() => {
+      const caret = window.getSelection()?.focusNode
+      const around = caret instanceof Element ? caret : caret?.parentElement
+      around?.scrollIntoView({ block: "nearest" })
+    })
   }, [editorRef])
 
   const stopEditing = useCallback(() => {

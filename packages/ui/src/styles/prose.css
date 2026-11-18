@@ -317,6 +317,10 @@ html.dark .prose-md {
 .prose-md .lexical-content {
   caret-color: var(--foreground);
 }
+/* Room around the caret when starting to edit scrolls it into view. */
+.lexical-content * {
+  scroll-margin-block: 25vh;
+}
 .prose-md .lexical-h1 {
   color: var(--foreground);
   font-size: var(--fs-display-compact);
