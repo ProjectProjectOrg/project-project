@@ -39,6 +39,7 @@ import type {
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
+import { useStableValue } from "@/hooks/useStableValue"
 import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
@@ -97,6 +98,17 @@ export function EpicSections(props: Props) {
           )
         }
       : null
+  // One object while the search stays the same: every row reads it.
+  const viewSource = useStableValue(
+    active
+      ? ticketSearchFromSource(
+          TicketListSource.cases.sections.make({
+            grouping: active.req.by,
+            query: viewQuery(active.query)
+          })
+        )
+      : undefined
+  )
   const renderSections = () =>
     active ? (
       <div
@@ -104,14 +116,7 @@ export function EpicSections(props: Props) {
         style={{ overflowAnchor: "none" }}
         className="flex flex-col gap-1"
       >
-        <TicketViewSourceContext
-          value={ticketSearchFromSource(
-            TicketListSource.cases.sections.make({
-              grouping: active.req.by,
-              query: viewQuery(active.query)
-            })
-          )}
-        >
+        <TicketViewSourceContext value={viewSource}>
           {active.value.sections.map((section) => (
             <EpicSection
               key={section.key}

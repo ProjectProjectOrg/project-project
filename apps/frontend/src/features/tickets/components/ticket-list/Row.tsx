@@ -351,4 +351,18 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
   )
 }
 
-export const Row = memo(RowImpl)
+// After a change the list refetches and hands every row a new ticket
+// object, changed or not; a row renders again only when its ticket's
+// contents did (Ticket is plain data, so JSON compares it), or any other
+// prop changed.
+const sameRowProps = (previous: RowProps, next: RowProps) => {
+  const keys = new Set([...Object.keys(previous), ...Object.keys(next)])
+  return [...keys].every((key) =>
+    key === "ticket"
+      ? previous.ticket === next.ticket ||
+        JSON.stringify(previous.ticket) === JSON.stringify(next.ticket)
+      : Reflect.get(previous, key) === Reflect.get(next, key)
+  )
+}
+
+export const Row = memo(RowImpl, sameRowProps)

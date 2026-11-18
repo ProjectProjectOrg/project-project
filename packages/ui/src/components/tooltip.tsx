@@ -884,6 +884,30 @@ type TooltipContentProps = Readonly<{
   className?: string
 }>
 
+// Stores what a Tooltip or HoverCard shows. Its trigger's layout effect ran
+// first (the trigger comes first in the tree) and registered the previous
+// render's content, so hand the host this one too, or a tooltip shows a
+// step-old label ("3 statuses" after the selection became 2).
+function setContent(
+  id: string,
+  slot: React.RefObject<ContentSlot | null>,
+  next: ContentSlot
+) {
+  slot.current = next
+  const registration = registrations.get(id)
+  if (registration) {
+    const current = registration.current
+    registration.current = {
+      ...current,
+      // A card's content renders into the host's slots, not from here.
+      content: current.kind === "tooltip" ? next.children : current.content,
+      placement: next.placement,
+      className: next.className
+    }
+  }
+  tooltipStore.touch(id)
+}
+
 /** What the tooltip shows, and where. Renders nothing in place. */
 function TooltipContent({
   children,
@@ -898,12 +922,11 @@ function TooltipContent({
   const containerSide = React.useContext(HoverSideContext)
   const side = ownSide ?? containerSide ?? "top"
   React.useLayoutEffect(() => {
-    context.content.current = {
+    setContent(context.id, context.content, {
       children,
       placement: { side, align, sideOffset },
       className
-    }
-    tooltipStore.touch(context.id)
+    })
   })
   return null
 }
@@ -1174,12 +1197,11 @@ function HoverCardContent({
   const containerSide = React.useContext(HoverSideContext)
   const side = ownSide ?? containerSide ?? "bottom"
   React.useLayoutEffect(() => {
-    context.content.current = {
+    setContent(context.id, context.content, {
       children,
       placement: { side, align, sideOffset },
       className
-    }
-    tooltipStore.touch(context.id)
+    })
   })
   return null
 }

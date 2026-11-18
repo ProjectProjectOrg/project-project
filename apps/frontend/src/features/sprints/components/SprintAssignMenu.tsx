@@ -53,7 +53,7 @@ export function pickDefaultSprint(
   )
 }
 
-const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
+export const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
   const now = DateTime.toDate(DateTime.nowUnsafe())
   const stateOrder = { active: 0, planned: 1, completed: 2 } as const
   return sprints

@@ -233,13 +233,18 @@ export function useSelectionStore() {
 export function useSelectionActions(key: string) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
-  const size = useAtomValue(store === null ? noCount : store.count)
   const selected = useAtomValue(
     store === null ? notSelected : store.isSelected(key)
   )
-  const acting = store !== null && selected && size > 1
-  const { keys } = useAtomValue(store === null ? noSelection : store.selection)
-  const known = useAtomValue(store === null ? noKnown : store.known)
+  // Only a selected row follows the whole selection (its size, keys and
+  // tickets): every other row watches just its own flag, so an edit to the
+  // selected tickets, or selecting another row, doesn't render the whole
+  // list again.
+  const watching = store !== null && selected ? store : null
+  const size = useAtomValue(watching === null ? noCount : watching.count)
+  const acting = watching !== null && size > 1
+  const { keys } = useAtomValue(acting ? watching.selection : noSelection)
+  const known = useAtomValue(acting ? watching.known : noKnown)
   const selectedTickets = acting
     ? [...keys].flatMap((each) => known.get(each) ?? [])
     : []
@@ -253,7 +258,7 @@ export function useSelectionActions(key: string) {
     if (!acting) return false
     void updateSelected(
       registry,
-      store,
+      watching,
       projectOfKey(key),
       selectedIds(),
       patch

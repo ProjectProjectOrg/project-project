@@ -69,7 +69,7 @@ function valueOffset(
   half: number,
   width: number,
   valueWidth: number
-): number {
+) {
   const home = width - VALUE_INSET - valueWidth
   if (thumb < home - half - GAP) return 0
   const behind = thumb - half - GAP - valueWidth - home

@@ -1,0 +1,116 @@
+export const meta = {
+  title: "Selection bar",
+  group: "Patterns",
+  description:
+    "The bar that rises while tickets are selected: how many, what they hold (each field opens a menu that stages a change), select all, more actions, and a way out; after a change, what happened and Undo or Retry.",
+  sources: [{ kind: "own", name: "SelectionBar" }]
+}
+
+## Overview
+
+Select rows to bring the bar up. Each field opens a menu that says how many of the selection have each value; pick, then Apply. "Select all 12" widens the selection to the whole list. Turn on "Fail requests" to see a change fail.
+
+<Demo name="overview" title="A selection" className="min-h-96" />
+
+## Usage
+
+```tsx
+import {
+  SelectionBar,
+  SelectionBarField,
+  SelectionBarSeparator,
+  SelectionBarStack
+} from "@pp/ui/selection-bar"
+import { SelectionBarPickMenu, SelectionBarToggleMenu } from "@pp/ui/selection-bar-menu"
+
+<SelectionBar
+  label={m.tickets_selection_bar_label({ count })}
+  count={m.tickets_selection_count({ count })}
+  clearLabel={m.tickets_selection_clear_aria_label()}
+  onClear={clear}
+  selectAll={{ label: m.tickets_selection_select_all({ count: total }), onSelect }}
+  result={undo && { tone: "success", message: "Updated 3 tickets", actions: [{ label: "Undo", onClick: undo }] }}
+>
+  <SelectionBarPickMenu
+    total={count}
+    applyLabel="Apply to 3 tickets"
+    options={statuses.map((status) => ({ value, textValue: label, icon: <StatusIcon … />, count: held.get(value) ?? 0 }))}
+    onApply={(status) => edit({ status })}
+    trigger={
+      <SelectionBarField
+        name={m.tickets_selection_field_status()}
+        icon={<SelectionBarStack>{held.map((status) => <StatusIcon key={status} … />)}</SelectionBarStack>}
+        value={shared ? label : m.tickets_selection_statuses({ count: 2 })}
+        mixed={!shared}
+      />
+    }
+  />
+  <SelectionBarToggleMenu … onApply={({ add, remove }) => edit({ tags: { add, remove } })} />
+  <SelectionBarSeparator />
+  <SelectionBarField name={m.tickets_selection_field_more()} icon={<MoreHorizontal />} onClick={openCommandMenu} />
+</SelectionBar>
+```
+
+| Part | Prop | Type |
+| --- | --- | --- |
+| `SelectionBar` | `label` | `string`: names the toolbar ("Actions for 3 selected tickets") |
+| | `count` | `string`: "3 selected", rolls as it changes |
+| | `clearLabel`, `onClear` | the ✕ that clears the selection |
+| | `selectAll` | `{ label, onSelect }`: "Select all 46"; leave it out once everything is selected |
+| | `result` | `{ tone: "success" \| "error", message, actions }`: what the last change did, shown in the bar's place |
+| `SelectionBarField` | `name` | `string`: the field's name, for its label ("Status: 2 statuses") |
+| | `icon` | `ReactNode`: a `SelectionBarStack`, or an action's icon |
+| | `value` | `string`: the shared value, or how many there are; leave it out for an icon-only action |
+| | `mixed` | `boolean`: the selection holds several values; the text is muted |
+| | `render` | render it as something else; menus render it as their trigger |
+| `SelectionBarStack` | `children` | the icons of every value the selection holds, side by side, each keyed by its value |
+| | `max` | `number`: how many show before "+N" (4) |
+| `SelectionBarPickMenu` | `options` | `{ value, textValue, icon, count }[]`: each value and how many of the selection have it |
+| | `total`, `applyLabel`, `onApply` | how many are selected, "Apply to 3 tickets", and the one value to set |
+| | `search` | `{ placeholder, empty }`: a search over long lists (labels, people) |
+| `SelectionBarToggleMenu` | same as the pick menu | `onApply` gets `{ add, remove }` |
+| `SelectionBarSeparator` | | a hairline between groups |
+
+## Rules
+
+### Fields read like properties
+
+Each field shows what every selected ticket shares ("In progress", "Unassigned"), or, muted, how many values the selection holds ("2 statuses"). You see what you're about to change before you change it, and the muted text tells a mixed field from a shared one at a glance.
+
+### A mixed field shows what it holds
+
+The icon says which values, not just how many: a mixed status shows each status's icon in the project's order, priorities their bars, assignees an avatar stack (and a blank for "unassigned"), labels their dots. Icons sit side by side, never overlapping, up to four, then "+2". Sprints have no icon of their own, so the text names them instead, collapsing what they share: "Sprint 24, 25", plus "none" when some tickets aren't in one.
+
+### A field stages, Apply commits
+
+A field's menu lists every value with how many of the selection have it. A pick is staged, not applied: the menu stays open and the value says what it will become ("2 → 11"), while the values it takes from dim. Labels and assignees are checkbox rows with a third state: on all, on none, or mixed (a dash). Apply commits everything staged to every selected ticket; Escape, or closing the menu any other way, drops it. Everything else (estimate, type, flag, archive) sits behind More actions, which opens ⌘K with the selection.
+
+### The result takes the bar's place
+
+Once a change lands, the bar swaps the selection for what happened: "Updated 11 tickets" with Undo, for six seconds or until the selection changes. A change that fails says how many tickets it couldn't update, with Retry and Cancel, and stays until you pick one. The old content fades up and out while the new fades in, and the bar's size glides between them on the same curve. If focus was in the bar, it moves to the result's first button, and a screen reader hears the message.
+
+### Select all says how much
+
+"Select all 46" names the count: never a checkbox that quietly means this page or everything. It shows only while something is left to select.
+
+### It never jumps
+
+The bar is as wide as its content, and everything in it animates its own size on one curve (the morph, 260ms). A value that joins or leaves the selection grows or shrinks its icon in place: a status, a label's dot, a person in the avatar stack. Values roll to their new text, and "Select all" folds away. So the bar's edge glides with them. Give every icon in a `SelectionBarStack` a key (its value), and render the stack even for one value, so a change only adds or removes icons.
+
+### When the fields don't fit, they fold to icons
+
+The fields keep to one row. When they'd run past the list's edge, they fold to their icons, and each says what it is in a tooltip ("Status: 2 statuses"), as it already does to screen readers; once there's room again, they unfold. "3 selected" and "Select all" stay as text, and More actions is always just its icon. Too narrow even for the icons, the bar wraps onto a second row, after the values have folded away.
+
+### It never covers the rows
+
+The bar takes its own 40px under the list, so even a short list keeps its last rows clear, and while the list scrolls it stays 24px above the window's bottom. It rises in with a short fade and lift, already folded or not, and while it leaves it keeps showing what it showed instead of "0 selected".
+
+### Keyboard and screen readers
+
+It's a toolbar named by `label`: Tab reaches it once and the arrow keys (and Home and End) move between its buttons. The count is announced as it changes, and the bar never takes focus when it appears, so you can keep selecting (X toggles a row, ⌘A selects all, Escape clears). Each field's label reads as name and value: "Status: 2 statuses". In a menu, the arrow keys reach Apply and Enter presses it.
+
+## Examples
+
+### After a change
+
+<Demo name="failed" title="A change that fails, then lands" />
