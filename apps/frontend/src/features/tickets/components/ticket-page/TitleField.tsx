@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import { bareFieldStateClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
+import { useDebouncer } from "@tanstack/react-pacer"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import { useId, useLayoutEffect, useRef, useState } from "react"
@@ -38,8 +39,6 @@ export function TitleField({
   )
 
   const [draft, setDraft] = useState<string | null>(null)
-  const saving = useRef(false)
-  const discarding = useRef(false)
   const field = useRef<HTMLTextAreaElement>(null)
   const errorId = useId()
   const value = draft ?? ticket.title
@@ -57,24 +56,24 @@ export function TitleField({
     return () => observer.disconnect()
   }, [value])
 
-  async function commit() {
-    if (discarding.current) {
-      discarding.current = false
-      setDraft(null)
-      return
-    }
-    if (draft === null || saving.current || pending) return
-    const title = draft.trim()
-    if (!title || title === ticket.title) {
-      setDraft(null)
-      return
-    }
-    saving.current = true
-    try {
-      if (Exit.isSuccess(await update({ title }))) setDraft(null)
-    } finally {
-      saving.current = false
-    }
+  async function save(text: string) {
+    const title = text.trim()
+    if (!title || title === ticket.title) return
+    if (Exit.isSuccess(await update({ title })))
+      setDraft((current) => (current?.trim() === title ? null : current))
+  }
+
+  const debouncer = useDebouncer(save, {
+    wait: 600,
+    onUnmount: (debouncer) => debouncer.flush()
+  })
+
+  function commit() {
+    debouncer.flush()
+    setDraft((current) => {
+      const title = current?.trim()
+      return title && title !== ticket.title ? current : null
+    })
   }
 
   return (
@@ -83,32 +82,31 @@ export function TitleField({
         ref={field}
         value={value}
         rows={1}
-        readOnly={pending}
         maxLength={200}
         aria-label={m.tickets_title_aria_label()}
         aria-busy={pending}
         aria-invalid={!!error || undefined}
         aria-describedby={error ? errorId : undefined}
-        onChange={(event) =>
-          setDraft(event.currentTarget.value.replace(/\r?\n/g, " "))
-        }
-        onBlur={() => void commit()}
+        onChange={(event) => {
+          const next = event.currentTarget.value.replace(/\r?\n/g, " ")
+          setDraft(next)
+          debouncer.maybeExecute(next)
+        }}
+        onBlur={commit}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return
           if (event.key === "Enter") {
             event.preventDefault()
-            void commit()
+            commit()
             if (!event.shiftKey) onEnter()
           } else if (event.key === "Escape") {
             event.preventDefault()
-            if (saving.current || pending) return
-            discarding.current = true
             event.currentTarget.blur()
           }
         }}
         className={cn(
           bareFieldStateClass,
-          "block w-full min-w-0 resize-none overflow-hidden rounded-[12px] bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+          "block w-full min-w-0 resize-none overflow-hidden rounded-[12px] bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none"
         )}
       />
       {error && (
