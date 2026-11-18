@@ -26,10 +26,6 @@ const MenuControlContext = createContext<MenuControl | null>(null)
 
 export const MenuControlProvider = MenuControlContext
 
-// Whether the menu is closing because an item was picked. A menu closed by
-// a pick keeps showing what was checked when it was picked: the result shows
-// on the page, and a selection moving inside a menu that is fading out reads
-// as a second event.
 export const MenuPickedContext = createContext(false)
 
 // The root's actionsRef (the caller's, or one of our own), the control its

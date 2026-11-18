@@ -44,8 +44,6 @@ const ownKey = (key: string) =>
 const sameOrder = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
   a.length === b.length && a.every((key, index) => key === b[index])
 
-// The last row to leave goes at once: whatever stands in for the empty group
-// (a note) takes its place instead of sliding up as the row shrinks.
 const presence = {
   initial: "hidden",
   animate: "shown",

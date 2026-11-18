@@ -1,58 +1,58 @@
-import { useAtomValue } from "@effect/atom-react";
-import { TicketPolicy } from "@pp/access/policies";
-import type { Member, Ticket } from "@pp/shared";
-import { boardCardSlotClass } from "@pp/ui/board-column";
-import { cn } from "@pp/ui/lib/utils";
-import { listGridClassName } from "@pp/ui/list-row";
-import * as Result from "effect/reactivity/AsyncResult";
-import { type ReactNode } from "react";
+import { useAtomValue } from "@effect/atom-react"
+import { TicketPolicy } from "@pp/access/policies"
+import type { Member, Ticket } from "@pp/shared"
+import { boardCardSlotClass } from "@pp/ui/board-column"
+import { cn } from "@pp/ui/lib/utils"
+import { listGridClassName } from "@pp/ui/list-row"
+import * as Result from "effect/reactivity/AsyncResult"
+import { type ReactNode } from "react"
 
-import { currentUserId } from "@/features/auth/atoms/auth";
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project,
   projectActor,
-  projectRequest,
-} from "@/features/projects/atoms/projects";
-import { ProjectContext } from "@/features/projects/hooks/useProject";
-import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard";
-import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets";
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import { ProjectContext } from "@/features/projects/hooks/useProject"
+import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import type {
   OrgTicket,
-  OrgTicketUpdates,
-} from "@/features/tickets/atoms/myTickets";
-import { Row } from "@/features/tickets/components/ticket-list/Row";
-import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection";
-import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview";
-import { selectionKey } from "@/features/tickets/lib/ticketSelection";
+  OrgTicketUpdates
+} from "@/features/tickets/atoms/myTickets"
+import { Row } from "@/features/tickets/components/ticket-list/Row"
+import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection"
+import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
-const NO_MEMBERS: ReadonlyArray<Member> = [];
+const NO_MEMBERS: ReadonlyArray<Member> = []
 
 const useTicketUpdates = (update: OrgTicketUpdates, item: OrgTicket) => {
-  const viewerId = useAtomValue(currentUserId);
+  const viewerId = useAtomValue(currentUserId)
   return update({
     viewerId: viewerId ?? "",
-    projectSlug: item.project.slug,
-  });
-};
+    projectSlug: item.project.slug
+  })
+}
 
 const useProjectMembers = (orgSlug: string, slug: string) => {
-  const result = useAtomValue(project(projectRequest(orgSlug, slug)));
-  return Result.isSuccess(result) ? result.value.members : NO_MEMBERS;
-};
+  const result = useAtomValue(project(projectRequest(orgSlug, slug)))
+  return Result.isSuccess(result) ? result.value.members : NO_MEMBERS
+}
 
 type DashboardTicketProps = Readonly<{
-  orgSlug: string;
-  item: OrgTicket;
-  update: OrgTicketUpdates;
-}>;
+  orgSlug: string
+  item: OrgTicket
+  update: OrgTicketUpdates
+}>
 
 type DashboardRowProps = DashboardTicketProps &
   Readonly<{
-    below?: ReactNode;
-    previewOpen: boolean;
-    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void;
-    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void;
-  }>;
+    below?: ReactNode
+    previewOpen: boolean
+    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
+    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  }>
 
 export function DashboardRow({
   orgSlug,
@@ -61,22 +61,22 @@ export function DashboardRow({
   below,
   previewOpen,
   onPreviewPointerEnter,
-  onPreviewOpenChange,
+  onPreviewOpenChange
 }: DashboardRowProps) {
-  const updates = useTicketUpdates(update, item);
-  const projectReq = projectRequest(orgSlug, item.project.slug);
-  const members = useProjectMembers(orgSlug, item.project.slug);
+  const updates = useTicketUpdates(update, item)
+  const projectReq = projectRequest(orgSlug, item.project.slug)
+  const members = useProjectMembers(orgSlug, item.project.slug)
   const editable = TicketPolicy.canChange(
     useAtomValue(projectActor(projectReq)),
-    { content: true },
-  );
+    { content: true }
+  )
   return (
     <ProjectContext.Provider value={projectReq}>
       <div
         className={cn(
           "col-span-full grid grid-cols-subgrid",
           below !== undefined &&
-            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover has-[[data-selected]]:bg-foreground/6",
+            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover has-[[data-selected]]:bg-foreground/6"
         )}
       >
         <Row
@@ -97,13 +97,13 @@ export function DashboardRow({
         )}
       </div>
     </ProjectContext.Provider>
-  );
+  )
 }
 
 export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
-  const updates = useTicketUpdates(update, item);
-  const projectReq = projectRequest(orgSlug, item.project.slug);
-  const members = useProjectMembers(orgSlug, item.project.slug);
+  const updates = useTicketUpdates(update, item)
+  const projectReq = projectRequest(orgSlug, item.project.slug)
+  const members = useProjectMembers(orgSlug, item.project.slug)
   return (
     <ProjectContext.Provider value={projectReq}>
       <div className={boardCardSlotClass}>
@@ -114,30 +114,30 @@ export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
         />
       </div>
     </ProjectContext.Provider>
-  );
+  )
 }
 
-export type TicketPreview = ReturnType<typeof useTicketPreview>;
+export type TicketPreview = ReturnType<typeof useTicketPreview>
 
 export function DashboardRows({
   orgSlug,
   tickets,
   update,
   preview,
-  below,
+  below
 }: Readonly<{
-  orgSlug: string;
-  tickets: ReadonlyArray<OrgTicket>;
-  update: OrgTicketUpdates;
-  preview: TicketPreview;
-  below?: (item: OrgTicket) => ReactNode;
+  orgSlug: string
+  tickets: ReadonlyArray<OrgTicket>
+  update: OrgTicketUpdates
+  preview: TicketPreview
+  below?: (item: OrgTicket) => ReactNode
 }>) {
   return (
     <SelectionOrder
       entries={tickets.map((item) => ({
         key: selectionKey(item.project.slug, item.ticket.id),
         ticket: item.ticket,
-        bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug }),
+        bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug })
       }))}
     >
       <div className={cn(listGridClassName, below !== undefined && "gap-y-2")}>
@@ -155,5 +155,5 @@ export function DashboardRows({
         ))}
       </div>
     </SelectionOrder>
-  );
+  )
 }

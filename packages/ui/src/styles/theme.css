@@ -546,11 +546,7 @@
   }
 }
 
-/* Moving to the next submenu row, the old submenu closes when Base UI's
-   safe triangle gives up, and the row under the cursor only takes the hover
-   on the next mouse move: for a few frames no submenu shows. So a closing
-   submenu stays up for at most 50ms, and hides the moment another submenu
-   is open and placed (its positioner is inline `opacity: 0` until then). */
+/* Base UI leaves a few frames with no submenu between rows: hold the closing one up to 50ms, until the next is placed. */
 [data-slot="dropdown-menu-sub-content"][data-closed] {
   animation: submenu-hold 50ms steps(1, end);
 }
