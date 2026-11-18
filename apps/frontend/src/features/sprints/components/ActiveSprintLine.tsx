@@ -8,7 +8,10 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { sprintCountdown } from "@/features/sprints/lib/sprintDates"
+import {
+  SprintCountdown,
+  sprintCountdown
+} from "@/features/sprints/lib/sprintDates"
 import { m } from "@/paraglide/messages"
 
 import { countdownLabel, SprintStateIcon } from "./SprintChip"
@@ -26,13 +29,12 @@ export function ActiveSprintLine() {
     )
   }
   const countdown = sprintCountdown(active)
-  const summary =
-    countdown.kind === "noEnd"
-      ? active.name
-      : m.project_header_active_sprint_status({
-          name: active.name,
-          status: countdownLabel(countdown)
-        })
+  const summary = SprintCountdown.$is("noEnd")(countdown)
+    ? active.name
+    : m.project_header_active_sprint_status({
+        name: active.name,
+        status: countdownLabel(countdown)
+      })
 
   return (
     <Link

@@ -13,6 +13,7 @@ import { PaperGlyph } from "@pp/ui/editor/paper/paper-glyph"
 import { isPaperDesignUrl } from "@pp/ui/editor/paper/paper-url"
 import type { TicketTarget } from "@pp/ui/editor/services"
 import { ExternalLink } from "@pp/ui/icons"
+import * as Data from "effect/Data"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -22,18 +23,15 @@ import {
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { m } from "@/paraglide/messages"
 
-export type TicketDesignLink =
-  | {
-      readonly kind: "figma"
-      readonly url: string
-      readonly label: string
-      readonly reference: FigmaRef
-    }
-  | {
-      readonly kind: "paper"
-      readonly url: string
-      readonly label: string
-    }
+export type TicketDesignLink = Data.TaggedEnum<{
+  figma: Readonly<{
+    url: string
+    label: string
+    reference: FigmaRef
+  }>
+  paper: Readonly<{ url: string; label: string }>
+}>
+export const TicketDesignLink = Data.taggedEnum<TicketDesignLink>()
 
 const DESIGN_LINK_RE =
   /\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s)<>"']+)/gi
@@ -56,12 +54,13 @@ export function extractTicketDesignLinks(markdown: string) {
       const key = `figma:${figmaRefKey(figmaReference)}`
       if (seen.has(key)) continue
       seen.add(key)
-      links.push({
-        kind: "figma",
-        url: figmaSrc(url),
-        label,
-        reference: figmaReference
-      })
+      links.push(
+        TicketDesignLink.figma({
+          url: figmaSrc(url),
+          label,
+          reference: figmaReference
+        })
+      )
       continue
     }
 
@@ -69,7 +68,7 @@ export function extractTicketDesignLinks(markdown: string) {
     const key = `paper:${url}`
     if (seen.has(key)) continue
     seen.add(key)
-    links.push({ kind: "paper", url, label })
+    links.push(TicketDesignLink.paper({ url, label }))
   }
 
   return links
@@ -103,7 +102,7 @@ function FigmaDesignLink({
   link,
   request
 }: {
-  link: Extract<TicketDesignLink, { kind: "figma" }>
+  link: Data.TaggedEnum.Value<TicketDesignLink, "figma">
   request: TicketTarget
 }) {
   const metadata = useFigmaMetadata(link.reference, request)
@@ -139,7 +138,7 @@ function FigmaDesignLink({
 function PaperDesignLink({
   link
 }: {
-  link: Extract<TicketDesignLink, { kind: "paper" }>
+  link: Data.TaggedEnum.Value<TicketDesignLink, "paper">
 }) {
   const name = link.label.trim() || m.editor_paper_default_name()
 
@@ -178,16 +177,19 @@ export function TicketDesignLinks({ ticket }: { ticket: TicketDetail }) {
   return (
     <MetaRow label={m.tickets_page_meta_designs()}>
       <div className="flex flex-col gap-0.5">
-        {links.map((link) =>
-          link.kind === "figma" ? (
-            <FigmaDesignLink
-              key={`figma:${figmaRefKey(link.reference)}`}
-              link={link}
-              request={figmaRequest}
-            />
-          ) : (
-            <PaperDesignLink key={`paper:${link.url}`} link={link} />
-          )
+        {links.map(
+          TicketDesignLink.$match({
+            figma: (link) => (
+              <FigmaDesignLink
+                key={`figma:${figmaRefKey(link.reference)}`}
+                link={link}
+                request={figmaRequest}
+              />
+            ),
+            paper: (link) => (
+              <PaperDesignLink key={`paper:${link.url}`} link={link} />
+            )
+          })
         )}
       </div>
     </MetaRow>

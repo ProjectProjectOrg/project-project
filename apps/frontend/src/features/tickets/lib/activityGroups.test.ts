@@ -11,7 +11,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { activityItems, groupActivity } from "./activityGroups"
+import { ActivityItem, activityItems, groupActivity } from "./activityGroups"
 
 const userId = Schema.decodeUnknownSync(UserId)
 const groupId = Schema.decodeUnknownSync(GroupId)
@@ -140,7 +140,7 @@ const membership = (
 
 const lines = (entries: ReadonlyArray<TicketActivityEntry>) =>
   activityItems(entries).map((item) =>
-    item.kind === "entry"
+    ActivityItem.$is("entry")(item)
       ? item.entry.id
       : `${item.from} -> ${item.to}${item.cause ? ` (${item.cause})` : ""}`
   )

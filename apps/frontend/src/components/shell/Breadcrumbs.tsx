@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
 import { BreadcrumbItem, Breadcrumbs as Trail } from "@pp/ui/breadcrumbs"
 import { Link, useMatches, useSearch } from "@tanstack/react-router"
+import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -17,22 +18,31 @@ import {
 } from "@/features/tickets/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 
-export type Crumb =
-  | {
-      type: "static"
-      label: string
-      to?: string
-      params?: Record<string, string>
-    }
-  | { type: "project"; orgSlug: string; slug: string }
-  | { type: "ticket"; orgSlug: string; slug: string; id: TicketId }
-  | { type: "sprint"; orgSlug: string; slug: string; groupId: GroupId }
+export type Crumb = Data.TaggedEnum<{
+  static: Readonly<{
+    label: string
+    to?: string
+    params?: Record<string, string>
+  }>
+  project: Readonly<{ orgSlug: string; slug: string }>
+  ticket: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+  sprint: Readonly<{
+    orgSlug: string
+    slug: string
+    groupId: GroupId
+  }>
+}>
+export const Crumb = Data.taggedEnum<Crumb>()
 
 export type CrumbData = Crumb | ReadonlyArray<Crumb>
 
 function flatten(crumbs: ReadonlyArray<CrumbData | undefined>) {
   return crumbs.flatMap((crumb) =>
-    crumb === undefined ? [] : "type" in crumb ? [crumb] : crumb
+    crumb === undefined ? [] : "_tag" in crumb ? [crumb] : crumb
   )
 }
 
@@ -43,7 +53,7 @@ function flatten(crumbs: ReadonlyArray<CrumbData | undefined>) {
 // project or stepping to the next ticket does the same, while a ticket that
 // takes a page's place is a new crumb.
 const crumbKey = (crumb: Crumb, depth: number) =>
-  crumb.type === "static" ? `static-${depth}` : crumb.type
+  Crumb.$is("static")(crumb) ? `static-${depth}` : crumb._tag
 
 export function Breadcrumbs({ className }: { className?: string }) {
   const matches = useMatches()
@@ -52,18 +62,20 @@ export function Breadcrumbs({ className }: { className?: string }) {
   )
   const crumbs = flatten(raw)
   const last = crumbs.at(-1)
-  const parent = useTrailParent(last?.type === "ticket" ? last : null)
+  const lastTicket =
+    last !== undefined && Crumb.$is("ticket")(last) ? last : null
+  const parent = useTrailParent(lastTicket)
   if (crumbs.length === 0) return null
   return (
     <Trail label={m.nav_breadcrumb_label()} className={className}>
       {crumbs.slice(0, -1).map((crumb, depth) => (
         <CrumbItem key={crumbKey(crumb, depth)} crumb={crumb} />
       ))}
-      {parent === null || last?.type !== "ticket" ? null : (
+      {parent === null || lastTicket === null ? null : (
         <ParentCrumb
           key="parent"
-          orgSlug={last.orgSlug}
-          slug={last.slug}
+          orgSlug={lastTicket.orgSlug}
+          slug={lastTicket.slug}
           parent={parent}
         />
       )}
@@ -75,37 +87,27 @@ export function Breadcrumbs({ className }: { className?: string }) {
 }
 
 function CrumbItem({ crumb }: Readonly<{ crumb: Crumb }>) {
-  switch (crumb.type) {
-    case "static":
-      return (
-        <BreadcrumbItem
-          label={crumb.label}
-          render={
-            crumb.to === undefined ? undefined : (
-              <Link
-                to={crumb.to}
-                params={crumb.params}
-                activeOptions={{ exact: true }}
-              />
-            )
-          }
-        />
-      )
-    case "project":
-      return <ProjectCrumb orgSlug={crumb.orgSlug} slug={crumb.slug} />
-    case "ticket":
-      return (
-        <TicketCrumb orgSlug={crumb.orgSlug} slug={crumb.slug} id={crumb.id} />
-      )
-    case "sprint":
-      return (
-        <SprintCrumb
-          orgSlug={crumb.orgSlug}
-          slug={crumb.slug}
-          groupId={crumb.groupId}
-        />
-      )
-  }
+  return Crumb.$match(crumb, {
+    static: ({ label, to, params }) => (
+      <BreadcrumbItem
+        label={label}
+        render={
+          to === undefined ? undefined : (
+            <Link to={to} params={params} activeOptions={{ exact: true }} />
+          )
+        }
+      />
+    ),
+    project: ({ orgSlug, slug }) => (
+      <ProjectCrumb orgSlug={orgSlug} slug={slug} />
+    ),
+    ticket: ({ orgSlug, slug, id }) => (
+      <TicketCrumb orgSlug={orgSlug} slug={slug} id={id} />
+    ),
+    sprint: ({ orgSlug, slug, groupId }) => (
+      <SprintCrumb orgSlug={orgSlug} slug={slug} groupId={groupId} />
+    )
+  })
 }
 
 function SprintCrumb({
@@ -194,7 +196,7 @@ function TicketCrumbText({
   )
 }
 
-type TicketCrumbData = Extract<Crumb, { type: "ticket" }>
+type TicketCrumbData = Data.TaggedEnum.Value<Crumb, "ticket">
 type TicketDetailResult = Atom.Type<ReturnType<typeof ticketDetail>>
 
 const noTicket: Atom.Atom<TicketDetailResult> = Atom.make(Result.initial())

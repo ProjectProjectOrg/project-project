@@ -59,16 +59,16 @@ const DraggedRowData = Schema.Struct({
   section: Schema.String
 })
 
-const RowDragData = Schema.Struct({
-  type: Schema.Literal("list-row"),
+const RowDragData = Schema.TaggedStruct("list-row", {
   title: Schema.String,
   priority: TicketPriority,
   rows: Schema.NonEmptyArray(DraggedRowData)
 })
 export const isRowDragData = Schema.is(RowDragData)
 
-const RowDropData = Schema.Struct({
-  type: Schema.Literal("list-row-target"),
+const SectionDropData = Schema.TaggedStruct("list-section", {})
+
+const RowDropData = Schema.TaggedStruct("list-row-target", {
   gap: Schema.Union([TicketId, Schema.Literal("end")])
 })
 const isRowDropData = Schema.is(RowDropData)
@@ -150,7 +150,7 @@ export function useSectionDrop(
     return dropTargetForElements({
       element,
       canDrop: ({ source }) => acceptsRows(source.data, latest.current),
-      getData: () => ({ type: "list-section" }),
+      getData: () => SectionDropData.make({}),
       onDragEnter: ({ source }) =>
         setOver(
           draggedRows(source.data)?.some((row) => row.section !== key) ?? false
@@ -288,27 +288,27 @@ export function DraggableRow({
     return combine(
       draggable({
         element,
-        getInitialData: () => ({
-          type: "list-row",
-          title,
-          priority,
-          rows: [
-            { id, ticketType: type, subTicketCount, rank, section },
-            ...latest.current.selected.flatMap((other) =>
-              other.id === id
-                ? []
-                : [
-                    {
-                      id: other.id,
-                      ticketType: other.type,
-                      subTicketCount: other.subTicketCount ?? 0,
-                      rank: other.rank,
-                      section: ""
-                    }
-                  ]
-            )
-          ]
-        }),
+        getInitialData: () =>
+          RowDragData.make({
+            title,
+            priority,
+            rows: [
+              { id, ticketType: type, subTicketCount, rank, section },
+              ...latest.current.selected.flatMap((other) =>
+                other.id === id
+                  ? []
+                  : [
+                      {
+                        id: other.id,
+                        ticketType: other.type,
+                        subTicketCount: other.subTicketCount ?? 0,
+                        rank: other.rank,
+                        section: ""
+                      }
+                    ]
+              )
+            ]
+          }),
         onGenerateDragPreview: ({ nativeSetDragImage }) =>
           disableNativeDragPreview({ nativeSetDragImage })
       }),
@@ -316,10 +316,7 @@ export function DraggableRow({
         element,
         canDrop: ({ source }) =>
           ordered && (latest.current.drop?.accepts(source.data) ?? false),
-        getData: ({ input }) => ({
-          type: "list-row-target",
-          gap: gapAt(input.clientY)
-        })
+        getData: ({ input }) => RowDropData.make({ gap: gapAt(input.clientY) })
       })
     )
   }, [

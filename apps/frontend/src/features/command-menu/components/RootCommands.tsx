@@ -28,7 +28,7 @@ import type { CommandPageProps } from "../lib/commandPages"
 import {
   runCommand,
   visibleCommands,
-  type Command,
+  Command,
   type CommandContext,
   type CommandGroup
 } from "../lib/commands"
@@ -60,10 +60,9 @@ export const commandItem = (command: Command, context: CommandContext) => ({
   aside: command.aside?.(context),
   searchOnly: command.listed === "search",
   shortcut: command.hotkey?.hotkey ?? undefined,
-  enterLabel:
-    "page" in command
-      ? m.chrome_command_menu_select()
-      : m.chrome_command_menu_run()
+  enterLabel: Command.$is("page")(command)
+    ? m.chrome_command_menu_select()
+    : m.chrome_command_menu_run()
 })
 
 const PROJECT_VALUE = "open-project:"

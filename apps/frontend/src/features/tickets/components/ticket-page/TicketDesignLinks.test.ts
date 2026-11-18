@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { extractTicketDesignLinks } from "./TicketDesignLinks"
+import { extractTicketDesignLinks, TicketDesignLink } from "./TicketDesignLinks"
 
 const FIGMA_KEY = "AbCdEfGhIjKlMnOp"
 
@@ -11,8 +11,7 @@ describe("extractTicketDesignLinks", () => {
     )
 
     expect(links).toEqual([
-      {
-        kind: "figma",
+      TicketDesignLink.figma({
         url: `https://www.figma.com/design/${FIGMA_KEY}/Checkout?node-id=1-2`,
         label: "Checkout",
         reference: {
@@ -21,12 +20,11 @@ describe("extractTicketDesignLinks", () => {
           nodeId: "1:2",
           slug: "Checkout"
         }
-      },
-      {
-        kind: "paper",
+      }),
+      TicketDesignLink.paper({
         url: "https://app.paper.design/file/flow",
         label: "Flow ] v2"
-      }
+      })
     ])
   })
 
@@ -35,12 +33,9 @@ describe("extractTicketDesignLinks", () => {
       `See https://figma.com/board/${FIGMA_KEY}/Planning and https://app.paper.design/file/flow.`
     )
 
-    expect(links.map(({ kind, url }) => ({ kind, url }))).toEqual([
-      {
-        kind: "figma",
-        url: `https://figma.com/board/${FIGMA_KEY}/Planning`
-      },
-      { kind: "paper", url: "https://app.paper.design/file/flow" }
+    expect(links.map(({ _tag, url }) => [_tag, url])).toEqual([
+      ["figma", `https://figma.com/board/${FIGMA_KEY}/Planning`],
+      ["paper", "https://app.paper.design/file/flow"]
     ])
   })
 

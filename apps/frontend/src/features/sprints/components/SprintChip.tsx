@@ -11,7 +11,7 @@ import {
   daysBetween,
   sprintCountdown,
   sprintEnded,
-  type SprintCountdown
+  SprintCountdown
 } from "@/features/sprints/lib/sprintDates"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -115,14 +115,12 @@ export function SprintChip({
 }
 
 export const countdownLabel = (countdown: SprintCountdown) =>
-  Match.value(countdown).pipe(
-    Match.discriminatorsExhaustive("kind")({
-      noEnd: () => m.sprints_no_end_date(),
-      left: ({ days }) => m.sprints_active_with_days_left({ days }),
-      lastDay: () => m.sprints_last_day(),
-      ended: ({ days }) => m.sprints_ended_days_ago({ days })
-    })
-  )
+  SprintCountdown.$match(countdown, {
+    noEnd: () => m.sprints_no_end_date(),
+    left: ({ days }) => m.sprints_active_with_days_left({ days }),
+    lastDay: () => m.sprints_last_day(),
+    ended: ({ days }) => m.sprints_ended_days_ago({ days })
+  })
 
 export const shortDateFormatter = () =>
   new Intl.DateTimeFormat(getLocale(), {

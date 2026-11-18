@@ -27,6 +27,7 @@ import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 
 import type * as Markdown from "../markdown/Markdown"
@@ -352,8 +353,8 @@ const make = Effect.gen(function* () {
       const scope = yield* ProjectScope
       const { orgSlug, slug, userId, projectId } = scope
       const validation = validateCommentBody(input.body)
-      if (!validation.ok) {
-        return yield* new InvalidCommentBody({ reason: validation.reason })
+      if (Result.isFailure(validation)) {
+        return yield* new InvalidCommentBody({ reason: validation.failure })
       }
       const [, author] = yield* Effect.all(
         [
@@ -451,9 +452,9 @@ const make = Effect.gen(function* () {
             })
           }
           const validation = validateCommentBody(comment.body)
-          if (!validation.ok) {
+          if (Result.isFailure(validation)) {
             return yield* new InvalidCommentBody({
-              reason: validation.reason
+              reason: validation.failure
             })
           }
           yield* validateBody(scope, comment.body)
@@ -589,8 +590,8 @@ const make = Effect.gen(function* () {
       const scope = yield* ProjectScope
       const { orgSlug, slug } = scope
       const validation = validateCommentBody(input.body)
-      if (!validation.ok) {
-        return yield* new InvalidCommentBody({ reason: validation.reason })
+      if (Result.isFailure(validation)) {
+        return yield* new InvalidCommentBody({ reason: validation.failure })
       }
       const meta = yield* authorizedComment(
         ticketId,

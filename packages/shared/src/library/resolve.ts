@@ -3,7 +3,7 @@ import {
   normalizeLineEndings,
   parseTicketBlocks,
   serializeTicketBlocks,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "../tickets/blocks"
 import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
 import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
@@ -52,7 +52,7 @@ type Resolved<A extends Keyed> = A &
     hidden: boolean
   }>
 
-type BlockSegment = Extract<TicketBlockSegment, { kind: "block" }>
+type BlockSegment = Extract<TicketBlockSegment, { _tag: "block" }>
 
 export const EMPTY_LAYER: Layer = {
   blocks: [],
@@ -187,8 +187,8 @@ const visibleDefinition = (lookup: BlockLookup, key: string) => {
 
 const blockSegment = (type: string, content: string, sync: boolean) =>
   sync
-    ? ({ kind: "block", type, content, sync: true } satisfies BlockSegment)
-    : ({ kind: "block", type, content } satisfies BlockSegment)
+    ? TicketBlockSegment.block({ type, content, sync: true })
+    : TicketBlockSegment.block({ type, content })
 
 const isBlank = (text: string) => text.trim() === ""
 
@@ -198,11 +198,9 @@ const expandSegment = (
   keepHints: boolean
 ) => {
   const clean = (text: string) => (keepHints ? text : stripHints(text))
-  if (segment.kind === "markdown") {
+  if (TicketBlockSegment.$is("markdown")(segment)) {
     const text = clean(segment.text).trim()
-    return text === ""
-      ? null
-      : ({ kind: "markdown", text } satisfies TicketBlockSegment)
+    return text === "" ? null : TicketBlockSegment.markdown({ text })
   }
   if (!isBlank(segment.content))
     return blockSegment(segment.type, clean(segment.content), false)
@@ -233,7 +231,7 @@ export const expandTypeKeepingHints = (
   )
 
 const isBlockSegment = (segment: TicketBlockSegment): segment is BlockSegment =>
-  segment.kind === "block"
+  TicketBlockSegment.$is("block")(segment)
 
 const blockTypesIn = (markdown: string) =>
   parseTicketBlocks(markdown)
@@ -301,7 +299,8 @@ export const mergeChecklistTicks = (
 
 const isSyncedSegment = (
   segment: TicketBlockSegment
-): segment is BlockSegment => segment.kind === "block" && segment.sync === true
+): segment is BlockSegment =>
+  TicketBlockSegment.$is("block")(segment) && segment.sync === true
 
 const resolveSyncedSegment = (segment: BlockSegment, lookup: BlockLookup) => {
   const definition = visibleDefinition(lookup, segment.type)
@@ -339,7 +338,7 @@ const typeSegmentFromTicket = (
   segment: TicketBlockSegment,
   lookup: BlockLookup
 ) => {
-  if (segment.kind === "markdown") return segment
+  if (TicketBlockSegment.$is("markdown")(segment)) return segment
   const definition = visibleDefinition(lookup, segment.type)
   const isReference =
     definition !== undefined &&
@@ -349,7 +348,7 @@ const typeSegmentFromTicket = (
 }
 
 const isCustomization = (segment: TicketBlockSegment) =>
-  segment.kind === "block" && !isBlank(segment.content)
+  TicketBlockSegment.$is("block")(segment) && !isBlank(segment.content)
 
 export const typeBodyFromTicket = (body: string, lookup: BlockLookup) => {
   const segments = parseTicketBlocks(body).map((segment) =>
@@ -389,7 +388,7 @@ export const galleryBlocksToAdopt = (
 ) => {
   const referenced = new Set(
     parseTicketBlocks(type.body).flatMap((segment) =>
-      segment.kind === "block" ? [segment.type] : []
+      TicketBlockSegment.$is("block")(segment) ? [segment.type] : []
     )
   )
   return galleryBlocksFor(library).filter((draft) => referenced.has(draft.key))

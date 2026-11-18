@@ -1,4 +1,4 @@
-import type { FixReferenceAction, ReferenceKind } from "@pp/shared"
+import { FixReferenceAction, type ReferenceKind } from "@pp/shared"
 
 export type ReferenceCandidate = Readonly<{
   kind: ReferenceKind
@@ -71,8 +71,9 @@ export const applyReferenceFix = (
     "g"
   )
   return body.replace(pattern, (_whole, label: string) =>
-    action.kind === "plain"
-      ? label
-      : `[${label}](${linkedHref(reference.kind, action.to)})`
+    FixReferenceAction.match(action, {
+      plain: () => label,
+      link: ({ to }) => `[${label}](${linkedHref(reference.kind, to)})`
+    })
   )
 }

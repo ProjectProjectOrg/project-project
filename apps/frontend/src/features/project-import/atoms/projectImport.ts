@@ -10,10 +10,7 @@ export type ProjectImportOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export type ProjectImportRequest = Readonly<{
-  _view: "projectImport"
-  params: Readonly<{ orgSlug: string; importId: string }>
-}>
+export type ProjectImportRequest = ReturnType<typeof projectImportRequest>
 
 export const projectImportOrgRequest = (orgSlug: string) => ({
   params: { orgSlug }
@@ -23,7 +20,7 @@ export const projectImportRequest = (orgSlug: string, importId: string) =>
   ({
     _view: "projectImport",
     params: { orgSlug, importId }
-  }) satisfies ProjectImportRequest
+  }) as const
 
 const projectImportQuery = (req: ProjectImportRequest) =>
   query("projectImports", "get", {

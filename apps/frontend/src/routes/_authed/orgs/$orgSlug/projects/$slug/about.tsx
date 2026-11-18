@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { AboutTab } from "@/features/projects/components/AboutTab"
 import { m } from "@/paraglide/messages"
 
@@ -8,6 +9,6 @@ export const Route = createFileRoute(
 )({
   component: AboutTab,
   loader: () => ({
-    crumb: { type: "static" as const, label: m.project_detail_tab_about() }
+    crumb: Crumb.static({ label: m.project_detail_tab_about() })
   })
 })

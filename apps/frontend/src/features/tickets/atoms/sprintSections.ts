@@ -63,11 +63,7 @@ import {
   recordCreatedKey
 } from "./ticketRows"
 
-export type SprintSectionsRequest = Readonly<{
-  _view: "sprintSections"
-  params: Readonly<{ orgSlug: string; slug: string }>
-  query: TicketListQuery
-}>
+export type SprintSectionsRequest = ReturnType<typeof sprintSectionsRequest>
 
 export const sprintSectionsRequest = (
   orgSlug: string,
@@ -81,7 +77,7 @@ export const sprintSectionsRequest = (
       ...viewQuery(query),
       cursor: undefined
     }
-  }) satisfies SprintSectionsRequest
+  }) as const
 
 const scopeOf = (req: SprintSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

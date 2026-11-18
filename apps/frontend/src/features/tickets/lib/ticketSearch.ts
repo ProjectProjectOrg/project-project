@@ -15,11 +15,12 @@ import {
   TicketId,
   TicketListQuery,
   TicketStatus,
-  TypeFilter,
-  type TicketListSource
+  TicketListSource,
+  TypeFilter
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 const BooleanParam = Schema.Union([
@@ -98,9 +99,9 @@ export type TicketNavigationSearch =
   | typeof SprintBoardSearch.Type
   | typeof ParentSearch.Type
 
-export type TicketPageSource =
-  | TicketListSource
-  | Readonly<{ kind: "parent"; parent: TicketId }>
+const TicketParentSource = Schema.TaggedStruct("parent", { parent: TicketId })
+
+export type TicketPageSource = TicketListSource | typeof TicketParentSource.Type
 
 const TicketActions = {
   focusBody: Schema.optional(Schema.Literal("1")),
@@ -164,15 +165,15 @@ export function ticketSearchFromQuery(query: TicketListQuery) {
 
 export function ticketSearchFromSource(source: TicketListSource) {
   const query = ticketSearchFromQuery(source.query)
-  return source.kind === "sections"
+  return TicketListSource.isAnyOf(["sections"])(source)
     ? ({
         ...query,
-        from: source.kind,
+        from: source._tag,
         group: source.grouping
       } satisfies TicketNavigationSearch)
     : ({
         ...query,
-        from: source.kind,
+        from: source._tag,
         sprint: source.groupId
       } satisfies TicketNavigationSearch)
 }
@@ -182,7 +183,7 @@ export function ticketPageSearch(
   sprint: GroupId | undefined
 ) {
   if (from === undefined) return {} satisfies TicketDetailSearch
-  if (from.kind === "parent")
+  if (Predicate.isTagged(from, "parent"))
     return {
       from: "parent",
       parentId: from.parent
@@ -202,20 +203,12 @@ export function sprintFromSearch(search: TicketDetailSearch) {
 export function ticketSourceFromSearch(search: TicketDetailSearch) {
   if (search.from === undefined) return undefined
   if (search.from === "parent")
-    return {
-      kind: "parent",
-      parent: search.parentId
-    } satisfies TicketPageSource
+    return TicketParentSource.make({ parent: search.parentId })
   const query = ticketQueryFromSearch(search)
   return search.from === "sections"
-    ? ({
-        kind: search.from,
-        grouping: search.group,
-        query
-      } satisfies TicketPageSource)
-    : ({
-        kind: search.from,
+    ? TicketListSource.cases.sections.make({ grouping: search.group, query })
+    : TicketListSource.cases.sprintBoard.make({
         groupId: search.sprint,
         query
-      } satisfies TicketPageSource)
+      })
 }

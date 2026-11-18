@@ -24,6 +24,7 @@ import { MemberAvatar } from "@pp/ui/member-avatar"
 import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
 import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
@@ -63,19 +64,20 @@ import {
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-type TicketPreview =
-  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: HotkeyChord }>
-  | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
-  | Readonly<{
-      kind: "subTickets"
-      id: TicketId
-      label: string
-      current?: TicketId
-      search?: TicketDetailSearch
-    }>
-  | Readonly<{ kind: "flag"; id: TicketId; flag: TicketFlag }>
-  | Readonly<{ kind: "tag"; name: TagName }>
-  | Readonly<{ kind: "tags"; names: ReadonlyArray<TagName> }>
+export type TicketPreview = Data.TaggedEnum<{
+  ticket: Readonly<{ id: TicketId; shortcut?: HotkeyChord }>
+  relations: Readonly<{ id: TicketId; relation: RelationPreviewKind }>
+  subTickets: Readonly<{
+    id: TicketId
+    label: string
+    current?: TicketId
+    search?: TicketDetailSearch
+  }>
+  flag: Readonly<{ id: TicketId; flag: TicketFlag }>
+  tag: Readonly<{ name: TagName }>
+  tags: Readonly<{ names: ReadonlyArray<TagName> }>
+}>
+export const TicketPreview = Data.taggedEnum<TicketPreview>()
 
 // Ticket previews are hover cards in the tooltip host: one on screen at a
 // time, gliding between triggers. A click on a ticket line closes it at once.
@@ -92,7 +94,7 @@ export function TicketPreviewTrigger({
   Omit<ComponentProps<typeof HoverCardTrigger>, "openOnClick">) {
   const project = useProjectRequest()
   const warm = useWarmPreview()
-  const opensOnClick = preview.kind !== "ticket"
+  const opensOnClick = !TicketPreview.$is("ticket")(preview)
   return (
     <HoverCard>
       <HoverCardTrigger
@@ -108,7 +110,7 @@ export function TicketPreviewTrigger({
         }}
         {...props}
       />
-      <HoverCardContent className={PREVIEW_WIDTHS[preview.kind]}>
+      <HoverCardContent className={PREVIEW_WIDTHS[preview._tag]}>
         <ProjectContext value={project}>
           <PreviewContent preview={preview} />
         </ProjectContext>
@@ -120,20 +122,23 @@ export function TicketPreviewTrigger({
 function useWarmPreview() {
   const registry = useContext(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()
+  const detail = ({ id }: Readonly<{ id: TicketId }>) =>
+    Registry.getResult(registry, ticketDetail(ticketRequest(orgSlug, slug, id)))
   return (preview: TicketPreview) => {
-    if (preview.kind === "flag" || preview.kind === "tags") return
-    const loaded =
-      preview.kind === "tag"
-        ? Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug)))
-        : preview.kind === "subTickets"
-          ? Registry.getResult(
-              registry,
-              childTickets(childTicketsRequest(orgSlug, slug, preview.id))
-            )
-          : Registry.getResult(
-              registry,
-              ticketDetail(ticketRequest(orgSlug, slug, preview.id))
-            )
+    const loaded = TicketPreview.$match(preview, {
+      ticket: detail,
+      relations: detail,
+      subTickets: ({ id }) =>
+        Registry.getResult(
+          registry,
+          childTickets(childTicketsRequest(orgSlug, slug, id))
+        ),
+      flag: () => null,
+      tag: () =>
+        Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug))),
+      tags: () => null
+    })
+    if (loaded === null) return
     void Effect.runPromise(Effect.ignore(loaded))
   }
 }
@@ -147,7 +152,7 @@ export function TicketPreviewRoot() {
   return null
 }
 
-const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
+const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["_tag"], string>> = {
   ticket: "w-80 p-3",
   // Ticket lists are menu rows, so the popup pads like a menu's.
   relations: "w-72 p-1",
@@ -159,33 +164,30 @@ const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
 
 function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
   const { orgSlug, slug } = useProjectRoute()
-  switch (preview.kind) {
-    case "ticket":
-      return (
-        <TicketPreviewBody
-          ticketId={preview.id}
-          scope={{ orgSlug, slug }}
-          interactive
-          shortcut={preview.shortcut}
-        />
-      )
-    case "relations":
-      return <RelationsPreview id={preview.id} relation={preview.relation} />
-    case "flag":
-      return <FlagPreview flag={preview.flag} />
-    case "tag":
-      return <TagPreview name={preview.name} />
-    case "tags":
-      return <TagListPreview names={preview.names} />
-  }
-  return (
-    <SubTicketsPreview
-      id={preview.id}
-      label={preview.label}
-      current={preview.current}
-      search={preview.search}
-    />
-  )
+  return TicketPreview.$match(preview, {
+    ticket: ({ id, shortcut }) => (
+      <TicketPreviewBody
+        ticketId={id}
+        scope={{ orgSlug, slug }}
+        interactive
+        shortcut={shortcut}
+      />
+    ),
+    relations: ({ id, relation }) => (
+      <RelationsPreview id={id} relation={relation} />
+    ),
+    subTickets: ({ id, label, current, search }) => (
+      <SubTicketsPreview
+        id={id}
+        label={label}
+        current={current}
+        search={search}
+      />
+    ),
+    flag: ({ flag }) => <FlagPreview flag={flag} />,
+    tag: ({ name }) => <TagPreview name={name} />,
+    tags: ({ names }) => <TagListPreview names={names} />
+  })
 }
 
 export const RELATION_PREVIEW_LABELS: Readonly<

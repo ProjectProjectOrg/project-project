@@ -8,6 +8,7 @@ import {
   parseTicketBlocks,
   serializeTicketBlocks,
   TICKET_BLOCK_OPEN,
+  TicketBlockSegment,
   validateTicketBlocks
 } from "./blocks"
 
@@ -28,9 +29,12 @@ describe("parseTicketBlocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: "Intro text." },
-      { kind: "block", type: "acceptance-criteria", content: CRITERIA },
-      { kind: "markdown", text: "Closing text." }
+      TicketBlockSegment.markdown({ text: "Intro text." }),
+      TicketBlockSegment.block({
+        type: "acceptance-criteria",
+        content: CRITERIA
+      }),
+      TicketBlockSegment.markdown({ text: "Closing text." })
     ])
   })
 
@@ -38,7 +42,10 @@ describe("parseTicketBlocks", () => {
     const markdown = `<block type="acceptance-criteria">\n${CRITERIA}\n</block>`
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "block", type: "acceptance-criteria", content: CRITERIA }
+      TicketBlockSegment.block({
+        type: "acceptance-criteria",
+        content: CRITERIA
+      })
     ])
   })
 
@@ -49,14 +56,14 @@ describe("parseTicketBlocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "block", type: "steps", content: "## Steps\n1. One" },
-      { kind: "block", type: "steps", content: "## Steps\n1. Two" }
+      TicketBlockSegment.block({ type: "steps", content: "## Steps\n1. One" }),
+      TicketBlockSegment.block({ type: "steps", content: "## Steps\n1. Two" })
     ])
   })
 
   it("parses an empty block", () => {
     expect(parseTicketBlocks('<block type="notes">\n\n</block>')).toEqual([
-      { kind: "block", type: "notes", content: "" }
+      TicketBlockSegment.block({ type: "notes", content: "" })
     ])
   })
 
@@ -70,7 +77,7 @@ describe("parseTicketBlocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: markdown }
+      TicketBlockSegment.markdown({ text: markdown })
     ])
   })
 
@@ -79,7 +86,7 @@ describe("parseTicketBlocks", () => {
     const markdown = formatTicketBlock("notes", content)
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "block", type: "notes", content }
+      TicketBlockSegment.block({ type: "notes", content })
     ])
   })
 
@@ -87,7 +94,7 @@ describe("parseTicketBlocks", () => {
     const markdown = `<block type="notes">\n\n## Notes\nstill typing`
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: markdown }
+      TicketBlockSegment.markdown({ text: markdown })
     ])
   })
 
@@ -101,9 +108,9 @@ describe("parseTicketBlocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: '<block type="outer">' },
-      { kind: "block", type: "inner", content: "inside" },
-      { kind: "markdown", text: "</block>" }
+      TicketBlockSegment.markdown({ text: '<block type="outer">' }),
+      TicketBlockSegment.block({ type: "inner", content: "inside" }),
+      TicketBlockSegment.markdown({ text: "</block>" })
     ])
   })
 
@@ -116,7 +123,7 @@ describe("parseTicketBlocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: markdown }
+      TicketBlockSegment.markdown({ text: markdown })
     ])
   })
 
@@ -130,9 +137,12 @@ describe("serializeTicketBlocks", () => {
   it("writes blocks with blank lines inside and between segments", () => {
     expect(
       serializeTicketBlocks([
-        { kind: "markdown", text: "Intro." },
-        { kind: "block", type: "acceptance-criteria", content: CRITERIA },
-        { kind: "block", type: "notes", content: "" }
+        TicketBlockSegment.markdown({ text: "Intro." }),
+        TicketBlockSegment.block({
+          type: "acceptance-criteria",
+          content: CRITERIA
+        }),
+        TicketBlockSegment.block({ type: "notes", content: "" })
       ])
     ).toBe(
       [
@@ -153,14 +163,13 @@ describe("serializeTicketBlocks", () => {
 
   it("round-trips through parse", () => {
     const segments = [
-      { kind: "markdown", text: "Intro.\n\nSecond paragraph." },
-      {
-        kind: "block",
+      TicketBlockSegment.markdown({ text: "Intro.\n\nSecond paragraph." }),
+      TicketBlockSegment.block({
         type: "steps",
         content: "## Steps\n\n```\n</block>\n```"
-      },
-      { kind: "markdown", text: "Outro." }
-    ] as const
+      }),
+      TicketBlockSegment.markdown({ text: "Outro." })
+    ]
 
     expect(parseTicketBlocks(serializeTicketBlocks(segments))).toEqual(segments)
   })
@@ -206,18 +215,26 @@ describe("synced blocks", () => {
     ].join("\n\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "block", type: "definition-of-done", content: DONE, sync: true },
-      { kind: "block", type: "notes", content: "## Notes" }
+      TicketBlockSegment.block({
+        type: "definition-of-done",
+        content: DONE,
+        sync: true
+      }),
+      TicketBlockSegment.block({ type: "notes", content: "## Notes" })
     ])
     expect(parseTicketBlocks(markdown)[1]).not.toHaveProperty("sync")
   })
 
   it("round-trips sync through serialize and parse", () => {
     const segments = [
-      { kind: "markdown", text: "Intro." },
-      { kind: "block", type: "definition-of-done", content: DONE, sync: true },
-      { kind: "block", type: "notes", content: "## Notes" }
-    ] as const
+      TicketBlockSegment.markdown({ text: "Intro." }),
+      TicketBlockSegment.block({
+        type: "definition-of-done",
+        content: DONE,
+        sync: true
+      }),
+      TicketBlockSegment.block({ type: "notes", content: "## Notes" })
+    ]
 
     const serialized = serializeTicketBlocks(segments)
 
@@ -230,7 +247,9 @@ describe("synced blocks", () => {
   it("accepts extra whitespace around the sync attribute", () => {
     expect(
       parseTicketBlocks('<block  type="notes"   sync >\n</block>')
-    ).toEqual([{ kind: "block", type: "notes", content: "", sync: true }])
+    ).toEqual([
+      TicketBlockSegment.block({ type: "notes", content: "", sync: true })
+    ])
   })
 
   it("keeps the type in the first capture group", () => {
@@ -253,7 +272,7 @@ describe("synced blocks", () => {
     for (const opener of openers) {
       const markdown = `${opener}\ntext\n</block>`
       expect(parseTicketBlocks(markdown)).toEqual([
-        { kind: "markdown", text: markdown }
+        TicketBlockSegment.markdown({ text: markdown })
       ])
     }
   })
@@ -267,7 +286,7 @@ describe("synced blocks", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: markdown }
+      TicketBlockSegment.markdown({ text: markdown })
     ])
   })
 })
@@ -433,7 +452,7 @@ describe("HTML comments", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: markdown }
+      TicketBlockSegment.markdown({ text: markdown })
     ])
   })
 
@@ -449,9 +468,9 @@ describe("HTML comments", () => {
     ].join("\n")
 
     expect(parseTicketBlocks(markdown)).toEqual([
-      { kind: "markdown", text: "<!-- a note -->" },
-      { kind: "block", type: "notes", content: "shown" },
-      { kind: "markdown", text: "<!--\n</block>\n-->" }
+      TicketBlockSegment.markdown({ text: "<!-- a note -->" }),
+      TicketBlockSegment.block({ type: "notes", content: "shown" }),
+      TicketBlockSegment.markdown({ text: "<!--\n</block>\n-->" })
     ])
   })
 
@@ -469,11 +488,12 @@ describe("HTML comments", () => {
   it("treats an empty comment as closed on its own line", () => {
     const markdown = '<!-->\n<block type="notes">\nshown\n</block>'
 
-    expect(parseTicketBlocks(markdown)[1]).toEqual({
-      kind: "block",
-      type: "notes",
-      content: "shown"
-    })
+    expect(parseTicketBlocks(markdown)[1]).toEqual(
+      TicketBlockSegment.block({
+        type: "notes",
+        content: "shown"
+      })
+    )
   })
 })
 
@@ -484,11 +504,12 @@ describe("formatTicketBlock whitespace", () => {
     expect(formatTicketBlock("notes", `\n\n${content}\n\n`)).toBe(
       `<block type="notes">\n\n${content}\n\n</block>`
     )
-    expect(parseTicketBlocks(formatTicketBlock("notes", content))[0]).toEqual({
-      kind: "block",
-      type: "notes",
-      content
-    })
+    expect(parseTicketBlocks(formatTicketBlock("notes", content))[0]).toEqual(
+      TicketBlockSegment.block({
+        type: "notes",
+        content
+      })
+    )
   })
 })
 

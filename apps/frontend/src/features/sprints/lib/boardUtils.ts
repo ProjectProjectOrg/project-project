@@ -5,34 +5,34 @@ import {
   type Ticket,
   type TicketPosition
 } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Schema from "effect/Schema"
 
 import type { TicketEdit, TicketMove } from "@/features/tickets/lib/ticketPatch"
 import { predictRank } from "@/features/tickets/lib/ticketRank"
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export const DragData = Schema.Struct({
-  type: Schema.Literal("card"),
+export const DragData = Schema.TaggedStruct("card", {
   id: TicketId,
   status: TicketStatus
 })
 export type DragData = typeof DragData.Type
 
-export const CardDropData = Schema.Struct({
-  type: Schema.Literal("card"),
+export const CardDropData = Schema.TaggedStruct("card", {
   id: TicketId,
   status: TicketStatus,
   edge: Schema.Literals(["top", "bottom"])
 })
 export type CardDropData = typeof CardDropData.Type
 
-export const ColumnDropData = Schema.Struct({
-  type: Schema.Literal("column"),
+export const ColumnDropData = Schema.TaggedStruct("column", {
   status: TicketStatus
 })
 export type ColumnDropData = typeof ColumnDropData.Type
 
-export const DropData = Schema.Union([CardDropData, ColumnDropData])
+export const DropData = Schema.Union([CardDropData, ColumnDropData]).pipe(
+  Schema.toTaggedUnion("_tag")
+)
 export type DropData = typeof DropData.Type
 
 export const isDragData = Schema.is(DragData)
@@ -61,23 +61,26 @@ export function groupTicketsByStatus(
 
 type RankedCard = Pick<Ticket, "id" | "rank">
 
+export type BoardMoveDrop = Data.TaggedEnum<{
+  card: Pick<CardDropData, "id" | "edge">
+  column: {}
+}>
+export const BoardMoveDrop = Data.taggedEnum<BoardMoveDrop>()
+
 export function boardMove(
   ranked: ReadonlyArray<RankedCard>,
   column: ReadonlyArray<RankedCard>,
   movingId: TicketId,
-  drop:
-    | Pick<CardDropData, "type" | "id" | "edge">
-    | Pick<ColumnDropData, "type">
+  drop: BoardMoveDrop
 ) {
   const last = column.findLast((ticket) => ticket.id !== movingId)
-  const to: TicketPosition | undefined =
-    drop.type === "card"
-      ? drop.edge === "top"
-        ? { before: drop.id }
-        : { after: drop.id }
-      : last === undefined
-        ? undefined
-        : { after: last.id }
+  const to: TicketPosition | undefined = BoardMoveDrop.$is("card")(drop)
+    ? drop.edge === "top"
+      ? { before: drop.id }
+      : { after: drop.id }
+    : last === undefined
+      ? undefined
+      : { after: last.id }
   if (to === undefined) return undefined
   const index = column.findIndex((ticket) => ticket.id === movingId)
   const neighbour = "after" in to ? column[index - 1] : column[index + 1]

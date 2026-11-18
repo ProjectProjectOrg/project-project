@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   addSectionGroups,
+  SlashItem,
   slashMenuSections,
   slashTriggerMatch
 } from "./slash-menu-items"
@@ -67,7 +68,7 @@ describe("addSectionGroups", () => {
       sections
         .find((section) => section.section === key)
         ?.items.flatMap((item) =>
-          item.kind === "block" ? [item.definition.key] : []
+          SlashItem.$is("block")(item) ? [item.definition.key] : []
         )
     expect(sections.map((section) => section.section)).toEqual([
       "suggested",

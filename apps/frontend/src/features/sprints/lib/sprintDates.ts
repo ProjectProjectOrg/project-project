@@ -1,5 +1,6 @@
 import { sprintState, type Group } from "@pp/shared"
 import { localToday } from "@pp/ui/lib/parseDate"
+import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 
 import { m } from "@/paraglide/messages"
@@ -111,21 +112,23 @@ export const startSprintPatch = (
   } satisfies SprintDatesPatch
 }
 
-export type SprintCountdown =
-  | Readonly<{ kind: "noEnd" }>
-  | Readonly<{ kind: "left"; days: number }>
-  | Readonly<{ kind: "lastDay" }>
-  | Readonly<{ kind: "ended"; days: number }>
+export type SprintCountdown = Data.TaggedEnum<{
+  noEnd: {}
+  left: Readonly<{ days: number }>
+  lastDay: {}
+  ended: Readonly<{ days: number }>
+}>
+export const SprintCountdown = Data.taggedEnum<SprintCountdown>()
 
 export const sprintCountdown = (
   sprint: Pick<Group, "endsAt">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
 ) => {
-  if (sprint.endsAt === null) return { kind: "noEnd" } satisfies SprintCountdown
+  if (sprint.endsAt === null) return SprintCountdown.noEnd()
   const days = daysBetween(now, sprint.endsAt)
-  if (days > 0) return { kind: "left", days } satisfies SprintCountdown
-  if (days === 0) return { kind: "lastDay" } satisfies SprintCountdown
-  return { kind: "ended", days: -days } satisfies SprintCountdown
+  if (days > 0) return SprintCountdown.left({ days })
+  if (days === 0) return SprintCountdown.lastDay()
+  return SprintCountdown.ended({ days: -days })
 }
 
 export const sprintEnded = (
@@ -133,7 +136,7 @@ export const sprintEnded = (
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
 ) =>
   sprintState(sprint, now) === "active" &&
-  sprintCountdown(sprint, now).kind === "ended"
+  SprintCountdown.$is("ended")(sprintCountdown(sprint, now))
 
 export type StartPreset = Readonly<{
   key: "now" | "tomorrow" | "afterActive" | "monday" | "mondayAfter"

@@ -1,7 +1,9 @@
 import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   everhourProjectRequest,
@@ -52,28 +54,25 @@ export const Route = createFileRoute(
   }),
   loader: ({ context, params, deps, location }) => {
     const id = decodeTicketId(params.id)
-    const ticket = {
-      type: "ticket" as const,
+    const ticket = Crumb.ticket({
       orgSlug: params.orgSlug,
       slug: params.slug,
       id
-    }
+    })
     const crumb =
       deps.sprint === undefined
         ? ticket
         : [
-            {
-              type: "static" as const,
+            Crumb.static({
               label: m.project_detail_tab_sprints(),
               to: "/orgs/$orgSlug/projects/$slug/sprints",
               params: { orgSlug: params.orgSlug, slug: params.slug }
-            },
-            {
-              type: "sprint" as const,
+            }),
+            Crumb.sprint({
               orgSlug: params.orgSlug,
               slug: params.slug,
               groupId: deps.sprint
-            },
+            }),
             ticket
           ]
     if (location.state.ticketStep === true) return { crumb }
@@ -83,7 +82,7 @@ export const Route = createFileRoute(
           params.orgSlug,
           params.slug,
           id,
-          deps.from?.kind === "parent" ? undefined : deps.from
+          Predicate.isTagged(deps.from, "parent") ? undefined : deps.from
         )
       )
     )()

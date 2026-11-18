@@ -8,7 +8,7 @@ import {
   moveStatus,
   phaseEntries,
   placeStatus,
-  type PhaseEntry
+  PhaseEntry
 } from "./statusPhases"
 
 const decode = Schema.decodeSync(ProjectStatus)
@@ -36,13 +36,16 @@ const statuses = [
 
 const describeEntries = (entries: ReadonlyArray<PhaseEntry>) =>
   entries.map((entry) =>
-    entry.kind === "status" ? entry.status.slug : `${entry.kind}:${entry.phase}`
+    PhaseEntry.$match(entry, {
+      status: ({ status }) => status.slug,
+      phase: ({ phase }) => `phase:${phase}`
+    })
   )
 
 const moveTo = (slug: string, beforeIndex: number) => {
   const entries = [...phaseEntries(statuses)]
   const at = entries.findIndex(
-    (e) => e.kind === "status" && e.status.slug === slug
+    (e) => PhaseEntry.$is("status")(e) && e.status.slug === slug
   )
   const [moved] = entries.splice(at, 1)
   entries.splice(beforeIndex > at ? beforeIndex - 1 : beforeIndex, 0, moved)

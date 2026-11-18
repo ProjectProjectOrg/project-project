@@ -30,7 +30,7 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu } from "./BranchMenu"
+import { BranchMenu, BranchMenuRemoval } from "./BranchMenu"
 import { PANEL_CHROME } from "./gitPanelFrame"
 
 type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"
@@ -406,8 +406,8 @@ function StackLayerRow({
         }
         removal={
           own
-            ? { kind: "ticket" }
-            : { kind: "stack", busy, onRemove: () => void onRemove() }
+            ? BranchMenuRemoval.ticket()
+            : BranchMenuRemoval.stack({ busy, onRemove: () => void onRemove() })
         }
       />
     </li>

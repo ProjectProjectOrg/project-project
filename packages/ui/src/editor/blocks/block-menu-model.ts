@@ -17,7 +17,7 @@ import {
 import type { EditorBlocks } from "./editor-blocks"
 import { canEditDefinition, syncedChipLabel } from "./synced-block"
 import type { SyncedBlockNode } from "./synced-block-node"
-import { syncedView } from "./synced-content"
+import { SyncedView, syncedView } from "./synced-content"
 import { $isTicketBlockNode } from "./ticket-block-node"
 
 export type BlockMenuKind = "copy" | "synced" | "reference"
@@ -71,10 +71,10 @@ function $syncedModel(node: SyncedBlockNode, lookup: BlockLookup) {
   const view = syncedView(lookup, node.getBlockType(), node.getSnapshot(), mode)
   return {
     kind: mode,
-    subtitle:
-      view.kind === "live"
-        ? syncedChipLabel(mode, view.definition.origin)
-        : null,
+    subtitle: SyncedView.$match(view, {
+      live: ({ definition }) => syncedChipLabel(mode, definition.origin),
+      removed: () => null
+    }),
     content: view.content
   } satisfies Pick<BlockMenuModel, "kind" | "subtitle" | "content">
 }

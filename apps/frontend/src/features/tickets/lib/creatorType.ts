@@ -5,9 +5,11 @@ import {
   type BlockLookup,
   type Library,
   type TypeDefinition,
-  type TypeKey
+  type TypeKey,
+  TicketBlockSegment
 } from "@pp/shared"
 import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
+import * as Data from "effect/Data"
 
 import type { TypePrediction } from "./ticketRows"
 import { offersType, visibleTypes } from "./ticketTypes"
@@ -22,33 +24,33 @@ export const startingType = (
   return offersType(library.types, remembered, epics) ? remembered : null
 }
 
-export type TypeStart =
-  | Readonly<{ kind: "sections"; names: ReadonlyArray<string> }>
-  | Readonly<{ kind: "text" }>
-  | Readonly<{ kind: "empty" }>
+export type TypeStart = Data.TaggedEnum<{
+  sections: Readonly<{ names: ReadonlyArray<string> }>
+  text: {}
+  empty: {}
+}>
+export const TypeStart = Data.taggedEnum<TypeStart>()
 
 export const typeStart = (
   definition: TypeDefinition | null,
   lookup: BlockLookup
 ) => {
-  if (definition === null) return { kind: "empty" } satisfies TypeStart
+  if (definition === null) return TypeStart.empty()
   const segments = parseTicketBlocks(definition.body)
   const names = segments.flatMap((segment) =>
-    segment.kind === "block" &&
+    TicketBlockSegment.$is("block")(segment) &&
     (segment.content.trim() !== "" || lookup(segment.type) !== undefined)
       ? [blockChrome(segment.type, lookup).name]
       : []
   )
   if (names.length > 0)
-    return {
-      kind: "sections",
-      names: [...new Set(names)]
-    } satisfies TypeStart
+    return TypeStart.sections({ names: [...new Set(names)] })
   return segments.some(
-    (segment) => segment.kind === "markdown" && segment.text.trim() !== ""
+    (segment) =>
+      TicketBlockSegment.$is("markdown")(segment) && segment.text.trim() !== ""
   )
-    ? ({ kind: "text" } satisfies TypeStart)
-    : ({ kind: "empty" } satisfies TypeStart)
+    ? TypeStart.text()
+    : TypeStart.empty()
 }
 
 export const typePrediction = (

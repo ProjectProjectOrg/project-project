@@ -1,3 +1,5 @@
+import * as Data from "effect/Data"
+
 import { advanceFence, normalizeLineEndings } from "../tickets/blocks"
 
 export const HINT = /\{\{([^{}\n]{1,200})\}\}\s*$/
@@ -20,9 +22,12 @@ export type HintListKind = "bulletList" | "orderedList" | "taskList"
 
 export type HintTextKind = "heading" | "paragraph" | "other"
 
-export type BlockOutlineNode =
-  | Readonly<{ kind: HintTextKind; text: string }>
-  | Readonly<{ kind: HintListKind; items: ReadonlyArray<string> }>
+export type BlockOutlineNode = Data.TaggedEnum<{
+  text: Readonly<{ kind: HintTextKind; text: string }>
+  list: Readonly<{ kind: HintListKind; items: ReadonlyArray<string> }>
+}>
+
+export const BlockOutlineNode = Data.taggedEnum<BlockOutlineNode>()
 
 export type HintNodeKind = BlockOutlineNode["kind"]
 
@@ -33,18 +38,24 @@ export type HintSlot = Readonly<{
   hint: string
 }>
 
-type ItemLine = Readonly<{
-  tag: "item"
-  kind: HintListKind
-  text: string
-  indent: number
-  contentOffset: number
+type OutlineLine = Data.TaggedEnum<{
+  blank: {}
+  fence: {}
+  break: {}
+  leaf: {}
+  heading: Readonly<{ text: string }>
+  text: Readonly<{ text: string }>
+  item: Readonly<{
+    kind: HintListKind
+    text: string
+    indent: number
+    contentOffset: number
+  }>
 }>
 
-type OutlineLine =
-  | Readonly<{ tag: "blank" | "fence" | "break" | "leaf" }>
-  | Readonly<{ tag: "heading" | "text"; text: string }>
-  | ItemLine
+const OutlineLine = Data.taggedEnum<OutlineLine>()
+
+type ItemLine = Extract<OutlineLine, { _tag: "item" }>
 
 type ReadResult = readonly [BlockOutlineNode, number, ReadonlyArray<number>?]
 
@@ -103,29 +114,25 @@ const classifyItem = (match: RegExpExecArray) => {
   const [, indent, marker, spacing = " ", rest = ""] = match
   const task = TASK_BOX.exec(rest)
   const ordered = /\d/.test(marker)
-  return {
-    tag: "item",
+  return OutlineLine.item({
     kind: task !== null ? "taskList" : ordered ? "orderedList" : "bulletList",
     text: (task === null ? rest : (task[1] ?? "")).trim(),
     indent: indent.length,
     contentOffset: indent.length + marker.length + Math.min(spacing.length, 4)
-  } satisfies ItemLine
+  })
 }
 
 const classifyLine = (line: string) => {
-  if (line.trim() === "") return { tag: "blank" } satisfies OutlineLine
-  if (opensFence(line)) return { tag: "fence" } satisfies OutlineLine
-  if (THEMATIC_BREAK.test(line)) return { tag: "break" } satisfies OutlineLine
+  if (line.trim() === "") return OutlineLine.blank()
+  if (opensFence(line)) return OutlineLine.fence()
+  if (THEMATIC_BREAK.test(line)) return OutlineLine.break()
   const heading = HEADING.exec(line)
   if (heading !== null)
-    return {
-      tag: "heading",
-      text: (heading[1] ?? "").trim()
-    } satisfies OutlineLine
+    return OutlineLine.heading({ text: (heading[1] ?? "").trim() })
   const item = LIST_ITEM.exec(line)
   if (item !== null) return classifyItem(item)
-  if (LEAF_START.test(line)) return { tag: "leaf" } satisfies OutlineLine
-  return { tag: "text", text: line.trim() } satisfies OutlineLine
+  if (LEAF_START.test(line)) return OutlineLine.leaf()
+  return OutlineLine.text({ text: line.trim() })
 }
 
 const readFence = (lines: ReadonlyArray<string>, start: number) => {
@@ -136,7 +143,10 @@ const readFence = (lines: ReadonlyArray<string>, start: number) => {
     index++
   }
   return [
-    { kind: "other", text: lines.slice(start, index).join("\n") },
+    BlockOutlineNode.text({
+      kind: "other",
+      text: lines.slice(start, index).join("\n")
+    }),
     index
   ] satisfies ReadResult
 }
@@ -152,28 +162,34 @@ const readWhile = (
 }
 
 const readParagraph = (lines: ReadonlyArray<string>, start: number) => {
-  const end = readWhile(lines, start, (line) => line.tag === "text")
+  const end = readWhile(lines, start, OutlineLine.$is("text"))
   const text = lines
     .slice(start, end)
     .map((line) => line.trim())
     .join("\n")
-  return [{ kind: "paragraph", text }, end] satisfies ReadResult
+  return [
+    BlockOutlineNode.text({ kind: "paragraph", text }),
+    end
+  ] satisfies ReadResult
 }
 
 const readLeaf = (lines: ReadonlyArray<string>, start: number) => {
   const end = readWhile(
     lines,
     start,
-    (line) => line.tag === "leaf" || line.tag === "text"
+    (line) => OutlineLine.$is("leaf")(line) || OutlineLine.$is("text")(line)
   )
   return [
-    { kind: "other", text: lines.slice(start, end).join("\n") },
+    BlockOutlineNode.text({
+      kind: "other",
+      text: lines.slice(start, end).join("\n")
+    }),
     end
   ] satisfies ReadResult
 }
 
 const isSiblingItem = (line: OutlineLine, first: ItemLine): line is ItemLine =>
-  line.tag === "item" && line.indent < first.contentOffset
+  OutlineLine.$is("item")(line) && line.indent < first.contentOffset
 
 const nextNonBlank = (lines: ReadonlyArray<string>, start: number) => {
   for (let index = start; index < lines.length; index++) {
@@ -204,12 +220,12 @@ const readList = (
       items.push([line.text])
       starts.push(index)
       index++
-    } else if (line.tag === "blank") {
+    } else if (OutlineLine.$is("blank")(line)) {
       const next = nextNonBlank(lines, index)
       if (next === null || !continuesListAfterBlank(lines[next], first)) break
       index = next
     } else if (
-      line.tag === "text" ||
+      OutlineLine.$is("text")(line) ||
       indentOf(lines[index]) >= first.contentOffset
     ) {
       items[items.length - 1].push(lines[index].trim())
@@ -222,38 +238,36 @@ const readList = (
     parts.filter((part) => part !== "").join("\n")
   )
   return [
-    { kind: first.kind, items: texts },
+    BlockOutlineNode.list({ kind: first.kind, items: texts }),
     index,
     starts
   ] satisfies ReadResult
 }
 
+const readOther = (lines: ReadonlyArray<string>, start: number) =>
+  [
+    BlockOutlineNode.text({ kind: "other", text: lines[start] }),
+    start + 1
+  ] satisfies ReadResult
+
 const readNode = (
   lines: ReadonlyArray<string>,
   start: number,
   line: OutlineLine
-) => {
-  switch (line.tag) {
-    case "fence":
-      return readFence(lines, start)
-    case "heading":
-      return [
-        { kind: "heading", text: line.text },
+) =>
+  OutlineLine.$match(line, {
+    fence: () => readFence(lines, start),
+    heading: ({ text }) =>
+      [
+        BlockOutlineNode.text({ kind: "heading", text }),
         start + 1
-      ] satisfies ReadResult
-    case "item":
-      return readList(lines, start, line)
-    case "text":
-      return readParagraph(lines, start)
-    case "leaf":
-      return readLeaf(lines, start)
-    default:
-      return [
-        { kind: "other", text: lines[start] },
-        start + 1
-      ] satisfies ReadResult
-  }
-}
+      ] satisfies ReadResult,
+    item: (item) => readList(lines, start, item),
+    text: () => readParagraph(lines, start),
+    leaf: () => readLeaf(lines, start),
+    blank: () => readOther(lines, start),
+    break: () => readOther(lines, start)
+  })
 
 type OutlineEntry = Readonly<{
   node: BlockOutlineNode
@@ -265,7 +279,7 @@ const outlineEntries = (lines: ReadonlyArray<string>) => {
   let index = 0
   while (index < lines.length) {
     const line = classifyLine(lines[index])
-    if (line.tag === "blank") {
+    if (OutlineLine.$is("blank")(line)) {
       index++
       continue
     }
@@ -300,7 +314,7 @@ const slotFor = (
 }
 
 const slotsOfNode = (node: BlockOutlineNode, index: number) => {
-  if ("items" in node)
+  if (BlockOutlineNode.$is("list")(node))
     return node.items.flatMap((item, itemIndex) =>
       slotFor([index, itemIndex], node.kind, item)
     )
@@ -329,7 +343,7 @@ const alignedNodeCount = (
 }
 
 const textAtPath = (node: BlockOutlineNode, path: ReadonlyArray<number>) => {
-  if ("items" in node)
+  if (BlockOutlineNode.$is("list")(node))
     return path.length === 2 ? node.items[path[1]] : undefined
   return path.length === 1 ? node.text : undefined
 }
@@ -370,10 +384,8 @@ export const activeHintSlots = (
 
 const isHintOnlyParagraph = (
   node: BlockOutlineNode
-): node is Readonly<{
-  kind: "paragraph"
-  text: string
-}> =>
+): node is Extract<BlockOutlineNode, { _tag: "text" }> =>
+  BlockOutlineNode.$is("text")(node) &&
   node.kind === "paragraph" &&
   HINT.test(node.text) &&
   stripHints(node.text).trim() === ""

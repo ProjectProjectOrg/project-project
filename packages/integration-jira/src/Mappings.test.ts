@@ -15,6 +15,7 @@ import {
   buildTagCandidates,
   findTagCollisions,
   jiraConfigurationToMappings,
+  JiraIdentityResolution,
   JiraMigrationMappings,
   normalizeJiraTag
 } from "./Mappings"
@@ -61,11 +62,13 @@ describe("JiraMigrationMappings", () => {
       identities: [
         {
           sourceAccountId: "account-a",
-          resolution: { kind: "link", userId: "user-1" }
+          resolution: JiraIdentityResolution.cases.link.make({
+            userId: "user-1"
+          })
         },
         {
           sourceAccountId: "account-b",
-          resolution: { kind: "unlinked" }
+          resolution: JiraIdentityResolution.cases.unlinked.make({})
         }
       ],
       statuses: [
@@ -94,7 +97,7 @@ describe("JiraMigrationMappings", () => {
       ]
     })
 
-    expect(mappings.identities[1]?.resolution.kind).toBe("unlinked")
+    expect(mappings.identities[1]?.resolution._tag).toBe("unlinked")
     expect(mappings.statuses[0]).toMatchObject({
       destinationStatusSlug: "ready_for_review",
       createStatus: true
@@ -463,9 +466,12 @@ describe("jiraConfigurationToMappings", () => {
     expect(mappings.identities).toEqual([
       {
         sourceAccountId: "acct-linked",
-        resolution: { kind: "link", userId: "user-1" }
+        resolution: JiraIdentityResolution.cases.link.make({ userId: "user-1" })
       },
-      { sourceAccountId: "acct-unlinked", resolution: { kind: "unlinked" } }
+      {
+        sourceAccountId: "acct-unlinked",
+        resolution: JiraIdentityResolution.cases.unlinked.make({})
+      }
     ])
     expect(mappings.ticketIds).toEqual([
       { sourceIssueId: "10001", destinationTicketId: "APP-1" }

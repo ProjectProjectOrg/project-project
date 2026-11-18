@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { Dashboard } from "@/features/dashboard/components/Dashboard"
 import { preloadDashboard } from "@/features/dashboard/lib/preloadDashboard"
 import { m } from "@/paraglide/messages"
@@ -22,11 +23,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
       signal: abortController.signal
     })
     return {
-      crumb: {
-        type: "static" as const,
-        label: m.chrome_sidebar_dashboard(),
-        to: "/"
-      }
+      crumb: Crumb.static({ label: m.chrome_sidebar_dashboard(), to: "/" })
     }
   }
 })

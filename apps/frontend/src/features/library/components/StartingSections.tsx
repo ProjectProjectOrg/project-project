@@ -33,7 +33,7 @@ import {
   startingRows,
   withoutRow,
   withSection,
-  type StartingRow
+  StartingRow
 } from "../lib/startingSections"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { LibraryEntryLink } from "./LibraryEntryLink"
@@ -57,7 +57,7 @@ type RowView = Readonly<{
 }>
 
 const rowView = (row: StartingRow, lookup: BlockLookup) => {
-  if (row.kind === "text")
+  if (StartingRow.$is("text")(row))
     return {
       name: m.templates_types_custom_text(),
       icon: (
@@ -73,26 +73,29 @@ const rowView = (row: StartingRow, lookup: BlockLookup) => {
     }
   const definition: BlockDefinition | undefined = lookup(row.key)
   const chrome = blockChrome(row.key, lookup)
-  const same = row.kind === "custom" ? row.sync : (definition?.sync ?? false)
+  const same = StartingRow.$is("custom")(row)
+    ? row.sync
+    : (definition?.sync ?? false)
   return {
     name: chrome.name,
     icon: <BlockIconGlyph icon={chrome.icon} color={chrome.color} />,
     badges: (
       <>
         {same ? <SameOnEveryTicketBadge /> : null}
-        {row.kind === "custom" ? (
+        {StartingRow.$is("custom")(row) ? (
           <Badge size="xs">{m.templates_types_custom_badge()}</Badge>
         ) : null}
       </>
     ),
-    summary:
-      row.kind === "custom"
-        ? contentSummary(row.content)
-        : definition === undefined
-          ? m.templates_types_section_missing()
-          : contentSummary(definition.content),
+    summary: StartingRow.$is("custom")(row)
+      ? contentSummary(row.content)
+      : definition === undefined
+        ? m.templates_types_section_missing()
+        : contentSummary(definition.content),
     sectionKey:
-      row.kind === "section" && definition !== undefined ? row.key : null
+      StartingRow.$is("section")(row) && definition !== undefined
+        ? row.key
+        : null
   }
 }
 

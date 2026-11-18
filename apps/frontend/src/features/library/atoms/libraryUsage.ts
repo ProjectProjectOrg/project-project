@@ -11,16 +11,13 @@ import { projectLibraryFor, projectLibraryRequest } from "./library"
 
 export const USAGE_PROJECT_LIMIT = 24
 
-export type LibraryUsageRequest = Readonly<{
-  _view: "libraryUsage"
-  params: Readonly<{ orgSlug: string }>
-}>
+export type LibraryUsageRequest = ReturnType<typeof libraryUsageRequest>
 
 export const libraryUsageRequest = (orgSlug: string) =>
   ({
     _view: "libraryUsage",
     params: { orgSlug }
-  }) satisfies LibraryUsageRequest
+  }) as const
 
 export type LibraryUsage = Readonly<{
   libraries: ReadonlyArray<ProjectLibrary>

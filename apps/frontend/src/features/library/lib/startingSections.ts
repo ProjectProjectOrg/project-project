@@ -2,38 +2,41 @@ import {
   outlineBlockContent,
   parseTicketBlocks,
   serializeTicketBlocks,
-  type BlockOutlineNode,
+  BlockOutlineNode,
   type Library,
-  type TicketBlockSegment
+  TicketBlockSegment
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
-export type StartingRow =
-  | Readonly<{ id: string; kind: "section"; key: string }>
-  | Readonly<{
-      id: string
-      kind: "custom"
-      key: string
-      content: string
-      sync: boolean
-    }>
-  | Readonly<{ id: string; kind: "text"; text: string }>
+export type StartingRow = Data.TaggedEnum<{
+  section: Readonly<{ id: string; key: string }>
+  custom: Readonly<{
+    id: string
+    key: string
+    content: string
+    sync: boolean
+  }>
+  text: Readonly<{ id: string; text: string }>
+}>
+export const StartingRow = Data.taggedEnum<StartingRow>()
 
 const rowOf = (segment: TicketBlockSegment, id: string) => {
-  if (segment.kind === "markdown")
-    return { id, kind: "text", text: segment.text } satisfies StartingRow
+  if (TicketBlockSegment.$is("markdown")(segment))
+    return StartingRow.text({ id, text: segment.text })
   return segment.content.trim() === ""
-    ? ({ id, kind: "section", key: segment.type } satisfies StartingRow)
-    : ({
+    ? StartingRow.section({ id, key: segment.type })
+    : StartingRow.custom({
         id,
-        kind: "custom",
         key: segment.type,
         content: segment.content,
         sync: segment.sync === true
-      } satisfies StartingRow)
+      })
 }
 
 const idBase = (segment: TicketBlockSegment) =>
-  segment.kind === "markdown" ? "text" : `section:${segment.type}`
+  TicketBlockSegment.$is("markdown")(segment)
+    ? "text"
+    : `section:${segment.type}`
 
 export const startingRows = (body: string) => {
   const seen = new Map<string, number>()
@@ -45,28 +48,15 @@ export const startingRows = (body: string) => {
   })
 }
 
-const segmentOf = (row: StartingRow) => {
-  if (row.kind === "text")
-    return { kind: "markdown", text: row.text } satisfies TicketBlockSegment
-  if (row.kind === "section")
-    return {
-      kind: "block",
-      type: row.key,
-      content: ""
-    } satisfies TicketBlockSegment
-  return row.sync
-    ? ({
-        kind: "block",
-        type: row.key,
-        content: row.content,
-        sync: true
-      } satisfies TicketBlockSegment)
-    : ({
-        kind: "block",
-        type: row.key,
-        content: row.content
-      } satisfies TicketBlockSegment)
-}
+const segmentOf = (row: StartingRow) =>
+  StartingRow.$match(row, {
+    text: ({ text }) => TicketBlockSegment.markdown({ text }),
+    section: ({ key }) => TicketBlockSegment.block({ type: key, content: "" }),
+    custom: ({ key, content, sync }) =>
+      sync
+        ? TicketBlockSegment.block({ type: key, content, sync: true })
+        : TicketBlockSegment.block({ type: key, content })
+  })
 
 export const bodyOfRows = (rows: ReadonlyArray<StartingRow>) =>
   serializeTicketBlocks(rows.map(segmentOf))
@@ -88,15 +78,13 @@ export const withoutRow = (rows: ReadonlyArray<StartingRow>, id: string) =>
 
 export const withSection = (rows: ReadonlyArray<StartingRow>, key: string) => [
   ...rows,
-  {
-    id: `section:${key}:added:${rows.length}`,
-    kind: "section",
-    key
-  } satisfies StartingRow
+  StartingRow.section({ id: `section:${key}:added:${rows.length}`, key })
 ]
 
 const sectionKeysIn = (rows: ReadonlyArray<StartingRow>) =>
-  new Set(rows.flatMap((row) => (row.kind === "text" ? [] : [row.key])))
+  new Set(
+    rows.flatMap((row) => (StartingRow.$is("text")(row) ? [] : [row.key]))
+  )
 
 export const sectionsToAdd = (
   library: Library,
@@ -116,7 +104,7 @@ const plain = (text: string) =>
     .trim()
 
 const nodeTexts = (node: BlockOutlineNode) =>
-  "items" in node ? node.items : [node.text]
+  BlockOutlineNode.$is("list")(node) ? node.items : [node.text]
 
 export const contentSummary = (content: string) => {
   const nodes = outlineBlockContent(content)

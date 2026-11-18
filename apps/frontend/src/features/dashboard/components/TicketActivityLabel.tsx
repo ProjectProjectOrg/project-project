@@ -18,7 +18,7 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 
 import { activityText } from "../lib/activityText"
 
-const ACTIVITY_ICONS: Readonly<Record<RecentTicketActivity["tag"], IconType>> =
+const ACTIVITY_ICONS: Readonly<Record<RecentTicketActivity["_tag"], IconType>> =
   {
     commented: MessageSquare,
     created: FilePlus2,
@@ -38,7 +38,7 @@ export function TicketActivityLabel({
   const statuses = AsyncResult.isSuccess(statusesResult)
     ? statusesResult.value
     : []
-  const Icon = ACTIVITY_ICONS[activity.tag]
+  const Icon = ACTIVITY_ICONS[activity._tag]
   return (
     <>
       <span className="col-start-2 grid h-8 w-(--list-icon) place-items-center text-muted-foreground">

@@ -8,6 +8,7 @@ import {
 } from "react"
 
 import {
+  BoardDropData,
   boardSlotAttribute,
   isBoardCardDrag,
   isBoardDrop
@@ -52,11 +53,13 @@ export function useBoardDropGap(
       const index =
         target?.status !== status
           ? null
-          : target.type === "column"
-            ? items.length
-            : target.id === card.id
-              ? items.indexOf(card.id)
-              : items.indexOf(target.id) + (target.edge === "bottom" ? 1 : 0)
+          : BoardDropData.match(target, {
+              column: () => items.length,
+              card: (drop) =>
+                drop.id === card.id
+                  ? items.indexOf(card.id)
+                  : items.indexOf(drop.id) + (drop.edge === "bottom" ? 1 : 0)
+            })
       const height =
         source.element
           .closest(`[${boardSlotAttribute}]`)

@@ -1,4 +1,4 @@
-import type { ReferenceToFix } from "@pp/shared"
+import { FixReferenceAction, type ReferenceToFix } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { groupReferences, withoutFixed } from "./referenceGroups"
@@ -70,7 +70,7 @@ describe("withoutFixed", () => {
           kind: "user",
           target: "u-old",
           ticketId: null,
-          action: { kind: "plain" }
+          action: FixReferenceAction.cases.plain.make({})
         }
       ).items
     ).toEqual([items[2]])
@@ -84,7 +84,7 @@ describe("withoutFixed", () => {
           kind: "user",
           target: "u-old",
           ticketId: "PP-2",
-          action: { kind: "link", to: "u-new" }
+          action: FixReferenceAction.cases.link.make({ to: "u-new" })
         }
       ).items
     ).toEqual([items[0], items[2]])

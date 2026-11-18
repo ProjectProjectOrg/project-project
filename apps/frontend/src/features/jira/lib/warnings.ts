@@ -1,4 +1,5 @@
 import type { JiraMigrationScanSummary } from "@pp/shared"
+import * as Data from "effect/Data"
 
 import { m } from "@/paraglide/messages"
 
@@ -48,16 +49,17 @@ export type JiraVisibilityRow = Readonly<{
   detail: string
 }>
 
-export type JiraVisibility =
-  | Readonly<{ kind: "complete" }>
-  | Readonly<{ kind: "account" }>
-  | Readonly<{ kind: "limited"; rows: ReadonlyArray<JiraVisibilityRow> }>
+export type JiraVisibility = Data.TaggedEnum<{
+  complete: {}
+  account: {}
+  limited: Readonly<{ rows: ReadonlyArray<JiraVisibilityRow> }>
+}>
+export const JiraVisibility = Data.taggedEnum<JiraVisibility>()
 
 export function jiraVisibility(warnings: ReadonlyArray<VisibilityWarning>) {
-  if (warnings.length === 0)
-    return { kind: "complete" } satisfies JiraVisibility
+  if (warnings.length === 0) return JiraVisibility.complete()
   if (warnings.every((warning) => isGenericPermission(warning.detail)))
-    return { kind: "account" } satisfies JiraVisibility
+    return JiraVisibility.account()
   const known = new Map<string, JiraVisibilityRow>()
   const other = new Set<string>()
   for (const warning of warnings) {
@@ -71,8 +73,7 @@ export function jiraVisibility(warnings: ReadonlyArray<VisibilityWarning>) {
   }
   const otherDetail = [...other]
   const rows = [...known.values()]
-  return {
-    kind: "limited",
+  return JiraVisibility.limited({
     rows:
       otherDetail.length === 0
         ? rows
@@ -86,5 +87,5 @@ export function jiraVisibility(warnings: ReadonlyArray<VisibilityWarning>) {
                   : m.jira_import_warning_partial()
             }
           ]
-  } satisfies JiraVisibility
+  })
 }

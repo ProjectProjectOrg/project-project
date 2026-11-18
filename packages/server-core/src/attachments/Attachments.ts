@@ -49,6 +49,7 @@ import {
 } from "drizzle-orm"
 import * as Clock from "effect/Clock"
 import * as Context from "effect/Context"
+import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -206,26 +207,32 @@ export const summarizeAttachments = (input: {
 export const isServableStatus = (status: "pending" | "live" | "orphaned") =>
   status === "live" || status === "orphaned"
 
-export type AttachmentValidationError =
-  | { readonly kind: "type"; readonly contentType: string }
-  | { readonly kind: "size"; readonly maxBytes: number }
+export type AttachmentValidationError = Data.TaggedEnum<{
+  type: Readonly<{ contentType: string }>
+  size: Readonly<{ maxBytes: number }>
+}>
+export const AttachmentValidationError =
+  Data.taggedEnum<AttachmentValidationError>()
+
+const uploadRejection = (invalid: AttachmentValidationError) =>
+  AttachmentValidationError.$match(invalid, {
+    type: ({ contentType }) => new AttachmentTypeRejected({ contentType }),
+    size: ({ maxBytes }) => new AttachmentTooLarge({ maxBytes })
+  })
 
 export const validateUploadRequest = (input: {
   readonly contentType: string
   readonly byteSize?: number
 }) => {
   if (!isAllowedAttachmentContentType(input.contentType)) {
-    return {
-      kind: "type",
-      contentType: input.contentType
-    } satisfies AttachmentValidationError
+    return AttachmentValidationError.type({ contentType: input.contentType })
   }
   const maxBytes = attachmentMaxBytes(input.contentType)
   if (
     input.byteSize !== undefined &&
     (input.byteSize <= 0 || input.byteSize > maxBytes)
   ) {
-    return { kind: "size", maxBytes } satisfies AttachmentValidationError
+    return AttachmentValidationError.size({ maxBytes })
   }
   return null
 }
@@ -434,14 +441,7 @@ const make = Effect.gen(function* () {
     }
 
     const invalid = validateUploadRequest(input)
-    if (invalid) {
-      if (invalid.kind === "type") {
-        return yield* new AttachmentTypeRejected({
-          contentType: invalid.contentType
-        })
-      }
-      return yield* new AttachmentTooLarge({ maxBytes: invalid.maxBytes })
-    }
+    if (invalid) return yield* Effect.fail(uploadRejection(invalid))
 
     const connection = yield* orgStorage.requireConnection(orgSlug)
 
@@ -537,7 +537,7 @@ const make = Effect.gen(function* () {
     const observedContentType = head.contentType ?? row.contentType
     const invalid =
       ticketId === null && !isRasterImageContentType(observedContentType)
-        ? { kind: "type" as const, contentType: observedContentType }
+        ? AttachmentValidationError.type({ contentType: observedContentType })
         : validateUploadRequest({
             contentType: observedContentType,
             byteSize: head.byteSize
@@ -558,17 +558,13 @@ const make = Effect.gen(function* () {
         .where(eq(attachmentIndex.id, row.id))
         .pipe(Effect.orDie)
 
-      if (invalid?.kind === "type") {
-        return yield* new AttachmentTypeRejected({
-          contentType: invalid.contentType
-        })
-      }
-      return yield* new AttachmentTooLarge({
-        maxBytes:
-          invalid?.kind === "size"
-            ? invalid.maxBytes
-            : attachmentMaxBytes(observedContentType)
-      })
+      return yield* Effect.fail(
+        invalid === null
+          ? new AttachmentTooLarge({
+              maxBytes: attachmentMaxBytes(observedContentType)
+            })
+          : uploadRejection(invalid)
+      )
     }
 
     const twin =

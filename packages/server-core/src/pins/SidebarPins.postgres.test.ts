@@ -11,6 +11,7 @@ import {
   type GroupKind,
   OrgScope,
   PinOrderKey,
+  PinTarget,
   ProjectScope,
   type SidebarPin,
   TicketId
@@ -172,15 +173,11 @@ const inOrg = (fixture: Fixture) =>
     })
   )
 
-const ticket = (id: string) => ({
-  kind: "ticket" as const,
-  ref: TicketId.make(id)
-})
+const ticket = (id: string) =>
+  PinTarget.cases.ticket.make({ ref: TicketId.make(id) })
 
-const sprint = (id: string) => ({
-  kind: "sprint" as const,
-  ref: GroupId.make(id)
-})
+const sprint = (id: string) =>
+  PinTarget.cases.sprint.make({ ref: GroupId.make(id) })
 
 const createGroup = (fixture: Fixture, id: string, kind: GroupKind) =>
   Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
@@ -231,7 +228,7 @@ describe.skipIf(!databaseUrl)("sidebar pins", () => {
       expect(again).toEqual(first)
       expect(first).toMatchObject({
         projectSlug: fixture.slug,
-        kind: "ticket",
+        _tag: "ticket",
         ref: "T-1",
         ticket: { id: "T-1", title: "T-1", status: "todo", archivedAt: null }
       })
@@ -273,7 +270,7 @@ describe.skipIf(!databaseUrl)("sidebar pins", () => {
         const listed = yield* pins.list().pipe(inOrg(fixture))
         expect(listed).toEqual([
           expect.objectContaining({
-            kind: "sprint",
+            _tag: "sprint",
             ref: "G-1",
             sprint: {
               id: "G-1",

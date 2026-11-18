@@ -9,7 +9,11 @@ import type { IconComponent } from "../../lib/icon"
 import { BlockIconGlyph } from "../blocks/block-icon-glyph"
 import { blockIconComponent } from "../blocks/block-icons"
 import { m } from "../messages"
-import type { SlashItem, SlashSectionKey, SlashTab } from "./slash-menu-items"
+import {
+  SlashItem,
+  type SlashSectionKey,
+  type SlashTab
+} from "./slash-menu-items"
 import { BASIC_LITERALS } from "./slash-menu-preview"
 
 // How each slash menu item is named, drawn and annotated.
@@ -53,15 +57,16 @@ const ORIGIN_LABELS = {
 export const basicLabel = (kind: BasicBlockKind) => BASIC_LABELS[kind]()
 
 export function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
-  if (item.kind === "block")
+  if (SlashItem.$is("block")(item))
     return (
       <BlockIconGlyph
         icon={item.definition.icon}
         color={item.definition.color}
       />
     )
-  const Icon =
-    item.kind === "gallery" ? LibraryBig : BASIC_BLOCK_ICONS[item.basic]
+  const Icon = SlashItem.$is("gallery")(item)
+    ? LibraryBig
+    : BASIC_BLOCK_ICONS[item.basic]
   return (
     <Icon
       aria-hidden
@@ -92,34 +97,37 @@ const glyphIcon = (icon: BlockIconName, color: string | null) => {
   return Glyph
 }
 
-export const itemIcon = (item: SlashItem) => {
-  if (item.kind === "block")
-    return glyphIcon(item.definition.icon, item.definition.color)
-  return item.kind === "gallery" ? LibraryBig : BASIC_BLOCK_ICONS[item.basic]
-}
+export const itemIcon = (item: SlashItem) =>
+  SlashItem.$match(item, {
+    block: ({ definition }) => glyphIcon(definition.icon, definition.color),
+    basic: ({ basic }) => BASIC_BLOCK_ICONS[basic],
+    gallery: () => LibraryBig
+  })
 
-export const itemName = (item: SlashItem) => {
-  if (item.kind === "block") return item.definition.name
-  if (item.kind === "gallery") return m.editor_slash_gallery_blocks()
-  return basicLabel(item.basic)
-}
+export const itemName = (item: SlashItem) =>
+  SlashItem.$match(item, {
+    block: ({ definition }) => definition.name,
+    basic: ({ basic }) => basicLabel(basic),
+    gallery: () => m.editor_slash_gallery_blocks()
+  })
 
 const blockMeta = (definition: BlockDefinition) => {
   if (definition.sync) return m.editor_slash_synced()
   return ORIGIN_LABELS[definition.origin]()
 }
 
-export const itemMeta = (item: SlashItem) => {
-  if (item.kind === "block")
-    return item.suggestedBy ?? blockMeta(item.definition)
-  if (item.kind === "gallery") return m.editor_slash_gallery_browse()
-  return null
-}
+export const itemMeta = (item: SlashItem) =>
+  SlashItem.$match(item, {
+    block: ({ suggestedBy, definition }) =>
+      suggestedBy ?? blockMeta(definition),
+    basic: () => null,
+    gallery: () => m.editor_slash_gallery_browse()
+  })
 
 export const itemLiteral = (item: SlashItem) =>
-  item.kind === "basic" ? BASIC_LITERALS[item.basic] : null
+  SlashItem.$is("basic")(item) ? BASIC_LITERALS[item.basic] : null
 
 export const itemShortcut = (item: SlashItem) =>
-  item.kind === "block" && item.definition.sync
+  SlashItem.$is("block")(item) && item.definition.sync
     ? m.editor_slash_copy_hint()
     : null

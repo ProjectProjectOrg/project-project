@@ -4,12 +4,15 @@ import {
   type BlockDefinition,
   type BlockLookup
 } from "@pp/shared"
+import * as Data from "effect/Data"
 
 export type SyncedBlockMode = "synced" | "reference"
 
-export type SyncedView =
-  | Readonly<{ kind: "live"; content: string; definition: BlockDefinition }>
-  | Readonly<{ kind: "removed"; content: string }>
+export type SyncedView = Data.TaggedEnum<{
+  live: Readonly<{ content: string; definition: BlockDefinition }>
+  removed: Readonly<{ content: string }>
+}>
+export const SyncedView = Data.taggedEnum<SyncedView>()
 
 const liveDefinition = (
   lookup: BlockLookup,
@@ -28,16 +31,14 @@ export const syncedView = (
   mode: SyncedBlockMode
 ) => {
   const definition = liveDefinition(lookup, blockType, mode)
-  if (definition === undefined)
-    return { kind: "removed", content: snapshot } satisfies SyncedView
-  return {
-    kind: "live",
+  if (definition === undefined) return SyncedView.removed({ content: snapshot })
+  return SyncedView.live({
     definition,
     content:
       mode === "reference"
         ? stripHints(definition.content)
         : mergeChecklistTicks(definition.content, snapshot)
-  } satisfies SyncedView
+  })
 }
 
 const HINT = /\{\{([^{}\n]+)\}\}/g
@@ -48,7 +49,7 @@ export const hintsAsEmphasis = (markdown: string) =>
 
 /** What a synced or linked block shows: references show the hints. */
 export const syncedDisplayContent = (
-  view: Extract<SyncedView, { kind: "live" }>,
+  view: Data.TaggedEnum.Value<SyncedView, "live">,
   mode: SyncedBlockMode
 ) =>
   mode === "reference" ? hintsAsEmphasis(view.definition.content) : view.content

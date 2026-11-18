@@ -3,12 +3,12 @@ import * as Random from "effect/Random"
 import { useRef, useState } from "react"
 
 import { cn } from "../lib/utils"
-import { Dither, type TimeWarpZone } from "./dither"
+import { Dither, TimeWarpAnchor, type TimeWarpZone } from "./dither"
 
 const EMPTY_WARP_ZONES: TimeWarpZone[] = [
-  { anchor: { type: "click" }, radius: 0.7, strength: 3.2, falloff: 3.5 },
+  { anchor: TimeWarpAnchor.click(), radius: 0.7, strength: 3.2, falloff: 3.5 },
   {
-    anchor: { type: "fraction", x: 0.5, y: 0.5 },
+    anchor: TimeWarpAnchor.fraction({ x: 0.5, y: 0.5 }),
     radius: 0.7,
     strength: 1.2,
     falloff: 4.5

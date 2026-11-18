@@ -34,7 +34,10 @@ import {
   RelationChips,
   SubTicketsChip
 } from "@/features/tickets/components/ticket-preview/PreviewChips"
-import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import {
+  TicketPreview,
+  TicketPreviewTrigger
+} from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
@@ -174,7 +177,7 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
   const { orgSlug, slug } = useProjectRoute()
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "ticket", id: epic.id }}
+      preview={TicketPreview.ticket({ id: epic.id })}
       render={
         <Link
           to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -203,7 +206,7 @@ export function ParentTicketCrumb({
         strokeWidth={1.75}
       />
       <TicketPreviewTrigger
-        preview={{ kind: "ticket", id: parent.id }}
+        preview={TicketPreview.ticket({ id: parent.id })}
         render={
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -279,7 +282,7 @@ export function TagChips({
       {shown.map((name) =>
         chip(
           name,
-          { kind: "tag", name },
+          TicketPreview.tag({ name }),
           <>
             <span
               aria-hidden
@@ -295,7 +298,7 @@ export function TagChips({
       {hidden.length > 0 &&
         chip(
           "more",
-          { kind: "tags", names: hidden },
+          TicketPreview.tags({ names: hidden }),
           <span className="tabular-nums">
             {m.tags_more({ count: hidden.length })}
           </span>,
@@ -305,7 +308,7 @@ export function TagChips({
       {collapse &&
         chip(
           "all",
-          { kind: "tags", names },
+          TicketPreview.tags({ names }),
           <>
             <ChipDots colors={names.map((name) => colors.get(name))} />
             <span className="tabular-nums">{names.length}</span>

@@ -1,5 +1,6 @@
 import { rewriteMentionsInMovedTicket } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Result from "effect/Result"
 import { describe, expect, it } from "vitest"
 
 import type { CommentBlock } from "./comments-region"
@@ -182,17 +183,27 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
 
 describe("validateCommentBody", () => {
   it("accepts normal markdown", () => {
-    expect(validateCommentBody("Hello\n\n```ts\nlet x = 1\n```").ok).toBe(true)
+    expect(
+      Result.isSuccess(validateCommentBody("Hello\n\n```ts\nlet x = 1\n```"))
+    ).toBe(true)
   })
   it("rejects bodies containing the comments marker pattern", () => {
-    expect(validateCommentBody("hi <!-- comment:fake -->").ok).toBe(false)
-    expect(validateCommentBody("hi <!--   comment:fake -->").ok).toBe(false)
-    expect(validateCommentBody("<!-- comments:start -->").ok).toBe(false)
-    expect(validateCommentBody("<!-- comments:end -->").ok).toBe(false)
+    expect(
+      Result.isFailure(validateCommentBody("hi <!-- comment:fake -->"))
+    ).toBe(true)
+    expect(
+      Result.isFailure(validateCommentBody("hi <!--   comment:fake -->"))
+    ).toBe(true)
+    expect(
+      Result.isFailure(validateCommentBody("<!-- comments:start -->"))
+    ).toBe(true)
+    expect(Result.isFailure(validateCommentBody("<!-- comments:end -->"))).toBe(
+      true
+    )
   })
   it("rejects empty bodies", () => {
-    expect(validateCommentBody("").ok).toBe(false)
-    expect(validateCommentBody("   \n  ").ok).toBe(false)
+    expect(Result.isFailure(validateCommentBody(""))).toBe(true)
+    expect(Result.isFailure(validateCommentBody("   \n  "))).toBe(true)
   })
 })
 

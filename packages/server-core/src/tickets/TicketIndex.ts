@@ -72,6 +72,7 @@ import {
 } from "drizzle-orm"
 import { alias, type AnyPgColumn } from "drizzle-orm/pg-core"
 import * as Context from "effect/Context"
+import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -202,10 +203,14 @@ export type TicketIndexSections = ReadonlyMap<
   }>
 >
 
-export type TicketIndexSectionOrder =
-  | Readonly<{ kind: "status" }>
-  | Readonly<{ kind: "parent" | "ticketParent"; keys: ReadonlyArray<string> }>
-  | Readonly<{ kind: "explicit"; sections: ReadonlyArray<TicketIndexSection> }>
+export type TicketIndexSectionOrder = Data.TaggedEnum<{
+  status: {}
+  parent: Readonly<{ keys: ReadonlyArray<string> }>
+  ticketParent: Readonly<{ keys: ReadonlyArray<string> }>
+  explicit: Readonly<{ sections: ReadonlyArray<TicketIndexSection> }>
+}>
+export const TicketIndexSectionOrder =
+  Data.taggedEnum<TicketIndexSectionOrder>()
 
 export type TicketIndexWithinOrder = Readonly<{
   sort: TicketSort
@@ -1439,25 +1444,26 @@ const make = Effect.gen(function* () {
     options: TicketIndexSequenceOptions
   ) {
     const order = options.sections
-    const sections = order.kind === "explicit" ? order.sections : order.kind
+    const sections = TicketIndexSectionOrder.$is("explicit")(order)
+      ? order.sections
+      : order._tag
     const nestWithin: NestWithin | undefined =
       options.within.nestAcrossSections === true ||
       sections === "parent" ||
       sections === "ticketParent"
         ? undefined
         : (row) => sectionExpression(sections, row)
-    const ordinal =
-      order.kind === "status"
-        ? drizzleSql`coalesce((
+    const ordinal = TicketIndexSectionOrder.$is("status")(order)
+      ? drizzleSql`coalesce((
             select ${projectStatus.orderKey} from ${projectStatus}
             where ${projectStatus.projectId} = ${ticketIndex.projectId}
               and ${projectStatus.slug} = ${ticketIndex.status}
           ), '') collate "C"`
-        : drizzleSql`array_position(${drizzleSql.param(
-            order.kind === "explicit"
-              ? order.sections.map((section) => section.key)
-              : [...order.keys]
-          )}::text[], ${sectionExpression(sections)})`
+      : drizzleSql`array_position(${drizzleSql.param(
+          TicketIndexSectionOrder.$is("explicit")(order)
+            ? order.sections.map((section) => section.key)
+            : [...order.keys]
+        )}::text[], ${sectionExpression(sections)})`
     const { sort } = options.within
     const dir = sort.dir === "asc" ? drizzleSql`asc` : drizzleSql`desc`
     const withinExpression = ticketSortExpression(sort)

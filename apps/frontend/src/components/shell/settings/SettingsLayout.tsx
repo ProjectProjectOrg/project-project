@@ -1,9 +1,10 @@
 import { Outlet, useMatches } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { PageHeader } from "@/components/shell/Page"
 
 export const settingsPage = (heading: string, description: string) => ({
-  crumb: { type: "static" as const, label: heading },
+  crumb: Crumb.static({ label: heading }),
   page: { heading, description }
 })
 

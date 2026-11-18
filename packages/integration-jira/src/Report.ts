@@ -21,7 +21,11 @@ import {
   JiraManifestSourceV2,
   canonicalJiraJson
 } from "./Manifest"
-import { jiraRestrictionPolicy, type JiraMigrationMappings } from "./Mappings"
+import {
+  JiraIdentityResolution,
+  jiraRestrictionPolicy,
+  type JiraMigrationMappings
+} from "./Mappings"
 import type { JiraPreflightResult } from "./Preflight"
 import type { JiraPublicationPlan } from "./PublicationPlan"
 import type {
@@ -298,11 +302,11 @@ ${table(
   ["Jira account", "Linked to"],
   mappings.identities.map(({ sourceAccountId, resolution }) => [
     escapeCell(identityNames.get(sourceAccountId) ?? sourceAccountId),
-    resolution.kind === "link"
-      ? escapeCell(input.userLabelsById[resolution.userId] ?? resolution.userId)
-      : resolution.kind === "invite"
-        ? `_invited:_ ${escapeCell(resolution.email)}`
-        : "_not linked_"
+    JiraIdentityResolution.match(resolution, {
+      link: ({ userId }) => escapeCell(input.userLabelsById[userId] ?? userId),
+      invite: ({ email }) => `_invited:_ ${escapeCell(email)}`,
+      unlinked: () => "_not linked_"
+    })
   ])
 )}
 

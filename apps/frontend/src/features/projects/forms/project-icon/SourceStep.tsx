@@ -8,6 +8,7 @@ import {
 import { Database, Upload } from "@pp/ui/icons"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Link } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 import { useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -72,7 +73,7 @@ export function SourceStep({
               {m.project_icon_step_source_heading()}
             </StepHeading>
 
-            <group.Field name="kind">
+            <group.Field name="_tag">
               {(field) => (
                 <SegmentedTabs
                   variant="inline"
@@ -87,7 +88,7 @@ export function SourceStep({
               )}
             </group.Field>
 
-            <group.Subscribe selector={(state) => state.values.kind}>
+            <group.Subscribe selector={(state) => state.values._tag}>
               {(kind) =>
                 kind === "emoji" ? (
                   <group.Field name="emoji">
@@ -208,7 +209,7 @@ export function SourceStep({
 
             <group.Subscribe selector={(state) => state.values}>
               {(source) =>
-                source.kind === "image" && source.objectUrl ? (
+                Predicate.isTagged(source, "image") && source.objectUrl ? (
                   <Button type="submit" size="sm" className="self-start">
                     {m.project_appearance_continue()}
                   </Button>

@@ -1,3 +1,4 @@
+import * as Data from "effect/Data"
 import {
   useEffect,
   useLayoutEffect,
@@ -18,9 +19,11 @@ const RIPPLE_RING_SPEED = 9
 const TARGET_FRAME_MS = 1000 / 60
 const FRAME_GATE_MS = TARGET_FRAME_MS - 2
 
-export type TimeWarpAnchor =
-  | { type: "click" }
-  | { type: "fraction"; x: number; y: number }
+export type TimeWarpAnchor = Data.TaggedEnum<{
+  click: {}
+  fraction: Readonly<{ x: number; y: number }>
+}>
+export const TimeWarpAnchor = Data.taggedEnum<TimeWarpAnchor>()
 
 export interface TimeWarpZone {
   anchor: TimeWarpAnchor
@@ -623,7 +626,7 @@ function DitherCanvas({
     }
     const findClickEmitter = (zones: ReadonlyArray<TimeWarpZone>) => {
       for (const zone of zones) {
-        if (zone.anchor.type === "click") return zone
+        if (TimeWarpAnchor.$is("click")(zone.anchor)) return zone
       }
       return null
     }
@@ -718,7 +721,7 @@ function DitherCanvas({
       let staticZoneCount = 0
       let clickEmitter: TimeWarpZone | null = null
       for (const zone of zones) {
-        if (zone.anchor.type === "click") {
+        if (TimeWarpAnchor.$is("click")(zone.anchor)) {
           if (!clickEmitter) clickEmitter = zone
           continue
         }

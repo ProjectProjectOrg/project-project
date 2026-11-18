@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import type { JiraMigrationManifest } from "./Manifest"
-import { JiraMigrationMappings } from "./Mappings"
+import { JiraIdentityResolution, JiraMigrationMappings } from "./Mappings"
 import { preflightJiraMigration } from "./Preflight"
 
 const makeIssue = (id: string, key: string, issueNumber: number) => ({
@@ -235,7 +235,9 @@ describe("preflightJiraMigration", () => {
       identities: [
         {
           sourceAccountId: "account-1",
-          resolution: { kind: "link", userId: "user-1" }
+          resolution: JiraIdentityResolution.cases.link.make({
+            userId: "user-1"
+          })
         }
       ],
       statuses: [
@@ -284,7 +286,10 @@ describe("preflightJiraMigration", () => {
     const mappings = decodeMappings({
       project: { slug: "application", key: "APP", name: "Application" },
       identities: [
-        { sourceAccountId: "account-1", resolution: { kind: "unlinked" } }
+        {
+          sourceAccountId: "account-1",
+          resolution: JiraIdentityResolution.cases.unlinked.make({})
+        }
       ],
       statuses: [
         { sourceStatusId: "status-1", destinationStatusSlug: "in_progress" }

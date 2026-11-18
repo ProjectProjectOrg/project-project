@@ -1,4 +1,5 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import * as Data from "effect/Data"
 import {
   $applyNodeReplacement,
   $createNodeSelection,
@@ -49,7 +50,7 @@ import {
   syncedView,
   toggleTaskAtLine,
   type SyncedBlockMode,
-  type SyncedView
+  SyncedView
 } from "./synced-content"
 
 export type DetachSyncedBlockPayload = Readonly<{
@@ -242,7 +243,7 @@ function SyncedBlockView({
     }
   }, [editor, nodeKey])
 
-  if (view.kind === "removed") {
+  if (SyncedView.$is("removed")(view)) {
     const { heading, rest } = splitLeadingHeading(view.content)
     return (
       <>
@@ -298,7 +299,7 @@ function SyncedActions({
   onDetach
 }: Readonly<{
   scope: EditorBlocksScope
-  view: Extract<SyncedView, { kind: "live" }>
+  view: Data.TaggedEnum.Value<SyncedView, "live">
   mode: SyncedBlockMode
   onDetach: () => void
 }>) {

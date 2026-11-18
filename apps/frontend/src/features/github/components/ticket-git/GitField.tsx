@@ -18,7 +18,7 @@ import { canStackOn } from "@/features/github/lib/stacking"
 import { textLinkClass } from "@/lib/textLink"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu, type BranchMenuPr } from "./BranchMenu"
+import { BranchMenu, BranchMenuRemoval, type BranchMenuPr } from "./BranchMenu"
 import type { GitPanelFrame } from "./gitPanelFrame"
 import { PrLink } from "./PrLink"
 
@@ -47,7 +47,7 @@ export function GitField({
         github={github}
         branch={view.branch}
         openPr={view.openPr}
-        removal={{ kind: "ticket" }}
+        removal={BranchMenuRemoval.ticket()}
         canStack={canStackOn(state)}
         trigger={
           <Button

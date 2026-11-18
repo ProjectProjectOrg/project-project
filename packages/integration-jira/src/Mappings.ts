@@ -26,17 +26,11 @@ const isStatusLabel = Schema.is(StatusLabel)
 
 const decodeTicketIdSync = Schema.decodeSync(TicketId)
 
-export const JiraIdentityResolution = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("link"),
-    userId: Schema.NonEmptyString
-  }),
-  Schema.Struct({ kind: Schema.Literal("unlinked") }),
-  Schema.Struct({
-    kind: Schema.Literal("invite"),
-    email: Schema.NonEmptyString
-  })
-])
+export const JiraIdentityResolution = Schema.TaggedUnion({
+  link: { userId: Schema.NonEmptyString },
+  unlinked: {},
+  invite: { email: Schema.NonEmptyString }
+})
 export type JiraIdentityResolution = typeof JiraIdentityResolution.Type
 
 export const JiraMigrationMappings = Schema.Struct({
@@ -395,13 +389,14 @@ export function jiraConfigurationToMappings(
         sourceAccountId: jiraAccountId,
         resolution:
           projectProjectUserId !== null
-            ? ({ kind: "link", userId: projectProjectUserId } as const)
+            ? JiraIdentityResolution.cases.link.make({
+                userId: projectProjectUserId
+              })
             : inviteEmail === undefined
-              ? ({ kind: "unlinked" } as const)
-              : ({
-                  kind: "invite",
+              ? JiraIdentityResolution.cases.unlinked.make({})
+              : JiraIdentityResolution.cases.invite.make({
                   email: inviteEmail.toLowerCase()
-                } as const)
+                })
       })
     ),
     statuses: configuration.statuses.map(

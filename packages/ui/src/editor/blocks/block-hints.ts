@@ -8,10 +8,10 @@ import {
   HINT,
   activeHintSlots,
   alignedHintSlots,
+  BlockOutlineNode,
   outlineBlockContent,
   stripHints,
   type BlockLookup,
-  type BlockOutlineNode,
   type HintSlot
 } from "@pp/shared"
 import {
@@ -76,7 +76,7 @@ function $listEntry(list: ListNode) {
     texts.push(item.getTextContent())
   }
   return {
-    node: { kind: listKind(list), items: texts },
+    node: BlockOutlineNode.list({ kind: listKind(list), items: texts }),
     keys,
     texts
   } satisfies OutlineEntry
@@ -91,7 +91,7 @@ function $outlineEntry(child: LexicalNode) {
       ? "paragraph"
       : "other"
   return {
-    node: { kind, text },
+    node: BlockOutlineNode.text({ kind, text }),
     keys: [child.getKey()],
     texts: [text]
   } satisfies OutlineEntry

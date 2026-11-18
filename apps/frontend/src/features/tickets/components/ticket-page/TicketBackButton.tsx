@@ -1,5 +1,6 @@
 import type { GroupId } from "@pp/shared"
 import { useSearch, type LinkComponentProps } from "@tanstack/react-router"
+import * as Predicate from "effect/Predicate"
 
 import { BackButton } from "@/components/shell/BackButton"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -30,7 +31,7 @@ function fallbackFor(
       params: { orgSlug, slug, groupId: sprint }
     } satisfies LinkComponentProps
   }
-  if (from?.kind === "parent") {
+  if (Predicate.isTagged(from, "parent")) {
     return {
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id: from.parent }

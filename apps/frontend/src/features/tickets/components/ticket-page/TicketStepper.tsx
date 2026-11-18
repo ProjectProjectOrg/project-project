@@ -6,7 +6,10 @@ import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import {
+  TicketPreview,
+  TicketPreviewTrigger
+} from "@/features/tickets/components/ticket-preview/TicketPreview"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
@@ -84,7 +87,7 @@ function StepButton({
   }
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "ticket", id: neighbor.id, shortcut }}
+      preview={TicketPreview.ticket({ id: neighbor.id, shortcut })}
       render={
         <Button
           variant="ghost"

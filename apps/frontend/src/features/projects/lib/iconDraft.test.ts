@@ -1,6 +1,8 @@
 import { AttachmentId, ProjectIconImage } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
+import { IconSource } from "@/features/projects/forms/project-icon/opts"
+
 import {
   buildIconImage,
   iconPreviewChanged,
@@ -19,7 +21,10 @@ const sticker: ProjectIconImage = {
 
 const draftOf = (over: Partial<IconDraftValues> = {}) =>
   ({
-    source: { kind: "image", emoji: "🎨" },
+    source: IconSource.cases.image.make({
+      emoji: "🎨",
+      objectUrl: "blob:icon"
+    }),
     crop: { x: 0.5, y: 0.5, zoom: 1 },
     treatment: { kind: "sticker", tolerance: TOLERANCE },
     ...over
@@ -40,7 +45,9 @@ describe("iconPreviewChanged", () => {
   it("is unchanged when the editor opens on the saved emoji", () => {
     expect(
       iconPreviewChanged(
-        draftOf({ source: { kind: "emoji", emoji: "🎨" } }),
+        draftOf({
+          source: IconSource.cases.emoji.make({ emoji: "🎨", objectUrl: null })
+        }),
         { icon: "🎨", iconImage: null },
         false,
         TOLERANCE
@@ -106,7 +113,9 @@ describe("iconPreviewChanged", () => {
   it("notices an emoji replacing an image", () => {
     expect(
       iconPreviewChanged(
-        draftOf({ source: { kind: "emoji", emoji: "🎨" } }),
+        draftOf({
+          source: IconSource.cases.emoji.make({ emoji: "🎨", objectUrl: null })
+        }),
         { icon: "🎨", iconImage: sticker },
         false,
         TOLERANCE
@@ -117,7 +126,9 @@ describe("iconPreviewChanged", () => {
   it("notices a different emoji", () => {
     expect(
       iconPreviewChanged(
-        draftOf({ source: { kind: "emoji", emoji: "🚀" } }),
+        draftOf({
+          source: IconSource.cases.emoji.make({ emoji: "🚀", objectUrl: null })
+        }),
         { icon: "🎨", iconImage: null },
         false,
         TOLERANCE

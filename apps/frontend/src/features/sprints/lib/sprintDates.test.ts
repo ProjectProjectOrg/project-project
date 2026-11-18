@@ -5,6 +5,7 @@ import {
   defaultSprintRange,
   formatSprintRange,
   sprintDateDraft,
+  SprintCountdown,
   sprintCountdown,
   sprintDatesPatch,
   startPresets,
@@ -120,9 +121,9 @@ describe("startSprintPatch", () => {
 describe("sprintCountdown", () => {
   const endsAt = noon("2026-05-14")
   it.each([
-    ["2026-05-12", { kind: "left", days: 2 }],
-    ["2026-05-14", { kind: "lastDay" }],
-    ["2026-05-16", { kind: "ended", days: 2 }]
+    ["2026-05-12", SprintCountdown.left({ days: 2 })],
+    ["2026-05-14", SprintCountdown.lastDay()],
+    ["2026-05-16", SprintCountdown.ended({ days: 2 })]
   ])("on %s", (today, expected) => {
     expect(sprintCountdown({ endsAt }, noon(today))).toEqual(expected)
   })

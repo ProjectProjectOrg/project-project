@@ -15,7 +15,7 @@ import { organizationCommands } from "@/features/organizations/commands"
 import {
   runCommand,
   visibleCommands,
-  type Command,
+  Command,
   type CommandContext,
   type CommandEnv
 } from "./commands"
@@ -59,14 +59,14 @@ const context: CommandContext = {
 }
 
 const command = (id: string, group: Command["group"], when?: Command["when"]) =>
-  ({
+  Command.page({
     id,
     group,
     label: () => id,
     icon: Settings,
     when,
     page: "theme"
-  }) satisfies Command
+  })
 
 describe("visibleCommands", () => {
   it("orders commands by group and drops those that don't apply", () => {

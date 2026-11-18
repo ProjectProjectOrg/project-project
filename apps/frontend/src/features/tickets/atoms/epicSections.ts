@@ -3,7 +3,6 @@ import {
   type EpicSectionKey,
   type Ticket,
   type TicketId,
-  type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -47,12 +46,7 @@ import {
   recordCreatedKey
 } from "./ticketRows"
 
-export type EpicSectionsRequest = Readonly<{
-  _view: "epicSections"
-  by: ParentGrouping
-  params: Readonly<{ orgSlug: string; slug: string }>
-  query: TicketListQuery
-}>
+export type EpicSectionsRequest = ReturnType<typeof epicSectionsRequest>
 
 export const epicSectionsRequest = (
   orgSlug: string,
@@ -68,7 +62,7 @@ export const epicSectionsRequest = (
       ...viewQuery(query),
       cursor: undefined
     }
-  }) satisfies EpicSectionsRequest
+  }) as const
 
 const scopeOf = (req: EpicSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

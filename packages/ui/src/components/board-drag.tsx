@@ -19,12 +19,12 @@ import {
 
 import {
   boardSlotAttribute,
+  BoardCardDragData,
+  BoardCardDropData,
+  BoardColumnDropData,
+  BoardDropData,
   isBoardCardDrag,
-  isBoardDrop,
-  type BoardCardDragData,
-  type BoardCardDropData,
-  type BoardColumnDropData,
-  type BoardDropData
+  isBoardDrop
 } from "../lib/boardDragData"
 import { transitions } from "../lib/springs"
 import {
@@ -50,7 +50,7 @@ import {
  *   (`useBoardEdgeScroll`); near the board's sides, the board
  *   (`useBoardAutoScroll`).
  *
- * The drag data is plain: a card is { type: "card", id, status }, a drop is
+ * The drag data is plain: a card is { _tag: "card", id, status }, a drop is
  * a card's top or bottom edge or a column's empty space.
  */
 
@@ -221,12 +221,7 @@ export function useBoardCardDrag({
     const source = (element: HTMLElement) =>
       draggable({
         element,
-        getInitialData: () =>
-          ({
-            type: "card",
-            id,
-            status
-          }) satisfies BoardCardDragData,
+        getInitialData: () => BoardCardDragData.make({ id, status }),
         onGenerateDragPreview: ({ location, nativeSetDragImage }) => {
           setCustomNativeDragPreview({
             nativeSetDragImage,
@@ -262,7 +257,7 @@ export function useBoardCardDrag({
         const rect = target.getBoundingClientRect()
         const edge =
           input.clientY < rect.top + rect.height / 2 ? "top" : "bottom"
-        return { type: "card", id, status, edge } satisfies BoardCardDropData
+        return BoardCardDropData.make({ id, status, edge })
       }
     })
     return () => {
@@ -285,7 +280,7 @@ export function useBoardColumnDrop(
     if (!enabled || !element) return undefined
     const stopDrop = dropTargetForElements({
       element,
-      getData: () => ({ type: "column", status }) satisfies BoardColumnDropData
+      getData: () => BoardColumnDropData.make({ status })
     })
     const update = ({
       location
@@ -327,7 +322,8 @@ export function useBoardCardDrop(
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]?.data
         if (!isBoardCardDrag(source.data) || !isBoardDrop(target)) return
-        if (target.type === "card" && target.id === source.data.id) return
+        if (BoardDropData.guards.card(target) && target.id === source.data.id)
+          return
         handler.current(source.data, target)
       }
     })

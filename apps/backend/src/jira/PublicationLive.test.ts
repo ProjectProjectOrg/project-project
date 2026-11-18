@@ -24,6 +24,7 @@ import {
 } from "@pp/integration-jira/PublicationArtifacts"
 import { aliasJiraMediaReferences } from "@pp/integration-jira/PublicationPlan"
 import {
+  JiraPublicationPlanResult,
   JiraPublicationPlanV1,
   jiraAttachmentId,
   prepareJiraPublication as prepareJiraPublicationWithFormat
@@ -1406,8 +1407,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    expect(result.kind).toBe("ready")
-    if (result.kind !== "ready") return
+    expect(result._tag).toBe("ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result)) return
     expect(result.plan.project.slug).toBe("application")
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1", "APP-7"])
     expect(result.plan.tickets[0]?.status).toBe("todo")
@@ -1423,7 +1424,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.createdStatuses.map(({ slug }) => slug)).toEqual([
       "on_hold"
     ])
@@ -1439,7 +1441,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.comments).toHaveLength(1)
     expect(result.plan.comments[0]?.author).toEqual({
       kind: "jira",
@@ -1456,7 +1459,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.tickets[0]?.assignees).toEqual(["user-1"])
     expect(result.plan.tickets[1]?.assignees).toEqual([])
   })
@@ -1469,8 +1473,8 @@ describe("buildJiraImportPlan", () => {
       {}
     )
 
-    expect(result.kind).toBe("blocked")
-    if (result.kind !== "blocked") return
+    expect(result._tag).toBe("blocked")
+    if (!JiraPublicationPlanResult.$is("blocked")(result)) return
     expect(result.blockers.map(({ code }) => code)).toContain(
       "project-slug-collision"
     )
@@ -1487,7 +1491,8 @@ describe("tag renaming", () => {
     })
     const result = buildJiraImportPlan(manifest(), withRename, environment, {})
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     const names = result.plan.tags.map(({ name }) => name)
     expect(names).toContain("p0")
     expect(names).not.toContain("urgent")
@@ -1502,7 +1507,8 @@ describe("tag renaming", () => {
       {}
     )
 
-    if (result.kind !== "ready") throw new Error("expected a ready plan")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
+      throw new Error("expected a ready plan")
     expect(result.plan.tags.map(({ name }) => name)).toContain("urgent")
   })
 })
@@ -1651,7 +1657,7 @@ describe("embedded image references", () => {
       "10349": "/api/attachments/example/DOC"
     })
 
-    if (result.kind !== "ready")
+    if (!JiraPublicationPlanResult.$is("ready")(result))
       throw new Error(`blocked: ${encodeJson(result.blockers)}`)
     const body = result.plan.comments[0].body
     expect(body).toContain("![Screenshot.png](/api/attachments/example/IMG)")

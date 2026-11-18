@@ -1,7 +1,8 @@
 import type { TicketActivityActor, TicketActivityEntry } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Schema from "effect/Schema"
 
-import { activityItems, type ActivityItem } from "./activityGroups"
+import { activityItems, ActivityItem } from "./activityGroups"
 import { activityLines, type ActivityLine } from "./activityLines"
 
 export type TimelineComment<C> = Readonly<{
@@ -11,9 +12,14 @@ export type TimelineComment<C> = Readonly<{
   value: C
 }>
 
-export type TimelineEvent<C> =
-  | Readonly<{ kind: "activity"; at: Date; entry: TicketActivityEntry }>
-  | Readonly<{ kind: "comment"; at: Date; comment: TimelineComment<C> }>
+export type TimelineEvent<C> = Data.TaggedEnum<{
+  activity: Readonly<{ at: Date; entry: TicketActivityEntry }>
+  comment: Readonly<{ at: Date; comment: TimelineComment<C> }>
+}>
+interface TimelineEventDefinition extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: TimelineEvent<this["A"]>
+}
+export const TimelineEvent = Data.taggedEnum<TimelineEventDefinition>()
 
 export type TimelineLine = Readonly<{
   key: string
@@ -22,14 +28,18 @@ export type TimelineLine = Readonly<{
   line: ActivityLine
 }>
 
-export type TimelineRow<C> =
-  | Readonly<{
-      kind: "run"
-      key: string
-      lines: ReadonlyArray<TimelineLine>
-      fold: number
-    }>
-  | Readonly<{ kind: "comment"; key: string; comment: TimelineComment<C> }>
+export type TimelineRow<C> = Data.TaggedEnum<{
+  run: Readonly<{
+    key: string
+    lines: ReadonlyArray<TimelineLine>
+    fold: number
+  }>
+  comment: Readonly<{ key: string; comment: TimelineComment<C> }>
+}>
+interface TimelineRowDefinition extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: TimelineRow<this["A"]>
+}
+export const TimelineRow = Data.taggedEnum<TimelineRowDefinition>()
 
 export const TimelineOrder = Schema.Literals(["asc", "desc"])
 export type TimelineOrder = typeof TimelineOrder.Type
@@ -48,26 +58,14 @@ export const timelineEvents = <C>({
 }>) => {
   const floor = hasOlder ? activity.at(-1)?.occurredAt.getTime() : undefined
   const events: ReadonlyArray<TimelineEvent<C>> = [
-    ...activity.toReversed().map(
-      (entry) =>
-        ({
-          kind: "activity",
-          at: entry.occurredAt,
-          entry
-        }) satisfies TimelineEvent<C>
-    ),
+    ...activity
+      .toReversed()
+      .map((entry) => TimelineEvent.activity({ at: entry.occurredAt, entry })),
     ...comments
       .filter(
         (comment) => floor === undefined || comment.lastAt.getTime() >= floor
       )
-      .map(
-        (comment) =>
-          ({
-            kind: "comment",
-            at: comment.at,
-            comment
-          }) satisfies TimelineEvent<C>
-      )
+      .map((comment) => TimelineEvent.comment({ at: comment.at, comment }))
   ]
   return events.toSorted((a, b) => a.at.getTime() - b.at.getTime())
 }
@@ -75,8 +73,8 @@ export const timelineEvents = <C>({
 const itemLines = (item: ActivityItem) =>
   activityLines(item).map((line, index) => ({
     key: `${item.key}:${index}`,
-    actor: item.kind === "entry" ? item.entry.actor : item.actor,
-    at: item.kind === "entry" ? item.entry.occurredAt : item.at,
+    actor: ActivityItem.$is("entry")(item) ? item.entry.actor : item.actor,
+    at: ActivityItem.$is("entry")(item) ? item.entry.occurredAt : item.at,
     line
   }))
 
@@ -90,31 +88,30 @@ export const timelineRows = <C>(
     const lines = activityItems(run).flatMap(itemLines)
     const first = lines[0]
     if (first !== undefined) {
-      rows.push({
-        kind: "run",
-        key: first.key,
-        lines,
-        fold: lines.length >= FOLD_AT ? lines.length : 0
-      })
+      rows.push(
+        TimelineRow.run({
+          key: first.key,
+          lines,
+          fold: lines.length >= FOLD_AT ? lines.length : 0
+        })
+      )
     }
     run = []
   }
   for (const event of events) {
-    if (event.kind === "activity") {
+    if (TimelineEvent.$is("activity")(event)) {
       run.push(event.entry)
       continue
     }
     flush()
-    rows.push({
-      kind: "comment",
-      key: event.comment.key,
-      comment: event.comment
-    })
+    rows.push(
+      TimelineRow.comment({ key: event.comment.key, comment: event.comment })
+    )
   }
   flush()
-  const newest = rows.findLastIndex((row) => row.kind === "run")
+  const newest = rows.findLastIndex(TimelineRow.$is("run"))
   const last = rows[newest]
-  if (last?.kind === "run") {
+  if (last !== undefined && TimelineRow.$is("run")(last)) {
     const older = last.lines.length - KEEP_OPEN
     rows[newest] = { ...last, fold: older >= FOLD_AT ? older : 0 }
   }

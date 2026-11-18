@@ -4,7 +4,10 @@ import { Slider } from "@pp/ui/slider"
 import type { ReactNode } from "react"
 
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
-import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
+import {
+  IconPreviewTile,
+  LiveIcon
+} from "@/features/projects/components/appearance/IconPreviewTile"
 import { CUTOUT_MAX_TOLERANCE } from "@/features/projects/lib/iconCutout"
 import type { IconTreatment } from "@/features/projects/lib/iconDraft"
 import { useFormValues } from "@/lib/form"
@@ -82,12 +85,7 @@ export function TreatmentStep({
         : (preview?.fullUrl ?? values.source.objectUrl)
     return src ? (
       <IconPreviewTile
-        live={{
-          kind: "image",
-          src,
-          crop: values.crop,
-          treatment
-        }}
+        live={LiveIcon.image({ src, crop: values.crop, treatment })}
         size={40}
         radius={12}
         background={treatment === "sticker" ? accent : undefined}

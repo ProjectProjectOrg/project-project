@@ -72,7 +72,7 @@ it("omits default sorting and restores it for the domain query", () => {
 it.each([
   {
     source: {
-      kind: "sections",
+      _tag: "sections",
       grouping: "sprint",
       query: { type: ["bug", "chore"] }
     },
@@ -80,7 +80,7 @@ it.each([
   },
   {
     source: {
-      kind: "sprintBoard",
+      _tag: "sprintBoard",
       groupId: "G-1",
       query: { groupId: ["G-2"], assignee: ["mine"] }
     },
@@ -96,8 +96,8 @@ it.each([
 })
 
 it.each([
-  '{"kind":"sections","grouping":"sprint","query":{}}',
-  '{"kind":',
+  '{"_tag":"sections","grouping":"sprint","query":{}}',
+  '{"_tag":',
   "unknown",
   "sections"
 ])(
@@ -174,11 +174,9 @@ it("keeps filters and context through router links, navigation and reloads", asy
   const query = ticketQueryFromSearch(
     decodeBacklog(router.state.matches.at(-1)?.search)
   )
-  const search = ticketSearchFromSource({
-    kind: "sections",
-    grouping: "status",
-    query
-  })
+  const search = ticketSearchFromSource(
+    TicketListSource.cases.sections.make({ grouping: "status", query })
+  )
   const params = { orgSlug: "org", slug: "project", id: "PP-1" }
   const location = router.buildLocation({
     to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
@@ -204,7 +202,7 @@ it("keeps filters and context through router links, navigation and reloads", asy
   )
   expect(
     ticketSourceFromSearch(decodeTicket(router.state.matches.at(-1)?.search))
-  ).toEqual({ kind: "sections", grouping: "status", query })
+  ).toEqual(TicketListSource.cases.sections.make({ grouping: "status", query }))
   const split = router.buildLocation({
     to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
     params,
@@ -223,18 +221,17 @@ it("keeps filters and context through router links, navigation and reloads", asy
 it("keeps the parent a ticket was opened from", () => {
   const search = decodeTicket(parseSearch("?from=parent&parentId=T-15"))
   expect(ticketSourceFromSearch(search)).toEqual({
-    kind: "parent",
+    _tag: "parent",
     parent: "T-15"
   })
 })
 
 it("keeps the sprint a section list was opened from when stepping", () => {
   const sprint = Schema.decodeUnknownSync(GroupId)("G-4")
-  const from = {
-    kind: "sections",
+  const from = TicketListSource.cases.sections.make({
     grouping: "sprint",
     query: decodeQuery({})
-  } as const
+  })
   expect(ticketPageSearch(from, sprint)).toMatchObject({
     from: "sections",
     sprint: "G-4"

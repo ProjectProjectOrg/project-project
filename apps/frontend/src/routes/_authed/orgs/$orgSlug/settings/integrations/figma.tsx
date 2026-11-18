@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { FigmaIntegrationPage } from "@/features/figma/components/FigmaIntegrationPage"
 import { m } from "@/paraglide/messages"
 
@@ -8,6 +9,6 @@ export const Route = createFileRoute(
 )({
   component: FigmaIntegrationPage,
   loader: () => ({
-    crumb: { type: "static" as const, label: m.figma_project_title() }
+    crumb: Crumb.static({ label: m.figma_project_title() })
   })
 })

@@ -3137,7 +3137,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           const { index, project } = yield* seedStatusProject()
           const found = yield* index.sequence(project, byId, {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: sortById
           })
           expect(found).toEqual([
@@ -3154,8 +3154,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         const { index, project } = yield* seedStatusProject()
         const found = yield* index.sequence(project, byId, {
           viewerId: "viewer",
-          sections: {
-            kind: "explicit",
+          sections: TicketIndex.TicketIndexSectionOrder.explicit({
             sections: [
               {
                 key: "G-2",
@@ -3163,7 +3162,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               },
               { key: "ungrouped" }
             ]
-          },
+          }),
           within: sortById
         })
         expect(ids(found)).toEqual(["T-3", "T-1", "T-2", "T-4"])
@@ -3180,7 +3179,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           })
           const found = yield* index.sequence(project, byId, {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: { sort: { key: "manual", dir: "asc" } }
           })
           expect(ids(found)).toEqual(["T-2", "T-3", "T-4", "T-1"])
@@ -3213,7 +3212,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               {
                 viewerId: "viewer",
                 ticketIds: ["T-1", "T-2", "T-3", "T-4", "T-5"],
-                sections: { kind: "status" },
+                sections: TicketIndex.TicketIndexSectionOrder.status(),
                 within: {
                   sort: { key: "manual", dir: "asc" },
                   nestAcrossSections: true
@@ -3273,7 +3272,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           { ...byId, status: [ticketStatus("todo")] },
           {
             viewerId: "viewer",
-            sections: { kind: "status" },
+            sections: TicketIndex.TicketIndexSectionOrder.status(),
             within: sortById
           }
         )

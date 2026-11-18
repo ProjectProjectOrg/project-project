@@ -2,9 +2,12 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import type { JiraMigrationManifest } from "./Manifest"
-import { JiraMigrationMappings } from "./Mappings"
+import { JiraIdentityResolution, JiraMigrationMappings } from "./Mappings"
 import type { JiraPreflightResult } from "./Preflight"
-import { createJiraPublicationPlan } from "./PublicationPlan"
+import {
+  createJiraPublicationPlan,
+  JiraPublicationPlanResult
+} from "./PublicationPlan"
 import { JiraPlannedArchive } from "./Report"
 import {
   buildJiraMigrationArchive,
@@ -166,9 +169,12 @@ const mappings = () =>
     identities: [
       {
         sourceAccountId: "account-linked",
-        resolution: { kind: "link", userId: "user-1" }
+        resolution: JiraIdentityResolution.cases.link.make({ userId: "user-1" })
       },
-      { sourceAccountId: "account-unlinked", resolution: { kind: "unlinked" } }
+      {
+        sourceAccountId: "account-unlinked",
+        resolution: JiraIdentityResolution.cases.unlinked.make({})
+      }
     ],
     statuses: [{ sourceStatusId: "status-1", destinationStatusSlug: "done" }],
     issueTypes: [{ sourceIssueTypeId: "type-1", destinationType: "feat" }],
@@ -210,7 +216,8 @@ const outcome = () => {
   const planned = createJiraPublicationPlan(source, decisions, preflight, {
     "attachment-1": "/api/orgs/acme/attachments/A1"
   })
-  if (planned.kind !== "ready") throw new Error("expected a ready plan")
+  if (!JiraPublicationPlanResult.$is("ready")(planned))
+    throw new Error("expected a ready plan")
   return {
     migrationId: "migration-1",
     orgSlug: "acme",

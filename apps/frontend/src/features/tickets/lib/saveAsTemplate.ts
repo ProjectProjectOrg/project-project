@@ -7,7 +7,8 @@ import {
   type TagName,
   type TypeDraft,
   TypeKey,
-  type TicketPriority
+  type TicketPriority,
+  TicketBlockSegment
 } from "@pp/shared"
 
 import type { LibraryLayer } from "@/features/library/atoms/libraryScope"
@@ -46,7 +47,7 @@ export const saveAsTemplateSummary = (body: string, lookup: BlockLookup) => {
   return {
     body: template.body,
     blocks: parseTicketBlocks(template.body).filter(
-      (segment) => segment.kind === "block"
+      TicketBlockSegment.$is("block")
     ).length,
     customized: template.customized
   }

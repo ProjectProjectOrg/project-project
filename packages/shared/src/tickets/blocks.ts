@@ -1,6 +1,15 @@
-export type TicketBlockSegment =
-  | Readonly<{ kind: "markdown"; text: string }>
-  | Readonly<{ kind: "block"; type: string; content: string; sync?: boolean }>
+import * as Data from "effect/Data"
+
+export type TicketBlockSegment = Data.TaggedEnum<{
+  markdown: Readonly<{ text: string }>
+  block: Readonly<{
+    type: string
+    content: string
+    sync?: boolean
+  }>
+}>
+
+export const TicketBlockSegment = Data.taggedEnum<TicketBlockSegment>()
 
 export const TICKET_BLOCK_TYPE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
 
@@ -99,7 +108,7 @@ export const parseTicketBlocks = (markdown: string) => {
 
   const flush = () => {
     const text = trimBlankLines(pending)
-    if (text !== "") segments.push({ kind: "markdown", text })
+    if (text !== "") segments.push(TicketBlockSegment.markdown({ text }))
     pending = []
   }
 
@@ -112,8 +121,8 @@ export const parseTicketBlocks = (markdown: string) => {
       const content = trimBlankLines(lines.slice(i + 1, end))
       segments.push(
         open[2] === undefined
-          ? { kind: "block", type: open[1], content }
-          : { kind: "block", type: open[1], content, sync: true }
+          ? TicketBlockSegment.block({ type: open[1], content })
+          : TicketBlockSegment.block({ type: open[1], content, sync: true })
       )
       i = end
       continue
@@ -130,7 +139,7 @@ export const serializeTicketBlocks = (
 ) =>
   segments
     .map((segment) =>
-      segment.kind === "markdown"
+      TicketBlockSegment.$is("markdown")(segment)
         ? segment.text
         : formatTicketBlock(segment.type, segment.content, {
             sync: segment.sync
@@ -141,7 +150,9 @@ export const serializeTicketBlocks = (
 export const flattenTicketBlocks = (markdown: string) =>
   parseTicketBlocks(markdown)
     .map((segment) =>
-      segment.kind === "markdown" ? segment.text : segment.content
+      TicketBlockSegment.$is("markdown")(segment)
+        ? segment.text
+        : segment.content
     )
     .filter((text) => text !== "")
     .join("\n\n")

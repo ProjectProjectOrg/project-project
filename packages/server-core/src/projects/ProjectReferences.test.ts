@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { ActivityActor, ProjectScope } from "@pp/shared"
+import { ActivityActor, FixReferenceAction, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
@@ -111,7 +111,7 @@ describe("ProjectReferences", () => {
         kind: "user",
         target: "old-bob",
         ticketId: null,
-        action: { kind: "plain" }
+        action: FixReferenceAction.cases.plain.make({})
       })
       expect(updates.map((update) => update.id)).toEqual(["PP-1", "PP-2"])
       expect(bodies.get("PP-2")).toBe("Again Bob.")
@@ -121,7 +121,7 @@ describe("ProjectReferences", () => {
           kind: "ticket",
           target: "T-2",
           ticketId: null,
-          action: { kind: "link", to: "PP-2" }
+          action: FixReferenceAction.cases.link.make({ to: "PP-2" })
         })).items.map((item) => item.target)
       ).toEqual(["T-9"])
       expect(bodies.get("PP-1")).toContain("[T-2](mention:ticket/PP-2)")
@@ -130,7 +130,7 @@ describe("ProjectReferences", () => {
           kind: "ticket",
           target: "T-9",
           ticketId: null,
-          action: { kind: "plain" }
+          action: FixReferenceAction.cases.plain.make({})
         })).items
       ).toEqual([])
     }).pipe(Effect.provide(layer))

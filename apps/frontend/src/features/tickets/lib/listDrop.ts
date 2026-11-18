@@ -13,7 +13,7 @@ import {
   type TicketStatus
 } from "@pp/shared"
 
-import { boardMove } from "@/features/sprints/lib/boardUtils"
+import { BoardMoveDrop, boardMove } from "@/features/sprints/lib/boardUtils"
 
 import type { TicketEdit } from "./ticketPatch"
 import { compareByRank, predictRanks } from "./ticketRank"
@@ -85,8 +85,8 @@ export function listDropEdit(
           column,
           row.id,
           at === "end"
-            ? { type: "column" }
-            : { type: "card", id: at, edge: "top" }
+            ? BoardMoveDrop.column()
+            : BoardMoveDrop.card({ id: at, edge: "top" })
         )
   const next = position === undefined ? edit : { ...edit, position }
   return Object.keys(next).length === 0 ? null : next

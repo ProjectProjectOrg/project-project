@@ -3,8 +3,9 @@ import {
   parseTicketBlocks,
   type BlockIconName,
   type BlockLookup,
-  type BlockOutlineNode,
-  type HintListKind
+  BlockOutlineNode,
+  type HintListKind,
+  TicketBlockSegment
 } from "@pp/shared"
 import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 
@@ -27,7 +28,8 @@ const LIST_LINES: Readonly<Record<HintListKind, SketchLine>> = {
 const CHARS_PER_LINE = 45
 
 const nodeLines = (node: BlockOutlineNode) => {
-  if ("items" in node) return node.items.map(() => LIST_LINES[node.kind])
+  if (BlockOutlineNode.$is("list")(node))
+    return node.items.map(() => LIST_LINES[node.kind])
   if (node.kind === "heading")
     return ["heading"] satisfies ReadonlyArray<SketchLine>
   const wrapped = Math.ceil(node.text.length / CHARS_PER_LINE)
@@ -49,7 +51,7 @@ export const templateSketch = (
   linesPerBlock: number
 ) =>
   parseTicketBlocks(body).flatMap((segment, index) => {
-    if (segment.kind !== "block") return []
+    if (!TicketBlockSegment.$is("block")(segment)) return []
     const chrome = blockChrome(segment.type, lookup)
     const content =
       segment.content.trim() === ""
