@@ -33,7 +33,7 @@ const ticketBId = Schema.decodeSync(TicketId)("T-2")
 const todo = Schema.decodeSync(TicketStatus)("todo")
 const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
 
-const ticketA = makeTicket({ id: ticketAId })
+const ticketA = makeTicket({ id: ticketAId, rank: TicketRank.make("a0") })
 const ticketB = makeTicket({ id: ticketBId, rank: TicketRank.make("a1") })
 
 const group: Group = {

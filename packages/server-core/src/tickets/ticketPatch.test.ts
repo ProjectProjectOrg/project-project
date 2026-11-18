@@ -20,7 +20,9 @@ const now = isoDate("2026-04-02T00:00:00.000Z")
 
 const existing = makeTicketDocument("T-2", {
   title: "Checkout",
+  status: ticketStatus("todo"),
   type: TypeKey.make("feat"),
+  priority: "med",
   estimate: { unit: "points", value: 3 },
   tags: [tagName("core")],
   assignees: ["user-1"],

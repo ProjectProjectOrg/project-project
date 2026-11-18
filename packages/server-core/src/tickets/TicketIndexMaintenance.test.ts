@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { GroupId, TagName, TypeKey } from "@pp/shared"
+import { GroupId, TagName, TicketRank, TypeKey } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -43,6 +43,7 @@ describe("ticketIndexRowsFor", () => {
           status: ticketStatus("in_progress"),
           type: TypeKey.make("chore"),
           priority: "high",
+          rank: TicketRank.make("a0"),
           estimate: { unit: "tshirt", value: "L" },
           tags,
           assignees,
