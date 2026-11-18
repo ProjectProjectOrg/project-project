@@ -37,23 +37,39 @@ type ChipShape =
   | "count"
 
 // Flat: muted text with its icon and no outline, so the ticket's title
-// leads. The padding gives a hover fill room around the text.
+// leads. Corners at half the height, shaped like the badge's. The padding
+// gives a hover fill room around the text.
 const base =
-  "inline-flex h-6 max-w-48 min-w-0 shrink-0 items-center gap-1.5 rounded-full px-1.5 text-caption text-muted-foreground"
+  "inline-flex h-6 max-w-48 min-w-0 shrink-0 items-center gap-1.5 rounded-[12px] px-1.5 text-caption text-muted-foreground [corner-shape:var(--button-corner)]"
 
-const hover =
-  "transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover data-[popup-open]:text-foreground"
+// The badge's light on a translucent fill (--chip-sheen, --chip-edge), so a
+// chip reads on a hovered row and a flagged card's wash alike. Label chips
+// wear it at rest; data chips only under the pointer or with a popup open.
+const lit =
+  "bg-(image:--chip-sheen) shadow-(--chip-edge) bg-(color:--chip-label)"
+const litOnHover =
+  "hover:bg-(image:--chip-sheen) hover:shadow-(--chip-edge) hover:bg-(color:--chip-label) data-[popup-open]:bg-(image:--chip-sheen) data-[popup-open]:shadow-(--chip-edge) data-[popup-open]:bg-(color:--chip-label)"
+
+// Hover lands at once and eases out over 150ms.
+const hover = cn(
+  "focus-ring transition-[background-color,color,box-shadow,scale] duration-150 ease-out hover:text-foreground hover:duration-0 data-[popup-open]:text-foreground",
+  litOnHover
+)
 
 const kindClass: Readonly<Record<ChipKind, string>> = {
   data: "chip-data",
-  label:
-    "chip-label bg-(--chip-label) px-2 hover:bg-(--chip-label-hover) data-[popup-open]:bg-(--chip-label-hover)"
+  label: cn("chip-label px-2", lit)
 }
+
+// A label chip that reacts deepens its fill instead.
+const labelHover =
+  "hover:bg-(color:--chip-label-hover) data-[popup-open]:bg-(color:--chip-label-hover)"
 
 const interactionClass: Readonly<Record<ChipInteraction, string>> = {
   none: "",
   hover,
-  press: cn("cursor-pointer", hover)
+  // The press lands: 97% over 100ms.
+  press: cn("cursor-pointer active:scale-[0.97] active:duration-100", hover)
 }
 
 const shapeClass: Readonly<Record<ChipShape, string>> = {
@@ -78,6 +94,7 @@ export function chipClassName({
     interactionClass[interaction],
     shapeClass[shape],
     kindClass[kind],
+    kind === "label" && interaction !== "none" && labelHover,
     className
   )
 }

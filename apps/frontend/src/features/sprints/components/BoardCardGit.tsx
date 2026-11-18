@@ -257,14 +257,18 @@ function BranchChip({
               </PreviewItem>
             )}
             <PreviewItem icon={ArrowRight}>
-              <span className="font-mono">{base}</span>
+              <span className="tabular-nums">{base}</span>
             </PreviewItem>
           </PreviewMeta>
         </>
       }
     >
       <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
-      <MiddleTruncate value={label} title={undefined} className="font-mono" />
+      <MiddleTruncate
+        value={label}
+        title={undefined}
+        className="tabular-nums"
+      />
     </GitPreview>
   )
 }
@@ -317,10 +321,10 @@ function PullRequestChip({
                 <MiddleTruncate
                   value={pr.branch}
                   title={undefined}
-                  className="max-w-28 font-mono"
+                  className="max-w-28 tabular-nums"
                 />
                 <ArrowRight className="size-3 shrink-0" strokeWidth={1.75} />
-                <span className="font-mono">{pr.baseBranch}</span>
+                <span className="tabular-nums">{pr.baseBranch}</span>
               </PreviewItem>
             )}
           </PreviewMeta>

@@ -14,13 +14,13 @@ import {
   uploadAttachment,
   uploadAttachmentRequest
 } from "@/features/attachments/atoms/attachments"
-import { CommentHoverCard } from "@/features/comments/components/CommentHoverCard"
+import { CommentPreviewBody } from "@/features/comments/components/CommentHoverCard"
 import {
   figmaTicketLinksAtom,
   figmaTicketLinksRequest
 } from "@/features/figma/atoms/figma"
 import { useLinkPreview } from "@/features/link-previews/hooks/useLinkPreview"
-import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
+import { TicketPreviewBody } from "@/features/tickets/components/TicketHoverCard"
 import { usePagedSearch } from "@/hooks/usePagedSearch"
 
 import type { SearchableMentionProvider } from "./mentions/searchable"
@@ -111,10 +111,10 @@ export function AppEditorServices({
           `${projectPath(scope)}/tickets/${encodeURIComponent(ticketId)}`
       },
       renderTicketPreview: (ticketId, scope) => (
-        <TicketHoverCard ticketId={ticketId} scope={scope} />
+        <TicketPreviewBody ticketId={ticketId} scope={scope} interactive />
       ),
       renderCommentPreview: (ticketId, commentId, scope) => (
-        <CommentHoverCard
+        <CommentPreviewBody
           ticketId={ticketId}
           commentId={commentId}
           scope={scope}

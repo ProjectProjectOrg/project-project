@@ -100,7 +100,9 @@ function Card({
       meta={
         <>
           <TicketKey value={ticket.id} />
-          {ticket.parent ? <ParentCrumb title={ticket.parent} /> : null}
+          {ticket.parent && !ticket.parent.epic ? (
+            <ParentCrumb title={ticket.parent.title} />
+          ) : null}
         </>
       }
       assignee={<AssigneeField assignee={ticket.assignee} size={20} />}

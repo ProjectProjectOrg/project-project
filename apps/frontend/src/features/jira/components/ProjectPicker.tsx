@@ -104,7 +104,7 @@ function ProjectList({
             const project = byId.get(item.value)
             return (
               <CommandMenuItem value={item.value}>
-                <span className="w-16 shrink-0 truncate font-mono text-caption text-muted-foreground">
+                <span className="w-16 shrink-0 truncate text-caption text-muted-foreground tabular-nums">
                   {project?.key}
                 </span>
                 <span className="flex min-w-0 flex-1">

@@ -267,7 +267,7 @@ function TicketSummary({
         )}
       </div>
       <div className="flex items-baseline gap-2 text-body">
-        <span className="shrink-0 font-mono text-caption text-muted-foreground">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
         <span className="min-w-0 font-semibold wrap-anywhere">

@@ -19,7 +19,7 @@ function Card({
     <div className="flex w-64 flex-col gap-2.5 rounded-lg bg-surface-3 px-2.5 pt-2 pb-2 shadow-surface-1">
       <div className="flex flex-col gap-1">
         <div className="flex h-6 items-center gap-1.5 text-caption text-muted-foreground">
-          <span className="font-mono tabular-nums">{id}</span>
+          <span className="tabular-nums">{id}</span>
           {/* 24px, 8px from the card's top and right edges alike. */}
           <span className="-mr-0.5 ml-auto flex items-center">{assignees}</span>
         </div>

@@ -75,7 +75,7 @@ export function SubTicketOf({
           />
         )}
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="shrink-0 font-mono text-body text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-body text-muted-foreground tabular-nums">
             {parent.id}
           </span>
           <MiddleTruncate

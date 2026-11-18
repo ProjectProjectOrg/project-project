@@ -7,6 +7,7 @@ import { cn } from "../lib/utils"
 import { Button } from "./button"
 import { ChevronDown, Plus } from "./icons"
 import { TextSwap } from "./text-swap"
+import { HoverSide } from "./tooltip"
 
 /*
  * A group of ticket rows (a status, a sprint, an epic) with a sticky header
@@ -114,130 +115,133 @@ export function ListSectionHeader({
   const [node, setNode] = useState<HTMLDivElement | null>(null)
   useStuck(node)
   return (
-    <div
-      ref={(element) => {
-        setNode(element)
-        if (ref) ref.current = element
-      }}
-      data-slot="list-section-header"
-      data-creating={creating || undefined}
-      onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
-      className={cn(
-        "sticky top-[var(--list-sticky-top,0px)] z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
-        // Pinned to the top: a soft lift, so rows read as passing under it.
-        "data-stuck:shadow-surface-3",
-        creating
-          ? // Typing a ticket: the bar becomes the field it holds.
-            "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
-          : cn(
-              "cursor-pointer select-none hover:duration-0 [&:hover:not(:has(button:hover,a:hover))]:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
-              // Pressed: one step darker, unless the press is on one of
-              // the header's own controls (a chip, the chevron, the "+").
-              "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
-            )
-      )}
-    >
-      {/* The header's controls are house buttons (ghost, 24px), so they
-          hover, press and take focus like every other icon button. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="square-6"
-        onClick={(event) => {
-          event.stopPropagation()
-          toggle(event.currentTarget)
+    // Every hover in it opens below, tooltips and cards alike.
+    <HoverSide side="bottom">
+      <div
+        ref={(element) => {
+          setNode(element)
+          if (ref) ref.current = element
         }}
-        aria-expanded={!collapsed}
-        aria-label={collapseLabel}
-        className="w-(--list-lead) text-muted-foreground"
+        data-slot="list-section-header"
+        data-creating={creating || undefined}
+        onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
+        className={cn(
+          "sticky top-[var(--list-sticky-top,0px)] z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
+          // Pinned to the top: a soft lift, so rows read as passing under it.
+          "data-stuck:shadow-surface-3",
+          creating
+            ? // Typing a ticket: the bar becomes the field it holds.
+              "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
+            : cn(
+                "cursor-pointer select-none hover:duration-0 [&:hover:not(:has(button:hover,a:hover))]:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
+                // Pressed: one step darker, unless the press is on one of
+                // the header's own controls (a chip, the chevron, the "+").
+                "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
+              )
+        )}
       >
-        <ChevronDown
-          className={cn(
-            "size-4 transition-transform duration-150 ease-standard",
-            collapsed && "-rotate-90"
-          )}
-          strokeWidth={1.75}
-        />
-      </Button>
-
-      <div className="grid min-w-0 flex-1">
-        <AnimatePresence mode="sync" initial={false}>
-          {creating ? (
-            <motion.div
-              key="creator"
-              initial={creatorFrom}
-              animate={morphTo}
-              exit={creatorFrom}
-              transition={transitions.presence}
-              className="min-w-0 self-center [grid-area:1/1]"
-            >
-              {create?.creator}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="header"
-              initial={headingFrom}
-              animate={morphTo}
-              exit={headingFrom}
-              transition={transitions.presence}
-              className="self-center [grid-area:1/1]"
-            >
-              <div className="flex w-full items-center gap-2">
-                <span className="grid h-6 w-(--list-icon) shrink-0 place-items-center">
-                  {icon}
-                </span>
-                <span className="truncate text-body font-semibold">
-                  {label}
-                </span>
-                {/* A plain number, like the rows' values; it rolls when
-                    tickets move in or out. */}
-                <span
-                  aria-label={countLabel}
-                  className="flex font-mono text-caption text-muted-foreground tabular-nums"
-                >
-                  <TextSwap>{String(count)}</TextSwap>
-                </span>
-                {detail ? (
-                  // Chips (chipClassName): dates, estimates, capacity, each
-                  // with its own hover. Clicks on them don't toggle.
-                  // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops a pointer click on a chip from toggling the section; the chips are controls of their own
-                  <span
-                    onClick={(event) => event.stopPropagation()}
-                    className="ml-auto hidden items-center gap-1 text-caption text-muted-foreground sm:flex"
-                  >
-                    {detail}
-                  </span>
-                ) : null}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {create ? (
+        {/* The header's controls are house buttons (ghost, 24px), so they
+          hover, press and take focus like every other icon button. */}
         <Button
           type="button"
           variant="ghost"
           size="square-6"
           onClick={(event) => {
             event.stopPropagation()
-            if (creating) create.onDismiss()
-            else create.onStart()
+            toggle(event.currentTarget)
           }}
-          aria-label={creating ? create.dismissLabel : create.label}
-          title={creating ? create.dismissLabel : create.label}
-          className="text-muted-foreground"
+          aria-expanded={!collapsed}
+          aria-label={collapseLabel}
+          className="w-(--list-lead) text-muted-foreground"
         >
-          <Plus
+          <ChevronDown
             className={cn(
-              "size-4 transition-transform duration-200 ease-standard",
-              creating && "rotate-45"
+              "size-4 transition-transform duration-150 ease-standard",
+              collapsed && "-rotate-90"
             )}
             strokeWidth={1.75}
           />
         </Button>
-      ) : null}
-    </div>
+
+        <div className="grid min-w-0 flex-1">
+          <AnimatePresence mode="sync" initial={false}>
+            {creating ? (
+              <motion.div
+                key="creator"
+                initial={creatorFrom}
+                animate={morphTo}
+                exit={creatorFrom}
+                transition={transitions.presence}
+                className="min-w-0 self-center [grid-area:1/1]"
+              >
+                {create?.creator}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="header"
+                initial={headingFrom}
+                animate={morphTo}
+                exit={headingFrom}
+                transition={transitions.presence}
+                className="self-center [grid-area:1/1]"
+              >
+                <div className="flex w-full items-center gap-2">
+                  <span className="grid h-6 w-(--list-icon) shrink-0 place-items-center">
+                    {icon}
+                  </span>
+                  <span className="truncate text-body font-semibold">
+                    {label}
+                  </span>
+                  {/* A plain number, like the rows' values; it rolls when
+                    tickets move in or out. */}
+                  <span
+                    aria-label={countLabel}
+                    className="flex text-caption text-muted-foreground tabular-nums"
+                  >
+                    <TextSwap>{String(count)}</TextSwap>
+                  </span>
+                  {detail ? (
+                    // Chips (chipClassName): dates, estimates, capacity, each
+                    // with its own hover. Clicks on them don't toggle.
+                    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops a pointer click on a chip from toggling the section; the chips are controls of their own
+                    <span
+                      onClick={(event) => event.stopPropagation()}
+                      className="ml-auto hidden items-center gap-1 text-caption text-muted-foreground sm:flex"
+                    >
+                      {detail}
+                    </span>
+                  ) : null}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {create ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="square-6"
+            onClick={(event) => {
+              event.stopPropagation()
+              if (creating) create.onDismiss()
+              else create.onStart()
+            }}
+            aria-label={creating ? create.dismissLabel : create.label}
+            title={creating ? create.dismissLabel : create.label}
+            className="text-muted-foreground"
+          >
+            <Plus
+              className={cn(
+                "size-4 transition-transform duration-200 ease-standard",
+                creating && "rotate-45"
+              )}
+              strokeWidth={1.75}
+            />
+          </Button>
+        ) : null}
+      </div>
+    </HoverSide>
   )
 }
 

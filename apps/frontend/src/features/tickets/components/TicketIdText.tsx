@@ -8,7 +8,7 @@ export function TicketIdText({
     index === 0
       ? [part]
       : [
-          <span key={index} className="font-mono tabular-nums">
+          <span key={index} className="tabular-nums">
             {id}
           </span>,
           part

@@ -133,7 +133,7 @@ function EverhourSettingsContent({
             )}
           </span>
           {status.everhourProjectId ? (
-            <span className="font-mono">
+            <span className="tabular-nums">
               {status.everhourProjectName} · {status.everhourProjectId}
             </span>
           ) : null}

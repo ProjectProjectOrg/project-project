@@ -14,6 +14,7 @@ import type { ItemRect } from "../hooks/useFluidHover"
 import { cn } from "../lib/utils"
 import { FluidHoverHighlight } from "./fluid-hover-highlight"
 import { itemLayerClass, itemSurfaceClass } from "./item-link"
+import { HoverSide } from "./tooltip"
 
 /*
  * A ticket in a list: one row of the list's grid, with a slot per column so
@@ -235,55 +236,65 @@ export function ListRow({
     !use(InHoverScopeContext) &&
     "not-in-data-keyboard-navigation:hover:bg-hover"
   return (
-    <div
-      ref={ref}
-      data-slot="list-row"
-      data-selected={selected || undefined}
-      {...props}
-      className={cn(
-        "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) py-2 pr-3 pl-(--list-pad-start) text-left outline-none",
-        itemSurfaceClass,
-        variant === "standalone" && ownHover,
-        variant === "standalone" &&
-          "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover",
-        // The link reaches into the gap between rows, so the rows have no
-        // dead strip between them.
-        "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",
-        className
-      )}
-    >
-      {link}
-      <span
+    // Every hover in it opens below, tooltips and cards alike.
+    <HoverSide side="bottom">
+      <div
+        ref={ref}
+        data-slot="list-row"
+        data-selected={selected || undefined}
+        {...props}
         className={cn(
-          itemLayerClass,
-          "box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-var(--list-row-gap))]"
+          "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) py-2 pr-3 pl-(--list-pad-start) text-left outline-none",
+          itemSurfaceClass,
+          variant === "standalone" && ownHover,
+          variant === "standalone" &&
+            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover",
+          // The link reaches into the gap between rows, so the rows have no
+          // dead strip between them.
+          "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",
+          className
         )}
       >
-        {lead}
-      </span>
-      <fieldset disabled={disabled} className="contents">
+        {link}
         <span
-          className={cn(itemLayerClass, "flex w-(--list-icon) justify-center")}
+          className={cn(
+            itemLayerClass,
+            "box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-var(--list-row-gap))]"
+          )}
         >
-          {status}
+          {lead}
         </span>
-        <span className={cn(itemLayerClass, "inline-flex")}>{priority}</span>
-        <span className="shrink-0 text-body">{ticketKey}</span>
-      </fieldset>
-      <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1">
-        {title}
-      </div>
-      {/* Squeezed, chips that no longer fit wrap onto a second line that
+        <fieldset disabled={disabled} className="contents">
+          <span
+            className={cn(
+              itemLayerClass,
+              "flex w-(--list-icon) justify-center"
+            )}
+          >
+            {status}
+          </span>
+          <span className={cn(itemLayerClass, "inline-flex")}>{priority}</span>
+          {/* The key reads at the title's size, like a parent's key before
+            the title (ListRowCrumbs), so the row keeps one text size. */}
+          <span className="shrink-0 text-body [&>[data-slot=ticket-key]]:text-body">
+            {ticketKey}
+          </span>
+        </fieldset>
+        <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1">
+          {title}
+        </div>
+        {/* Squeezed, chips that no longer fit wrap onto a second line that
           is clipped away, so whole chips drop out instead of being cut in
           half. The 4px padding keeps focus rings inside the clip. */}
-      <div className="-my-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden py-1 [&>fieldset>span:empty]:hidden">
-        {trailing}
+        <div className="-my-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden py-1 [&>fieldset>span:empty]:hidden">
+          {trailing}
+        </div>
+        <fieldset disabled={disabled} className="contents">
+          <div className="flex justify-end">{estimate}</div>
+          <div className="hidden justify-end sm:flex">{assignee}</div>
+        </fieldset>
       </div>
-      <fieldset disabled={disabled} className="contents">
-        <div className="flex justify-end">{estimate}</div>
-        <div className="hidden justify-end sm:flex">{assignee}</div>
-      </fieldset>
-    </div>
+    </HoverSide>
   )
 }
 
@@ -291,6 +302,7 @@ export function ListRow({
 export function ListRowTitle({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
+      data-slot="list-row-title"
       className={cn("min-w-0 truncate text-body font-semibold", className)}
       {...props}
     />

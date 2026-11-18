@@ -111,7 +111,7 @@ export function TicketPeek({
       ))}
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-caption text-muted-foreground tabular-nums">
+          <span className="text-caption text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           <h2 className="line-clamp-2 text-title leading-snug font-semibold">

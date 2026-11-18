@@ -75,7 +75,7 @@ export default function SettingsField() {
                 event.currentTarget.blur()
               }
             }}
-            className="w-48 font-mono"
+            className="w-48 tabular-nums"
           />
         </div>
       </div>

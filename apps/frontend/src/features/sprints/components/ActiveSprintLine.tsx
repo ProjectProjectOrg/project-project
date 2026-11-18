@@ -22,7 +22,7 @@ export function ActiveSprintLine() {
 
   if (!active) {
     return (
-      <p className="font-mono text-caption text-muted-foreground">/{slug}</p>
+      <p className="text-caption text-muted-foreground tabular-nums">/{slug}</p>
     )
   }
   const countdown = sprintCountdown(active)
@@ -41,7 +41,7 @@ export function ActiveSprintLine() {
       className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-caption text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
     >
       <SprintStateIcon sprint={active} size="xs" />
-      <span className="font-mono">{summary}</span>
+      <span className="tabular-nums">{summary}</span>
     </Link>
   )
 }

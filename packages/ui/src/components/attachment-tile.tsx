@@ -132,7 +132,7 @@ export function PaperPage({
         <Glyph className="absolute top-[26px] left-1/2 size-5 -translate-x-1/2 text-muted-foreground" />
       )}
       {extension === "" ? null : (
-        <span className="absolute bottom-2 left-2 rounded-[5px] bg-[oklch(0_0_0/0.06)] px-1 font-mono text-micro leading-4 font-semibold text-foreground [corner-shape:var(--button-corner)] dark:bg-[oklch(1_0_0/0.1)]">
+        <span className="absolute bottom-2 left-2 rounded-[5px] bg-[oklch(0_0_0/0.06)] px-1 text-micro leading-4 font-semibold text-foreground tabular-nums [corner-shape:var(--button-corner)] dark:bg-[oklch(1_0_0/0.1)]">
           {extension}
         </span>
       )}

@@ -35,7 +35,7 @@ export default function TicketRows() {
         return (
           <div key={id} className="flex h-12 items-center gap-3 px-3">
             <Icon className={`size-4 shrink-0 ${tone}`} strokeWidth={1.75} />
-            <span className="font-mono text-caption text-muted-foreground tabular-nums">
+            <span className="text-caption text-muted-foreground tabular-nums">
               {id}
             </span>
             <span className="min-w-0 flex-1 truncate text-body font-semibold">

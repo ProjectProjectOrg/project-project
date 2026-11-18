@@ -285,7 +285,7 @@ function StackLayerItem({ layer }: Readonly<{ layer: StackLayerState }>) {
     return (
       <DropdownMenuItem disabled>
         <Icon className={className} strokeWidth={1.75} />
-        <span className="min-w-0 truncate font-mono text-caption">
+        <span className="min-w-0 truncate text-caption tabular-nums">
           {layer.branch}
         </span>
       </DropdownMenuItem>
@@ -329,9 +329,7 @@ function PullRequestItem({
       }
     >
       {icon}
-      <span className="shrink-0 font-mono text-caption tabular-nums">
-        #{number}
-      </span>
+      <span className="shrink-0 text-caption tabular-nums">#{number}</span>
       <span className="min-w-0 flex-1 truncate text-foreground">{title}</span>
       {dot !== null && (
         <span

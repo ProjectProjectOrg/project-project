@@ -1,0 +1,85 @@
+export const meta = {
+  title: "Chip",
+  group: "Primitives",
+  description:
+    "The small pills on ticket rows and board cards: priority, flag, estimate, sub-tickets, links, git, the epic and tags. Each one opens a menu, a preview or a link.",
+  sources: [{ kind: "own", name: "chipClassName" }]
+}
+
+## Overview
+
+Data chips on the first row, label chips on the second. Hover, press and focus are pinned with `data-force`; a static chip does not react.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { ChipSeparator, chipClassName } from "@pp/ui/chip"
+
+<PriorityMenu
+  render={<button className={chipClassName({ interaction: "press", shape: "icon" })} />}
+/>
+<ChipSeparator />
+<button className={chipClassName({ interaction: "press", className: "tabular-nums" })}>
+  <Gauge className="size-3" strokeWidth={1.75} />
+  {estimate}
+</button>
+<Link to={epic.href} className={chipClassName({ kind: "label", interaction: "press" })}>
+  <Layers className="size-3 shrink-0" strokeWidth={1.75} />
+  <span className="truncate">{epic.name}</span>
+</Link>
+```
+
+`chipClassName` is a class, not a component: every chip in the app is already a trigger of its own (a menu, a preview, a router link) and takes the class as its `className` or `render`.
+
+| Option        | Type                             | Default   |
+| ------------- | -------------------------------- | --------- |
+| `kind`        | `"data" \| "label"`              | `"data"`  |
+| `interaction` | `"none" \| "hover" \| "press"`   | `"none"`  |
+| `shape`       | `"label" \| "icon" \| "count"`   | `"label"` |
+| `className`   | `string`                         |           |
+
+Also exported: `ChipSeparator` (the hairline after the state icons), `ChipDots` (a folded tag chip's dots) and `chipWideOnlyClass` / `chipNarrowOnlyClass` (tags fold into one chip on a narrow list).
+
+## Rules
+
+### Chip and Badge stay apart, with one look
+
+A Badge is a label in a tone; a chip is a ticket's property and a trigger. They stay separate components but share the look: corners at half the height in the button's superellipse, the badge's top sheen and bottom glow edge, a press to 97% and the house focus ring.
+
+### Data plain, names filled
+
+A data chip (an icon and the shortest value: 3, 2/5, #141) has no fill at rest, so the title leads; it lights up on hover or while its popup is open. A label chip (the epic, tags, "+N") wears the fill at rest, so names never read as numbers.
+
+### The fill is translucent
+
+`--chip-label` is 5% ink (5% white in dark) with `--chip-sheen` and `--chip-edge` on top, not the badge's opaque muted fill. A chip sits on a hovered row and on a flagged card's warm wash, and an opaque fill turns into a grey block there.
+
+### Tags keep their dot
+
+A tag chip keeps the neutral fill and shows its colour as an 8px dot, not as a tinted pill: a row of tinted tags competes with the title.
+
+### Only triggers react
+
+`interaction: "none"` never changes on hover. `"hover"` is for chips that only open a preview (the flag, sub-ticket counts); `"press"` adds the pointer and the press for chips that act on click.
+
+## Examples
+
+### On a board card
+
+Every card's chips in one order: state icons, the hairline, numbers, then names. The flagged card shows the fill on the warm wash.
+
+<Demo name="on-a-card" title="Board cards" />
+
+### On a list row
+
+Chips by the title, trailing and in the estimate column. On a narrow list the tags fold into one chip of dots and a count.
+
+<Demo name="on-a-row" title="List rows, wide and narrow" />
+
+### In a sprint header
+
+Each chip is as interactive as what it does: the dates are static, the estimate opens a preview, the unestimated count filters the list, and the capacity explains itself in a tooltip. Warnings recolour the text, never the fill.
+
+<Demo name="sprint-header" title="A planned sprint" />

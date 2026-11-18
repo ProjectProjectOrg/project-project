@@ -115,7 +115,9 @@ function SprintCrumb({
   slug,
   groupId
 }: Readonly<{ orgSlug: string; slug: string; groupId: GroupId }>) {
-  const result = useAtomValue(sprintDetail(sprintRequest(orgSlug, slug, groupId)))
+  const result = useAtomValue(
+    sprintDetail(sprintRequest(orgSlug, slug, groupId))
+  )
   return (
     <BreadcrumbItem
       label={Result.isSuccess(result) ? result.value.name : null}
@@ -206,7 +208,11 @@ function useTrailParent(ticket: TicketCrumbData | null) {
   const search = useSearch({ strict: false })
   const stepped = useAtomValue(steppedTicket)
   const shownId =
-    ticket === null ? null : stepped?.urlId === ticket.id ? stepped.id : ticket.id
+    ticket === null
+      ? null
+      : stepped?.urlId === ticket.id
+        ? stepped.id
+        : ticket.id
   const result = useAtomValue(
     ticket === null || shownId === null
       ? noTicket

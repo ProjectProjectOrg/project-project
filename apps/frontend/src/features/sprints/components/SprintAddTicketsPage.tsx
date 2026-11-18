@@ -118,7 +118,7 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
               className="size-4"
             />
             <span className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+              <span className="min-w-(--row-key-width) shrink-0 text-caption text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span className="min-w-0 truncate">{ticket.title}</span>

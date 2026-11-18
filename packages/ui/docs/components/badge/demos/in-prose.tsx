@@ -21,7 +21,7 @@ export default function InProse() {
       to check{" "}
       <Badge
         size="xs"
-        className="align-baseline font-mono"
+        className="align-baseline tabular-nums"
         render={<a href="#pp-214" aria-label="Ticket PP-214" />}
       >
         PP-214

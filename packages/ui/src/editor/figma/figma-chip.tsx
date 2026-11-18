@@ -188,7 +188,11 @@ function FigmaChipContent({
         >
           {nameParts}
         </PopoverTrigger>
-        <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
+        <PopoverContent
+          surface="hover"
+          className="w-auto max-w-sm p-1.5"
+          align="start"
+        >
           <img
             src={thumbnailUrl}
             alt={m.figma_chip_thumbnail_alt({ name: resolvedName })}

@@ -48,7 +48,7 @@ export function ProjectTile({
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-body font-semibold">{project.name}</div>
-        <div className="truncate font-mono text-caption text-muted-foreground">
+        <div className="truncate text-caption text-muted-foreground tabular-nums">
           /{project.slug}
         </div>
       </div>

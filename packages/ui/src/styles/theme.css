@@ -176,6 +176,15 @@
      names read as labels next to the plain icon-and-value data chips. */
   --chip-label: oklch(0 0 0 / 5%);
   --chip-label-hover: oklch(0 0 0 / 9%);
+  /* A chip's fill carries the badge's light: a top sheen and a bottom glow
+     edge, over a translucent fill so it reads on hovered rows and washes. */
+  --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 14%), transparent 55%);
+  --chip-edge: inset 0 -1px 2px var(--kbd-glow);
+  /* Tooltips sit on the theme, not against it: white with a hairline and a
+     top light here, a lifted grey in dark. No shadow, like every popup. */
+  --tooltip: oklch(1 0 0);
+  --tooltip-edge:
+    inset 0 0 0 1px oklch(0 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 70%);
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
@@ -320,6 +329,11 @@
   --hover: rgb(255 255 255 / 0.04);
   --chip-label: oklch(1 0 0 / 5%);
   --chip-label-hover: oklch(1 0 0 / 9%);
+  --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 4%), transparent 55%);
+  --chip-edge: inset 0 -1px 2px var(--kbd-glow);
+  --tooltip: oklch(0.29 0 0);
+  --tooltip-edge:
+    inset 0 0 0 1px oklch(1 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 7%);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);

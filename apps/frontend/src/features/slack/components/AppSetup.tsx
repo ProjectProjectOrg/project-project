@@ -109,7 +109,7 @@ export function SlackAppSetup({
             open={manifestOpen}
             onToggle={() => setManifestOpen((open) => !open)}
           >
-            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-caption">
+            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-caption tabular-nums">
               {value.manifest}
             </pre>
           </SettingsDisclosureItem>

@@ -109,7 +109,7 @@ function AgentRow({
       error={error}
       description={
         <>
-          <span className="font-mono">{app.clientId}</span>
+          <span className="tabular-nums">{app.clientId}</span>
           <span className="mx-1.5">·</span>
           {m.profile_connected_agents_connected_at({
             date: app.createdAt.toLocaleDateString(locale)

@@ -19,7 +19,7 @@ function Track({
     <div className="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-4">
       <div className="flex flex-col">
         <span className="text-caption font-semibold">{label}</span>
-        <span className="font-mono text-micro text-muted-foreground">
+        <span className="text-micro text-muted-foreground tabular-nums">
           {note}
         </span>
       </div>

@@ -44,7 +44,7 @@ export function SetupStep({
       </SettingsSection>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p
-          className="font-mono text-caption text-muted-foreground"
+          className="text-caption text-muted-foreground tabular-nums"
           aria-live="polite"
         >
           {frame.progress}

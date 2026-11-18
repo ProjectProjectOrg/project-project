@@ -23,7 +23,7 @@ export function NotFoundPage({
     <DitherShell animated contained={contained}>
       <div className="relative flex flex-col items-center gap-3 px-8 pt-10 pb-8 text-center">
         {/* oxlint-disable-next-line workspace/type-scale -- a decorative numeral, not text on the scale */}
-        <span className="font-mono text-5xl text-muted-foreground">
+        <span className="text-5xl text-muted-foreground tabular-nums">
           {code ?? m.common_not_found_code()}
         </span>
         <h1 className="text-display font-bold text-foreground">

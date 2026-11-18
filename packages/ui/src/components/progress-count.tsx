@@ -66,7 +66,7 @@ export function ProgressCount({
       )}
     >
       <ProgressPie done={done} total={total} />
-      <span className="font-mono text-caption tabular-nums">
+      <span className="text-caption tabular-nums">
         {done}/{total}
       </span>
     </span>

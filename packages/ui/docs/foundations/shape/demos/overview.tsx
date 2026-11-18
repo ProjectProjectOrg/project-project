@@ -11,7 +11,7 @@ function Labelled({
       {children}
       <figcaption className="flex flex-col items-center text-center">
         <span className="text-caption font-semibold">{label}</span>
-        <span className="font-mono text-micro text-muted-foreground">
+        <span className="text-micro text-muted-foreground tabular-nums">
           {note}
         </span>
       </figcaption>

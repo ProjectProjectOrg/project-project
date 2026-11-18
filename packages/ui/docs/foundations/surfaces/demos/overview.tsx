@@ -64,7 +64,9 @@ function Ladder() {
               boxShadow: `var(--shadow-surface-${step})`
             }}
           >
-            <span className="font-mono text-micro text-foreground">{step}</span>
+            <span className="text-micro text-foreground tabular-nums">
+              {step}
+            </span>
           </div>
         ))}
       </div>

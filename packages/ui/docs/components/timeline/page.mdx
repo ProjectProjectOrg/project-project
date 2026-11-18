@@ -62,7 +62,7 @@ import {
 | `TimelineActor` | the name in ink; `via` adds the client an agent acted through |
 | `TimelineValue` | a value with its icon or avatar, kept on one line |
 | `TimelineValues` | several values (people, tags), wrapping together |
-| `TimelineLiteral` | a branch, a pull request, a ticket key, in mono |
+| `TimelineLiteral` | a branch, a pull request, a ticket key, with tabular figures |
 | `TimelineChange` | `from → to`; screen readers hear `toLabel` instead of the arrow |
 | `TimelineQuote` | quoted text under the line |
 | `TimelineSkeleton` | loading, announced with `label` |
@@ -91,3 +91,8 @@ A run of changes folds into one row: the people in it as a 20px stack and "Ana a
 
 <Demo name="states" title="States" />
 
+### Git
+
+A ticket's branch and pull requests: a branch linked and one stacked on it, a pull request opened, closed and opened again, then merged. GitHub is the actor for pull requests (its branch glyph on a plain avatar), and the status follows by the project's git automation rules. Every git value is its icon and the literal in Allo with tabular figures; the pull request's icon takes its state's colour (open in the info blue, merged in the merged violet, closed muted).
+
+<Demo name="git" title="Branches, pull requests and automations" />

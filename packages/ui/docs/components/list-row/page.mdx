@@ -55,7 +55,7 @@ import { TicketKey } from "@pp/ui/ticket-key"
 | `lead` | `ReactNode` | The first column: the selection checkbox |
 | `status`, `priority` | `ReactNode` | The two icon columns, each `--list-icon` wide |
 | `ticketKey` | `ReactNode` | A `TicketKey`; give it `min-w-(--ticket-key-width)` so keys line up |
-| `title` | `ReactNode` | The title column, which takes the remaining width: a parent prefix, `ListRowTitle`, inline chips |
+| `title` | `ReactNode` | The title column, which takes the remaining width: the parent (`ListRowCrumbs`), `ListRowTitle`, inline chips |
 | `trailing` | `ReactNode` | Chips at the end: tags, git, relations, sprint |
 | `estimate`, `assignee` | `ReactNode` | The last two columns; the assignee hides on narrow screens |
 | `selected` | `boolean` | Tinted fill for a ticket in the multi-select |
@@ -65,6 +65,10 @@ import { TicketKey } from "@pp/ui/ticket-key"
 Parts used with it: `ItemLink` (`@pp/ui/item-link`), `TicketKey` (`@pp/ui/ticket-key`), `ProgressCount` (`@pp/ui/progress-count`) and `chipClassName` (`@pp/ui/chip`), which the board card shares.
 
 ## Rules
+
+### One parent, folded to its key when tight
+
+A ticket has at most one parent: its epic, or the ticket it is a sub-ticket of (a sub-ticket has no sub-tickets, so there is never a second level). `ListRowCrumbs` shows it before the title with a slash. When the title would be cut, the parent folds to its key (ATL-22), whose preview still says what it is; below an 8rem title the key drops out, so the title never disappears behind it.
 
 ### The whole row is the link
 

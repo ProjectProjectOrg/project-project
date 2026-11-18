@@ -167,7 +167,7 @@ export function CreateProjectRow({
                         aria-disabled={submitting}
                         maxLength={10}
                         style={{ width: "calc(4ch + 0.5rem)" }}
-                        className="shrink-0 bg-transparent pr-2 font-mono text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
+                        className="shrink-0 bg-transparent pr-2 text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
                       />
                     </motion.div>
                   )}
@@ -191,7 +191,7 @@ export function CreateProjectRow({
                     className="overflow-hidden"
                   >
                     <div className="mt-2 flex items-center gap-3 pl-3">
-                      <div className="flex min-w-0 items-center gap-2 font-mono text-micro text-muted-foreground">
+                      <div className="flex min-w-0 items-center gap-2 text-micro text-muted-foreground tabular-nums">
                         <span className="text-muted-foreground">→</span>
                         {key && (
                           <>

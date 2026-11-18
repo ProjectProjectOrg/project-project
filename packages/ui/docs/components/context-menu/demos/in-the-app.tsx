@@ -81,7 +81,7 @@ export default function InTheApp() {
       <Case caption="Ticket › Relations: a related ticket (TicketRelationRows)">
         <ContextMenu>
           <ContextMenuTrigger className="flex h-9 items-center gap-2 rounded-lg px-2 text-body hover:bg-hover">
-            <span className="font-mono text-caption text-muted-foreground tabular-nums">
+            <span className="text-caption text-muted-foreground tabular-nums">
               PP-212
             </span>
             <span className="truncate">Billing page shows stale plan</span>
@@ -97,7 +97,7 @@ export default function InTheApp() {
 
       <Case caption="Sprint board card: the git chip (GitChipMenu)">
         <ContextMenu>
-          <ContextMenuTrigger className="inline-flex w-fit items-center gap-1.5 rounded-full bg-hover px-2.5 py-1 font-mono text-caption text-muted-foreground">
+          <ContextMenuTrigger className="inline-flex w-fit items-center gap-1.5 rounded-full bg-hover px-2.5 py-1 text-caption text-muted-foreground tabular-nums">
             <GitBranch className="size-3.5" strokeWidth={1.75} />
             feat/PP-214-fix-login
           </ContextMenuTrigger>

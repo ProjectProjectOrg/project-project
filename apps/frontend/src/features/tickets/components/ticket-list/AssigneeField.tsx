@@ -301,7 +301,7 @@ export function AssigneeSelect({
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-body">{member.name}</div>
                 {member.username && (
-                  <div className="truncate font-mono text-micro text-muted-foreground">
+                  <div className="truncate text-micro text-muted-foreground tabular-nums">
                     @{member.username}
                   </div>
                 )}

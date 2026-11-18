@@ -18,8 +18,8 @@ import {
   type EditorServices,
   type UploadAttachment
 } from "@pp/ui/editor/services"
+import { CircleDot } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { PopoverContent } from "@pp/ui/popover"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
@@ -127,7 +127,7 @@ const tickets: MentionProvider = {
   failed: () => "Couldn't load tickets",
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-baseline gap-2">
-      <span className="min-w-(--row-key-width) shrink-0 font-mono whitespace-nowrap">
+      <span className="min-w-(--row-key-width) shrink-0 whitespace-nowrap tabular-nums">
         {candidate.id}
       </span>
       <span className="truncate text-muted-foreground">
@@ -215,23 +215,36 @@ export const SAMPLE_SERVICES: EditorServices = {
     user: () => "#people",
     ticket: (_scope, id) => `#${id}`
   },
+  // Like the app's ticket preview: the title, its status and priority, and
+  // the start of its description.
   renderTicketPreview: (id) => {
     const ticket = TICKETS.find((candidate) => candidate.id === id)
     return (
-      <PopoverContent className="w-72 p-3" align="start">
-        <p className="font-mono text-caption text-muted-foreground">{id}</p>
-        <p className="mt-1 text-body font-semibold">
+      <div className="flex flex-col gap-2">
+        <span className="line-clamp-2 text-body leading-snug font-semibold">
           {ticket?.title ?? "Unknown ticket"}
+        </span>
+        <span className="flex items-center gap-3.5 text-caption text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <CircleDot
+              className="size-3.5 text-state-info"
+              strokeWidth={1.75}
+            />
+            In progress
+          </span>
+          {ticket?.epic ? <span>{ticket.epic}</span> : null}
+        </span>
+        <p className="line-clamp-4 text-caption leading-relaxed text-muted-foreground">
+          After signing in you land on the dashboard instead of the page you
+          opened the link from. Keep the page in the redirect and go back to it.
         </p>
-      </PopoverContent>
+      </div>
     )
   },
   renderCommentPreview: (id, commentId) => (
-    <PopoverContent className="w-72 p-3" align="start">
-      <p className="font-mono text-caption text-muted-foreground">
-        {id} · {commentId}
-      </p>
-    </PopoverContent>
+    <p className="text-caption text-muted-foreground tabular-nums">
+      {id} · {commentId}
+    </p>
   ),
   useLinkPreview: (url) => ({
     title: LINK_TITLES[url] ?? null,

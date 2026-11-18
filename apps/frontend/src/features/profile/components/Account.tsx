@@ -41,7 +41,7 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           <p className="text-caption text-muted-foreground">
             {user.username ? (
               <>
-                <span className="font-mono">@{user.username}</span>
+                <span className="tabular-nums">@{user.username}</span>
                 <span className="mx-1.5">·</span>
               </>
             ) : null}
@@ -49,7 +49,7 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           </p>
         </div>
         <SettingsRow label={m.profile_user_id_label()}>
-          <span className="font-mono text-body text-muted-foreground">
+          <span className="text-body text-muted-foreground tabular-nums">
             {user.id}
           </span>
         </SettingsRow>

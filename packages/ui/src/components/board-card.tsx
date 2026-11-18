@@ -9,6 +9,7 @@ import {
   useRowHighlight,
   type TicketLineProps
 } from "./ticket-lines"
+import { HoverSide } from "./tooltip"
 
 /*
  * A ticket on a board: a raised card with its key (and parent) on top, the
@@ -57,46 +58,49 @@ export function BoardCard({
   ...props
 }: BoardCardProps) {
   return (
-    <div
-      data-slot="board-card"
-      {...props}
-      className={cn(
-        "group/card relative isolate flex flex-col rounded-[14px] bg-surface-3 px-3 pt-2.5 pb-1.5 text-left shadow-surface-1 transition outline-none [corner-shape:var(--button-corner)] not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover",
-        itemSurfaceClass,
-        // Over the fill as an image, so the hover's lift still shows.
-        flagged &&
-          "bg-[image:linear-gradient(to_bottom,var(--flag-wash),transparent_64px)]",
-        className
-      )}
-      data-flagged={flagged || undefined}
-    >
-      {link}
-      <div className="flex min-w-0 flex-col gap-2.5 pb-1">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex h-6 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-            <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-              {meta}
-            </span>
-            {assignee ? (
-              // A 24px target around a 20px face; -mr-0.5 sets the face
-              // as far from the card's right edge as from its top.
-              <span className="-mr-0.5 ml-auto flex shrink-0 items-center">
-                {assignee}
+    // Every hover in it opens below, tooltips and cards alike.
+    <HoverSide side="bottom">
+      <div
+        data-slot="board-card"
+        {...props}
+        className={cn(
+          "group/card relative isolate flex flex-col rounded-[14px] bg-surface-3 px-3 pt-2.5 pb-1.5 text-left shadow-surface-1 transition outline-none [corner-shape:var(--button-corner)] not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover",
+          itemSurfaceClass,
+          // Over the fill as an image, so the hover's lift still shows.
+          flagged &&
+            "bg-[image:linear-gradient(to_bottom,var(--flag-wash),transparent_64px)]",
+          className
+        )}
+        data-flagged={flagged || undefined}
+      >
+        {link}
+        <div className="flex min-w-0 flex-col gap-2.5 pb-1">
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex h-6 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
+              <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                {meta}
               </span>
-            ) : null}
+              {assignee ? (
+                // A 24px target around a 20px face; -mr-0.5 sets the face
+                // as far from the card's right edge as from its top.
+                <span className="-mr-0.5 ml-auto flex shrink-0 items-center">
+                  {assignee}
+                </span>
+              ) : null}
+            </div>
+            <div className="min-h-[2lh] min-w-0 text-subtitle leading-snug font-semibold">
+              <span className="line-clamp-2">{title}</span>
+            </div>
           </div>
-          <div className="min-h-[2lh] min-w-0 text-subtitle leading-snug font-semibold">
-            <span className="line-clamp-2">{title}</span>
-          </div>
+          {properties ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-1 [&:not(:has(>:not(:empty)))]:hidden [&>:empty]:hidden">
+              {properties}
+            </div>
+          ) : null}
         </div>
-        {properties ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-1 [&:not(:has(>:not(:empty)))]:hidden [&>:empty]:hidden">
-            {properties}
-          </div>
-        ) : null}
+        {children}
       </div>
-      {children}
-    </div>
+    </HoverSide>
   )
 }
 

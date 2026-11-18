@@ -72,7 +72,7 @@ function GeneralForm({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
             label={m.org_settings_slug_label()}
             description={m.org_settings_slug_readonly_note()}
           >
-            <span className="font-mono text-body text-muted-foreground">
+            <span className="text-body text-muted-foreground tabular-nums">
               {org.slug}
             </span>
           </SettingsRow>

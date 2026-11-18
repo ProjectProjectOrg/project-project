@@ -129,7 +129,7 @@ function TicketOptions({
             label={`${ticket.id} ${ticket.title}`}
             onClick={() => onPick(ticket.id)}
           >
-            <span className="shrink-0 font-mono text-caption text-muted-foreground">
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
               {ticket.id}
             </span>
             <span className="min-w-0 truncate">{ticket.title}</span>

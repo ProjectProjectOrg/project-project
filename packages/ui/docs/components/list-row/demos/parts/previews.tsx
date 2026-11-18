@@ -1,6 +1,10 @@
 import { chipClassName } from "@pp/ui/chip"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
 import { Link2 } from "@pp/ui/icons"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { ProgressCount } from "@pp/ui/progress-count"
 import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
 import { Fragment, type ReactNode } from "react"
@@ -13,7 +17,7 @@ import { StatusIcon, type SampleTicket, type Status } from "./tickets"
  */
 
 // A chip that previews on hover, like the app's TicketPreviewTrigger: the
-// hover fill, and a popover after a short delay.
+// hover fill, and a hover card after a short delay.
 function PreviewChip({
   label,
   className,
@@ -26,19 +30,16 @@ function PreviewChip({
   children: ReactNode
 }>) {
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={300}
-        aria-label={label}
-        className={className}
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <button type="button" aria-label={label} className={className} />
+        }
       >
         {trigger}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1">
-        {children}
-      </PopoverContent>
-    </Popover>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-72 p-1">{children}</HoverCardContent>
+    </HoverCard>
   )
 }
 

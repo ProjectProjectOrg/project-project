@@ -56,7 +56,7 @@ export function BaseBranchSubmenu(props: BaseBranchProps) {
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
           <GitBranch className="size-3.5" />
-          <MiddleTruncate value={value} className="font-mono" />
+          <MiddleTruncate value={value} className="tabular-nums" />
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
@@ -85,7 +85,7 @@ function BaseBranchOptions({
       <DropdownMenuInput
         placeholder={m.git_search_branches_placeholder()}
         aria-label={m.git_search_branches_placeholder()}
-        className="font-mono placeholder:font-sans"
+        className="tabular-nums placeholder:font-sans"
       />
       <BranchResultsFrame results={results} empty={items.length === 0}>
         <DropdownMenuList
@@ -102,7 +102,7 @@ function BaseBranchOptions({
                 <>
                   <MiddleTruncate
                     value={branch.name}
-                    className="flex-1 font-mono text-foreground"
+                    className="flex-1 text-foreground tabular-nums"
                   />
                   <BranchBadge branch={branch} defaultBase={defaultBase} />
                 </>

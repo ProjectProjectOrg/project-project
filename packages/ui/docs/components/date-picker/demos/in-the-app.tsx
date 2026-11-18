@@ -126,7 +126,7 @@ export default function InTheApp() {
             trigger={
               <button
                 type="button"
-                className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+                className="-mx-1 rounded px-1 tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
               >
                 {header.from === undefined
                   ? "Not scheduled"

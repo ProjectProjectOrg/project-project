@@ -55,7 +55,7 @@ function Scale() {
         >
           <div className="flex flex-col">
             <span className="text-caption font-semibold">{role}</span>
-            <span className="font-mono text-micro text-muted-foreground tabular-nums">
+            <span className="text-micro text-muted-foreground tabular-nums">
               {sizes?.[index] === undefined
                 ? "…"
                 : `${sizes[index].size} / ${sizes[index].line} · compact ${sizes[index].compact}`}
@@ -97,15 +97,18 @@ function Faces() {
       </div>
       <div className="flex flex-col gap-2 rounded-[18px] bg-card p-4 corner-squircle">
         <span className="text-caption text-muted-foreground">
-          Geist Mono: literals
+          Allo, tabular figures: keys, branches, hashes
         </span>
-        <p className="font-mono text-body">fix/ATL-5-saved-trips</p>
-        <p className="font-mono text-body">
-          safeNext(url.searchParams.get("next"))
-        </p>
-        <p className="font-mono text-body text-muted-foreground">
+        <p className="text-body tabular-nums">fix/ATL-5-saved-trips</p>
+        <p className="text-body text-muted-foreground tabular-nums">
           ATL-12 · 3f9c2e1 · atlas-mobile-app
         </p>
+        <span className="pt-2 text-caption text-muted-foreground">
+          Geist Mono: code only
+        </span>
+        <code className="font-mono text-body">
+          safeNext(url.searchParams.get("next"))
+        </code>
       </div>
     </div>
   )

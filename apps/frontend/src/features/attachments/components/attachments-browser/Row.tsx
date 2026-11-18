@@ -63,7 +63,9 @@ export function Row({
       <td className="w-full max-w-0 px-2 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <Thumbnail row={row} />
-          <span className="truncate font-mono text-body">{row.filename}</span>
+          <span className="truncate text-body tabular-nums">
+            {row.filename}
+          </span>
         </div>
       </td>
 
@@ -169,7 +171,7 @@ function TicketCell({
   if (row.tickets.length === 0) {
     return (
       <span
-        className="font-mono text-body text-muted-foreground"
+        className="text-body text-muted-foreground tabular-nums"
         title={m.attachments_ticket_unreferenced()}
       >
         {row.ticketId}
@@ -185,7 +187,7 @@ function TicketCell({
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug: first.projectSlug, id: first.ticketId }}
         onClick={(event) => event.stopPropagation()}
-        className="font-mono text-body text-muted-foreground transition-colors hover:text-foreground"
+        className="text-body text-muted-foreground tabular-nums transition-colors hover:text-foreground"
       >
         {first.ticketId}
       </Link>
@@ -206,7 +208,7 @@ function TicketCell({
         }))}
       >
         <SelectTrigger
-          className="h-7 w-auto gap-1.5 px-2 font-mono text-body"
+          className="h-7 w-auto gap-1.5 px-2 text-body tabular-nums"
           placeholder={m.attachments_ticket_count({
             count: row.tickets.length
           })}

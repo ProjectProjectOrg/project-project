@@ -173,7 +173,7 @@ export default function Overview() {
           </Badge>
         </Cell>
         <Cell caption="Ticket">
-          <Badge size="xs" className="font-mono">
+          <Badge size="xs" className="tabular-nums">
             PP-214
           </Badge>
         </Cell>

@@ -198,7 +198,7 @@ function LinkRow({
         <TooltipContent
           side="bottom"
           align="start"
-          className="max-w-80 font-mono break-all"
+          className="max-w-80 break-all tabular-nums"
         >
           {truncated ? link.url : null}
         </TooltipContent>

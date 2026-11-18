@@ -74,7 +74,7 @@ const orgErrorText = <A,>(state: Result.AsyncResult<A, OrgFailure>) => {
     <>
       {error.message}
       {error.projectSlugs && error.projectSlugs.length > 0 ? (
-        <span className="font-mono"> {error.projectSlugs.join(", ")}</span>
+        <span className="tabular-nums"> {error.projectSlugs.join(", ")}</span>
       ) : null}
     </>
   )

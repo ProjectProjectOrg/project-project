@@ -138,7 +138,7 @@ export function TicketLine({
       <span className="grid w-6 place-items-center">{status}</span>
       <span
         style={keyWidth ? { minWidth: keyWidth } : undefined}
-        className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums"
+        className="shrink-0 text-caption text-muted-foreground tabular-nums"
       >
         {ticketKey}
       </span>

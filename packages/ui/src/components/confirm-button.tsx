@@ -559,7 +559,7 @@ function Action<E = unknown>({
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            className="w-64 font-mono"
+            className="w-64 tabular-nums"
           />
           {confirmButton}
           {cancelButton}

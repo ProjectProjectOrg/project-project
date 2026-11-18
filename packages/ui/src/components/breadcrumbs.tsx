@@ -317,7 +317,7 @@ function BreadcrumbItem({
       {/* Always mounted, so a prefix that comes or goes rolls in or out. */}
       <TextSwap
         className={cn(
-          "shrink-0 font-mono text-caption/[var(--lh-body)] text-muted-foreground tabular-nums transition-[margin] duration-260",
+          "shrink-0 text-caption/[var(--lh-body)] text-muted-foreground tabular-nums transition-[margin] duration-260",
           prefix && label !== undefined ? "mr-1.5" : "mr-0"
         )}
       >

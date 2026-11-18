@@ -17,7 +17,10 @@ export function Sources({
       <h2 className="text-caption text-muted-foreground">Built on</h2>
       <ul className="flex flex-wrap gap-2">
         {sources.map((source) => (
-          <li key={`${source.kind}-${source.name}`} className="min-w-0 max-w-full">
+          <li
+            key={`${source.kind}-${source.name}`}
+            className="max-w-full min-w-0"
+          >
             <SourceChip source={source} />
           </li>
         ))}

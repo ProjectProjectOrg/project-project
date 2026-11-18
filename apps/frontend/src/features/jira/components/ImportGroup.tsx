@@ -82,7 +82,7 @@ function ImportRow({
   const content = (
     <>
       <span className="flex min-w-0 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-caption text-muted-foreground">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {summary.sourceProjectKey}
         </span>
         <span className="truncate">{summary.sourceProjectName}</span>
@@ -91,7 +91,7 @@ function ImportRow({
             <span aria-hidden className="shrink-0 text-muted-foreground">
               {m.jira_import_row_arrow()}
             </span>
-            <span className="shrink-0 font-mono text-caption text-muted-foreground">
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
               {destination.key}
             </span>
             <span className="truncate text-muted-foreground">

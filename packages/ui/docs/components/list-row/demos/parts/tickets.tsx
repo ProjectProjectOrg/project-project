@@ -6,6 +6,11 @@ import {
   chipWideOnlyClass
 } from "@pp/ui/chip"
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
+import {
   ChevronRight,
   CircleCheck,
   CircleDashed,
@@ -21,7 +26,6 @@ import {
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { StatusGlyph } from "@pp/ui/status-glyph"
 import type { ReactNode } from "react"
 
@@ -40,7 +44,9 @@ export type SampleTicket = Readonly<{
   title: string
   status: Status
   priority: Priority
-  parent?: string
+  // One parent, as in the app: an epic (the ticket is one of its
+  // tickets) or a ticket (it's a sub-ticket, so it has none of its own).
+  parent?: Readonly<{ id: string; title: string; epic?: boolean }>
   tags?: ReadonlyArray<Readonly<{ name: string; color: string }>>
   subTickets?: Readonly<{ done: number; total: number }>
   links?: number
@@ -48,7 +54,6 @@ export type SampleTicket = Readonly<{
   estimate?: number
   assignee?: Readonly<{ id: string; name: string }>
   flagged?: boolean
-  epic?: string
 }>
 
 export const INVITED: SampleTicket = {
@@ -76,7 +81,7 @@ export const FOCUS: SampleTicket = {
   title: "Announce focus changes to screen readers",
   status: "review",
   priority: "low",
-  parent: "Accessibility audit of checklist screens",
+  parent: { id: "ATL-22", title: "Accessibility audit of checklist screens" },
   pr: "#128",
   estimate: 2,
   assignee: { id: "u2", name: "Sam Rivera" }
@@ -101,8 +106,7 @@ export const EVERYTHING: SampleTicket = {
   title: "Offline checklist sync drops edits made during a reconnect",
   status: "progress",
   priority: "urgent",
-  parent: "Offline mode",
-  epic: "Field reliability",
+  parent: { id: "ATL-3", title: "Field reliability", epic: true },
   flagged: true,
   subTickets: { done: 2, total: 5 },
   links: 3,
@@ -291,20 +295,23 @@ function TagList({
   children: ReactNode
 }>) {
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={300}
-        aria-label={label}
-        className={chipClassName({
-          kind: "label",
-          interaction: "press",
-          className: cn("tabular-nums", className)
-        })}
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <button
+            type="button"
+            aria-label={label}
+            className={chipClassName({
+              kind: "label",
+              interaction: "press",
+              className: cn("tabular-nums", className)
+            })}
+          />
+        }
       >
         {children}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-48 p-1">
+      </HoverCardTrigger>
+      <HoverCardContent className="w-48 p-1">
         <ul className="flex flex-col">
           {tags.map((tag) => (
             <li
@@ -316,8 +323,8 @@ function TagList({
             </li>
           ))}
         </ul>
-      </PopoverContent>
-    </Popover>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -365,7 +372,7 @@ export function CardProperties({ ticket }: Readonly<{ ticket: SampleTicket }>) {
       <SubTicketCount ticket={ticket} />
       <RelationChip count={ticket.links} />
       <GitChip pr={ticket.pr} />
-      <EpicChip epic={ticket.epic} />
+      <EpicChip epic={ticket.parent?.epic ? ticket.parent.title : undefined} />
       <TagChips ticket={ticket} max={2} />
     </>
   )
@@ -397,16 +404,6 @@ export function EstimateChip({ estimate }: Readonly<{ estimate?: number }>) {
       <Gauge className="size-3" strokeWidth={1.75} />
       {estimate}
     </button>
-  )
-}
-
-// The list's parent prefix: the parent's title, then a slash.
-export function ParentPrefix({ title }: Readonly<{ title: string }>) {
-  return (
-    <span className="flex min-w-0 shrink items-center gap-1.5 pr-1.5 text-body text-muted-foreground">
-      <span className="max-w-48 truncate">{title}</span>
-      <span aria-hidden>/</span>
-    </span>
   )
 }
 

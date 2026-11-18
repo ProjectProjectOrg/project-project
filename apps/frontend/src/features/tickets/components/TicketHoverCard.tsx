@@ -97,6 +97,7 @@ export function TicketHoverCard({
 }) {
   return (
     <PopoverContent
+      surface="hover"
       className={cn("w-80", !interactive && "pointer-events-none")}
       align="start"
       anchor={anchor}
@@ -177,7 +178,7 @@ export function TicketPreviewBody({
                 <>
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-(color:--tooltip) via-(color:--tooltip)/90 to-transparent"
                   />
                   <Link
                     to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -297,7 +298,9 @@ export function BlockedLine({
         <span className="shrink-0 text-muted-foreground">
           {m.tickets_hover_blocked_by()}
         </span>
-        <span className="shrink-0 font-mono text-foreground">{first.id}</span>
+        <span className="shrink-0 text-foreground tabular-nums">
+          {first.id}
+        </span>
         <span className="min-w-0 flex-1 truncate">{first.title}</span>
       </span>
       {blockers.length > 1 ? (

@@ -28,11 +28,13 @@ export function Ago({ children }: Readonly<{ children: string }>) {
 
 // A system actor (GitHub, an automation, an import): its glyph on a plain
 // avatar, as the app's ActorMark draws it.
-export function SystemMark() {
+export function SystemMark({
+  icon: Icon = Bot
+}: Readonly<{ icon?: typeof Bot }>) {
   return (
     <Avatar aria-hidden className="size-5">
       <AvatarFallback>
-        <Bot className="size-3" strokeWidth={2} />
+        <Icon className="size-3" strokeWidth={2} />
       </AvatarFallback>
     </Avatar>
   )

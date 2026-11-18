@@ -104,7 +104,7 @@ function FigmaProjectContent({
       description={
         <span className={cn(busy && "animate-pulse")}>
           {status.connected && status.handle ? (
-            <span className="font-mono">{status.handle}</span>
+            <span className="tabular-nums">{status.handle}</span>
           ) : status.storageConnected ? (
             m.figma_project_description()
           ) : (

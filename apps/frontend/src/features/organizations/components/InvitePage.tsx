@@ -193,7 +193,7 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
           aria-hidden
           className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border ring-inset"
         >
-          <span className="font-mono text-title leading-none text-foreground">
+          <span className="text-title leading-none text-foreground tabular-nums">
             {initial}
           </span>
         </div>

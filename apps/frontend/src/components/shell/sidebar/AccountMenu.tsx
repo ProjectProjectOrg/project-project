@@ -114,7 +114,7 @@ export function AccountMenu({
             <Copy className="mt-0.5 size-4" strokeWidth={1.75} />
             <span className="flex min-w-0 flex-col">
               {m.chrome_sidebar_copy_version()}
-              <span className="truncate font-mono text-caption text-muted-foreground">
+              <span className="truncate text-caption text-muted-foreground tabular-nums">
                 {displayVersion(version)}
               </span>
             </span>

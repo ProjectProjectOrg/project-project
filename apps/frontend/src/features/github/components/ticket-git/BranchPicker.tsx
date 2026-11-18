@@ -199,7 +199,7 @@ function BranchPickerList({
       <DropdownMenuInput
         placeholder={placeholder}
         aria-label={placeholder}
-        className="font-mono placeholder:font-sans"
+        className="tabular-nums placeholder:font-sans"
       />
       <BranchResultsFrame results={results} empty={entries.length === 0}>
         <DropdownMenuList
@@ -234,7 +234,7 @@ function BranchPickerList({
                 <GitBranch />
                 <MiddleTruncate
                   value={entry.branch.name}
-                  className="flex-1 font-mono text-foreground"
+                  className="flex-1 text-foreground tabular-nums"
                 />
                 <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
               </DropdownMenuItem>

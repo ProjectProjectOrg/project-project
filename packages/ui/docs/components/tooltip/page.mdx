@@ -69,14 +69,19 @@ A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. `Tooltip
 | `Tooltip`             | `open`       | `boolean`, pins it open in place (docs only)  |            |
 | `TooltipTrigger`      | `render`     | the element to render, like Base UI's         | `<button>` |
 | `TooltipTrigger`      | `disabled`   | `boolean`, turns the tooltip off              | `false`    |
-| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"`      | `"top"`    |
+| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"`      | the container's (`HoverSide`), else `"top"` |
 | `TooltipContent`      | `align`      | `"start" \| "center" \| "end"`                | `"center"` |
 | `TooltipContent`      | `sideOffset` | `number`                                      | `6`        |
 | `TooltipContent`      | `className`  | e.g. `max-w-64`, which lets a hint wrap       |            |
 | `TooltipGroup`        | `side`, `align`, `sideOffset` | placement for the triggers inside |            |
+| `HoverSide`           | `side`       | the side for every tooltip and hover card inside |            |
 | `TooltipGroupTrigger` | `tooltip`    | `ReactNode`, what it shows                    | required   |
 
 ## Rules
+
+### One side per container
+
+Every hover in a container opens on the same side: in a row, a section header or a board card, tooltips and hover cards all open below (they wrap themselves in `<HoverSide side="bottom">`). Going from a tooltip above to a card below made the box jump across its trigger; on one side it glides. A tooltip or card that sets its own `side` keeps it, so set one only where its container doesn't; `TooltipGroup` sets the side for everything inside it too.
 
 ### Why our own
 
@@ -94,9 +99,9 @@ We started on Base UI's tooltip and replaced it. Base UI's tooltip adds no ARIA 
 - **Placement.** It sits on its side of the trigger, flips to the other side when it doesn't fit, and stays 8px inside the window.
 - **Screen readers.** The tooltip has `role="tooltip"`. When it says more than the trigger's `aria-label` (a hint, not just the label), the trigger gets `aria-describedby` pointing at it. Icon buttons still need their own `aria-label`.
 
-### Ink
+### Raised, in the theme's own colours
 
-The fill is the foreground colour and the text the page colour: near-black in light, near-white in dark. A tooltip is a label, not a place to interact, so it reads instantly over any surface, including white cards and popovers where a card-coloured tooltip disappears. No border, no shadow, squircle corners at about half its height.
+Light in light mode, dark in dark mode (`--tooltip`): white in light, a lifted grey (0.29) in dark, so it stands above the dark page instead of sinking into it. A 9% hairline and a top light (`--tooltip-edge`) give it its edge over white cards and popovers, where a plain card-coloured box would disappear. The inverted ink label it replaced had too much contrast for something you see on every hover. No shadow, squircle corners at about half its height.
 
 ### Motion
 
@@ -104,7 +109,7 @@ Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ea
 
 ### Shortcuts
 
-A keyboard shortcut sits on the right in a `Kbd`, which turns into a see-through key inside the ink.
+A keyboard shortcut sits on the right in a `Kbd`, coloured from the tooltip's text like any key.
 
 ## Examples
 

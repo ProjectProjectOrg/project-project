@@ -129,7 +129,7 @@ function SkippedAttachments({
               note={replacementNotes[attachment.replacement]()}
             >
               <span className="flex flex-col gap-1">
-                <span className="font-mono break-all">
+                <span className="break-all tabular-nums">
                   {attachment.filename}
                 </span>
                 <span className="flex flex-wrap gap-x-4 text-caption">

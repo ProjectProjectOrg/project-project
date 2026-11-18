@@ -88,7 +88,7 @@ function CreatedTicketLine({
           orgSlug={orgSlug}
           slug={slug}
         />
-        <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
         <span className="truncate">{ticket.title}</span>

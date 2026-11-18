@@ -360,7 +360,7 @@ function StackLayerRow({
             </a>
           )}
           <span
-            className={cn("min-w-0 truncate", title === "" && "font-mono")}
+            className={cn("min-w-0 truncate", title === "" && "tabular-nums")}
             title={layer.branch}
           >
             {title === "" ? layer.branch : title}
@@ -369,10 +369,10 @@ function StackLayerRow({
         {hasMeta && (
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-micro text-muted-foreground">
             {title !== "" && (
-              <MiddleTruncate value={layer.branch} className="font-mono" />
+              <MiddleTruncate value={layer.branch} className="tabular-nums" />
             )}
             {showBase && (
-              <span className="truncate font-mono">
+              <span className="truncate tabular-nums">
                 {m.git_stack_base({ base: layer.base ?? "" })}
               </span>
             )}

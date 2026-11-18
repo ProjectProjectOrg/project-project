@@ -168,7 +168,7 @@ export function LibraryCreateForm({
                 aria-invalid={field.errors.length > 0}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                className="w-56 max-w-full font-mono"
+                className="w-56 max-w-full tabular-nums"
               />
             </span>
           )}

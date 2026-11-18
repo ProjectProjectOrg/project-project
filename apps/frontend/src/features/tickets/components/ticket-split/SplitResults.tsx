@@ -80,7 +80,7 @@ function Row({
         <Rail shape={shape} connectUp={connectUp} />
         {status}
         {priority}
-        <span className="inline-flex shrink-0 items-center font-mono text-caption text-muted-foreground tabular-nums">
+        <span className="inline-flex shrink-0 items-center text-caption text-muted-foreground tabular-nums">
           {ticketId}
         </span>
         <div className="flex min-w-0 items-center">{title}</div>

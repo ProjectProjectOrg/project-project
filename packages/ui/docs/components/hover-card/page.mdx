@@ -1,0 +1,96 @@
+export const meta = {
+  title: "Hover card",
+  group: "Primitives",
+  description:
+    "What a chip or link shows when you rest the pointer on it: a ticket's sub-tickets and links, a flag's reason, a tag's tickets, a pull request, a sprint's estimate. Unlike a tooltip, you can move into it and click.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Preview Card",
+      note: "the hover behaviour and accessibility; the skin is the tooltip's",
+      href: "https://base-ui.com/react/components/preview-card"
+    }
+  ]
+}
+
+## Overview
+
+On top, a live sub-ticket count: rest the pointer on it and its card opens after 400ms; move into the card and click a row. Below, the three kinds of content drawn open in place: menu rows, text, and a card that only shows.
+
+<Demo name="overview" title="Live and drawn open" />
+
+## Usage
+
+```tsx
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@pp/ui/hover-card"
+
+<HoverCard>
+  <HoverCardTrigger
+    openOnClick
+    aria-haspopup="dialog"
+    render={<button className={chipClassName({ interaction: "hover" })} />}
+  >
+    <ProgressCount done={1} total={3} />
+  </HoverCardTrigger>
+  <HoverCardContent className="w-72 p-1">
+    <TicketLines>…</TicketLines>
+  </HoverCardContent>
+</HoverCard>
+```
+
+| Part | Prop | Type | Default |
+| --- | --- | --- | --- |
+| `HoverCardTrigger` | `render` | the trigger element (a link, a button, a router `Link`) | `<a>` |
+| | `openOnClick` | `boolean`: also opens on click, for the keyboard and touch | `false` |
+| `HoverCardContent` | `side` | `"top" \| "bottom" \| "left" \| "right"` | the container's (`HoverSide`), else `"bottom"` |
+| | `align` | `"start" \| "center" \| "end"` | `"start"` |
+| | `sideOffset` | `number` | `6` |
+| | `className` | width and padding; `pointer-events-none` for a card that only shows | `px-2.5 py-2` |
+
+`closeHoverCard()` closes it at once, for a click on a row inside. A popover that opens on hover and only shows something (the ticket peek on a row's title, an image in an attachment chip) takes the same skin with `<PopoverContent surface="hover">`.
+
+## Rules
+
+### One side per container
+
+Every hover in a container opens on the same side: in a row, a section header or a board card, tooltips and hover cards all open below (they wrap themselves in `<HoverSide side="bottom">`). Going from a tooltip above to a card below made the box jump across its trigger; on one side it glides. A tooltip or card that sets its own `side` keeps it, so set one only where its container doesn't; `TooltipGroup` sets the side for everything inside it too.
+
+### A hover card, not a tooltip
+
+A tooltip (`role="tooltip"`) describes its trigger: screen readers read it with the trigger and can't move into it, so it can never hold links. Anything you might click (sub-tickets, linked tickets, a tag's tickets) goes in a hover card, whose trigger stays a real link or button and whose content can be reached.
+
+### One host for tooltips and cards
+
+Hover cards are drawn by the tooltip's host, so one hover shows at a time, with one delay (400ms) and warm-up: moving from a tooltip to a card, or back, glides the box to its new place and size over 180ms while the corners ease from 9px to 14px and the card's content fades in. Its content renders where the `HoverCard` is written (into the host through a portal), so it keeps that spot's context. A hover trigger inside an open card doesn't take the host over; the card stays.
+
+### What it keeps from Base UI
+
+It replaced Base UI's Preview Card and keeps what that gave: it opens on hover after the delay and on keyboard focus, stays open while the pointer is on it (150ms to cross the gap) and when its trigger is pressed, and closes on Escape or a click outside. (A tooltip does close on a press: the press is what its label was for.) `openOnClick` opens it from the keyboard and touch and keeps it open until then. The card has no tooltip role and doesn't describe its trigger, which keeps its own name. Scrolling inside a card keeps it open; scrolling the page closes a hovered one.
+
+### One family of hovers
+
+It wears the tooltip's skin: the raised fill (`--tooltip`: white in light, a lifted grey in dark), the hairline and top light (`--tooltip-edge`), 14px squircle corners and no shadow. Opening and closing match the tooltip too: a fade and a scale from 96% over 160ms ease-out. Menus and click-opened popovers keep the popup surface, so a hover never reads as a menu.
+
+### Padding follows the content
+
+Text gets 10px by 8px (the default). Lists of tickets are menu rows (`TicketLines`), so the card pads like a menu (`p-1`) and the rows take the menu's highlight, which tells you they can be clicked. A card that only shows (git, the sprint estimate) sets `pointer-events-none`, so it never catches the pointer on its way past.
+
+## Examples
+
+### On a ticket row
+
+The sub-ticket count and the links count open their tickets as menu rows; "+2" lists the tags that didn't fit.
+
+<Demo name="on-a-row" title="Row hovers" className="min-h-80 place-items-start" />
+
+### On a board card
+
+The same hovers in the card's order.
+
+<Demo name="on-a-card" title="Card hovers" className="min-h-96 place-items-start" />
+
+### A ticket mentioned in text
+
+A key in a comment opens the ticket's peek: title, status and priority, and the start of its description.
+
+<Demo name="ticket-peek" title="Ticket peek" className="min-h-72 place-items-start" />

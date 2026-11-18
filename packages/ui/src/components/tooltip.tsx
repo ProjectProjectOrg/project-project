@@ -52,19 +52,29 @@ const OPEN_DELAY = 400
 // How long a tooltip waits after the pointer leaves before closing, so the
 // pointer can cross the gap onto it, or onto the next trigger.
 const CLOSE_GRACE = 100
+// A card waits a little longer, so the pointer can travel into it.
+const CARD_CLOSE_GRACE = 150
 // After a tooltip closes, the next one opens without the delay for this long.
 const WARM_FOR = 400
 const EDGE = 8
 
+type Kind = "tooltip" | "card"
+
 type Registration = {
   element: HTMLElement | null
+  // A tooltip's label. A card's content isn't passed here: its HoverCard
+  // renders it into the host's slots (cardSlots), so it keeps the context of
+  // where it was written.
   content: React.ReactNode
   placement: Placement
   className: string | undefined
   disabled: boolean
+  kind: Kind
 }
 
-type Source = "hover" | "focus"
+// "click": a card opened by clicking its trigger, which stays until Escape,
+// a click outside, or another hover.
+type Source = "hover" | "focus" | "click"
 
 // ---------------------------------------------------------------- store
 
@@ -87,6 +97,15 @@ let scrollQuietUntil = 0
 // fading out over content that has already moved on.
 let closedByScroll = false
 let showTimer: number | undefined
+// The host's surface, so a hover inside an open card doesn't replace it.
+let surfaceElement: HTMLElement | null = null
+// Where an active card's content goes: an off-screen copy to measure, and
+// the live one inside the surface.
+type CardSlots = { measure: HTMLElement | null; live: HTMLElement | null }
+const cardSlots: CardSlots = {
+  measure: null,
+  live: null
+}
 let hideTimer: number | undefined
 
 const emit = () => {
@@ -114,9 +133,23 @@ const popupOpen = (id: string) =>
     ?.current.element?.matches("[data-popup-open], [aria-expanded='true']") ??
   false
 
+const kindOf = (id: string | null) =>
+  id === null ? null : (registrations.get(id)?.current.kind ?? null)
+
+const graceFor = (id: string | null) =>
+  kindOf(id) === "card" ? CARD_CLOSE_GRACE : CLOSE_GRACE
+
+// A trigger inside an open card (a branch chip in a ticket's peek) doesn't
+// take the host over: the card stays.
+const insideSurface = (id: string) => {
+  const element = registrations.get(id)?.current.element
+  return element != null && surfaceElement?.contains(element) === true
+}
+
 const show = (id: string, source: Source) => {
   clearTimers()
   if (popupOpen(id)) return
+  if (insideSurface(id)) return
   if (activeId === id && activeSource === source) return
   activeId = id
   activeSource = source
@@ -151,7 +184,13 @@ const tooltipStore = {
       // A trigger that still has keyboard focus gets its tooltip back.
       if (focusedId !== null && focusedId !== id) show(focusedId, "focus")
       else hide()
-    }, CLOSE_GRACE)
+    }, graceFor(id))
+  },
+  // A card trigger that opens on click (for keyboard and touch): it opens at
+  // once and stays until Escape or a click outside.
+  click(id: string) {
+    if (suppressedId === id) suppressedId = null
+    show(id, "click")
   },
   focusIn(id: string) {
     focusedId = id
@@ -183,7 +222,7 @@ const tooltipStore = {
   },
   popupLeave() {
     if (activeSource === "hover")
-      hideTimer = window.setTimeout(() => hide(), CLOSE_GRACE)
+      hideTimer = window.setTimeout(() => hide(), graceFor(activeId))
   },
   touch(id: string) {
     if (activeId === id) emit()
@@ -193,8 +232,9 @@ const tooltipStore = {
     warmUntil = 0
     clearTimeout(showTimer)
     if (activeId === null) return
-    // A keyboard-focused tooltip stays and is placed again by its trigger.
-    if (activeSource === "focus") emit()
+    // A keyboard-focused tooltip, or a card opened by a click, stays and is
+    // placed again by its trigger.
+    if (activeSource === "focus" || activeSource === "click") emit()
     else {
       hide(true)
       warmUntil = 0
@@ -275,11 +315,21 @@ const origin: Record<Side, string> = {
 
 // ---------------------------------------------------------------- styles
 
-// Ink: the foreground colour as the fill and the page colour as the text, so
-// a tooltip reads as a label over any surface and never as a menu. Squircle
-// corners at about half the height, no border, no shadow.
+// Raised: light in light, dark in dark (--tooltip), with a hairline and a
+// top light (--tooltip-edge), so a tooltip reads above any surface without
+// the glare of an inverted label. Squircle corners at about half the
+// height, no shadow.
 const inkClass =
-  "rounded-[9px] bg-foreground px-2 py-[5px] text-caption text-primary-foreground [corner-shape:var(--button-corner)]"
+  "rounded-[9px] bg-(color:--tooltip) px-2 py-[5px] text-caption text-foreground shadow-(--tooltip-edge) [corner-shape:var(--button-corner)]"
+
+// A hover card: the tooltip's fill and edge, at a card's corners. Shared
+// with HoverCardContent and PopoverContent's "hover" surface.
+export const hoverCardSurfaceClass =
+  "rounded-[14px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)]"
+
+// A card's content box: its natural width up to 24rem, 10px by 8px of
+// padding unless the card sets its own (p-1 around menu rows).
+const cardContentClass = "w-max max-w-[min(24rem,calc(100vw-16px))] px-2.5 py-2"
 
 // A label stays on one line; a caller that sets a max width (a longer hint)
 // gets wrapping at that width.
@@ -297,6 +347,9 @@ const appear: Transition = { duration: 0.16, ease: "easeOut" }
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+const onSurfaceEnter = () => tooltipStore.popupEnter()
+const onSurfaceLeave = () => tooltipStore.popupLeave()
 
 // ------------------------------------------------------------------ host
 
@@ -332,9 +385,46 @@ function HostSurface() {
   )
   const id = activeId
   const registration = id === null ? null : registrations.get(id)?.current
-  // An empty label (a name that isn't set) has nothing to show.
-  const raw = registration?.disabled ? null : registration?.content
+  const card = registration?.kind === "card"
+  // An empty label (a name that isn't set) has nothing to show. A card's
+  // content lives in its slots, so it always has some.
+  const raw = registration?.disabled
+    ? null
+    : card
+      ? true
+      : registration?.content
   const content = raw === "" ? null : raw
+  // A card's size changes as its content loads; measure it again then.
+  const [cardSize, setCardSize] = React.useState(0)
+  // Stable refs: a new callback each render would detach and reattach the
+  // slots, and every reattach tells the cards to render again.
+  const setMeasureSlot = React.useCallback((element: HTMLDivElement | null) => {
+    measureRef.current = element
+    if (cardSlots.measure === element) return
+    cardSlots.measure = element
+    emit()
+  }, [])
+  const setLiveSlot = React.useCallback((element: HTMLDivElement | null) => {
+    if (cardSlots.live === element) return
+    cardSlots.live = element
+    emit()
+  }, [])
+  // Native listeners, not React's: a card's content is portaled in from
+  // its HoverCard, so React counts it as part of the trigger's tree and
+  // would never report the pointer entering the surface through it.
+  const setSurface = React.useCallback((element: HTMLDivElement | null) => {
+    const previous = surfaceRef.current
+    if (previous !== null && previous !== element) {
+      previous.removeEventListener("pointerenter", onSurfaceEnter)
+      previous.removeEventListener("pointerleave", onSurfaceLeave)
+    }
+    surfaceRef.current = element
+    surfaceElement = element
+    if (element !== null && previous !== element) {
+      element.addEventListener("pointerenter", onSurfaceEnter)
+      element.addEventListener("pointerleave", onSurfaceLeave)
+    }
+  }, [])
   const measureRef = React.useRef<HTMLDivElement>(null)
   const surfaceRef = React.useRef<HTMLDivElement | null>(null)
   const [layout, setLayout] = React.useState<Layout | null>(null)
@@ -377,7 +467,30 @@ function HostSurface() {
       }
     })
     // Re-measure whenever the store changes: a new trigger or new content.
-  }, [storeVersion, id, content, registration])
+  }, [storeVersion, id, content, registration, cardSize])
+
+  // Watch the measured copy while a card shows: loading data grows it.
+  React.useEffect(() => {
+    const measure = measureRef.current
+    if (!card || !measure) return undefined
+    const observer = new ResizeObserver(() => setCardSize((n) => n + 1))
+    observer.observe(measure)
+    return () => observer.disconnect()
+  }, [card, id])
+
+  // A click outside an open card closes it.
+  React.useEffect(() => {
+    if (!card || id === null) return undefined
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (surfaceRef.current?.contains(target)) return
+      if (registration?.element?.contains(target)) return
+      hide()
+    }
+    document.addEventListener("pointerdown", onPointerDown, true)
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true)
+  }, [card, id, registration])
 
   // Describe the trigger by the tooltip when it says more than the label.
   React.useEffect(() => {
@@ -386,7 +499,8 @@ function HostSurface() {
     if (previous && previous !== element)
       previous.removeAttribute("aria-describedby")
     describedRef.current = null
-    if (!element || content == null) return
+    // A card isn't a description: its trigger keeps its own name.
+    if (!element || content == null || card) return
     const label = element.getAttribute("aria-label")?.trim()
     const text = measureRef.current?.textContent?.trim()
     if (text && text !== label) {
@@ -399,7 +513,11 @@ function HostSurface() {
   // from opening one until the scrolling stops. A keyboard-focused tooltip
   // stays, and follows its trigger.
   React.useEffect(() => {
-    const onScroll = () => tooltipStore.scrolled()
+    const onScroll = (event: Event) => {
+      // Scrolling inside an open card (a long list) keeps it.
+      if (surfaceRef.current?.contains(event.target as Node)) return
+      tooltipStore.scrolled()
+    }
     window.addEventListener("scroll", onScroll, {
       capture: true,
       passive: true
@@ -437,24 +555,30 @@ function HostSurface() {
         aria-hidden
         className="pointer-events-none invisible fixed top-0 left-0 -z-10"
       >
-        <div
-          ref={measureRef}
-          className={cn(inkClass, contentClass, registration?.className)}
-        >
-          {content}
-        </div>
+        {card ? (
+          <div
+            ref={setMeasureSlot}
+            inert
+            className={cn(cardContentClass, registration?.className)}
+          />
+        ) : (
+          <div
+            ref={measureRef}
+            className={cn(inkClass, contentClass, registration?.className)}
+          >
+            {content}
+          </div>
+        )}
       </div>
       <AnimatePresence custom={closedByScroll}>
         {visible && layout && (
           <motion.div
             key="tooltip"
-            ref={surfaceRef}
-            id={TOOLTIP_ID}
-            role="tooltip"
-            data-slot="tooltip-content"
+            ref={setSurface}
+            id={card ? undefined : TOOLTIP_ID}
+            role={card ? undefined : "tooltip"}
+            data-slot={card ? "hover-card-content" : "tooltip-content"}
             data-side={layout.side}
-            onPointerEnter={() => tooltipStore.popupEnter()}
-            onPointerLeave={() => tooltipStore.popupLeave()}
             initial={{
               opacity: 0,
               scale: reduced ? 1 : 0.96,
@@ -489,27 +613,49 @@ function HostSurface() {
               height: move
             }}
             style={{ transformOrigin: origin[layout.side] }}
+            // The corners ease between a label's and a card's with the glide.
             className={cn(
-              inkClass,
-              "fixed top-0 left-0 z-50 grid overflow-hidden p-0"
+              card ? hoverCardSurfaceClass : inkClass,
+              "fixed top-0 left-0 z-50 grid overflow-hidden p-0 transition-[border-radius] duration-180 ease-standard",
+              // A card that only shows (git, a sprint's estimate) lets the
+              // pointer through, so it never catches it on its way past.
+              registration?.className?.includes("pointer-events-none") &&
+                "pointer-events-none"
             )}
           >
-            <div
-              className={cn(
-                inkClass,
-                contentClass,
-                "col-start-1 row-start-1 bg-transparent",
-                registration?.className
-              )}
-            >
-              {/* A text label rolls to the next one with the glide; a label
-                  with elements (a shortcut key) updates in place. */}
-              {typeof content === "string" ? (
-                <TextSwap speed="fast">{content}</TextSwap>
-              ) : (
-                content
-              )}
-            </div>
+            {card ? (
+              // The card's content arrives through its slot; it fades in
+              // while the box glides and grows to it.
+              <motion.div
+                key={id}
+                ref={setLiveSlot}
+                initial={layout.glide ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                transition={appear}
+                className={cn(
+                  cardContentClass,
+                  "col-start-1 row-start-1 self-start",
+                  registration?.className
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  inkClass,
+                  contentClass,
+                  "col-start-1 row-start-1 bg-transparent shadow-none",
+                  registration?.className
+                )}
+              >
+                {/* A text label rolls to the next one with the glide; a
+                    label with elements (a shortcut key) updates in place. */}
+                {typeof content === "string" ? (
+                  <TextSwap speed="fast">{content}</TextSwap>
+                ) : (
+                  content
+                )}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -548,6 +694,22 @@ type TooltipContextValue = {
 const TooltipContext = React.createContext<TooltipContextValue | null>(null)
 const GroupPlacementContext = React.createContext<Placement | null>(null)
 
+// The side every hover in a container opens on, tooltips and cards alike.
+// One container never mixes sides: going from a tooltip above to a card below
+// would make the box jump across its trigger instead of gliding.
+const HoverSideContext = React.createContext<Side | null>(null)
+
+/**
+ * Sets the side for every tooltip and hover card inside it that doesn't
+ * name its own (a row, a section header: everything below).
+ */
+function HoverSide({
+  side,
+  children
+}: Readonly<{ side: Side; children: React.ReactNode }>) {
+  return <HoverSideContext value={side}>{children}</HoverSideContext>
+}
+
 type TriggerProps = Omit<React.ComponentProps<"button">, "content"> &
   Readonly<{
     render?: useRender.RenderProp
@@ -555,11 +717,28 @@ type TriggerProps = Omit<React.ComponentProps<"button">, "content"> &
     disabled?: boolean
   }>
 
+type TriggerOptions = Readonly<{
+  onElement?: (element: HTMLElement | null) => void
+  // A card trigger that also opens on click (Enter for the keyboard, a tap
+  // for touch), for cards that hold more than the trigger says.
+  openOnClick?: boolean
+  // A card's trigger is a link unless it renders something else.
+  tagName?: "button" | "a"
+  // A card stays open when its trigger is pressed (like Base UI's Preview
+  // Card); a tooltip goes away, since the press is what the label was for.
+  keepOnPress?: boolean
+}>
+
 function useTrigger(
   id: string,
   read: () => Omit<Registration, "element" | "disabled">,
   { render, disabled = false, ref, ...props }: TriggerProps,
-  onElement?: (element: HTMLElement | null) => void
+  {
+    onElement,
+    openOnClick = false,
+    tagName = "button",
+    keepOnPress = false
+  }: TriggerOptions = {}
 ) {
   const elementRef = React.useRef<HTMLElement | null>(null)
   const registration = React.useRef<Registration>({
@@ -567,7 +746,8 @@ function useTrigger(
     content: null,
     placement: DEFAULT_PLACEMENT,
     className: undefined,
-    disabled
+    disabled,
+    kind: "tooltip"
   })
 
   React.useLayoutEffect(() => {
@@ -613,7 +793,10 @@ function useTrigger(
         onPointerLeave: (event) => {
           if (event.pointerType !== "touch") tooltipStore.hoverEnd(id)
         },
-        onPointerDown: () => tooltipStore.dismiss(),
+        onPointerDown: () => {
+          if (!openOnClick && !keepOnPress) tooltipStore.dismiss()
+        },
+        ...(openOnClick ? { onClick: () => tooltipStore.click(id) } : {}),
         onFocus: (event) => {
           if (event.currentTarget.matches(":focus-visible"))
             tooltipStore.focusIn(id)
@@ -622,7 +805,7 @@ function useTrigger(
       }
 
   return useRender({
-    defaultTagName: "button",
+    defaultTagName: tagName,
     render,
     ref: ref ? [ref, setElement] : setElement,
     props: mergeProps<"button">(
@@ -666,16 +849,19 @@ function TooltipTrigger(props: TriggerProps) {
     () => ({
       content: context.content.current?.children ?? null,
       placement: context.content.current?.placement ?? DEFAULT_PLACEMENT,
-      className: context.content.current?.className
+      className: context.content.current?.className,
+      kind: "tooltip"
     }),
     // A pinned tooltip is drawn by the Tooltip itself, not the host.
     context.open ? { ...props, disabled: true } : props,
-    context.setTrigger
+    { onElement: context.setTrigger }
   )
 }
 
 type TooltipContentProps = Readonly<{
   children: React.ReactNode
+  // Unset: the container's (HoverSide, TooltipGroup), else above for a
+  // tooltip and below for a card.
   side?: Side
   align?: Align
   sideOffset?: number
@@ -685,7 +871,7 @@ type TooltipContentProps = Readonly<{
 /** What the tooltip shows, and where. Renders nothing in place. */
 function TooltipContent({
   children,
-  side = "top",
+  side: ownSide,
   align = "center",
   sideOffset = 6,
   className
@@ -693,6 +879,8 @@ function TooltipContent({
   const context = React.useContext(TooltipContext)
   if (context === null)
     throw new Error("TooltipContent must be inside a Tooltip")
+  const containerSide = React.useContext(HoverSideContext)
+  const side = ownSide ?? containerSide ?? "top"
   React.useLayoutEffect(() => {
     context.content.current = {
       children,
@@ -724,7 +912,9 @@ function TooltipGroup({
     [side, align, sideOffset]
   )
   return (
-    <GroupPlacementContext value={placement}>{children}</GroupPlacementContext>
+    <GroupPlacementContext value={placement}>
+      <HoverSideContext value={side}>{children}</HoverSideContext>
+    </GroupPlacementContext>
   )
 }
 
@@ -737,7 +927,12 @@ function TooltipGroupTrigger({
   const placement = React.useContext(GroupPlacementContext) ?? DEFAULT_PLACEMENT
   return useTrigger(
     id,
-    () => ({ content: tooltip, placement, className: undefined }),
+    () => ({
+      content: tooltip,
+      placement,
+      className: undefined,
+      kind: "tooltip"
+    }),
     props
   )
 }
@@ -853,7 +1048,135 @@ function ShortcutTooltip({
   )
 }
 
+// ------------------------------------------------------------ hover card
+
+type HoverCardContextValue = {
+  id: string
+  content: React.RefObject<ContentSlot | null>
+}
+
+const HoverCardContext = React.createContext<HoverCardContextValue | null>(null)
+
+/**
+ * One hover card: a `HoverCardTrigger` and its `HoverCardContent`, drawn by
+ * the same host as the tooltips, so moving from a tooltip to a card (or
+ * back) glides and grows instead of closing and opening. Its content renders
+ * here, into the host's slots, so it keeps this spot's context.
+ */
+function HoverCard({ children }: Readonly<{ children: React.ReactNode }>) {
+  const id = React.useId()
+  const content = React.useRef<ContentSlot | null>(null)
+  const value = React.useMemo(() => ({ id, content }), [id])
+  return (
+    <HoverCardContext value={value}>
+      {children}
+      <CardPortals id={id} content={content} />
+    </HoverCardContext>
+  )
+}
+
+// Only this part follows the store, so a hover elsewhere doesn't render the
+// card's trigger (a row full of chips) again.
+function CardPortals({
+  id,
+  content
+}: Readonly<{ id: string; content: React.RefObject<ContentSlot | null> }>) {
+  React.useSyncExternalStore(subscribe, getVersion, getVersion)
+  const children = activeId === id ? content.current?.children : null
+  if (children == null) return null
+  // React events bubble through the React tree, so a click or right-click in
+  // the card would reach the row it was written in (opening the row, its
+  // context menu). They stop at the card.
+  const body = (
+    <div className="contents" {...stopAtCard}>
+      {children}
+    </div>
+  )
+  return (
+    <>
+      {cardSlots.measure !== null && createPortal(body, cardSlots.measure)}
+      {cardSlots.live !== null && createPortal(body, cardSlots.live)}
+    </>
+  )
+}
+
+const stop = (event: React.SyntheticEvent) => event.stopPropagation()
+const stopAtCard = {
+  onClick: stop,
+  onDoubleClick: stop,
+  onContextMenu: stop,
+  onPointerDown: stop,
+  onPointerUp: stop,
+  onMouseDown: stop,
+  onMouseUp: stop,
+  onKeyDown: stop,
+  onFocus: stop,
+  onBlur: stop
+} as const
+
+function HoverCardTrigger({
+  openOnClick = false,
+  ...props
+}: TriggerProps & Readonly<{ openOnClick?: boolean }>) {
+  const context = React.useContext(HoverCardContext)
+  if (context === null)
+    throw new Error("HoverCardTrigger must be inside a HoverCard")
+  return useTrigger(
+    context.id,
+    () => ({
+      content: null,
+      placement: context.content.current?.placement ?? CARD_PLACEMENT,
+      className: context.content.current?.className,
+      kind: "card"
+    }),
+    { "data-slot": "hover-card-trigger", ...props } as TriggerProps,
+    { openOnClick, tagName: "a", keepOnPress: true }
+  )
+}
+
+const CARD_PLACEMENT: Placement = {
+  side: "bottom",
+  align: "start",
+  sideOffset: 6
+}
+
+/**
+ * What the card shows, and where: below its trigger and aligned to its start
+ * unless set. Width and padding go in `className` (10px by 8px by default,
+ * `p-1` around menu rows). Renders nothing in place.
+ */
+function HoverCardContent({
+  children,
+  side: ownSide,
+  align = "start",
+  sideOffset = 6,
+  className
+}: TooltipContentProps) {
+  const context = React.useContext(HoverCardContext)
+  if (context === null)
+    throw new Error("HoverCardContent must be inside a HoverCard")
+  const containerSide = React.useContext(HoverSideContext)
+  const side = ownSide ?? containerSide ?? "bottom"
+  React.useLayoutEffect(() => {
+    context.content.current = {
+      children,
+      placement: { side, align, sideOffset },
+      className
+    }
+    tooltipStore.touch(context.id)
+  })
+  return null
+}
+
+/** Closes whatever the host shows at once, e.g. after a click in a card. */
+const closeHoverCard = () => hide(true)
+
 export {
+  closeHoverCard,
+  HoverSide,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
   ShortcutTooltip,
   Tooltip,
   TooltipProvider,

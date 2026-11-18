@@ -85,7 +85,7 @@ export function BoardColumnCount({ value }: Readonly<{ value: number }>) {
         transformTiming={{ duration: 180, easing: "ease-out" }}
         spinTiming={{ duration: 180, easing: "ease-out" }}
         opacityTiming={{ duration: 180, easing: "ease-out" }}
-        className="font-mono text-caption leading-none tabular-nums"
+        className="text-caption leading-none tabular-nums"
       />
     </span>
   )

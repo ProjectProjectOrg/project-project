@@ -1,4 +1,3 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
 import {
   RegistryContext,
   useAtomRefresh,
@@ -14,28 +13,24 @@ import {
 import { Button } from "@pp/ui/button"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import {
+  closeHoverCard,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
 import { Copy } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { PreviewCardContent } from "@pp/ui/preview-card"
 import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
 import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import {
-  createRef,
-  Fragment,
-  useContext,
-  useEffect,
-  type ComponentProps
-} from "react"
+import { Fragment, useContext, useEffect, type ComponentProps } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import {
-  project,
-  type ProjectRequest
-} from "@/features/projects/atoms/projects"
+import { project } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
   statusesRequest
@@ -82,50 +77,43 @@ type TicketPreview =
   | Readonly<{ kind: "tag"; name: TagName }>
   | Readonly<{ kind: "tags"; names: ReadonlyArray<TagName> }>
 
-type TicketPreviewPayload = Readonly<{
-  project: ProjectRequest
-  preview: TicketPreview
-}>
+// Ticket previews are hover cards in the tooltip host: one on screen at a
+// time, gliding between triggers. A click on a ticket line closes it at once.
+const closePreviewNow = closeHoverCard
 
-const ticketPreview = PreviewCard.createHandle<TicketPreviewPayload>()
-const ticketPreviewActions = createRef<PreviewCard.Root.Actions>()
-
-const closePreviewNow = () => {
-  ticketPreview.close()
-  ticketPreviewActions.current?.unmount()
-}
-
-const PREVIEW_DELAY_MS = 400
-
+// A chip or link that previews on hover (and on focus). Chips whose preview
+// holds more than they say (lists, a flag's reason) also open on click, for
+// the keyboard and touch.
 export function TicketPreviewTrigger({
   preview,
+  onClick,
   ...props
 }: Readonly<{ preview: TicketPreview }> &
-  Omit<
-    ComponentProps<typeof PreviewCard.Trigger>,
-    "handle" | "payload" | "delay" | "closeDelay" | "onPointerEnter"
-  >) {
+  Omit<ComponentProps<typeof HoverCardTrigger>, "openOnClick">) {
   const project = useProjectRequest()
   const warm = useWarmPreview()
+  const opensOnClick = preview.kind !== "ticket"
   return (
-    <PreviewCard.Trigger
-      handle={ticketPreview}
-      payload={{ project, preview }}
-      delay={PREVIEW_DELAY_MS}
-      closeDelay={0}
-      aria-haspopup={preview.kind === "ticket" ? undefined : "dialog"}
-      onPointerEnter={() => warm(preview)}
-      onClick={
-        preview.kind === "ticket"
-          ? undefined
-          : (event) => {
-              event.stopPropagation()
-              warm(preview)
-              ticketPreview.open(event.currentTarget.id)
-            }
-      }
-      {...props}
-    />
+    <HoverCard>
+      <HoverCardTrigger
+        openOnClick={opensOnClick}
+        aria-haspopup={opensOnClick ? "dialog" : undefined}
+        onPointerEnter={() => warm(preview)}
+        onClick={(event) => {
+          if (opensOnClick) {
+            event.stopPropagation()
+            warm(preview)
+          }
+          onClick?.(event)
+        }}
+        {...props}
+      />
+      <HoverCardContent className={PREVIEW_WIDTHS[preview.kind]}>
+        <ProjectContext value={project}>
+          <PreviewContent preview={preview} />
+        </ProjectContext>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -150,27 +138,17 @@ function useWarmPreview() {
   }
 }
 
+// Loads the Markdown renderer ahead of the first ticket preview. (The
+// previews themselves render where their triggers are.)
 export function TicketPreviewRoot() {
   useEffect(() => {
     void loadMarkdown()
   }, [])
-  return (
-    <PreviewCard.Root handle={ticketPreview} actionsRef={ticketPreviewActions}>
-      {({ payload }) =>
-        payload !== undefined && (
-          <PreviewCardContent className={PREVIEW_WIDTHS[payload.preview.kind]}>
-            <ProjectContext value={payload.project}>
-              <PreviewContent preview={payload.preview} />
-            </ProjectContext>
-          </PreviewCardContent>
-        )
-      }
-    </PreviewCard.Root>
-  )
+  return null
 }
 
 const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
-  ticket: "w-80",
+  ticket: "w-80 p-3",
   // Ticket lists are menu rows, so the popup pads like a menu's.
   relations: "w-72 p-1",
   subTickets: "w-72 p-1",

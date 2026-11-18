@@ -27,7 +27,7 @@ function Group({
 
 // The three layers, nested the way the app nests them, each named.
 function Layers() {
-  const label = "font-mono text-micro text-muted-foreground"
+  const label = "tabular-nums text-micro text-muted-foreground"
   return (
     <div className="rounded-[20px] bg-background p-3 corner-squircle">
       <p className={label}>--background · the frame</p>

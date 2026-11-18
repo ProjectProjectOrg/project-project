@@ -45,7 +45,7 @@ export function TicketStepper({
   return (
     <div className="flex items-center gap-0.5">
       <span
-        className="mr-1.5 text-right font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
+        className="mr-1.5 text-right text-caption whitespace-nowrap text-muted-foreground tabular-nums"
         style={{ minWidth: `${label({ position: total, total }).length}ch` }}
       >
         {label({ position: index + 1, total })}

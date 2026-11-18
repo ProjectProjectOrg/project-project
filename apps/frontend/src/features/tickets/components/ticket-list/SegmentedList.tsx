@@ -159,7 +159,10 @@ export function SegmentedList({
           <EmptyTitle>{m.tickets_empty_title()}</EmptyTitle>
           <EmptyDescription>
             {m.tickets_empty_hint_prefix()}{" "}
-            <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
+            <span className="tabular-nums">
+              {m.tickets_empty_hint_folder()}
+            </span>
+            .
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

@@ -410,7 +410,7 @@ export function TimelineValues({
 export function TimelineLiteral({
   children
 }: Readonly<{ children: ReactNode }>) {
-  return <span className="font-mono text-body">{children}</span>
+  return <span className="text-body tabular-nums">{children}</span>
 }
 
 // "from → to"; the arrow is hidden from screen readers, which hear `toLabel`.

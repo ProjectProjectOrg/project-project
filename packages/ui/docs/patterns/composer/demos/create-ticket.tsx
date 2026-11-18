@@ -19,7 +19,7 @@ export default function CreateTicket() {
         >
           <Composer.Header>
             <span className="truncate">
-              Blocks <span className="font-mono tabular-nums">PP-214</span>
+              Blocks <span className="tabular-nums">PP-214</span>
             </span>
           </Composer.Header>
           <Composer.Title>

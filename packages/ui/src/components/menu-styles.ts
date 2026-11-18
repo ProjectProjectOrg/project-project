@@ -27,4 +27,4 @@ export const menuChoiceIndicatorClass =
   "invisible ml-auto flex size-4 shrink-0 items-center justify-center [[data-checked]>&]:visible [[data-menu-meta]+&]:ml-2 [[data-selected]>&]:visible"
 
 export const menuItemMetaClass =
-  "ml-auto font-mono text-micro text-muted-foreground tabular-nums"
+  "ml-auto text-micro text-muted-foreground tabular-nums"

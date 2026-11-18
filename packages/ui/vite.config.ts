@@ -22,7 +22,10 @@ export default defineConfig(({ mode }) => ({
         extends: true,
         test: {
           name: "ui-dom",
-          include: ["src/editor/**/*.test.{ts,tsx}", "src/hooks/**/*.test.{ts,tsx}"],
+          include: [
+            "src/editor/**/*.test.{ts,tsx}",
+            "src/hooks/**/*.test.{ts,tsx}"
+          ],
           environment: "jsdom",
           setupFiles: ["src/editor/test-setup.ts"]
         }

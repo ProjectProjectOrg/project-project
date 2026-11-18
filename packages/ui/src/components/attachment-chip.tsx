@@ -118,13 +118,17 @@ export function AttachmentChip({
           >
             <ChipBody filename={filename} kind={kind} morphId={morphId} />
           </PopoverTrigger>
-          <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
+          <PopoverContent
+            surface="hover"
+            className="w-auto max-w-sm p-1.5"
+            align="start"
+          >
             <img
               src={url}
               alt={alt}
               loading="lazy"
               decoding="async"
-              className="block max-h-72 max-w-full rounded-[13px] object-contain [corner-shape:var(--button-corner)]"
+              className="block max-h-72 max-w-full rounded-[8px] object-contain [corner-shape:var(--button-corner)]"
               onError={() => {
                 setBroken(true)
                 onBroken?.()

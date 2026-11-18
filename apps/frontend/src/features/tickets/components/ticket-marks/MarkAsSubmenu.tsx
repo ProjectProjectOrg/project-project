@@ -190,7 +190,7 @@ function RelationItem({
       <Icon className="size-4 text-muted-foreground" strokeWidth={1.75} />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="shrink-0 text-muted-foreground">{kind}</span>
-        <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-muted-foreground tabular-nums">
           {id}
         </span>
         <span className="min-w-0 flex-1 truncate">{title}</span>

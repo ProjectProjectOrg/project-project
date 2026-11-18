@@ -29,7 +29,7 @@ const badgeVariants = cva(
         soft: "",
         outline: "",
         count:
-          "h-[18px]! min-w-[18px] justify-center rounded-[9px]! px-[5px]! font-mono text-micro! leading-none tabular-nums"
+          "h-[18px]! min-w-[18px] justify-center rounded-[9px]! px-[5px]! text-micro! leading-none tabular-nums"
       },
       tone: BADGE_TONE_COLOURS,
       size: {

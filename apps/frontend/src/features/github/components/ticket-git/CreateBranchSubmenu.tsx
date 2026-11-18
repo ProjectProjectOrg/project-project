@@ -62,7 +62,7 @@ export function CreateBranchSubmenu({
         <span className="shrink-0">{m.git_branch_picker_create()}</span>
         <MiddleTruncate
           value={suggestedName}
-          className="-ml-1 flex-1 font-mono text-foreground"
+          className="-ml-1 flex-1 text-foreground tabular-nums"
         />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="flex w-72 flex-col">
@@ -70,7 +70,7 @@ export function CreateBranchSubmenu({
           placeholder={m.git_branch_create_name_label()}
           aria-label={m.git_branch_create_name_label()}
           spellCheck={false}
-          className="font-mono placeholder:font-sans"
+          className="tabular-nums placeholder:font-sans"
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.nativeEvent.isComposing) return
             const highlighted = event.currentTarget.getAttribute(

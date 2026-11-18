@@ -84,7 +84,7 @@ export function RenderPreviews({
           {header}
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-title font-semibold">{name}</span>
-            <span className="truncate font-mono text-body text-muted-foreground">
+            <span className="truncate text-body text-muted-foreground tabular-nums">
               {projectKey}
             </span>
           </span>

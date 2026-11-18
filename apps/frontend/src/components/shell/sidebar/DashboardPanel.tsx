@@ -1,9 +1,6 @@
 import type { Project } from "@pp/shared"
 import { LayoutDashboard, LayoutGrid, Settings } from "@pp/ui/icons"
-import {
-  SidebarPanelBody,
-  SidebarRow
-} from "@pp/ui/sidebar"
+import { SidebarPanelBody, SidebarRow } from "@pp/ui/sidebar"
 import { Link } from "@tanstack/react-router"
 
 import { DashboardPins } from "@/features/pins/components/DashboardPins"

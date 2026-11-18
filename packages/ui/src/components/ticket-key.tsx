@@ -2,7 +2,7 @@ import { cn } from "../lib/utils"
 import { TextSwap } from "./text-swap"
 
 /*
- * A ticket's key ("ATL-23") in mono, muted and with tabular figures, so keys
+ * A ticket's key ("ATL-23") in Allo, muted and with tabular figures, so keys
  * in a column line up. The number after the last dash rolls through TextSwap:
  * a ticket that is still being created shows only its prefix ("ATL-"), and
  * its number rolls in once it's saved.
@@ -32,7 +32,7 @@ export function TicketKey({
     <span
       data-slot="ticket-key"
       className={cn(
-        "inline-flex items-baseline font-mono text-caption text-muted-foreground tabular-nums",
+        "inline-flex items-baseline text-caption text-muted-foreground tabular-nums",
         className
       )}
     >

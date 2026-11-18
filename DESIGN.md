@@ -206,7 +206,7 @@ A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled t
 Hover, pressed, and the secondary button are **translucent overlays**, not opaque greys, so they read correctly on any surface — the page, a settings group, a board card, a menu. `--overlay` direction flips per theme: black on light, white on dark.
 
 - **Hover** (`--hover`, 4% black / 4% white): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
-- **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `chipClassName({ kind: "label" })`. Data chips (icon and value) stay unfilled.
+- **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%, with `--chip-sheen` (a top light) and `--chip-edge` (the `--kbd-glow` bottom edge) on top): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `chipClassName({ kind: "label" })`. Data chips (icon and value) stay unfilled and light up the same way on hover. Corners at half the height in `--button-corner`, like the Badge.
 - **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
 - **Field hover and focus** (`--field-hover` 2.5% / 3%, `--field-focus` 1.5% / 2%): every bordered field: Input and InputGroup, Select and other `field` buttons (over their `--field` fill, as an inset shadow). Lighter than a control's `--hover`, and focus (or an open picker) lighter still, so it reads as "you are here".
@@ -254,7 +254,7 @@ Defined in `packages/shared/src/colors.ts`. The colour picker (`TAG_COLOR_WHEEL`
 
 **Body / UI Font:** Allo, at roundness 0 (`ROND` 0, crisp terminals) (with `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`)
 **Mono Font:** Geist Mono (with `ui-monospace, SFMono-Regular, Menlo, monospace`)
-**Character:** A single neutral sans (Allo) carries every UI surface — headings, buttons, labels, body, data — on a tight scale: the working sizes sit 1–2px apart, with one jump to the page title. Mono shows up the moment a value is a _literal_: IDs, branches, slugs, code, file paths, hashes.
+**Character:** A single neutral sans (Allo) carries every UI surface — headings, buttons, labels, body, data — on a tight scale: the working sizes sit 1–2px apart, with one jump to the page title. Mono shows up only in code: code blocks and inline code. Keys, branches and hashes stay in Allo with tabular figures.
 
 ### Hierarchy
 
@@ -267,7 +267,7 @@ Six roles, sizes / line heights in px, each with a compact size for dense places
 - **Caption** (12 / 16; compact 11 / 14): meta, hints, chips.
 - **Micro** (11 / 14; compact 10 / 12): counts, keys, the smallest labels.
 - **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground. Headings get 8px below and 20–24px above.
-- **Mono** (Geist Mono, 400, at the size of the text around it): IDs, branches, slugs, code, anywhere "this is a literal."
+- **Mono** (Geist Mono, 400, at the size of the text around it): code only, in code blocks and inline code. Keys, branches, hashes and slugs are Allo with tabular figures (`tabular-nums`).
 
 Weights: 400 for text, 550 (`--font-weight-semibold`) for headings and anything selected, 700 only for emphasis inside text.
 
@@ -277,7 +277,7 @@ Inline links strengthen their underline on hover without a background fill; keyb
 
 **The Sentence Case Rule.** No capitalized headings, subheadings, or labels — anywhere. No `uppercase`, no `tracking-wide` on rail dividers, section headers, popover titles, table column heads, pill labels, status indicators. The all-caps "Active / Planned / Completed / Tags / Recent / Status / Type" pattern is a Jira-DNA tell and is forbidden. Acronyms (PR, ID, URL) keep their natural casing inside otherwise sentence-case strings.
 
-**The Mono-For-Literals Rule.** Geist Mono is reserved for content that is a literal token in another system — a branch name, a slug, an ID, a hash, a code fragment. Don't reach for it as a "techy" flavor; reach for it when the user could copy-paste the string into a terminal.
+**The One-Face Rule.** Allo carries everything outside code: ticket keys, branches, hashes, slugs and numbers are Allo with `tabular-nums`, so keys still line up in a column. Geist Mono appears only inside code (code blocks, inline code, a value shown as `<code>` to paste, such as a callback URL): two faces side by side in a row read as noise.
 
 ## 4. Elevation
 
@@ -399,7 +399,7 @@ Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 ### Navigation (Sidebar, Settings Rail)
 
 - **Shape:** the sidebar is two columns from `@pp/ui/sidebar`: a 56px rail of places on the left and a panel beside it. The app composes them in `components/shell/sidebar/`; don't hand-roll nav links.
-- **Rail:** the logo on top opens the organization switcher. Then Dashboard, a separator, one tinted tile per project you can see (sorted by name, the tile's tint built from the project colour) and New project, which opens the cmd+k create-project page. Search (cmd+k) and your avatar sit at the foot. Every item shows its name as an ink tooltip on the right. Clicking a project tile keeps the section you are in (Backlog, Sprints, About, a settings section).
+- **Rail:** the logo on top opens the organization switcher. Then Dashboard, a separator, one tinted tile per project you can see (sorted by name, the tile's tint built from the project colour) and New project, which opens the cmd+k create-project page. Search (cmd+k) and your avatar sit at the foot. Every item shows its name as a tooltip on the right. Clicking a project tile keeps the section you are in (Backlog, Sprints, About, a settings section).
 - **Active Bar:** the active rail item gets a 3px foreground bar on the rail's left edge that slides between items. This is the one approved exception to "no vertical accent stripe": it marks a place on the rail, never a row, card or callout. Dashboard is active on the org dashboard and All projects; a project's tile is active on any route inside that project, settings included.
 - **Panel:** a header with the scope's name (a project's header carries its colour as a dither wash and shows the running sprint with its countdown, or the project key), then the rows. A project shows Backlog, Sprints, About and Settings; the Dashboard shows Overview, All projects, Settings and every project's pins under a caption per project. When the scope changes the panel slides its content up or down, following the rail.
 - **Rows:** 32px, `muted-foreground` text; one `bg-hover` highlight per panel glides between rows (`useFluidHover` + `FluidHoverHighlight`); the current page gets the `bg-accent` fill and semibold text. Only one row is active at a time: a pinned row for the page you are on wins over the place it was opened from. A row that swaps the panel to a sub-page (Settings) shows a trailing chevron.
@@ -464,7 +464,7 @@ It never appears on functional controls.
 - **Do** use OKLCH for every color token; tint neutrals toward the brand hue (chroma 0.005–0.01).
 - **Do** carry hierarchy with type weight, size, and whitespace — not borders, not chrome, not color.
 - **Do** keep the dithered language in graphics (empty states, brand marks, marketing) and the clean type-driven language in chrome (buttons, inputs, rows, menus).
-- **Do** use `Geist Mono` the moment a value is a literal: branches, slugs, IDs, hashes, code.
+- **Do** keep keys, branches, hashes and slugs in Allo with `tabular-nums`; Geist Mono is for code only.
 - **Do** review every surface in both light and dark before calling it done.
 - **Do** pull categorical color from `TAG_COLOR_WHEEL` (`packages/shared/src/colors.ts`) when adding user-assigned color affordances.
 - **Do** pair every hover-driven state change with a `transition-colors` (or `transition-opacity` / `transition-all`) class so the global asymmetric-hover rule has something to override.

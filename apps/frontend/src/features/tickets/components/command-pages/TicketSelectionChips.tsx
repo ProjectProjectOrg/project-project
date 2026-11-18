@@ -21,7 +21,7 @@ export function TicketSelectionChips({
           key={ticket.id}
           className="inline-flex h-6 max-w-48 min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover pl-2 text-body"
         >
-          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           <span className="min-w-0 truncate font-semibold text-foreground">

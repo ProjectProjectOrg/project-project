@@ -230,7 +230,7 @@ export function PendingInviteRow({
   return (
     <MemberRowLayout
       leading={
-        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-caption text-muted-foreground">
+        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border text-caption text-muted-foreground tabular-nums">
           {initial}
         </div>
       }

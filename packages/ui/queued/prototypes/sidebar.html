@@ -39,268 +39,979 @@
         --ink: oklch(0.985 0 0);
         --ink-fg: oklch(0.145 0 0);
       }
-      :root { --ease: cubic-bezier(0.22, 1, 0.36, 1); --corner: superellipse(1.5); color-scheme: light dark; }
-      * { box-sizing: border-box; }
-      body { margin: 0; font-family: Geist, system-ui, sans-serif; font-size: 13px; line-height: 20px; -webkit-font-smoothing: antialiased; }
-      svg { display: block; }
-      .doc { max-width: 1320px; margin: 0 auto; padding: 24px 16px 48px; }
-      .doc > h1 { font-size: 20px; line-height: 28px; font-weight: 600; margin: 0 0 4px; }
-      .doc > p { margin: 0 0 16px; opacity: 0.7; max-width: 720px; }
-      .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 14px; align-items: center; }
-      .bar .lab { opacity: 0.6; font-size: 12px; }
-      .picker { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: rgb(127 127 127 / 0.14); }
-      .picker button { font: inherit; font-weight: 500; border: 0; background: transparent; color: inherit; padding: 4px 12px; border-radius: 8px; cursor: pointer; opacity: 0.65; }
-      .picker button[aria-pressed="true"] { background: rgb(255 255 255 / 0.9); color: #111; opacity: 1; }
-      .frames { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 620px), 1fr)); gap: 16px; }
-      .frames[data-view="light"] .app.dark, .frames[data-view="dark"] .app.light { display: none; }
-      @media (min-width: 1280px) { .frames .app.light, .frames .app.dark { display: grid !important; } .theme-pick { display: none !important; } }
-      .notes { margin-top: 20px; display: grid; gap: 6px; max-width: 760px; opacity: 0.8; }
-      .notes b { font-weight: 600; }
+      :root {
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --corner: superellipse(1.5);
+        color-scheme: light dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Geist, system-ui, sans-serif;
+        font-size: 13px;
+        line-height: 20px;
+        -webkit-font-smoothing: antialiased;
+      }
+      svg {
+        display: block;
+      }
+      .doc {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      .doc > h1 {
+        font-size: 20px;
+        line-height: 28px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .doc > p {
+        margin: 0 0 16px;
+        opacity: 0.7;
+        max-width: 720px;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        margin-bottom: 14px;
+        align-items: center;
+      }
+      .bar .lab {
+        opacity: 0.6;
+        font-size: 12px;
+      }
+      .picker {
+        display: inline-flex;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 10px;
+        background: rgb(127 127 127 / 0.14);
+      }
+      .picker button {
+        font: inherit;
+        font-weight: 500;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 4px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        opacity: 0.65;
+      }
+      .picker button[aria-pressed="true"] {
+        background: rgb(255 255 255 / 0.9);
+        color: #111;
+        opacity: 1;
+      }
+      .frames {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 620px), 1fr));
+        gap: 16px;
+      }
+      .frames[data-view="light"] .app.dark,
+      .frames[data-view="dark"] .app.light {
+        display: none;
+      }
+      @media (min-width: 1280px) {
+        .frames .app.light,
+        .frames .app.dark {
+          display: grid !important;
+        }
+        .theme-pick {
+          display: none !important;
+        }
+      }
+      .notes {
+        margin-top: 20px;
+        display: grid;
+        gap: 6px;
+        max-width: 760px;
+        opacity: 0.8;
+      }
+      .notes b {
+        font-weight: 600;
+      }
 
-      .app { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); height: 580px; border-radius: 14px; overflow: hidden; background: var(--background); color: var(--foreground); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08); }
+      .app {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        height: 580px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--background);
+        color: var(--foreground);
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+      }
 
       /* ---------- rail ---------- */
-      .rail { width: 56px; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px; }
+      .rail {
+        width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 0;
+        gap: 6px;
+      }
       .rbtn {
-        position: relative; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; corner-shape: var(--corner);
-        color: var(--muted); cursor: pointer; border: 0; background: transparent; padding: 0; font-size: 16px;
-        transition: background-color 100ms, color 100ms, transform 120ms var(--ease), filter 120ms, opacity 120ms;
+        position: relative;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        corner-shape: var(--corner);
+        color: var(--muted);
+        cursor: pointer;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        font-size: 16px;
+        transition:
+          background-color 100ms,
+          color 100ms,
+          transform 120ms var(--ease),
+          filter 120ms,
+          opacity 120ms;
       }
-      .rbtn svg { width: 18px; height: 18px; }
-      .rbtn:hover { background: var(--hover); color: var(--foreground); }
-      .rbtn:active { transform: scale(0.97); }
-      .rbtn.on { background: var(--accent); color: var(--foreground); }
-      .rbtn.proj { background: var(--tint); opacity: 0.6; filter: saturate(0.55); }
-      .rbtn.proj:hover { opacity: 1; filter: none; background: var(--tint); }
-      .rbtn.proj.on { opacity: 1; filter: none; box-shadow: 0 0 0 1.5px var(--background), 0 0 0 3px var(--foreground); }
-      .rbtn.proj.on.on-fill { box-shadow: none; }
-      .rbtn.proj.on.on-fill::before { content: ""; position: absolute; left: -11px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--foreground); animation: bar 200ms var(--ease) both; }
-      @keyframes bar { from { scale: 1 0.3; } }
-      .rbtn .badge { position: absolute; right: -2px; top: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: #ef4444; color: white; font-size: 9px; line-height: 14px; font-weight: 600; box-shadow: 0 0 0 2px var(--background); }
+      .rbtn svg {
+        width: 18px;
+        height: 18px;
+      }
+      .rbtn:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      .rbtn:active {
+        transform: scale(0.97);
+      }
+      .rbtn.on {
+        background: var(--accent);
+        color: var(--foreground);
+      }
+      .rbtn.proj {
+        background: var(--tint);
+        opacity: 0.6;
+        filter: saturate(0.55);
+      }
+      .rbtn.proj:hover {
+        opacity: 1;
+        filter: none;
+        background: var(--tint);
+      }
+      .rbtn.proj.on {
+        opacity: 1;
+        filter: none;
+        box-shadow:
+          0 0 0 1.5px var(--background),
+          0 0 0 3px var(--foreground);
+      }
+      .rbtn.proj.on.on-fill {
+        box-shadow: none;
+      }
+      .rbtn.proj.on.on-fill::before {
+        content: "";
+        position: absolute;
+        left: -11px;
+        top: 7px;
+        bottom: 7px;
+        width: 3px;
+        border-radius: 0 3px 3px 0;
+        background: var(--foreground);
+        animation: bar 200ms var(--ease) both;
+      }
+      @keyframes bar {
+        from {
+          scale: 1 0.3;
+        }
+      }
+      .rbtn .badge {
+        position: absolute;
+        right: -2px;
+        top: -2px;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 3px;
+        border-radius: 7px;
+        background: #ef4444;
+        color: white;
+        font-size: 9px;
+        line-height: 14px;
+        font-weight: 600;
+        box-shadow: 0 0 0 2px var(--background);
+      }
       .rbtn[data-tip]::after {
-        content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; translate: -4px -50%; white-space: nowrap;
-        padding: 3px 8px; border-radius: 8px; background: var(--ink); color: var(--ink-fg); font-size: 12px; line-height: 18px; font-weight: 500;
-        opacity: 0; pointer-events: none; transition: opacity 120ms, translate 160ms var(--ease); z-index: 40; filter: none;
+        content: attr(data-tip);
+        position: absolute;
+        left: calc(100% + 10px);
+        top: 50%;
+        translate: -4px -50%;
+        white-space: nowrap;
+        padding: 3px 8px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: var(--ink-fg);
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 500;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 120ms,
+          translate 160ms var(--ease);
+        z-index: 40;
+        filter: none;
       }
-      .rbtn[data-tip]:hover::after { opacity: 1; translate: 0 -50%; transition-delay: 300ms; }
-      .rail .logo { width: 30px; height: 30px; border-radius: 9px; corner-shape: var(--corner); background: var(--foreground); color: var(--background); display: grid; place-items: center; font-weight: 650; font-size: 13px; margin-bottom: 10px; }
-      .rail .hr { width: 20px; height: 1px; background: var(--line); margin: 4px 0; }
-      .rail .spacer { flex: 1; }
-      .avatar { width: 28px; height: 28px; border-radius: 50%; background: oklch(0.68 0.13 250); color: white; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+      .rbtn[data-tip]:hover::after {
+        opacity: 1;
+        translate: 0 -50%;
+        transition-delay: 300ms;
+      }
+      .rail .logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        corner-shape: var(--corner);
+        background: var(--foreground);
+        color: var(--background);
+        display: grid;
+        place-items: center;
+        font-weight: 650;
+        font-size: 13px;
+        margin-bottom: 10px;
+      }
+      .rail .hr {
+        width: 20px;
+        height: 1px;
+        background: var(--line);
+        margin: 4px 0;
+      }
+      .rail .spacer {
+        flex: 1;
+      }
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: oklch(0.68 0.13 250);
+        color: white;
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        font-weight: 600;
+      }
 
       /* ---------- panel ---------- */
-      .panel { width: 236px; display: flex; flex-direction: column; min-height: 0; padding: 8px 0 8px; }
-      .panel-in { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-      .head { position: relative; margin: 0 8px 4px; padding: 10px 10px 10px; border-radius: 12px; corner-shape: var(--corner); overflow: hidden; }
-      .head .wash { position: absolute; inset: 0; z-index: 0; opacity: 0.55; }
-      .head > :not(.wash) { position: relative; z-index: 1; }
-      .head .name { font-weight: 600; font-size: 14px; line-height: 20px; display: flex; align-items: center; gap: 6px; }
-      .head .sub { font-size: 12px; line-height: 16px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
-      .head .sub .pip { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
-      .scroll { flex: 1; overflow-y: auto; padding: 4px 8px; min-height: 0; }
-      .cap { padding: 14px 10px 4px; font-size: 12px; line-height: 16px; font-weight: 550; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-      .cap .cnt { margin-left: auto; font-weight: 400; font-variant-numeric: tabular-nums; }
+      .panel {
+        width: 236px;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 8px 0 8px;
+      }
+      .panel-in {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        flex: 1;
+      }
+      .head {
+        position: relative;
+        margin: 0 8px 4px;
+        padding: 10px 10px 10px;
+        border-radius: 12px;
+        corner-shape: var(--corner);
+        overflow: hidden;
+      }
+      .head .wash {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        opacity: 0.55;
+      }
+      .head > :not(.wash) {
+        position: relative;
+        z-index: 1;
+      }
+      .head .name {
+        font-weight: 600;
+        font-size: 14px;
+        line-height: 20px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .head .sub {
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted);
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .head .sub .pip {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #22c55e;
+      }
+      .scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 8px;
+        min-height: 0;
+      }
+      .cap {
+        padding: 14px 10px 4px;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 550;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cap .cnt {
+        margin-left: auto;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+      }
 
       .row {
-        position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; height: 32px;
-        padding: 0 10px; margin-bottom: 1px; border-radius: 10px; corner-shape: var(--corner);
-        color: var(--muted); cursor: pointer; user-select: none;
-        transition: color 100ms, background-color 100ms, transform 120ms var(--ease);
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        height: 32px;
+        padding: 0 10px;
+        margin-bottom: 1px;
+        border-radius: 10px;
+        corner-shape: var(--corner);
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+        transition:
+          color 100ms,
+          background-color 100ms,
+          transform 120ms var(--ease);
       }
-      .row:hover { background: var(--hover); color: var(--foreground); }
-      .row:active { transform: scale(0.97); }
-      .row.on { background: var(--accent); color: var(--foreground); font-weight: 550; }
-      .row .ic { width: 16px; height: 16px; display: grid; place-items: center; flex-shrink: 0; }
-      .row .ic svg { width: 16px; height: 16px; }
-      .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .row .meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; flex-shrink: 0; transition: opacity 100ms; }
-      .row .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; }
+      .row:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      .row:active {
+        transform: scale(0.97);
+      }
+      .row.on {
+        background: var(--accent);
+        color: var(--foreground);
+        font-weight: 550;
+      }
+      .row .ic {
+        width: 16px;
+        height: 16px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .row .ic svg {
+        width: 16px;
+        height: 16px;
+      }
+      .row .lbl {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row .meta {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        font-weight: 400;
+        flex-shrink: 0;
+        transition: opacity 100ms;
+      }
+      .row .mono {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+      }
       .row .act {
-        position: absolute; right: 5px; top: 50%; translate: 0 -50%; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px;
-        color: var(--muted); opacity: 0; border: 0; background: transparent; cursor: pointer; padding: 0;
-        transition: opacity 100ms, background-color 100ms, color 100ms, transform 120ms var(--ease);
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        translate: 0 -50%;
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        color: var(--muted);
+        opacity: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          opacity 100ms,
+          background-color 100ms,
+          color 100ms,
+          transform 120ms var(--ease);
       }
-      .row .act svg { width: 14px; height: 14px; }
-      .row:hover .act { opacity: 1; }
-      .row:hover .meta { opacity: 0; }
-      .row .act:hover { background: var(--hover); color: var(--foreground); }
-      .row .act:active { transform: translate(0, 0) scale(0.9); }
-      .row.live { color: var(--muted); font-weight: 400; background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
-      .row.live.on { background: transparent; color: var(--foreground); }
-      .row.live .act { opacity: 1; color: var(--foreground); }
-      .row.live .meta { opacity: 0; }
-      .row.live .act:hover { background: var(--accent); }
-      .row .proj-dot { width: 6px; height: 6px; border-radius: 2px; }
-      .sub { position: relative; margin-left: 18px; padding-left: 8px; }
-      .sub::before { content: ""; position: absolute; top: 6px; bottom: 6px; left: 0; width: 2px; translate: -50% 0; border-radius: 2px; background: var(--border); }
-      .sub .row { padding-left: 10px; }
-      .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; }
-      .dot.todo { color: oklch(0.7 0 0); border-style: dashed; }
-      .dot.prog { color: #3b82f6; background: conic-gradient(#3b82f6 0 50%, transparent 0); }
-      .dot.review { color: #a855f7; background: conic-gradient(#a855f7 0 75%, transparent 0); }
-      .dot.done { color: #22c55e; background: #22c55e; }
-      .empty-pin { margin: 2px 10px 0; font-size: 12px; line-height: 16px; color: var(--muted); }
+      .row .act svg {
+        width: 14px;
+        height: 14px;
+      }
+      .row:hover .act {
+        opacity: 1;
+      }
+      .row:hover .meta {
+        opacity: 0;
+      }
+      .row .act:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      .row .act:active {
+        transform: translate(0, 0) scale(0.9);
+      }
+      .row.live {
+        color: var(--muted);
+        font-weight: 400;
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .row.live.on {
+        background: transparent;
+        color: var(--foreground);
+      }
+      .row.live .act {
+        opacity: 1;
+        color: var(--foreground);
+      }
+      .row.live .meta {
+        opacity: 0;
+      }
+      .row.live .act:hover {
+        background: var(--accent);
+      }
+      .row .proj-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 2px;
+      }
+      .sub {
+        position: relative;
+        margin-left: 18px;
+        padding-left: 8px;
+      }
+      .sub::before {
+        content: "";
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        left: 0;
+        width: 2px;
+        translate: -50% 0;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .sub .row {
+        padding-left: 10px;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1.5px solid currentColor;
+      }
+      .dot.todo {
+        color: oklch(0.7 0 0);
+        border-style: dashed;
+      }
+      .dot.prog {
+        color: #3b82f6;
+        background: conic-gradient(#3b82f6 0 50%, transparent 0);
+      }
+      .dot.review {
+        color: #a855f7;
+        background: conic-gradient(#a855f7 0 75%, transparent 0);
+      }
+      .dot.done {
+        color: #22c55e;
+        background: #22c55e;
+      }
+      .empty-pin {
+        margin: 2px 10px 0;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted);
+      }
 
-      .slide { animation: slide 220ms var(--ease) both; }
-      @keyframes slide { from { opacity: 0; translate: 0 -4px; } }
-      .pane-in { animation: pane 200ms var(--ease) both; }
-      @keyframes pane { from { opacity: 0; translate: -8px 0; } }
-      .landed { animation: landed 420ms var(--ease) both; }
-      @keyframes landed { 0% { background: var(--accent); } 100% { background: transparent; } }
+      .slide {
+        animation: slide 220ms var(--ease) both;
+      }
+      @keyframes slide {
+        from {
+          opacity: 0;
+          translate: 0 -4px;
+        }
+      }
+      .pane-in {
+        animation: pane 200ms var(--ease) both;
+      }
+      @keyframes pane {
+        from {
+          opacity: 0;
+          translate: -8px 0;
+        }
+      }
+      .landed {
+        animation: landed 420ms var(--ease) both;
+      }
+      @keyframes landed {
+        0% {
+          background: var(--accent);
+        }
+        100% {
+          background: transparent;
+        }
+      }
 
       /* ---------- page ---------- */
-      .page { background: var(--page); margin: 8px 8px 8px 0; border-radius: 12px; box-shadow: var(--shadow-1); overflow: auto; padding: 20px 24px; min-width: 0; }
-      .crumbs { color: var(--muted); font-size: 12px; margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
-      .crumbs svg { width: 12px; height: 12px; }
-      .page h3 { margin: 0 0 12px; font-size: 20px; line-height: 28px; font-weight: 600; }
-      .list .li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
-      .list .li:hover { background: var(--hover); }
-      .list .li .k { font-family: "Geist Mono", monospace; font-size: 11px; color: var(--muted); width: 50px; }
-      .list .li .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .list .li .m { font-size: 12px; color: var(--muted); }
-      .bodytext { color: var(--muted); max-width: 48ch; margin: 0 0 14px; }
-      .tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--hover); color: var(--muted); }
-      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-      .pcard { padding: 12px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow-1); cursor: pointer; transition: transform 120ms var(--ease); }
-      .pcard:active { transform: scale(0.97); }
-      .pcard .t { font-weight: 550; margin-top: 8px; }
-      .pcard .m { font-size: 12px; color: var(--muted); }
-      .ptile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 15px; }
-      @media (prefers-reduced-motion: reduce) { .slide, .pane-in, .landed { animation: none; } }
+      .page {
+        background: var(--page);
+        margin: 8px 8px 8px 0;
+        border-radius: 12px;
+        box-shadow: var(--shadow-1);
+        overflow: auto;
+        padding: 20px 24px;
+        min-width: 0;
+      }
+      .crumbs {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 8px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .crumbs svg {
+        width: 12px;
+        height: 12px;
+      }
+      .page h3 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        line-height: 28px;
+        font-weight: 600;
+      }
+      .list .li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .list .li:hover {
+        background: var(--hover);
+      }
+      .list .li .k {
+        font-family: "Geist Mono", monospace;
+        font-size: 11px;
+        color: var(--muted);
+        width: 50px;
+      }
+      .list .li .t {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .list .li .m {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .bodytext {
+        color: var(--muted);
+        max-width: 48ch;
+        margin: 0 0 14px;
+      }
+      .tag {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: var(--hover);
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      .pcard {
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: var(--shadow-1);
+        cursor: pointer;
+        transition: transform 120ms var(--ease);
+      }
+      .pcard:active {
+        transform: scale(0.97);
+      }
+      .pcard .t {
+        font-weight: 550;
+        margin-top: 8px;
+      }
+      .pcard .m {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .ptile {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        font-size: 15px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .slide,
+        .pane-in,
+        .landed {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="doc">
       <h1>Rail and pinned shelf</h1>
-      <p>Open tickets and sprints from the page and the row appears under “Pinned”, outlined, with its pin showing. Pin it to keep it. Dashboard sits at the top of the rail; it shows your pins from every project.</p>
+      <p>
+        Open tickets and sprints from the page and the row appears under
+        “Pinned”, outlined, with its pin showing. Pin it to keep it. Dashboard
+        sits at the top of the rail; it shows your pins from every project.
+      </p>
       <div class="bar">
-        <span class="lab">Active project</span><div class="picker" id="pick-mark"></div>
-        <span class="lab">Header</span><div class="picker" id="pick-head"></div>
+        <span class="lab">Active project</span>
+        <div class="picker" id="pick-mark"></div>
+        <span class="lab">Header</span>
+        <div class="picker" id="pick-head"></div>
         <div class="picker theme-pick" id="pick-theme"></div>
       </div>
       <div class="frames" id="frames"></div>
       <div class="notes">
-        <div><b>Rail:</b> Dashboard, then one tile per project, then New project. Your avatar sits at the foot and opens the account menu. Names show as ink tooltips after 300ms.</div>
-        <div><b>Live row:</b> the page you are on but haven't pinned, outlined rather than filled, so it reads as temporary. It replaces itself as you move and disappears when you leave for a non-ticket page.</div>
-        <div><b>Pin:</b> the row turns into a normal pinned row in place, with a short accent flash where it lands. Hover a pinned row to unpin it.</div>
+        <div>
+          <b>Rail:</b> Dashboard, then one tile per project, then New project.
+          Your avatar sits at the foot and opens the account menu. Names show as
+          ink tooltips after 300ms.
+        </div>
+        <div>
+          <b>Live row:</b> the page you are on but haven't pinned, outlined
+          rather than filled, so it reads as temporary. It replaces itself as
+          you move and disappears when you leave for a non-ticket page.
+        </div>
+        <div>
+          <b>Pin:</b> the row turns into a normal pinned row in place, with a
+          short accent flash where it lands. Hover a pinned row to unpin it.
+        </div>
       </div>
     </div>
 
     <script>
-      const ICONS = {"DashboardSquare02Icon":"<path d=\"M10.5 8.75V6.75C10.5 5.10626 10.5 4.28439 10.046 3.73121C9.96291 3.62995 9.87005 3.53709 9.76879 3.45398C9.21561 3 8.39374 3 6.75 3C5.10626 3 4.28439 3 3.73121 3.45398C3.62995 3.53709 3.53709 3.62995 3.45398 3.73121C3 4.28439 3 5.10626 3 6.75V8.75C3 10.3937 3 11.2156 3.45398 11.7688C3.53709 11.8701 3.62995 11.9629 3.73121 12.046C4.28439 12.5 5.10626 12.5 6.75 12.5C8.39374 12.5 9.21561 12.5 9.76879 12.046C9.87005 11.9629 9.96291 11.8701 10.046 11.7688C10.5 11.2156 10.5 10.3937 10.5 8.75Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M7.75 15.5H5.75C5.05222 15.5 4.70333 15.5 4.41943 15.5861C3.78023 15.78 3.28002 16.2802 3.08612 16.9194C3 17.2033 3 17.5522 3 18.25C3 18.9478 3 19.2967 3.08612 19.5806C3.28002 20.2198 3.78023 20.72 4.41943 20.9139C4.70333 21 5.05222 21 5.75 21H7.75C8.44778 21 8.79667 21 9.08057 20.9139C9.71977 20.72 10.22 20.2198 10.4139 19.5806C10.5 19.2967 10.5 18.9478 10.5 18.25C10.5 17.5522 10.5 17.2033 10.4139 16.9194C10.22 16.2802 9.71977 15.78 9.08057 15.5861C8.79667 15.5 8.44778 15.5 7.75 15.5Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M21 17.25V15.25C21 13.6063 21 12.7844 20.546 12.2312C20.4629 12.1299 20.3701 12.0371 20.2688 11.954C19.7156 11.5 18.8937 11.5 17.25 11.5C15.6063 11.5 14.7844 11.5 14.2312 11.954C14.1299 12.0371 14.0371 12.1299 13.954 12.2312C13.5 12.7844 13.5 13.6063 13.5 15.25V17.25C13.5 18.8937 13.5 19.7156 13.954 20.2688C14.0371 20.3701 14.1299 20.4629 14.2312 20.546C14.7844 21 15.6063 21 17.25 21C18.8937 21 19.7156 21 20.2688 20.546C20.3701 20.4629 20.4629 20.3701 20.546 20.2688C21 19.7156 21 18.8937 21 17.25Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M18.25 3H16.25C15.5522 3 15.2033 3 14.9194 3.08612C14.2802 3.28002 13.78 3.78023 13.5861 4.41943C13.5 4.70333 13.5 5.05222 13.5 5.75C13.5 6.44778 13.5 6.79667 13.5861 7.08057C13.78 7.71977 14.2802 8.21998 14.9194 8.41388C15.2033 8.5 15.5522 8.5 16.25 8.5H18.25C18.9478 8.5 19.2967 8.5 19.5806 8.41388C20.2198 8.21998 20.72 7.71977 20.9139 7.08057C21 6.79667 21 6.44778 21 5.75C21 5.05222 21 4.70333 20.9139 4.41943C20.72 3.78023 20.2198 3.28002 19.5806 3.08612C19.2967 3 18.9478 3 18.25 3Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","CheckListIcon":"<path d=\"M11 6L21 6\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M11 12L21 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M11 18L21 18\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M3 7.39286C3 7.39286 4 8.04466 4.5 9C4.5 9 6 5.25 8 4\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M3 18.3929C3 18.3929 4 19.0447 4.5 20C4.5 20 6 16.25 8 15\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Calendar02Icon":"<path d=\"M16 2V6M8 2V6\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M13 4H11C7.22876 4 5.34315 4 4.17157 5.17157C3 6.34315 3 8.22876 3 12V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V12C21 8.22876 21 6.34315 19.8284 5.17157C18.6569 4 16.7712 4 13 4Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M3 10H21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M11 14H16M8 14H8.00898M13 18H8M16 18H15.991\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","InformationCircleIcon":"<circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12 16V12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12.125 8.25H12M12.25 8.25C12.25 8.11193 12.1381 8 12 8C11.8619 8 11.75 8.11193 11.75 8.25C11.75 8.38807 11.8619 8.5 12 8.5C12.1381 8.5 12.25 8.38807 12.25 8.25Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","UnfoldMoreIcon":"<path d=\"M18 14C18 14 13.5811 19 12 19C10.4188 19 6 14 6 14\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M18 9.99996C18 9.99996 13.5811 5.00001 12 5C10.4188 4.99999 6 10 6 10\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","PinIcon":"<path d=\"M3 21L8 16\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M13.2585 18.8714C9.51516 18.0215 5.97844 14.4848 5.12853 10.7415C4.99399 10.1489 4.92672 9.85266 5.12161 9.37197C5.3165 8.89129 5.55457 8.74255 6.03071 8.44509C7.10705 7.77265 8.27254 7.55888 9.48209 7.66586C11.1793 7.81598 12.0279 7.89104 12.4512 7.67048C12.8746 7.44991 13.1622 6.93417 13.7376 5.90269L14.4664 4.59604C14.9465 3.73528 15.1866 3.3049 15.7513 3.10202C16.316 2.89913 16.6558 3.02199 17.3355 3.26771C18.9249 3.84236 20.1576 5.07505 20.7323 6.66449C20.978 7.34417 21.1009 7.68401 20.898 8.2487C20.6951 8.8134 20.2647 9.05346 19.4039 9.53358L18.0672 10.2792C17.0376 10.8534 16.5229 11.1406 16.3024 11.568C16.0819 11.9955 16.162 12.8256 16.3221 14.4859C16.4399 15.7068 16.2369 16.88 15.5555 17.9697C15.2577 18.4458 15.1088 18.6839 14.6283 18.8786C14.1477 19.0733 13.8513 19.006 13.2585 18.8714Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","PinOffIcon":"<path d=\"M7.5 8C6.95863 8.1281 6.49932 8.14239 5.99268 8.45891C5.07234 9.03388 4.85108 9.71674 5.08821 10.7612C5.94028 14.5139 9.48599 18.0596 13.2388 18.9117C14.2834 19.1489 14.9661 18.928 15.5416 18.0077C15.8411 17.5288 15.8716 17.0081 16 16.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M12 7.79915C12.1776 7.77794 12.3182 7.74034 12.4295 7.68235C13.3997 7.17686 13.9291 5.53361 14.4498 4.60009C14.9311 3.73715 15.1718 3.30567 15.7379 3.10227C16.3041 2.89888 16.6448 3.02205 17.3262 3.26839C18.9197 3.8445 20.1555 5.08032 20.7316 6.6738C20.9779 7.35521 21.1011 7.69591 20.8977 8.26204C20.6943 8.82817 20.2628 9.06884 19.3999 9.55018C18.4608 10.074 16.7954 10.6108 16.2905 11.5898C16.2345 11.6983 16.1978 11.8327 16.1769 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M3 21L8 16\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M3 3L21 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Cancel01Icon":"<path d=\"M18.9991 19L5 5.00098\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19 5L5.00092 18.999\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Search01Icon":"<path d=\"M17 17L21 21\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Settings01Icon":"<path d=\"M3.95631 10.5829L3.03254 9.07084C2.74505 8.60024 2.7389 8.00978 3.01652 7.5333L3.63533 6.47124C3.90953 6.00064 4.41721 5.71571 4.96162 5.7269L6.69131 5.76245C6.92616 5.76728 7.15379 5.68727 7.34333 5.54846C7.79531 5.21745 8.28334 4.93276 8.80042 4.70139C9.01191 4.60675 9.19222 4.45165 9.30469 4.24903L10.1203 2.77965C10.3847 2.30328 10.8865 2.00781 11.4312 2.00781H12.6937C13.2384 2.00781 13.7403 2.30329 14.0047 2.77966L14.8202 4.24902C14.9327 4.45165 15.113 4.60675 15.3245 4.70139C15.8416 4.93274 16.3296 5.2174 16.7815 5.54838C16.9711 5.68718 17.1987 5.76718 17.4336 5.76235L19.1634 5.72676C19.7078 5.71557 20.2155 6.00049 20.4897 6.47111L21.1085 7.53314C21.3862 8.00963 21.38 8.60009 21.0925 9.07068L20.1687 10.5828C20.0481 10.7803 20.002 11.0134 20.0235 11.2439C20.0707 11.7486 20.0707 12.267 20.0235 12.7717C20.002 13.0022 20.0481 13.2353 20.1687 13.4329L21.0924 14.9448C21.3799 15.4154 21.3861 16.0058 21.1084 16.4823L20.4896 17.5444C20.2154 18.015 19.7077 18.2999 19.1633 18.2887L17.4338 18.2531C17.1989 18.2483 16.9713 18.3283 16.7817 18.4671C16.3297 18.7982 15.8416 19.0829 15.3245 19.3142C15.113 19.4089 14.9327 19.564 14.8202 19.7666L14.0047 21.236C13.7403 21.7123 13.2384 22.0078 12.6937 22.0078H11.4312C10.8866 22.0078 10.3847 21.7123 10.1203 21.236L9.30468 19.7665C9.19222 19.5639 9.01191 19.4088 8.80042 19.3142C8.28329 19.0828 7.79519 18.798 7.34316 18.467C7.15362 18.3282 6.92597 18.2482 6.69111 18.253L4.96175 18.2886C4.41733 18.2998 3.90963 18.0148 3.63543 17.5442L3.01663 16.4822C2.739 16.0057 2.74515 15.4152 3.03264 14.9446L3.95631 13.4327C4.07699 13.2351 4.12309 13.002 4.10154 12.7715C4.05437 12.267 4.05438 11.7486 4.10154 11.244C4.12308 11.0135 4.07699 10.7805 3.95631 10.5829Z\" stroke=\"currentColor\" stroke-width=\"1.5\"/><circle cx=\"12.0625\" cy=\"12.0078\" r=\"3.5\" stroke=\"currentColor\" stroke-width=\"1.5\"/>","PlusSignIcon":"<path d=\"M12 4V20M20 12H4\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","LayoutGridIcon":"<path d=\"M20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M21.5 12L2.5 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/><path d=\"M12 2.5L12 21.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"/>","Tick02Icon":"<path d=\"M5 14L8.5 17.5L19 6.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Clock01Icon":"<circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M12 8V12L14 14\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","InboxIcon":"<path d=\"M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M21.5 13.5H16.5743C15.7322 13.5 15.0706 14.2036 14.6995 14.9472C14.2963 15.7551 13.4889 16.5 12 16.5C10.5111 16.5 9.70373 15.7551 9.30054 14.9472C8.92942 14.2036 8.26777 13.5 7.42566 13.5H2.5\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","DashedLineCircleIcon":"<path d=\"M14 2.20004C13.3538 2.06886 12.6849 2 12 2C11.3151 2 10.6462 2.06886 10 2.20004M21.8 10C21.9311 10.6462 22 11.3151 22 12C22 12.6849 21.9311 13.3538 21.8 14M14 21.8C13.3538 21.9311 12.6849 22 12 22C11.3151 22 10.6462 21.9311 10 21.8M2.20004 14C2.06886 13.3538 2 12.6849 2 12C2 11.3151 2.06886 10.6462 2.20004 10M17.5 3.64702C18.6332 4.39469 19.6053 5.36678 20.353 6.5M20.353 17.5C19.6053 18.6332 18.6332 19.6053 17.5 20.353M6.5 20.353C5.36678 19.6053 4.39469 18.6332 3.64702 17.5M3.64702 6.5C4.39469 5.36678 5.36678 4.39469 6.5 3.64702\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","CircleIcon":"<circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","Ticket01Icon":"<path d=\"M2.46433 9.34375C2.21579 9.34375 1.98899 9.14229 2.00041 8.87895C2.06733 7.33687 2.25481 6.33298 2.78008 5.53884C3.08228 5.08196 3.45765 4.68459 3.88923 4.36468C5.05575 3.5 6.70139 3.5 9.99266 3.5H14.0074C17.2986 3.5 18.9443 3.5 20.1108 4.36468C20.5424 4.68459 20.9177 5.08196 21.2199 5.53884C21.7452 6.33289 21.9327 7.33665 21.9996 8.87843C22.011 9.14208 21.7839 9.34375 21.5351 9.34375C20.1493 9.34375 19.0259 10.533 19.0259 12C19.0259 13.467 20.1493 14.6562 21.5351 14.6562C21.7839 14.6562 22.011 14.8579 21.9996 15.1216C21.9327 16.6634 21.7452 17.6671 21.2199 18.4612C20.9177 18.918 20.5424 19.3154 20.1108 19.6353C18.9443 20.5 17.2986 20.5 14.0074 20.5H9.99266C6.70139 20.5 5.05575 20.5 3.88923 19.6353C3.45765 19.3154 3.08228 18.918 2.78008 18.4612C2.25481 17.667 2.06733 16.6631 2.00041 15.1211C1.98899 14.8577 2.21579 14.6562 2.46433 14.6562C3.85012 14.6562 4.97352 13.467 4.97352 12C4.97352 10.533 3.85012 9.34375 2.46433 9.34375Z\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M9 3.5L9 20.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>","ArrowRight01Icon":"<path d=\"M9.00005 6C9.00005 6 15 10.4189 15 12C15 13.5812 9 18 9 18\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/>"};
-      const ic = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+      const ICONS = {
+        DashboardSquare02Icon:
+          '<path d="M10.5 8.75V6.75C10.5 5.10626 10.5 4.28439 10.046 3.73121C9.96291 3.62995 9.87005 3.53709 9.76879 3.45398C9.21561 3 8.39374 3 6.75 3C5.10626 3 4.28439 3 3.73121 3.45398C3.62995 3.53709 3.53709 3.62995 3.45398 3.73121C3 4.28439 3 5.10626 3 6.75V8.75C3 10.3937 3 11.2156 3.45398 11.7688C3.53709 11.8701 3.62995 11.9629 3.73121 12.046C4.28439 12.5 5.10626 12.5 6.75 12.5C8.39374 12.5 9.21561 12.5 9.76879 12.046C9.87005 11.9629 9.96291 11.8701 10.046 11.7688C10.5 11.2156 10.5 10.3937 10.5 8.75Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M7.75 15.5H5.75C5.05222 15.5 4.70333 15.5 4.41943 15.5861C3.78023 15.78 3.28002 16.2802 3.08612 16.9194C3 17.2033 3 17.5522 3 18.25C3 18.9478 3 19.2967 3.08612 19.5806C3.28002 20.2198 3.78023 20.72 4.41943 20.9139C4.70333 21 5.05222 21 5.75 21H7.75C8.44778 21 8.79667 21 9.08057 20.9139C9.71977 20.72 10.22 20.2198 10.4139 19.5806C10.5 19.2967 10.5 18.9478 10.5 18.25C10.5 17.5522 10.5 17.2033 10.4139 16.9194C10.22 16.2802 9.71977 15.78 9.08057 15.5861C8.79667 15.5 8.44778 15.5 7.75 15.5Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M21 17.25V15.25C21 13.6063 21 12.7844 20.546 12.2312C20.4629 12.1299 20.3701 12.0371 20.2688 11.954C19.7156 11.5 18.8937 11.5 17.25 11.5C15.6063 11.5 14.7844 11.5 14.2312 11.954C14.1299 12.0371 14.0371 12.1299 13.954 12.2312C13.5 12.7844 13.5 13.6063 13.5 15.25V17.25C13.5 18.8937 13.5 19.7156 13.954 20.2688C14.0371 20.3701 14.1299 20.4629 14.2312 20.546C14.7844 21 15.6063 21 17.25 21C18.8937 21 19.7156 21 20.2688 20.546C20.3701 20.4629 20.4629 20.3701 20.546 20.2688C21 19.7156 21 18.8937 21 17.25Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M18.25 3H16.25C15.5522 3 15.2033 3 14.9194 3.08612C14.2802 3.28002 13.78 3.78023 13.5861 4.41943C13.5 4.70333 13.5 5.05222 13.5 5.75C13.5 6.44778 13.5 6.79667 13.5861 7.08057C13.78 7.71977 14.2802 8.21998 14.9194 8.41388C15.2033 8.5 15.5522 8.5 16.25 8.5H18.25C18.9478 8.5 19.2967 8.5 19.5806 8.41388C20.2198 8.21998 20.72 7.71977 20.9139 7.08057C21 6.79667 21 6.44778 21 5.75C21 5.05222 21 4.70333 20.9139 4.41943C20.72 3.78023 20.2198 3.28002 19.5806 3.08612C19.2967 3 18.9478 3 18.25 3Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/>',
+        CheckListIcon:
+          '<path d="M11 6L21 6" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M11 12L21 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M11 18L21 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 7.39286C3 7.39286 4 8.04466 4.5 9C4.5 9 6 5.25 8 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 18.3929C3 18.3929 4 19.0447 4.5 20C4.5 20 6 16.25 8 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        Calendar02Icon:
+          '<path d="M16 2V6M8 2V6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 4H11C7.22876 4 5.34315 4 4.17157 5.17157C3 6.34315 3 8.22876 3 12V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V12C21 8.22876 21 6.34315 19.8284 5.17157C18.6569 4 16.7712 4 13 4Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 10H21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 14H16M8 14H8.00898M13 18H8M16 18H15.991" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        InformationCircleIcon:
+          '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12 16V12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12.125 8.25H12M12.25 8.25C12.25 8.11193 12.1381 8 12 8C11.8619 8 11.75 8.11193 11.75 8.25C11.75 8.38807 11.8619 8.5 12 8.5C12.1381 8.5 12.25 8.38807 12.25 8.25Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        UnfoldMoreIcon:
+          '<path d="M18 14C18 14 13.5811 19 12 19C10.4188 19 6 14 6 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M18 9.99996C18 9.99996 13.5811 5.00001 12 5C10.4188 4.99999 6 10 6 10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        PinIcon:
+          '<path d="M3 21L8 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13.2585 18.8714C9.51516 18.0215 5.97844 14.4848 5.12853 10.7415C4.99399 10.1489 4.92672 9.85266 5.12161 9.37197C5.3165 8.89129 5.55457 8.74255 6.03071 8.44509C7.10705 7.77265 8.27254 7.55888 9.48209 7.66586C11.1793 7.81598 12.0279 7.89104 12.4512 7.67048C12.8746 7.44991 13.1622 6.93417 13.7376 5.90269L14.4664 4.59604C14.9465 3.73528 15.1866 3.3049 15.7513 3.10202C16.316 2.89913 16.6558 3.02199 17.3355 3.26771C18.9249 3.84236 20.1576 5.07505 20.7323 6.66449C20.978 7.34417 21.1009 7.68401 20.898 8.2487C20.6951 8.8134 20.2647 9.05346 19.4039 9.53358L18.0672 10.2792C17.0376 10.8534 16.5229 11.1406 16.3024 11.568C16.0819 11.9955 16.162 12.8256 16.3221 14.4859C16.4399 15.7068 16.2369 16.88 15.5555 17.9697C15.2577 18.4458 15.1088 18.6839 14.6283 18.8786C14.1477 19.0733 13.8513 19.006 13.2585 18.8714Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        PinOffIcon:
+          '<path d="M7.5 8C6.95863 8.1281 6.49932 8.14239 5.99268 8.45891C5.07234 9.03388 4.85108 9.71674 5.08821 10.7612C5.94028 14.5139 9.48599 18.0596 13.2388 18.9117C14.2834 19.1489 14.9661 18.928 15.5416 18.0077C15.8411 17.5288 15.8716 17.0081 16 16.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12 7.79915C12.1776 7.77794 12.3182 7.74034 12.4295 7.68235C13.3997 7.17686 13.9291 5.53361 14.4498 4.60009C14.9311 3.73715 15.1718 3.30567 15.7379 3.10227C16.3041 2.89888 16.6448 3.02205 17.3262 3.26839C18.9197 3.8445 20.1555 5.08032 20.7316 6.6738C20.9779 7.35521 21.1011 7.69591 20.8977 8.26204C20.6943 8.82817 20.2628 9.06884 19.3999 9.55018C18.4608 10.074 16.7954 10.6108 16.2905 11.5898C16.2345 11.6983 16.1978 11.8327 16.1769 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 21L8 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 3L21 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        Cancel01Icon:
+          '<path d="M18.9991 19L5 5.00098" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 5L5.00092 18.999" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        Search01Icon:
+          '<path d="M17 17L21 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        Settings01Icon:
+          '<path d="M3.95631 10.5829L3.03254 9.07084C2.74505 8.60024 2.7389 8.00978 3.01652 7.5333L3.63533 6.47124C3.90953 6.00064 4.41721 5.71571 4.96162 5.7269L6.69131 5.76245C6.92616 5.76728 7.15379 5.68727 7.34333 5.54846C7.79531 5.21745 8.28334 4.93276 8.80042 4.70139C9.01191 4.60675 9.19222 4.45165 9.30469 4.24903L10.1203 2.77965C10.3847 2.30328 10.8865 2.00781 11.4312 2.00781H12.6937C13.2384 2.00781 13.7403 2.30329 14.0047 2.77966L14.8202 4.24902C14.9327 4.45165 15.113 4.60675 15.3245 4.70139C15.8416 4.93274 16.3296 5.2174 16.7815 5.54838C16.9711 5.68718 17.1987 5.76718 17.4336 5.76235L19.1634 5.72676C19.7078 5.71557 20.2155 6.00049 20.4897 6.47111L21.1085 7.53314C21.3862 8.00963 21.38 8.60009 21.0925 9.07068L20.1687 10.5828C20.0481 10.7803 20.002 11.0134 20.0235 11.2439C20.0707 11.7486 20.0707 12.267 20.0235 12.7717C20.002 13.0022 20.0481 13.2353 20.1687 13.4329L21.0924 14.9448C21.3799 15.4154 21.3861 16.0058 21.1084 16.4823L20.4896 17.5444C20.2154 18.015 19.7077 18.2999 19.1633 18.2887L17.4338 18.2531C17.1989 18.2483 16.9713 18.3283 16.7817 18.4671C16.3297 18.7982 15.8416 19.0829 15.3245 19.3142C15.113 19.4089 14.9327 19.564 14.8202 19.7666L14.0047 21.236C13.7403 21.7123 13.2384 22.0078 12.6937 22.0078H11.4312C10.8866 22.0078 10.3847 21.7123 10.1203 21.236L9.30468 19.7665C9.19222 19.5639 9.01191 19.4088 8.80042 19.3142C8.28329 19.0828 7.79519 18.798 7.34316 18.467C7.15362 18.3282 6.92597 18.2482 6.69111 18.253L4.96175 18.2886C4.41733 18.2998 3.90963 18.0148 3.63543 17.5442L3.01663 16.4822C2.739 16.0057 2.74515 15.4152 3.03264 14.9446L3.95631 13.4327C4.07699 13.2351 4.12309 13.002 4.10154 12.7715C4.05437 12.267 4.05438 11.7486 4.10154 11.244C4.12308 11.0135 4.07699 10.7805 3.95631 10.5829Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12.0625" cy="12.0078" r="3.5" stroke="currentColor" stroke-width="1.5"/>',
+        PlusSignIcon:
+          '<path d="M12 4V20M20 12H4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        LayoutGridIcon:
+          '<path d="M20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21.5 12L2.5 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M12 2.5L12 21.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/>',
+        Tick02Icon:
+          '<path d="M5 14L8.5 17.5L19 6.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        Clock01Icon:
+          '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 8V12L14 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        InboxIcon:
+          '<path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21.5 13.5H16.5743C15.7322 13.5 15.0706 14.2036 14.6995 14.9472C14.2963 15.7551 13.4889 16.5 12 16.5C10.5111 16.5 9.70373 15.7551 9.30054 14.9472C8.92942 14.2036 8.26777 13.5 7.42566 13.5H2.5" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/>',
+        DashedLineCircleIcon:
+          '<path d="M14 2.20004C13.3538 2.06886 12.6849 2 12 2C11.3151 2 10.6462 2.06886 10 2.20004M21.8 10C21.9311 10.6462 22 11.3151 22 12C22 12.6849 21.9311 13.3538 21.8 14M14 21.8C13.3538 21.9311 12.6849 22 12 22C11.3151 22 10.6462 21.9311 10 21.8M2.20004 14C2.06886 13.3538 2 12.6849 2 12C2 11.3151 2.06886 10.6462 2.20004 10M17.5 3.64702C18.6332 4.39469 19.6053 5.36678 20.353 6.5M20.353 17.5C19.6053 18.6332 18.6332 19.6053 17.5 20.353M6.5 20.353C5.36678 19.6053 4.39469 18.6332 3.64702 17.5M3.64702 6.5C4.39469 5.36678 5.36678 4.39469 6.5 3.64702" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        CircleIcon:
+          '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/>',
+        Ticket01Icon:
+          '<path d="M2.46433 9.34375C2.21579 9.34375 1.98899 9.14229 2.00041 8.87895C2.06733 7.33687 2.25481 6.33298 2.78008 5.53884C3.08228 5.08196 3.45765 4.68459 3.88923 4.36468C5.05575 3.5 6.70139 3.5 9.99266 3.5H14.0074C17.2986 3.5 18.9443 3.5 20.1108 4.36468C20.5424 4.68459 20.9177 5.08196 21.2199 5.53884C21.7452 6.33289 21.9327 7.33665 21.9996 8.87843C22.011 9.14208 21.7839 9.34375 21.5351 9.34375C20.1493 9.34375 19.0259 10.533 19.0259 12C19.0259 13.467 20.1493 14.6562 21.5351 14.6562C21.7839 14.6562 22.011 14.8579 21.9996 15.1216C21.9327 16.6634 21.7452 17.6671 21.2199 18.4612C20.9177 18.918 20.5424 19.3154 20.1108 19.6353C18.9443 20.5 17.2986 20.5 14.0074 20.5H9.99266C6.70139 20.5 5.05575 20.5 3.88923 19.6353C3.45765 19.3154 3.08228 18.918 2.78008 18.4612C2.25481 17.667 2.06733 16.6631 2.00041 15.1211C1.98899 14.8577 2.21579 14.6562 2.46433 14.6562C3.85012 14.6562 4.97352 13.467 4.97352 12C4.97352 10.533 3.85012 9.34375 2.46433 9.34375Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M9 3.5L9 20.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
+        ArrowRight01Icon:
+          '<path d="M9.00005 6C9.00005 6 15 10.4189 15 12C15 13.5812 9 18 9 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>'
+      }
+      const ic = (n) =>
+        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`
 
       const PROJECTS = [
-        { slug: "atl", name: "Atlas Mobile App", key: "ATL", icon: "🧭", color: "#e271b5", sprint: "Sprint 24", left: "6d left", inbox: 3 },
-        { slug: "bil", name: "Billing Platform", key: "BIL", icon: "💳", color: "#3b82f6", sprint: "Sprint 24", left: "6d left", inbox: 0 },
-        { slug: "web", name: "Marketing Site", key: "WEB", icon: "📣", color: "#f59e0b", sprint: "Sprint 24", left: "6d left", inbox: 1 },
-        { slug: "hello", name: "Hello", key: "HELL", icon: "🪐", color: "#70b445", sprint: null, left: null, inbox: 0 }
-      ];
+        {
+          slug: "atl",
+          name: "Atlas Mobile App",
+          key: "ATL",
+          icon: "🧭",
+          color: "#e271b5",
+          sprint: "Sprint 24",
+          left: "6d left",
+          inbox: 3
+        },
+        {
+          slug: "bil",
+          name: "Billing Platform",
+          key: "BIL",
+          icon: "💳",
+          color: "#3b82f6",
+          sprint: "Sprint 24",
+          left: "6d left",
+          inbox: 0
+        },
+        {
+          slug: "web",
+          name: "Marketing Site",
+          key: "WEB",
+          icon: "📣",
+          color: "#f59e0b",
+          sprint: "Sprint 24",
+          left: "6d left",
+          inbox: 1
+        },
+        {
+          slug: "hello",
+          name: "Hello",
+          key: "HELL",
+          icon: "🪐",
+          color: "#70b445",
+          sprint: null,
+          left: null,
+          inbox: 0
+        }
+      ]
       const TICKETS = {
-        atl: [["ATL-3", "Sync conflict resolution for checklist items", "prog"], ["ATL-6", "Photo uploads retry with backoff after reconnect", "todo"], ["ATL-13", "Cold start under 1.5s on Pixel 6a", "prog"], ["ATL-4", "Download map tiles for a job's area", "review"], ["ATL-16", "Map pins flicker when zooming on iOS 19", "todo"], ["ATL-17", "Crash when opening a job with no address", "done"]],
-        bil: [["BIL-2", "Usage line items on invoices", "prog"], ["BIL-7", "Apply reverse charge for B2B customers", "prog"], ["BIL-10", "Proration is off by one day for annual plans", "review"], ["BIL-9", "Show VAT breakdown on invoice PDF", "todo"]],
-        web: [["WEB-1", "New pricing page", "prog"], ["WEB-3", "Launch blog post", "todo"], ["WEB-8", "Cookie banner covers the footer on mobile", "todo"]],
+        atl: [
+          ["ATL-3", "Sync conflict resolution for checklist items", "prog"],
+          ["ATL-6", "Photo uploads retry with backoff after reconnect", "todo"],
+          ["ATL-13", "Cold start under 1.5s on Pixel 6a", "prog"],
+          ["ATL-4", "Download map tiles for a job's area", "review"],
+          ["ATL-16", "Map pins flicker when zooming on iOS 19", "todo"],
+          ["ATL-17", "Crash when opening a job with no address", "done"]
+        ],
+        bil: [
+          ["BIL-2", "Usage line items on invoices", "prog"],
+          ["BIL-7", "Apply reverse charge for B2B customers", "prog"],
+          ["BIL-10", "Proration is off by one day for annual plans", "review"],
+          ["BIL-9", "Show VAT breakdown on invoice PDF", "todo"]
+        ],
+        web: [
+          ["WEB-1", "New pricing page", "prog"],
+          ["WEB-3", "Launch blog post", "todo"],
+          ["WEB-8", "Cookie banner covers the footer on mobile", "todo"]
+        ],
         hello: [["HELL-1", "Say hello", "todo"]]
-      };
-      const SPRINTS = [["s23", "Sprint 23", "Ended"], ["s24", "Sprint 24", "6d left"], ["s25", "Sprint 25", "Starts in 8d"]];
+      }
+      const SPRINTS = [
+        ["s23", "Sprint 23", "Ended"],
+        ["s24", "Sprint 24", "6d left"],
+        ["s25", "Sprint 25", "Starts in 8d"]
+      ]
 
       const state = {
         scope: "atl",
         route: { page: "ticket", id: "ATL-3" },
-        pins: { atl: [{ kind: "ticket", id: "ATL-6" }, { kind: "sprint", id: "s23" }], bil: [{ kind: "ticket", id: "BIL-7" }], web: [], hello: [] },
+        pins: {
+          atl: [
+            { kind: "ticket", id: "ATL-6" },
+            { kind: "sprint", id: "s23" }
+          ],
+          bil: [{ kind: "ticket", id: "BIL-7" }],
+          web: [],
+          hello: []
+        },
         landed: null,
         animateLive: false,
         paneIn: false,
         mark: "ring",
         head: "wash",
         view: "light"
-      };
-      const proj = (slug = state.scope) => PROJECTS.find((p) => p.slug === slug);
-      const ticket = (id) => Object.values(TICKETS).flat().find((t) => t[0] === id);
-      const sprint = (id) => SPRINTS.find((s) => s[0] === id);
-      const same = (a, b) => !!a && !!b && a.kind === b.kind && a.id === b.id;
-      const live = () => (state.route.page === "ticket" || state.route.page === "sprint") ? { kind: state.route.page, id: state.route.id } : null;
-      const isPinned = (slug, ref) => state.pins[slug].some((p) => same(p, ref));
+      }
+      const proj = (slug = state.scope) => PROJECTS.find((p) => p.slug === slug)
+      const ticket = (id) =>
+        Object.values(TICKETS)
+          .flat()
+          .find((t) => t[0] === id)
+      const sprint = (id) => SPRINTS.find((s) => s[0] === id)
+      const same = (a, b) => !!a && !!b && a.kind === b.kind && a.id === b.id
+      const live = () =>
+        state.route.page === "ticket" || state.route.page === "sprint"
+          ? { kind: state.route.page, id: state.route.id }
+          : null
+      const isPinned = (slug, ref) => state.pins[slug].some((p) => same(p, ref))
 
       function go(route, scope = state.scope) {
-        const before = live();
-        const paneChange = scope !== state.scope;
-        state.scope = scope;
-        state.route = route;
-        const now = live();
-        state.animateLive = !!now && !same(before, now);
-        state.landed = null;
-        state.paneIn = paneChange;
-        render();
+        const before = live()
+        const paneChange = scope !== state.scope
+        state.scope = scope
+        state.route = route
+        const now = live()
+        state.animateLive = !!now && !same(before, now)
+        state.landed = null
+        state.paneIn = paneChange
+        render()
       }
       function togglePin(slug, kind, id) {
-        const ref = { kind, id };
-        if (isPinned(slug, ref)) { state.pins[slug] = state.pins[slug].filter((p) => !same(p, ref)); state.landed = null; }
-        else { state.pins[slug] = [{ ...ref }, ...state.pins[slug]]; state.landed = `${slug}:${kind}:${id}`; }
-        state.animateLive = false;
-        state.paneIn = false;
-        render();
+        const ref = { kind, id }
+        if (isPinned(slug, ref)) {
+          state.pins[slug] = state.pins[slug].filter((p) => !same(p, ref))
+          state.landed = null
+        } else {
+          state.pins[slug] = [{ ...ref }, ...state.pins[slug]]
+          state.landed = `${slug}:${kind}:${id}`
+        }
+        state.animateLive = false
+        state.paneIn = false
+        render()
       }
 
       function row({ icon, label, meta, on, onclick, cls = "", act = "" }) {
         return `<div class="row ${on ? "on" : ""} ${cls}" onclick="${onclick}">
-          ${icon ? `<span class="ic">${icon}</span>` : ""}<span class="lbl">${label}</span>${act}${meta ? `<span class="meta">${meta}</span>` : ""}</div>`;
+          ${icon ? `<span class="ic">${icon}</span>` : ""}<span class="lbl">${label}</span>${act}${meta ? `<span class="meta">${meta}</span>` : ""}</div>`
       }
-      function refRow(slug, ref, { liveRow = false, showProject = false } = {}) {
-        const pinned = isPinned(slug, ref);
-        const on = slug === state.scope && same(ref, live());
-        const t = ref.kind === "ticket" ? ticket(ref.id) : null;
-        const s = ref.kind === "sprint" ? sprint(ref.id) : null;
-        const icon = t ? `<span class="dot ${t[2]}"></span>` : ic("Calendar02Icon");
-        const label = t ? t[1] : s[1];
-        const meta = t ? `<span class="mono">${t[0]}</span>` : s[2] === "6d left" ? "6d" : "";
-        const onclick = `go({page:'${ref.kind}',id:'${ref.id}'},'${slug}')`;
-        const act = `<button class="act" title="${pinned ? "Unpin" : "Pin"}" onclick="event.stopPropagation();togglePin('${slug}','${ref.kind}','${ref.id}')">${ic(pinned ? "PinOffIcon" : "PinIcon")}</button>`;
-        const key = `${slug}:${ref.kind}:${ref.id}`;
-        const cls = [liveRow ? "live" : "", liveRow && state.animateLive ? "slide" : "", state.landed === key ? "landed" : ""].join(" ");
-        return row({ icon, label, meta, on: on && !liveRow ? true : on, onclick, cls, act });
+      function refRow(
+        slug,
+        ref,
+        { liveRow = false, showProject = false } = {}
+      ) {
+        const pinned = isPinned(slug, ref)
+        const on = slug === state.scope && same(ref, live())
+        const t = ref.kind === "ticket" ? ticket(ref.id) : null
+        const s = ref.kind === "sprint" ? sprint(ref.id) : null
+        const icon = t
+          ? `<span class="dot ${t[2]}"></span>`
+          : ic("Calendar02Icon")
+        const label = t ? t[1] : s[1]
+        const meta = t
+          ? `<span class="mono">${t[0]}</span>`
+          : s[2] === "6d left"
+            ? "6d"
+            : ""
+        const onclick = `go({page:'${ref.kind}',id:'${ref.id}'},'${slug}')`
+        const act = `<button class="act" title="${pinned ? "Unpin" : "Pin"}" onclick="event.stopPropagation();togglePin('${slug}','${ref.kind}','${ref.id}')">${ic(pinned ? "PinOffIcon" : "PinIcon")}</button>`
+        const key = `${slug}:${ref.kind}:${ref.id}`
+        const cls = [
+          liveRow ? "live" : "",
+          liveRow && state.animateLive ? "slide" : "",
+          state.landed === key ? "landed" : ""
+        ].join(" ")
+        return row({
+          icon,
+          label,
+          meta,
+          on: on && !liveRow ? true : on,
+          onclick,
+          cls,
+          act
+        })
       }
 
       function projectPanel(p) {
-        const r = state.route;
-        const l = live();
-        const pins = state.pins[p.slug];
-        const showLive = l && !isPinned(p.slug, l) && !(l.kind === "sprint" && l.id === "s24");
-        let nav = row({ icon: ic("CheckListIcon"), label: "Backlog", on: r.page === "backlog", onclick: "go({page:'backlog'})" });
-        nav += row({ icon: ic("Calendar02Icon"), label: "Sprints", on: r.page === "sprints", onclick: "go({page:'sprints'})" });
-        if (p.sprint) nav += `<div class="sub">${row({ label: "Current", meta: "6d", on: r.page === "sprint" && r.id === "s24", onclick: "go({page:'sprint',id:'s24'})" })}</div>`;
-        nav += row({ icon: ic("InformationCircleIcon"), label: "About", on: r.page === "about", onclick: "go({page:'about'})" });
-        let shelf = `<div class="cap">Pinned${pins.length ? `<span class="cnt">${pins.length}</span>` : ""}</div>`;
-        if (showLive) shelf += refRow(p.slug, l, { liveRow: true });
-        shelf += pins.map((x) => refRow(p.slug, x)).join("");
-        if (!pins.length && !showLive) shelf += `<div class="empty-pin">Open a ticket or sprint and pin it to keep it here.</div>`;
+        const r = state.route
+        const l = live()
+        const pins = state.pins[p.slug]
+        const showLive =
+          l && !isPinned(p.slug, l) && !(l.kind === "sprint" && l.id === "s24")
+        let nav = row({
+          icon: ic("CheckListIcon"),
+          label: "Backlog",
+          on: r.page === "backlog",
+          onclick: "go({page:'backlog'})"
+        })
+        nav += row({
+          icon: ic("Calendar02Icon"),
+          label: "Sprints",
+          on: r.page === "sprints",
+          onclick: "go({page:'sprints'})"
+        })
+        if (p.sprint)
+          nav += `<div class="sub">${row({ label: "Current", meta: "6d", on: r.page === "sprint" && r.id === "s24", onclick: "go({page:'sprint',id:'s24'})" })}</div>`
+        nav += row({
+          icon: ic("InformationCircleIcon"),
+          label: "About",
+          on: r.page === "about",
+          onclick: "go({page:'about'})"
+        })
+        let shelf = `<div class="cap">Pinned${pins.length ? `<span class="cnt">${pins.length}</span>` : ""}</div>`
+        if (showLive) shelf += refRow(p.slug, l, { liveRow: true })
+        shelf += pins.map((x) => refRow(p.slug, x)).join("")
+        if (!pins.length && !showLive)
+          shelf += `<div class="empty-pin">Open a ticket or sprint and pin it to keep it here.</div>`
         return `${header(p.name, p.sprint ? `<span class="pip"></span>${p.sprint} · ${p.left}` : p.key, p.color)}
-          <div class="scroll">${nav}${shelf}</div>`;
+          <div class="scroll">${nav}${shelf}</div>`
       }
       function header(name, sub, color) {
-        const wash = state.head === "wash" && color ? `<div class="wash" style="background: linear-gradient(160deg, color-mix(in oklab, ${color} 55%, transparent), transparent 75%)"></div>` : "";
-        return `<div class="head">${wash}<div class="name">${name}</div><div class="sub">${sub}</div></div>`;
+        const wash =
+          state.head === "wash" && color
+            ? `<div class="wash" style="background: linear-gradient(160deg, color-mix(in oklab, ${color} 55%, transparent), transparent 75%)"></div>`
+            : ""
+        return `<div class="head">${wash}<div class="name">${name}</div><div class="sub">${sub}</div></div>`
       }
       function dashboardPanel() {
-        const r = state.route;
-        let html = header("Dashboard", "project-project", null);
-        let body = row({ icon: ic("DashboardSquare02Icon"), label: "Overview", on: r.page === "overview", onclick: "go({page:'overview'},'dash')" });
-        body += row({ icon: ic("LayoutGridIcon"), label: "All projects", on: r.page === "projects", onclick: "go({page:'projects'},'dash')" });
+        const r = state.route
+        let html = header("Dashboard", "project-project", null)
+        let body = row({
+          icon: ic("DashboardSquare02Icon"),
+          label: "Overview",
+          on: r.page === "overview",
+          onclick: "go({page:'overview'},'dash')"
+        })
+        body += row({
+          icon: ic("LayoutGridIcon"),
+          label: "All projects",
+          on: r.page === "projects",
+          onclick: "go({page:'projects'},'dash')"
+        })
         for (const p of PROJECTS) {
-          const pins = state.pins[p.slug];
-          if (!pins.length) continue;
-          body += `<div class="cap"><span class="proj-dot" style="background:${p.color}"></span>${p.name}</div>` + pins.map((x) => refRow(p.slug, x)).join("");
+          const pins = state.pins[p.slug]
+          if (!pins.length) continue
+          body +=
+            `<div class="cap"><span class="proj-dot" style="background:${p.color}"></span>${p.name}</div>` +
+            pins.map((x) => refRow(p.slug, x)).join("")
         }
-        return html + `<div class="scroll">${body}</div>`;
+        return html + `<div class="scroll">${body}</div>`
       }
 
       function rail() {
-        const dashOn = state.scope === "dash";
+        const dashOn = state.scope === "dash"
         const tiles = PROJECTS.map((p) => {
-          const on = p.slug === state.scope;
-          const mark = on && state.mark === "fill" ? "on-fill" : "";
-          return `<button class="rbtn proj ${on ? "on" : ""} ${mark}" data-tip="${p.name}" style="--tint: color-mix(in oklab, ${p.color} 26%, var(--card))" onclick="go({page:'backlog'},'${p.slug}')">${p.icon}</button>`;
-        }).join("");
+          const on = p.slug === state.scope
+          const mark = on && state.mark === "fill" ? "on-fill" : ""
+          return `<button class="rbtn proj ${on ? "on" : ""} ${mark}" data-tip="${p.name}" style="--tint: color-mix(in oklab, ${p.color} 26%, var(--card))" onclick="go({page:'backlog'},'${p.slug}')">${p.icon}</button>`
+        }).join("")
         return `<nav class="rail">
           <span class="logo" title="ProjectProject">P</span>
           <button class="rbtn ${dashOn ? "on" : ""}" data-tip="Dashboard" onclick="go({page:'overview'},'dash')">${ic("DashboardSquare02Icon")}</button>
@@ -310,58 +1021,83 @@
           <span class="spacer"></span>
           <button class="rbtn" data-tip="Search  ⌘K">${ic("Search01Icon")}</button>
           <button class="rbtn" data-tip="Wouter"><span class="avatar">W</span></button>
-        </nav>`;
+        </nav>`
       }
 
       function page() {
-        const r = state.route;
+        const r = state.route
         if (state.scope === "dash") {
-          if (r.page === "ticket" || r.page === "sprint") return projPage();
+          if (r.page === "ticket" || r.page === "sprint") return projPage()
           return `<div class="crumbs">project-project</div><h3>${r.page === "projects" ? "All projects" : "Good morning"}</h3>
             <p class="bodytext">Your pinned tickets from every project are in the sidebar. Click one to jump into its project.</p>
-            <div class="grid">${PROJECTS.map((p) => `<div class="pcard" onclick="go({page:'backlog'},'${p.slug}')"><div class="ptile" style="background:color-mix(in oklab, ${p.color} 26%, var(--card))">${p.icon}</div><div class="t">${p.name}</div><div class="m">${p.sprint ? `${p.sprint} · ${p.left}` : "No sprint"}</div></div>`).join("")}</div>`;
+            <div class="grid">${PROJECTS.map((p) => `<div class="pcard" onclick="go({page:'backlog'},'${p.slug}')"><div class="ptile" style="background:color-mix(in oklab, ${p.color} 26%, var(--card))">${p.icon}</div><div class="t">${p.name}</div><div class="m">${p.sprint ? `${p.sprint} · ${p.left}` : "No sprint"}</div></div>`).join("")}</div>`
         }
-        return projPage();
+        return projPage()
       }
       function projPage() {
-        const p = proj(state.scope === "dash" ? undefined : state.scope) ?? PROJECTS[0];
-        const r = state.route;
-        const crumbs = (x) => `<div class="crumbs">${p.name} ${ic("ArrowRight01Icon")} ${x}</div>`;
-        const list = (TICKETS[p.slug] || []).map((t) => `<div class="li" onclick="go({page:'ticket',id:'${t[0]}'})"><span class="dot ${t[2]}"></span><span class="k">${t[0]}</span><span class="t">${t[1]}</span></div>`).join("");
+        const p =
+          proj(state.scope === "dash" ? undefined : state.scope) ?? PROJECTS[0]
+        const r = state.route
+        const crumbs = (x) =>
+          `<div class="crumbs">${p.name} ${ic("ArrowRight01Icon")} ${x}</div>`
+        const list = (TICKETS[p.slug] || [])
+          .map(
+            (t) =>
+              `<div class="li" onclick="go({page:'ticket',id:'${t[0]}'})"><span class="dot ${t[2]}"></span><span class="k">${t[0]}</span><span class="t">${t[1]}</span></div>`
+          )
+          .join("")
         if (r.page === "ticket") {
-          const t = ticket(r.id);
+          const t = ticket(r.id)
           return `${crumbs("Backlog")}<h3>${t[1]}</h3><p class="bodytext">Open another ticket below and watch the outlined row under Pinned follow you. Press its pin to keep it.</p>
             <div style="display:flex;gap:6px;margin:0 0 18px"><span class="tag">${t[0]}</span><span class="tag">component:sync</span></div>
-            <div class="crumbs">More in ${p.name}</div><div class="list">${list}</div>`;
+            <div class="crumbs">More in ${p.name}</div><div class="list">${list}</div>`
         }
         if (r.page === "sprint") {
-          const s = sprint(r.id);
-          return `${crumbs("Sprints")}<h3>${s[1]}</h3><p class="bodytext">${s[2]}. 9 tickets, 41 points.</p><div class="list">${list}</div>`;
+          const s = sprint(r.id)
+          return `${crumbs("Sprints")}<h3>${s[1]}</h3><p class="bodytext">${s[2]}. 9 tickets, 41 points.</p><div class="list">${list}</div>`
         }
-        if (r.page === "sprints") return `${crumbs("Sprints")}<h3>Sprints</h3><div class="list">${SPRINTS.map((s) => `<div class="li" onclick="go({page:'sprint',id:'${s[0]}'})"><span style="width:16px;color:var(--muted)">${ic("Calendar02Icon")}</span><span class="t">${s[1]}</span><span class="m">${s[2]}</span></div>`).join("")}</div>`;
-        if (r.page === "inbox") return `${crumbs("Inbox")}<h3>Inbox</h3><p class="bodytext">Mentions and assignments in ${p.name}.</p>`;
-        if (r.page === "about") return `${crumbs("About")}<h3>About</h3><p class="bodytext">The iOS and Android app for field teams.</p>`;
-        return `${crumbs("Backlog")}<h3>Backlog</h3><div class="list">${list}</div>`;
+        if (r.page === "sprints")
+          return `${crumbs("Sprints")}<h3>Sprints</h3><div class="list">${SPRINTS.map((s) => `<div class="li" onclick="go({page:'sprint',id:'${s[0]}'})"><span style="width:16px;color:var(--muted)">${ic("Calendar02Icon")}</span><span class="t">${s[1]}</span><span class="m">${s[2]}</span></div>`).join("")}</div>`
+        if (r.page === "inbox")
+          return `${crumbs("Inbox")}<h3>Inbox</h3><p class="bodytext">Mentions and assignments in ${p.name}.</p>`
+        if (r.page === "about")
+          return `${crumbs("About")}<h3>About</h3><p class="bodytext">The iOS and Android app for field teams.</p>`
+        return `${crumbs("Backlog")}<h3>Backlog</h3><div class="list">${list}</div>`
       }
 
       function frame(theme) {
-        const panel = state.scope === "dash" ? dashboardPanel() : projectPanel(proj());
+        const panel =
+          state.scope === "dash" ? dashboardPanel() : projectPanel(proj())
         return `<div class="app ${theme}">
           <div style="display:flex">${rail()}<aside class="panel"><div class="panel-in ${state.paneIn ? "pane-in" : ""}">${panel}</div></aside></div>
-          <main class="page">${page()}</main></div>`;
+          <main class="page">${page()}</main></div>`
       }
       function pick(id, key, opts) {
-        document.getElementById(id).innerHTML = opts.map(([v, l]) => `<button aria-pressed="${state[key] === v}" onclick="state['${key}']='${v}';state.animateLive=false;state.paneIn=false;render()">${l}</button>`).join("");
+        document.getElementById(id).innerHTML = opts
+          .map(
+            ([v, l]) =>
+              `<button aria-pressed="${state[key] === v}" onclick="state['${key}']='${v}';state.animateLive=false;state.paneIn=false;render()">${l}</button>`
+          )
+          .join("")
       }
       function render() {
-        pick("pick-mark", "mark", [["ring", "Ring"], ["fill", "Bar"]]);
-        pick("pick-head", "head", [["wash", "Colour wash"], ["plain", "Plain"]]);
-        pick("pick-theme", "view", [["light", "Light"], ["dark", "Dark"]]);
-        const el = document.getElementById("frames");
-        el.dataset.view = state.view;
-        el.innerHTML = frame("light") + frame("dark");
+        pick("pick-mark", "mark", [
+          ["ring", "Ring"],
+          ["fill", "Bar"]
+        ])
+        pick("pick-head", "head", [
+          ["wash", "Colour wash"],
+          ["plain", "Plain"]
+        ])
+        pick("pick-theme", "view", [
+          ["light", "Light"],
+          ["dark", "Dark"]
+        ])
+        const el = document.getElementById("frames")
+        el.dataset.view = state.view
+        el.innerHTML = frame("light") + frame("dark")
       }
-      render();
+      render()
     </script>
   </body>
 </html>

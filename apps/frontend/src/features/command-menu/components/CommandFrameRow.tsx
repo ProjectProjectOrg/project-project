@@ -17,7 +17,7 @@ export function CommandFrameRow({
         value={item.value}
         className="grid h-auto grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-0.5 py-2"
       >
-        <span className="min-w-(--row-key-width) font-mono text-caption text-muted-foreground tabular-nums">
+        <span className="min-w-(--row-key-width) text-caption text-muted-foreground tabular-nums">
           {prefix}
         </span>
         <span className="truncate">{item.label}</span>
@@ -35,7 +35,7 @@ export function CommandFrameRow({
       <span className="flex min-w-0 flex-1 items-center gap-1">
         {prefix !== undefined && (
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
-            <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+            <span className="min-w-(--row-key-width) shrink-0 text-caption text-muted-foreground tabular-nums">
               {prefix}
             </span>
             <span className="min-w-0 truncate">{item.label}</span>

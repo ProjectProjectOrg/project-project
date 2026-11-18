@@ -349,7 +349,7 @@ function ConnectedProjectTimerIndicator({
       >
         <span className="max-w-40 truncate text-body">{visibleLabel}</span>
         {timer ? (
-          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
             {formatClock(elapsed)}
           </span>
         ) : null}
@@ -382,7 +382,7 @@ function ConnectedProjectTimerIndicator({
               </div>
             </div>
             {timer ? (
-              <div className="font-mono text-caption text-muted-foreground tabular-nums">
+              <div className="text-caption text-muted-foreground tabular-nums">
                 {formatClock(elapsed)}
               </div>
             ) : null}

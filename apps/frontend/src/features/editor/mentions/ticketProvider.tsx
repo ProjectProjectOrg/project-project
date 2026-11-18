@@ -44,7 +44,7 @@ export const ticketProvider = (
   failed: () => m.tickets_mention_tickets_failed(),
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-baseline gap-2">
-      <span className="min-w-(--row-key-width) shrink-0 font-mono whitespace-nowrap">
+      <span className="min-w-(--row-key-width) shrink-0 whitespace-nowrap tabular-nums">
         {candidate.id}
       </span>
       <span className="truncate text-muted-foreground">

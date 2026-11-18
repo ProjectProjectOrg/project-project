@@ -65,7 +65,7 @@ export default function ProjectCreator() {
               aria-label="Ticket key"
               maxLength={10}
               style={{ width: "calc(4ch + 0.5rem)" }}
-              className="shrink-0 bg-transparent pr-2 font-mono text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground"
+              className="shrink-0 bg-transparent pr-2 text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground"
             />
           </div>
         ) : (
@@ -74,7 +74,7 @@ export default function ProjectCreator() {
       </InputGroup>
       <div
         aria-hidden={!trimmed}
-        className={`mt-2 flex min-w-0 items-center gap-2 pl-3 font-mono text-micro text-muted-foreground transition-opacity duration-150 ${trimmed ? "opacity-100" : "opacity-0"}`}
+        className={`mt-2 flex min-w-0 items-center gap-2 pl-3 text-micro text-muted-foreground tabular-nums transition-opacity duration-150 ${trimmed ? "opacity-100" : "opacity-0"}`}
       >
         <span>→</span>
         {key && (

@@ -202,7 +202,7 @@ function ProjectMemberRow({
         <>
           {member.username ? (
             <>
-              <span className="font-mono">@{member.username}</span>
+              <span className="tabular-nums">@{member.username}</span>
               <span className="mx-1.5">·</span>
             </>
           ) : null}

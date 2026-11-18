@@ -65,7 +65,7 @@ export function StorageStatusRows({
 function ValueRow({ label, value }: { label: string; value: string | null }) {
   return (
     <SettingsRow label={label}>
-      <span className="font-mono text-body text-muted-foreground">
+      <span className="text-body text-muted-foreground tabular-nums">
         {value ?? m.storage_value_none()}
       </span>
     </SettingsRow>

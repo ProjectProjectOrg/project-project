@@ -7,9 +7,13 @@ import {
 import * as Schema from "effect/Schema"
 
 import { Badge } from "../../components/badge"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "../../components/hover-card"
 import { MessageSquare } from "../../components/icons"
 import { MemberAvatar } from "../../components/member-avatar"
-import { Popover, PopoverTrigger } from "../../components/popover"
 import { useEditorServices } from "../services"
 import { useInAppLink } from "../use-in-app-link"
 import { useMentionScope } from "./scope"
@@ -70,7 +74,7 @@ export function MentionChip({
       <Badge
         tone="muted"
         size="xs"
-        className="inline-chip font-mono"
+        className="inline-chip tabular-nums"
         contentEditable={false}
       >
         {type === "comment" ? label : ticketId}
@@ -82,18 +86,18 @@ export function MentionChip({
       ? scope
       : { orgSlug: scope.orgSlug, slug: target.projectSlug }
 
-  // The popover's focus guards land beside its trigger; inside an
-  // inline-flex wrapper they take no room in the line, so opening the card
-  // doesn't push the text down.
+  // The ticket's peek is a hover card, drawn by the tooltip host like every
+  // other hover, so it glides in from a tooltip and back. The chip stays a
+  // link to the ticket (or the comment).
   return (
     <span className="inline-chip inline-flex">
-      <Popover>
-        <PopoverTrigger
+      <HoverCard>
+        <HoverCardTrigger
           render={
             <Badge
               tone="muted"
               size="xs"
-              className="font-mono"
+              className="tabular-nums"
               render={
                 <a
                   href={
@@ -107,20 +111,19 @@ export function MentionChip({
               }
             />
           }
-          openOnHover
-          // It renders the ticket's link, not a button.
-          nativeButton={false}
           contentEditable={false}
         >
           {type === "comment" && (
             <MessageSquare className="size-3" strokeWidth={1.75} aria-hidden />
           )}
           {ticketId}
-        </PopoverTrigger>
-        {comment === null
-          ? renderTicketPreview(ticketId, ticketScope)
-          : renderCommentPreview(ticketId, comment.commentId, ticketScope)}
-      </Popover>
+        </HoverCardTrigger>
+        <HoverCardContent className="w-80 p-3">
+          {comment === null
+            ? renderTicketPreview(ticketId, ticketScope)
+            : renderCommentPreview(ticketId, comment.commentId, ticketScope)}
+        </HoverCardContent>
+      </HoverCard>
     </span>
   )
 }

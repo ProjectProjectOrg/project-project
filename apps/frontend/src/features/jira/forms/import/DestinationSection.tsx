@@ -93,7 +93,7 @@ export function DestinationSection({
                   <Input
                     value={field.value}
                     aria-invalid={error !== null}
-                    className={literal ? "font-mono" : undefined}
+                    className={literal ? "tabular-nums" : undefined}
                     onBlur={field.handleBlur}
                     onChange={(event) => {
                       field.handleChange(

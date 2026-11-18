@@ -122,7 +122,7 @@ function PageBody({
           <ListButton key={id} onClick={() => go({ page: "ticket", id })}>
             <StatusIcon status={status} />
             <PriorityIcon priority={priority} />
-            <span className="min-w-[4.5em] font-mono text-caption text-muted-foreground tabular-nums">
+            <span className="min-w-[4.5em] text-caption text-muted-foreground tabular-nums">
               {id}
             </span>
             <span className="min-w-0 flex-1 truncate">{title}</span>

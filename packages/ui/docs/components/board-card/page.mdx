@@ -35,7 +35,9 @@ import { TicketKey } from "@pp/ui/ticket-key"
   meta={
     <>
       <TicketKey value={ticket.id} />
-      {ticket.parent && <ParentTicketCrumb parent={ticket.parent} />}
+      {ticket.parent && !isEpic(ticket.parent) && (
+        <ParentTicketCrumb parent={ticket.parent} />
+      )}
     </>
   }
   assignee={<AssigneeField variant="card" … />}

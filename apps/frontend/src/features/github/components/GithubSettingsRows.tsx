@@ -91,7 +91,7 @@ function RepoRow({
           rel="noreferrer"
           className="inline-flex max-w-full min-w-0 items-center gap-1 transition-colors hover:text-muted-foreground"
         >
-          <span className="truncate font-mono">{repoSlug(repo)}</span>
+          <span className="truncate tabular-nums">{repoSlug(repo)}</span>
           <ExternalLink
             className="size-3 text-muted-foreground"
 
@@ -112,7 +112,7 @@ function RepoRow({
               value={repo.defaultBaseBranch ?? ""}
               placeholder="main"
               size="sm"
-              className="w-28 font-mono sm:w-36"
+              className="w-28 tabular-nums sm:w-36"
               aria-label={m.github_repos_base_branch_label({
                 repo: repoSlug(repo)
               })}

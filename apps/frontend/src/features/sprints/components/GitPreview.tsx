@@ -1,10 +1,11 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
 import type { IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { PreviewCardContent } from "@pp/ui/preview-card"
 import type { ReactElement, ReactNode } from "react"
-
-const PREVIEW_DELAY_MS = 400
 
 export function GitPreview({
   trigger,
@@ -16,14 +17,12 @@ export function GitPreview({
   children: ReactNode
 }>) {
   return (
-    <PreviewCard.Root>
-      <PreviewCard.Trigger render={trigger} delay={PREVIEW_DELAY_MS}>
-        {children}
-      </PreviewCard.Trigger>
-      <PreviewCardContent className="pointer-events-none flex w-72 flex-col gap-2">
+    <HoverCard>
+      <HoverCardTrigger render={trigger}>{children}</HoverCardTrigger>
+      <HoverCardContent className="pointer-events-none flex w-72 flex-col gap-2">
         {preview}
-      </PreviewCardContent>
-    </PreviewCard.Root>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -35,7 +34,7 @@ export function PreviewTitle({
     <div
       className={cn(
         "text-body leading-snug",
-        mono ? "font-mono break-all" : "line-clamp-2 font-semibold"
+        mono ? "break-all tabular-nums" : "line-clamp-2 font-semibold"
       )}
     >
       {children}

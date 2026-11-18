@@ -1,4 +1,3 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
 import { useAtomValue } from "@effect/atom-react"
 import {
   ESTIMATE_SIZES,
@@ -7,9 +6,13 @@ import {
   type Group
 } from "@pp/shared"
 import { chipClassName } from "@pp/ui/chip"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
 import { CircleDashed, Shirt } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { PreviewCardContent } from "@pp/ui/preview-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -31,8 +34,6 @@ import { m } from "@/paraglide/messages"
 
 import { sprintStatusText } from "./SprintChip"
 
-const PREVIEW_DELAY_MS = 400
-
 export const DONE_TONE = "bg-foreground/75"
 export const STARTED_TONE = "bg-foreground/30"
 export const UNSTARTED_TONE = "bg-tint"
@@ -51,8 +52,8 @@ export function SprintProgress({
   return (
     <>
       {estimate !== null && (
-        <PreviewCard.Root>
-          <PreviewCard.Trigger
+        <HoverCard>
+          <HoverCardTrigger
             render={
               <span
                 className={chipClassName({
@@ -61,17 +62,16 @@ export function SprintProgress({
                 })}
               />
             }
-            delay={PREVIEW_DELAY_MS}
           >
             {estimate}
-          </PreviewCard.Trigger>
-          <PreviewCardContent
+          </HoverCardTrigger>
+          <HoverCardContent
             align="end"
             className="pointer-events-none flex w-64 flex-col gap-3"
           >
             <SprintPreview sprint={sprint} summary={summary} />
-          </PreviewCardContent>
-        </PreviewCard.Root>
+          </HoverCardContent>
+        </HoverCard>
       )}
       {summary.unestimated > 0 && (
         <UnestimatedChip
@@ -177,7 +177,7 @@ function UnestimatedChip({
               className={chipClassName({
                 interaction: "press",
                 className:
-                  "text-state-warning tabular-nums hover:text-state-warning active:scale-[0.97]"
+                  "text-state-warning tabular-nums hover:text-state-warning"
               })}
             />
           ) : (

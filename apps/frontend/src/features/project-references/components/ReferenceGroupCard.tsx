@@ -66,7 +66,7 @@ export function ReferenceGroupCard({
           </div>
           <div className="flex min-w-0 items-baseline gap-1.5 text-caption text-muted-foreground">
             <span className="shrink-0">{KIND_LABELS[group.kind]()}</span>
-            <span className="truncate font-mono">{group.target}</span>
+            <span className="truncate tabular-nums">{group.target}</span>
           </div>
           {error ? (
             <p role="alert" className="text-caption text-destructive">
@@ -121,7 +121,7 @@ function OccurrenceRow({
       <Link
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug, id: occurrences.ticketId }}
-        className="shrink-0 rounded-md px-1 font-mono text-caption leading-5 text-muted-foreground tabular-nums transition-colors hover:bg-hover hover:text-foreground"
+        className="shrink-0 rounded-md px-1 text-caption leading-5 text-muted-foreground tabular-nums transition-colors hover:bg-hover hover:text-foreground"
       >
         {occurrences.ticketId}
       </Link>

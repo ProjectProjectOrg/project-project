@@ -252,7 +252,7 @@ export function SprintSubtitle({
           <span aria-hidden>·</span>
           <span
             className={cn(
-              "font-mono tabular-nums",
+              "tabular-nums",
               sprintEnded(sprint) && "text-state-warning"
             )}
           >
@@ -289,7 +289,7 @@ function SprintDatesField({
         : `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
 
   if (disabled) {
-    return <span className="font-mono tabular-nums">{label}</span>
+    return <span className="tabular-nums">{label}</span>
   }
   return (
     <DatePicker
@@ -311,7 +311,7 @@ function SprintDatesField({
       trigger={
         <button
           type="button"
-          className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+          className="-mx-1 rounded px-1 tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
         >
           {label}
         </button>

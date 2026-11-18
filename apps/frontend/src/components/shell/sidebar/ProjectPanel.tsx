@@ -2,11 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import type { PinTarget, Project } from "@pp/shared"
 import { CalendarRange, Info, ListChecks, Settings } from "@pp/ui/icons"
-import {
-  SidebarPanelBody,
-  SidebarRow,
-  SidebarSubRows
-} from "@pp/ui/sidebar"
+import { SidebarPanelBody, SidebarRow, SidebarSubRows } from "@pp/ui/sidebar"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 

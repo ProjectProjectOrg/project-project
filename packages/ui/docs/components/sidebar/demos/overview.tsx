@@ -106,7 +106,7 @@ function PinRow({
       label={label}
       meta={
         ticket ? (
-          <span className="font-mono text-micro">{ticket[0]}</span>
+          <span className="text-micro tabular-nums">{ticket[0]}</span>
         ) : sprint?.[2] === "6d left" ? (
           "6d"
         ) : undefined

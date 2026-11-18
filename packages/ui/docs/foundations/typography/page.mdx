@@ -3,7 +3,7 @@ export const meta = {
   group: "Design system",
   order: 3,
   description:
-    "One sans for everything, Allo with crisp terminals, on a tight six-step scale; Geist Mono the moment a value is a literal. Hierarchy comes from size and weight, never from colour, capitals or boxes.",
+    "One sans for everything, Allo with crisp terminals, on a tight six-step scale; Geist Mono only for code. Hierarchy comes from size and weight, never from colour, capitals or boxes.",
   sources: [
     { kind: "own", name: "theme.css", note: "the scale and the faces" },
     { kind: "own", name: "Allo", note: "OFL, by Josh Puckett", href: "https://allo.joshpuckett.me" }
@@ -23,7 +23,7 @@ The scale with its live sizes, and the two faces.
 <h2 className="text-title font-semibold">…</h2>
 <p className="text-body">…</p>
 <span className="text-caption text-muted-foreground">…</span>
-<code className="font-mono">ATL-12</code>
+<span className="tabular-nums">ATL-12</span>
 ```
 
 | Role | Size / line | Compact | For |
@@ -51,9 +51,9 @@ Body is 13px, and the working sizes sit 1–2px apart (micro 11, caption 12, bod
 
 Three weights: 400 for text, 550 for headings and anything selected, 700 only for emphasis inside text. Labels, headings, column heads and chips are sentence case, never uppercase or letter-spaced: all-caps section labels are the look this app is designed against, and sentence case reads faster. Acronyms (PR, ID, URL) keep their capitals.
 
-### Mono means "a literal"
+### One face outside code
 
-Geist Mono appears when a value is a token from another system: a branch, a ticket key, a hash, a slug, code. It tells you "this is exact, you could paste it into a terminal", so it isn't a "techy" flavour for headings or numbers.
+Ticket keys, branches, hashes and slugs are Allo with tabular figures, so keys of one length still line up in a column. Geist Mono appears only in code: code blocks, inline code and a `<code>` value meant to be pasted. Two faces side by side in a row read as noise.
 
 ### Muted is for secondary, not for small
 

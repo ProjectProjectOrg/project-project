@@ -350,7 +350,7 @@ export function AttachmentVideo({
             layoutId={`${layoutId}-filename`}
             layout="position"
             transition={transitions.morph}
-            className="truncate font-mono text-micro"
+            className="truncate text-micro tabular-nums"
           >
             {filename}
           </motion.span>

@@ -50,10 +50,10 @@ export function CreatedBlock({
           {destination.name}
         </FactRow>
         <FactRow label={m.jira_import_destination_key()}>
-          <span className="font-mono">{destination.key}</span>
+          <span className="tabular-nums">{destination.key}</span>
         </FactRow>
         <FactRow label={m.jira_import_destination_slug()}>
-          <span className="font-mono">{destination.slug}</span>
+          <span className="tabular-nums">{destination.slug}</span>
         </FactRow>
         <FactRow label={m.jira_import_fact_tickets()}>
           {excluded === 0

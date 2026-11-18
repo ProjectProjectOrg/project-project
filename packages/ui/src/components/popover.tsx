@@ -10,6 +10,7 @@ import {
 import { cn } from "../lib/utils"
 import { popupMotionClass, popupSurfaceClass } from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
+import { hoverCardSurfaceClass } from "./tooltip"
 
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return (
@@ -55,6 +56,10 @@ type PopoverContentProps = Omit<
     | "collisionBoundary"
     | "collisionPadding"
   > & {
+    // "hover" for a popover that opens on hover and only shows (a ticket
+    // peek, an image): the hover card's skin, so it reads like the other
+    // hovers rather than a menu. Click-opened popovers keep "popup".
+    surface?: "popup" | "hover"
     keepMounted?: boolean
   }
 
@@ -69,6 +74,7 @@ function PopoverContent({
   collisionBoundary,
   collisionPadding,
   keepMounted,
+  surface = "popup",
   children,
   ...props
 }: PopoverContentProps) {
@@ -87,7 +93,17 @@ function PopoverContent({
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
-          className={cn(popupSurfaceClass, popupMotionClass, "p-3", className)}
+          className={cn(
+            surface === "hover"
+              ? cn(
+                  "z-50 origin-[var(--transform-origin)]",
+                  hoverCardSurfaceClass
+                )
+              : popupSurfaceClass,
+            popupMotionClass,
+            "p-3",
+            className
+          )}
           {...props}
           render={(popupProps, state) => (
             <div {...popupProps}>

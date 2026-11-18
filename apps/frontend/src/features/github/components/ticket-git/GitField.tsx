@@ -66,7 +66,7 @@ export function GitField({
             />
             <MiddleTruncate
               value={view.branch}
-              className="font-mono text-caption"
+              className="text-caption tabular-nums"
             />
             <ChevronDown
               className="size-3 shrink-0 text-muted-foreground"
@@ -112,7 +112,7 @@ function StatusLink({
 
 const baseNote = (base: string, defaultBase: string) =>
   base === defaultBase ? null : (
-    <span className="min-w-0 shrink truncate font-mono" title={base}>
+    <span className="min-w-0 shrink truncate tabular-nums" title={base}>
       {m.git_stack_base({ base })}
     </span>
   )

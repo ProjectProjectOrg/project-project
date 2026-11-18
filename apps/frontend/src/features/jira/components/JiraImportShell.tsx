@@ -193,11 +193,7 @@ function StageItem({
       ) : null}
       <IconSwap
         showSecond={complete}
-        first={
-          <span className="font-mono text-caption tabular-nums">
-            {index + 1}
-          </span>
-        }
+        first={<span className="text-caption tabular-nums">{index + 1}</span>}
         second={<Check className="size-3.5" strokeWidth={1.75} />}
       />
       <WeightLabel active={current} truncate>

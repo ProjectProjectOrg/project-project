@@ -62,13 +62,13 @@ export type EditorServices = Readonly<{
       ticketId: TicketId
     ) => string
   }>
-  // The card a ticket mention shows on hover (rendered in a Popover).
+  // What a ticket mention's hover card shows: its content only; the chip
+  // draws the card (HoverCard, 20rem, 12px padding).
   renderTicketPreview: (
     ticketId: TicketId,
     scope: Readonly<{ orgSlug: string; slug: string }>
   ) => ReactNode
-  // The card a comment mention shows on hover (rendered in a Popover). The
-  // chip links to the ticket's page with the comment id as its #hash.
+  // What a comment mention's hover card shows, content only. The chip links to the ticket's page with the comment id as its #hash.
   renderCommentPreview: (
     ticketId: TicketId,
     commentId: string,

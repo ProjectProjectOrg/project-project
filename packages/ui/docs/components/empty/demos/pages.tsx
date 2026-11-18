@@ -38,7 +38,7 @@ export default function Pages() {
               <EmptyDescription>
                 Type a title in the row above and press Enter. Each ticket
                 becomes a markdown file under{" "}
-                <span className="font-mono">tickets/</span>.
+                <span className="tabular-nums">tickets/</span>.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

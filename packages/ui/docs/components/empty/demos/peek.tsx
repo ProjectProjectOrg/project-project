@@ -61,7 +61,7 @@ function PeekFrame() {
                 <CommandMenuItem value={item.value}>
                   <span className="flex min-w-0 flex-1 items-center gap-1">
                     <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                      <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+                      <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
                         {item.value}
                       </span>
                       <span className="min-w-0 truncate">{item.label}</span>
