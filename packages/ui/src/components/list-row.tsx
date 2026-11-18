@@ -305,8 +305,6 @@ export function ListRowTitle({
   ...props
 }: ComponentProps<"span"> &
   Readonly<{
-    // "quiet" drops to the regular weight, for rows under a heading that
-    // should lead (the sub-tickets on a ticket's page).
     variant?: "default" | "quiet"
   }>) {
   return (
