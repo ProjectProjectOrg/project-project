@@ -11,6 +11,7 @@ import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as Comments from "@pp/server-core/comments/Comments"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as GitSyncSchedule from "@pp/server-core/git/GitSyncSchedule"
 import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHub from "@pp/server-core/github/GitHub"
@@ -485,6 +486,7 @@ const BenchmarkLive = (options: Options) =>
         IndexLive,
         TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
         PullRequestSnapshots.layer.pipe(Layer.provide(DatabaseLive)),
+        GitSyncSchedule.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,
         Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs.ProjectDocs, {

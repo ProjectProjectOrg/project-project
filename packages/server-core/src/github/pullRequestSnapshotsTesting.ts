@@ -9,8 +9,12 @@ import {
 const rowKey = (repositoryId: string, number: number) =>
   `${repositoryId}#${number}`
 
-export const pullRequestSnapshotsTestLayer = () => {
-  const rows = new Map<string, PullRequestSnapshot>()
+export const pullRequestSnapshotsTestLayer = (
+  initial: ReadonlyArray<PullRequestSnapshot> = []
+) => {
+  const rows = new Map(
+    initial.map((row) => [rowKey(row.repositoryId, row.number), row])
+  )
   return Layer.succeed(PullRequestSnapshots, {
     record: (snapshots) =>
       Effect.sync(() => {

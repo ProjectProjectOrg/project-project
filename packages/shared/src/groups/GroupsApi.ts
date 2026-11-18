@@ -3,13 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import {
-  Forbidden,
-  NotFound,
-  SprintCompletedImmutable,
-  Unauthorized,
-  Validation
-} from "../errors"
+import { SprintCompletedImmutable, Validation } from "../errors"
 import { GroupPath, ProjectPath } from "../http/paths"
 import { Ticket } from "../tickets/Ticket"
 import {
@@ -27,8 +21,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/groups", {
       params: ProjectPath,
-      success: Schema.Array(Group),
-      error: [Unauthorized, NotFound, Forbidden]
+      success: Schema.Array(Group)
     }).annotate(RequiresProject, { ticket: ["read"] })
   )
   .add(
@@ -36,14 +29,13 @@ export const GroupsGroup = HttpApiGroup.make("groups")
       params: ProjectPath,
       payload: CreateGroupInput,
       success: Group,
-      error: [Unauthorized, NotFound, Forbidden, Validation]
+      error: Validation
     }).annotate(RequiresProject, "membership")
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/groups/:id", {
       params: GroupPath,
-      success: GroupDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: GroupDetail
     }).annotate(RequiresProject, { ticket: ["read"] })
   )
   .add(
@@ -52,8 +44,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
       "/orgs/:orgSlug/projects/:slug/groups/:id/tickets",
       {
         params: GroupPath,
-        success: Schema.Array(Ticket),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(Ticket)
       }
     ).annotate(RequiresProject, { ticket: ["read"] })
   )
@@ -65,7 +56,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupInput,
         success: GroupDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
+        error: Validation
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -77,13 +68,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          SprintCompletedImmutable,
-          Validation
-        ]
+        error: [SprintCompletedImmutable, Validation]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -95,13 +80,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          SprintCompletedImmutable,
-          Validation
-        ]
+        error: [SprintCompletedImmutable, Validation]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -113,7 +92,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+        error: SprintCompletedImmutable
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -125,13 +104,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: CompleteSprintInput,
         success: CompleteSprintOutput,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          SprintCompletedImmutable,
-          Validation
-        ]
+        error: [SprintCompletedImmutable, Validation]
       }
     ).annotate(RequiresProject, { sprint: ["manage"] })
   )
@@ -141,8 +114,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
       "/orgs/:orgSlug/projects/:slug/groups/:id",
       {
         params: GroupPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     ).annotate(RequiresProject, "membership")
   )

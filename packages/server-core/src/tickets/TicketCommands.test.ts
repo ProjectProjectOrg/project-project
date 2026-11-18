@@ -36,6 +36,7 @@ import {
 import * as Attachments from "../attachments/Attachments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import { gitAutomationTestLayer } from "../git/automationTesting"
+import { gitSyncScheduleTestLayer } from "../git/gitSyncScheduleTesting"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as GitHub from "../github/GitHub"
 import * as ProjectGithub from "../github/ProjectGithub"
@@ -281,7 +282,15 @@ const TestLayer = Layer.unwrap(
         Layer.provide(FakeUsers),
         Layer.provide(FakeGitHub),
         Layer.provide(Layer.mergeAll(FakeTicketIndex, FakeTicketBranchIndex)),
-        Layer.provide(Layer.mergeAll(FakeDb, pullRequestSnapshotsTestLayer())),
+        Layer.provide(
+          Layer.mergeAll(
+            FakeDb,
+            Layer.mergeAll(
+              pullRequestSnapshotsTestLayer(),
+              gitSyncScheduleTestLayer()
+            )
+          )
+        ),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)

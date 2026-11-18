@@ -633,6 +633,34 @@ export const githubPullRequest = pgTable(
   (t) => [primaryKey({ columns: [t.repositoryId, t.number] })]
 )
 
+export const githubProjectSync = pgTable(
+  "github_project_sync",
+  {
+    projectId: uuid("project_id")
+      .primaryKey()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    nextSyncAt: timestamp("next_sync_at", { withTimezone: true }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    failures: integer("failures").notNull().default(0),
+    tokenStatus: text("token_status", {
+      enum: ["ok", "expired", "scope_insufficient"]
+    })
+      .notNull()
+      .default("ok"),
+    repoStatus: text("repo_status", {
+      enum: ["ok", "gone", "not_connected"]
+    })
+      .notNull()
+      .default("ok"),
+    refreshStatus: text("refresh_status", {
+      enum: ["fresh", "stale", "rate_limited"]
+    }),
+    retryAt: timestamp("retry_at", { withTimezone: true })
+  },
+  (t) => [index("github_project_sync_next_idx").on(t.nextSyncAt)]
+)
+
 export const userEverhourIntegration = pgTable("user_everhour_integration", {
   userId: text("user_id")
     .primaryKey()

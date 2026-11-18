@@ -41,6 +41,20 @@ export class Validation extends Schema.TaggedError<Validation>()(
   { httpApiStatus: 400 }
 ) {}
 
+export const InvalidRequestPart = Schema.Literals([
+  "params",
+  "query",
+  "payload",
+  "headers"
+])
+export type InvalidRequestPart = typeof InvalidRequestPart.Type
+
+export class InvalidRequest extends Schema.TaggedError<InvalidRequest>()(
+  "InvalidRequest",
+  { part: InvalidRequestPart, message: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
 // 400 — a `[label](mention:...)` link in a body field failed mention
 // validation. Distinct from `Validation` so MCP agents (and the frontend)
 // can switch on `kind` and report exactly what's wrong with which href.

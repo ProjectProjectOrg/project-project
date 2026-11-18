@@ -5,7 +5,6 @@ import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
   Conflict,
-  Forbidden,
   JiraAccessDenied,
   JiraError,
   JiraMigrationUnavailable,
@@ -13,8 +12,6 @@ import {
   JiraRateLimited,
   JiraReconnectRequired,
   JiraResourceNotFound,
-  NotFound,
-  Unauthorized,
   Validation
 } from "../errors"
 import { OrgPath } from "../http/paths"
@@ -34,7 +31,6 @@ import {
 } from "./JiraMigration"
 
 const JiraErrors = [
-  Unauthorized,
   JiraNotConnected,
   JiraReconnectRequired,
   JiraAccessDenied,
@@ -45,14 +41,12 @@ const JiraErrors = [
 export const JiraGroup = HttpApiGroup.make("jira")
   .add(
     HttpApiEndpoint.get("profile", "/integrations/jira/profile", {
-      success: JiraConnection,
-      error: Unauthorized
+      success: JiraConnection
     })
   )
   .add(
     HttpApiEndpoint.delete("disconnectProfile", "/integrations/jira/profile", {
-      success: JiraConnection,
-      error: Unauthorized
+      success: JiraConnection
     })
   )
   .add(
@@ -79,13 +73,7 @@ const JiraMigrationPath = Schema.Struct({
   migrationId: Schema.NonEmptyString
 })
 
-const JiraMigrationReadErrors = [
-  Unauthorized,
-  NotFound,
-  Forbidden,
-  JiraError,
-  JiraMigrationUnavailable
-] as const
+const JiraMigrationReadErrors = [JiraError, JiraMigrationUnavailable] as const
 
 const JiraMigrationWriteErrors = [
   ...JiraMigrationReadErrors,

@@ -19,6 +19,7 @@ import { FeedbackGroup, FeedbackIntakeGroup } from "./feedback/FeedbackApi"
 import { FigmaGroup } from "./figma/FigmaApi"
 import { GitAutomationGroup } from "./github/GitAutomationApi"
 import { GroupsGroup } from "./groups/GroupsApi"
+import { RequestValidation } from "./http/RequestValidation"
 import { InboxGroup } from "./inbox/InboxApi"
 import { JiraGroup, JiraMigrationsGroup } from "./jira/JiraApi"
 import { LibraryGroup } from "./library/LibraryApi"
@@ -98,4 +99,5 @@ export const AppApi = HttpApi.make("projectproject")
   .add(PublicAuthGroup)
   .add(FeedbackGroup)
   .add(FeedbackIntakeGroup)
+  .middleware(RequestValidation)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))

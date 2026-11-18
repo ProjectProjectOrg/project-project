@@ -5,11 +5,9 @@ import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
   Conflict,
-  Forbidden,
   InvitationNotAcceptable,
   LastProjectPmBlocked,
   NotFound,
-  Unauthorized,
   Validation
 } from "../errors"
 import { OrgPath } from "../http/paths"
@@ -40,15 +38,13 @@ const InvitationPath = Schema.Struct({ invitationId: Schema.String })
 export const OrgGroup = HttpApiGroup.make("org")
   .add(
     HttpApiEndpoint.get("myOrgs", "/orgs", {
-      success: Schema.Array(Org),
-      error: Unauthorized
+      success: Schema.Array(Org)
     })
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug", {
       params: OrgPath,
-      success: OrgDetail,
-      error: [Unauthorized, NotFound]
+      success: OrgDetail
     })
       .annotate(RequiresOrg, "membership")
       .annotate(IncludeDeletedOrg, true)
@@ -57,8 +53,7 @@ export const OrgGroup = HttpApiGroup.make("org")
   .add(
     HttpApiEndpoint.post("softDelete", "/orgs/:orgSlug/soft-delete", {
       params: OrgPath,
-      success: OrgDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgDetail
     })
       .annotate(RequiresOrg, { organization: ["delete"] })
       .middleware(OrgAccess)
@@ -67,7 +62,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("restore", "/orgs/:orgSlug/restore", {
       params: OrgPath,
       success: OrgDetail,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: Conflict
     })
       .annotate(RequiresOrg, { organization: ["delete"] })
       .annotate(IncludeDeletedOrg, true)
@@ -76,8 +71,7 @@ export const OrgGroup = HttpApiGroup.make("org")
   .add(
     HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
       params: OrgPath,
-      success: OrgMembers,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgMembers
     })
       .annotate(RequiresOrg, { member: ["read"] })
       .middleware(OrgAccess)
@@ -86,8 +80,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.patch("rename", "/orgs/:orgSlug", {
       params: OrgPath,
       payload: RenameOrgInput,
-      success: OrgDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgDetail
     })
       .annotate(RequiresOrg, { organization: ["update"] })
       .middleware(OrgAccess)
@@ -97,7 +90,7 @@ export const OrgGroup = HttpApiGroup.make("org")
       params: OrgPath,
       payload: InviteMemberInput,
       success: OrgInvitation,
-      error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
+      error: [Validation, Conflict]
     })
       .annotate(RequiresOrg, { invitation: ["create"] })
       .middleware(OrgAccess)
@@ -110,7 +103,7 @@ export const OrgGroup = HttpApiGroup.make("org")
         params: OrgMemberPath,
         payload: UpdateMemberRoleInput,
         success: OrgMember,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresOrg, { member: ["update"] })
@@ -120,7 +113,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
       params: OrgMemberPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden, Conflict, LastProjectPmBlocked]
+      error: [Conflict, LastProjectPmBlocked]
     })
       .annotate(RequiresOrg, { member: ["delete"] })
       .middleware(OrgAccess)
@@ -131,8 +124,7 @@ export const OrgGroup = HttpApiGroup.make("org")
       "/orgs/:orgSlug/invitations/:invitationId",
       {
         params: OrgInvitationPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     )
       .annotate(RequiresOrg, { invitation: ["cancel"] })
@@ -146,7 +138,7 @@ export const OrgGroup = HttpApiGroup.make("org")
         params: OrgPath,
         payload: TransferOrgOwnershipInput,
         success: OrgMembers,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
+        error: Validation
       }
     )
       .annotate(RequiresOrg, { organization: ["transfer"] })
@@ -155,8 +147,7 @@ export const OrgGroup = HttpApiGroup.make("org")
   .add(
     HttpApiEndpoint.post("setActive", "/orgs/:orgSlug/active", {
       params: OrgPath,
-      success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound]
+      success: HttpApiSchema.NoContent
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -165,7 +156,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
       params: OrgPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Conflict, LastProjectPmBlocked]
+      error: [Conflict, LastProjectPmBlocked]
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -176,28 +167,28 @@ export const InvitationsGroup = HttpApiGroup.make("invitations")
   .add(
     HttpApiEndpoint.get("list", "/invitations", {
       success: Schema.Array(UserInvitation),
-      error: [Unauthorized, InvitationNotAcceptable]
+      error: InvitationNotAcceptable
     })
   )
   .add(
     HttpApiEndpoint.get("get", "/invitations/:invitationId", {
       params: InvitationPath,
       success: UserInvitation,
-      error: [Unauthorized, NotFound]
+      error: NotFound
     })
   )
   .add(
     HttpApiEndpoint.post("accept", "/invitations/:invitationId/accept", {
       params: InvitationPath,
       success: Org,
-      error: [Unauthorized, NotFound, InvitationNotAcceptable]
+      error: [NotFound, InvitationNotAcceptable]
     })
   )
   .add(
     HttpApiEndpoint.post("reject", "/invitations/:invitationId/reject", {
       params: InvitationPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound]
+      error: NotFound
     })
   )
   .middleware(Authentication)
@@ -206,8 +197,7 @@ export const OrgEmailGroup = HttpApiGroup.make("orgEmail")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/email", {
       params: OrgPath,
-      success: OrgEmailStatus,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgEmailStatus
     }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
@@ -215,21 +205,20 @@ export const OrgEmailGroup = HttpApiGroup.make("orgEmail")
       params: OrgPath,
       payload: SaveOrgEmailInput,
       success: OrgEmailStatus,
-      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+      error: OrgEmailError
     }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
     HttpApiEndpoint.post("test", "/orgs/:orgSlug/email/test", {
       params: OrgPath,
       success: OrgEmailStatus,
-      error: [Unauthorized, NotFound, Forbidden, OrgEmailError]
+      error: OrgEmailError
     }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .add(
     HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/email", {
       params: OrgPath,
-      success: OrgEmailStatus,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgEmailStatus
     }).annotate(RequiresOrg, { integration: ["manage"] })
   )
   .middleware(OrgAccess)

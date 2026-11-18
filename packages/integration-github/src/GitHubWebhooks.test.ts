@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import type {
-  GitHubBranchDeletionChange,
+  GitHubBranchChange,
   GitHubCheckWebhookChange,
   GitHubPullRequestWebhookChange,
   GitHubRepositoryMetadataChange
@@ -55,8 +55,8 @@ type Call =
       repoId: string
     }>
   | Readonly<{
-      type: "branchDeleted"
-      change: GitHubBranchDeletionChange
+      type: "branchDeleted" | "branchCreated"
+      change: GitHubBranchChange
     }>
   | Readonly<{
       type: "checkStateChanged"
@@ -109,6 +109,10 @@ const makeSink = (
   branchDeleted: (change) =>
     Effect.sync(() => {
       calls.push({ type: "branchDeleted", change })
+    }),
+  branchCreated: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "branchCreated", change })
     }),
   checkStateChanged: (change) =>
     Effect.sync(() => {
@@ -490,6 +494,39 @@ it.effect("dispatches delete of a branch ref matched by repo id", () =>
           installationId: "123",
           repositoryId: "456",
           branch: "feat/T-85-branch-deletion-webhooks"
+        }
+      }
+    ])
+  })
+)
+
+it.effect("dispatches create of a branch ref so its projects sync", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("create", {
+        ref: "feat/T-12-search",
+        ref_type: "branch",
+        installation: { id: 123 },
+        repository: { id: 456, default_branch: "main" }
+      })
+    )
+    yield* webhooks.handle(
+      delivery("create", {
+        ref: "v1.0.0",
+        ref_type: "tag",
+        installation: { id: 123 },
+        repository: { id: 456, default_branch: "main" }
+      })
+    )
+    expect(calls).toEqual([
+      {
+        type: "branchCreated",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-12-search"
         }
       }
     ])

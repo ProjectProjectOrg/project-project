@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, Forbidden, NotFound, Unauthorized } from "../errors"
+import { Conflict } from "../errors"
 import { ProjectPath } from "../http/paths"
 import {
   CreateStatusInput,
@@ -22,8 +22,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/statuses", {
       params: ProjectPath,
-      success: Schema.Array(ProjectStatus),
-      error: [Unauthorized, NotFound, Forbidden]
+      success: Schema.Array(ProjectStatus)
     }).annotate(RequiresProject, { ticket: ["read"] })
   )
   .add(
@@ -31,7 +30,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
       params: ProjectPath,
       payload: CreateStatusInput,
       success: ProjectStatus,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: Conflict
     }).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .add(
@@ -42,7 +41,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: UpdateStatusInput,
         success: ProjectStatus,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
@@ -54,7 +53,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: ReorderStatusInput,
         success: ProjectStatus,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
@@ -66,7 +65,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         query: Schema.Struct({ reassignTo: Schema.optional(StatusSlug) }),
         success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

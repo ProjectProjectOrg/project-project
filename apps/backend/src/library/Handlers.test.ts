@@ -35,6 +35,7 @@ import * as Schema from "effect/Schema"
 import { afterAll, beforeEach, expect } from "vitest"
 
 import { OrgAccessLive, ProjectAccessLive } from "../access/AccessMiddleware"
+import { RequestValidationLive } from "../http/RequestValidation"
 import { LibraryHandlerLive } from "./Handlers"
 
 type Call = Readonly<{
@@ -172,6 +173,7 @@ const apiFor = (orgRole: OrgRole, projectRole: Role) =>
           )
         )
       ),
+      Layer.provide(RequestValidationLive),
       Layer.provide(
         Layer.succeed(Authentication, {
           sessionCookie: (httpEffect) =>

@@ -12,6 +12,7 @@ import type { OrgEmailError } from "@pp/shared"
 import {
   FigmaAuthInvalid,
   ImportFormatUnsupported,
+  InvalidRequest,
   FigmaError,
   FigmaFileNotFound,
   FigmaNotConnected,
@@ -113,6 +114,7 @@ export type AppError =
   | JiraError
   | JiraMigrationUnavailable
   | ImportFormatUnsupported
+  | InvalidRequest
   | Validation
 
 const invitationNotAcceptableMessage = (
@@ -412,6 +414,7 @@ export const errorMessage = Match.type<unknown>()
         supportedVersion: String(error.supportedVersion)
       })
     ),
+    Match.when({ _tag: "InvalidRequest" }, () => m.error_invalid_request()),
     Match.when(isValidationDetail, (error) => validationMessage(error.reason)),
     Match.orElse(() => m.error_unknown())
   )

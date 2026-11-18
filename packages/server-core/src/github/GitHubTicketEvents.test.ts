@@ -24,6 +24,7 @@ import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestService
 } from "../git/automationTesting"
+import * as GitSyncSchedule from "../git/GitSyncSchedule"
 import * as ProjectGitAutomation from "../git/ProjectGitAutomation"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -1165,7 +1166,8 @@ describe.skipIf(!databaseUrl)("GitHubTicketEvents tracing", () => {
         Layer.mock(TicketBranchIndex.TicketBranchIndex, {}),
         Layer.mock(TicketDocumentLock.TicketDocumentLock, {}),
         Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
-        PullRequestSnapshots.layer
+        PullRequestSnapshots.layer,
+        GitSyncSchedule.layer
       )
     ),
     Layer.provide(

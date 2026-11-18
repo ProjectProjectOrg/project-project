@@ -8,10 +8,7 @@ import {
   FigmaError,
   FigmaNotConnected,
   FigmaRateLimited,
-  Forbidden,
-  NotFound,
-  StorageNotConnected,
-  Unauthorized
+  StorageNotConnected
 } from "../errors"
 import { ProjectPath, TicketPath } from "../http/paths"
 import {
@@ -24,14 +21,12 @@ import {
 export const FigmaGroup = HttpApiGroup.make("figma")
   .add(
     HttpApiEndpoint.get("profile", "/integrations/figma/profile", {
-      success: PersonalFigma,
-      error: [Unauthorized]
+      success: PersonalFigma
     })
   )
   .add(
     HttpApiEndpoint.delete("disconnectProfile", "/integrations/figma/profile", {
-      success: PersonalFigma,
-      error: [Unauthorized]
+      success: PersonalFigma
     })
   )
   .add(
@@ -40,8 +35,7 @@ export const FigmaGroup = HttpApiGroup.make("figma")
       "/orgs/:orgSlug/projects/:slug/integrations/figma",
       {
         params: ProjectPath,
-        success: FigmaProjectIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: FigmaProjectIntegrationStatus
       }
     )
       .annotate(RequiresProject, { figma: ["read"] })
@@ -56,9 +50,6 @@ export const FigmaGroup = HttpApiGroup.make("figma")
         payload: ConnectFigmaProjectInput,
         success: FigmaProjectIntegrationStatus,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           StorageNotConnected,
           FigmaNotConnected,
           FigmaAuthInvalid,
@@ -76,8 +67,7 @@ export const FigmaGroup = HttpApiGroup.make("figma")
       "/orgs/:orgSlug/projects/:slug/integrations/figma",
       {
         params: ProjectPath,
-        success: FigmaProjectIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: FigmaProjectIntegrationStatus
       }
     )
       .annotate(RequiresProject, { settings: ["manage"] })
@@ -89,8 +79,7 @@ export const FigmaGroup = HttpApiGroup.make("figma")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/figma/links",
       {
         params: TicketPath,
-        success: Schema.Array(FigmaLinkMetadata),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(FigmaLinkMetadata)
       }
     )
       .annotate(RequiresProject, { figma: ["read"] })

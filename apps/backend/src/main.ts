@@ -68,6 +68,7 @@ import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActiv
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
+import { GitStateSweepLive } from "@pp/server-core/git/GitStateSweep"
 import { SprintMigrationLive } from "@pp/server-core/groups/SprintMigration"
 import { LibraryMigrationLive } from "@pp/server-core/library/LibraryMigrationLive"
 import * as ProjectImports from "@pp/server-core/projects/ProjectImports"
@@ -587,6 +588,11 @@ const ImportRetentionLive = ProjectImports.ProjectImportRetentionLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
+const GitSweepLive = GitStateSweepLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
 const FeedbackDispatchLive = FeedbackDispatcherLive.pipe(
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
@@ -627,7 +633,8 @@ const AppLive = Layer.mergeAll(
   ReconcilerLive,
   ReaperLive,
   ImportRetentionLive,
-  FeedbackDispatchLive
+  FeedbackDispatchLive,
+  GitSweepLive
 ).pipe(Layer.provide(Layer.mergeAll(TracingLive, TracerDisabledLive)))
 
 // Only boot the real server when this file is the entry point. When tests
