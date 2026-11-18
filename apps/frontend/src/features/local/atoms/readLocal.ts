@@ -11,8 +11,7 @@ export const withDefects = <A, E>(
   result: AsyncResult.AsyncResult<A, E>
 ): AsyncResult.AsyncResult<A> => {
   if (AsyncResult.isInitial(result)) return AsyncResult.initial(result.waiting)
-  if (AsyncResult.isSuccess(result))
-    return AsyncResult.success(result.value, result)
+  if (AsyncResult.isSuccess(result)) return AsyncResult.success(result.value)
   return AsyncResult.failure(Cause.die(Cause.squash(result.cause)))
 }
 
