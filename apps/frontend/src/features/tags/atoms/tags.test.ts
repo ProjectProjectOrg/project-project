@@ -1,15 +1,11 @@
 import {
-  TicketRank,
-  EMPTY_TICKET_RELATIONS,
   Tag,
   TagColor,
   TagName,
   TicketDetail,
-  TicketId,
-  TicketStatus,
-  TicketUpdateResult,
-  TypeKey
+  TicketUpdateResult
 } from "@pp/shared"
+import { makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
@@ -44,33 +40,7 @@ const tag = {
 const renamed = { ...tag, name: nextName }
 const encode = Schema.encodeSync(Tag)
 const req = tagsRequest("acme", "web")
-const ticket = {
-  id: Schema.decodeSync(TicketId)("T-1"),
-  title: "Tagged ticket",
-  status: Schema.decodeSync(TicketStatus)("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [name],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  parent: null,
-  parentState: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  relations: EMPTY_TICKET_RELATIONS,
-  creator: null,
-  updater: null,
-  body: ""
-} satisfies TicketDetail
+const ticket = makeTicketDetail({ tags: [name] })
 const encodeTicket = Schema.encodeSync(TicketDetail)
 const encodeUpdate = (t: TicketDetail) =>
   encodeTicketUpdateResultSync({ ticket: t, orderKey: null })

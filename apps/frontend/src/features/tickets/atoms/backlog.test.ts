@@ -1,6 +1,4 @@
 import {
-  TicketRank,
-  EMPTY_TICKET_RELATIONS,
   GroupId,
   padNumericIdSort,
   Ticket,
@@ -13,6 +11,7 @@ import {
   TicketUpdateResult,
   UpdateTicketInput
 } from "@pp/shared"
+import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
@@ -44,43 +43,13 @@ const decodeGroupIdSync = Schema.decodeSync(GroupId)
 
 const decodeTagNameSync = Schema.decodeSync(TagName)
 
-const ticket = {
-  id: Schema.decodeSync(TicketId)("T-1"),
-  title: "Before",
-  status: Schema.decodeSync(TicketStatus)("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-} satisfies Ticket
+const ticket = makeTicket({ title: "Before" })
 
 const encode = Schema.encodeSync(Ticket)
 const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
-const asDetail = (t: Ticket) =>
-  ({
-    ...t,
-    parentState: null,
-    relations: EMPTY_TICKET_RELATIONS,
-    creator: null,
-    updater: null,
-    body: "Before"
-  }) satisfies TicketDetail
 const asUpdateResult = (t: Ticket, key: string | null = null) =>
-  ({ ticket: asDetail(t), orderKey: key }) satisfies TicketUpdateResult
+  ({ ticket: makeTicketDetail(t), orderKey: key }) satisfies TicketUpdateResult
 const req = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
 
 const orderKey = (sortValue: string, id: string) => `${sortValue}\u0000${id}`
@@ -1123,7 +1092,7 @@ describe("backlog quick create", () => {
       })
 
       served = [created, ticket]
-      finish(Response.json(encodeDetail(asDetail(created))))
+      finish(Response.json(encodeDetail(makeTicketDetail(created))))
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
 
       const settled = registry.get(view)
@@ -1152,7 +1121,9 @@ describe("backlog quick create", () => {
     fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
         createdVisible = true
-        return Promise.resolve(Response.json(encodeDetail(asDetail(created))))
+        return Promise.resolve(
+          Response.json(encodeDetail(makeTicketDetail(created)))
+        )
       }
       const url = new URL(
         input instanceof Request ? input.url : String(input),
