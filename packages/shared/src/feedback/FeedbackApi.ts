@@ -11,13 +11,11 @@ import {
   AttachmentTooLarge,
   AttachmentTypeRejected,
   Conflict,
-  Forbidden,
   NotFound,
   RateLimited,
   StorageConfigMissing,
   StorageError,
   StorageNotConnected,
-  Unauthorized,
   Validation
 } from "../errors"
 import { OrgPath } from "../http/paths"
@@ -33,8 +31,7 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
   .add(
     HttpApiEndpoint.get("status", "/orgs/:orgSlug/feedback", {
       params: OrgPath,
-      success: FeedbackStatus,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: FeedbackStatus
     }).annotate(RequiresOrg, "membership")
   )
   .add(
@@ -43,9 +40,6 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
       payload: FeedbackUploadPayload,
       success: FeedbackAttachment,
       error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
         AttachmentTooLarge,
         AttachmentTypeRejected,
         StorageNotConnected,
@@ -60,7 +54,7 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
       params: OrgPath,
       payload: SubmitFeedbackInput,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden, Validation]
+      error: Validation
     }).annotate(RequiresOrg, "membership")
   )
   .middleware(OrgAccess)
@@ -76,7 +70,7 @@ export const FeedbackIntakeGroup = HttpApiGroup.make("feedbackIntake")
     HttpApiEndpoint.post("receive", "/feedback/intake", {
       payload: FeedbackIntakePayload,
       success: HttpApiSchema.NoContent,
-      error: [NotFound, RateLimited, Conflict]
+      error: Conflict
     })
   )
   .middleware(FeedbackIntakeGuard)

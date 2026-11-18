@@ -5,12 +5,9 @@ import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
   Conflict,
-  Forbidden,
   ImportFormatUnsupported,
-  NotFound,
   StorageError,
   StorageNotConnected,
-  Unauthorized,
   Validation
 } from "../errors"
 import { OrgPath } from "../http/paths"
@@ -25,9 +22,6 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
       params: OrgPath,
       success: ProjectImport,
       error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
         Validation,
         ImportFormatUnsupported,
         StorageNotConnected,
@@ -40,8 +34,7 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/project-imports/:importId", {
       params: ImportPath,
-      success: ProjectImport,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: ProjectImport
     })
       .annotate(RequiresOrg, { project: ["create"] })
       .middleware(OrgAccess)
@@ -54,15 +47,7 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
         params: ImportPath,
         payload: RunProjectImportInput,
         success: ProjectImport,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          StorageNotConnected,
-          StorageError
-        ]
+        error: [Conflict, Validation, StorageNotConnected, StorageError]
       }
     )
       .annotate(RequiresOrg, { project: ["create"] })
@@ -75,7 +60,7 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
       {
         params: ImportPath,
         success: ProjectImport,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresOrg, { project: ["create"] })

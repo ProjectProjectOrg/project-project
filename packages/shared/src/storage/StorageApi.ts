@@ -7,12 +7,9 @@ import {
 } from "../attachments/Attachment"
 import { Authentication } from "../auth/Authentication"
 import {
-  Forbidden,
-  NotFound,
   StorageAuthInvalid,
   StorageConfigMissing,
-  StorageError,
-  Unauthorized
+  StorageError
 } from "../errors"
 import { OrgPath } from "../http/paths"
 
@@ -20,8 +17,7 @@ export const StorageGroup = HttpApiGroup.make("storage")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage", {
       params: OrgPath,
-      success: OrgStorageStatus,
-      error: [Unauthorized, NotFound]
+      success: OrgStorageStatus
     }).annotate(RequiresOrg, "membership")
   )
   .add(
@@ -29,21 +25,13 @@ export const StorageGroup = HttpApiGroup.make("storage")
       params: OrgPath,
       payload: ConnectStorageInput,
       success: OrgStorageStatus,
-      error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
-        StorageAuthInvalid,
-        StorageConfigMissing,
-        StorageError
-      ]
+      error: [StorageAuthInvalid, StorageConfigMissing, StorageError]
     }).annotate(RequiresOrg, { storage: ["manage"] })
   )
   .add(
     HttpApiEndpoint.delete("disconnect", "/orgs/:orgSlug/storage", {
       params: OrgPath,
-      success: OrgStorageStatus,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: OrgStorageStatus
     }).annotate(RequiresOrg, { storage: ["manage"] })
   )
   .middleware(OrgAccess)

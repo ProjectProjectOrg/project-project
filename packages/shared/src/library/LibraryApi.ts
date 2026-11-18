@@ -4,14 +4,7 @@ import * as Schema from "effect/Schema"
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import {
-  Conflict,
-  Forbidden,
-  MentionInvalid,
-  NotFound,
-  Unauthorized,
-  Validation
-} from "../errors"
+import { Conflict, MentionInvalid, Validation } from "../errors"
 import { OrgPath, ProjectPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import {
@@ -46,8 +39,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
   .add(
     HttpApiEndpoint.get("org", "/orgs/:orgSlug/library", {
       params: OrgPath,
-      success: Library,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: Library
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -55,8 +47,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
   .add(
     HttpApiEndpoint.get("project", "/orgs/:orgSlug/projects/:slug/library", {
       params: ProjectPath,
-      success: Library,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: Library
     })
       .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
@@ -66,14 +57,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       params: OrgPath,
       payload: CreateBlockInput,
       success: BlockDefinition,
-      error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
-        Conflict,
-        Validation,
-        MentionInvalid
-      ]
+      error: [Conflict, Validation, MentionInvalid]
     })
       .annotate(RequiresOrg, { library: ["manage"] })
       .middleware(OrgAccess)
@@ -86,7 +70,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: OrgBlockPath,
         payload: UpdateBlockInput,
         success: BlockDefinition,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -98,8 +82,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       "/orgs/:orgSlug/library/blocks/:key",
       {
         params: OrgBlockPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -110,14 +93,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       params: OrgPath,
       payload: CreateTypeInput,
       success: TypeDefinition,
-      error: [
-        Unauthorized,
-        NotFound,
-        Forbidden,
-        Conflict,
-        Validation,
-        MentionInvalid
-      ]
+      error: [Conflict, Validation, MentionInvalid]
     })
       .annotate(RequiresOrg, { library: ["manage"] })
       .middleware(OrgAccess)
@@ -130,7 +106,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: OrgTypePath,
         payload: UpdateTypeInput,
         success: TypeDefinition,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -142,8 +118,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       "/orgs/:orgSlug/library/types/:key",
       {
         params: OrgTypePath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -157,14 +132,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectPath,
         payload: CreateBlockInput,
         success: BlockDefinition,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid
-        ]
+        error: [Conflict, Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -178,7 +146,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectBlockPath,
         payload: UpdateBlockInput,
         success: BlockDefinition,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -190,8 +158,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       "/orgs/:orgSlug/projects/:slug/library/blocks/:key",
       {
         params: ProjectBlockPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -204,7 +171,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       {
         params: ProjectBlockPath,
         success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -218,14 +185,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectPath,
         payload: CreateTypeInput,
         success: TypeDefinition,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid
-        ]
+        error: [Conflict, Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -239,7 +199,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectTypePath,
         payload: UpdateTypeInput,
         success: TypeDefinition,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -251,8 +211,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       "/orgs/:orgSlug/projects/:slug/library/types/:key",
       {
         params: ProjectTypePath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -265,7 +224,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       {
         params: ProjectTypePath,
         success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })

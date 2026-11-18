@@ -8,12 +8,9 @@ import {
   AttachmentNotUploaded,
   AttachmentTooLarge,
   AttachmentTypeRejected,
-  Forbidden,
-  NotFound,
   StorageConfigMissing,
   StorageError,
-  StorageNotConnected,
-  Unauthorized
+  StorageNotConnected
 } from "../errors"
 import { OrgPath, ProjectPath, TicketPath } from "../http/paths"
 import { Slug } from "../projects/Project"
@@ -49,9 +46,6 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
         payload: PrepareAttachmentInput,
         success: PrepareAttachmentResult,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           AttachmentTooLarge,
           AttachmentTypeRejected,
           StorageNotConnected,
@@ -71,9 +65,6 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
         params: AttachmentPath,
         success: Attachment,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           AttachmentNotUploaded,
           AttachmentTooLarge,
           AttachmentTypeRejected,
@@ -95,9 +86,6 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
         payload: PrepareAttachmentInput,
         success: PrepareAttachmentResult,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           AttachmentTooLarge,
           AttachmentTypeRejected,
           StorageNotConnected,
@@ -120,9 +108,6 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
         }),
         success: Attachment,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           AttachmentNotUploaded,
           AttachmentTooLarge,
           AttachmentTypeRejected,
@@ -139,8 +124,7 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/attachments", {
       params: OrgPath,
       query: AttachmentListParams,
-      success: AttachmentListPage,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: AttachmentListPage
     })
       .annotate(RequiresOrg, { storage: ["manage"] })
       .middleware(OrgAccess)
@@ -148,8 +132,7 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
   .add(
     HttpApiEndpoint.get("summary", "/orgs/:orgSlug/attachments/summary", {
       params: OrgPath,
-      success: AttachmentSummary,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: AttachmentSummary
     })
       .annotate(RequiresOrg, { storage: ["manage"] })
       .middleware(OrgAccess)
@@ -161,14 +144,7 @@ export const AttachmentsGroup = HttpApiGroup.make("attachments")
       {
         params: OrgAttachmentPath,
         success: HttpApiSchema.NoContent,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          StorageNotConnected,
-          StorageConfigMissing,
-          StorageError
-        ]
+        error: [StorageNotConnected, StorageConfigMissing, StorageError]
       }
     )
       .annotate(RequiresOrg, { storage: ["manage"] })

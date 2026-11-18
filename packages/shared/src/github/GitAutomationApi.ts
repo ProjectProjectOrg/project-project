@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, Forbidden, NotFound, Unauthorized } from "../errors"
+import { Conflict } from "../errors"
 import { ProjectPath } from "../http/paths"
 import { GitAutomation, UpdateGitAutomationInput } from "./GitAutomation"
 
@@ -10,8 +10,7 @@ export const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/git-automation", {
       params: ProjectPath,
-      success: GitAutomation,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: GitAutomation
     }).annotate(RequiresProject, { github: ["read"] })
   )
   .add(
@@ -22,7 +21,7 @@ export const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
         params: ProjectPath,
         payload: UpdateGitAutomationInput,
         success: GitAutomation,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
