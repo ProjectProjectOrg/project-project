@@ -29,9 +29,9 @@ export const SOFT_RING: ReadonlyArray<ColorSwatch> = [
   45, 105, 165, 225, 285, 345
 ].map((h) => swatch(h, INNER.L, INNER.C))
 
-export const NEUTRALS: ReadonlyArray<ColorSwatch> = [0.45, 0.66, 0.84, 0.98].map(
-  (L) => swatch(0, L, 0)
-)
+export const NEUTRALS: ReadonlyArray<ColorSwatch> = [
+  0.45, 0.66, 0.84, 0.98
+].map((L) => swatch(0, L, 0))
 
 // Every colour the picker offers.
 export const TAG_COLOR_WHEEL: ReadonlyArray<ColorSwatch> = [
