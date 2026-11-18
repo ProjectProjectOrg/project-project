@@ -14,7 +14,7 @@ export function TicketPageShell({
   children: ReactNode
 }>) {
   return (
-    <div className="ticket-page grid w-full grid-cols-1 gap-x-16 gap-y-3 lg:grid-cols-[minmax(0,42rem)_18rem]">
+    <div className="ticket-page grid w-full grid-cols-1 gap-x-16 gap-y-3 lg:grid-cols-[minmax(0,42rem)_18rem] lg:pl-[max(0px,calc((100%-64rem)/2))]">
       <div className="flex items-center justify-between gap-3 lg:contents">
         <div>{back}</div>
         <div className="flex items-center justify-end gap-2 lg:justify-start lg:pl-5 [&>*]:shrink-0">
