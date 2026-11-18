@@ -1,4 +1,5 @@
-import { Ticket, TicketId } from "@pp/shared"
+import { TicketId } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { expect, it, vi } from "vitest"
@@ -10,26 +11,7 @@ import type { TicketNavigationSearch } from "@/features/tickets/lib/ticketSearch
 
 import { editTicket, openTicket } from "./commands"
 
-const row = Schema.decodeSync(Ticket)({
-  id: "T-3",
-  title: "Hovered",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z"
-})
+const row = makeTicket({ id: TicketId.make("T-3") })
 
 const decodeTicketId = Schema.decodeSync(TicketId)
 

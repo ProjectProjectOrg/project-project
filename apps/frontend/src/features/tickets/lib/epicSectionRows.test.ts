@@ -1,12 +1,11 @@
 import {
-  TicketRank,
   EPIC_SECTION_NONE,
   TicketId,
-  TicketStatus,
   type EpicSectionKey,
   type Ticket,
   TypeKey
 } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -28,28 +27,7 @@ const epic = {
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 const query = { sort: { key: "id", dir: "asc" } } as const
 
-const ticket = {
-  id: ticketId("T-1"),
-  title: "Estimate field",
-  status: Schema.decodeSync(TicketStatus)("todo"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  estimate: null,
-  flag: null,
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-} satisfies Ticket
+const ticket = makeTicket()
 
 const section = (key: EpicSectionKey, tickets: ReadonlyArray<Ticket>) =>
   ({

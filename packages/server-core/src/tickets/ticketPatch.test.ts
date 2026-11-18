@@ -1,15 +1,8 @@
-import {
-  GroupId,
-  TagName,
-  TicketId,
-  TicketStatus,
-  TypeKey,
-  TicketRank
-} from "@pp/shared"
-import * as DateTime from "effect/DateTime"
+import { GroupId, TagName, TypeKey } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { isoDate, makeTicketDocument, ticketId, ticketStatus } from "./testing"
 import type * as TicketDocs from "./TicketDocs"
 import {
   applyTicketPatch,
@@ -21,36 +14,21 @@ import {
   type TicketPatch
 } from "./ticketPatch"
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
-const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
-const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const created = isoDate("2026-04-01T00:00:00.000Z")
 const now = isoDate("2026-04-02T00:00:00.000Z")
 
-const existing: TicketDocs.TicketDocument = {
-  id: ticketId("T-2"),
+const existing = makeTicketDocument("T-2", {
   title: "Checkout",
   status: ticketStatus("todo"),
   type: TypeKey.make("feat"),
   priority: "med",
-  rank: TicketRank.make("a0"),
   estimate: { unit: "points", value: 3 },
   tags: [tagName("core")],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
   assignees: ["user-1"],
   parent: ticketId("T-1"),
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: created,
-  updatedBy: "user-1",
-  updatedAt: created,
-  body: "Body",
-  commentsRegion: ""
-}
+  body: "Body"
+})
 
 describe("applyTicketPatch", () => {
   it("keeps every field the patch leaves out and stamps the editor", () => {

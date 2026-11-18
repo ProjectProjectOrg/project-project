@@ -1,43 +1,14 @@
-import {
-  TicketId,
-  TicketStatus,
-  type Ticket,
-  TypeKey,
-  TicketRank
-} from "@pp/shared"
-import * as DateTime from "effect/DateTime"
+import { TicketId, type Ticket, TypeKey } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import { withoutNestedChildren } from "./nestedRows"
 
 const ticketId = Schema.decodeSync(TicketId)
-const todo = Schema.decodeSync(TicketStatus)("todo")
-const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 
-const ticket = (id: string, fields: Partial<Ticket> = {}) => ({
-  id: ticketId(id),
-  title: id,
-  status: todo,
-  type: TypeKey.make("feat"),
-  priority: "med",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  estimate: null,
-  flag: null,
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: now,
-  updatedAt: now,
-  ...fields
-})
+const ticket = (id: string, fields: Partial<Ticket> = {}) =>
+  makeTicket({ id: ticketId(id), type: TypeKey.make("feat"), ...fields })
 
 const parentOf = (id: string, type: Ticket["type"]) => ({
   id: ticketId(id),

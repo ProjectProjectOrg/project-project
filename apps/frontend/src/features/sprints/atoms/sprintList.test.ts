@@ -1,15 +1,13 @@
 import {
   BulkUpdateTicketsInput,
-  TicketRank,
   Group,
   GroupDetail,
   GroupId,
   Ticket,
   TicketId,
-  TicketStatus,
-  UpdateGroupTicketsInput,
-  TypeKey
+  UpdateGroupTicketsInput
 } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
@@ -34,8 +32,6 @@ import {
   sprintMembership,
   updateSprint
 } from "./sprintList"
-
-const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
 
 const decodeUnknownUpdateGroupTicketsInputSync = Schema.decodeUnknownSync(
   UpdateGroupTicketsInput
@@ -72,30 +68,6 @@ const otherSprint: Group = {
   name: "Sprint 2",
   tickets: []
 }
-
-const makeTicket = (id: TicketId) =>
-  ({
-    id,
-    title: `Ticket ${id}`,
-    status: decodeTicketStatusSync("todo"),
-    type: TypeKey.make("chore"),
-    priority: "med",
-    estimate: null,
-    flag: null,
-    tags: [],
-    branch: null,
-    pr: null,
-    prState: null,
-    rank: TicketRank.make("a0"),
-    lastTransitionedPr: null,
-    parent: null,
-    gitState: { tag: "no_branch", baseBranch: "main" },
-    assignees: [],
-    archivedAt: null,
-    createdBy: "user-1",
-    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-    updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-  }) satisfies Ticket
 
 const encodeGroup = Schema.encodeSync(Group)
 const encodeGroupDetail = Schema.encodeSync(GroupDetail)
@@ -541,7 +513,7 @@ describe("completeSprint carryover", () => {
       }
       servedList = [completedSprint, { ...otherSprint, tickets: [ticketB] }]
       servedDest = { ...otherSprint, tickets: [ticketB] }
-      servedDestTickets = [makeTicket(ticketB)]
+      servedDestTickets = [makeTicket({ id: ticketB })]
       finish(completeResponse(completedSprint, [ticketB]))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
@@ -667,7 +639,7 @@ describe("ticket membership mutations", () => {
           sections: {
             todo: {
               items: target.tickets.map((id) => ({
-                ticket: encodeTicket(makeTicket(id)),
+                ticket: encodeTicket(makeTicket({ id })),
                 orderKey: id
               })),
               nextCursor: null
@@ -678,7 +650,7 @@ describe("ticket membership mutations", () => {
       if (selected) {
         return url.pathname.endsWith("/tickets")
           ? Response.json(
-              selected.tickets.map((id) => encodeTicket(makeTicket(id)))
+              selected.tickets.map((id) => encodeTicket(makeTicket({ id })))
             )
           : Response.json(encodeGroupDetail(asDetail(selected)))
       }

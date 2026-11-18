@@ -1,9 +1,9 @@
 import { RegistryContext } from "@effect/atom-react"
-import { TicketDetail, type StackLayerState } from "@pp/shared"
+import { type StackLayerState } from "@pp/shared"
+import { makeTicketDetail } from "@pp/shared/tickets/testing"
 import { cleanup, renderHook } from "@testing-library/react"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import * as Schema from "effect/Schema"
 import { afterEach, expect, it, vi } from "vitest"
 
 import { projectGitStates } from "@/features/github/atoms/github"
@@ -11,28 +11,10 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 
 import { useTicketGit } from "./useTicketGit"
 
-const ticket = Schema.decodeSync(TicketDetail)({
-  id: "T-1",
-  title: "Ticket",
-  status: "todo",
-  type: null,
-  priority: "med",
-  tags: [],
+const ticket = makeTicketDetail({
   branch: "feat/T-1",
   pr: 80,
-  prState: "closed",
-  rank: "a0",
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-09-15T10:00:00.000Z",
-  updatedAt: "2026-09-15T10:00:00.000Z",
-  creator: null,
-  updater: null,
-  body: ""
+  prState: "closed"
 })
 let registry: Registry.AtomRegistry | undefined
 

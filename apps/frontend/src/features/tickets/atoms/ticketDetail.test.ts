@@ -1,14 +1,10 @@
 import {
-  TicketRank,
-  EMPTY_TICKET_RELATIONS,
   TicketDetail,
-  TicketId,
-  TicketStatus,
   TicketUpdateResult,
   UpdateTicketInput,
   TypeKey
 } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
+import { makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -26,33 +22,7 @@ const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
 const decodeUnknownUpdateTicketInputSync =
   Schema.decodeUnknownSync(UpdateTicketInput)
 
-const ticket = {
-  id: Schema.decodeSync(TicketId)("T-1"),
-  title: "Before",
-  status: Schema.decodeSync(TicketStatus)("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  parent: null,
-  parentState: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  relations: EMPTY_TICKET_RELATIONS,
-  creator: null,
-  updater: null,
-  body: "Before"
-} satisfies TicketDetail
+const ticket = makeTicketDetail()
 
 const encode = Schema.encodeSync(TicketDetail)
 const encodeUpdate = (t: TicketDetail) =>

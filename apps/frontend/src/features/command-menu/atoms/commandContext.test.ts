@@ -1,7 +1,7 @@
-import { Ticket, TicketDetail, TicketId } from "@pp/shared"
+import { TicketId } from "@pp/shared"
+import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import * as Schema from "effect/Schema"
 import { afterEach, expect, it } from "vitest"
 
 import {
@@ -12,40 +12,21 @@ import {
 import { commandContext } from "./commandContext"
 import { pointedTicket } from "./commandMenu"
 
-const row = Schema.decodeSync(Ticket)({
-  id: "T-3",
+const overrides = {
+  id: TicketId.make("T-3"),
   title: "Hovered",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
   branch: "feat/T-3",
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: ["user-1"],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z"
-})
+  assignees: ["user-1"]
+}
 
-const detail = Schema.decodeUnknownSync(TicketDetail)({
-  ...Schema.encodeSync(Ticket)(row),
-  title: "Cached",
-  repoId: null,
-  creator: null,
-  updater: null,
-  body: ""
-})
+const row = makeTicket(overrides)
+
+const detail = makeTicketDetail({ ...overrides, title: "Cached" })
 
 const ticket = {
   orgSlug: "acme",
   slug: "app",
-  ticketId: Schema.decodeSync(TicketId)("T-3")
+  ticketId: TicketId.make("T-3")
 }
 
 let registry: Registry.AtomRegistry | undefined
