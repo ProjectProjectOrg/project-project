@@ -10,7 +10,7 @@ import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { memo, use, useRef, useState } from "react"
+import { type ComponentProps, memo, use, useRef, useState } from "react"
 
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
@@ -50,6 +50,7 @@ const TICKET_PREVIEW_DELAY_MS = 550
 export type RowProps = Readonly<{
   update: TicketUpdates
   variant?: "standalone" | "embedded"
+  titleVariant?: ComponentProps<typeof ListRowTitle>["variant"]
   ticket: Ticket
   members: ReadonlyArray<Member>
   contextParent?: ParentFilter
@@ -64,6 +65,7 @@ export type RowProps = Readonly<{
 function RowImpl({
   update,
   variant = "standalone",
+  titleVariant,
   ticket,
   members,
   contextParent,
@@ -225,7 +227,9 @@ function RowImpl({
                         />
                       )}
                     >
-                      <ListRowTitle>{ticket.title}</ListRowTitle>
+                      <ListRowTitle variant={titleVariant}>
+                        {ticket.title}
+                      </ListRowTitle>
                     </PopoverTrigger>
                   </Link>
                   <FlagChip ticket={ticket} className="ml-1" />

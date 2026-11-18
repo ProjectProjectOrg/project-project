@@ -65,6 +65,7 @@ export function ChildTicketList({
                     <Row
                       key={row.key}
                       update={childTicketUpdates(req)}
+                      titleVariant="quiet"
                       ticket={row.ticket}
                       members={members}
                       contextParent={parent.id}
