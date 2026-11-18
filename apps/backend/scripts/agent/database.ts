@@ -169,9 +169,13 @@ export async function server(
 export function databaseName(environment: Environment): string {
   return `pp_agent_${environment.id.replaceAll("-", "_")}`
 }
+export function adminUrl(port: string, database: string): string {
+  return `postgres://pp_agent_admin:${adminPassword}@127.0.0.1:${port}/${database}`
+}
+
 export function adminPool(port: string): Pool {
   return new Pool({
-    connectionString: `postgres://pp_agent_admin:${adminPassword}@127.0.0.1:${port}/postgres`,
+    connectionString: adminUrl(port, "postgres"),
     connectionTimeoutMillis: 2000
   })
 }
