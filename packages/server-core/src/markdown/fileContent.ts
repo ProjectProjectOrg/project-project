@@ -11,7 +11,8 @@ export const parseMarkdownFile = (content: string) => {
       }
     }
   })
-  return { data: parsed.data, content: parsed.content }
+  const data: Record<string, unknown> = parsed.data
+  return { data, content: parsed.content }
 }
 
 export const markdownFileContent = (

@@ -26,7 +26,10 @@ export const formBody = (request: HttpClientRequest.HttpClientRequest) =>
     request.body._tag === "Uint8Array" ? decoder.decode(request.body.body) : ""
   )
 
-export const jsonBody = (request: HttpClientRequest.HttpClientRequest) =>
-  request.body._tag === "Uint8Array"
-    ? JSON.parse(decoder.decode(request.body.body))
-    : {}
+export const jsonBody = (request: HttpClientRequest.HttpClientRequest) => {
+  const body: unknown =
+    request.body._tag === "Uint8Array"
+      ? JSON.parse(decoder.decode(request.body.body))
+      : {}
+  return body
+}

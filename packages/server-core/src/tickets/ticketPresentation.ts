@@ -33,7 +33,7 @@ export const repositoryOf = (
   repoId: string | null | undefined
 ) => ProjectGithub.integrationForRepo(view.integrations, repoId)
 
-const withoutGit = <T extends Ticket>(ticket: T) => ({
+const withoutGit = (ticket: Ticket) => ({
   ...ticket,
   repoId: null,
   branch: null,
@@ -43,7 +43,7 @@ const withoutGit = <T extends Ticket>(ticket: T) => ({
   gitState: { tag: "no_branch" } satisfies Ticket["gitState"]
 })
 
-export const presentTicket = <T extends Ticket>(view: GitView, ticket: T) =>
+export const presentTicket = (view: GitView, ticket: Ticket) =>
   view.visible ? ticket : withoutGit(ticket)
 
 type GitState = Ticket["gitState"]

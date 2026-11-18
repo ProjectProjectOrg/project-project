@@ -136,16 +136,12 @@ export async function assertNotLastProjectPm(
   if (blocked) throw blocked
 }
 
-const constraintOf = (error: unknown) => {
-  let current = error
-  while (typeof current === "object" && current !== null) {
-    if ("constraint" in current && typeof current.constraint === "string") {
-      return current.constraint
-    }
-    if (!("cause" in current)) return undefined
-    current = current.cause
+const constraintOf: (error: unknown) => string | undefined = (error) => {
+  if (typeof error !== "object" || error === null) return undefined
+  if ("constraint" in error && typeof error.constraint === "string") {
+    return error.constraint
   }
-  return undefined
+  return "cause" in error ? constraintOf(error.cause) : undefined
 }
 
 export const violatesProjectKeepsAPm = (error: unknown) =>

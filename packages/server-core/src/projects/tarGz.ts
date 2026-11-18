@@ -44,7 +44,7 @@ export const tarGz = <E, R>(entries: Stream.Stream<TarEntry, E, R>) =>
         ),
         Effect.forkScoped
       )
-      return Stream.fromReadableStream({
+      return Stream.fromReadableStream<Uint8Array, TarGzError>({
         evaluate: () => readable.pipeThrough(new CompressionStream("gzip")),
         onError: (cause) => new TarGzError({ cause })
       })
