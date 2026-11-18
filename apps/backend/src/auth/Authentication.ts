@@ -21,14 +21,6 @@
 // be present" as a precondition. Without one, the request short-circuits
 // with `Unauthorized` *before* this function runs.
 //
-// MAPPING THE BOUNDARY ERROR
-// ----------------------------------------------------------------------------
-// `BetterAuth.getSession` can fail with `BetterAuthError`. A 4xx refusal from
-// Better Auth means the caller's session is bad, so it becomes `Unauthorized`.
-// Anything else (a DB blip, a timeout) is our failure, not the caller's: it
-// dies, so the client gets a 500 and the cause is logged instead of the user
-// being told they're signed out.
-//
 // `getSession` also returns `null` when the cookie is structurally valid but
 // expired/revoked. That isn't a Promise rejection, just a `null` result — we
 // translate it to `Unauthorized` explicitly.
