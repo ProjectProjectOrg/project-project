@@ -1,11 +1,11 @@
 import { ArrowLeftRight, LayoutDashboard, Settings } from "@pp/ui/icons"
 
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export const organizationCommands: ReadonlyArray<Command> = [
-  {
+  Command.run({
     id: "org.dashboard",
     hotkey: appHotkeys["nav.dashboard"],
     group: "navigation",
@@ -16,8 +16,8 @@ export const organizationCommands: ReadonlyArray<Command> = [
       env.navigate(`/orgs/${orgSlug}`)
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "org.settings",
     hotkey: appHotkeys["nav.settings"],
     group: "navigation",
@@ -32,8 +32,8 @@ export const organizationCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "org.switch",
     hotkey: appHotkeys["nav.orgs"],
     group: "settings",
@@ -41,5 +41,5 @@ export const organizationCommands: ReadonlyArray<Command> = [
     icon: ArrowLeftRight,
     keywords: ["organization", "workspace"],
     page: "switchOrg"
-  }
+  })
 ]

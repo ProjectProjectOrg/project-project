@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
@@ -7,6 +8,6 @@ export const Route = createFileRoute(
 )({
   component: Outlet,
   loader: () => ({
-    crumb: { type: "static" as const, label: m.org_settings_integrations_tab() }
+    crumb: Crumb.static({ label: m.org_settings_integrations_tab() })
   })
 })

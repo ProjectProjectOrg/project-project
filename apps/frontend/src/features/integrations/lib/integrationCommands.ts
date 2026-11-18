@@ -1,5 +1,5 @@
-import type { Command } from "@/features/command-menu/lib/commands"
-import type { IntegrationState } from "@/features/integrations/hooks/useOrgIntegrations"
+import { Command } from "@/features/command-menu/lib/commands"
+import { IntegrationState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { m } from "@/paraglide/messages"
 
 export type IntegrationCommandEntry = Readonly<{
@@ -21,19 +21,15 @@ export function integrationCommands(
     if (!entry.allowed) return []
     const state = entry.state
     const repair =
-      state !== undefined &&
-      !state.loading &&
-      state.connected &&
-      state.tone === "attention"
+      state !== undefined && IntegrationState.$is("attention")(state)
     const setup =
       entry.prerequisite === true &&
       state !== undefined &&
-      !state.loading &&
-      !state.connected &&
-      state.tone === "idle"
+      (IntegrationState.$is("notSetUp")(state) ||
+        IntegrationState.$is("perProject")(state))
     const suggested = repair || setup
     return [
-      {
+      Command.run({
         id: entry.id,
         group: suggested ? "setup" : "navigation",
         label: () =>
@@ -60,7 +56,7 @@ export function integrationCommands(
           env.navigate(entry.to)
           env.close()
         }
-      } satisfies Command
+      })
     ]
   })
 }

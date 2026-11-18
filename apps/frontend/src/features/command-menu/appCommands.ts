@@ -4,10 +4,10 @@ import { logout } from "@/features/auth/atoms/auth"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
-import type { Command } from "./lib/commands"
+import { Command } from "./lib/commands"
 
 export const appCommands: ReadonlyArray<Command> = [
-  {
+  Command.run({
     id: "app.copy-url",
     group: "miscellaneous",
     label: m.chrome_command_menu_copy_page_url,
@@ -16,8 +16,8 @@ export const appCommands: ReadonlyArray<Command> = [
       env.copy(window.location.href)
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "app.shortcuts",
     group: "miscellaneous",
     label: m.chrome_keyboard_shortcuts,
@@ -25,16 +25,16 @@ export const appCommands: ReadonlyArray<Command> = [
     keywords: ["hotkeys", "keys", "help"],
     hotkey: appHotkeys["app.shortcuts"],
     page: "shortcuts"
-  },
-  {
+  }),
+  Command.page({
     id: "app.theme",
     group: "settings",
     label: m.chrome_command_menu_change_theme,
     icon: Palette,
     keywords: ["dark", "light", "appearance"],
     page: "theme"
-  },
-  {
+  }),
+  Command.run({
     id: "app.logout",
     group: "account",
     label: m.chrome_command_menu_log_out,
@@ -44,5 +44,5 @@ export const appCommands: ReadonlyArray<Command> = [
       env.close()
       env.execute(logout, undefined)
     }
-  }
+  })
 ]

@@ -9,6 +9,7 @@ import type {
 } from "@pp/shared"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import type { AppHotkey } from "@tanstack/react-hotkeys"
+import * as Data from "effect/Data"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
@@ -83,11 +84,7 @@ export type CommandEnv = Readonly<{
   close: () => void
 }>
 
-type CommandAction =
-  | Readonly<{ page: CommandPage }>
-  | Readonly<{ run: (context: CommandContext, env: CommandEnv) => void }>
-
-export type Command = Readonly<{
+type CommandFields = Readonly<{
   id: string
   group: CommandGroup
   label: (context: CommandContext) => string
@@ -100,8 +97,14 @@ export type Command = Readonly<{
   tool?: ToolName
   bulk?: boolean
   when?: (context: CommandContext) => boolean
-}> &
-  CommandAction
+}>
+
+export type Command = Data.TaggedEnum<{
+  page: CommandFields & Readonly<{ page: CommandPage }>
+  run: CommandFields &
+    Readonly<{ run: (context: CommandContext, env: CommandEnv) => void }>
+}>
+export const Command = Data.taggedEnum<Command>()
 
 const appliesToSelection = (command: Command, context: CommandContext) =>
   context.selection.length < 2 ||
@@ -127,6 +130,8 @@ export const runCommand = (
   env: CommandEnv
 ) => {
   if (command.when?.(context) === false) return
-  if ("page" in command) env.open(command.page)
-  else command.run(context, env)
+  Command.$match(command, {
+    page: ({ page }) => env.open(page),
+    run: ({ run }) => run(context, env)
+  })
 }

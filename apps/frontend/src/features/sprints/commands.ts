@@ -1,11 +1,11 @@
 import { Timer } from "@pp/ui/icons"
 
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import { m } from "@/paraglide/messages"
 
 export const sprintCommands: ReadonlyArray<Command> = [
-  {
+  Command.run({
     id: "sprint.create",
     group: "create",
     label: m.sprints_command_create,
@@ -17,5 +17,5 @@ export const sprintCommands: ReadonlyArray<Command> = [
       env.registry.set(newSprintRequest, { orgSlug, projectSlug })
       env.open("createSprint")
     }
-  }
+  })
 ]

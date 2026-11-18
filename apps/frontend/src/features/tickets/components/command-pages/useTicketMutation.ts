@@ -7,6 +7,7 @@ import {
   commandScopes
 } from "@/features/command-menu/atoms/commandMenu"
 import {
+  commandMenuRow,
   pointedAt,
   type SelectedTicket,
   type TicketContext
@@ -38,7 +39,7 @@ export function useTicketMutation(
     bulkUpdateTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug })
   )
   const updateSelection = scopeSelectionUpdate(useAtomValue(commandScopes))
-  const row = pointedAt(useAtomValue(commandMenuState).row, ticket)
+  const row = pointedAt(commandMenuRow(useAtomValue(commandMenuState)), ticket)
   const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)

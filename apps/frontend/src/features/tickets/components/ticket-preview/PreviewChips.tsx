@@ -11,7 +11,11 @@ import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-import { RELATION_PREVIEW_LABELS, TicketPreviewTrigger } from "./TicketPreview"
+import {
+  RELATION_PREVIEW_LABELS,
+  TicketPreview,
+  TicketPreviewTrigger
+} from "./TicketPreview"
 
 type RelationCounts = Pick<
   Ticket,
@@ -57,7 +61,7 @@ export function RelationChips({
     return (
       <TicketPreviewTrigger
         key={relation}
-        preview={{ kind: "relations", id: ticket.id, relation }}
+        preview={TicketPreview.relations({ id: ticket.id, relation })}
         aria-label={RELATION_PREVIEW_LABELS[relation]()}
         render={
           <Button
@@ -96,7 +100,12 @@ export function SubTicketsChip({
   const label = m.tickets_sub_tickets_progress({ done, total })
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "subTickets", id: ticket.id, label, current, search }}
+      preview={TicketPreview.subTickets({
+        id: ticket.id,
+        label,
+        current,
+        search
+      })}
       aria-label={label}
       render={
         <Button
@@ -119,7 +128,7 @@ export function FlagChip({
   if (ticket.flag === null) return null
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "flag", id: ticket.id, flag: ticket.flag }}
+      preview={TicketPreview.flag({ id: ticket.id, flag: ticket.flag })}
       aria-label={m.tickets_flag_indicator_aria_label()}
       render={
         <Button

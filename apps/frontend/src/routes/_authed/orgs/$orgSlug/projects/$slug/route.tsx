@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import {
   everhourProjectRequest,
   everhourProjectStatusAtom
@@ -34,17 +35,12 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     )()
     return {
       crumb: [
-        {
-          type: "static" as const,
+        Crumb.static({
           label: m.chrome_sidebar_projects(),
           to: "/orgs/$orgSlug/projects",
           params: { orgSlug }
-        },
-        {
-          type: "project" as const,
-          orgSlug,
-          slug
-        }
+        }),
+        Crumb.project({ orgSlug, slug })
       ]
     }
   }

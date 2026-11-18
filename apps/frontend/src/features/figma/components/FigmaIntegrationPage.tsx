@@ -16,6 +16,7 @@ import {
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { IntegrationProjects } from "@/features/integrations/components/IntegrationProjects"
 import {
+  IntegrationState,
   perProjectState,
   useStorageState
 } from "@/features/integrations/hooks/useOrgIntegrations"
@@ -29,6 +30,9 @@ export function FigmaIntegrationPage() {
   const { orgSlug } = routeApi.useParams()
   const storage = useStorageState(orgSlug)
   const state = perProjectState(true, storage)
+  const storageReady =
+    IntegrationState.$is("connected")(storage) ||
+    IntegrationState.$is("attention")(storage)
   const profile = useAtomValue(figmaProfileAtom)
   const personal = Result.isSuccess(profile) ? profile.value.connected : false
 
@@ -60,7 +64,7 @@ export function FigmaIntegrationPage() {
             icon={<IntegrationLogo kind="storage" />}
             label={m.org_integrations_figma_requires_label()}
             description={
-              storage.connected
+              storageReady
                 ? m.org_integrations_figma_requires_ready()
                 : m.org_integrations_figma_requires_missing()
             }
@@ -75,7 +79,7 @@ export function FigmaIntegrationPage() {
                 />
               }
             >
-              {storage.connected
+              {storageReady
                 ? m.org_integrations_manage_button()
                 : m.org_integrations_set_up_button()}
             </Button>

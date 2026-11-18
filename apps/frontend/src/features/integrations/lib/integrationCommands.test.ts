@@ -3,12 +3,13 @@ import { HardDrive } from "@pp/ui/icons"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
 
-import type {
-  CommandContext,
-  CommandEnv
+import {
+  Command,
+  type CommandContext,
+  type CommandEnv
 } from "@/features/command-menu/lib/commands"
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
-import type { IntegrationState } from "@/features/integrations/hooks/useOrgIntegrations"
+import { IntegrationState } from "@/features/integrations/hooks/useOrgIntegrations"
 
 import {
   integrationCommands,
@@ -61,19 +62,12 @@ const entry: IntegrationCommandEntry = {
   prerequisite: true
 }
 
-const missing: IntegrationState = {
-  tone: "idle",
-  label: "Not set up",
-  connected: false,
-  loading: false
-}
+const missing = IntegrationState.notSetUp({ tone: "idle", label: "Not set up" })
 
-const connected: IntegrationState = {
+const connected = IntegrationState.connected({
   tone: "connected",
-  label: "Connected",
-  connected: true,
-  loading: false
-}
+  label: "Connected"
+})
 
 describe("integration commands", () => {
   it.each([
@@ -97,19 +91,25 @@ describe("integration commands", () => {
     },
     {
       name: "broken connection",
-      state: { ...connected, tone: "attention" },
+      state: IntegrationState.attention({
+        tone: "attention",
+        label: "Needs attention"
+      }),
       prerequisite: false,
       suggested: true
     },
     {
       name: "loading connection",
-      state: { ...missing, loading: true },
+      state: IntegrationState.loading({ tone: "idle", label: "" }),
       prerequisite: true,
       suggested: false
     },
     {
       name: "failed status read",
-      state: { ...missing, tone: "attention" },
+      state: IntegrationState.unavailable({
+        tone: "attention",
+        label: "Unavailable"
+      }),
       prerequisite: true,
       suggested: false
     }
@@ -140,7 +140,7 @@ describe("integration commands", () => {
     expect(command).toBeDefined()
     if (command === undefined) throw new Error("Expected a searchable command")
     const searchable = {
-      label: command.label(),
+      label: command.label(context),
       keywords: command.keywords
     }
     for (const query of [
@@ -158,7 +158,7 @@ describe("integration commands", () => {
     const navigate = vi.fn<CommandEnv["navigate"]>()
     const close = vi.fn<CommandEnv["close"]>()
     expect(command).toBeDefined()
-    if (command === undefined || !("run" in command))
+    if (command === undefined || !Command.$is("run")(command))
       throw new Error("Expected a navigation command")
     const registry = AtomRegistry.make()
     const env: CommandEnv = {

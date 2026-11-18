@@ -7,9 +7,9 @@ import {
   Unlink
 } from "@pp/ui/icons"
 
-import type {
+import {
   Command,
-  CommandContext
+  type CommandContext
 } from "@/features/command-menu/lib/commands"
 import { clearBranch } from "@/features/github/atoms/github"
 import { repoUrl } from "@/features/github/lib/branchUrl"
@@ -27,7 +27,7 @@ const openExternal = (url: string) => {
 }
 
 export const gitCommands: ReadonlyArray<Command> = [
-  {
+  Command.page({
     id: "git.register-app",
     group: "settings",
     label: m.github_command_register_app,
@@ -36,8 +36,8 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["github", "app", "registration", "credentials", "setup"],
     when: ({ orgActor }) => orgActor.call("projects", "startGithubAppManifest"),
     page: "githubRegisterApp"
-  },
-  {
+  }),
+  Command.page({
     id: "git.connect-installation",
     group: "settings",
     label: m.github_apps_install_button,
@@ -53,8 +53,8 @@ export const gitCommands: ReadonlyArray<Command> = [
     ],
     when: ({ orgActor }) => orgActor.call("projects", "startGithubInstall"),
     page: "githubInstallApp"
-  },
-  {
+  }),
+  Command.run({
     id: "git.connect-repo",
     group: "settings",
     label: m.github_command_add_repository,
@@ -69,8 +69,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.page({
     id: "git.create-branch",
     group: "ticketGit",
     label: m.tickets_command_create_branch,
@@ -83,8 +83,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       context.projectActor?.call("tickets", "createBranch") === true &&
       repoOf(context) !== null,
     page: "ticketBranch"
-  },
-  {
+  }),
+  Command.page({
     id: "git.link-branch",
     group: "ticketGit",
     label: m.tickets_command_link_branch,
@@ -97,8 +97,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       context.projectActor?.call("tickets", "attachBranch") === true &&
       repoOf(context) !== null,
     page: "ticketLinkBranch"
-  },
-  {
+  }),
+  Command.page({
     id: "git.stack-branch",
     group: "ticketGit",
     label: m.tickets_command_stack_branch,
@@ -110,8 +110,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       context.tickets.stackBranch &&
       repoOf(context) !== null,
     page: "ticketStackBranch"
-  },
-  {
+  }),
+  Command.run({
     id: "git.unlink-branch",
     group: "ticketGit",
     label: m.tickets_command_unlink_branch,
@@ -132,8 +132,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       )
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "git.copy-branch",
     hotkey: appHotkeys["tickets.copy-branch"],
     group: "ticketGit",
@@ -148,8 +148,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       if (ticketData?.branch) env.copy(ticketData.branch)
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "git.open-branch",
     group: "ticketGit",
     label: m.tickets_command_open_branch,
@@ -167,8 +167,8 @@ export const gitCommands: ReadonlyArray<Command> = [
       }
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "git.open-pr",
     group: "ticketGit",
     label: m.tickets_command_open_pr,
@@ -186,5 +186,5 @@ export const gitCommands: ReadonlyArray<Command> = [
       }
       env.close()
     }
-  }
+  })
 ]

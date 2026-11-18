@@ -6,7 +6,10 @@ import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import {
+  TicketPreview,
+  TicketPreviewTrigger
+} from "@/features/tickets/components/ticket-preview/TicketPreview"
 
 import { EpicLink } from "./EpicLabel"
 
@@ -15,7 +18,7 @@ import { EpicLink } from "./EpicLabel"
 // hover and the parent on click.
 export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const preview = { kind: "ticket", id: parent.id } as const
+  const preview = TicketPreview.ticket({ id: parent.id })
   const full = isEpic(parent) ? (
     <TicketPreviewTrigger
       preview={preview}

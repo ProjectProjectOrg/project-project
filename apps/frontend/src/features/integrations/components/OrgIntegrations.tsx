@@ -13,7 +13,7 @@ import {
   useGithubAppState,
   useSlackState,
   useStorageState,
-  type IntegrationState
+  IntegrationState
 } from "@/features/integrations/hooks/useOrgIntegrations"
 import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
 import { useOrgActor } from "@/hooks/useActor"
@@ -93,10 +93,10 @@ export function OrgIntegrations() {
     }
   ]
   if (
-    github.loading ||
-    storage.loading ||
-    (canManageEmail && email.loading) ||
-    (canManageSlack && slack.loading)
+    IntegrationState.$is("loading")(github) ||
+    IntegrationState.$is("loading")(storage) ||
+    (canManageEmail && IntegrationState.$is("loading")(email)) ||
+    (canManageSlack && IntegrationState.$is("loading")(slack))
   )
     return (
       <div className={INTEGRATION_GRID_CLASS}>

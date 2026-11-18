@@ -2,6 +2,7 @@ import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
+import { Crumb } from "@/components/shell/Breadcrumbs"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   sprintList,
@@ -36,12 +37,7 @@ export const Route = createFileRoute(
       sprintList(sprintListRequest(params.orgSlug, params.slug))
     )()
     return {
-      crumb: {
-        type: "ticket" as const,
-        orgSlug: params.orgSlug,
-        slug: params.slug,
-        id
-      }
+      crumb: Crumb.ticket({ orgSlug: params.orgSlug, slug: params.slug, id })
     }
   }
 })

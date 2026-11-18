@@ -3,7 +3,7 @@ import { CircleDot, Layers, ListTree, Timer } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { m } from "@/paraglide/messages"
 
 import type { GroupingOption } from "./GroupingMenu"
@@ -28,19 +28,18 @@ export function BacklogGroupingControl({
     () => ({
       commands: groupingOptions()
         .filter((option) => option.key !== value)
-        .map(
-          (option) =>
-            ({
-              id: `view.group-by.${option.key}`,
-              group: "view",
-              label: () => m.tickets_grouping_label({ label: option.label }),
-              icon: option.icon,
-              keywords: ["group", "grouping", "sections"],
-              run: (_context, env) => {
-                onChange(option.key)
-                env.close()
-              }
-            }) satisfies Command
+        .map((option) =>
+          Command.run({
+            id: `view.group-by.${option.key}`,
+            group: "view",
+            label: () => m.tickets_grouping_label({ label: option.label }),
+            icon: option.icon,
+            keywords: ["group", "grouping", "sections"],
+            run: (_context, env) => {
+              onChange(option.key)
+              env.close()
+            }
+          })
         )
     }),
     [value, onChange]

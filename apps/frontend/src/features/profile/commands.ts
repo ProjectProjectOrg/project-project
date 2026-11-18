@@ -1,10 +1,10 @@
 import { Bot, CodeXml, Terminal } from "@pp/ui/icons"
 
-import type { Command } from "@/features/command-menu/lib/commands"
+import { Command } from "@/features/command-menu/lib/commands"
 import { m } from "@/paraglide/messages"
 
 export const profileCommands: ReadonlyArray<Command> = [
-  {
+  Command.page({
     id: "profile.editor",
     group: "settings",
     label: m.profile_command_editor,
@@ -20,8 +20,8 @@ export const profileCommands: ReadonlyArray<Command> = [
       "open branch"
     ],
     page: "editorPreference"
-  },
-  {
+  }),
+  Command.run({
     id: "profile.cli",
     group: "navigation",
     label: m.profile_command_cli,
@@ -41,8 +41,8 @@ export const profileCommands: ReadonlyArray<Command> = [
       env.navigate("/profile/agents")
       env.close()
     }
-  },
-  {
+  }),
+  Command.run({
     id: "profile.mcp",
     group: "navigation",
     label: m.profile_command_mcp,
@@ -64,5 +64,5 @@ export const profileCommands: ReadonlyArray<Command> = [
       env.navigate("/profile/agents")
       env.close()
     }
-  }
+  })
 ]
