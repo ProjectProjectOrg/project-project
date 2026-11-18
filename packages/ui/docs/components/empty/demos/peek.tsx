@@ -1,3 +1,4 @@
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import {
   CommandMenu,
   CommandMenuInput,
@@ -11,7 +12,7 @@ import { cn } from "@pp/ui/lib/utils"
 // The ⌘K peek pane with nothing to show.
 
 const surfaceClass =
-  "flex w-full flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground [corner-shape:var(--button-corner)]"
+  `${popupSurfaceClass} flex w-full flex-col overflow-hidden`
 
 const PEEK_ROWS = [
   { value: "PP-212", label: "Billing page shows stale plan" },
@@ -53,7 +54,7 @@ function PeekFrame() {
               </EmptyHeader>
             </Empty>
           </aside>
-          <div className="relative z-10 flex min-h-0 w-[42%] min-w-0 shrink-0 flex-col border-r border-border/60 bg-popover">
+          <div className="relative z-10 flex min-h-0 w-[42%] min-w-0 shrink-0 flex-col border-r border-(--segment-line) bg-(color:--tooltip)">
             <CommandMenuList
               aria-label="Tickets"
               className="min-h-0 flex-1"

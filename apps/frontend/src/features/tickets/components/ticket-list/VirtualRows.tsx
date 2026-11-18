@@ -16,6 +16,7 @@ import { useDeferredOverscan } from "./useDeferredOverscan"
 const OVERSCAN = 12
 const MOUNT_MARGIN = 336
 const UNMOUNT_MARGIN = 3000
+const ROW_GAP = 4
 
 export function VirtualRows({
   rowKeys,
@@ -56,7 +57,7 @@ export function VirtualRows({
     getScrollElement,
     getItemKey,
     estimateSize: () => listRowHeight,
-    gap: 4,
+    gap: ROW_GAP,
     overscan,
     enabled: scrollMargin !== null,
     scrollMargin: scrollMargin ?? 0,
@@ -134,13 +135,14 @@ export function VirtualRows({
 
   useLayoutEffect(() => {
     if (reveal === null || reveal === revealed.current) return
-    const link = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${reveal.index + 1}"] [data-item-link]`
+    const row = listRef.current?.querySelector<HTMLElement>(
+      `:scope > [aria-posinset="${reveal.index + 1}"]`
     )
-    if (!link) return
+    const link = row?.querySelector<HTMLElement>("[data-item-link]")
+    if (!row || !link) return
     revealed.current = reveal
     link.focus({ preventScroll: true })
-    link.scrollIntoView({ block: "nearest" })
+    row.scrollIntoView({ block: "nearest" })
   })
 
   useLayoutEffect(() => {
@@ -170,7 +172,10 @@ export function VirtualRows({
         <li
           key={row.key}
           className="col-span-full grid grid-cols-subgrid"
-          style={{ gridRow: row.index + 1 }}
+          style={{
+            gridRow: row.index + 1,
+            scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
+          }}
           aria-posinset={row.index + 1}
           aria-setsize={rowKeys.length}
           onFocusCapture={() => setFocusedIndex(row.index)}
@@ -191,7 +196,7 @@ const visibleBand = (root: HTMLElement, row: HTMLElement) => {
       getComputedStyle(row).getPropertyValue("--list-sticky-top")
     ) || 0
   return {
-    top: rootRect.top + pinned + listRowHeight,
+    top: rootRect.top + pinned + listRowHeight + ROW_GAP,
     bottom: rootRect.bottom
   }
 }

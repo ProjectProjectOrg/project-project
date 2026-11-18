@@ -110,6 +110,7 @@ export function ListHoverScope({
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
   const sessionRef = useRef(0)
+  const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
   const track = useCallback(() => {
@@ -118,6 +119,11 @@ export function ListHoverScope({
     const at = point.current
     if (!container) return
     const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
+    if (litRow.current !== row) {
+      litRow.current?.removeAttribute("data-hover-highlight")
+      row?.setAttribute("data-hover-highlight", "")
+      litRow.current = row
+    }
     if (!row) {
       setHovered(null)
       return
@@ -166,6 +172,7 @@ export function ListHoverScope({
       root.removeEventListener("scroll", onScroll)
       popups.disconnect()
       cancelAnimationFrame(frame.current)
+      litRow.current?.removeAttribute("data-hover-highlight")
     }
   }, [schedule])
 
@@ -302,8 +309,8 @@ export function ListRow({
         </div>
         {/* Squeezed, chips that no longer fit wrap onto a second line that
           is clipped away, so whole chips drop out instead of being cut in
-          half. The 4px padding keeps focus rings inside the clip. */}
-        <div className="-my-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden py-1 [&>fieldset>span:empty]:hidden">
+          half. The 4px padding on every side keeps focus rings inside the clip. */}
+        <div className="-m-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden p-1 [&>fieldset>span:empty]:hidden">
           {trailing}
         </div>
         <fieldset disabled={disabled} className="contents">

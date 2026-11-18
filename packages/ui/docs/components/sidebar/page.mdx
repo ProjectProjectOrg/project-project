@@ -167,7 +167,7 @@ A live row is the page you are on but haven't pinned. It is outlined with the se
 
 ### Pinning motion
 
-Pinned rows live in a `SidebarRowGroup`: a row grows in from 0 height over 220ms, shrinks out over 160ms, and the rows around it glide to their new places (a motion `layout` on position). Nothing pops. Pinning a live row keeps it mounted under the same key: its outline fades out, and the accent fill flashes out over 420ms (`highlight`). Unpinning the page you are on turns the row back into the live row at the top, gliding there. Reduced motion keeps only the fades.
+Pinned rows live in a `SidebarRowGroup`: a row grows in from 0 height over 220ms and shrinks out over 160ms (the last row in a group leaves at once, so an emptied group doesn't linger), and the rows around it glide to their new places (a motion `layout` on position). Nothing pops. Pinning a live row keeps it mounted under the same key: its outline fades out, and the accent fill flashes out over 420ms (`highlight`). Unpinning the page you are on turns the row back into the live row at the top, gliding there. Reduced motion keeps only the fades.
 
 ### Reordering
 

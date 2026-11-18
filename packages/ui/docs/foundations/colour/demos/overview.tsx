@@ -127,13 +127,17 @@ function Inks() {
 const OVERLAYS = [
   ["bg-hover", "--hover", "Hover"],
   ["bg-active", "--active", "Pressed"],
-  ["bg-tint", "--tint", "Secondary fill"]
+  ["bg-tint", "--tint", "Secondary fill"],
+  ["bg-menu-hover", "--menu-hover", "Menu hover"],
+  ["bg-menu-active", "--menu-active", "Menu pressed"]
 ] as const
 
 const BASES = [
   ["bg-background", "Frame"],
   ["bg-page", "Page"],
   ["bg-card", "Card"],
+  ["bg-(color:--tooltip)", "Popup"],
+  ["bg-(color:--tooltip-raised)", "Raised popup"],
   ["bg-[oklch(0.7_0.16_255)]", "A colour"]
 ] as const
 
@@ -141,7 +145,7 @@ const BASES = [
 // under it, which a fixed grey never could.
 function Overlays() {
   return (
-    <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 @xl:grid-cols-[repeat(4,minmax(0,1fr))]">
+    <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 @xl:grid-cols-[repeat(3,minmax(0,1fr))]">
       {BASES.map(([base, name]) => (
         <div
           key={name}

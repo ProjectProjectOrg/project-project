@@ -22,6 +22,8 @@ import {
   Split,
   Trash2
 } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { atPointerMotionClass } from "@pp/ui/menu-styles"
 import { Popover } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -165,8 +167,8 @@ export function TicketContextMenu({
           side="bottom"
           align="start"
           sideOffset={2}
-          collisionAvoidance={{ side: "shift", align: "shift" }}
-          className="w-52"
+          collisionAvoidance={{ side: "flip", align: "flip" }}
+          className={cn("w-52", atPointerMotionClass)}
           style={instant ? { animation: "none" } : undefined}
           onContextMenu={suppressNativeMenu}
         >

@@ -327,7 +327,7 @@ function RowCheckbox({
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
       variant="quiet"
-      className="opacity-0 not-in-data-keyboard-navigation:group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
+      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
     />
   )
 }

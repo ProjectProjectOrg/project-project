@@ -73,16 +73,19 @@ export function ViewOptions() {
 | `collisionBoundary`  | `Element \| "clipping-ancestors"`        |            |
 | `collisionPadding`   | `number`                                 |            |
 | `keepMounted`        | `boolean` (keep the popup in the DOM)    | `false`    |
+| `surface`            | `"popup" \| "hover"`: a click-opened panel, or the hover card's skin and 14px corners for content shown on hover | `"popup"` |
 
 ## Rules
 
 ### One surface for every popup
 
-Popover, dropdown menu, select, context menu and hover card all use `popupSurfaceClass` from `menu-styles.ts`: the card fill, a 60% hairline border and 20px corners. A popover opened next to a menu looks like the same kind of thing, so restyle the shared class, never one popup.
+Popover, dropdown menu, select and context menu all use `popupSurfaceClass` from `menu-styles.ts`: the tooltip's raised skin (the `--tooltip` fill, the `--tooltip-edge` hairline and top light) with 19px squircle corners. Tooltips and hover cards wear the same skin through the tooltip host, so whatever floats reads as one family. Restyle the shared class, never one popup.
+
+A popup opened from inside another (a select in View options) steps one level up, to `--tooltip-raised` (lighter in dark; light stays white and relies on the edge), so it floats above its parent instead of reading as a cut-out of it. Popovers, menus and selects do this themselves through `PopupLayerContext`.
 
 ### No shadows
 
-The hairline alone separates the panel from the page, in light and dark. Shadows stay off popups, including callsite overrides such as `shadow-md`.
+The raised fill and the hairline separate the panel from the page, in light and dark. Shadows stay off popups, including callsite overrides such as `shadow-md`.
 
 ### Same motion as menus
 

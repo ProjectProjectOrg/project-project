@@ -13,7 +13,6 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { Hitbox } from "@pp/ui/hitbox"
 import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
@@ -99,32 +98,20 @@ function TriggerVisual({
       </>
     )
   }
-  if (variant === "card") {
-    // Like the row's: the empty face waits for the card's hover, focus or
-    // open menu.
-    return (
-      <>
-        {empty && (
-          <span className="grid size-5 place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-[opacity,color,background-color] corner-squircle not-in-data-keyboard-navigation:group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 in-data-keyboard-navigation:duration-0 hitbox-hover:bg-hover hitbox-hover:text-foreground">
-            <UserRound className="size-3" strokeWidth={1.75} />
-          </span>
-        )}
-        <Avatars resolved={resolved} size={20} />
-      </>
-    )
-  }
-  // In a row the empty face waits for the row's hover (or focus, or its
-  // open menu), so unassigned rows don't fill the column with placeholders.
   return (
-    <span className="inline-flex items-center text-muted-foreground transition-colors hitbox-hover:text-foreground">
-      {empty && (
-        <span className="grid size-5 shrink-0 place-items-center rounded-full opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity corner-squircle not-in-data-keyboard-navigation:group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 in-data-keyboard-navigation:duration-0">
-          <UserRound className="size-3" strokeWidth={1.75} />
-        </span>
-      )}
+    <>
+      {empty && <UserRound className="size-3" strokeWidth={1.75} />}
       <Avatars resolved={resolved} size={20} />
-    </span>
+    </>
   )
+}
+
+// Unassigned, the outlined button waits for the row's (or card's) hover,
+// focus or open menu, so empty tickets don't fill the column with
+// placeholders.
+const emptyRevealClass = {
+  row: "opacity-0 motion-safe:duration-(--highlight-glide) not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 in-data-keyboard-navigation:duration-0!",
+  card: "opacity-0 not-in-data-keyboard-navigation:group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 in-data-keyboard-navigation:duration-0!"
 }
 
 function Trigger({
@@ -168,16 +155,26 @@ function Trigger({
     >
       <DropdownMenuTrigger
         render={
-          <Hitbox
-            mode="inline"
-            margin="2"
+          <Button
+            type="button"
+            variant="ghost"
+            tone={empty ? "muted" : "strong"}
+            size="square-6"
             onClick={(e) => e.stopPropagation()}
             aria-label={label}
-            // A 24px target around the 20px face in rows.
-            className={cn("min-h-6 min-w-6 justify-center", className)}
+            // Square around one face, as wide as a stack of them.
+            className={cn(
+              "w-auto min-w-6",
+              empty &&
+                cn(
+                  "shadow-[inset_0_0_0_1px_var(--border)]",
+                  emptyRevealClass[variant]
+                ),
+              className
+            )}
           >
             {children}
-          </Hitbox>
+          </Button>
         }
       />
     </ShortcutTooltip>

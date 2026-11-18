@@ -44,7 +44,7 @@ import {
 } from "./fluid-hover-highlight"
 import { Check, Minus } from "./icons"
 import { KbdShortcut } from "./kbd"
-import { menuItemClass } from "./menu-styles"
+import { menuItemClass, popupSurfaceClass } from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
 import { ScrollArea } from "./scroll-area"
 import { SegmentedTabs } from "./segmented-tabs"
@@ -872,9 +872,47 @@ const PULSE_RELEASE = {
   restDelta: 0.002
 } as const
 
-// The cmd+k panel's surface, also for showing a cmd+k page in place.
-const commandMenuPanelClass =
-  "flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none [corner-shape:var(--button-corner)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+// The cmd+k panel's surface, also for showing a cmd+k page in place: the
+// popup skin every floating panel wears (popupSurfaceClass), at cmd+k's
+// width.
+const commandMenuPanelClass = `${popupSurfaceClass} flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden`
+
+// What had focus while the panel was closed. Cmd+k opens from a hotkey, so
+// it has no trigger to return to; without this Base UI falls back to the
+// last control it remembers (an earlier popover's trigger) even after focus
+// left it. Closing returns to what you were on (a row, the search field), or
+// leaves focus where it is when that was the page itself.
+function useFocusBeforeOpen(open: boolean) {
+  const opener = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (open) return undefined
+    // Focus moving into or out of the panel itself (opening, the close
+    // animation) is the panel's, not the page's.
+    const inPanel = (node: EventTarget | Element | null) =>
+      node instanceof Element &&
+      node.closest('[data-slot="command-menu-dialog"]') !== null
+    const remember = () => {
+      const active = document.activeElement
+      if (inPanel(active)) return
+      opener.current =
+        active instanceof HTMLElement && active !== document.body
+          ? active
+          : null
+    }
+    remember()
+    const forget = (event: FocusEvent) => {
+      if (event.relatedTarget === null && !inPanel(event.target))
+        opener.current = null
+    }
+    document.addEventListener("focusin", remember)
+    document.addEventListener("focusout", forget)
+    return () => {
+      document.removeEventListener("focusin", remember)
+      document.removeEventListener("focusout", forget)
+    }
+  }, [open])
+  return opener
+}
 
 function CommandMenuDialog({
   open,
@@ -940,6 +978,7 @@ function CommandMenuDialog({
   useHotkey(shortcut, (event) => {
     if (!event.repeat) onOpenChange(true)
   })
+  const opener = useFocusBeforeOpen(open)
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -951,6 +990,9 @@ function CommandMenuDialog({
         <DialogPrimitive.Popup
           ref={popupRef}
           data-slot="command-menu-dialog"
+          finalFocus={() =>
+            opener.current?.isConnected === true && opener.current
+          }
           className={cn(
             "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
             commandMenuPanelClass,

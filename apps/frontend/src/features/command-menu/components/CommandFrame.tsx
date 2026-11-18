@@ -318,8 +318,8 @@ export function CommandFrame({
         <motion.div
           style={peek.style}
           className={cn(
-            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-popover",
-            peek.mounted && "border-r border-border/60"
+            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-(color:--tooltip)",
+            peek.mounted && "border-r border-(--segment-line)"
           )}
         >
           <CommandMenuList

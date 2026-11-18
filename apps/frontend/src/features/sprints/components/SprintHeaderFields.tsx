@@ -84,8 +84,9 @@ export function SprintStatusSelect({
               mode="inline"
               margin="1"
               aria-label={m.sprints_status_aria_label()}
+              className="-mt-1 rounded-lg"
             >
-              <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
+              <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
                 <SprintStateIcon sprint={sprint} size="lg" />
               </span>
             </Hitbox>

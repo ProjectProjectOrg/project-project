@@ -45,7 +45,7 @@ import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
 
 Where an avatar changes in front of the person (picking a profile photo, a name being typed), use `DissolveAvatar` from `@pp/ui/dissolve-avatar`: it takes the same `member`, `size` and `label`, and dithers from the old look to the new one.
 
-`AvatarStack` takes `subjects`, `size` and `max` (default 4), and shows `+n` for the rest. Hovering or focusing the `+n` shows a tooltip listing the people it stands for, each with their avatar and name.
+`AvatarStack` takes `subjects`, `size` and `max` (default 4), and shows `+n` for the rest. Hovering or focusing the `+n` shows a tooltip listing the people it stands for, each with their avatar and name; `countTooltip={false}` turns that off where the stack sits inside a control with a tooltip of its own (a trigger can't nest in a button). `animated` grows and fades people in and out as they join or leave instead of popping (a stack that follows a selection), and `overlap` sets how far each avatar tucks under the one before it, in px (8 by default).
 
 ## Rules
 

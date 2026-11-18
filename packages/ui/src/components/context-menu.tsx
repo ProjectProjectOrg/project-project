@@ -9,7 +9,7 @@ import {
 import { cn } from "../lib/utils"
 import { DropdownMenuPortal, pickNumberedItem } from "./dropdown-menu"
 import { MenuHighlight } from "./menu-highlight"
-import { menuPopupClass } from "./menu-styles"
+import { atPointerMotionClass, menuPopupClass } from "./menu-styles"
 
 function ContextMenu({
   actionsRef: givenActions,
@@ -59,7 +59,7 @@ function ContextMenuContent({
             onKeyDown?.(event)
             event.stopPropagation()
           }}
-          className={cn(menuPopupClass, className)}
+          className={cn(menuPopupClass, atPointerMotionClass, className)}
           {...props}
         >
           <MenuHighlight />

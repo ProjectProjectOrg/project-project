@@ -12,6 +12,22 @@
    with no pointer (menu-highlight.tsx). */
 @custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting]));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
+/* A row's hover reveals: in a ListHoverScope they follow the gliding
+   highlight (the row it marks data-hover-highlight), so they light up in the
+   same frame it sets off for that row; elsewhere, the row's own hover. */
+@custom-variant row-hover (&:is(:where(.group\/reveal)[data-hover-highlight] *, :where(.group\/reveal):not(:where([data-slot="list-hover-scope"] *)):hover *));
+
+/* Button's transition: everything that changes on hover and press, but not
+   the outline, so the focus ring appears at once instead of growing in. */
+@utility transition-control {
+  transition-property:
+    scale, color, background-color, border-color, box-shadow, opacity;
+  transition-timing-function: var(
+    --tw-ease,
+    var(--default-transition-timing-function)
+  );
+  transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
 
 /* Allo (OFL), the interface face: the variable font (weight, roundness,
    optical size) plus its drawn obliques for italics. Roundness is set on
@@ -76,6 +92,9 @@
      column (checkbox, chevron) on the icons of the fields above the list
      (composer, search), which sit 17px in. */
   --list-pad-start: 5px;
+  /* How long the list's hover highlight takes to glide to a row (spring.fast
+     in springs.ts), so a row's hover reveals fade in as it arrives. */
+  --highlight-glide: 80ms;
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
      Pages sit one step up on --page, cards and popups one more on --card.
      The sidebar's icon rail sits one step below, on --rail. */
@@ -206,6 +225,11 @@
      muted and the foreground, since grey on the raised fill reads washed
      out. Highlighted rows take the full foreground. */
   --menu-foreground: var(--muted-foreground);
+  /* A field inside a popup (a search in a menu, View options' selects): one
+     small step below the popup fill, as fields sit below the page, instead
+     of the page's deep well. */
+  --field-popup: var(--field);
+  --field-hover-popup: var(--field-hover);
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
@@ -235,8 +259,8 @@
   /* Bare fields (composer titles, in-place names) sit in running text, so
      their hover is lighter than a control's --hover, and focus lighter
      still: "you are typing here", not a highlight. */
-  --field-hover: rgb(0 0 0 / 0.025);
-  --field-focus: rgb(0 0 0 / 0.015);
+  --field-hover: rgb(0 0 0 / 0.045);
+  --field-focus: rgb(0 0 0 / 0.025);
   /* A bare field's placeholder: hover and focus step it toward the text
      colour, staying in the placeholder range. */
   /* A comment's bubble: the page lifted toward the text colour, so a
@@ -347,7 +371,7 @@
     0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
-  --hover: rgb(255 255 255 / 0.04);
+  --hover: rgb(255 255 255 / 0.06);
   --chip-label: oklch(1 0 0 / 5%);
   --chip-label-hover: oklch(1 0 0 / 9%);
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 4%), transparent 55%);
@@ -361,6 +385,10 @@
   --menu-active: rgb(255 255 255 / 0.13);
   --tooltip-raised: oklch(0.33 0 0);
   --menu-foreground: oklch(0.86 0 0);
+  --field-popup: oklch(0.22 0 0);
+  /* Gentler than --field-hover, so a hovered field brightens but stays
+     below the popup fill instead of melting into it. */
+  --field-hover-popup: rgb(255 255 255 / 0.04);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
@@ -374,9 +402,9 @@
   --button-tertiary-hover: oklch(1 0 0 / 9%);
   --button-tertiary-active: oklch(1 0 0 / 13%);
   --avatar-lit: rgb(255 255 255 / 0.22);
-  --active: rgb(255 255 255 / 0.1);
-  --field-hover: rgb(255 255 255 / 0.03);
-  --field-focus: rgb(255 255 255 / 0.02);
+  --active: rgb(255 255 255 / 0.12);
+  --field-hover: rgb(255 255 255 / 0.06);
+  --field-focus: rgb(255 255 255 / 0.035);
   --comment-bubble: color-mix(in oklab, var(--page), var(--foreground) 5%);
   --placeholder-hover: color-mix(
     in oklab,
@@ -523,16 +551,16 @@
 .transition-opacity:hover,
 .transition-all:hover,
 .transition:hover,
-.motion-safe\:transition-all:hover,
+.motion-safe\:transition-control:hover,
 .transition-colors[data-highlighted],
 .transition-all[data-highlighted],
-.motion-safe\:transition-all[data-highlighted],
+.motion-safe\:transition-control[data-highlighted],
 .transition-colors[data-selected="true"],
 .transition-all[data-selected="true"],
-.motion-safe\:transition-all[data-selected="true"],
+.motion-safe\:transition-control[data-selected="true"],
 [data-hovered].transition-colors,
 [data-hovered].transition-opacity,
-[data-hovered].motion-safe\:transition-all,
+[data-hovered].motion-safe\:transition-control,
 [data-hovered] .transition-colors,
 [data-hovered] .transition-opacity,
 .group\/hitbox:hover .transition-colors,
