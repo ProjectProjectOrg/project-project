@@ -21,9 +21,11 @@ import { Button } from "./button"
 import { ChevronDown } from "./icons"
 import { MenuHighlight } from "./menu-highlight"
 import {
+  PopupLayerContext,
   menuItemClass,
   menuPopupClass,
-  menuSeparatorClass
+  menuSeparatorClass,
+  useRaisedPopupClass
 } from "./menu-styles"
 import { TextSwap } from "./text-swap"
 
@@ -356,6 +358,7 @@ function SelectContent({
   finalFocus
 }: SelectContentProps) {
   const anchor = usePopupAnchor(undefined)
+  const raisedClass = useRaisedPopupClass()
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -371,6 +374,7 @@ function SelectContent({
           onClick={(event) => event.stopPropagation()}
           className={cn(
             menuPopupClass,
+            raisedClass,
             // At least 192px so a compact trigger still gets a list wide
             // enough to read, and at least as wide as a wider trigger.
             "min-w-[max(12rem,var(--anchor-width))]",
@@ -378,7 +382,7 @@ function SelectContent({
           )}
         >
           <MenuHighlight />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>
     </SelectPrimitive.Portal>

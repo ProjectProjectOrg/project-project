@@ -10,9 +10,16 @@ export const transitions = {
   presence: { duration: 0.18, ease: standardEase }
 } as const
 
-// The one set of springs: fast, moderate and slow, each with the duration of
-// its exit animation.
+// The one set of springs: snap, fast, moderate and slow, each with the
+// duration of its exit animation. Snap is for a highlight that follows the
+// pointer through menu rows, where anything slower trails behind it.
 export const spring = {
+  snap: {
+    type: "spring" as const,
+    duration: 0.05,
+    bounce: 0,
+    exit: { duration: 0.05 }
+  },
   fast: {
     type: "spring" as const,
     duration: 0.08,

@@ -90,7 +90,7 @@ export function MentionMenu({
         roleDescription={m.common_scroll_area_label()}
         viewportClassName="max-h-96 [&>div[style]]:!block [&>div[style]]:!min-w-0"
       >
-        <div className="relative p-1">
+        <div className="relative p-[5px]">
           <MenuHighlight />
           {groups.map(({ provider, candidates, note }, groupIndex) => (
             <div

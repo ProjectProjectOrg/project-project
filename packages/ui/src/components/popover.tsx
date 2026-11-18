@@ -8,7 +8,12 @@ import {
   useTriggerAnchorRef
 } from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
-import { popupMotionClass, popupSurfaceClass } from "./menu-styles"
+import {
+  PopupLayerContext,
+  popupMotionClass,
+  popupSurfaceClass,
+  useRaisedPopupClass
+} from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
 import { hoverCardSurfaceClass } from "./tooltip"
 
@@ -79,6 +84,7 @@ function PopoverContent({
   ...props
 }: PopoverContentProps) {
   const popupAnchor = usePopupAnchor(anchor)
+  const raisedClass = useRaisedPopupClass()
   return (
     <PopoverPortal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
@@ -100,6 +106,7 @@ function PopoverContent({
                   hoverCardSurfaceClass
                 )
               : popupSurfaceClass,
+            raisedClass,
             popupMotionClass,
             "p-3",
             className
@@ -113,7 +120,7 @@ function PopoverContent({
             </div>
           )}
         >
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPortal>

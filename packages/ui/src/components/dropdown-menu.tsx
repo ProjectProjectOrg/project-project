@@ -35,11 +35,13 @@ import {
 import { LogoLoader } from "./logo"
 import { MenuHighlight, chosenRow } from "./menu-highlight"
 import {
+  PopupLayerContext,
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
   menuSeparatorClass,
-  menuSurfaceClass
+  menuSurfaceClass,
+  useRaisedPopupClass
 } from "./menu-styles"
 import { TextSwap } from "./text-swap"
 
@@ -291,6 +293,7 @@ function DropdownMenuPopup({
   ...props
 }: DropdownMenuContentProps) {
   const popupAnchor = usePopupAnchor(anchor)
+  const raisedClass = useRaisedPopupClass()
   return (
     <DropdownMenuPortal>
       <MenuPrimitive.Positioner
@@ -312,12 +315,12 @@ function DropdownMenuPopup({
             onKeyDown?.(event)
             event.stopPropagation()
           }}
-          className={cn(menuPopupClass, className)}
+          className={cn(menuPopupClass, raisedClass, className)}
           {...props}
         >
           <MenuHighlight restOnFirst={highlightFirst} />
           <StartOnChecked />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>
@@ -348,7 +351,7 @@ function DropdownMenuItem({
         menuItemClass,
         "data-[inset]:pl-8",
         "data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:text-destructive",
-        "data-[variant=destructive]:*:[svg]:text-destructive!",
+        "data-[variant=destructive]:[&_svg]:text-destructive!",
         className
       )}
       {...props}
@@ -748,7 +751,7 @@ function DropdownMenuList({
   return (
     <MenuPrimitive.List
       data-slot="dropdown-menu-list"
-      className={cn("relative -mx-1 overflow-x-hidden px-1", className)}
+      className={cn("relative -mx-[5px] overflow-x-hidden px-[5px]", className)}
       {...props}
     >
       <MenuHighlight />
@@ -825,7 +828,7 @@ function DropdownMenuShortcut({
   )
 }
 
-// Rows sit 5px inside the popup (4px padding, 1px border). The submenu is
+// Rows sit 5px inside the popup (its padding). The submenu is
 // placed against the row, so the side offset adds that inset back for a
 // 2px gap between the two surfaces, and the align offset lines its first
 // row up with the trigger row.
@@ -859,7 +862,6 @@ type SubTriggerHotkey =
 function DropdownMenuSubTrigger({
   className,
   inset,
-  delay = 0,
   hotkey,
   keyLabels,
   children,
@@ -870,7 +872,7 @@ function DropdownMenuSubTrigger({
   }) {
   return (
     <MenuPrimitive.SubmenuTrigger
-      delay={delay}
+      delay={0}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
@@ -900,6 +902,13 @@ type DropdownMenuSubContentProps = React.ComponentProps<
     "align" | "alignOffset" | "side" | "sideOffset"
   >
 
+// Base UI keeps a closing popup mounted until its exit transition ends, so
+// the submenu being left fades out while the next one opens beside it and
+// the menu never shows a frame without one. Escape and keyboard closes are
+// marked data-instant and skip the fade.
+const submenuExitClass =
+  "transition-opacity duration-80 ease-standard data-[ending-style]:opacity-0 data-[instant]:transition-none"
+
 function DropdownMenuSubContent({
   className,
   align,
@@ -920,12 +929,12 @@ function DropdownMenuSubContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
-          className={cn(menuSurfaceClass, className)}
+          className={cn(menuSurfaceClass, submenuExitClass, className)}
           {...props}
         >
           <MenuHighlight restOnFirst />
           <StartOnChecked />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>

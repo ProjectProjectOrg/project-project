@@ -151,7 +151,13 @@ function observeHighlight(
     passive: true
   })
   measure(pointer)
-  const mutations = new MutationObserver(remeasure)
+  // A row change is measured in the same frame Base UI marks it; only the
+  // pointer, which moves many times a frame, waits for the next one.
+  const mutations = new MutationObserver(() => {
+    cancelAnimationFrame(frame)
+    frame = 0
+    measure(pointer)
+  })
   mutations.observe(container, {
     subtree: true,
     childList: true,
@@ -243,7 +249,7 @@ export function MenuHighlight({
               opacity: 0,
               transition: { duration: restOnFirst ? 0 : 0.15 }
             }}
-            transition={reduceMotion ? { duration: 0 } : spring.fast}
+            transition={reduceMotion ? { duration: 0 } : spring.snap}
           />
         )}
       </AnimatePresence>
