@@ -172,9 +172,9 @@ export const coalescingMutation = <V, VE, Patch extends object, A, E>(
   )
 }
 
-export const replaceWith = <V>(_current: V, confirmed: V): V => confirmed
+export const replaceWith = <V>(_current: V, confirmed: V) => confirmed
 
-export const keepPredicted = <V>(current: V): V => current
+export const keepPredicted = <V>(current: V) => current
 
 export const bindRowMutation = <Req, Id, A extends object>(
   family: (key: Readonly<{ req: Req; id: Id }>) => A
@@ -184,7 +184,7 @@ export const fireMutation = <A, E, I>(
   registry: Registry.AtomRegistry,
   atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, I>,
   input: I
-): Promise<AsyncResult.AsyncResult<A, E>> => {
+) => {
   const unmount = registry.mount(atom)
   registry.set(atom, input)
   return Effect.runPromiseExit(

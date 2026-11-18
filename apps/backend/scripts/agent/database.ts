@@ -63,10 +63,7 @@ const decodeMarker = Schema.decodeUnknownSync(
   Schema.Struct({ marker: Schema.NullOr(Schema.String) })
 )
 
-export async function server(
-  root: string,
-  create: boolean
-): Promise<Readonly<{ id: string; port: string }>> {
+export async function server(root: string, create: boolean) {
   const names = await command(
     [
       "docker",
@@ -166,21 +163,21 @@ export async function server(
   return { id: info.Id, port: binding.HostPort }
 }
 
-export function databaseName(environment: Environment): string {
+export function databaseName(environment: Environment) {
   return `pp_agent_${environment.id.replaceAll("-", "_")}`
 }
-export function adminUrl(port: string, database: string): string {
+export function adminUrl(port: string, database: string) {
   return `postgres://pp_agent_admin:${adminPassword}@127.0.0.1:${port}/${database}`
 }
 
-export function adminPool(port: string): Pool {
+export function adminPool(port: string) {
   return new Pool({
     connectionString: adminUrl(port, "postgres"),
     connectionTimeoutMillis: 2000
   })
 }
 
-export async function waitForDatabase(pool: Pool): Promise<void> {
+export async function waitForDatabase(pool: Pool) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
       const result = await pool.query("show server_version_num")
@@ -195,9 +192,7 @@ export async function waitForDatabase(pool: Pool): Promise<void> {
   }
 }
 
-export async function migrationHistory(
-  root: string
-): Promise<Environment["migrations"]> {
+export async function migrationHistory(root: string) {
   const directory = path.join(root, "packages/db/src/migrations")
   const entries = (await readdir(directory, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
@@ -218,7 +213,7 @@ export async function migrationHistory(
 export function checkHistory(
   applied: Environment["migrations"],
   current: Environment["migrations"]
-): void {
+) {
   if (
     applied.some(
       (migration, index) =>
@@ -236,7 +231,7 @@ export async function provision(
   pool: Pool,
   environment: Environment,
   password: string
-): Promise<void> {
+) {
   const name = databaseName(environment)
   const role = await pool.query("select 1 from pg_roles where rolname=$1", [
     name
@@ -275,10 +270,7 @@ export async function provision(
   await pool.query(`REVOKE ALL ON DATABASE "${name}" FROM PUBLIC`)
 }
 
-export async function verifyOwnership(
-  pool: Pool,
-  environment: Environment
-): Promise<void> {
+export async function verifyOwnership(pool: Pool, environment: Environment) {
   const name = databaseName(environment)
   const result = await pool.query(
     "select shobj_description(oid, 'pg_database') as marker, pg_get_userbyid(datdba) as owner from pg_database where datname=$1",
@@ -306,10 +298,7 @@ export async function verifyOwnership(
   }
 }
 
-export async function migrateDatabase(
-  root: string,
-  url: string
-): Promise<void> {
+export async function migrateDatabase(root: string, url: string) {
   const pool = new Pool({ connectionString: url })
   try {
     await migrate(drizzle({ client: pool }), {
@@ -320,10 +309,7 @@ export async function migrateDatabase(
   }
 }
 
-export async function removeDatabase(
-  pool: Pool,
-  environment: Environment
-): Promise<void> {
+export async function removeDatabase(pool: Pool, environment: Environment) {
   const name = databaseName(environment)
   const database = await pool.query(
     "select 1 from pg_database where datname=$1",

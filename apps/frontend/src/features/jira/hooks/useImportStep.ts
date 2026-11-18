@@ -17,7 +17,7 @@ export type ImportStepControls = Readonly<{
   openSection: (section: JiraSetupSection | undefined) => void
 }>
 
-export function useImportStep(reconfiguring: boolean): ImportStepControls {
+export function useImportStep(reconfiguring: boolean) {
   const search = routeApi.useSearch()
   const navigate = routeApi.useNavigate()
   const goTo = useCallback(
@@ -51,5 +51,5 @@ export function useImportStep(reconfiguring: boolean): ImportStepControls {
     goTo,
     clear,
     openSection
-  }
+  } satisfies ImportStepControls
 }

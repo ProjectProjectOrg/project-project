@@ -42,7 +42,7 @@ const isNull = Schema.is(NullType)
 const isRejected = Schema.is(Rejected)
 const decodeObject = Schema.decodeUnknownSync(ObjectSchema)
 
-const kindOf = (schema: unknown): FieldKind => {
+const kindOf: (schema: unknown) => FieldKind = (schema) => {
   if (isAlternatives(schema)) {
     const options = schema.anyOf.filter((option) => !isNull(option))
     const kinds = new Set(options.map(kindOf))
@@ -57,7 +57,9 @@ const kindOf = (schema: unknown): FieldKind => {
   return kindOf(schema.items) === "string" ? "strings" : "json"
 }
 
-const choicesOf = (schema: unknown): ReadonlyArray<string> | undefined => {
+const choicesOf: (schema: unknown) => ReadonlyArray<string> | undefined = (
+  schema
+) => {
   if (isAlternatives(schema)) {
     const options = schema.anyOf.filter((option) => !isNull(option))
     const choices = options.map(choicesOf)
@@ -71,7 +73,7 @@ const choicesOf = (schema: unknown): ReadonlyArray<string> | undefined => {
     : undefined
 }
 
-const descriptionOf = (schema: unknown): string | undefined => {
+const descriptionOf: (schema: unknown) => string | undefined = (schema) => {
   if (isDescribed(schema)) return schema.description
   if (!isAlternatives(schema)) return undefined
   return schema.anyOf
@@ -89,7 +91,7 @@ const isClearable = (schema: unknown, required: boolean) =>
     : isAlternatives(schema) &&
       schema.anyOf.some((option) => !isNull(option) && allowsNull(option))
 
-export const fieldsOf = (tool: Tool.Any): ReadonlyArray<Field> => {
+export const fieldsOf = (tool: Tool.Any) => {
   const schema = decodeObject(ToolModule.getJsonSchema(tool))
   const required = new Set(schema.required ?? [])
   return Object.entries(schema.properties ?? {})

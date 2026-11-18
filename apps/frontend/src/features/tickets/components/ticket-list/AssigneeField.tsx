@@ -33,13 +33,13 @@ type AssigneeVariant = "row" | "card" | "chip"
 function resolveAssignees(
   assignees: ReadonlyArray<string>,
   members: ReadonlyArray<Member>
-): ReadonlyArray<Member> {
+) {
   return assignees
     .map((id) => members.find((member) => member.id === id))
     .filter((member): member is Member => !!member)
 }
 
-function rowLabel(resolved: ReadonlyArray<Member>): string {
+function rowLabel(resolved: ReadonlyArray<Member>) {
   if (resolved.length === 0) {
     return m.tickets_assignees_row_unassigned_aria_label()
   }
@@ -49,7 +49,7 @@ function rowLabel(resolved: ReadonlyArray<Member>): string {
   })
 }
 
-function chipLabel(resolved: ReadonlyArray<Member>): string {
+function chipLabel(resolved: ReadonlyArray<Member>) {
   return Match.value(resolved.length).pipe(
     Match.when(0, () => m.tickets_assignee_unassigned()),
     Match.when(1, () => resolved[0].name),

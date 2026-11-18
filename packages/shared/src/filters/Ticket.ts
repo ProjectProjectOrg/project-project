@@ -294,7 +294,7 @@ export const SprintSectionKey = Schema.Union([
 ])
 export type SprintSectionKey = typeof SprintSectionKey.Type
 
-export const sprintSectionKey = (groupId: GroupId | null): SprintSectionKey =>
+export const sprintSectionKey = (groupId: GroupId | null) =>
   groupId === null ? SPRINT_SECTION_UNSCHEDULED : groupId
 
 export const TicketSprintSection = Schema.Struct({

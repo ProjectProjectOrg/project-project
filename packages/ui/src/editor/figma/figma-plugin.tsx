@@ -6,17 +6,13 @@ import {
   COMMAND_PRIORITY_HIGH,
   PASTE_COMMAND
 } from "lexical"
-import { useEffect, type JSX } from "react"
+import { useEffect } from "react"
 
 import type { TicketTarget } from "../services"
 import { figmaSlugLabel } from "./figma-chip"
 import { $createFigmaNode, FigmaNode } from "./figma-node"
 
-export function FigmaPlugin({
-  request
-}: {
-  request: TicketTarget | null
-}): JSX.Element | null {
+export function FigmaPlugin({ request }: { request: TicketTarget | null }) {
   const [editor] = useLexicalComposerContext()
 
   useEffect(() => {

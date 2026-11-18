@@ -33,9 +33,7 @@ export type ActorColumns = Readonly<
 
 export type StoredActor = ActivityActor["Service"] | ImportedAuthor
 
-export const actorColumns = (
-  actor: ActivityActor["Service"]
-): WrittenActorColumns => {
+export const actorColumns = (actor: ActivityActor["Service"]) => {
   if (actor.kind === "system") {
     return {
       actorKind: "system",
@@ -43,7 +41,7 @@ export const actorColumns = (
       actorClientId: null,
       actorClientName: null,
       actorSource: actor.source
-    }
+    } satisfies WrittenActorColumns
   }
   return {
     actorKind: actor.kind,
@@ -51,17 +49,17 @@ export const actorColumns = (
     actorClientId: actor.kind === "agent" ? actor.clientId : null,
     actorClientName: actor.kind === "agent" ? actor.clientName : null,
     actorSource: null
-  }
+  } satisfies WrittenActorColumns
 }
 
-export const actorOf = (row: ActorColumns): StoredActor => {
+export const actorOf = (row: ActorColumns) => {
   if (row.actorKind === "imported") {
     return {
       kind: "imported",
       displayName: row.importedName ?? "",
       source: row.importedSource ?? "projectproject",
       sourceId: row.importedId ?? ""
-    }
+    } satisfies StoredActor
   }
   if (row.actorKind === "agent") {
     return ActivityActor.agent(row.actorUserId ?? "", {
@@ -73,21 +71,21 @@ export const actorOf = (row: ActorColumns): StoredActor => {
   return ActivityActor.system(row.actorSource ?? "automation")
 }
 
-export const storedActorUserId = (actor: StoredActor): string | null =>
+export const storedActorUserId = (actor: StoredActor) =>
   actor.kind === "system" || actor.kind === "imported" ? null : actor.userId
 
 export const presentActor = (
   actor: StoredActor,
   users: ReadonlyMap<string, User>
-): TicketActivityActor | null => {
+) => {
   if (actor.kind === "system" || actor.kind === "imported") return actor
   const user = users.get(actor.userId)
   if (user === undefined) return null
   return actor.kind === "user"
-    ? { kind: "user", user }
-    : {
+    ? ({ kind: "user", user } satisfies TicketActivityActor)
+    : ({
         kind: "agent",
         user,
         client: { id: actor.clientId, name: actor.clientName }
-      }
+      } satisfies TicketActivityActor)
 }

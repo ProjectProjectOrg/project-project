@@ -22,7 +22,7 @@ export type GutterItem = Readonly<{
   right: number
 }>
 
-export const firstLineOffset = (block: HTMLElement): number => {
+export const firstLineOffset = (block: HTMLElement) => {
   const line =
     block.firstElementChild instanceof HTMLElement
       ? block.firstElementChild
@@ -40,10 +40,7 @@ export const firstLineOffset = (block: HTMLElement): number => {
   return top + (box - RAIL_SIZE) / 2
 }
 
-export const measureItems = (
-  editor: LexicalEditor,
-  anchor: HTMLElement
-): ReadonlyArray<GutterItem> => {
+export const measureItems = (editor: LexicalEditor, anchor: HTMLElement) => {
   const anchorRight = anchor.getBoundingClientRect().right
   return editor.getEditorState().read(() =>
     $topLevelBlocks().flatMap((node) => {
@@ -67,7 +64,7 @@ export const measureItems = (
 export const sameItems = (
   a: ReadonlyArray<GutterItem>,
   b: ReadonlyArray<GutterItem>
-): boolean =>
+) =>
   a.length === b.length &&
   a.every(
     (item, index) =>
@@ -81,13 +78,13 @@ export const blockAtY = (
   editor: LexicalEditor,
   items: ReadonlyArray<GutterItem>,
   y: number
-): NodeKey | null =>
+) =>
   items.find((item) => {
     const rect = editor.getElementByKey(item.key)?.getBoundingClientRect()
     return rect !== undefined && y >= rect.top && y <= rect.bottom
   })?.key ?? null
 
-export const focusedWithin = (editor: LexicalEditor): HTMLElement | null => {
+export const focusedWithin = (editor: LexicalEditor) => {
   const active = document.activeElement
   const area = editor.getRootElement()?.parentElement
   return active instanceof HTMLElement && area?.contains(active) === true
@@ -95,7 +92,7 @@ export const focusedWithin = (editor: LexicalEditor): HTMLElement | null => {
     : null
 }
 
-export const measureRail = (anchor: HTMLElement): number | null => {
+export const measureRail = (anchor: HTMLElement) => {
   const host = railHost(anchor)
   return host.hasAttribute("data-block-rail-inset")
     ? INSET_RAIL_LEFT
@@ -116,9 +113,7 @@ export const flash = (element: HTMLElement, order: number) => {
 
 export type Created = Readonly<{ key: NodeKey; element: HTMLElement }>
 
-export const inDocumentOrder = (
-  created: ReadonlyArray<Created>
-): ReadonlyArray<Created> =>
+export const inDocumentOrder = (created: ReadonlyArray<Created>) =>
   created.toSorted((a, b) =>
     a.element.compareDocumentPosition(b.element) &
     Node.DOCUMENT_POSITION_FOLLOWING

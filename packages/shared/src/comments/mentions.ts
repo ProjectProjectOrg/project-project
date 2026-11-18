@@ -12,13 +12,11 @@ export const MENTION_SCHEME = "mention:" as const
 const isMentionType = (s: string): s is MentionType =>
   (MENTION_TYPES as readonly string[]).includes(s)
 
-export function formatMentionHref(type: MentionType, id: string): string {
+export function formatMentionHref(type: MentionType, id: string) {
   return `${MENTION_SCHEME}${type}/${id}`
 }
 
-export function parseMentionHref(
-  href: string
-): { type: MentionType; id: string } | null {
+export function parseMentionHref(href: string) {
   if (!href.startsWith(MENTION_SCHEME)) return null
   const rest = href.slice(MENTION_SCHEME.length)
   const slash = rest.indexOf("/")
@@ -37,10 +35,10 @@ export interface MentionLink {
 
 const MENTION_LINK_RE = /\[([^\]]*)\]\((mention:[^)]+)\)/g
 
-export const stripMentionLinks = (text: string): string =>
+export const stripMentionLinks = (text: string) =>
   text.replace(MENTION_LINK_RE, "$1")
 
-export function extractMentionLinks(body: string): ReadonlyArray<MentionLink> {
+export function extractMentionLinks(body: string) {
   const out: MentionLink[] = []
   for (const m of body.matchAll(MENTION_LINK_RE)) {
     const [, label, href] = m
@@ -54,14 +52,14 @@ export type TicketMentionTarget = Readonly<{
   ticketId: string
 }>
 
-export const parseTicketMentionId = (id: string): TicketMentionTarget => {
+export const parseTicketMentionId = (id: string) => {
   const slash = id.indexOf("/")
   return slash < 0
     ? { projectSlug: null, ticketId: id }
     : { projectSlug: id.slice(0, slash), ticketId: id.slice(slash + 1) }
 }
 
-export const formatTicketMentionId = (target: TicketMentionTarget): string =>
+export const formatTicketMentionId = (target: TicketMentionTarget) =>
   target.projectSlug === null
     ? target.ticketId
     : `${target.projectSlug}/${target.ticketId}`
@@ -69,9 +67,7 @@ export const formatTicketMentionId = (target: TicketMentionTarget): string =>
 export type CommentMentionTarget = TicketMentionTarget &
   Readonly<{ commentId: string }>
 
-export const parseCommentMentionId = (
-  id: string
-): CommentMentionTarget | null => {
+export const parseCommentMentionId = (id: string) => {
   const slash = id.lastIndexOf("/")
   if (slash <= 0 || slash === id.length - 1) return null
   return {
@@ -80,12 +76,12 @@ export const parseCommentMentionId = (
   }
 }
 
-export const formatCommentMentionId = (target: CommentMentionTarget): string =>
+export const formatCommentMentionId = (target: CommentMentionTarget) =>
   `${formatTicketMentionId(target)}/${target.commentId}`
 
 export const mentionedTicket = (
   parsed: Readonly<{ type: MentionType; id: string }>
-): string | null => {
+) => {
   if (parsed.type === "ticket") return parsed.id
   if (parsed.type === "user") return null
   const comment = parseCommentMentionId(parsed.id)
@@ -95,7 +91,7 @@ export const mentionedTicket = (
 export const rewriteTicketMentions = (
   text: string,
   rewrite: (target: TicketMentionTarget) => TicketMentionTarget | null
-): string =>
+) =>
   text.includes("](mention:ticket/") || text.includes("](mention:comment/")
     ? text.replace(MENTION_LINK_RE, (match, label: string, href: string) => {
         const parsed = parseMentionHref(href)

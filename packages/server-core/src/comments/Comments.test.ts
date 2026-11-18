@@ -60,7 +60,7 @@ const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const userId = Schema.decodeSync(UserId)
 const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 
-const unexpected = (method: string): Effect.Effect<never> =>
+const unexpected = (method: string) =>
   Effect.die(new Error(`unexpected ${method} call`))
 
 const document: TicketDocs.TicketDocument = {
@@ -231,7 +231,7 @@ const makeLayer = (
 
 const makeTicketDocs = (
   overrides: Partial<TicketDocs.TicketDocs["Service"]> = {}
-): TicketDocs.TicketDocs["Service"] => {
+) => {
   const service: TicketDocs.TicketDocs["Service"] = {
     listIds: () => unexpected("TicketDocs.listIds"),
     read: () => Effect.succeed(document),

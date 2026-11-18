@@ -6,9 +6,7 @@ const replies = Array.from({ length: 5 }, (_, index) => ({
   comment: { id: `c_${index + 1}` }
 }))
 
-const fold = (
-  input: Partial<Parameters<typeof threadFold>[0]>
-): ReturnType<typeof threadFold> =>
+const fold = (input: Partial<Parameters<typeof threadFold>[0]>) =>
   threadFold({
     replies,
     resolved: false,

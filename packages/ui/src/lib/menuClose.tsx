@@ -68,7 +68,7 @@ const guardOpenChange =
   }
 
 // The control of the menu this item is in; does nothing outside one.
-export function useMenuControl(): MenuControl {
+export function useMenuControl() {
   return use(MenuControlContext) ?? detached
 }
 

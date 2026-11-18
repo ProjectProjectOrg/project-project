@@ -52,7 +52,7 @@ export type SlashMenuModel = Readonly<{
   sections: ReadonlyArray<SlashSection>
 }>
 
-const showsSectionLabel = (menu: SlashMenuModel): boolean =>
+const showsSectionLabel = (menu: SlashMenuModel) =>
   menu.tab === "all" || menu.sections.length > 1
 
 function SlashMenuPreviewPane({
@@ -246,14 +246,17 @@ export function SlashMenu({
     [menu.sections]
   )
   const items = useMemo(
-    (): ReadonlyArray<CommandMenuItemData> =>
+    () =>
       menu.sections.flatMap((section) =>
-        section.items.map((item) => ({
-          value: item.key,
-          label: itemName(item),
-          icon: itemIcon(item),
-          group: SECTION_LABELS[section.section]()
-        }))
+        section.items.map(
+          (item) =>
+            ({
+              value: item.key,
+              label: itemName(item),
+              icon: itemIcon(item),
+              group: SECTION_LABELS[section.section]()
+            }) satisfies CommandMenuItemData
+        )
       ),
     [menu.sections]
   )

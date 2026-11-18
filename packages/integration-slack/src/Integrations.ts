@@ -156,11 +156,7 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     return { ...row, ...values }
   })
 
-  const orgStatus = Effect.fn("Slack.orgStatus")(function* (): Effect.fn.Return<
-    SlackOrgStatus,
-    never,
-    OrgScope
-  > {
+  const orgStatus = Effect.fn("Slack.orgStatus")(function* () {
     const scope = yield* OrgScope
     const row = yield* connection(scope.organizationId)
     return {
@@ -172,7 +168,7 @@ export const makeSlackIntegrations = Effect.gen(function* () {
             lastError: row.lastError
           }
         : null
-    }
+    } satisfies SlackOrgStatus
   })
   const disconnectOrg = Effect.fn("Slack.disconnectOrg")(function* () {
     const scope = yield* OrgScope
@@ -283,46 +279,45 @@ export const makeSlackIntegrations = Effect.gen(function* () {
     return yield* orgStatus()
   })
 
-  const projectStatus = Effect.fn("Slack.projectStatus")(
-    function* (): Effect.fn.Return<SlackProjectStatus, never, ProjectScope> {
-      const scope = yield* ProjectScope
-      const row = yield* connection(scope.organizationId)
-      if (!row) return { workspace: null, settings: null }
-      const [settings] = yield* db
-        .select({
-          channelId: projectSlackIntegration.channelId,
-          channelName: projectSlackIntegration.channelName,
-          events: projectIntegrationLink.subscribedEvents
-        })
-        .from(projectIntegrationLink)
-        .innerJoin(
-          projectSlackIntegration,
-          eq(
-            projectSlackIntegration.projectIntegrationLinkId,
-            projectIntegrationLink.id
-          )
+  const projectStatus = Effect.fn("Slack.projectStatus")(function* () {
+    const scope = yield* ProjectScope
+    const row = yield* connection(scope.organizationId)
+    if (!row)
+      return { workspace: null, settings: null } satisfies SlackProjectStatus
+    const [settings] = yield* db
+      .select({
+        channelId: projectSlackIntegration.channelId,
+        channelName: projectSlackIntegration.channelName,
+        events: projectIntegrationLink.subscribedEvents
+      })
+      .from(projectIntegrationLink)
+      .innerJoin(
+        projectSlackIntegration,
+        eq(
+          projectSlackIntegration.projectIntegrationLinkId,
+          projectIntegrationLink.id
         )
-        .where(
-          and(
-            eq(projectIntegrationLink.projectId, scope.projectId),
-            eq(projectIntegrationLink.organizationIntegrationId, row.id),
-            eq(projectIntegrationLink.status, "active")
-          )
+      )
+      .where(
+        and(
+          eq(projectIntegrationLink.projectId, scope.projectId),
+          eq(projectIntegrationLink.organizationIntegrationId, row.id),
+          eq(projectIntegrationLink.status, "active")
         )
-        .limit(1)
-        .pipe(Effect.orDie)
-      return {
-        workspace: { teamId: row.teamId, teamName: row.teamName },
-        settings: settings
-          ? {
-              ...settings,
-              channelId: settings.channelId,
-              events: settings.events.filter(isSlackEvent)
-            }
-          : null
-      }
-    }
-  )
+      )
+      .limit(1)
+      .pipe(Effect.orDie)
+    return {
+      workspace: { teamId: row.teamId, teamName: row.teamName },
+      settings: settings
+        ? {
+            ...settings,
+            channelId: settings.channelId,
+            events: settings.events.filter(isSlackEvent)
+          }
+        : null
+    } satisfies SlackProjectStatus
+  })
   const channels = Effect.fn("Slack.channels")(function* () {
     const scope = yield* ProjectScope
     const { botToken } = yield* credentials(scope.organizationId)

@@ -96,7 +96,7 @@ const decodeContent = Schema.decodeUnknownOption(LibraryContent)
 const encodeBlockFrontmatter = Schema.encodeSync(BlockFrontmatter)
 const encodeTypeFrontmatter = Schema.encodeSync(TypeFrontmatter)
 
-const trimBlankLines = (text: string): string =>
+const trimBlankLines = (text: string) =>
   text.replace(/^(?:[ \t]*\r?\n)+/, "").replace(/(?:\r?\n[ \t]*)+$/, "")
 
 export type ParsedFile = Readonly<{
@@ -110,9 +110,7 @@ type DecodedLayerPart<A> = Readonly<{
   hidden: ReadonlyArray<string>
 }>
 
-export const parseLibraryFile = (
-  file: Markdown.LibraryFile
-): Option.Option<ParsedFile> => {
+export const parseLibraryFile = (file: Markdown.LibraryFile) => {
   try {
     const parsed = parseMarkdownFile(normalizeLineEndings(file.content))
     return Option.some({
@@ -125,7 +123,7 @@ export const parseLibraryFile = (
   }
 }
 
-const decodeBlock = (file: ParsedFile): Option.Option<BlockDraft> =>
+const decodeBlock = (file: ParsedFile) =>
   Option.all({
     key: decodeBlockKey(file.key),
     frontmatter: decodeBlockFrontmatter(file.data),
@@ -138,15 +136,13 @@ const decodeBlock = (file: ParsedFile): Option.Option<BlockDraft> =>
     }))
   )
 
-export const decodeTypeFields = (
-  file: ParsedFile
-): Option.Option<Omit<TypeDraft, "key">> =>
+export const decodeTypeFields = (file: ParsedFile) =>
   Option.all({
     frontmatter: decodeTypeFrontmatter(file.data),
     body: decodeContent(file.body)
   }).pipe(Option.map(({ frontmatter, body }) => ({ ...frontmatter, body })))
 
-const decodeType = (file: ParsedFile): Option.Option<TypeDraft> =>
+const decodeType = (file: ParsedFile) =>
   Option.all({
     key: decodeTypeKey(file.key),
     fields: decodeTypeFields(file)
@@ -159,7 +155,7 @@ type ClassifiedFile<A> =
 
 const classifyFile = <A>(decode: (file: ParsedFile) => Option.Option<A>) => {
   const ClassifiedFile = Data.taggedEnum<ClassifiedFile<A>>()
-  return (file: Markdown.LibraryFile): ClassifiedFile<A> => {
+  return (file: Markdown.LibraryFile) => {
     const parsed = parseLibraryFile(file)
     if (Option.isNone(parsed)) return ClassifiedFile.skipped({ key: file.key })
     if (isTombstone(parsed.value.data))
@@ -177,7 +173,7 @@ const annotateLibraryDoc = <A, E>(
   projectSlug: string | null,
   attributes: Record<string, unknown>,
   effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> => {
+) => {
   const annotations = {
     module: "LibraryDocs",
     operation,
@@ -199,7 +195,7 @@ const make = Effect.gen(function* () {
     projectSlug: string | null,
     kind: Markdown.LibraryKind,
     decode: (file: ParsedFile) => Option.Option<A>
-  ): Effect.Effect<DecodedLayerPart<A>, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       const files = yield* markdown.listLibraryFiles(orgSlug, projectSlug, kind)
       const classified = files.map(classifyFile(decode))
@@ -229,7 +225,7 @@ const make = Effect.gen(function* () {
             Match.orElse(() => [])
           )
         )
-      }
+      } satisfies DecodedLayerPart<A>
     })
 
   const readLayer = Effect.fn("LibraryDocs.readLayer")(function* (

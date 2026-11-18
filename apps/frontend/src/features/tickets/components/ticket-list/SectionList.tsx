@@ -208,7 +208,7 @@ function canRegroup(
   actor: ReturnType<typeof useProjectActor>,
   target: ListDropTarget | undefined,
   editable: boolean
-): boolean {
+) {
   if (target === undefined) return false
   if (target.grouping === "status") {
     return TicketPolicy.canChange(actor, { status: true })

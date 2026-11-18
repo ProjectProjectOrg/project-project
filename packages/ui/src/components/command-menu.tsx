@@ -66,7 +66,7 @@ type CommandMenuSection = Readonly<{
 
 const fadeSizes = new WeakMap<HTMLElement, number>()
 
-const fadeSizeOf = (viewport: HTMLElement): number => {
+const fadeSizeOf = (viewport: HTMLElement) => {
   const cached = fadeSizes.get(viewport)
   if (cached !== undefined) return cached
   const size =
@@ -88,9 +88,7 @@ const assignRef = <T,>(ref: Ref<T> | undefined, node: T | null) => {
 const useIsoLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect
 
-const sectionRows = (
-  items: ReadonlyArray<CommandMenuItemData>
-): ReadonlyArray<CommandMenuSection> => {
+const sectionRows = (items: ReadonlyArray<CommandMenuItemData>) => {
   const groups = new Map<string | null, Array<CommandMenuItemData>>()
   for (const item of items) {
     const heading = item.group ?? null
@@ -137,7 +135,7 @@ const CommandMenuFillContext = createContext<
 
 const CommandMenuContext = createContext<CommandMenuContextValue | null>(null)
 
-function useCommandMenu(): CommandMenuContextValue {
+function useCommandMenu() {
   const ctx = useContext(CommandMenuContext)
   if (!ctx)
     throw new Error(
@@ -162,7 +160,7 @@ export type CommandMenuProps = Omit<
     children: ReactNode
   }>
 
-function useLatest<T>(value: T): RefObject<T> {
+function useLatest<T>(value: T) {
   const ref = useRef(value)
   useIsoLayoutEffect(() => {
     ref.current = value
@@ -836,7 +834,7 @@ function CommandMenuFooterHint({
   )
 }
 
-function useHighlightedItem(): CommandMenuItemData | undefined {
+function useHighlightedItem() {
   const { rows, highlight } = useCommandMenu()
   const index = useSyncExternalStore(
     highlight.subscribe,

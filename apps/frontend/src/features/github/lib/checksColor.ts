@@ -1,4 +1,4 @@
-export function checksColor(s: string): string {
+export function checksColor(s: string) {
   if (s === "passing") return "text-state-success"
   if (s === "failing") return "text-state-danger"
   if (s === "pending") return "text-state-warning"

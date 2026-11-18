@@ -38,17 +38,18 @@ const ticket = { orgSlug: "acme", slug: "app", ticketId: row.id }
 const environment = (
   registry: AtomRegistry.AtomRegistry,
   executed: Array<unknown>
-): CommandEnv => ({
-  registry,
-  execute: (_atom, value) => {
-    executed.push(value)
-  },
-  navigate: vi.fn<CommandEnv["navigate"]>(),
-  copy: vi.fn<CommandEnv["copy"]>(),
-  open: vi.fn<CommandEnv["open"]>(),
-  actOn: vi.fn<CommandEnv["actOn"]>(),
-  close: vi.fn<CommandEnv["close"]>()
-})
+) =>
+  ({
+    registry,
+    execute: (_atom, value) => {
+      executed.push(value)
+    },
+    navigate: vi.fn<CommandEnv["navigate"]>(),
+    copy: vi.fn<CommandEnv["copy"]>(),
+    open: vi.fn<CommandEnv["open"]>(),
+    actOn: vi.fn<CommandEnv["actOn"]>(),
+    close: vi.fn<CommandEnv["close"]>()
+  }) satisfies CommandEnv
 
 it("edits a hovered row through the row's own patch, and other tickets through their detail", () => {
   const patch = vi.fn<(edit: TicketEdit) => void>()

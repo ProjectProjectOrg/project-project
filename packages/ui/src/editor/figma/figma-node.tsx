@@ -59,11 +59,11 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
   __density: FigmaDensity
   __request: TicketTarget | null
 
-  static getType(): string {
+  static getType() {
     return "figma"
   }
 
-  static clone(node: FigmaNode): FigmaNode {
+  static clone(node: FigmaNode) {
     return new FigmaNode(
       {
         url: node.__url,
@@ -85,7 +85,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     this.__request = payload.request ?? null
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const span = document.createElement("span")
     span.setAttribute("data-figma-kind", this.__ref?.kind ?? "unknown")
     span.style.display = "inline-block"
@@ -94,45 +94,45 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     return span
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): boolean {
+  isInline() {
     return true
   }
 
-  getTextContent(): string {
+  getTextContent() {
     return this.__url
   }
 
-  getUrl(): string {
+  getUrl() {
     return this.getLatest().__url
   }
 
-  getLabel(): string {
+  getLabel() {
     return this.getLatest().__label
   }
 
-  getRef(): FigmaRef | null {
+  getRef() {
     return this.getLatest().__ref
   }
 
-  getDensity(): FigmaDensity {
+  getDensity() {
     return this.getLatest().__density
   }
 
-  setDensity(density: FigmaDensity): void {
+  setDensity(density: FigmaDensity) {
     const writable = this.getWritable()
     writable.__density = density
   }
 
-  setRequest(request: TicketTarget | null): void {
+  setRequest(request: TicketTarget | null) {
     const writable = this.getWritable()
     writable.__request = request
   }
 
-  exportJSON(): SerializedFigmaNode {
+  exportJSON() {
     return {
       ...super.exportJSON(),
       type: "figma",
@@ -143,7 +143,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     }
   }
 
-  static importJSON(serialized: SerializedFigmaNode): FigmaNode {
+  static importJSON(serialized: SerializedFigmaNode) {
     return $createFigmaNode({
       url: serialized.url,
       label: serialized.label,
@@ -152,7 +152,7 @@ export class FigmaNode extends DecoratorNode<ReactElement> {
     })
   }
 
-  decorate(): ReactElement {
+  decorate() {
     return (
       <FigmaSelectable
         nodeKey={this.getKey()}
@@ -335,7 +335,7 @@ function FigmaSelectable({
   )
 }
 
-export function $createFigmaNode(payload: FigmaPayload): FigmaNode {
+export function $createFigmaNode(payload: FigmaPayload) {
   return $applyNodeReplacement(new FigmaNode(payload))
 }
 

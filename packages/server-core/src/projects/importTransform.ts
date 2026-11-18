@@ -49,7 +49,7 @@ const decodeFlag = Schema.decodeUnknownOption(Schema.toEncoded(TicketFlag))
 const escapeRegExp = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-export const renameTicketId = (mapping: ImportMapping, id: string): string =>
+export const renameTicketId = (mapping: ImportMapping, id: string) =>
   id.startsWith(`${mapping.fromKey}-`)
     ? `${mapping.toKey}${id.slice(mapping.fromKey.length)}`
     : id
@@ -57,14 +57,15 @@ export const renameTicketId = (mapping: ImportMapping, id: string): string =>
 export const importedAuthorOf = (
   mapping: ImportMapping,
   sourceUserId: string
-): ImportedAuthor => ({
-  kind: "imported",
-  displayName: mapping.people.get(sourceUserId)?.name ?? sourceUserId,
-  source: "projectproject",
-  sourceId: sourceUserId
-})
+) =>
+  ({
+    kind: "imported",
+    displayName: mapping.people.get(sourceUserId)?.name ?? sourceUserId,
+    source: "projectproject",
+    sourceId: sourceUserId
+  }) satisfies ImportedAuthor
 
-export const rewriteText = (mapping: ImportMapping, text: string): string => {
+export const rewriteText = (mapping: ImportMapping, text: string) => {
   const attachmentUrl = new RegExp(
     `${escapeRegExp(ATTACHMENT_URL_PREFIX)}/[a-z0-9-]+/([0-9A-HJKMNP-TV-Z]{26})`,
     "g"
@@ -99,10 +100,7 @@ export const rewriteText = (mapping: ImportMapping, text: string): string => {
 const stringsIn = (value: ReadonlyArray<unknown>) =>
   value.filter(Predicate.isString)
 
-const commentOf = (
-  mapping: ImportMapping,
-  comment: CommentBlock
-): CommentBlock => {
+const commentOf = (mapping: ImportMapping, comment: CommentBlock) => {
   const id = mapping.newCommentId(comment.id)
   const body = rewriteText(mapping, comment.body)
   comment = {
@@ -120,10 +118,16 @@ const commentOf = (
       ? {}
       : { tickets: comment.tickets.map((link) => rewriteText(mapping, link)) })
   }
-  if (comment.author.kind === "imported") return { ...comment, id, body }
+  if (comment.author.kind === "imported")
+    return { ...comment, id, body } satisfies CommentBlock
   const linked = mapping.users.get(comment.author.userId)
   if (linked !== undefined)
-    return { ...comment, id, body, author: { kind: "user", userId: linked } }
+    return {
+      ...comment,
+      id,
+      body,
+      author: { kind: "user", userId: linked }
+    } satisfies CommentBlock
   const origin: CommentOrigin =
     comment.origin === "native" ? "projectproject" : comment.origin
   return {
@@ -132,7 +136,7 @@ const commentOf = (
     body,
     origin,
     author: importedAuthorOf(mapping, comment.author.userId)
-  }
+  } satisfies CommentBlock
 }
 
 const transformTicket = (mapping: ImportMapping, content: string) => {
@@ -229,7 +233,7 @@ export const transformImportedFile = (
   mapping: ImportMapping,
   identity: ImportedProjectIdentity,
   file: ImportedFile
-): ImportedFile => {
+) => {
   if (file.path === "project.md")
     return {
       path: file.path,
@@ -251,7 +255,7 @@ export const transformImportedFile = (
 export const rewriteImportedChange = (
   mapping: ImportMapping,
   change: TicketActivityChangeEncoded
-): TicketActivityChangeEncoded =>
+) =>
   Match.value(change).pipe(
     Match.discriminator("kind")("assignees_changed", (change) => ({
       ...change,

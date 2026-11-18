@@ -11,7 +11,7 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 const fingerprint = (value: unknown) =>
   (Hash.string(encodeJson(value)) >>> 0).toString(16).padStart(8, "0")
 
-export const withoutDescriptions = (schema: unknown): unknown =>
+export const withoutDescriptions: (schema: unknown) => unknown = (schema) =>
   Array.isArray(schema)
     ? schema.map(withoutDescriptions)
     : Predicate.isObject(schema)

@@ -32,9 +32,7 @@ type RawInvitation = Readonly<{
   status: string
 }>
 
-export const pendingInvitations = (
-  invitations: ReadonlyArray<RawInvitation>
-): ReadonlyArray<OrgInvitation> =>
+export const pendingInvitations = (invitations: ReadonlyArray<RawInvitation>) =>
   invitations.flatMap((invitation) =>
     invitation.status === "pending"
       ? [
@@ -46,7 +44,7 @@ export const pendingInvitations = (
           }
         ]
       : []
-  )
+  ) satisfies ReadonlyArray<OrgInvitation>
 
 const FORBIDDING_CODES = new Set([
   "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION",
@@ -85,45 +83,38 @@ const INVALID_CODES = new Map([
   ["INVALID_EMAIL", "invalid_email"]
 ])
 
-export const betterAuthErrorStatus = (
-  error: BetterAuth.BetterAuthError
-): number | null => {
+export const betterAuthErrorStatus = (error: BetterAuth.BetterAuthError) => {
   const { cause } = error
   return isAPIError(cause) ? cause.statusCode : null
 }
 
-export const isClientRefusal = (error: BetterAuth.BetterAuthError): boolean => {
+export const isClientRefusal = (error: BetterAuth.BetterAuthError) => {
   const status = betterAuthErrorStatus(error)
   return status !== null && status >= 400 && status < 500
 }
 
-export const betterAuthErrorCode = (
-  error: BetterAuth.BetterAuthError
-): string | null => {
+export const betterAuthErrorCode = (error: BetterAuth.BetterAuthError) => {
   const { cause } = error
   if (!isAPIError(cause)) return null
   const code = cause.body?.code
   return typeof code === "string" ? code : null
 }
 
-export const memberErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, Forbidden | NotFound | Conflict | Validation> => {
-  if (!isClientRefusal(error)) return Effect.die(error)
-  const code = betterAuthErrorCode(error)
-  if (code === null) return Effect.die(error)
-  if (FORBIDDING_CODES.has(code)) return Effect.fail(new Forbidden())
-  if (MISSING_CODES.has(code)) return Effect.fail(new NotFound())
-  const conflict = CONFLICTING_CODES.get(code)
-  if (conflict) return Effect.fail(new Conflict({ reason: conflict }))
-  const invalid = INVALID_CODES.get(code)
-  if (invalid) return Effect.fail(new Validation({ reason: invalid }))
-  return Effect.die(error)
-}
+export const memberErrorToFailure = (error: BetterAuth.BetterAuthError) =>
+  Effect.gen(function* () {
+    if (!isClientRefusal(error)) return yield* Effect.die(error)
+    const code = betterAuthErrorCode(error)
+    if (code === null) return yield* Effect.die(error)
+    if (FORBIDDING_CODES.has(code)) return yield* new Forbidden()
+    if (MISSING_CODES.has(code)) return yield* new NotFound()
+    const conflict = CONFLICTING_CODES.get(code)
+    if (conflict) return yield* new Conflict({ reason: conflict })
+    const invalid = INVALID_CODES.get(code)
+    if (invalid) return yield* new Validation({ reason: invalid })
+    return yield* Effect.die(error)
+  })
 
-export const opaqueErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, NotFound> =>
+export const opaqueErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
       Forbidden: () => new NotFound(),
@@ -132,9 +123,7 @@ export const opaqueErrorToFailure = (
     })
   )
 
-export const memberAccessErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, Forbidden | NotFound> =>
+export const memberAccessErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
       Conflict: () => new Forbidden(),
@@ -142,18 +131,14 @@ export const memberAccessErrorToFailure = (
     })
   )
 
-export const memberChangeErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, Forbidden | NotFound | Conflict> =>
+export const memberChangeErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Validation: () => new Forbidden() })
   )
 
 const LAST_PROJECT_PM_BLOCKED = "LAST_PROJECT_PM_BLOCKED"
 
-export const blockingProjectSlugs = (
-  error: BetterAuth.BetterAuthError
-): ReadonlyArray<string> | null => {
+export const blockingProjectSlugs = (error: BetterAuth.BetterAuthError) => {
   if (!isClientRefusal(error)) return null
   if (betterAuthErrorCode(error) !== LAST_PROJECT_PM_BLOCKED) return null
   const { cause } = error
@@ -163,35 +148,30 @@ export const blockingProjectSlugs = (
     : []
 }
 
-export const removeMemberErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<
-  never,
-  Forbidden | NotFound | Conflict | LastProjectPmBlocked
-> => {
-  const projectSlugs = blockingProjectSlugs(error)
-  return projectSlugs === null
-    ? memberChangeErrorToFailure(error)
-    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
-}
+export const removeMemberErrorToFailure = (error: BetterAuth.BetterAuthError) =>
+  Effect.gen(function* () {
+    const projectSlugs = blockingProjectSlugs(error)
+    if (projectSlugs !== null) {
+      return yield* new LastProjectPmBlocked({ projectSlugs })
+    }
+    return yield* memberChangeErrorToFailure(error)
+  })
 
-export const leaveErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, NotFound | Conflict | LastProjectPmBlocked> => {
-  const projectSlugs = blockingProjectSlugs(error)
-  return projectSlugs === null
-    ? memberErrorToFailure(error).pipe(
-        Effect.catchTags({
-          Forbidden: () => new NotFound(),
-          Validation: () => new NotFound()
-        })
-      )
-    : Effect.fail(new LastProjectPmBlocked({ projectSlugs }))
-}
+export const leaveErrorToFailure = (error: BetterAuth.BetterAuthError) =>
+  Effect.gen(function* () {
+    const projectSlugs = blockingProjectSlugs(error)
+    if (projectSlugs !== null) {
+      return yield* new LastProjectPmBlocked({ projectSlugs })
+    }
+    return yield* memberErrorToFailure(error).pipe(
+      Effect.catchTags({
+        Forbidden: () => new NotFound(),
+        Validation: () => new NotFound()
+      })
+    )
+  })
 
-export const transferErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, Forbidden | NotFound | Validation> =>
+export const transferErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Conflict: () => new Forbidden() })
   )

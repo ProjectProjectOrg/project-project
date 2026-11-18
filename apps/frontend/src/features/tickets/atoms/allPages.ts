@@ -7,14 +7,14 @@ export const allPages = <E>(
   page: (
     cursor: string | undefined
   ) => Atom.Atom<AsyncResult.AsyncResult<TicketListPage, E>>
-): AsyncResult.AsyncResult<ReadonlyArray<TicketListRow>, E> => {
+) => {
   const rows: Array<TicketListRow> = []
   let cursor: string | undefined = undefined
   let waiting = false
   do {
     const result: AsyncResult.AsyncResult<TicketListPage, E> = get(page(cursor))
     if (!AsyncResult.isSuccess(result)) {
-      return AsyncResult.map(result, (): ReadonlyArray<TicketListRow> => rows)
+      return AsyncResult.map(result, () => rows)
     }
     rows.push(...result.value.items)
     waiting ||= result.waiting

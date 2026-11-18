@@ -69,9 +69,7 @@ export interface AttachmentSortPlan {
   readonly direction: "asc" | "desc"
 }
 
-export const attachmentSortPlan = (
-  sort: AttachmentSort | undefined
-): AttachmentSortPlan => {
+export const attachmentSortPlan = (sort: AttachmentSort | undefined) => {
   switch (sort ?? DEFAULT_ATTACHMENT_SORT) {
     case "created_asc":
       return { column: "createdAt", direction: "asc" }
@@ -87,25 +85,25 @@ export const attachmentSortPlan = (
 export const attachmentServesInline = (input: {
   readonly contentType: string
   readonly download: boolean
-}): boolean => !input.download && isRasterImageContentType(input.contentType)
+}) => !input.download && isRasterImageContentType(input.contentType)
 
 export const attachmentOpensInline = (input: {
   readonly contentType: string
   readonly download: boolean
-}): boolean =>
+}) =>
   attachmentServesInline(input) ||
   (!input.download && isVideoContentType(input.contentType))
 
 const PROXIED_URL_SECONDS = 60
 const STREAMED_URL_SECONDS = 6 * 60 * 60
 
-export const attachmentSignedUrlSeconds = (contentType: string): number =>
+export const attachmentSignedUrlSeconds = (contentType: string) =>
   isVideoContentType(contentType) ? STREAMED_URL_SECONDS : PROXIED_URL_SECONDS
 
 export const deriveAttachmentEtag = (
   upstreamEtag: string | null,
   servedRung: number | null
-): string | null => {
+) => {
   if (upstreamEtag === null) return null
   if (servedRung === null) return upstreamEtag
   const trimmed = upstreamEtag.endsWith('"')
@@ -116,10 +114,8 @@ export const deriveAttachmentEtag = (
 
 export const DEFAULT_ATTACHMENT_LIMIT = ATTACHMENT_PAGE_SIZE
 
-export const attachmentPageOffset = (
-  page: number | undefined,
-  limit: number
-): number => Math.max(0, ((page ?? 1) - 1) * limit)
+export const attachmentPageOffset = (page: number | undefined, limit: number) =>
+  Math.max(0, ((page ?? 1) - 1) * limit)
 
 export interface DedupeRow {
   readonly id: string
@@ -137,7 +133,7 @@ export interface DedupeRepoint {
 
 export const planDedupe = (input: {
   readonly rows: ReadonlyArray<DedupeRow>
-}): ReadonlyArray<DedupeRepoint> => {
+}) => {
   const groups = new Map<string, Array<DedupeRow>>()
   for (const row of input.rows) {
     if (row.contentHash === null) continue
@@ -175,7 +171,7 @@ export const summarizeAttachments = (input: {
     readonly byteSize: number
     readonly status: "pending" | "live" | "orphaned"
   }>
-}): AttachmentSummary => {
+}) => {
   const counts = new Map<string, { count: number; bytes: number }>()
   const charged = new Set<string>()
 
@@ -207,9 +203,8 @@ export const summarizeAttachments = (input: {
   }
 }
 
-export const isServableStatus = (
-  status: "pending" | "live" | "orphaned"
-): boolean => status === "live" || status === "orphaned"
+export const isServableStatus = (status: "pending" | "live" | "orphaned") =>
+  status === "live" || status === "orphaned"
 
 export type AttachmentValidationError =
   | { readonly kind: "type"; readonly contentType: string }
@@ -218,16 +213,19 @@ export type AttachmentValidationError =
 export const validateUploadRequest = (input: {
   readonly contentType: string
   readonly byteSize?: number
-}): AttachmentValidationError | null => {
+}) => {
   if (!isAllowedAttachmentContentType(input.contentType)) {
-    return { kind: "type", contentType: input.contentType }
+    return {
+      kind: "type",
+      contentType: input.contentType
+    } satisfies AttachmentValidationError
   }
   const maxBytes = attachmentMaxBytes(input.contentType)
   if (
     input.byteSize !== undefined &&
     (input.byteSize <= 0 || input.byteSize > maxBytes)
   ) {
-    return { kind: "size", maxBytes }
+    return { kind: "size", maxBytes } satisfies AttachmentValidationError
   }
   return null
 }
@@ -332,10 +330,7 @@ export const REAPER_INTERVAL_MS = 60 * 60 * 1000
 export const planReferences = (input: {
   readonly referenced: ReadonlySet<string>
   readonly existing: ReadonlyArray<string>
-}): {
-  readonly toAdd: ReadonlyArray<string>
-  readonly toRemove: ReadonlyArray<string>
-} => {
+}) => {
   const existing = new Set(input.existing)
   return {
     toAdd: [...input.referenced].filter((id) => !existing.has(id)),
@@ -349,10 +344,7 @@ export const planStatuses = (input: {
     readonly status: "pending" | "live" | "orphaned"
   }>
   readonly referenceCounts: ReadonlyMap<string, number>
-}): {
-  readonly toLive: ReadonlyArray<string>
-  readonly toOrphan: ReadonlyArray<string>
-} => {
+}) => {
   const toLive: Array<string> = []
   const toOrphan: Array<string> = []
   for (const row of input.rows) {
@@ -376,7 +368,7 @@ export interface ReapRow {
 export const planReap = (input: {
   readonly now: number
   readonly rows: ReadonlyArray<ReapRow>
-}): ReadonlyArray<string> =>
+}) =>
   input.rows
     .filter((row) => {
       if (row.status === "pending") {
@@ -399,9 +391,7 @@ const make = Effect.gen(function* () {
   const orgStorage = yield* OrgStorage.OrgStorage
   const s3 = yield* S3Storage.S3Storage
 
-  const toAttachment = (
-    row: typeof attachmentIndex.$inferSelect
-  ): Attachment => ({
+  const toAttachment = (row: typeof attachmentIndex.$inferSelect) => ({
     id: row.id,
     url: attachmentUrl(row.orgSlug, row.id),
     filename: row.filename,
@@ -416,12 +406,13 @@ const make = Effect.gen(function* () {
     row: typeof attachmentIndex.$inferSelect,
     projectSlug: string | null,
     tickets: ReadonlyArray<AttachmentTicketRef>
-  ): AttachmentRow => ({
-    ...toAttachment(row),
-    projectSlug,
-    ticketId: row.ticketId,
-    tickets
-  })
+  ) =>
+    ({
+      ...toAttachment(row),
+      projectSlug,
+      ticketId: row.ticketId,
+      tickets
+    }) satisfies AttachmentRow
 
   const libraryAttachmentIsVisible = () =>
     or(publishedProject(projectIndex), isNull(projectIndex.slug))!

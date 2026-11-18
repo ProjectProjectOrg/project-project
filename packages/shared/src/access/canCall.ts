@@ -43,16 +43,16 @@ HttpApi.reflect(AppApi, {
   }
 })
 
-export const canCallProject =
-  (role: Statement.Role<Project.ProjectResources>): CanCall =>
-  (group, endpoint) => {
+export const canCallProject = (
+  role: Statement.Role<Project.ProjectResources>
+) =>
+  ((group, endpoint) => {
     const requirement = projectRequirements.get(`${group}.${endpoint}`)
     return requirement !== undefined && permits(role, requirement)
-  }
+  }) satisfies CanCall
 
-export const canCallOrg =
-  (role: Statement.Role<Org.OrgResources>): CanCall =>
-  (group, endpoint) => {
+export const canCallOrg = (role: Statement.Role<Org.OrgResources>) =>
+  ((group, endpoint) => {
     const requirement = orgRequirements.get(`${group}.${endpoint}`)
     return requirement !== undefined && permits(role, requirement)
-  }
+  }) satisfies CanCall

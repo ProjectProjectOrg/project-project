@@ -42,7 +42,7 @@ export type ViewCountsSource = Readonly<{
   query: TicketListQuery
 }>
 
-const countTickets = (tickets: ReadonlyArray<Ticket>): TicketCounts => {
+const countTickets = (tickets: ReadonlyArray<Ticket>) => {
   const byStatus: Record<TicketStatus, number> = {}
   for (const ticket of tickets) {
     byStatus[ticket.status] = (byStatus[ticket.status] ?? 0) + 1

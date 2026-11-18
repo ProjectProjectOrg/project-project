@@ -3,12 +3,12 @@ import { createContext, useContext, type ReactNode } from "react"
 // No provider means the page itself, which reads as level 1.
 const SurfaceContext = createContext<number | null>(null)
 
-export function useSurface(): number {
+export function useSurface() {
   return useContext(SurfaceContext) ?? 1
 }
 
 // True outside any SurfaceProvider: the element sits on the page itself.
-export function useOnPage(): boolean {
+export function useOnPage() {
   return useContext(SurfaceContext) === null
 }
 

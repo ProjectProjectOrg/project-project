@@ -27,7 +27,7 @@ export class Org extends Context.Service<
 
 const makeRole = Schema.decodeUnknownSync(OrgRole)
 
-const purgeAtFor = (deletedAt: Date): Date =>
+const purgeAtFor = (deletedAt: Date) =>
   DateTime.toDate(
     DateTime.add(DateTime.fromDateUnsafe(deletedAt), {
       days: ORG_DELETE_GRACE_DAYS
@@ -37,10 +37,7 @@ const purgeAtFor = (deletedAt: Date): Date =>
 const make = Effect.gen(function* () {
   const db = yield* Db
 
-  const detail = (
-    scope: OrgScope["Service"],
-    deletedAt: Date | null
-  ): Effect.Effect<OrgDetail> =>
+  const detail = (scope: OrgScope["Service"], deletedAt: Date | null) =>
     db
       .select({ name: organization.name, createdAt: organization.createdAt })
       .from(organization)
@@ -75,13 +72,11 @@ const make = Effect.gen(function* () {
       .innerJoin(organization, eq(member.organizationId, organization.id))
       .where(and(eq(member.userId, userId), isNull(organization.deletedAt)))
       .pipe(Effect.orDie)
-    return rows.map(
-      (row): OrgSummary => ({
-        slug: row.slug,
-        name: row.name,
-        role: makeRole(row.role)
-      })
-    )
+    return rows.map((row) => ({
+      slug: row.slug,
+      name: row.name,
+      role: makeRole(row.role)
+    }))
   })
 
   const get = Effect.fn("Org.get")(function* () {

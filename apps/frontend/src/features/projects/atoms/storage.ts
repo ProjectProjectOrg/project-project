@@ -9,7 +9,7 @@ export type StorageRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export const storageRequest = (orgSlug: string): StorageRequest => ({
+export const storageRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 
@@ -24,7 +24,7 @@ export const orgStorage = Atom.family((req: StorageRequest) =>
   Atom.optimistic(storageQuery(req))
 )
 
-const maskAccessKeyId = (value: string): string =>
+const maskAccessKeyId = (value: string) =>
   value.length <= 4
     ? "*".repeat(value.length)
     : `${"*".repeat(value.length - 4)}${value.slice(-4)}`

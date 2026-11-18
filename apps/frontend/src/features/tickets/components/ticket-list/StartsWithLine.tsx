@@ -4,7 +4,7 @@ import type { TypeStart } from "@/features/tickets/lib/creatorType"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-export const startText = (start: TypeStart): string => {
+export const startText = (start: TypeStart) => {
   if (start.kind === "sections")
     return m.tickets_create_starts_with({
       sections: new Intl.ListFormat(getLocale(), {

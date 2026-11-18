@@ -5,9 +5,7 @@ type Listed = Readonly<{
   }>
 }>
 
-export const shortcutGroups = <T extends Listed>(
-  items: ReadonlyArray<T>
-): ReadonlyArray<Readonly<{ group: string; items: ReadonlyArray<T> }>> => {
+export const shortcutGroups = <T extends Listed>(items: ReadonlyArray<T>) => {
   const groups = new Map<string, ReadonlyArray<T>>()
   for (const item of items) {
     if (item.appHotkey.hotkey === null) continue

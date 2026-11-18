@@ -14,7 +14,7 @@ const listeners = new Map<string, Set<() => void>>()
 const snapshotCodec = <A>(
   parse: (raw: string) => Result.Result<A, unknown>,
   encode: (value: A) => string
-): LocalStorageCodec<A> => {
+) => {
   const snapshots = new Map<string, Snapshot<A>>()
   return {
     encode,
@@ -30,20 +30,20 @@ const snapshotCodec = <A>(
       snapshots.set(key, { raw, value })
       return value
     }
-  }
+  } satisfies LocalStorageCodec<A>
 }
 
 export function createLocalStorageCodec<
   S extends Schema.ConstraintDecoder<unknown> &
     Schema.ConstraintEncoder<unknown>
->(schema: S): LocalStorageCodec<S["Type"]> {
+>(schema: S) {
   const json = Schema.fromJsonString(schema)
   return snapshotCodec(Schema.decodeResult(json), Schema.encodeSync(json))
 }
 
 export function createLocalStorageStringCodec<A extends string>(
   schema: Schema.Codec<A, A>
-): LocalStorageCodec<A> {
+) {
   const isA = Schema.is(schema)
   return snapshotCodec(
     (raw) => (isA(raw) ? Result.succeed(raw) : Result.fail(raw)),
@@ -51,7 +51,7 @@ export function createLocalStorageStringCodec<A extends string>(
   )
 }
 
-function readRaw(key: string): string | null {
+function readRaw(key: string) {
   if (typeof window === "undefined") return null
   try {
     return window.localStorage.getItem(key)
@@ -64,18 +64,18 @@ export function readLocalStorage<A>(
   key: string,
   codec: LocalStorageCodec<A>,
   initial: NoInfer<A>
-): A {
+) {
   return codec.readSnapshot(key, initial)
 }
 
-function notify(key: string): void {
+function notify(key: string) {
   const set = listeners.get(key)
   if (set) for (const listener of set) listener()
 }
 
 let windowListenerAttached = false
 
-function attachWindowListener(): void {
+function attachWindowListener() {
   if (windowListenerAttached || typeof window === "undefined") return
   windowListenerAttached = true
   window.addEventListener("storage", (event) => {
@@ -87,10 +87,7 @@ function attachWindowListener(): void {
   })
 }
 
-function subscribeLocalStorage(
-  key: string,
-  onStoreChange: () => void
-): () => void {
+function subscribeLocalStorage(key: string, onStoreChange: () => void) {
   attachWindowListener()
   let set = listeners.get(key)
   if (!set) {
@@ -108,7 +105,7 @@ export function writeLocalStorage<A>(
   key: string,
   codec: LocalStorageCodec<A>,
   next: A
-): void {
+) {
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(key, codec.encode(next))
@@ -124,7 +121,7 @@ export function useLocalStorageSelect<A, T>(
   codec: LocalStorageCodec<A>,
   initial: NoInfer<A>,
   select: (value: A) => T
-): readonly [T, (update: (current: A) => A) => void] {
+) {
   const codecRef = useRef(codec)
   codecRef.current = codec
   const initialRef = useRef(initial)
@@ -160,12 +157,12 @@ export function useLocalStorageState<A>(
   key: string,
   codec: LocalStorageCodec<A>,
   initial: NoInfer<A>
-): readonly [A, (next: A) => void] {
+) {
   const [value, update] = useLocalStorageSelect(key, codec, initial, identity)
   const write = useCallback((next: A) => update(() => next), [update])
   return useMemo(() => [value, write] as const, [value, write])
 }
 
-function identity<T>(value: T): T {
+function identity<T>(value: T) {
   return value
 }

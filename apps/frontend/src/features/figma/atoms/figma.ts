@@ -17,10 +17,7 @@ export type FigmaTicketLinksRequest = Readonly<{
   }>
 }>
 
-export const figmaProjectRequest = (
-  orgSlug: string,
-  slug: string
-): FigmaProjectRequest => ({
+export const figmaProjectRequest = (orgSlug: string, slug: string) => ({
   params: { orgSlug, slug }
 })
 
@@ -28,7 +25,7 @@ export const figmaTicketLinksRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): FigmaTicketLinksRequest => ({ params: { orgSlug, slug, id } })
+) => ({ params: { orgSlug, slug, id } })
 
 const scopeOf = (req: FigmaProjectRequest | FigmaTicketLinksRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

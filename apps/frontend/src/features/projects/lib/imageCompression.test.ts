@@ -13,11 +13,12 @@ interface FakeBitmap {
   close: () => void
 }
 
-const stubBitmap = (width: number, height: number): FakeBitmap => ({
-  width,
-  height,
-  close: vi.fn()
-})
+const stubBitmap = (width: number, height: number) =>
+  ({
+    width,
+    height,
+    close: vi.fn()
+  }) satisfies FakeBitmap
 
 const stubCanvas = (
   drawImage: (...args: Array<unknown>) => void,

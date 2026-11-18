@@ -4,7 +4,7 @@ const GRAY_SATURATION = 0.15
 
 type Hsl = Readonly<{ hue: number; saturation: number; lightness: number }>
 
-const toHsl = (hex: string): Hsl => {
+const toHsl = (hex: string) => {
   const r = Number.parseInt(hex.slice(1, 3), 16) / 255
   const g = Number.parseInt(hex.slice(3, 5), 16) / 255
   const b = Number.parseInt(hex.slice(5, 7), 16) / 255
@@ -12,7 +12,7 @@ const toHsl = (hex: string): Hsl => {
   const min = Math.min(r, g, b)
   const lightness = (max + min) / 2
   const delta = max - min
-  if (delta === 0) return { hue: 0, saturation: 0, lightness }
+  if (delta === 0) return { hue: 0, saturation: 0, lightness } satisfies Hsl
   const saturation = delta / (1 - Math.abs(2 * lightness - 1))
   const sector =
     max === r
@@ -20,7 +20,7 @@ const toHsl = (hex: string): Hsl => {
       : max === g
         ? (b - r) / delta + 2
         : (r - g) / delta + 4
-  return { hue: sector * 60, saturation, lightness }
+  return { hue: sector * 60, saturation, lightness } satisfies Hsl
 }
 
 const colorRank = (hex: string) => {
@@ -32,7 +32,7 @@ const colorRank = (hex: string) => {
 
 export const sortTagsByColor = <T extends Pick<Tag, "name" | "color">>(
   tags: ReadonlyArray<T>
-): ReadonlyArray<T> =>
+) =>
   tags.toSorted((a, b) => {
     const [groupA, keyA] = colorRank(a.color)
     const [groupB, keyB] = colorRank(b.color)

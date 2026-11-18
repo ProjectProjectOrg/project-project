@@ -67,7 +67,7 @@ export type SlashMenuInput = Readonly<{
 
 const SLASH_QUERY = /^[^\s/]{0,64}$/
 
-export const slashTriggerMatch = (text: string): MenuTextMatch | null => {
+export const slashTriggerMatch = (text: string) => {
   const slash = text.lastIndexOf("/")
   if (slash === -1) return null
   if (slash > 0 && !/\s/.test(text[slash - 1])) return null
@@ -77,10 +77,10 @@ export const slashTriggerMatch = (text: string): MenuTextMatch | null => {
     leadOffset: slash,
     matchingString: query,
     replaceableString: text.slice(slash)
-  }
+  } satisfies MenuTextMatch
 }
 
-const words = (text: string): ReadonlyArray<string> =>
+const words = (text: string) =>
   text
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
@@ -89,7 +89,7 @@ const words = (text: string): ReadonlyArray<string> =>
 export const matchesSlashQuery = (
   query: string,
   texts: ReadonlyArray<string>
-): boolean => {
+) => {
   const needle = query.toLowerCase()
   if (needle === "") return true
   return texts.some(
@@ -99,17 +99,17 @@ export const matchesSlashQuery = (
   )
 }
 
-const blockTypesIn = (markdown: string): ReadonlyArray<string> =>
+const blockTypesIn = (markdown: string) =>
   parseTicketBlocks(markdown).flatMap((segment) =>
     segment.kind === "block" ? [segment.type] : []
   )
 
-const visibleBlocks = (library: Library): ReadonlyArray<BlockDefinition> =>
+const visibleBlocks = (library: Library) =>
   library.blocks.filter((block) => !block.hidden)
 
 const suggestedDefinitions = (
   input: Pick<SlashMenuInput, "library" | "lookup" | "ticketType" | "body">
-): ReadonlyArray<Readonly<{ definition: BlockDefinition; by: string }>> => {
+) => {
   if (input.ticketType === null) return []
   const type = typeFor(input.library, input.ticketType)
   if (type === null) return []
@@ -125,39 +125,38 @@ const suggestedDefinitions = (
   })
 }
 
-const suggestedItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
+const suggestedItems = (input: SlashMenuInput) =>
   input.query !== ""
     ? []
-    : suggestedDefinitions(input).map(({ definition, by }) => ({
+    : suggestedDefinitions(input).map<SlashItem>(({ definition, by }) => ({
         kind: "block",
         key: `suggested:${definition.key}`,
         definition,
         suggestedBy: by
       }))
 
-const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> => {
+const blockItems = (input: SlashMenuInput) => {
   const suggested = new Set(
     suggestedItems(input).flatMap((item) =>
       item.kind === "block" ? [item.definition.key] : []
     )
   )
-  return visibleBlocks(input.library).flatMap(
-    (definition): ReadonlyArray<SlashItem> =>
-      !suggested.has(definition.key) &&
-      matchesSlashQuery(input.query, [
-        definition.name,
-        definition.key,
-        definition.description
-      ])
-        ? [
-            {
-              kind: "block",
-              key: `block:${definition.key}`,
-              definition,
-              suggestedBy: null
-            }
-          ]
-        : []
+  return visibleBlocks(input.library).flatMap<SlashItem>((definition) =>
+    !suggested.has(definition.key) &&
+    matchesSlashQuery(input.query, [
+      definition.name,
+      definition.key,
+      definition.description
+    ])
+      ? [
+          {
+            kind: "block",
+            key: `block:${definition.key}`,
+            definition,
+            suggestedBy: null
+          }
+        ]
+      : []
   )
 }
 
@@ -169,7 +168,7 @@ export type AddSectionGroups = Readonly<{
 
 export const addSectionGroups = (
   input: Pick<SlashMenuInput, "library" | "lookup" | "ticketType" | "body">
-): AddSectionGroups => {
+) => {
   const suggested = suggestedDefinitions(input)
   const keys = new Set(suggested.map(({ definition }) => definition.key))
   return {
@@ -181,19 +180,20 @@ export const addSectionGroups = (
   }
 }
 
-const basicKindsFor = (mode: SlashMode): ReadonlyArray<BasicBlockKind> =>
-  mode === "definition" ? [...BASIC_BLOCK_KINDS, "hint"] : BASIC_BLOCK_KINDS
+const basicKindsFor = (mode: SlashMode) =>
+  mode === "definition"
+    ? ([...BASIC_BLOCK_KINDS, "hint"] satisfies ReadonlyArray<BasicBlockKind>)
+    : BASIC_BLOCK_KINDS
 
-const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
-  basicKindsFor(input.mode ?? "ticket").flatMap(
-    (basic): ReadonlyArray<SlashItem> =>
-      matchesSlashQuery(input.query, [
-        input.basicLabel(basic),
-        basic,
-        ...BASIC_ALIASES[basic]
-      ])
-        ? [{ kind: "basic", key: `basic:${basic}`, basic }]
-        : []
+const basicItems = (input: SlashMenuInput) =>
+  basicKindsFor(input.mode ?? "ticket").flatMap<SlashItem>((basic) =>
+    matchesSlashQuery(input.query, [
+      input.basicLabel(basic),
+      basic,
+      ...BASIC_ALIASES[basic]
+    ])
+      ? [{ kind: "basic", key: `basic:${basic}`, basic }]
+      : []
   )
 
 const MODE_SECTIONS: Record<SlashMode, ReadonlySet<SlashSectionKey>> = {
@@ -211,9 +211,7 @@ const TAB_SECTIONS: Record<SlashTab, ReadonlyArray<SlashSectionKey>> = {
 
 const GALLERY_ITEM: SlashItem = { kind: "gallery", key: "gallery:block" }
 
-export const slashMenuSections = (
-  input: SlashMenuInput
-): ReadonlyArray<SlashSection> =>
+export const slashMenuSections = (input: SlashMenuInput) =>
   (
     [
       { section: "suggested", items: suggestedItems(input) },
@@ -234,11 +232,11 @@ export type SlashMenuView = Readonly<{
   sections: ReadonlyArray<SlashSection>
 }>
 
-const libraryIsEmpty = (library: Library, section: SlashSectionKey): boolean =>
+const libraryIsEmpty = (library: Library, section: SlashSectionKey) =>
   section === "blocks" && visibleBlocks(library).length === 0
 
 /** An item whose own name (or a Markdown alias) starts with the query. */
-const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
+const namedByQuery = (input: SlashMenuInput, item: SlashItem) => {
   const needle = input.query.toLowerCase()
   const starts = (text: string) => text.toLowerCase().startsWith(needle)
   switch (item.kind) {
@@ -258,7 +256,7 @@ const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
 const rankedByQuery = (
   input: SlashMenuInput,
   sections: ReadonlyArray<SlashSection>
-): ReadonlyArray<SlashSection> => {
+) => {
   if (input.query === "") return sections
   const named = (item: SlashItem) => (namedByQuery(input, item) ? 0 : 1)
   return sections
@@ -276,9 +274,9 @@ const unrankedTabSections = (
   input: SlashMenuInput,
   found: ReadonlyArray<SlashSection>,
   tab: SlashTab
-): ReadonlyArray<SlashSection> => {
+) => {
   const allowed = MODE_SECTIONS[input.mode ?? "ticket"]
-  return TAB_SECTIONS[tab].flatMap((key): ReadonlyArray<SlashSection> => {
+  return TAB_SECTIONS[tab].flatMap((key) => {
     if (!allowed.has(key)) return []
     const section = found.find((candidate) => candidate.section === key)
     if (section !== undefined) return [section]
@@ -293,17 +291,16 @@ const tabSections = (
   input: SlashMenuInput,
   found: ReadonlyArray<SlashSection>,
   tab: SlashTab
-): ReadonlyArray<SlashSection> =>
-  rankedByQuery(input, unrankedTabSections(input, found, tab))
+) => rankedByQuery(input, unrankedTabSections(input, found, tab))
 
-const countOf = (sections: ReadonlyArray<SlashSection>): number =>
+const countOf = (sections: ReadonlyArray<SlashSection>) =>
   sections.reduce(
     (total, section) =>
       total + section.items.filter((item) => item.kind !== "gallery").length,
     0
   )
 
-export const slashTabsFor = (mode: SlashMode): ReadonlyArray<SlashTab> =>
+export const slashTabsFor = (mode: SlashMode) =>
   SLASH_TABS.filter(
     (tab) =>
       tab === "all" ||
@@ -314,15 +311,12 @@ export const cycleSlashTab = (
   tabs: ReadonlyArray<SlashTab>,
   current: SlashTab,
   step: 1 | -1
-): SlashTab => {
+) => {
   const index = Math.max(0, tabs.indexOf(current))
   return tabs[(index + step + tabs.length) % tabs.length] ?? current
 }
 
-export const slashMenuView = (
-  input: SlashMenuInput,
-  requested: SlashTab
-): SlashMenuView => {
+export const slashMenuView = (input: SlashMenuInput, requested: SlashTab) => {
   const found = slashMenuSections(input)
   const available = slashTabsFor(input.mode ?? "ticket")
   const tab = available.includes(requested) ? requested : available[0]

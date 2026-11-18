@@ -16,8 +16,8 @@ export type RowFilterControls = Readonly<{
 export function useRowFilter(
   count: number,
   needsAttention: (index: number) => boolean
-): RowFilterControls {
-  const snapshot = (): ReadonlySet<number> =>
+) {
+  const snapshot = () =>
     new Set(
       Array.from({ length: count }, (_, index) => index).filter(needsAttention)
     )
@@ -36,5 +36,5 @@ export function useRowFilter(
             : previous.pinned
       })),
     pinned: (index) => state.pinned.has(index)
-  }
+  } satisfies RowFilterControls
 }

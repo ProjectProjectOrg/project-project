@@ -22,9 +22,7 @@ const writeEntry = async (
   await writer.close()
 }
 
-export const tarGz = <E, R>(
-  entries: Stream.Stream<TarEntry, E, R>
-): Stream.Stream<Uint8Array, TarGzError, R> =>
+export const tarGz = <E, R>(entries: Stream.Stream<TarEntry, E, R>) =>
   Stream.unwrap(
     Effect.gen(function* () {
       const { readable, controller } = createTarPacker()

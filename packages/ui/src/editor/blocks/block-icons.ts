@@ -115,6 +115,5 @@ const BLOCK_ICON_MAP: Record<BlockIconName, IconType> = {
   Zap
 }
 
-export const blockIconComponent = (
-  name: BlockIconName = FALLBACK_BLOCK_ICON
-): IconType => BLOCK_ICON_MAP[name]
+export const blockIconComponent = (name: BlockIconName = FALLBACK_BLOCK_ICON) =>
+  BLOCK_ICON_MAP[name]

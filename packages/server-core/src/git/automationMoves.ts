@@ -2,7 +2,6 @@ import { ActivityActor, type GitAutomationEvent } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
-import type * as Markdown from "../markdown/Markdown"
 import type * as TicketDocs from "../tickets/TicketDocs"
 import type { TicketDocumentLock } from "../tickets/ticketDocumentLock"
 import type * as TicketIndex from "../tickets/TicketIndex"
@@ -60,7 +59,7 @@ export const moveForDeletedBranch = (
       >
     }>,
   match: TicketIndex.TicketIndexMatch & BranchRepository
-): Effect.Effect<void, Markdown.MarkdownError> =>
+) =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,
@@ -94,7 +93,7 @@ export const withGitAutomation = (
   projectId: string,
   before: TicketDocs.TicketDocument,
   after: TicketDocs.TicketDocument
-): Effect.Effect<TicketDocs.TicketDocument> => {
+) => {
   const event = gitAutomationEvent(before, after)
   if (event === null) return Effect.succeed(after)
   return Effect.map(gitAutomation.configFor(projectId), (config) => {

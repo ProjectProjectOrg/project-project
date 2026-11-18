@@ -6,10 +6,7 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-export function useConnectGithubError(
-  orgSlug: string,
-  slug: string
-): string | null {
+export function useConnectGithubError(orgSlug: string, slug: string) {
   const state = useAtomValue(connectGithub(projectRequest(orgSlug, slug)))
   if (state.waiting) return null
   return mutationErrorText(

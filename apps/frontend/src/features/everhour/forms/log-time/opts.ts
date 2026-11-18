@@ -33,7 +33,7 @@ const LogTimeFormSchema = Schema.Struct({
 export const toLogTimeInput = (
   values: LogTimeValues,
   target: LogTimeTarget
-): LogTimeInputType | null => {
+) => {
   const seconds = parseDurationToSeconds(values.duration)
   if (seconds === null) return null
   const comment = values.note.trim()
@@ -44,7 +44,7 @@ export const toLogTimeInput = (
     comment: comment ? comment : undefined,
     ticketId: target.ticketId,
     groupId: target.ticketId ? undefined : (target.groupId ?? undefined)
-  }
+  } satisfies LogTimeInputType
 }
 
 export const logTimeFormOpts = appFormOptions({

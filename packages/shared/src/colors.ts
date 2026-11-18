@@ -57,12 +57,12 @@ export const BASELINE_STATUS_COLORS: ReadonlyArray<string> = [
   "#22c55e"
 ]
 
-export function pickStatusColor(used: ReadonlyArray<string>): string {
+export function pickStatusColor(used: ReadonlyArray<string>) {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
   return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
 }
 
-function swatch(hue: number, L: number, C: number): ColorSwatch {
+function swatch(hue: number, L: number, C: number) {
   return {
     hue,
     L,
@@ -72,7 +72,7 @@ function swatch(hue: number, L: number, C: number): ColorSwatch {
   }
 }
 
-function oklchToHex(L: number, C: number, h: number): string {
+function oklchToHex(L: number, C: number, h: number) {
   const hRad = (h * Math.PI) / 180
   const a = C * Math.cos(hRad)
   const b = C * Math.sin(hRad)
@@ -92,7 +92,7 @@ function oklchToHex(L: number, C: number, h: number): string {
   return `#${channel(r)}${channel(g)}${channel(bl)}`
 }
 
-function channel(linear: number): string {
+function channel(linear: number) {
   const clipped = Math.max(0, Math.min(1, linear))
   const srgb =
     clipped <= 0.0031308

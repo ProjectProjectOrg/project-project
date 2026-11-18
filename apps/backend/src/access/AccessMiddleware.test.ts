@@ -161,14 +161,17 @@ const send = (scopes: Scopes, method: string, path: string) =>
       )
     ),
     ({ handler }) =>
-      Effect.promise(async (): Promise<Reply> => {
+      Effect.promise(async () => {
         const response = await handler(
           new Request(`http://localhost${path}`, {
             method,
             headers: { cookie: "better-auth.session_token=t" }
           })
         )
-        return { status: response.status, body: await response.text() }
+        return {
+          status: response.status,
+          body: await response.text()
+        } satisfies Reply
       }),
     ({ dispose }) => Effect.promise(dispose)
   )

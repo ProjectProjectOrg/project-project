@@ -35,7 +35,7 @@ export class ProjectStateCache extends Context.Service<
   }>
 >()("@pp/integration-github/projectStateCache") {}
 
-export const make = (): ProjectStateCache["Service"] => {
+export const make = () => {
   const entries = new Map<string, Entry>()
 
   const cachedProjectStates = Effect.fn("GitHub.cachedProjectStates")(
@@ -44,7 +44,7 @@ export const make = (): ProjectStateCache["Service"] => {
       installationId: string,
       repoKey: string,
       fetch: Effect.Effect<RawProjectStates, ProjectStateFailure>
-    ): Effect.fn.Return<RawProjectStates, ProjectStateFailure> {
+    ) {
       const entry = yield* Effect.sync(() => {
         const existing = entries.get(key)
         if (existing) return existing
@@ -62,9 +62,12 @@ export const make = (): ProjectStateCache["Service"] => {
       }
       const run = entry.state.run
       return yield* run.pipe(
-        Effect.map((value): RawProjectStates => {
+        Effect.map((value) => {
           if (entries.get(key) !== entry)
-            return { ...value, refreshStatus: "stale" }
+            return {
+              ...value,
+              refreshStatus: "stale"
+            } satisfies RawProjectStates
           entry.state.snapshot = value
           return value
         }),
@@ -132,7 +135,7 @@ export const projectStateCacheKey = (
   name: string,
   branches: ReadonlyArray<string>,
   branchQuery: string | undefined
-): Readonly<{ key: string; repoKey: string }> => {
+) => {
   const repoKey = `${owner.toLowerCase()}\0${name.toLowerCase()}`
   return {
     key: JSON.stringify([

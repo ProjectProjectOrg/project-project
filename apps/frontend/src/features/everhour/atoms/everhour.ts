@@ -12,10 +12,7 @@ export type EverhourProjectRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const everhourProjectRequest = (
-  orgSlug: string,
-  slug: string
-): EverhourProjectRequest => ({
+export const everhourProjectRequest = (orgSlug: string, slug: string) => ({
   params: { orgSlug, slug }
 })
 

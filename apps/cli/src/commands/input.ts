@@ -33,7 +33,7 @@ export const readText = Effect.fnUntraced(function* (source: string) {
 const textValue = (value: string) =>
   value.startsWith("@") ? readText(value.slice(1)) : Effect.succeed(value)
 
-const present = (raw: unknown): Option.Option<unknown> => {
+const present = (raw: unknown) => {
   if (Option.isOption(raw)) return raw
   if (Array.isArray(raw) && raw.length === 0) return Option.none()
   return raw === undefined ? Option.none() : Option.some(raw)

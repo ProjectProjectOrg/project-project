@@ -12,7 +12,7 @@ const summary = (
   id: string,
   status: JiraMigrationSummary["status"],
   updatedAt: string
-): JiraMigrationSummary => ({
+) => ({
   id,
   sourceCloudId: "cloud",
   sourceProjectId: `project-${id}`,

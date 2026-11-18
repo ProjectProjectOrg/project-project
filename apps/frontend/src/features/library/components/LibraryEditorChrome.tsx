@@ -9,10 +9,7 @@ import type { LibraryScope } from "../atoms/libraryScope"
 import type { LibraryKind } from "../lib/libraryModel"
 import { LibraryListLink } from "./LibraryEntryLink"
 
-export const combinedStatus = (
-  editor: SaveStatus,
-  save: SaveStatus
-): SaveStatus => {
+export const combinedStatus = (editor: SaveStatus, save: SaveStatus) => {
   if (save === "saving") return "saving"
   if (editor === "dirty") return "dirty"
   return save === "idle" ? editor : save

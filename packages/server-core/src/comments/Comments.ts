@@ -159,18 +159,18 @@ const decodeSlug = Schema.decodeUnknownSync(Slug)
 const isTicketId = Schema.is(TicketId)
 const isSlug = Schema.is(Slug)
 
-const replyTo = (block: CommentBlock): CommentId | null =>
+const replyTo = (block: CommentBlock) =>
   block.replyTo === undefined ? null : decodeCommentId(block.replyTo)
 
 const resolutionOf = (
   block: CommentBlock,
   userById: ReadonlyMap<string, User>
-): Comment["resolution"] =>
+) =>
   block.resolvedBy === undefined || block.resolvedAt === undefined
     ? null
     : { by: userById.get(block.resolvedBy) ?? null, at: block.resolvedAt }
 
-const ticketsOf = (block: CommentBlock): Comment["tickets"] =>
+const ticketsOf = (block: CommentBlock) =>
   (block.tickets ?? []).flatMap((link) =>
     extractMentionLinks(link).flatMap(({ parsed }) => {
       if (parsed?.type !== "ticket") return []
@@ -191,7 +191,7 @@ const withoutResolution = ({
   resolvedBy: _by,
   resolvedAt: _at,
   ...block
-}: CommentBlock): CommentBlock => block
+}: CommentBlock) => block
 
 const make = Effect.gen(function* () {
   const db = yield* Db
@@ -292,7 +292,7 @@ const make = Effect.gen(function* () {
       const authorById = new Map<string, User>(
         authors.map((user) => [user.id, user])
       )
-      return rows.flatMap((r): Comment[] => {
+      return rows.flatMap<Comment>((r) => {
         const block = blockById.get(r.id)
         if (!block) return []
         const author =
@@ -483,14 +483,15 @@ const make = Effect.gen(function* () {
     const blocks = yield* Effect.forEach(input, (comment) =>
       Effect.map(
         newCommentId,
-        (id): CommentBlock => ({
-          id,
-          author: comment.author,
-          origin: "jira",
-          body: comment.body,
-          createdAt: comment.createdAt,
-          editedAt: comment.editedAt
-        })
+        (id) =>
+          ({
+            id,
+            author: comment.author,
+            origin: "jira",
+            body: comment.body,
+            createdAt: comment.createdAt,
+            editedAt: comment.editedAt
+          }) satisfies CommentBlock
       )
     )
     if (blocks.length === 0) return []
@@ -556,11 +557,7 @@ const make = Effect.gen(function* () {
       actor: ProjectScope["Service"],
       comment: CommentPolicy.Authored
     ) => boolean
-  ): Effect.Effect<
-    { authorId: string; createdAt: Date },
-    NotFound | Forbidden,
-    ProjectScope
-  > =>
+  ) =>
     Effect.gen(function* () {
       const scope = yield* ProjectScope
       const row = yield* db.query.commentIndex

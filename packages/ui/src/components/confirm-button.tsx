@@ -204,7 +204,7 @@ function Confirm({
 
 // The first solid background behind an element: what the capsule's edge
 // fade blends into.
-function backgroundUnder(el: HTMLElement): string {
+function backgroundUnder(el: HTMLElement) {
   for (let node = el.parentElement; node !== null; node = node.parentElement) {
     const color = getComputedStyle(node).backgroundColor
     if (color !== "transparent" && color !== "rgba(0, 0, 0, 0)") return color

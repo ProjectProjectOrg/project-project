@@ -14,9 +14,7 @@ import {
   ticketParticipants
 } from "@/features/tickets/lib/ticketParticipants"
 
-export function useTicketParticipants(
-  ticketId: TicketId
-): ReadonlyArray<string> {
+export function useTicketParticipants(ticketId: TicketId) {
   const { orgSlug, slug } = useProjectRoute()
   const ticket = useAtomValue(
     ticketDetail(ticketRequest(orgSlug, slug, ticketId))

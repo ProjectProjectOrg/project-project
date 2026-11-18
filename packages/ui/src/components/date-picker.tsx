@@ -114,23 +114,24 @@ const readTyped = (
   text: string,
   mode: "single" | "range",
   allowPast: boolean
-): Preview => {
-  if (text.trim() === "") return { kind: "empty" }
+) => {
+  if (text.trim() === "") return { kind: "empty" } satisfies Preview
   const now = DateTime.nowUnsafe()
   if (mode === "single")
     return Option.match(parseDayAt(text, now, { allowPast }), {
-      onNone: () => ({ kind: "unreadable" }),
-      onSome: (day) => ({ kind: "day", value: toDate(day) })
+      onNone: () => ({ kind: "unreadable" }) satisfies Preview,
+      onSome: (day) => ({ kind: "day", value: toDate(day) }) satisfies Preview
     })
   return Option.match(parseRangeAt(text, now, { allowPast }), {
-    onNone: () => ({ kind: "unreadable" }),
-    onSome: ({ from, to }) => ({
-      kind: "range",
-      value: {
-        from: toDate(from),
-        to: Option.getOrUndefined(Option.map(to, toDate))
-      }
-    })
+    onNone: () => ({ kind: "unreadable" }) satisfies Preview,
+    onSome: ({ from, to }) =>
+      ({
+        kind: "range",
+        value: {
+          from: toDate(from),
+          to: Option.getOrUndefined(Option.map(to, toDate))
+        }
+      }) satisfies Preview
   })
 }
 
@@ -219,7 +220,7 @@ function DatePicker(props: DatePickerProps) {
     triggerRef.current?.focus()
   }, [typingFrom])
 
-  const applyPreview = (next: Preview): boolean => {
+  const applyPreview = (next: Preview) => {
     if (next.kind === "day" && props.mode === "single") {
       props.onChange(next.value)
       return true

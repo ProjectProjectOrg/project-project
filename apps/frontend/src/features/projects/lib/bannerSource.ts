@@ -26,7 +26,7 @@ export const bannerSource = (
   orgSlug: string,
   banner: ProjectBanner | null,
   cssWidth?: number
-): string | null => {
+) => {
   if (banner === null) return null
   if (banner.type === "preset") return bannerPresetSources[banner.preset]
   const url = attachmentUrl(orgSlug, banner.attachmentId)

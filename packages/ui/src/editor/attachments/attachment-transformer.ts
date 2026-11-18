@@ -16,7 +16,7 @@ import {
 export const ATTACHMENT_MARKDOWN_RE =
   /(!?)\[((?:\\.|[^\]\\])*)\]\((\/api\/attachments\/[^)\s]+)\)/
 
-export const unescapeAttachmentAlt = (alt: string): string =>
+export const unescapeAttachmentAlt = (alt: string) =>
   alt.replace(/\\(.)/g, "$1")
 
 export const ATTACHMENT_TRANSFORMER: TextMatchTransformer = {

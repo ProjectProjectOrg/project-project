@@ -139,45 +139,46 @@ export type JiraMigrationRow = typeof jiraMigration.$inferSelect
 
 const dateTime = (value: Date) => DateTime.fromDateUnsafe(value)
 
-const hasUnsettledRemoteWrites = (row: JiraMigrationRow): boolean =>
+const hasUnsettledRemoteWrites = (row: JiraMigrationRow) =>
   Predicate.isObject(row.checkpoint) &&
   Object.hasOwn(row.checkpoint, "remoteWritesMayStillCommit")
 
-export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
-  canConfigure:
-    row.cleanupExecutionId === null &&
-    (row.status === "needs_configuration" ||
-      row.status === "ready" ||
-      (row.status === "failed" && row.scanAt !== null)),
-  canRun:
-    row.cleanupExecutionId === null &&
-    (row.status === "ready" ||
-      (row.status === "failed" && row.failureRetryable === true) ||
-      row.status === "reconnect_required"),
-  canRescan:
-    row.cleanupExecutionId === null &&
-    !hasUnsettledRemoteWrites(row) &&
-    [
-      "needs_configuration",
-      "ready",
-      "failed",
-      "reconnect_required",
-      "cancelled"
-    ].includes(row.status),
-  canCancel:
-    row.cleanupExecutionId === null &&
-    row.status !== "cancelled" &&
-    row.status !== "succeeded",
-  canRetry:
-    row.cleanupExecutionId === null &&
-    row.failureReason !== "jira_migration_preparation_invalid" &&
-    ((row.status === "failed" && row.failureRetryable === true) ||
-      row.status === "reconnect_required"),
-  canDiscard:
-    row.cleanupExecutionId === null &&
-    !hasUnsettledRemoteWrites(row) &&
-    (row.status === "failed" || row.status === "cancelled")
-})
+export const actionsFor = (row: JiraMigrationRow) =>
+  ({
+    canConfigure:
+      row.cleanupExecutionId === null &&
+      (row.status === "needs_configuration" ||
+        row.status === "ready" ||
+        (row.status === "failed" && row.scanAt !== null)),
+    canRun:
+      row.cleanupExecutionId === null &&
+      (row.status === "ready" ||
+        (row.status === "failed" && row.failureRetryable === true) ||
+        row.status === "reconnect_required"),
+    canRescan:
+      row.cleanupExecutionId === null &&
+      !hasUnsettledRemoteWrites(row) &&
+      [
+        "needs_configuration",
+        "ready",
+        "failed",
+        "reconnect_required",
+        "cancelled"
+      ].includes(row.status),
+    canCancel:
+      row.cleanupExecutionId === null &&
+      row.status !== "cancelled" &&
+      row.status !== "succeeded",
+    canRetry:
+      row.cleanupExecutionId === null &&
+      row.failureReason !== "jira_migration_preparation_invalid" &&
+      ((row.status === "failed" && row.failureRetryable === true) ||
+        row.status === "reconnect_required"),
+    canDiscard:
+      row.cleanupExecutionId === null &&
+      !hasUnsettledRemoteWrites(row) &&
+      (row.status === "failed" || row.status === "cancelled")
+  }) satisfies JiraMigrationActions
 
 const decodeConfiguredDestination = Schema.decodeUnknownOption(
   Schema.Struct({ destination: JiraMigrationConfiguration.fields.destination })
@@ -198,25 +199,26 @@ const scanCountsOf = (scanPages: Readonly<Record<string, number>>) => {
   return counts
 }
 
-export const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
-  id: row.id,
-  sourceCloudId: row.sourceCloudId,
-  sourceProjectId: row.sourceProjectId,
-  sourceProjectKey: row.sourceProjectKey,
-  sourceProjectName: row.sourceProjectName,
-  status: row.status,
-  phase: row.phase,
-  revision: row.revision,
-  progress: {
+export const toSummary = (row: JiraMigrationRow) =>
+  ({
+    id: row.id,
+    sourceCloudId: row.sourceCloudId,
+    sourceProjectId: row.sourceProjectId,
+    sourceProjectKey: row.sourceProjectKey,
+    sourceProjectName: row.sourceProjectName,
+    status: row.status,
     phase: row.phase,
-    done: row.progressDone,
-    total: row.progressTotal
-  },
-  destinationProjectSlug: row.destinationProjectSlug,
-  destination: configuredDestination(row),
-  createdAt: dateTime(row.createdAt),
-  updatedAt: dateTime(row.updatedAt)
-})
+    revision: row.revision,
+    progress: {
+      phase: row.phase,
+      done: row.progressDone,
+      total: row.progressTotal
+    },
+    destinationProjectSlug: row.destinationProjectSlug,
+    destination: configuredDestination(row),
+    createdAt: dateTime(row.createdAt),
+    updatedAt: dateTime(row.updatedAt)
+  }) satisfies JiraMigrationSummary
 
 const decodePersistedJson = Function.compose(
   Schema.decodeUnknownEffect(Schema.UndefinedOr(Schema.Json)),
@@ -303,7 +305,7 @@ const exactlyOne = <A>(
 export const isCompleteJiraConfiguration = (
   configuration: JiraMigrationConfiguration,
   requirements: JiraMigrationRequirements
-): boolean => {
+) => {
   const identitiesValid =
     exactlyOne(
       configuration.identities,
@@ -429,7 +431,7 @@ const isPersistedSourceStatus = Schema.is(
   })
 )
 
-function enrichPersistedCheckpoint(value: Schema.Json): Schema.Json {
+function enrichPersistedCheckpoint(value: Schema.Json) {
   const decodedValue = decodeJsonObject(value)
   if (Option.isNone(decodedValue)) return value
   const checkpoint = decodedValue.value
@@ -574,7 +576,7 @@ const lastFailureOf = (failure: ProjectedFailure) =>
 const withLastFailure = (
   checkpoint: JiraMigrationCheckpoint,
   failure: ProjectedFailure
-): JiraMigrationCheckpoint => {
+) => {
   const {
     lastFailure: _lastFailure,
     remoteWritesMayStillCommit: _remoteWrites,
@@ -613,7 +615,7 @@ export const matchesSource = (
   row.sourceProjectKey === source.projectKey &&
   row.sourceProjectName === source.projectName
 
-export const fenceFor = (row: JiraMigrationRow): AttemptFence | null =>
+export const fenceFor = (row: JiraMigrationRow) =>
   row.workflowExecutionId === null
     ? null
     : {

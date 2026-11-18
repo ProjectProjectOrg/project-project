@@ -50,9 +50,7 @@ const decodeBenchmarkReports = Schema.decodeUnknownSync(
   Schema.Array(BenchmarkReportSchema)
 )
 
-export const parseBenchmarkReports = (
-  content: string
-): ReadonlyArray<BenchmarkReport> => {
+export const parseBenchmarkReports = (content: string) => {
   const trimmed = content.trim()
   if (trimmed === "") return []
   let parsed: unknown
@@ -67,9 +65,9 @@ export const parseBenchmarkReports = (
   return decodeBenchmarkReports(Array.isArray(parsed) ? parsed : [parsed])
 }
 
-const round = (value: number): number => Math.round(value * 100) / 100
+const round = (value: number) => Math.round(value * 100) / 100
 
-const median = (values: ReadonlyArray<number>): number => {
+const median = (values: ReadonlyArray<number>) => {
   if (values.length === 0) throw new Error("cannot take median of no values")
   const sorted = values.toSorted((left, right) => left - right)
   const middle = Math.floor(sorted.length / 2)
@@ -78,16 +76,16 @@ const median = (values: ReadonlyArray<number>): number => {
     : sorted[middle]
 }
 
-const percentChange = (before: number, after: number): number | null =>
+const percentChange = (before: number, after: number) =>
   before === 0 ? null : round(((after - before) / before) * 100)
 
-const resultKey = (result: BenchmarkResult): string =>
+const resultKey = (result: BenchmarkResult) =>
   `${result.operation}:${result.concurrency}`
 
 const sameNumbers = (
   left: ReadonlyArray<number>,
   right: ReadonlyArray<number>
-): boolean =>
+) =>
   left.length === right.length &&
   left.every((value, index) => value === right[index])
 
@@ -95,7 +93,7 @@ const assertConfigurationMatches = (
   expected: BenchmarkReport,
   actual: BenchmarkReport,
   context: string
-): void => {
+) => {
   if (actual.ticketCount !== expected.ticketCount) {
     throw new Error(`${context} ticketCount does not match`)
   }
@@ -119,16 +117,14 @@ const assertConfigurationMatches = (
   }
 }
 
-const sortedResultKeys = (
-  results: ReadonlyArray<BenchmarkResult>
-): ReadonlyArray<string> =>
+const sortedResultKeys = (results: ReadonlyArray<BenchmarkResult>) =>
   results.map(resultKey).toSorted((left, right) => left.localeCompare(right))
 
 const assertValuesMatch = (
   expected: ReadonlyArray<string>,
   actual: ReadonlyArray<string>,
   message: string
-): void => {
+) => {
   if (
     expected.length !== actual.length ||
     expected.some((key, index) => key !== actual[index])
@@ -146,7 +142,7 @@ interface ValidatedReportSet {
 const validateReportSet = (
   label: string,
   reports: ReadonlyArray<BenchmarkReport>
-): ValidatedReportSet => {
+) => {
   const first = reports[0]
   if (!first) throw new Error(`${label} reports are empty`)
   const resultKeys = sortedResultKeys(first.results)
@@ -181,12 +177,10 @@ const validateReportSet = (
   if (new Set(rounds).size !== rounds.length) {
     throw new Error(`${label} reports contain duplicate rounds`)
   }
-  return { first, rounds, resultKeys }
+  return { first, rounds, resultKeys } satisfies ValidatedReportSet
 }
 
-const resultsByKey = (
-  reports: ReadonlyArray<BenchmarkReport>
-): ReadonlyMap<string, ReadonlyArray<BenchmarkResult>> => {
+const resultsByKey = (reports: ReadonlyArray<BenchmarkReport>) => {
   const grouped = new Map<string, Array<BenchmarkResult>>()
   for (const report of reports) {
     for (const result of report.results) {
@@ -202,7 +196,7 @@ const resultsByKey = (
 export const compareBenchmarkReports = (
   beforeReports: ReadonlyArray<BenchmarkReport>,
   afterReports: ReadonlyArray<BenchmarkReport>
-): ReadonlyArray<BenchmarkComparison> => {
+) => {
   const beforeSet = validateReportSet("before", beforeReports)
   const afterSet = validateReportSet("after", afterReports)
   assertConfigurationMatches(

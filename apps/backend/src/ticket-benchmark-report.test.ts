@@ -12,35 +12,36 @@ const report = (
   p95Ms: number,
   throughputPerSecond: number,
   failures: number
-): BenchmarkReport => ({
-  generatedAt: "2026-01-01T00:00:00.000Z",
-  environment: {
-    platform: "linux",
-    architecture: "arm64",
-    cpuCount: 8,
-    bunVersion: "1.2.13"
-  },
-  variant,
-  round,
-  ticketCount: 10_000,
-  sampleCount: 100,
-  concurrencies: [1],
-  seedTimeMs: 100,
-  results: [
-    {
-      operation: "list-default",
-      concurrency: 1,
-      samples: 100,
-      failures,
-      p50Ms: p95Ms / 2,
-      p95Ms,
-      p99Ms: p95Ms * 2,
-      throughputPerSecond,
-      wallTimeMs: 1_000,
-      firstFailure: failures === 0 ? null : "failed"
-    }
-  ]
-})
+) =>
+  ({
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    environment: {
+      platform: "linux",
+      architecture: "arm64",
+      cpuCount: 8,
+      bunVersion: "1.2.13"
+    },
+    variant,
+    round,
+    ticketCount: 10_000,
+    sampleCount: 100,
+    concurrencies: [1],
+    seedTimeMs: 100,
+    results: [
+      {
+        operation: "list-default",
+        concurrency: 1,
+        samples: 100,
+        failures,
+        p50Ms: p95Ms / 2,
+        p95Ms,
+        p99Ms: p95Ms * 2,
+        throughputPerSecond,
+        wallTimeMs: 1_000,
+        firstFailure: failures === 0 ? null : "failed"
+      }
+    ]
+  }) satisfies BenchmarkReport
 
 describe("compareBenchmarkReports", () => {
   it("compares median results across benchmark rounds", () => {

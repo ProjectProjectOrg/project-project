@@ -2,13 +2,13 @@ import { useEffect, useState, type RefObject } from "react"
 
 export type MenuAnchor = Readonly<{ getBoundingClientRect: () => DOMRect }>
 
-const isTextEntry = (target: EventTarget | null): boolean =>
+const isTextEntry = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable ||
     target.closest("input, textarea, select, [contenteditable='true']") !==
       null)
 
-const pointAnchor = (x: number, y: number): MenuAnchor => ({
+const pointAnchor = (x: number, y: number) => ({
   getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
 })
 

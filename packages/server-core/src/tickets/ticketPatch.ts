@@ -20,9 +20,7 @@ const listChanged = (
   next.length !== current.length ||
   next.some((value, index) => value !== current[index])
 
-const uniqueOrUndefined = <A>(
-  values: ReadonlyArray<A>
-): ReadonlyArray<A> | undefined =>
+const uniqueOrUndefined = <A>(values: ReadonlyArray<A>) =>
   values.length === 0 ? undefined : [...new Set(values)]
 
 const flagOf = (
@@ -30,7 +28,7 @@ const flagOf = (
   patch: TicketPatch["flag"],
   actor: string,
   now: Date
-): TicketFlag | undefined => {
+) => {
   if (patch === undefined) return existing
   if (patch === null) return undefined
   const reason = patch.reason?.trim() || undefined
@@ -44,7 +42,7 @@ export const clearFlagWhenFinished = (
   current: TicketDocs.TicketDocument,
   next: TicketDocs.TicketDocument,
   finished: ReadonlySet<string>
-): TicketDocs.TicketDocument => {
+) => {
   if (current.status === next.status || !finished.has(next.status)) return next
   const { flag: _flag, ...unflagged } = next
   return unflagged
@@ -55,7 +53,7 @@ export const applyTicketPatch = (
   patch: TicketPatch,
   actor: string,
   now: Date
-): TicketDocs.TicketDocument => {
+) => {
   const flag = flagOf(currentFlag, patch.flag, actor, now)
   return {
     ...existing,
@@ -97,7 +95,7 @@ export const applyTicketPatch = (
 export const fieldChangesOf = (
   existing: TicketDocs.TicketDocument,
   next: TicketDocs.TicketDocument
-): TicketPolicy.Change => ({
+) => ({
   content:
     next.title !== existing.title ||
     next.type !== existing.type ||
@@ -119,14 +117,12 @@ export const isUnchanged = (change: TicketPolicy.Change) =>
 export const ticketChangeOf = (
   existing: TicketDocs.TicketDocument,
   next: TicketDocs.TicketDocument
-): TicketPolicy.Change => {
+) => {
   const change = fieldChangesOf(existing, next)
   return isUnchanged(change) ? { ...change, content: true } : change
 }
 
-export const batchChangeOf = (
-  changes: ReadonlyArray<TicketPolicy.Change>
-): TicketPolicy.Change => {
+export const batchChangeOf = (changes: ReadonlyArray<TicketPolicy.Change>) => {
   const changed = changes.filter((change) => !isUnchanged(change))
   return changed.length === 0
     ? { content: true, status: false, assignees: false }
@@ -179,7 +175,7 @@ export const revertTicketPatch = (
   original: TicketDocs.TicketDocument,
   written: TicketDocs.TicketDocument,
   current: TicketDocs.TicketDocument
-): TicketDocs.TicketDocument | null => {
+) => {
   const hierarchyKeys: ReadonlyArray<PatchableKey> = ["type", "parent"]
   const hierarchyReverts = hierarchyKeys.every((key) =>
     sameField(key, current, written)
@@ -225,10 +221,11 @@ export const revertTicketPatch = (
 export const hierarchyChangeOf = (
   existing: TicketDocs.TicketDocument,
   next: TicketDocs.TicketDocument
-): HierarchyChange => ({
-  id: existing.id,
-  fromType: existing.type,
-  type: next.type,
-  parent: next.parent,
-  parentChanged: next.parent !== existing.parent
-})
+) =>
+  ({
+    id: existing.id,
+    fromType: existing.type,
+    type: next.type,
+    parent: next.parent,
+    parentChanged: next.parent !== existing.parent
+  }) satisfies HierarchyChange

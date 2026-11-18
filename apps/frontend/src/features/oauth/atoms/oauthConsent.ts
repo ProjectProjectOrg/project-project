@@ -11,9 +11,7 @@ export type OAuthConsentRequest = Readonly<{
   oauthQuery: string
 }>
 
-export const oauthConsentRequest = (
-  oauthQuery: string
-): OAuthConsentRequest => ({ oauthQuery })
+export const oauthConsentRequest = (oauthQuery: string) => ({ oauthQuery })
 
 export type SubmitConsentInput = Readonly<{
   accept: boolean
@@ -42,9 +40,7 @@ export type OAuthClientRequest = Readonly<{
   query: Readonly<{ client_id: string }> | null
 }>
 
-export const oauthClientRequest = (
-  clientId: string | undefined
-): OAuthClientRequest => ({
+export const oauthClientRequest = (clientId: string | undefined) => ({
   query: clientId ? { client_id: clientId } : null
 })
 

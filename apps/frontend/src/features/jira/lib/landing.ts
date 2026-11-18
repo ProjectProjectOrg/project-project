@@ -11,8 +11,8 @@ import { jiraLandingStep, type JiraImportStep } from "./stages"
 export function jiraImportLanding(
   detail: Pick<JiraMigrationDetail, "requirements" | "configuration">,
   types: ReadonlyArray<TypeDefinition>
-): JiraImportStep {
-  if (detail.requirements === null) return "scan"
+) {
+  if (detail.requirements === null) return "scan" satisfies JiraImportStep
   const draft = buildJiraImportDraft(
     detail.requirements,
     detail.configuration,
@@ -36,11 +36,12 @@ export const jiraImportTitle = (
     | "configuration"
     | "requirements"
   >
-): JiraImportNames => ({
-  source: detail.sourceProjectKey,
-  destination:
-    detail.configuration?.destination.name ??
-    detail.destination?.name ??
-    detail.requirements?.destination.suggestedName ??
-    detail.sourceProjectName
-})
+) =>
+  ({
+    source: detail.sourceProjectKey,
+    destination:
+      detail.configuration?.destination.name ??
+      detail.destination?.name ??
+      detail.requirements?.destination.suggestedName ??
+      detail.sourceProjectName
+  }) satisfies JiraImportNames

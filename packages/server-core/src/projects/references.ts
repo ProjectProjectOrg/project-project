@@ -32,10 +32,7 @@ const originOf = (url: string) => {
   }
 }
 
-export const referenceCandidates = (
-  body: string,
-  oldOrigin: string | null
-): ReadonlyArray<ReferenceCandidate> => [
+export const referenceCandidates = (body: string, oldOrigin: string | null) => [
   ...[...body.matchAll(MENTION)].map((match) => ({
     kind: match[2] === "user" ? ("user" as const) : ("ticket" as const),
     target: match[3],
@@ -68,7 +65,7 @@ export const applyReferenceFix = (
   body: string,
   reference: Readonly<{ kind: ReferenceKind; target: string }>,
   action: FixReferenceAction
-): string => {
+) => {
   const pattern = new RegExp(
     `\\[([^\\]]*)\\]\\(${escapeRegExp(hrefOf(reference.kind, reference.target))}\\)`,
     "g"

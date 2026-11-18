@@ -13,7 +13,7 @@ export const countsRequest = (
   orgSlug: string,
   slug: string,
   query: TicketCountQuery
-): CountsRequest => ({
+) => ({
   params: { orgSlug, slug },
   query
 })

@@ -142,7 +142,7 @@ describe("figmaCheckReason", () => {
 })
 
 describe("needsFigmaMetadata", () => {
-  const at = (iso: string): Date =>
+  const at = (iso: string) =>
     DateTime.toDate(DateTime.makeUnsafe(Date.parse(iso)))
 
   const now = at("2026-09-04T12:00:00Z")

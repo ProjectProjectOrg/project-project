@@ -79,10 +79,10 @@ type ProjectOutcome = Readonly<{
   migration: LayerMigration | null
 }>
 
-const hasLegacyDefaults = (frontmatter: LegacyFrontmatter | null): boolean =>
+const hasLegacyDefaults = (frontmatter: LegacyFrontmatter | null) =>
   frontmatter !== null && LEGACY_DEFAULTS_KEY in frontmatter.data
 
-const stepOutcome = (step: MigrationStep): string =>
+const stepOutcome = (step: MigrationStep) =>
   Match.value(step).pipe(
     Match.tagsExhaustive({
       type: () => "type",
@@ -92,7 +92,7 @@ const stepOutcome = (step: MigrationStep): string =>
     })
   )
 
-const logLayer = (migration: LayerMigration): Effect.Effect<void> =>
+const logLayer = (migration: LayerMigration) =>
   Effect.logInfo("library migration: layer migrated").pipe(
     Effect.annotateLogs({
       orgSlug: migration.orgSlug,
@@ -106,9 +106,7 @@ const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
   const docs = yield* LibraryDocs.LibraryDocs
 
-  const orgFrontmatter = (
-    orgSlug: string
-  ): Effect.Effect<LegacyFrontmatter | null, Markdown.MarkdownError> =>
+  const orgFrontmatter = (orgSlug: string) =>
     Effect.gen(function* () {
       const content = yield* markdown.readOrgLibraryFile(orgSlug)
       if (content === null) return null
@@ -130,19 +128,13 @@ const make = Effect.gen(function* () {
       )
     })
 
-  const projectFrontmatter = (
-    orgSlug: string,
-    projectSlug: string
-  ): Effect.Effect<LegacyFrontmatter | null, Markdown.MarkdownError> =>
+  const projectFrontmatter = (orgSlug: string, projectSlug: string) =>
     markdown.readProjectFile(orgSlug, projectSlug).pipe(
       Effect.map((file) => ({ data: file.data, body: file.body })),
       Effect.catchTag("NotFound", () => Effect.succeed(null))
     )
 
-  const readLegacy = (
-    orgSlug: string,
-    projectSlug: string | null
-  ): Effect.Effect<LegacyState, Markdown.MarkdownError> =>
+  const readLegacy = (orgSlug: string, projectSlug: string | null) =>
     Effect.gen(function* () {
       const files = yield* markdown.listLegacyTemplateFiles(
         orgSlug,
@@ -165,7 +157,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     projectSlug: string | null,
     step: MigrationStep
-  ): Effect.Effect<void, Markdown.MarkdownError> =>
+  ) =>
     Match.value(step).pipe(
       Match.tagsExhaustive({
         type: (typed) => docs.writeType(orgSlug, projectSlug, typed.draft),
@@ -187,7 +179,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     projectSlug: string | null,
     step: MigrationStep
-  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       const type = stepKey(step)
       const annotations = {
@@ -221,7 +213,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     projectSlug: string | null,
     plan: LayerPlan
-  ): Effect.Effect<LayerMigration, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       const outcomes = yield* Effect.forEach(plan.steps, (step) =>
         Effect.map(applyStep(orgSlug, projectSlug, step), (written) => ({
@@ -241,10 +233,7 @@ const make = Effect.gen(function* () {
       }
     })
 
-  const dropOrgDefaults = (
-    orgSlug: string,
-    frontmatter: LegacyFrontmatter
-  ): Effect.Effect<void, Markdown.MarkdownError> => {
+  const dropOrgDefaults = (orgSlug: string, frontmatter: LegacyFrontmatter) => {
     const rest = withoutLegacyDefaults(frontmatter.data)
     return Object.keys(rest).length === 0 && frontmatter.body.trim() === ""
       ? markdown.removeOrgLibraryFile(orgSlug)
@@ -258,7 +247,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     projectSlug: string | null,
     state: LegacyState
-  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       const removed = yield* markdown.removeLegacyTemplatesDir(
         orgSlug,
@@ -282,7 +271,7 @@ const make = Effect.gen(function* () {
     projectSlug: string,
     org: LegacyLayer,
     orgPlan: LayerPlan
-  ): Effect.Effect<LayerMigration | null, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       const state = yield* readLegacy(orgSlug, projectSlug)
       const migration = yield* applyPlan(
@@ -302,9 +291,11 @@ const make = Effect.gen(function* () {
     projectSlug: string,
     org: LegacyLayer,
     orgPlan: LayerPlan
-  ): Effect.Effect<ProjectOutcome> =>
+  ) =>
     migrateProject(orgSlug, projectSlug, org, orgPlan).pipe(
-      Effect.map((migration) => ({ failed: false, migration })),
+      Effect.map(
+        (migration) => ({ failed: false, migration }) satisfies ProjectOutcome
+      ),
       Effect.catchCause((cause) =>
         Cause.hasInterrupts(cause)
           ? Effect.interrupt
@@ -313,14 +304,15 @@ const make = Effect.gen(function* () {
               cause
             ).pipe(
               Effect.annotateLogs({ orgSlug, projectSlug }),
-              Effect.as({ failed: true, migration: null })
+              Effect.as({
+                failed: true,
+                migration: null
+              } satisfies ProjectOutcome)
             )
       )
     )
 
-  const migrateOrg = (
-    orgSlug: string
-  ): Effect.Effect<MigrationSummary, Markdown.MarkdownError> =>
+  const migrateOrg = (orgSlug: string) =>
     Effect.gen(function* () {
       const state = yield* readLegacy(orgSlug, null)
       const plan = planOrgLayer(state.layer)
@@ -342,17 +334,20 @@ const make = Effect.gen(function* () {
         yield* Effect.logWarning(
           "library migration: org templates kept until every project migrates"
         ).pipe(Effect.annotateLogs({ orgSlug, failedProjects: failed.length }))
-        return { migrated: projects, failed }
+        return { migrated: projects, failed } satisfies MigrationSummary
       }
       const cleaned = yield* finishLayer(orgSlug, null, state)
       const touched = cleaned || !isEmptyLegacyLayer(state.layer)
       if (!touched && migration.written.length === 0)
-        return { migrated: projects, failed }
+        return { migrated: projects, failed } satisfies MigrationSummary
       yield* logLayer(migration)
-      return { migrated: [migration, ...projects], failed }
+      return {
+        migrated: [migration, ...projects],
+        failed
+      } satisfies MigrationSummary
     })
 
-  const migrateOrgSafely = (orgSlug: string): Effect.Effect<MigrationSummary> =>
+  const migrateOrgSafely = (orgSlug: string) =>
     migrateOrg(orgSlug).pipe(
       Effect.catchCause((cause) =>
         Cause.hasInterrupts(cause)
@@ -362,7 +357,7 @@ const make = Effect.gen(function* () {
               cause
             ).pipe(
               Effect.annotateLogs({ orgSlug }),
-              Effect.as({
+              Effect.as<MigrationSummary>({
                 migrated: [],
                 failed: [{ orgSlug, projectSlug: null }]
               })
@@ -381,11 +376,7 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const rewriteTicket = (
-    orgSlug: string,
-    projectSlug: string,
-    id: string
-  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
+  const rewriteTicket = (orgSlug: string, projectSlug: string, id: string) =>
     Effect.gen(function* () {
       const file = yield* markdown.readTicketFileRaw(orgSlug, projectSlug, id)
       const rewritten = withoutLegacyTicketType(file.content)
@@ -394,10 +385,7 @@ const make = Effect.gen(function* () {
       return true
     }).pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
 
-  const migrateProjectTickets = (
-    orgSlug: string,
-    projectSlug: string
-  ): Effect.Effect<TicketTypeMigration, Markdown.MarkdownError> =>
+  const migrateProjectTickets = (orgSlug: string, projectSlug: string) =>
     Effect.gen(function* () {
       const ids = yield* markdown.listTicketIds(orgSlug, projectSlug)
       const outcomes = yield* Effect.forEach(
@@ -414,10 +402,7 @@ const make = Effect.gen(function* () {
       return { orgSlug, projectSlug, rewritten }
     })
 
-  const migrateProjectTicketsSafely = (
-    orgSlug: string,
-    projectSlug: string
-  ): Effect.Effect<TicketTypeMigration | null> =>
+  const migrateProjectTicketsSafely = (orgSlug: string, projectSlug: string) =>
     migrateProjectTickets(orgSlug, projectSlug).pipe(
       Effect.catchCause((cause) =>
         Cause.hasInterrupts(cause)

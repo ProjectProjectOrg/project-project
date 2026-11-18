@@ -3,13 +3,10 @@ import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 
 import type { TicketRankGap } from "./TicketIndex"
 
-export const rankBetween = (gap: TicketRankGap): TicketRank =>
+export const rankBetween = (gap: TicketRankGap) =>
   TicketRank.make(generateKeyBetween(gap.lower, gap.upper))
 
-export const ranksBetween = (
-  gap: TicketRankGap,
-  count: number
-): ReadonlyArray<TicketRank> =>
+export const ranksBetween = (gap: TicketRankGap, count: number) =>
   generateNKeysBetween(gap.lower, gap.upper, count).map((key) =>
     TicketRank.make(key)
   )
@@ -17,7 +14,7 @@ export const ranksBetween = (
 export const compareByRank = (
   a: Readonly<{ rank: TicketRank; id: string }>,
   b: Readonly<{ rank: TicketRank; id: string }>
-): number =>
+) =>
   a.rank < b.rank
     ? -1
     : a.rank > b.rank

@@ -12,7 +12,7 @@ export type SharedTicketFields = Partial<Pick<SelectedTicket, Single>> &
 const sameFor = <K extends Single>(
   tickets: ReadonlyArray<SelectedTicket>,
   key: K
-): SelectedTicket[K] | undefined => {
+) => {
   const [first, ...rest] = tickets
   if (first === undefined) return undefined
   const value = JSON.stringify(first[key])
@@ -26,21 +26,21 @@ const commonTo = <A>(lists: ReadonlyArray<ReadonlyArray<A>>) => {
   return first.filter((value) => rest.every((list) => list.includes(value)))
 }
 
-export const sharedTicketFields = (
-  tickets: ReadonlyArray<SelectedTicket>
-): SharedTicketFields => ({
-  status: sameFor(tickets, "status"),
-  priority: sameFor(tickets, "priority"),
-  type: sameFor(tickets, "type"),
-  estimate: sameFor(tickets, "estimate"),
-  tags: commonTo(tickets.map((ticket) => ticket.tags)),
-  assignees: commonTo(tickets.map((ticket) => ticket.assignees))
-})
+export const sharedTicketFields = (tickets: ReadonlyArray<SelectedTicket>) =>
+  ({
+    status: sameFor(tickets, "status"),
+    priority: sameFor(tickets, "priority"),
+    type: sameFor(tickets, "type"),
+    estimate: sameFor(tickets, "estimate"),
+    tags: commonTo(tickets.map((ticket) => ticket.tags)),
+    assignees: commonTo(tickets.map((ticket) => ticket.assignees)),
+    parent: undefined
+  }) satisfies SharedTicketFields
 
 export const applySelectedEdit = (
   ticket: SelectedTicket,
   edit: TicketEdit
-): SelectedTicket => ({
+) => ({
   ...ticket,
   status: edit.status ?? ticket.status,
   priority: edit.priority ?? ticket.priority,

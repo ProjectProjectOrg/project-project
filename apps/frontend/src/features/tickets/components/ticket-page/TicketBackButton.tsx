@@ -23,18 +23,21 @@ function fallbackFor(
   sprint: GroupId | undefined,
   orgSlug: string,
   slug: string
-): LinkComponentProps {
+) {
   if (sprint !== undefined) {
     return {
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId: sprint }
-    }
+    } satisfies LinkComponentProps
   }
   if (from?.kind === "parent") {
     return {
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id: from.parent }
-    }
+    } satisfies LinkComponentProps
   }
-  return { to: "/orgs/$orgSlug/projects/$slug", params: { orgSlug, slug } }
+  return {
+    to: "/orgs/$orgSlug/projects/$slug",
+    params: { orgSlug, slug }
+  } satisfies LinkComponentProps
 }

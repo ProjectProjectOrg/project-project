@@ -37,13 +37,13 @@ const decodeCursorPayload = Schema.decodeSync(CursorPayloadJson)
 // base64url via the Web APIs so this module compiles for the browser too.
 // Cursor payloads are ASCII-only (ids + ISO dates) in practice, so the
 // String.fromCharCode dance over the UTF-8 bytes is sufficient.
-const toBase64Url = (bytes: Uint8Array): string => {
+const toBase64Url = (bytes: Uint8Array) => {
   let bin = ""
   for (const b of bytes) bin += String.fromCharCode(b)
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
 
-const fromBase64Url = (s: string): Uint8Array => {
+const fromBase64Url = (s: string) => {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/")
   const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4)
   const bin = atob(padded)
@@ -52,9 +52,9 @@ const fromBase64Url = (s: string): Uint8Array => {
   return out
 }
 
-export const encodeCursor = (p: CursorPayload): string =>
+export const encodeCursor = (p: CursorPayload) =>
   toBase64Url(new TextEncoder().encode(encodeCursorPayload(p)))
 
-export const decodeCursor = (s: string): CursorPayload => {
+export const decodeCursor = (s: string) => {
   return decodeCursorPayload(new TextDecoder().decode(fromBase64Url(s)))
 }

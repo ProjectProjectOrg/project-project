@@ -241,34 +241,32 @@ const StatusPayload = Schema.Struct({
 
 const decodeUnknownStatusPayloadExit = Schema.decodeUnknownExit(StatusPayload)
 
-const idToString = (id: typeof GitHubId.Type): string => String(id)
+const idToString = (id: typeof GitHubId.Type) => String(id)
 
-const checkSuiteChecks = (
-  status: string,
-  conclusion: string | null
-): ChecksStatus => {
-  if (status !== "completed") return "pending"
-  if (conclusion === "success") return "passing"
+const checkSuiteChecks = (status: string, conclusion: string | null) => {
+  if (status !== "completed") return "pending" satisfies ChecksStatus
+  if (conclusion === "success") return "passing" satisfies ChecksStatus
   if (
     conclusion === "failure" ||
     conclusion === "timed_out" ||
     conclusion === "startup_failure"
   ) {
-    return "failing"
+    return "failing" satisfies ChecksStatus
   }
-  return "neutral"
+  return "neutral" satisfies ChecksStatus
 }
 
-const statusChecks = (state: string): ChecksStatus | null => {
-  if (state === "pending") return "pending"
-  if (state === "success") return "passing"
-  if (state === "failure" || state === "error") return "failing"
+const statusChecks = (state: string) => {
+  if (state === "pending") return "pending" satisfies ChecksStatus
+  if (state === "success") return "passing" satisfies ChecksStatus
+  if (state === "failure" || state === "error")
+    return "failing" satisfies ChecksStatus
   return null
 }
 
 const repositoryMetadata = (
   repository: typeof RepositoryPayload.Type.repository
-): { owner: string; name: string; defaultBranch: string } | null => {
+) => {
   if (
     repository.name === undefined ||
     repository.owner === undefined ||
@@ -317,7 +315,7 @@ const logMalformed = (
 const decodePayload = <A>(
   decode: ReturnType<typeof Schema.decodeUnknownExit<Schema.Decoder<A>>>,
   delivery: GitHubWebhookDelivery
-): Effect.Effect<A | null> =>
+) =>
   Effect.gen(function* () {
     const json = yield* parseJson(delivery.body).pipe(Effect.result)
     if (Result.isFailure(json)) {
@@ -399,9 +397,7 @@ const PULL_REQUEST_ACTIONS = [
   "edited"
 ] as const
 
-const pullRequestAction = (
-  action: string
-): (typeof PULL_REQUEST_ACTIONS)[number] | null =>
+const pullRequestAction = (action: string) =>
   PULL_REQUEST_ACTIONS.find((handled) => handled === action) ?? null
 
 const handlePullRequest = (
@@ -652,9 +648,7 @@ const handleRepository = (
     })
   })
 
-export const fromSink = (
-  sink: GitHubWebhookMutationSink
-): GitHubWebhooks["Service"] =>
+export const fromSink = (sink: GitHubWebhookMutationSink) =>
   GitHubWebhooks.of({
     handle: Effect.fn("GitHubWebhooks.handle")(function* (
       delivery: GitHubWebhookDelivery
@@ -709,7 +703,7 @@ const make = Effect.gen(function* () {
   const withProjectStateInvalidation = <A, E>(
     installationId: string,
     effect: Effect.Effect<A, E>
-  ): Effect.Effect<A, E> =>
+  ) =>
     Effect.ensuring(
       effect,
       projectStateCache.invalidateForInstallation(installationId)

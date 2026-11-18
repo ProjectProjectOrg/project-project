@@ -35,13 +35,13 @@ import type { TicketProject } from "./ticketProject"
 export const ticketIndexRowsFor = (
   project: TicketProject,
   documents: ReadonlyArray<TicketDocs.TicketDocument>
-): ReadonlyArray<typeof ticketIndex.$inferInsert> =>
+) =>
   documents.map((document) => TicketIndex.ticketIndexRowFor(project, document))
 
 const commentIndexRowsForDocument = (
   project: TicketProject,
   document: TicketDocs.TicketDocument
-): ReadonlyArray<typeof commentIndex.$inferInsert> =>
+) =>
   parseCommentsRegion(document.commentsRegion).map((comment) => ({
     id: comment.id,
     projectId: project.projectId,
@@ -62,14 +62,14 @@ const commentIndexRowsForDocument = (
 export const commentIndexRowsFor = (
   project: TicketProject,
   documents: ReadonlyArray<TicketDocs.TicketDocument>
-): ReadonlyArray<typeof commentIndex.$inferInsert> =>
+) =>
   documents.flatMap((document) =>
     commentIndexRowsForDocument(project, document)
   )
 
 export const nextTicketNumberFor = (
   documents: ReadonlyArray<TicketDocs.TicketDocument>
-): number =>
+) =>
   documents
     .flatMap((document) => [
       document.id,
@@ -99,7 +99,7 @@ export type DocumentTicketRef = Readonly<
 export const detectTicketIndexDrift = (
   indexed: ReadonlyArray<IndexedTicketRef>,
   documents: ReadonlyArray<DocumentTicketRef>
-): TicketIndex.TicketIndexDrift => {
+) => {
   const indexedById = new Map(indexed.map((row) => [row.ticketId, row]))
   const documentsById = new Map(documents.map((doc) => [doc.id, doc]))
   const missing: Array<string> = []
@@ -125,9 +125,7 @@ export const detectTicketIndexDrift = (
   }
 }
 
-export const ticketIndexHasDrift = (
-  drift: TicketIndex.TicketIndexDrift
-): boolean =>
+export const ticketIndexHasDrift = (drift: TicketIndex.TicketIndexDrift) =>
   drift.missing.length > 0 ||
   drift.orphaned.length > 0 ||
   drift.stale.length > 0
@@ -154,10 +152,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
   const reconcileProject = (
     project: TicketProject,
     options?: TicketIndex.TicketIndexReconcileOptions
-  ): Effect.Effect<
-    TicketIndex.TicketIndexReconcileProjectSummary,
-    Markdown.MarkdownError
-  > =>
+  ) =>
     Effect.gen(function* () {
       const indexedBefore = yield* deps.indexedRefs(project)
       const { documents, skipped } = yield* deps.collectDocuments(project)
@@ -196,10 +191,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
       }
     })
 
-  const reconcileAllProjects = (): Effect.Effect<
-    TicketIndex.TicketIndexReconcileSummary,
-    Markdown.MarkdownError
-  > =>
+  const reconcileAllProjects = () =>
     Effect.gen(function* () {
       const projects = yield* deps.listProjects
       const results = yield* Effect.forEach(
@@ -334,7 +326,7 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     documents: ReadonlyArray<TicketDocs.TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
-  ): Effect.Effect<void> => {
+  ) => {
     const tickets = ticketIndexRowsFor(project, documents)
     const allComments = commentIndexRowsFor(project, documents)
     return sql

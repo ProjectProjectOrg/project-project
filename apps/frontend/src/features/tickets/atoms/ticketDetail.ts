@@ -29,11 +29,11 @@ export type TicketRequest = Readonly<{
   }>
 }>
 
-export const ticketRequest = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): TicketRequest => ({ _view: "ticketDetail", params: { orgSlug, slug, id } })
+export const ticketRequest = (orgSlug: string, slug: string, id: TicketId) =>
+  ({
+    _view: "ticketDetail",
+    params: { orgSlug, slug, id }
+  }) satisfies TicketRequest
 
 const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

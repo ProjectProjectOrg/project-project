@@ -88,7 +88,7 @@ const rowColumns = {
   clientId: organizationGithubApp.clientId
 }
 
-const slugFromInstallUrl = (raw: string | undefined): string | null =>
+const slugFromInstallUrl = (raw: string | undefined) =>
   raw === undefined ? null : (/\/apps\/([^/?#]+)/.exec(raw)?.[1] ?? null)
 
 const make = Effect.gen(function* () {
@@ -248,12 +248,10 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie)
     const secrets = yield* Effect.forEach(rows, (row) =>
       secretsOf(row).pipe(
-        Effect.map(
-          (secret): ReadonlyArray<GitHubAppWebhookSecret> => [
-            { githubAppId: row.githubAppId, secret: secret.webhookSecret }
-          ]
-        ),
-        Effect.orElseSucceed((): ReadonlyArray<GitHubAppWebhookSecret> => [])
+        Effect.map((secret) => [
+          { githubAppId: row.githubAppId, secret: secret.webhookSecret }
+        ]),
+        Effect.orElseSucceed(() => [])
       )
     )
     return secrets.flat()

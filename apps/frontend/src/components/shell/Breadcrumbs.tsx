@@ -30,9 +30,7 @@ export type Crumb =
 
 export type CrumbData = Crumb | ReadonlyArray<Crumb>
 
-function flatten(
-  crumbs: ReadonlyArray<CrumbData | undefined>
-): ReadonlyArray<Crumb> {
+function flatten(crumbs: ReadonlyArray<CrumbData | undefined>) {
   return crumbs.flatMap((crumb) =>
     crumb === undefined ? [] : "type" in crumb ? [crumb] : crumb
   )

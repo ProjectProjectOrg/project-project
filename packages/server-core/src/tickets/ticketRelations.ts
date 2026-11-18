@@ -24,9 +24,7 @@ export type RelationRow = Readonly<{
 const byId = (a: LinkedTicket, b: LinkedTicket) =>
   a.id.localeCompare(b.id, undefined, { numeric: true })
 
-export const relationsFromRows = (
-  rows: ReadonlyArray<RelationRow>
-): TicketRelations => {
+export const relationsFromRows = (rows: ReadonlyArray<RelationRow>) => {
   const pick = (direction: RelationRow["direction"], kind: RelationEdgeKind) =>
     rows
       .flatMap((row) =>
@@ -45,7 +43,7 @@ export const relationsFromRows = (
     related: [...related.values()].toSorted(byId),
     duplicateOf: pick("out", "duplicate_of")[0] ?? null,
     duplicates: pick("in", "duplicate_of")
-  }
+  } satisfies TicketRelations
 }
 
 const blockedByGraph = (edges: ReadonlyArray<RelationEdge>) => {
@@ -61,13 +59,13 @@ export const blockingCycle = (
   edges: ReadonlyArray<RelationEdge>,
   ticket: TicketId,
   blocker: TicketId
-): ReadonlyArray<TicketId> | null => {
+) => {
   const graph = blockedByGraph(edges)
   const visited = new Set<TicketId>()
-  const walk = (
+  const walk: (
     current: TicketId,
     path: ReadonlyArray<TicketId>
-  ): ReadonlyArray<TicketId> | null => {
+  ) => ReadonlyArray<TicketId> | null = (current, path) => {
     if (current === ticket) return path
     if (visited.has(current)) return null
     visited.add(current)
@@ -89,7 +87,7 @@ export const relationTargetFailure = (
   ticket: TicketId | null,
   targets: ReadonlyArray<TicketId>,
   existing: ReadonlySet<string>
-): Validation | null => {
+) => {
   if (ticket !== null && targets.includes(ticket)) {
     return relationValidation("relation_self", [ticket])
   }
@@ -103,7 +101,7 @@ export const validateBlockers = (
   edges: ReadonlyArray<RelationEdge>,
   ticket: TicketId,
   blockers: ReadonlyArray<TicketId>
-): Validation | null => {
+) => {
   if (blockers.includes(ticket))
     return relationValidation("relation_self", [ticket])
   const others = edges.filter(
@@ -120,7 +118,7 @@ export const validateDuplicate = (
   edges: ReadonlyArray<RelationEdge>,
   ticket: TicketId,
   original: TicketId
-): Validation | null => {
+) => {
   if (ticket === original) return relationValidation("relation_self", [ticket])
   const originalOf = edges.find(
     (edge) => edge.kind === "duplicate_of" && edge.from === original
@@ -171,27 +169,22 @@ const MARK_WRITES: Readonly<
   })
 }
 
-export const markWrite = (
-  ticket: TicketId,
-  input: MarkTicketInput
-): RelationWrite => MARK_WRITES[input.kind](ticket, input.target)
+export const markWrite = (ticket: TicketId, input: MarkTicketInput) =>
+  MARK_WRITES[input.kind](ticket, input.target)
 
-export const unmarkWrites = (
-  ticket: TicketId,
-  input: MarkTicketInput
-): ReadonlyArray<RelationWrite> =>
+export const unmarkWrites = (ticket: TicketId, input: MarkTicketInput) =>
   input.kind === "related"
-    ? [
+    ? ([
         { owner: ticket, field: "relatedTo", id: input.target },
         { owner: input.target, field: "relatedTo", id: ticket }
-      ]
+      ] satisfies ReadonlyArray<RelationWrite>)
     : [markWrite(ticket, input)]
 
 export const validateMark = (
   edges: ReadonlyArray<RelationEdge>,
   ticket: TicketId,
   input: MarkTicketInput
-): Validation | null => {
+) => {
   const write = markWrite(ticket, input)
   return write.field === "blockedBy"
     ? validateBlockers(edges, write.owner, [write.id])
@@ -202,7 +195,7 @@ export const isRelated = (
   edges: ReadonlyArray<RelationEdge>,
   a: TicketId,
   b: TicketId
-): boolean =>
+) =>
   edges.some(
     (edge) =>
       edge.kind === "related" &&
@@ -212,12 +205,12 @@ export const isRelated = (
 export const withRelation = (
   list: ReadonlyArray<TicketId> | undefined,
   id: TicketId
-): ReadonlyArray<TicketId> => [...new Set([...(list ?? []), id])]
+) => [...new Set([...(list ?? []), id])]
 
 export const withoutRelation = (
   list: ReadonlyArray<TicketId> | undefined,
   id: TicketId
-): ReadonlyArray<TicketId> | undefined => {
+) => {
   const rest = (list ?? []).filter((entry) => entry !== id)
   return rest.length === 0 ? undefined : rest
 }

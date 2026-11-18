@@ -113,7 +113,7 @@ const statusesBySlug = new Map([
   ]
 ])
 
-const row = (projectSlug: string, id: string, status: string): OrgTicketRow =>
+const row = (projectSlug: string, id: string, status: string) =>
   decodeRow({
     projectSlug,
     ticket: ticketJson(id, status)
@@ -164,9 +164,7 @@ const statusCountsOf = (rows: ReadonlyArray<OrgTicketRow>) => {
   return [...counts.values()]
 }
 
-const previewsOf = (
-  rows: ReadonlyArray<OrgTicketRow>
-): ReadonlyArray<ProjectTicketsPreview> => {
+const previewsOf = (rows: ReadonlyArray<OrgTicketRow>) => {
   const bySlug = new Map<string, Array<OrgTicketRow>>()
   for (const item of rows) {
     bySlug.set(item.projectSlug, [
@@ -253,7 +251,7 @@ const serve = (
     return Promise.resolve(new Response(null, { status: 404 }))
   })
 
-const successOf = <A, E>(result: AsyncResult.AsyncResult<A, E>): A => {
+const successOf = <A, E>(result: AsyncResult.AsyncResult<A, E>) => {
   if (!AsyncResult.isSuccess(result)) throw new Error("not ready")
   return result.value
 }

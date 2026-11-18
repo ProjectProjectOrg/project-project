@@ -66,16 +66,17 @@ const makeSlug = Schema.decodeUnknownSync(StatusSlug)
 const makeLabel = Schema.decodeUnknownSync(StatusLabel)
 const makeColor = Schema.decodeUnknownSync(StatusColor)
 
-const rowToStatus = (r: typeof projectStatus.$inferSelect): ProjectStatus => ({
-  slug: makeSlug(r.slug),
-  label: makeLabel(r.label),
-  icon: r.icon,
-  color: makeColor(r.color),
-  orderKey: OrderKey.make(r.orderKey),
-  description: r.description,
-  createdBy: r.createdBy,
-  createdAt: r.createdAt
-})
+const rowToStatus = (r: typeof projectStatus.$inferSelect) =>
+  ({
+    slug: makeSlug(r.slug),
+    label: makeLabel(r.label),
+    icon: r.icon,
+    color: makeColor(r.color),
+    orderKey: OrderKey.make(r.orderKey),
+    description: r.description,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt
+  }) satisfies ProjectStatus
 
 const make = Effect.gen(function* () {
   const db = yield* Db

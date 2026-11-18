@@ -10,5 +10,5 @@ export const isNearScrollEnd = ({
   scrollTop,
   scrollHeight,
   clientHeight
-}: ScrollPosition): boolean =>
+}: ScrollPosition) =>
   scrollHeight - scrollTop - clientHeight <= NEAR_END_DISTANCE_PX

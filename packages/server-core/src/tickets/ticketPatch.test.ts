@@ -243,7 +243,7 @@ describe("breaksEpicSprintRule", () => {
   const inSprint = (
     document: TicketDocs.TicketDocument,
     id: string | undefined
-  ): TicketDocs.TicketDocument => ({
+  ) => ({
     ...document,
     sprint: id === undefined ? undefined : sprintId(id)
   })

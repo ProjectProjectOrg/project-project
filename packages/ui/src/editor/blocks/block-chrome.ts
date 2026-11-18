@@ -29,22 +29,22 @@ const BUILTIN_LOOKUP = blockLookupFor(BUILTIN_LIBRARY)
 
 export const LibraryContext = createContext<Library | null>(null)
 
-export const lookupFor = (library: Library | null): BlockLookup =>
+export const lookupFor = (library: Library | null) =>
   library === null || library === BUILTIN_LIBRARY
     ? BUILTIN_LOOKUP
     : blockLookupFor(library)
 
-export function useBlockLookup(): BlockLookup {
+export function useBlockLookup() {
   const library = useContext(LibraryContext)
   return useMemo(() => lookupFor(library), [library])
 }
 
-export const humanizeBlockType = (blockType: string): string => {
+export const humanizeBlockType = (blockType: string) => {
   const words = blockType.split("-").join(" ")
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-const galleryChrome = (blockType: string): BlockChrome => {
+const galleryChrome = (blockType: string) => {
   const gallery = GALLERY_BLOCKS.find((block) => block.key === blockType)
   return {
     name: gallery?.name ?? humanizeBlockType(blockType),
@@ -54,10 +54,7 @@ const galleryChrome = (blockType: string): BlockChrome => {
   }
 }
 
-export const blockChrome = (
-  blockType: string,
-  lookup: BlockLookup
-): BlockChrome => {
+export const blockChrome = (blockType: string, lookup: BlockLookup) => {
   const definition = lookup(blockType)
   return definition === undefined
     ? galleryChrome(blockType)
@@ -75,7 +72,7 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
   project: m.editor_block_origin_project
 }
 
-export const blockTooltip = (chrome: BlockChrome): string =>
+export const blockTooltip = (chrome: BlockChrome) =>
   chrome.origin === null
     ? chrome.name
     : m.editor_block_tooltip({
@@ -86,7 +83,7 @@ export const blockTooltip = (chrome: BlockChrome): string =>
 const HEADING_LINE = /^ {0,3}#{1,6}(?:\s|$)/
 const EMPTY_LINE = /^\s*(?:(?:[-*+]|\d{1,9}[.)])(?:\s+\[[ xX]\])?)?\s*$/
 
-export const blankBlockHeading = (content: string): string | null => {
+export const blankBlockHeading = (content: string) => {
   const lines = content.split("\n")
   const first = lines.findIndex((line) => line.trim() !== "")
   if (first === -1) return ""

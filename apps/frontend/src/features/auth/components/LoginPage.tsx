@@ -19,6 +19,7 @@ import {
   rawQueryFromSearch
 } from "@/features/oauth/lib/oauthQuery"
 import { m } from "@/paraglide/messages"
+import type { MessageFunction } from "@/paraglide/runtime"
 import { authClient } from "@/services/AuthClient"
 
 const routeApi = getRouteApi("/(public)/login")
@@ -71,7 +72,7 @@ export function LoginPage() {
 
   async function handleSocialSignIn(
     provider: "google" | "microsoft",
-    errorMessage: () => string
+    errorMessage: MessageFunction
   ) {
     setProviderError(null)
     try {

@@ -12,7 +12,5 @@ export const SORT_FIELD_LABELS: Readonly<Record<SortKey, () => string>> = {
   estimate: () => m.tickets_view_options_estimate()
 }
 
-export const sortKeysFor = (
-  estimation: EstimationMode
-): ReadonlyArray<SortKey> =>
+export const sortKeysFor = (estimation: EstimationMode) =>
   SortKey.literals.filter((key) => key !== "estimate" || estimation !== "off")

@@ -53,7 +53,5 @@ export function PinTree({
 }
 
 // The pins at the top of a tree, in order: what the list reorders.
-export const topPins = (
-  nodes: ReadonlyArray<PinNode<PinRowSpec>>
-): ReadonlyArray<SidebarPin> =>
+export const topPins = (nodes: ReadonlyArray<PinNode<PinRowSpec>>) =>
   nodes.flatMap((node) => (node.row.pin === null ? [] : [node.row.pin]))

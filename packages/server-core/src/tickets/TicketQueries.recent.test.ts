@@ -23,34 +23,37 @@ const touched = (
     assignedEvent?: TicketIndexTouchedEvent
     statusEvent?: TicketIndexTouchedEvent
   }> = {}
-): Parameters<typeof recentActivityOf>[0] => ({
-  lastCommentAt,
-  assignedEvent: events.assignedEvent ?? null,
-  statusEvent: events.statusEvent ?? null,
-  entry: { createdBy, createdAt: earlier }
-})
+) =>
+  ({
+    lastCommentAt,
+    assignedEvent: events.assignedEvent ?? null,
+    statusEvent: events.statusEvent ?? null,
+    entry: { createdBy, createdAt: earlier }
+  }) satisfies Parameters<typeof recentActivityOf>[0]
 
 const assignedBy = (
   actor: TicketIndexTouchedEvent["actor"],
   occurredAt: Date
-): TicketIndexTouchedEvent => ({
-  occurredAt,
-  actor,
-  change: { kind: "assignees_changed", added: [viewer], removed: [] }
-})
+) =>
+  ({
+    occurredAt,
+    actor,
+    change: { kind: "assignees_changed", added: [viewer], removed: [] }
+  }) satisfies TicketIndexTouchedEvent
 
 const movedToDone = (
   actor: TicketIndexTouchedEvent["actor"],
   occurredAt: Date
-): TicketIndexTouchedEvent => ({
-  occurredAt,
-  actor,
-  change: {
-    kind: "status_changed",
-    from: status("in_progress"),
-    to: status("done")
-  }
-})
+) =>
+  ({
+    occurredAt,
+    actor,
+    change: {
+      kind: "status_changed",
+      from: status("in_progress"),
+      to: status("done")
+    }
+  }) satisfies TicketIndexTouchedEvent
 
 describe("recentActivityOf", () => {
   it("prefers the viewer's latest comment when it is newer than creating", () => {

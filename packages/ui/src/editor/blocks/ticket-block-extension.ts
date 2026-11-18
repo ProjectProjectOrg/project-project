@@ -25,7 +25,7 @@ const $isBlankLine = (line: ParagraphNode) =>
     .getChildren()
     .every((child) => $isTextNode(child) && child.getTextContent() === "")
 
-export function $exitTicketBlockFromEmptyLastLine(): boolean {
+export function $exitTicketBlockFromEmptyLastLine() {
   const selection = $getSelection()
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
   const anchor = selection.anchor.getNode()

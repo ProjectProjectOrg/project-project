@@ -14,7 +14,7 @@ export const stackLayerStates = (
   repository: Repository | null,
   snapshot?: Pick<GitHub.RawProjectStates, "prByBranch"> &
     Partial<Pick<GitHub.RawProjectStates, "existingBranches">>
-): ReadonlyArray<StackLayerState> =>
+) =>
   orderStackLayers(ownBranch, stack).map(({ layer, depth }) => {
     const live = snapshot?.prByBranch.get(layer.branch)
     const fromSnapshot = live !== undefined && live.number === layer.pr
@@ -43,5 +43,5 @@ export const stackLayerStates = (
         layer.prState !== "merged" &&
         !snapshot.existingBranches.has(layer.branch) &&
         live === undefined
-    }
+    } satisfies StackLayerState
   })

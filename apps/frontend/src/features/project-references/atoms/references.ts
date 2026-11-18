@@ -13,10 +13,11 @@ export type ReferencesRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const referencesRequest = (
-  orgSlug: string,
-  slug: string
-): ReferencesRequest => ({ _view: "references", params: { orgSlug, slug } })
+export const referencesRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "references",
+    params: { orgSlug, slug }
+  }) satisfies ReferencesRequest
 
 const referencesQuery = (req: ReferencesRequest) =>
   query("projectReferences", "list", {

@@ -5,7 +5,7 @@ let pending: Readonly<{ key: string; timer: number }> | null = null
 
 const SEQUENCE_TIMEOUT_MS = 1000
 
-const keyName = (event: KeyboardEvent): string =>
+const keyName = (event: KeyboardEvent) =>
   event.key === " " ? "space" : event.key.toLowerCase()
 
 const light = (key: string) => {
@@ -62,7 +62,7 @@ const onKeyUp = (event: KeyboardEvent) => {
   }
 }
 
-export const installKeyCapHighlight = (): void => {
+export const installKeyCapHighlight = () => {
   if (installed) return
   installed = true
   document.addEventListener("keydown", onKeyDown, true)

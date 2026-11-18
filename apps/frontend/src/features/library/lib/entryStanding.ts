@@ -31,10 +31,7 @@ export type EntryGroups<A> = Readonly<{
   hidden: ReadonlyArray<A>
 }>
 
-export const standingOf = (
-  entry: Placement,
-  layer: LibraryLayer
-): EntryStanding => {
+export const standingOf = (entry: Placement, layer: LibraryLayer) => {
   if (entry.hidden) return "hidden"
   if (entry.origin !== layer) return "shared"
   return entry.shadows === null ? "own" : "changed"
@@ -43,7 +40,7 @@ export const standingOf = (
 export const groupEntries = <A extends Placement>(
   entries: ReadonlyArray<A>,
   layer: LibraryLayer
-): EntryGroups<A> => {
+) => {
   const standing = (entry: A) => standingOf(entry, layer)
   return {
     shared: entries.filter((entry) => {
@@ -52,14 +49,14 @@ export const groupEntries = <A extends Placement>(
     }),
     own: entries.filter((entry) => standing(entry) === "own"),
     hidden: entries.filter((entry) => standing(entry) === "hidden")
-  }
+  } satisfies EntryGroups<A>
 }
 
 const noticeFor = (
   standing: EntryStanding,
   layer: LibraryLayer,
   permissions: LibraryPermissions
-): EntryNotice => {
+) => {
   if (layer === "org") return permissions.org ? null : "org-admins"
   if (!permissions.project && !permissions.org) return "project-managers"
   return standing === "shared" && !permissions.org ? "org-admins" : null
@@ -69,7 +66,7 @@ export const entryView = (
   entry: Placement,
   layer: LibraryLayer,
   permissions: LibraryPermissions
-): EntryView => {
+) => {
   const standing = standingOf(entry, layer)
   const mayEdit = permissions[layer]
   const ownsCopy = standing === "own" || standing === "changed"
@@ -83,18 +80,18 @@ export const entryView = (
     canShow: mayEdit && standing === "hidden",
     canDelete: mayEdit && standing === "own",
     notice: noticeFor(standing, layer, permissions)
-  }
+  } satisfies EntryView
 }
 
 export const creatableLayers = (
   layer: LibraryLayer,
   permissions: LibraryPermissions
-): ReadonlyArray<LibraryLayer> =>
-  layer === "org"
+) =>
+  (layer === "org"
     ? permissions.org
       ? ["org"]
       : []
     : [
         ...(permissions.project ? (["project"] as const) : []),
         ...(permissions.org ? (["org"] as const) : [])
-      ]
+      ]) satisfies ReadonlyArray<LibraryLayer>

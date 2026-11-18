@@ -37,7 +37,7 @@ const decodeManifest = Schema.decodeUnknownSync(
   Schema.fromJsonString(ProjectExportManifestJson)
 )
 
-const fileInfo = (type: FileSystem.File.Type): FileSystem.File.Info => ({
+const fileInfo = (type: FileSystem.File.Type) => ({
   type,
   mtime: Option.none(),
   atime: Option.none(),

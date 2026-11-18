@@ -11,10 +11,7 @@ import { useOrgActor } from "@/hooks/useActor"
 import type { LibraryScope } from "../atoms/libraryScope"
 import type { LibraryPermissions } from "../lib/entryStanding"
 
-export function useLibraryPermissions(
-  scope: LibraryScope,
-  library: Library
-): LibraryPermissions {
+export function useLibraryPermissions(scope: LibraryScope, library: Library) {
   const orgAdmin = useOrgActor(scope.req.params.orgSlug).call(
     "library",
     "updateOrgType"
@@ -22,13 +19,19 @@ export function useLibraryPermissions(
   return useMemo(
     () =>
       scope.layer === "org"
-        ? { org: library.canEdit, project: false }
-        : { org: orgAdmin, project: library.canEdit },
+        ? ({
+            org: library.canEdit,
+            project: false
+          } satisfies LibraryPermissions)
+        : ({
+            org: orgAdmin,
+            project: library.canEdit
+          } satisfies LibraryPermissions),
     [library.canEdit, orgAdmin, scope.layer]
   )
 }
 
-export function useOrgName(orgSlug: string): string {
+export function useOrgName(orgSlug: string) {
   const detail = useAtomValue(orgDetail(orgRequest(orgSlug)))
   return AsyncResult.isSuccess(detail) ? detail.value.name : orgSlug
 }
@@ -44,7 +47,7 @@ export function useScopeProject(scope: LibraryScope) {
   return result !== null && AsyncResult.isSuccess(result) ? result.value : null
 }
 
-export function useScopeProjectName(scope: LibraryScope): string {
+export function useScopeProjectName(scope: LibraryScope) {
   const detail = useScopeProject(scope)
   if (scope.layer === "org") return ""
   return detail?.name ?? scope.req.params.slug

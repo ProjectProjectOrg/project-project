@@ -4,7 +4,7 @@ import { m } from "@/paraglide/messages"
 
 export const pickActiveInvitation = (
   invitations: ReadonlyArray<UserInvitation>
-): UserInvitation | null => {
+) => {
   let active: UserInvitation | null = null
   for (const invitation of invitations) {
     if (!active) {
@@ -19,14 +19,14 @@ export const pickActiveInvitation = (
   return active
 }
 
-export const invitationRoleLabel = (role: string): string => {
+export const invitationRoleLabel = (role: string) => {
   if (role === "owner") return m.auth_invites_role_owner()
   if (role === "admin") return m.auth_invites_role_admin()
   if (role === "guest") return m.auth_invites_role_guest()
   return m.auth_invites_role_member()
 }
 
-export const invitationInviterDetail = (inviterEmail: string | null): string =>
+export const invitationInviterDetail = (inviterEmail: string | null) =>
   inviterEmail === null
     ? m.auth_invites_row_detail_unknown_inviter()
     : m.auth_invites_row_detail({ inviter: inviterEmail })
@@ -44,5 +44,5 @@ export const hasErrorCode = (cause: unknown, code: string) =>
   "code" in cause &&
   cause.code === code
 
-export const invitationUrl = (invitationId: string): string =>
+export const invitationUrl = (invitationId: string) =>
   `${window.location.origin}/invite/${invitationId}`

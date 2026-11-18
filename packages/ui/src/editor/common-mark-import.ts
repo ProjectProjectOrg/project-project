@@ -31,11 +31,9 @@ import { parseMarkdown } from "./markdown-parser"
 
 // Markdown in: the parsed tree (mdast) as Lexical nodes, block by block and inline.
 
-export function definitionsIn(
-  nodes: ReadonlyArray<Nodes>
-): Map<string, Extract<Nodes, { type: "definition" }>> {
+export function definitionsIn(nodes: ReadonlyArray<Nodes>) {
   const definitions = new Map<string, Extract<Nodes, { type: "definition" }>>()
-  const visit = (node: Nodes): void => {
+  const visit = (node: Nodes) => {
     if (node.type === "definition" && !definitions.has(node.identifier))
       definitions.set(node.identifier, node)
     if ("children" in node) node.children.forEach(visit)
@@ -55,7 +53,7 @@ export function appendBlocks(
   parent: ElementNode,
   nodes: ReadonlyArray<Nodes>,
   context: ImportContext
-): void {
+) {
   for (const node of nodes) {
     if (node.type === "html" && node.position !== undefined) {
       const startLineIndex = node.position.start.line - 1
@@ -102,12 +100,12 @@ export function appendBlocks(
   }
 }
 
-export function inlineNodes(
+export const inlineNodes: (
   nodes: ReadonlyArray<Nodes>,
   context: ImportContext,
-  formats: ReadonlyArray<TextFormatType> = []
-): ReadonlyArray<LexicalNode> {
-  return nodes.flatMap((node) => {
+  formats?: ReadonlyArray<TextFormatType>
+) => ReadonlyArray<LexicalNode> = (nodes, context, formats = []) =>
+  nodes.flatMap((node) => {
     switch (node.type) {
       case "strong":
         return inlineNodes(node.children, context, [...formats, "bold"])
@@ -185,27 +183,20 @@ export function inlineNodes(
     }
     return [$createTextNode(sourceOf(node, context))]
   })
-}
 
-export function sourceOf(node: Nodes, context: ImportContext): string {
+export function sourceOf(node: Nodes, context: ImportContext) {
   return node.position === undefined
     ? ""
     : context.source.slice(node.position.start.offset, node.position.end.offset)
 }
 
-export function taskChecked(
-  item: ListItem,
-  context: ImportContext
-): boolean | null {
+export function taskChecked(item: ListItem, context: ImportContext) {
   if (item.checked !== null && item.checked !== undefined) return item.checked
   const marker = /^[-*+]\s+\[([ xX])\][ \t]+$/.exec(sourceOf(item, context))
   return marker === null ? null : marker[1].toLowerCase() === "x"
 }
 
-export function importNode(
-  node: Nodes,
-  context: ImportContext
-): ReadonlyArray<LexicalNode> {
+export function importNode(node: Nodes, context: ImportContext) {
   switch (node.type) {
     case "paragraph": {
       const paragraph = $createParagraphNode().append(

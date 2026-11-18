@@ -91,7 +91,7 @@ export function preflightJiraMigration(
   manifest: JiraMappingSource & Pick<JiraMigrationManifest, "comments">,
   mappings: JiraMigrationMappings,
   environment: JiraPreflightEnvironment
-): JiraPreflightResult {
+) {
   const blockers: Array<JiraPreflightFinding<JiraPreflightBlockerCode>> = []
   const warnings: Array<JiraPreflightFinding<JiraPreflightWarningCode>> = []
 
@@ -343,44 +343,44 @@ export function preflightJiraMigration(
     blockers: sortedBlockers,
     warnings: sortedWarnings,
     attachments
-  }
+  } satisfies JiraPreflightResult
 }
 
 function classifyAttachment(
   attachment: JiraMigrationManifest["attachments"][number]
-): JiraAttachmentPreflight {
+) {
   if (!attachment.downloadAllowed || attachment.downloadUrl === null) {
     return {
       sourceAttachmentId: attachment.id,
       action: "skip",
       reason: "unavailable"
-    }
+    } satisfies JiraAttachmentPreflight
   }
   if (attachment.byteSize <= 0 || attachment.byteSize > ATTACHMENT_MAX_BYTES) {
     return {
       sourceAttachmentId: attachment.id,
       action: "skip",
       reason: "too-large"
-    }
+    } satisfies JiraAttachmentPreflight
   }
   if (!isAllowedAttachmentContentType(attachment.mimeType)) {
     return {
       sourceAttachmentId: attachment.id,
       action: "skip",
       reason: "unsupported-mime"
-    }
+    } satisfies JiraAttachmentPreflight
   }
   return {
     sourceAttachmentId: attachment.id,
     action: "migrate",
     reason: null
-  }
+  } satisfies JiraAttachmentPreflight
 }
 
 function findManifestDuplicates(
   manifest: JiraMappingSource & Pick<JiraMigrationManifest, "comments">,
   blockers: Array<JiraPreflightFinding<JiraPreflightBlockerCode>>
-): void {
+) {
   const collections: ReadonlyArray<ReadonlyArray<Readonly<{ id: string }>>> = [
     manifest.statuses,
     manifest.issueTypes,
@@ -413,7 +413,7 @@ function requireMappings<A>(
   key: (mapping: A) => string,
   code: "missing-type-mapping" | "missing-priority-mapping",
   blockers: Array<JiraPreflightFinding<JiraPreflightBlockerCode>>
-): void {
+) {
   const mapped = uniqueMapping(mappings, key, blockers)
   for (const requiredId of requiredIds) {
     if (!mapped.has(requiredId)) addFinding(blockers, code, requiredId)
@@ -424,7 +424,7 @@ function uniqueMapping<A>(
   mappings: ReadonlyArray<A>,
   key: (mapping: A) => string,
   blockers: Array<JiraPreflightFinding<JiraPreflightBlockerCode>>
-): Map<string, A> {
+) {
   const grouped = groupBy(mappings, key)
   const unique = new Map<string, A>()
   for (const [mappingKey, values] of grouped) {
@@ -437,23 +437,21 @@ function uniqueMapping<A>(
   return unique
 }
 
-function duplicateStrings(
-  values: ReadonlyArray<string>
-): ReadonlyArray<string> {
+function duplicateStrings(values: ReadonlyArray<string>) {
   return [...groupBy(values, (value) => value)]
     .filter(([, grouped]) => grouped.length > 1)
     .map(([value]) => value)
     .toSorted(compareStrings)
 }
 
-function uniqueStrings(values: ReadonlyArray<string>): ReadonlyArray<string> {
+function uniqueStrings(values: ReadonlyArray<string>) {
   return [...new Set(values)].toSorted(compareStrings)
 }
 
 function sameStrings(
   left: ReadonlyArray<string>,
   right: ReadonlyArray<string>
-): boolean {
+) {
   const normalizedLeft = uniqueStrings(left)
   const normalizedRight = uniqueStrings(right)
   return (
@@ -467,14 +465,14 @@ function addFinding<Code extends string>(
   code: Code,
   subjectId: string,
   detail: string | null = null
-): void {
+) {
   findings.push({ code, subjectId, detail })
 }
 
 function compareFindings<Code extends string>(
   left: JiraPreflightFinding<Code>,
   right: JiraPreflightFinding<Code>
-): number {
+) {
   return (
     compareStrings(left.code, right.code) ||
     compareStrings(left.subjectId, right.subjectId) ||
@@ -482,21 +480,18 @@ function compareFindings<Code extends string>(
   )
 }
 
-function compareStrings(left: string, right: string): number {
+function compareStrings(left: string, right: string) {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
-function compareNullableStrings(
-  left: string | null,
-  right: string | null
-): number {
+function compareNullableStrings(left: string | null, right: string | null) {
   if (left === right) return 0
   if (left === null) return -1
   if (right === null) return 1
   return compareStrings(left, right)
 }
 
-function priorityMappingKey(sourcePriorityId: string | null): string {
+function priorityMappingKey(sourcePriorityId: string | null) {
   return sourcePriorityId === null ? "priority:none" : sourcePriorityId
 }
 

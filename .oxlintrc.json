@@ -21,6 +21,10 @@
     {
       "name": "landmines-testing",
       "specifier": "@interfere/landmines/testing"
+    },
+    {
+      "name": "landmines-types",
+      "specifier": "@interfere/landmines/types"
     }
   ],
   "options": {
@@ -99,7 +103,8 @@
     "anti-slop-effect/no-manual-tag-comparison": "warn",
     "anti-slop-effect/no-manual-tagged-construction": "warn",
     "anti-slop-effect/no-service-constructor-imports": "error",
-    "anti-slop-effect/prefer-effect-match": "warn"
+    "anti-slop-effect/prefer-effect-match": "warn",
+    "landmines-types/no-explicit-return-types": "error"
   },
   "overrides": [
     {

@@ -47,7 +47,7 @@ const runSearch = <A, E>(
   search: Effect.Effect<SearchPage<A>, E, Registry.AtomRegistry>,
   signal: AbortSignal,
   debounce: boolean
-): Promise<SearchPage<A>> =>
+) =>
   Effect.runPromise(
     (debounce
       ? Effect.andThen(Effect.sleep(SEARCH_DEBOUNCE), search)
@@ -59,7 +59,7 @@ const runSearch = <A, E>(
 export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
   source: PagedSearchSource<A, E> | null,
   query: string | null
-): PagedSearchResults<A> {
+) {
   const registry = useContext(RegistryContext)
   const [settled, setSettled] = useState<Settled<A> | null>(null)
   const more = useRef<AbortController | null>(null)
@@ -149,16 +149,36 @@ export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
     loadMore
   }
   if (source === null || query === null) {
-    return { ...base, items: NONE, status: "idle", hasMore: false }
+    return {
+      ...base,
+      items: NONE,
+      status: "idle",
+      hasMore: false
+    } satisfies PagedSearchResults<A>
   }
-  if (own === null) return { ...base, items: NONE, status: "loading" }
-  if (deadEnd) return { ...base, items: NONE, status: "ready", hasMore: false }
+  if (own === null)
+    return {
+      ...base,
+      items: NONE,
+      status: "loading"
+    } satisfies PagedSearchResults<A>
+  if (deadEnd)
+    return {
+      ...base,
+      items: NONE,
+      status: "ready",
+      hasMore: false
+    } satisfies PagedSearchResults<A>
   if (current === null) {
-    return { ...base, items: own.page.items, status: "searching" }
+    return {
+      ...base,
+      items: own.page.items,
+      status: "searching"
+    } satisfies PagedSearchResults<A>
   }
   return {
     ...base,
     items: current.page.items,
     status: current.failed ? "failed" : "ready"
-  }
+  } satisfies PagedSearchResults<A>
 }

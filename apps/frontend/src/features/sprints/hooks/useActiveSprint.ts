@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { pickActiveSprint, type Group } from "@pp/shared"
+import { pickActiveSprint } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -16,10 +16,7 @@ const noProject: Atom.Atom<SprintListResult> = Atom.make(Result.initial())
 
 // Takes no project (null) too, for a caller that always renders, like the
 // sidebar header on the dashboard.
-export function useActiveSprint(
-  orgSlug: string | null,
-  slug: string | null
-): Readonly<{ sprint: Group; label: string; countdown: string }> | null {
+export function useActiveSprint(orgSlug: string | null, slug: string | null) {
   const result = useAtomValue(
     orgSlug === null || slug === null
       ? noProject

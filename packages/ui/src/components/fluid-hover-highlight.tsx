@@ -35,7 +35,7 @@ const activeRect = ({
   activeIndex,
   itemRects,
   isMeasured
-}: FluidHoverSource): ItemRect | null =>
+}: FluidHoverSource) =>
   isMeasured && activeIndex !== null ? (itemRects[activeIndex] ?? null) : null
 
 export function FluidHoverHighlight({

@@ -101,7 +101,7 @@ export function Dashboard() {
   )
 }
 
-function greet(): string {
+function greet() {
   const h = DateTime.toDate(DateTime.nowUnsafe()).getHours()
   if (h < 5) return m.org_dashboard_greeting_late()
   if (h < 12) return m.org_dashboard_greeting_morning()

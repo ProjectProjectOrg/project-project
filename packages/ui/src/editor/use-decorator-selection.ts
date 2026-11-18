@@ -17,7 +17,7 @@ import { useCallback, useEffect } from "react"
 export const isInteractiveTarget = (
   target: EventTarget | null,
   selector: string
-): boolean => target instanceof Element && target.closest(selector) !== null
+) => target instanceof Element && target.closest(selector) !== null
 
 type PointerSelectEvent = Readonly<{
   target: EventTarget | null
@@ -40,7 +40,7 @@ export type DecoratorSelection = Readonly<{
 export function useDecoratorSelection(
   nodeKey: NodeKey,
   { interactive, onRemove, removable = true }: DecoratorSelectionOptions
-): DecoratorSelection {
+) {
   const [editor] = useLexicalComposerContext()
   const [isSelected, setSelected, clearSelection] =
     useLexicalNodeSelection(nodeKey)

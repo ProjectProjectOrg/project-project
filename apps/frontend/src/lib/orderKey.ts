@@ -1,4 +1,4 @@
-export const compareCodePoints = (a: string, b: string): number => {
+export const compareCodePoints = (a: string, b: string) => {
   let leftIndex = 0
   let rightIndex = 0
   while (leftIndex < a.length && rightIndex < b.length) {
@@ -20,4 +20,4 @@ export const compareCodePoints = (a: string, b: string): number => {
 export const compareByOrderKey = <T extends { orderKey: string }>(
   a: T,
   b: T
-): number => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)
+) => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)

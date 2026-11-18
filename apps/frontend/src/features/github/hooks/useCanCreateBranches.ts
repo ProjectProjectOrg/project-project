@@ -6,7 +6,7 @@ import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 
-export function useCanCreateBranches(): boolean {
+export function useCanCreateBranches() {
   const { orgSlug, slug } = useProjectRoute()
   const viewer = useAtomValue(me())
   const states = useAtomValue(projectGitStates(projectRequest(orgSlug, slug)))

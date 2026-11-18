@@ -42,16 +42,11 @@ import { canStackOn } from "@/features/github/lib/stacking"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import {
-  CHECKS,
-  needsAttention,
-  reportedChecks,
-  type PullRequest
-} from "./gitLooks"
+import { CHECKS, needsAttention, reportedChecks } from "./gitLooks"
 
 type MenuTicket = Pick<Ticket, "id" | "type" | "title" | "status">
 
-const branchOf = (state: GitState): string | null =>
+const branchOf = (state: GitState) =>
   state.tag === "no_branch"
     ? null
     : state.tag === "branch_no_pr" ||
@@ -60,7 +55,7 @@ const branchOf = (state: GitState): string | null =>
       ? state.name
       : state.branch
 
-const pullRequestOf = (state: GitState): PullRequest | null =>
+const pullRequestOf = (state: GitState) =>
   state.tag === "pr_pending" ||
   state.tag === "pr_open" ||
   state.tag === "pr_merged" ||

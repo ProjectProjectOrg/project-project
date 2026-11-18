@@ -28,10 +28,10 @@ export type CommentChange = Readonly<{
   mentioned: ReadonlyArray<string>
 }>
 
-export const overridesUnsubscribe = (reason: SubscriptionReason): boolean =>
+export const overridesUnsubscribe = (reason: SubscriptionReason) =>
   reason === "assigned" || reason === "mentioned"
 
-const mentionCounts = (markdown: string): ReadonlyMap<string, number> => {
+const mentionCounts = (markdown: string) => {
   const counts = new Map<string, number>()
   for (const link of extractMentionLinks(markdown)) {
     if (link.parsed?.type !== "user") continue
@@ -40,10 +40,7 @@ const mentionCounts = (markdown: string): ReadonlyMap<string, number> => {
   return counts
 }
 
-export const newlyMentioned = (
-  before: string,
-  after: string
-): ReadonlyArray<string> => {
+export const newlyMentioned = (before: string, after: string) => {
   if (before === after) return []
   const previous = mentionCounts(before)
   return [...mentionCounts(after)]
@@ -51,10 +48,7 @@ export const newlyMentioned = (
     .map(([userId]) => userId)
 }
 
-export const commentChanges = (
-  before: string,
-  after: string
-): ReadonlyArray<CommentChange> => {
+export const commentChanges = (before: string, after: string) => {
   if (before === after) return []
   const previous = new Map(
     parseCommentsRegion(before).map((block) => [block.id, block.body])
@@ -77,7 +71,7 @@ export const commentChanges = (
 export const subscriptionIntents = (
   before: SubscriptionSource | null,
   after: SubscriptionSource
-): ReadonlyArray<SubscriptionIntent> => {
+) => {
   const previousAssignees = new Set<string>(before?.assignees ?? [])
   const candidates = [
     ...(before === null

@@ -4,9 +4,7 @@ import {
 } from "@pp/ui/editor/attachments/pdf-spread-layout"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 
-export const renderPdfSpread = async (
-  url: string
-): Promise<ReadonlyArray<string>> => {
+export const renderPdfSpread = async (url: string) => {
   const pdfjs = await import("pdfjs-dist")
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
   const task = pdfjs.getDocument({ url, withCredentials: true })

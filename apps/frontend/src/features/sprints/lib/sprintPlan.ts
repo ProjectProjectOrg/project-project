@@ -13,19 +13,19 @@ export type PlanMeasure =
   | Readonly<{ kind: "estimate"; unit: "points" | "time" }>
   | Readonly<{ kind: "count" }>
 
-export const planMeasure = (mode: EstimationMode): PlanMeasure =>
+export const planMeasure = (mode: EstimationMode) =>
   mode === "points" || mode === "time"
-    ? { kind: "estimate", unit: mode }
-    : { kind: "count" }
+    ? ({ kind: "estimate", unit: mode } satisfies PlanMeasure)
+    : ({ kind: "count" } satisfies PlanMeasure)
 
-export const formatAmount = (measure: PlanMeasure, amount: number): string =>
+export const formatAmount = (measure: PlanMeasure, amount: number) =>
   measure.kind === "estimate"
     ? formatEstimateAmount(measure.unit, amount)
     : m.sprints_overview_ticket_count({ count: amount })
 
 type Weighed = Pick<Ticket, "estimate">
 
-const weightOf = (ticket: Weighed, measure: PlanMeasure): number | null => {
+const weightOf = (ticket: Weighed, measure: PlanMeasure) => {
   if (measure.kind === "count") return 1
   const estimate = activeEstimate(ticket.estimate, measure.unit)
   return estimate === null ? null : estimateRank(estimate)
@@ -36,7 +36,7 @@ type PlanTotals = Readonly<{ committed: number; unestimated: number }>
 export const planTotals = (
   tickets: ReadonlyArray<Weighed>,
   measure: PlanMeasure
-): PlanTotals => {
+) => {
   let committed = 0
   let unestimated = 0
   for (const ticket of tickets) {
@@ -44,14 +44,14 @@ export const planTotals = (
     if (weight === null) unestimated += 1
     else committed += weight
   }
-  return { committed, unestimated }
+  return { committed, unestimated } satisfies PlanTotals
 }
 
 export const averageDone = (
   sprints: ReadonlyArray<ReadonlyArray<Weighed & Readonly<{ status: string }>>>,
   measure: PlanMeasure,
   phaseOf: StatusPhaseOf
-): number | null => {
+) => {
   if (sprints.length === 0) return null
   const done = sprints.map((tickets) =>
     tickets
@@ -73,7 +73,7 @@ export type AssigneeLoad = Readonly<{
 export const loadByAssignee = (
   tickets: ReadonlyArray<Weighed & Pick<Ticket, "assignees">>,
   measure: PlanMeasure
-): ReadonlyArray<AssigneeLoad> => {
+) => {
   const loads = new Map<string | null, { amount: number; tickets: number }>()
   for (const ticket of tickets) {
     const weight = weightOf(ticket, measure) ?? 0
@@ -87,7 +87,7 @@ export const loadByAssignee = (
     }
   }
   return [...loads]
-    .map(([assignee, load]) => ({ assignee, ...load }))
+    .map(([assignee, load]) => ({ assignee, ...load }) satisfies AssigneeLoad)
     .toSorted(
       (a, b) =>
         Number(a.assignee === null) - Number(b.assignee === null) ||
@@ -99,7 +99,7 @@ export const loadByAssignee = (
 export const ownedBy = <T extends Pick<Ticket, "assignees">>(
   tickets: ReadonlyArray<T>,
   assignee: string | null
-): ReadonlyArray<T> =>
+) =>
   tickets.filter((ticket) =>
     assignee === null
       ? ticket.assignees.length === 0
@@ -117,7 +117,7 @@ export const usualDone = (
   measure: PlanMeasure,
   phaseOf: StatusPhaseOf,
   assignee: string
-): number | null =>
+) =>
   sprints.length < MIN_HISTORY_SPRINTS
     ? null
     : averageDone(

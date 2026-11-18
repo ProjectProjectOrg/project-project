@@ -11,7 +11,7 @@ import { commentAuthorName } from "./commentClipboard"
 
 const TITLE_LENGTH = 80
 
-const titleFrom = (body: string): string => {
+const titleFrom = (body: string) => {
   const line =
     body
       .split("\n")

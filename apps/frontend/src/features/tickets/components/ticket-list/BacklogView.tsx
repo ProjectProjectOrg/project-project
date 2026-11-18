@@ -78,7 +78,7 @@ function useLoadedView(
   grouping: BacklogGrouping,
   view: "list" | "board",
   query: TicketListQuery
-): Readonly<{ grouping: BacklogGrouping; view: "list" | "board" }> {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const [shown, setShown] = useState({ grouping, view })
   const target = useAtomValue(

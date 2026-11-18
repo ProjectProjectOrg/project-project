@@ -7,15 +7,13 @@ const FlatSearch = Schema.Record(
 )
 const decodeFlatSearch = Schema.decodeUnknownSync(FlatSearch)
 
-export function parseSearch(
-  search: string
-): ReturnType<typeof UrlParams.toReadonlyRecord> {
+export function parseSearch(search: string) {
   return UrlParams.toReadonlyRecord(
     UrlParams.fromInput(new URLSearchParams(search))
   )
 }
 
-export function stringifySearch(search: unknown): string {
+export function stringifySearch(search: unknown) {
   const query = UrlParams.toString(decodeFlatSearch(search))
   return query === "" ? "" : `?${query}`
 }

@@ -45,31 +45,31 @@ type HubRow =
     }>
   | Readonly<{ kind: "toggle"; value: string; option: FilterOption }>
 
-const hubRows = (options: ReadonlyArray<FilterOption>): ReadonlyArray<HubRow> =>
-  [...new Set(options.map((option) => option.choice.dimension))].flatMap(
-    (dimension): ReadonlyArray<HubRow> => {
-      const inDimension = options.filter(
-        (option) => option.choice.dimension === dimension
-      )
-      if (!isValueDimension(dimension)) {
-        return inDimension.map((option) => ({
-          kind: "toggle",
-          value: option.key,
-          option
-        }))
-      }
-      return [
-        {
-          kind: "dimension",
-          value: `dimension:${dimension}`,
-          dimension,
-          summary: inDimension
-            .flatMap((option) => (option.chosen ? [option.label] : []))
-            .join(", ")
-        }
-      ]
+const hubRows = (options: ReadonlyArray<FilterOption>) =>
+  [
+    ...new Set(options.map((option) => option.choice.dimension))
+  ].flatMap<HubRow>((dimension) => {
+    const inDimension = options.filter(
+      (option) => option.choice.dimension === dimension
+    )
+    if (!isValueDimension(dimension)) {
+      return inDimension.map((option) => ({
+        kind: "toggle",
+        value: option.key,
+        option
+      }))
     }
-  )
+    return [
+      {
+        kind: "dimension",
+        value: `dimension:${dimension}`,
+        dimension,
+        summary: inDimension
+          .flatMap((option) => (option.chosen ? [option.label] : []))
+          .join(", ")
+      }
+    ]
+  })
 
 export function ViewFilterPage({ context, onBack, env }: CommandPageProps) {
   const options = context.view?.options ?? []

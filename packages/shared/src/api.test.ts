@@ -23,7 +23,7 @@ type Access = Readonly<{
   annotation: Readonly<{ key: string }>
 }>
 
-const collectRoutes = (): ReadonlyArray<Route> => {
+const collectRoutes = () => {
   const routes: Array<Route> = []
   HttpApi.reflect(AppApi, {
     onGroup: () => {},

@@ -88,10 +88,8 @@ const parseJson = (text: string) => JSON.parse(text)
 
 const decodeFailure = Schema.decodeUnknownSync(ToolFailure)
 
-const toResult = (
-  result: Readonly<{ isFailure: boolean; encoded: unknown }>
-): ToolResult =>
-  result.isFailure
+const toResult = (result: Readonly<{ isFailure: boolean; encoded: unknown }>) =>
+  (result.isFailure
     ? {
         isError: true,
         content: [{ type: "text", text: decodeFailure(result.encoded).message }]
@@ -100,9 +98,9 @@ const toResult = (
         content: [
           { type: "text", text: JSON.stringify(result.encoded, null, 2) }
         ]
-      }
+      }) satisfies ToolResult
 
-const register = (runtime: Context.Context<HandlerServices>): Registered => {
+const register = (runtime: Context.Context<HandlerServices>) => {
   const registered: Registered = new Map()
   for (const name of Object.keys(Tools.tools)) {
     if (!isToolName(name)) continue

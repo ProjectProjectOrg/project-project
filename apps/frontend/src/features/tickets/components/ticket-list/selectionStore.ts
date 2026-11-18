@@ -65,7 +65,7 @@ export const fireSelected = <I>(
   atom: Atom.Writable<Result.AsyncResult<unknown, unknown>, I>,
   input: I,
   count: number
-): void => {
+) => {
   registry.set(store.failure, null)
   void fireMutation(registry, atom, input).then((result) => {
     if (!Result.isFailure(result)) return

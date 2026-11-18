@@ -17,12 +17,12 @@ export const formatFigmaMarkdown = (input: {
   readonly label: string
   readonly url: string
   readonly density: FigmaDensity
-}): string => {
+}) => {
   const label = input.label.replace(/([[\]\\])/g, "\\$1")
   return `[${label}](${withFigmaParams(input.url, { density: input.density })})`
 }
 
-export const unescapeFigmaLabel = (label: string): string =>
+export const unescapeFigmaLabel = (label: string) =>
   label.replace(/\\(.)/g, "$1")
 
 export const FIGMA_TRANSFORMER: TextMatchTransformer = {

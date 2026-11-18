@@ -19,7 +19,7 @@ export const initialRankOrder = (
   groups: ReadonlyArray<Group>,
   tickets: ReadonlyArray<UnrankedTicket>,
   now: Date
-): ReadonlyArray<string> => {
+) => {
   const active = pickActiveSprint(groups, now)
   const planned = groups
     .filter(

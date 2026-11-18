@@ -39,7 +39,7 @@ const roundCrop = (value: number) => value.toFixed(CROP_PRECISION)
 
 export const BANNER_RENDER_WIDTH_STEP = 128
 
-export const bucketRenderWidth = (width: number): number =>
+export const bucketRenderWidth = (width: number) =>
   Math.max(
     BANNER_RENDER_WIDTH_STEP,
     Math.ceil(width / BANNER_RENDER_WIDTH_STEP) * BANNER_RENDER_WIDTH_STEP
@@ -48,10 +48,10 @@ export const bucketRenderWidth = (width: number): number =>
 const projectScope = (project: string) =>
   `${KEY_ORIGIN}/${encodeURIComponent(project)}/`
 
-const scopeOf = (key: BannerRenderIdentity): string =>
+const scopeOf = (key: BannerRenderIdentity) =>
   `${projectScope(key.project)}${key.variant}`
 
-export const bannerRenderGeneration = (project: string): symbol => {
+export const bannerRenderGeneration = (project: string) => {
   const current = generations.get(project)
   if (current) return current
   const generation = Symbol(project)
@@ -83,20 +83,18 @@ const matchesIdentity = (
 export const matchesBannerRender = (
   url: string,
   identity: BannerRenderIdentity
-): boolean => {
+) => {
   const entry = resources.get(url)
   return entry !== undefined && matchesIdentity(entry.render.key, identity)
 }
 
-export const peekBannerRender = (
-  identity: BannerRenderIdentity
-): ReadyBannerRender | null => {
+export const peekBannerRender = (identity: BannerRenderIdentity) => {
   const entry = memory.get(scopeOf(identity))
   if (!entry) return null
   return matchesIdentity(entry.render.key, identity) ? entry.render : null
 }
 
-export const retainBannerRender = (url: string): (() => void) => {
+export const retainBannerRender = (url: string) => {
   const entry = resources.get(url)
   if (!entry) return () => undefined
   const lease = Symbol()
@@ -112,7 +110,7 @@ export const retainBannerRender = (url: string): (() => void) => {
   }
 }
 
-export const bannerRenderUrl = (key: BannerRenderKey): string => {
+export const bannerRenderUrl = (key: BannerRenderKey) => {
   const params = new URLSearchParams({
     src: key.source,
     x: roundCrop(key.crop.x),
@@ -128,7 +126,7 @@ export const bannerRenderUrl = (key: BannerRenderKey): string => {
 let opening: Promise<Cache | null> | null = null
 let clearing: Promise<void> | null = null
 
-const openCache = async (): Promise<Cache | null> => {
+const openCache = async () => {
   if (clearing) await clearing
   if (typeof caches === "undefined") return null
   opening ??= caches.open(CACHE_NAME).catch(() => null)
@@ -149,7 +147,7 @@ export const resetBannerRenderCacheHandle = () => {
   opening = null
 }
 
-export const clearBannerRenderCache = async (): Promise<void> => {
+export const clearBannerRenderCache = async () => {
   generations.clear()
   const entries = [...memory.values()]
   memory.clear()
@@ -172,7 +170,7 @@ export const clearBannerRenderCache = async (): Promise<void> => {
   if (clearing === operation) clearing = null
 }
 
-export const evictBannerRenders = async (project: string): Promise<void> => {
+export const evictBannerRenders = async (project: string) => {
   generations.delete(project)
   for (const [scope, entry] of memory) {
     if (entry.render.key.project !== project) continue
@@ -193,7 +191,7 @@ export const evictBannerRenders = async (project: string): Promise<void> => {
 export const readBannerRender = async (
   key: BannerRenderKey,
   generation = bannerRenderGeneration(key.project)
-): Promise<Blob | null> => {
+) => {
   const cache = await openCache()
   if (!cache || !isCurrent(key.project, generation)) return null
   try {
@@ -209,7 +207,7 @@ export const prepareBannerRender = async (
   key: BannerRenderKey,
   blob: Blob,
   generation = bannerRenderGeneration(key.project)
-): Promise<BannerRenderLease | null> => {
+) => {
   if (!isCurrent(key.project, generation)) return null
   const url = URL.createObjectURL(blob)
   const image = new Image()
@@ -250,7 +248,7 @@ export const prepareBannerRender = async (
 export const readReadyBannerRender = async (
   key: BannerRenderKey,
   generation = bannerRenderGeneration(key.project)
-): Promise<BannerRenderLease | null> => {
+) => {
   const existing = peekBannerRender(key)
   if (existing && bannerRenderUrl(existing.key) === bannerRenderUrl(key))
     return { render: existing, release: retainBannerRender(existing.url) }
@@ -262,7 +260,7 @@ export const writeBannerRender = async (
   key: BannerRenderKey,
   rendered: Blob,
   generation = bannerRenderGeneration(key.project)
-): Promise<void> => {
+) => {
   const openingCache = openCache()
   await mutateCache(key.project, async () => {
     const cache = await openingCache

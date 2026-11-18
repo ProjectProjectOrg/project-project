@@ -3,9 +3,7 @@ import { createHash } from "node:crypto"
 
 import matter from "gray-matter"
 
-export const parseMarkdownFile = (
-  content: string
-): Readonly<{ data: Record<string, unknown>; content: string }> => {
+export const parseMarkdownFile = (content: string) => {
   const parsed = matter(content, {
     engines: {
       javascript: () => {
@@ -19,15 +17,15 @@ export const parseMarkdownFile = (
 export const markdownFileContent = (
   frontmatter: Record<string, unknown>,
   body: string
-): string => {
+) => {
   const content = matter.stringify({ content: body }, frontmatter)
   return Object.keys(frontmatter).length === 0 && /^\uFEFF?---(?!-)/.test(body)
     ? `---\n---\n${content}`
     : content
 }
 
-export const ticketFileBody = (description: string, region: string): string =>
+export const ticketFileBody = (description: string, region: string) =>
   region ? `${description.replace(/\s+$/, "")}\n\n${region}` : description
 
-export const contentHash = (content: string): string =>
+export const contentHash = (content: string) =>
   createHash("sha256").update(content).digest("hex")

@@ -28,10 +28,7 @@ export type KeyCap = Readonly<{
   sequenceStart: boolean
 }>
 
-export function hotkeyCaps(
-  hotkey: Hotkey,
-  platform: HotkeyPlatform
-): ReadonlyArray<KeyCap> {
+export function hotkeyCaps(hotkey: Hotkey, platform: HotkeyPlatform) {
   const steps = [hotkey].flat()
   return steps.flatMap((chord, step) => {
     const parsed = parseHotkey(chord, platform)

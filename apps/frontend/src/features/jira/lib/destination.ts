@@ -21,7 +21,7 @@ const valuesOf = (
     conflict.kind === kind ? [conflict.value] : []
   )
 
-const ticketMessage = (tickets: ReadonlyArray<string>): string | null =>
+const ticketMessage = (tickets: ReadonlyArray<string>) =>
   tickets.length === 0
     ? null
     : m.jira_import_conflict_tickets({
@@ -35,7 +35,7 @@ const ticketMessage = (tickets: ReadonlyArray<string>): string | null =>
             : tickets.join(", ")
       })
 
-export const conflictMessages = (conflicts: Conflicts): ReadonlyArray<string> =>
+export const conflictMessages = (conflicts: Conflicts) =>
   [
     ...valuesOf(conflicts, "project_slug").map((value) =>
       m.jira_import_conflict_slug({ value })
@@ -46,12 +46,9 @@ export const conflictMessages = (conflicts: Conflicts): ReadonlyArray<string> =>
     valuesOf(conflicts, "project_key").length > 0
       ? null
       : ticketMessage(valuesOf(conflicts, "ticket_id"))
-  ].filter((message): message is string => message !== null)
+  ].filter((message) => message !== null)
 
-export const conflictFor = (
-  field: DestinationField,
-  conflicts: Conflicts
-): string | null => {
+export const conflictFor = (field: DestinationField, conflicts: Conflicts) => {
   if (field === "name") return null
   const messages = conflictMessages(
     conflicts.filter(
@@ -71,7 +68,7 @@ export const destinationFieldSchemas = {
   key: Schema.toStandardSchemaV1(CreatableProjectKey)
 } as const
 
-export const conflictingFields = (conflicts: Conflicts): number =>
+export const conflictingFields = (conflicts: Conflicts) =>
   (["slug", "key"] as const).filter(
     (field) => conflictFor(field, conflicts) !== null
   ).length

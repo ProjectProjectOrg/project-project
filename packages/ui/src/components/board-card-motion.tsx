@@ -31,7 +31,7 @@ export function useBoardDropGap(
   status: string,
   ids: ReadonlyArray<string>,
   enabled: boolean
-): BoardDrag | null {
+) {
   const [drag, setDrag] = useState<BoardDrag | null>(null)
   const latest = useRef(ids)
   useLayoutEffect(() => {
@@ -86,7 +86,7 @@ export const boardDropOffset = (
   drag: BoardDrag | null,
   index: number,
   sourceIndex: number
-): number =>
+) =>
   drag === null || index === sourceIndex
     ? 0
     : (sourceIndex >= 0 && index > sourceIndex ? -drag.height : 0) +

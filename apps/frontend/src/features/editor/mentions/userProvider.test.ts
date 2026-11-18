@@ -44,7 +44,7 @@ it.effect(
         const scope = { orgSlug: "org", slug: "project" }
         const search = (q: string, members?: (typeof member)[]) =>
           userProvider({ ...scope, members })
-            .search(q, null)
+            .search(q)
             .pipe(
               Effect.map((page) => page.items),
               Effect.provideService(Registry.AtomRegistry, registry)

@@ -56,7 +56,7 @@ type GroupsProps = Readonly<{
 
 export const sectionUseText = (
   types: ReadonlyArray<Readonly<{ name: string }>>
-): string =>
+) =>
   types.length === 0
     ? m.templates_sections_in_none()
     : m.templates_sections_in({
@@ -171,7 +171,7 @@ const splitByOwner = <A extends Parameters<typeof standingOf>[0]>(
   return { shared: entries.filter((entry) => !own.includes(entry)), own }
 }
 
-const isSwitchable = (standing: EntryStanding): boolean =>
+const isSwitchable = (standing: EntryStanding) =>
   standing === "shared" || standing === "hidden"
 
 function StandingBadge({

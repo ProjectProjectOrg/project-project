@@ -47,14 +47,14 @@ export function FigmaGlyph({ className }: { className?: string }) {
   )
 }
 
-export const figmaSlugLabel = (slug: string): string =>
+export const figmaSlugLabel = (slug: string) =>
   slug.replace(/[-_]+/g, " ").trim()
 
 export const figmaDisplayName = (input: {
   readonly resolved: string | null
   readonly label: string
   readonly slug: string
-}): string => {
+}) => {
   const resolved = input.resolved?.trim() ?? ""
   if (resolved.length > 0) return resolved
   const label = input.label.trim()

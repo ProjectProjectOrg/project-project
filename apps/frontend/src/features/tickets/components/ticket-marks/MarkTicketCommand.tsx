@@ -131,7 +131,7 @@ export function MarkTicketCommand({
       title: m.tickets_mark_failed(),
       description: ""
     }),
-    onSuccess: (): CommandEmpty | undefined => undefined
+    onSuccess: () => undefined
   })
 
   const pick = async (target: Ticket) => {

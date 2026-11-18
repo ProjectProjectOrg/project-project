@@ -13,7 +13,7 @@ import {
 
 const decode = Schema.decodeSync(ProjectStatus)
 
-const status = (slug: string, orderKey: string): ProjectStatus =>
+const status = (slug: string, orderKey: string) =>
   decode({
     slug,
     label: slug,

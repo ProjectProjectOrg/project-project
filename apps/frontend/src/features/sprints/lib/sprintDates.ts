@@ -25,16 +25,16 @@ export const sprintDateDraft = (
 export const sprintDatesPatch = (
   sprint: Pick<Group, "startsAt" | "endsAt">,
   draft: SprintDateDraft
-): SprintDatesPatch | null => {
+) => {
   const startsAt = draft.from ?? null
   const endsAt = draft.to ?? null
   return startsAt?.getTime() !== sprint.startsAt?.getTime() ||
     endsAt?.getTime() !== sprint.endsAt?.getTime()
-    ? { startsAt, endsAt }
+    ? ({ startsAt, endsAt } satisfies SprintDatesPatch)
     : null
 }
 
-export const formatSprintRange = (from: Date, to: Date): string => {
+export const formatSprintRange = (from: Date, to: Date) => {
   const format = new Intl.DateTimeFormat(getLocale(), {
     month: "short",
     day: "numeric"
@@ -42,10 +42,7 @@ export const formatSprintRange = (from: Date, to: Date): string => {
   return `${format.format(from)} – ${format.format(to)}`
 }
 
-export const formatSprintDates = ({
-  from,
-  to
-}: SprintDateDraft): string | null =>
+export const formatSprintDates = ({ from, to }: SprintDateDraft) =>
   from === undefined
     ? null
     : to === undefined
@@ -57,14 +54,14 @@ export const formatSprintDates = ({
         })
       : formatSprintRange(from, to)
 
-export const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
+export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
-export const timeOr = (date: Date | null, fallback: number): number =>
+export const timeOr = (date: Date | null, fallback: number) =>
   date?.getTime() ?? fallback
 
 const WEEK_DAYS = 7
 
-export const sprintLengthAdjective = (days: number): string =>
+export const sprintLengthAdjective = (days: number) =>
   days % WEEK_DAYS === 0
     ? m.sprints_length_adjective_weeks({ count: days / WEEK_DAYS })
     : m.sprints_length_adjective_days({ count: days })
@@ -74,20 +71,18 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 const dayOf = (date: Date) => localToday(DateTime.makeUnsafe(date))
 
-export const startOfDay = (date: Date): Date => DateTime.toDateUtc(dayOf(date))
+export const startOfDay = (date: Date) => DateTime.toDateUtc(dayOf(date))
 
-export const addDays = (date: Date, days: number): Date =>
+export const addDays = (date: Date, days: number) =>
   DateTime.toDateUtc(DateTime.add(dayOf(date), { days }))
 
-export const daysBetween = (from: Date, to: Date): number =>
+export const daysBetween = (from: Date, to: Date) =>
   Math.round(
     (DateTime.toEpochMillis(dayOf(to)) - DateTime.toEpochMillis(dayOf(from))) /
       DAY_MS
   )
 
-export const sprintLengthDays = (
-  sprint: Pick<Group, "startsAt" | "endsAt">
-): number | null =>
+export const sprintLengthDays = (sprint: Pick<Group, "startsAt" | "endsAt">) =>
   sprint.startsAt === null ||
   sprint.endsAt === null ||
   sprint.endsAt < sprint.startsAt
@@ -96,18 +91,24 @@ export const sprintLengthDays = (
 
 export const defaultSprintRange = (
   now: DateTime.Utc = DateTime.nowUnsafe()
-): SprintDateDraft => {
+) => {
   const from = startOfDay(DateTime.toDate(now))
-  return { from, to: addDays(from, DEFAULT_SPRINT_DAYS - 1) }
+  return {
+    from,
+    to: addDays(from, DEFAULT_SPRINT_DAYS - 1)
+  } satisfies SprintDateDraft
 }
 
 export const startSprintPatch = (
   sprint: Pick<Group, "startsAt" | "endsAt">,
   start: Date
-): SprintDatesPatch => {
+) => {
   const startsAt = startOfDay(start)
   const length = sprintLengthDays(sprint) ?? DEFAULT_SPRINT_DAYS
-  return { startsAt, endsAt: addDays(startsAt, length - 1) }
+  return {
+    startsAt,
+    endsAt: addDays(startsAt, length - 1)
+  } satisfies SprintDatesPatch
 }
 
 export type SprintCountdown =
@@ -119,18 +120,18 @@ export type SprintCountdown =
 export const sprintCountdown = (
   sprint: Pick<Group, "endsAt">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
-): SprintCountdown => {
-  if (sprint.endsAt === null) return { kind: "noEnd" }
+) => {
+  if (sprint.endsAt === null) return { kind: "noEnd" } satisfies SprintCountdown
   const days = daysBetween(now, sprint.endsAt)
-  if (days > 0) return { kind: "left", days }
-  if (days === 0) return { kind: "lastDay" }
-  return { kind: "ended", days: -days }
+  if (days > 0) return { kind: "left", days } satisfies SprintCountdown
+  if (days === 0) return { kind: "lastDay" } satisfies SprintCountdown
+  return { kind: "ended", days: -days } satisfies SprintCountdown
 }
 
 export const sprintEnded = (
   sprint: Pick<Group, "completedAt" | "startsAt" | "endsAt">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
-): boolean =>
+) =>
   sprintState(sprint, now) === "active" &&
   sprintCountdown(sprint, now).kind === "ended"
 
@@ -150,7 +151,7 @@ export const startPresets = ({
 }: Readonly<{
   now?: DateTime.Utc
   activeEnd?: Date | null
-}> = {}): ReadonlyArray<StartPreset> => {
+}> = {}) => {
   const today = localToday(now)
   const untilMonday = (8 - DateTime.getPart(today, "weekDay")) % 7 || 7
   const at = (days: number) => DateTime.toDateUtc(DateTime.add(today, { days }))

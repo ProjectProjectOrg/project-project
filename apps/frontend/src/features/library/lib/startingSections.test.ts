@@ -14,13 +14,14 @@ import {
   sectionsToAdd,
   startingRows,
   withoutRow,
-  withSection
+  withSection,
+  type StartingRow
 } from "./startingSections"
 
 const bug = BUILTIN_TYPES.find((type) => type.key === "bug")!
 const spike = GALLERY_TYPES.find((type) => type.key === "spike")!
 
-const keys = (list: ReturnType<typeof startingRows>) =>
+const keys = (list: ReadonlyArray<StartingRow>) =>
   list.map((row) => (row.kind === "text" ? "text" : row.key))
 
 const content = (key: string) =>

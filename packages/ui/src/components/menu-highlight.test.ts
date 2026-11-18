@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest"
 
 import { nextHighlight, type HighlightRect } from "./menu-highlight"
 
-const rect = (top: number): HighlightRect => ({
-  top,
-  left: 4,
-  width: 200,
-  height: 32,
-  tone: "default"
-})
+const rect = (top: number) =>
+  ({
+    top,
+    left: 4,
+    width: 200,
+    height: 32,
+    tone: "default"
+  }) satisfies HighlightRect
 
 describe("nextHighlight", () => {
   it("keeps the session while the highlight moves between rows", () => {

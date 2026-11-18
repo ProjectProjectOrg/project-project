@@ -38,7 +38,7 @@ export const decodeEnvironment = Schema.decodeUnknownSync(Environment)
 const decodeRegistry = Schema.decodeUnknownSync(Registry)
 const decodeLock = Schema.decodeUnknownSync(Lock)
 
-export function createEnvironmentId(branch: string): string {
+export function createEnvironmentId(branch: string) {
   const label =
     branch
       .toLowerCase()
@@ -49,10 +49,7 @@ export function createEnvironmentId(branch: string): string {
   return `${label}-${randomBytes(4).toString("hex")}`
 }
 
-export async function command(
-  args: ReadonlyArray<string>,
-  cwd: string
-): Promise<string> {
+export async function command(args: ReadonlyArray<string>, cwd: string) {
   const child = Bun.spawn([...args], { cwd, stdout: "pipe", stderr: "pipe" })
   const [stdout, stderr, code] = await Promise.all([
     new Response(child.stdout).text(),
@@ -63,9 +60,7 @@ export async function command(
   return stdout.trim()
 }
 
-export async function location(): Promise<
-  Readonly<{ root: string; directory: string }>
-> {
+export async function location() {
   const root = await realpath(
     await command(["git", "rev-parse", "--show-toplevel"], process.cwd())
   )
@@ -76,14 +71,11 @@ export async function location(): Promise<
   return { root, directory: path.join(common, "pp-agent") }
 }
 
-export async function readJson<A>(
-  file: string,
-  decode: (input: unknown) => A
-): Promise<A> {
+export async function readJson<A>(file: string, decode: (input: unknown) => A) {
   return decode(JSON.parse(await readFile(file, "utf8")))
 }
 
-export async function writeJson(file: string, value: object): Promise<void> {
+export async function writeJson(file: string, value: object) {
   const temporary = `${file}.${crypto.randomUUID()}.tmp`
   await Bun.write(temporary, `${JSON.stringify(value, null, 2)}\n`, {
     mode: 0o600
@@ -91,7 +83,7 @@ export async function writeJson(file: string, value: object): Promise<void> {
   await rename(temporary, file)
 }
 
-export async function exists(file: string): Promise<boolean> {
+export async function exists(file: string) {
   try {
     await readFile(file)
     return true
@@ -102,7 +94,7 @@ export async function exists(file: string): Promise<boolean> {
   }
 }
 
-export async function processIdentity(pid: number): Promise<string | null> {
+export async function processIdentity(pid: number) {
   try {
     return await command(
       ["ps", "-p", String(pid), "-o", "lstart=", "-o", "command="],
@@ -113,7 +105,7 @@ export async function processIdentity(pid: number): Promise<string | null> {
   }
 }
 
-export async function isRunning(owner: Running): Promise<boolean> {
+export async function isRunning(owner: Running) {
   if (owner.host !== hostname())
     throw new Error(
       "Environment belongs to another host; refusing to signal or clean it"
@@ -131,17 +123,17 @@ export class AgentRegistry {
   constructor(directory: string) {
     this.directory = directory
   }
-  resources(environment: Environment): string {
+  resources(environment: Environment) {
     return path.join(this.directory, environment.id)
   }
-  async read(): Promise<typeof Registry.Type> {
+  async read() {
     const file = path.join(this.directory, "registry.json")
     return (await exists(file)) ? await readJson(file, decodeRegistry) : []
   }
-  async save(environments: typeof Registry.Type): Promise<void> {
+  async save(environments: typeof Registry.Type) {
     await writeJson(path.join(this.directory, "registry.json"), environments)
   }
-  async exclusive<A>(run: () => Promise<A>): Promise<A> {
+  async exclusive<A>(run: () => Promise<A>) {
     await mkdir(this.directory, { recursive: true, mode: 0o700 })
     const file = path.join(this.directory, "registry.lock")
     const owner = {

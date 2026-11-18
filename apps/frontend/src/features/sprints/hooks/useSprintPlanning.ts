@@ -52,7 +52,7 @@ export type SprintPlanning = Readonly<{
   active: Readonly<{ sprint: Group; tickets: ReadonlyArray<Ticket> }> | null
 }>
 
-export function useSprintPlanning(measure: PlanMeasure): SprintPlanning {
+export function useSprintPlanning(measure: PlanMeasure) {
   const { orgSlug, slug } = useProjectRoute()
   const list = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
   const overview = Result.isSuccess(list)

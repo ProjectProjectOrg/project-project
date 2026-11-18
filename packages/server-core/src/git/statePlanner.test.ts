@@ -28,9 +28,7 @@ const baseTicket = {
   lastTransitionedPr: null
 } satisfies TicketGitStateInput
 
-function raw(
-  overrides: Partial<GitHub.RawProjectStates> = {}
-): GitHub.RawProjectStates {
+function raw(overrides: Partial<GitHub.RawProjectStates> = {}) {
   return {
     defaultBranch: "main",
     existingBranches: new Set(),
@@ -39,23 +37,22 @@ function raw(
     openPullRequestText: new Map(),
     fetchedAt: now,
     ...overrides
-  }
+  } satisfies GitHub.RawProjectStates
 }
 
-const pullRequest = (
-  overrides: Partial<GitHub.RawBranchEntry> = {}
-): GitHub.RawBranchEntry => ({
-  headRefName: "feat/T-1",
-  baseRefName: "main",
-  state: "open",
-  draft: false,
-  number: 42,
-  url: "https://github.test/pr/42",
-  title: "Ship it",
-  mergedAt: null,
-  checks: "passing",
-  ...overrides
-})
+const pullRequest = (overrides: Partial<GitHub.RawBranchEntry> = {}) =>
+  ({
+    headRefName: "feat/T-1",
+    baseRefName: "main",
+    state: "open",
+    draft: false,
+    number: 42,
+    url: "https://github.test/pr/42",
+    title: "Ship it",
+    mergedAt: null,
+    checks: "passing",
+    ...overrides
+  }) satisfies GitHub.RawBranchEntry
 
 const withPullRequest = (pr: GitHub.RawBranchEntry) =>
   raw({
@@ -228,18 +225,17 @@ describe("planTicketGitStates", () => {
 })
 
 describe("planPullRequestWebhookTicket", () => {
-  const webhookTicket = (
-    input: Partial<TicketGitStateInput> = {}
-  ): TicketGitStateInput => ({
-    id: ticketId("T-84"),
-    status: ticketStatus("in_progress"),
-    branch: "feat/T-84-pr-webhook-lifecycle",
-    pr: null,
-    prState: null,
-    prDraft: false,
-    lastTransitionedPr: null,
-    ...input
-  })
+  const webhookTicket = (input: Partial<TicketGitStateInput> = {}) =>
+    ({
+      id: ticketId("T-84"),
+      status: ticketStatus("in_progress"),
+      branch: "feat/T-84-pr-webhook-lifecycle",
+      pr: null,
+      prState: null,
+      prDraft: false,
+      lastTransitionedPr: null,
+      ...input
+    }) satisfies TicketGitStateInput
 
   it("records open and draft pull requests", () => {
     expect(

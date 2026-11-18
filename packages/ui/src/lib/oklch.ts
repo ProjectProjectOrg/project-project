@@ -4,14 +4,14 @@ export type Oklch = Readonly<{ L: number; C: number; h: number }>
 
 // An OKLCH colour as CSS, with lightness and chroma kept in range and the
 // hue wrapped onto the wheel.
-export const oklchCss = ({ L, C, h }: Oklch, opacity = 1): string =>
+export const oklchCss = ({ L, C, h }: Oklch, opacity = 1) =>
   `oklch(${clamp(L).toFixed(3)} ${Math.max(0, C).toFixed(3)} ${((h % 360) + 360) % 360}${opacity < 1 ? ` / ${opacity}` : ""})`
 
 // sRGB hex to OKLCH (Björn Ottosson's matrices).
 const toLinear = (channel: number) =>
   channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
 
-export const hexToOklch = (hex: string): Oklch => {
+export const hexToOklch = (hex: string) => {
   const value = Number.parseInt(hex.replace("#", ""), 16)
   const r = toLinear(((value >> 16) & 255) / 255)
   const g = toLinear(((value >> 8) & 255) / 255)

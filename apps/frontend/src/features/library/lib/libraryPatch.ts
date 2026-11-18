@@ -23,13 +23,10 @@ type Entry<Draft extends Keyed> = Draft & Placed
 const byNameThenKey = (a: Keyed, b: Keyed) =>
   a.name.localeCompare(b.name, "en") || a.key.localeCompare(b.key, "en")
 
-const definedFields = <A extends object>(patch: A): Partial<A> =>
+const definedFields = <A extends object>(patch: A) =>
   Record.filter(patch, (value) => value !== undefined)
 
-const upsert = <A extends Keyed>(
-  entries: ReadonlyArray<A>,
-  entry: A
-): ReadonlyArray<A> =>
+const upsert = <A extends Keyed>(entries: ReadonlyArray<A>, entry: A) =>
   [...entries.filter((current) => current.key !== entry.key), entry].toSorted(
     byNameThenKey
   )
@@ -38,7 +35,7 @@ const created = <Draft extends Keyed>(
   entries: ReadonlyArray<Entry<Draft>>,
   draft: Draft,
   origin: LibraryOrigin
-): ReadonlyArray<Entry<Draft>> => {
+) => {
   const existing = entries.find((entry) => entry.key === draft.key)
   const shadows =
     existing === undefined
@@ -53,7 +50,7 @@ const updated = <Draft extends Keyed>(
   entries: ReadonlyArray<Entry<Draft>>,
   key: string,
   patch: Partial<Draft>
-): ReadonlyArray<Entry<Draft>> =>
+) =>
   entries
     .map((entry) => (entry.key === key ? { ...entry, ...patch } : entry))
     .toSorted(byNameThenKey)
@@ -62,7 +59,7 @@ const removed = <Draft extends Keyed>(
   entries: ReadonlyArray<Entry<Draft>>,
   key: string,
   origin: LibraryOrigin
-): ReadonlyArray<Entry<Draft>> => {
+) => {
   const entry = entries.find((current) => current.key === key)
   if (entry === undefined) return entries
   if (entry.origin !== origin)
@@ -85,7 +82,7 @@ const removed = <Draft extends Keyed>(
 const hidden = <Draft extends Keyed>(
   entries: ReadonlyArray<Entry<Draft>>,
   key: string
-): ReadonlyArray<Entry<Draft>> =>
+) =>
   entries.map((entry) =>
     entry.key === key && entry.origin !== "project"
       ? { ...entry, origin: "project", shadows: entry.origin, hidden: true }
@@ -97,42 +94,38 @@ const withBlocks = (
   change: (
     blocks: ReadonlyArray<BlockDefinition>
   ) => ReadonlyArray<BlockDefinition>
-): Library => ({ ...library, blocks: change(library.blocks) })
+) => ({ ...library, blocks: change(library.blocks) }) satisfies Library
 
 const withTypes = (
   library: Library,
   change: (
     types: ReadonlyArray<TypeDefinition>
   ) => ReadonlyArray<TypeDefinition>
-): Library => ({ ...library, types: change(library.types) })
+) => ({ ...library, types: change(library.types) }) satisfies Library
 
-export const applyBlockUpsert = (
-  library: Library,
-  block: BlockDefinition
-): Library => withBlocks(library, (blocks) => upsert(blocks, block))
+export const applyBlockUpsert = (library: Library, block: BlockDefinition) =>
+  withBlocks(library, (blocks) => upsert(blocks, block))
 
-export const applyTypeUpsert = (
-  library: Library,
-  type: TypeDefinition
-): Library => withTypes(library, (types) => upsert(types, type))
+export const applyTypeUpsert = (library: Library, type: TypeDefinition) =>
+  withTypes(library, (types) => upsert(types, type))
 
 export const applyBlockCreate = (
   library: Library,
   draft: BlockDraft,
   origin: LibraryOrigin
-): Library => withBlocks(library, (blocks) => created(blocks, draft, origin))
+) => withBlocks(library, (blocks) => created(blocks, draft, origin))
 
 export const applyTypeCreate = (
   library: Library,
   draft: TypeDraft,
   origin: LibraryOrigin
-): Library => withTypes(library, (types) => created(types, draft, origin))
+) => withTypes(library, (types) => created(types, draft, origin))
 
 export const applyBlockUpdate = (
   library: Library,
   key: string,
   patch: UpdateBlockInput
-): Library =>
+) =>
   withBlocks(library, (blocks) =>
     updated<BlockDraft>(blocks, key, definedFields(patch))
   )
@@ -141,7 +134,7 @@ export const applyTypeUpdate = (
   library: Library,
   key: string,
   patch: UpdateTypeInput
-): Library =>
+) =>
   withTypes(library, (types) =>
     updated<TypeDraft>(types, key, definedFields(patch))
   )
@@ -150,16 +143,16 @@ export const applyBlockRemove = (
   library: Library,
   key: string,
   origin: LibraryOrigin
-): Library => withBlocks(library, (blocks) => removed(blocks, key, origin))
+) => withBlocks(library, (blocks) => removed(blocks, key, origin))
 
 export const applyTypeRemove = (
   library: Library,
   key: string,
   origin: LibraryOrigin
-): Library => withTypes(library, (types) => removed(types, key, origin))
+) => withTypes(library, (types) => removed(types, key, origin))
 
-export const applyBlockHide = (library: Library, key: string): Library =>
+export const applyBlockHide = (library: Library, key: string) =>
   withBlocks(library, (blocks) => hidden(blocks, key))
 
-export const applyTypeHide = (library: Library, key: string): Library =>
+export const applyTypeHide = (library: Library, key: string) =>
   withTypes(library, (types) => hidden(types, key))

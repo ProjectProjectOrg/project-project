@@ -60,32 +60,33 @@ const CAUSES: Readonly<Record<ActivityCause, () => string>> = {
   git_automation: () => m.tickets_activity_cause_git_automation()
 }
 
-const plain = (text: string): ActivityLineBody => ({ kind: "plain", text })
+const plain = (text: string) =>
+  ({ kind: "plain", text }) satisfies ActivityLineBody
 
-const verb = (text: string, value: ActivityValue): ActivityLineBody => ({
-  kind: "verb",
-  verb: text,
-  value
-})
+const verb = (text: string, value: ActivityValue) =>
+  ({
+    kind: "verb",
+    verb: text,
+    value
+  }) satisfies ActivityLineBody
 
-const field = (
-  label: string,
-  from: ActivityValue,
-  to: ActivityValue
-): ActivityLineBody => ({ kind: "field", label, from, to })
+const quoted = (text: string, quote: string) =>
+  ({ kind: "quoted", text, quote }) satisfies ActivityLineBody
 
-const literal = (
-  text: string,
-  icon: ActivityLiteralIcon | null = null
-): ActivityValue => ({ kind: "literal", text, icon })
+const field = (label: string, from: ActivityValue, to: ActivityValue) =>
+  ({ kind: "field", label, from, to }) satisfies ActivityLineBody
 
-const estimateValue = (estimate: Estimate | null): ActivityValue => ({
-  kind: "text",
-  text:
-    estimate === null
-      ? m.tickets_filters_estimate_none()
-      : formatEstimate(estimate)
-})
+const literal = (text: string, icon: ActivityLiteralIcon | null = null) =>
+  ({ kind: "literal", text, icon }) satisfies ActivityValue
+
+const estimateValue = (estimate: Estimate | null) =>
+  ({
+    kind: "text",
+    text:
+      estimate === null
+        ? m.tickets_filters_estimate_none()
+        : formatEstimate(estimate)
+  }) satisfies ActivityValue
 
 const listLines = (
   added: ReadonlyArray<string>,
@@ -93,7 +94,7 @@ const listLines = (
   addedVerb: string,
   removedVerb: string,
   value: (items: ReadonlyArray<string>) => ActivityValue
-): ReadonlyArray<ActivityLineBody> => [
+) => [
   ...(added.length > 0 ? [verb(addedVerb, value(added))] : []),
   ...(removed.length > 0 ? [verb(removedVerb, value(removed))] : [])
 ]
@@ -114,9 +115,7 @@ const RELATION_REMOVED: Readonly<Record<RelationSide, () => string>> = {
   duplicates: () => m.tickets_activity_relation_removed_duplicates()
 }
 
-const changeBodies = (
-  change: TicketActivityChange
-): ReadonlyArray<ActivityLineBody> => {
+const changeBodies = (change: TicketActivityChange) => {
   switch (change.kind) {
     case "title_changed":
       return [
@@ -179,11 +178,7 @@ const changeBodies = (
       return [
         change.reason === undefined
           ? plain(m.tickets_activity_archived())
-          : {
-              kind: "quoted",
-              text: m.tickets_activity_archived(),
-              quote: change.reason
-            }
+          : quoted(m.tickets_activity_archived(), change.reason)
       ]
     case "unarchived":
       return [plain(m.tickets_activity_unarchived())]
@@ -191,11 +186,7 @@ const changeBodies = (
       return [
         change.reason === undefined
           ? plain(m.tickets_activity_flagged())
-          : {
-              kind: "quoted",
-              text: m.tickets_activity_flagged(),
-              quote: change.reason
-            }
+          : quoted(m.tickets_activity_flagged(), change.reason)
       ]
     case "unflagged":
       return [plain(m.tickets_activity_unflagged())]
@@ -292,12 +283,12 @@ const changeBodies = (
 const withCause = (
   bodies: ReadonlyArray<ActivityLineBody>,
   cause: ActivityCause | null
-): ReadonlyArray<ActivityLine> => {
+) => {
   const text = cause === null ? null : CAUSES[cause]()
   return bodies.map((body) => ({ body, cause: text }))
 }
 
-const entryLines = (entry: TicketActivityEntry): ReadonlyArray<ActivityLine> =>
+const entryLines = (entry: TicketActivityEntry) =>
   entry.kind === "created"
     ? withCause(
         [
@@ -309,9 +300,7 @@ const entryLines = (entry: TicketActivityEntry): ReadonlyArray<ActivityLine> =>
       )
     : withCause(changeBodies(entry.change), entry.cause)
 
-export const activityLines = (
-  item: ActivityItem
-): ReadonlyArray<ActivityLine> =>
+export const activityLines = (item: ActivityItem) =>
   item.kind === "entry"
     ? entryLines(item.entry)
     : withCause(

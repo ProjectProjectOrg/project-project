@@ -17,12 +17,13 @@ const sticker: ProjectIconImage = {
   crop: { x: 0.5, y: 0.5, zoom: 1 }
 }
 
-const draftOf = (over: Partial<IconDraftValues> = {}): IconDraftValues => ({
-  source: { kind: "image", emoji: "🎨" },
-  crop: { x: 0.5, y: 0.5, zoom: 1 },
-  treatment: { kind: "sticker", tolerance: TOLERANCE },
-  ...over
-})
+const draftOf = (over: Partial<IconDraftValues> = {}) =>
+  ({
+    source: { kind: "image", emoji: "🎨" },
+    crop: { x: 0.5, y: 0.5, zoom: 1 },
+    treatment: { kind: "sticker", tolerance: TOLERANCE },
+    ...over
+  }) satisfies IconDraftValues
 
 describe("iconPreviewChanged", () => {
   it("is unchanged when the editor opens on the saved image", () => {

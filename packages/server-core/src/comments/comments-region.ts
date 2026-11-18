@@ -107,17 +107,16 @@ const CommentBlockData = Schema.Union([
   LegacyJiraSnapshotCommentData
 ])
 
-const blockAuthor = (
-  author: (typeof CommentBlockData.Type)["author"]
-): CommentBlockAuthor => {
-  if (Predicate.isString(author)) return { kind: "user", userId: author }
+const blockAuthor = (author: (typeof CommentBlockData.Type)["author"]) => {
+  if (Predicate.isString(author))
+    return { kind: "user", userId: author } satisfies CommentBlockAuthor
   if (author.kind !== "jira") return author
   return {
     kind: "imported",
     displayName: author.displayName,
     source: "jira",
     sourceId: author.accountId
-  }
+  } satisfies CommentBlockAuthor
 }
 
 const decodeUnknownCommentBlockDataOption =
@@ -127,18 +126,19 @@ export type ValidationResult =
   | Readonly<{ ok: true }>
   | Readonly<{ ok: false; reason: string }>
 
-export function validateCommentBody(body: string): ValidationResult {
-  if (!body.trim()) return { ok: false, reason: "empty" }
+export function validateCommentBody(body: string) {
+  if (!body.trim())
+    return { ok: false, reason: "empty" } satisfies ValidationResult
   if (FORBIDDEN_BODY.test(body)) {
-    return { ok: false, reason: "contains_marker_pattern" }
+    return {
+      ok: false,
+      reason: "contains_marker_pattern"
+    } satisfies ValidationResult
   }
-  return { ok: true }
+  return { ok: true } satisfies ValidationResult
 }
 
-export function splitDescriptionAndCommentsRegion(full: string): Readonly<{
-  description: string
-  region: string
-}> {
+export function splitDescriptionAndCommentsRegion(full: string) {
   const idx = full.indexOf(COMMENTS_START)
   if (idx === -1) return { description: full, region: "" }
   const before = full.slice(0, idx)
@@ -147,9 +147,7 @@ export function splitDescriptionAndCommentsRegion(full: string): Readonly<{
   return { description, region }
 }
 
-export function parseCommentsRegion(
-  region: string
-): ReadonlyArray<CommentBlock> {
+export function parseCommentsRegion(region: string) {
   if (!region.trim()) return []
   const inner = stripOuterMarkers(region)
   if (inner === null) return []
@@ -191,9 +189,7 @@ export function parseCommentsRegion(
   return blocks
 }
 
-export function serializeCommentsRegion(
-  blocks: ReadonlyArray<CommentBlock>
-): string {
+export function serializeCommentsRegion(blocks: ReadonlyArray<CommentBlock>) {
   if (blocks.length === 0) return ""
   const out: string[] = [COMMENTS_START]
   for (const b of blocks) {
@@ -218,7 +214,7 @@ export function serializeCommentsRegion(
   return out.join("\n") + "\n"
 }
 
-function stripOuterMarkers(region: string): string | null {
+function stripOuterMarkers(region: string) {
   const start = region.indexOf(COMMENTS_START)
   const end = region.lastIndexOf(COMMENTS_END)
   if (start === -1 || end === -1 || end <= start) return null

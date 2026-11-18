@@ -19,11 +19,7 @@ export const BANNER_PLACEHOLDER_EDGE = 24
 
 export const BANNER_PLACEHOLDER_QUALITY_LADDER = [0.5, 0.35, 0.2, 0.1]
 
-const scaledSize = (
-  width: number,
-  height: number,
-  maxEdge: number
-): { width: number; height: number } => {
+const scaledSize = (width: number, height: number, maxEdge: number) => {
   const longest = Math.max(width, height)
   if (longest <= maxEdge) return { width, height }
   const scale = maxEdge / longest
@@ -37,10 +33,10 @@ const encodeCanvas = (
   canvas: HTMLCanvasElement,
   type: string,
   quality?: number
-): Promise<Blob | null> =>
-  new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+) =>
+  new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
 
-const fileNameFor = (original: string, type: string): string => {
+const fileNameFor = (original: string, type: string) => {
   const base = original.replace(/\.[^./\\]+$/, "")
   const ext = Match.value(type).pipe(
     Match.when("image/webp", () => "webp"),
@@ -50,10 +46,7 @@ const fileNameFor = (original: string, type: string): string => {
   return `${base || "image"}.${ext}`
 }
 
-const drawScaled = (
-  bitmap: ImageBitmap,
-  maxEdge: number
-): HTMLCanvasElement | null => {
+const drawScaled = (bitmap: ImageBitmap, maxEdge: number) => {
   const { width, height } = scaledSize(bitmap.width, bitmap.height, maxEdge)
   const canvas = document.createElement("canvas")
   canvas.width = width
@@ -68,7 +61,7 @@ const encodeSmaller = async (
   canvas: HTMLCanvasElement,
   file: File,
   options: CompressImageOptions
-): Promise<File> => {
+) => {
   const type = options.hasAlpha ? "image/png" : "image/webp"
   const quality = options.hasAlpha ? undefined : (options.quality ?? 0.82)
   const blob = await encodeCanvas(canvas, type, quality)
@@ -77,8 +70,8 @@ const encodeSmaller = async (
   return new File([blob], fileNameFor(file.name, type), { type })
 }
 
-const readDataUrl = (blob: Blob): Promise<string | null> =>
-  new Promise((resolve) => {
+const readDataUrl = (blob: Blob) =>
+  new Promise<string | null>((resolve) => {
     const reader = new FileReader()
     reader.onload = () =>
       resolve(typeof reader.result === "string" ? reader.result : null)
@@ -86,9 +79,7 @@ const readDataUrl = (blob: Blob): Promise<string | null> =>
     reader.readAsDataURL(blob)
   })
 
-const encodePlaceholder = async (
-  bitmap: ImageBitmap
-): Promise<string | null> => {
+const encodePlaceholder = async (bitmap: ImageBitmap) => {
   const canvas = drawScaled(bitmap, BANNER_PLACEHOLDER_EDGE)
   if (!canvas) return null
   let smallest: string | null = null
@@ -108,7 +99,7 @@ const encodePlaceholder = async (
 export const compressImage = async (
   file: File,
   options: CompressImageOptions
-): Promise<File> => {
+) => {
   const bitmap = await createImageBitmap(file)
   try {
     const canvas = drawScaled(bitmap, options.maxEdge)
@@ -122,7 +113,7 @@ export const compressImage = async (
 export const compressBanner = async (
   file: File,
   options: CompressImageOptions
-): Promise<CompressedBanner> => {
+) => {
   const bitmap = await createImageBitmap(file)
   try {
     const canvas = drawScaled(bitmap, options.maxEdge)

@@ -3,7 +3,7 @@ import type { StartGithubAppManifestResponse } from "@pp/shared"
 export const submitGithubAppManifest = ({
   action,
   manifest
-}: StartGithubAppManifestResponse): void => {
+}: StartGithubAppManifestResponse) => {
   const form = document.createElement("form")
   form.method = "post"
   form.action = action

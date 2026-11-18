@@ -53,7 +53,7 @@ const ALIASES: ReadonlyMap<string, string> = new Map([
   ["xml", "html"]
 ])
 
-const normalize = (language: string | null | undefined): string => {
+const normalize = (language: string | null | undefined) => {
   if (!language) return PLAIN
   const lower = language.toLowerCase()
   return ALIASES.get(lower) ?? lower
@@ -61,7 +61,7 @@ const normalize = (language: string | null | undefined): string => {
 
 type Placed = Readonly<{ key: NodeKey; top: number; right: number }>
 
-function $codeKeyAtSelection(): NodeKey | null {
+function $codeKeyAtSelection() {
   const selection = $getSelection()
   if (!$isRangeSelection(selection)) return null
   const code = $findMatchingParent(selection.anchor.getNode(), $isCodeNode)

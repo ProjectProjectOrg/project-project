@@ -5,7 +5,7 @@ const AVATAR_PALETTE: ReadonlyArray<ColorSwatch> = OUTER_RING.filter(
     OUTER_RING.findIndex((other) => other.hex === swatch.hex) === index
 )
 
-export const hashId = (id: string): number => {
+export const hashId = (id: string) => {
   let hash = 0x811c9dc5
   for (let i = 0; i < id.length; i++) {
     hash ^= id.charCodeAt(i)
@@ -14,5 +14,5 @@ export const hashId = (id: string): number => {
   return hash >>> 0
 }
 
-export const avatarColor = (userId: string): ColorSwatch =>
+export const avatarColor = (userId: string) =>
   AVATAR_PALETTE[hashId(userId) % AVATAR_PALETTE.length]

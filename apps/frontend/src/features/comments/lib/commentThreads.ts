@@ -7,9 +7,7 @@ export type CommentThread<R extends Threaded> = Readonly<{
   replies: ReadonlyArray<R>
 }>
 
-export const commentThreads = <R extends Threaded>(
-  rows: ReadonlyArray<R>
-): ReadonlyArray<CommentThread<R>> => {
+export const commentThreads = <R extends Threaded>(rows: ReadonlyArray<R>) => {
   const ids = new Set(rows.map((row) => row.comment.id))
   const replies = new Map<string, Array<R>>()
   for (const row of rows) {

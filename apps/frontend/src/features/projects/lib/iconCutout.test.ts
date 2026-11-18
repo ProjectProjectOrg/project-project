@@ -6,7 +6,7 @@ const solid = (
   width: number,
   height: number,
   paint: (x: number, y: number) => [number, number, number, number]
-): RgbaImage => {
+) => {
   const data = new Uint8ClampedArray(width * height * 4)
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
@@ -17,7 +17,7 @@ const solid = (
       data[i + 2] = b
       data[i + 3] = a
     }
-  return { data, width, height }
+  return { data, width, height } satisfies RgbaImage
 }
 
 const markOnWhite = solid(64, 64, (x, y) =>

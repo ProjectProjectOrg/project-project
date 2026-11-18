@@ -7,16 +7,12 @@ import {
 
 const normalized = (value: string) => value.trim().toLowerCase()
 
-export const jiraTypeOptions = (
-  types: ReadonlyArray<TypeDefinition>
-): ReadonlyArray<TypeDefinition> => types.filter((type) => !type.hidden)
+export const jiraTypeOptions = (types: ReadonlyArray<TypeDefinition>) =>
+  types.filter((type) => !type.hidden)
 
 const typeAliases = new Map([["feature", "feat"]])
 
-const matchIssueType = (
-  name: string,
-  types: ReadonlyArray<TypeDefinition>
-): TypeKey | undefined => {
+const matchIssueType = (name: string, types: ReadonlyArray<TypeDefinition>) => {
   const wanted = normalized(name)
   const alias = typeAliases.get(wanted)
   return types.find(
@@ -30,7 +26,7 @@ const matchIssueType = (
 export const suggestedIssueType = (
   issueType: JiraMigrationRequirements["issueTypes"][number],
   types: ReadonlyArray<TypeDefinition>
-): TypeKey | null => {
+) => {
   const offered = (key: TypeKey | null) =>
     key !== null && types.some((type) => type.key === key)
   const suggested = issueType.suggestedProjectType
@@ -43,7 +39,7 @@ export const suggestedIssueType = (
 export const offeredOrUnset = (
   type: TypeKey | null,
   types: ReadonlyArray<TypeDefinition>
-): TypeKey | null | undefined =>
+) =>
   type === null || types.some((definition) => definition.key === type)
     ? type
     : undefined

@@ -3,7 +3,8 @@ import {
   GALLERY_TYPES,
   EMPTY_LAYER,
   resolveLibrary,
-  type Layer
+  type Layer,
+  type Library
 } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
@@ -24,7 +25,7 @@ const orgWithContext: Layer = { ...EMPTY_LAYER, blocks: [contextBlock] }
 const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
   resolveLibrary({ org, project }, true, EMPTY_LAYER)
 
-const blockIn = (library: ReturnType<typeof libraryWith>, key: string) =>
+const blockIn = (library: Library, key: string) =>
   library.blocks.find((block) => block.key === key)
 
 describe("libraryPatch", () => {

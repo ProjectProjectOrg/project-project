@@ -264,7 +264,7 @@ type BoardColumn = Readonly<{
 function buildColumns(
   snapshot: BacklogValue,
   statusSlugs: ReadonlyArray<TicketStatus>
-): ReadonlyArray<BoardColumn> {
+) {
   return statusSlugs.map((status) => {
     const page = snapshot.sections[status]
     const rows = page?.items ?? []
@@ -274,7 +274,7 @@ function buildColumns(
       tickets: rows.map((row) => row.ticket),
       count: snapshot.counts.byStatus[status] ?? 0,
       nextCursor: page?.nextCursor ?? null
-    }
+    } satisfies BoardColumn
   })
 }
 

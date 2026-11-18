@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 
 import { placeTypeahead } from "./typeahead-placement"
 
-const createHost = (): HTMLDivElement => {
+const createHost = () => {
   const host = document.createElement("div")
   host.style.position = "absolute"
   host.style.zIndex = "50"

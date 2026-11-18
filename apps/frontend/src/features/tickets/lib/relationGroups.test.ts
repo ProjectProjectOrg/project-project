@@ -20,16 +20,13 @@ const archivedOn = DateTime.toDate(DateTime.makeUnsafe("2026-04-02T00:00:00Z"))
 const ticketId = Schema.decodeSync(TicketId)
 const ticketStatus = Schema.decodeSync(TicketStatus)
 
-const linked = (
-  id: string,
-  status = "todo",
-  archivedAt: Date | null = null
-): LinkedTicket => ({
-  id: ticketId(id),
-  title: id,
-  status: ticketStatus(status),
-  archivedAt
-})
+const linked = (id: string, status = "todo", archivedAt: Date | null = null) =>
+  ({
+    id: ticketId(id),
+    title: id,
+    status: ticketStatus(status),
+    archivedAt
+  }) satisfies LinkedTicket
 
 const relations: TicketRelations = {
   ...EMPTY_TICKET_RELATIONS,

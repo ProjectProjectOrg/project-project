@@ -16,25 +16,26 @@ import { activityItems, groupActivity } from "./activityGroups"
 const userId = Schema.decodeUnknownSync(UserId)
 const groupId = Schema.decodeUnknownSync(GroupId)
 
-const user = (id: string): User => ({
-  id: userId(id),
-  email: `${id}@example.com`,
-  name: id,
-  username: null,
-  image: null,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
-  activeOrgSlug: null,
-  personalGithub: { connected: false },
-  editorPreference: "github",
-  personalEverhour: {
-    connected: false,
-    everhourUserId: null,
-    name: null,
-    email: null,
-    lastVerifiedAt: null,
-    lastCheckError: null
-  }
-})
+const user = (id: string) =>
+  ({
+    id: userId(id),
+    email: `${id}@example.com`,
+    name: id,
+    username: null,
+    image: null,
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
+    activeOrgSlug: null,
+    personalGithub: { connected: false },
+    editorPreference: "github",
+    personalEverhour: {
+      connected: false,
+      everhourUserId: null,
+      name: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    }
+  }) satisfies User
 
 const wouter: TicketActivityActor = { kind: "user", user: user("wouter") }
 const luuk: TicketActivityActor = { kind: "user", user: user("luuk") }
@@ -44,7 +45,7 @@ const luukViaClaude: TicketActivityActor = {
   client: { id: "claude", name: "Claude" }
 }
 
-const localDate = (localTime: string): Date => {
+const localDate = (localTime: string) => {
   const [date, time] = localTime.split("T")
   const [year, month, day] = date.split("-").map(Number)
   const [hour, minute] = time.split(":").map(Number)
@@ -52,18 +53,15 @@ const localDate = (localTime: string): Date => {
   return new Date(year, month - 1, day, hour, minute)
 }
 
-const entry = (
-  id: string,
-  localTime: string,
-  actor: TicketActivityActor
-): TicketActivityEntry => ({
-  kind: "change",
-  id,
-  occurredAt: localDate(localTime),
-  actor,
-  cause: null,
-  change: { kind: "description_edited" }
-})
+const entry = (id: string, localTime: string, actor: TicketActivityActor) =>
+  ({
+    kind: "change",
+    id,
+    occurredAt: localDate(localTime),
+    actor,
+    cause: null,
+    change: { kind: "description_edited" }
+  }) satisfies TicketActivityEntry
 
 const shape = (entries: ReadonlyArray<TicketActivityEntry>) =>
   groupActivity(entries).map((day) =>
@@ -125,19 +123,20 @@ const membership = (
   kind: "group_added" | "group_removed",
   name: string,
   options: Readonly<{ groupKind?: GroupKind; cause?: ActivityCause }> = {}
-): TicketActivityEntry => ({
-  kind: "change",
-  id,
-  occurredAt: localDate(localTime),
-  actor: wouter,
-  cause: options.cause ?? null,
-  change: {
-    kind,
-    groupId: groupId(`G-${name.length}`),
-    groupKind: options.groupKind ?? "sprint",
-    name
-  }
-})
+) =>
+  ({
+    kind: "change",
+    id,
+    occurredAt: localDate(localTime),
+    actor: wouter,
+    cause: options.cause ?? null,
+    change: {
+      kind,
+      groupId: groupId(`G-${name.length}`),
+      groupKind: options.groupKind ?? "sprint",
+      name
+    }
+  }) satisfies TicketActivityEntry
 
 const lines = (entries: ReadonlyArray<TicketActivityEntry>) =>
   activityItems(entries).map((item) =>

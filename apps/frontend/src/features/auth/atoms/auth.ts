@@ -118,7 +118,7 @@ export type AuthClientError = Pick<
 
 export async function authData<T>(
   response: Promise<{ data: T; error: AuthClientError | null }>
-): Promise<T> {
+) {
   const { data, error } = await response
   if (error) throw error
   return data

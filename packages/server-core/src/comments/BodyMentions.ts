@@ -10,7 +10,7 @@ export const validateBodyMentions = (
   memberIds: ReadonlySet<string>,
   ticketIds: ReadonlySet<string>,
   tolerated: ReadonlySet<string> = new Set()
-): Effect.Effect<void, MentionInvalid> =>
+) =>
   Effect.gen(function* () {
     const links = extractMentionLinks(body).filter(
       (link) => !tolerated.has(link.href)
@@ -68,11 +68,7 @@ export const validateBodyMentionsWithLookups = <
     >
   },
   previousBody = ""
-): Effect.Effect<
-  void,
-  MentionInvalid | TicketError | MemberError,
-  TicketContext | MemberContext
-> => {
+) => {
   if (!body.includes("](mention:")) return Effect.void
   return Effect.gen(function* () {
     const links = extractMentionLinks(body)

@@ -27,15 +27,17 @@ export type LibraryScope =
   | Readonly<{ layer: "org"; req: OrgLibraryRequest }>
   | Readonly<{ layer: "project"; req: ProjectLibraryRequest }>
 
-export const orgScope = (orgSlug: string): LibraryScope => ({
-  layer: "org",
-  req: orgLibraryRequest(orgSlug)
-})
+export const orgScope = (orgSlug: string) =>
+  ({
+    layer: "org",
+    req: orgLibraryRequest(orgSlug)
+  }) satisfies LibraryScope
 
-export const projectScope = (orgSlug: string, slug: string): LibraryScope => ({
-  layer: "project",
-  req: projectLibraryRequest(orgSlug, slug)
-})
+export const projectScope = (orgSlug: string, slug: string) =>
+  ({
+    layer: "project",
+    req: projectLibraryRequest(orgSlug, slug)
+  }) satisfies LibraryScope
 
 export const libraryView = (scope: LibraryScope) =>
   scope.layer === "org"

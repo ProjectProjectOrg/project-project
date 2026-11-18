@@ -24,33 +24,32 @@ export type PullRequestTicketPick = Readonly<{
 
 export type ResolveTicketId = (id: TicketId) => TicketId
 
-const resolveAll = (
-  ids: ReadonlySet<TicketId>,
-  resolveId: ResolveTicketId
-): ReadonlySet<TicketId> => new Set([...ids].map(resolveId))
+const resolveAll = (ids: ReadonlySet<TicketId>, resolveId: ResolveTicketId) =>
+  new Set([...ids].map(resolveId))
 
 export const pullRequestTicketReferences = (
   pr: PullRequestText,
   resolveId: ResolveTicketId
-): ReadonlyArray<PullRequestTicketReference> => [
-  {
-    source: "branch",
-    ticketIds: resolveAll(ticketIdsInText(pr.branch), resolveId)
-  },
-  {
-    source: "title",
-    ticketIds: resolveAll(ticketIdsInText(pr.title), resolveId)
-  },
-  {
-    source: "body",
-    ticketIds: resolveAll(closingTicketIdsInText(pr.body), resolveId)
-  }
-]
+) =>
+  [
+    {
+      source: "branch",
+      ticketIds: resolveAll(ticketIdsInText(pr.branch), resolveId)
+    },
+    {
+      source: "title",
+      ticketIds: resolveAll(ticketIdsInText(pr.title), resolveId)
+    },
+    {
+      source: "body",
+      ticketIds: resolveAll(closingTicketIdsInText(pr.body), resolveId)
+    }
+  ] satisfies ReadonlyArray<PullRequestTicketReference>
 
 export const pickPullRequestTicket = (
   references: ReadonlyArray<PullRequestTicketReference>,
   existing: ReadonlySet<string>
-): Option.Option<PullRequestTicketPick> =>
+) =>
   pipe(
     references,
     Arr.map(({ source, ticketIds }) => ({
@@ -60,6 +59,9 @@ export const pickPullRequestTicket = (
     Arr.findFirst(({ ticketIds }) => ticketIds.length > 0),
     Option.filter(({ ticketIds }) => ticketIds.length === 1),
     Option.flatMap(({ source, ticketIds }) =>
-      Option.map(Arr.head(ticketIds), (ticketId) => ({ source, ticketId }))
+      Option.map(
+        Arr.head(ticketIds),
+        (ticketId) => ({ source, ticketId }) satisfies PullRequestTicketPick
+      )
     )
   )

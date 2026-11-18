@@ -14,9 +14,11 @@ export const archiveTicketFormOpts = appFormOptions({ defaultValues })
 export const toArchiveTicketInput = ({
   preset,
   details
-}: ArchiveTicketValues): ArchiveTicketInput => {
+}: ArchiveTicketValues) => {
   const parts = [preset, details.trim()].filter(
     (part): part is string => part !== null && part !== ""
   )
-  return { reason: parts.length === 0 ? undefined : parts.join(": ") }
+  return {
+    reason: parts.length === 0 ? undefined : parts.join(": ")
+  } satisfies ArchiveTicketInput
 }

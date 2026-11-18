@@ -38,10 +38,7 @@ const cell = (
     : solid("muted", terminal)
 }
 
-export const markFrame = (
-  terminal: Terminal,
-  progress: number
-): ReadonlyArray<string> =>
+export const markFrame = (terminal: Terminal, progress: number) =>
   LOGO.map((pixels, row) =>
     pixels
       .split("")

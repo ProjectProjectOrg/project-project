@@ -50,7 +50,7 @@ const ORIGIN_LABELS = {
   project: m.editor_block_origin_project
 }
 
-export const basicLabel = (kind: BasicBlockKind): string => BASIC_LABELS[kind]()
+export const basicLabel = (kind: BasicBlockKind) => BASIC_LABELS[kind]()
 
 export function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
   if (item.kind === "block")
@@ -73,10 +73,7 @@ export function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
 
 const glyphs = new Map<string, IconComponent>()
 
-const glyphIcon = (
-  icon: BlockIconName,
-  color: string | null
-): IconComponent => {
+const glyphIcon = (icon: BlockIconName, color: string | null) => {
   const key = `${icon}:${color ?? ""}`
   const cached = glyphs.get(key)
   if (cached !== undefined) return cached
@@ -95,34 +92,34 @@ const glyphIcon = (
   return Glyph
 }
 
-export const itemIcon = (item: SlashItem): IconComponent => {
+export const itemIcon = (item: SlashItem) => {
   if (item.kind === "block")
     return glyphIcon(item.definition.icon, item.definition.color)
   return item.kind === "gallery" ? LibraryBig : BASIC_BLOCK_ICONS[item.basic]
 }
 
-export const itemName = (item: SlashItem): string => {
+export const itemName = (item: SlashItem) => {
   if (item.kind === "block") return item.definition.name
   if (item.kind === "gallery") return m.editor_slash_gallery_blocks()
   return basicLabel(item.basic)
 }
 
-const blockMeta = (definition: BlockDefinition): string | null => {
+const blockMeta = (definition: BlockDefinition) => {
   if (definition.sync) return m.editor_slash_synced()
   return ORIGIN_LABELS[definition.origin]()
 }
 
-export const itemMeta = (item: SlashItem): string | null => {
+export const itemMeta = (item: SlashItem) => {
   if (item.kind === "block")
     return item.suggestedBy ?? blockMeta(item.definition)
   if (item.kind === "gallery") return m.editor_slash_gallery_browse()
   return null
 }
 
-export const itemLiteral = (item: SlashItem): string | null =>
+export const itemLiteral = (item: SlashItem) =>
   item.kind === "basic" ? BASIC_LITERALS[item.basic] : null
 
-export const itemShortcut = (item: SlashItem): string | null =>
+export const itemShortcut = (item: SlashItem) =>
   item.kind === "block" && item.definition.sync
     ? m.editor_slash_copy_hint()
     : null

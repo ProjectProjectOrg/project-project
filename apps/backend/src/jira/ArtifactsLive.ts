@@ -12,35 +12,32 @@ const decodeJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Json))
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Json))
 
-const normalizePrefix = (prefix: string | null): string =>
+const normalizePrefix = (prefix: string | null) =>
   (prefix ?? "").replace(/^\/+|\/+$/g, "")
 
 const physicalKey = (
   connection: S3Storage.S3Connection,
   logicalKey: string
-): string => {
+) => {
   const prefix = normalizePrefix(connection.keyPrefix)
   return prefix === "" ? logicalKey : `${prefix}/${logicalKey}`
 }
 
-const logicalKey = (
-  connection: S3Storage.S3Connection,
-  key: string
-): Effect.Effect<string, MigrationArtifacts.JiraArtifactError> => {
-  const prefix = normalizePrefix(connection.keyPrefix)
-  if (prefix === "") return Effect.succeed(key)
-  const physicalPrefix = `${prefix}/`
-  return key.startsWith(physicalPrefix)
-    ? Effect.succeed(key.slice(physicalPrefix.length))
-    : Effect.fail(
-        new MigrationArtifacts.JiraArtifactError({
-          key,
-          reason: "invalid_storage_key"
-        })
-      )
-}
+const logicalKey = (connection: S3Storage.S3Connection, key: string) =>
+  Effect.gen(function* () {
+    const prefix = normalizePrefix(connection.keyPrefix)
+    if (prefix === "") return key
+    const physicalPrefix = `${prefix}/`
+    if (!key.startsWith(physicalPrefix)) {
+      return yield* new MigrationArtifacts.JiraArtifactError({
+        key,
+        reason: "invalid_storage_key"
+      })
+    }
+    return key.slice(physicalPrefix.length)
+  })
 
-const sha256 = (bytes: Uint8Array): string =>
+const sha256 = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex")
 
 const make = Effect.gen(function* () {

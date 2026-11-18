@@ -98,10 +98,7 @@ export class ProjectDocs extends Context.Service<
   }>
 >()("@pp/server-core/projects/ProjectDocs") {}
 
-function checkOrgFrontmatter(
-  expected: string,
-  data: Record<string, unknown>
-): Effect.Effect<void> {
+function checkOrgFrontmatter(expected: string, data: Record<string, unknown>) {
   const onDisk = data["org"]
   if (onDisk === undefined) {
     return Effect.logWarning("project frontmatter is missing org").pipe(
@@ -221,7 +218,7 @@ const annotateProjectDoc = <A, E, R>(
   orgSlug: string,
   slug: string,
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => {
+) => {
   const annotations = { module: "ProjectDocs", operation, orgSlug, slug }
   return Effect.annotateCurrentSpan(annotations).pipe(
     Effect.andThen(effect),

@@ -73,7 +73,7 @@ const colorSlot = (
   swatch: ColorSwatch,
   { x, y }: Readonly<{ x: number; y: number }>,
   ring: number
-): Slot => ({ x, y, ring, swatch })
+) => ({ x, y, ring, swatch })
 
 const SLOTS: ReadonlyArray<Slot> = [
   ...SOFT_RING.map((swatch) =>
@@ -376,7 +376,7 @@ const nearestInDirection = (
   slots: ReadonlyArray<Slot>,
   from: number,
   [dx, dy]: readonly [number, number]
-): number => {
+) => {
   const origin = slots[from]
   let best = -1
   let bestScore = Infinity

@@ -10,13 +10,11 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useSelectedTickets } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
-export function useOpenTicketPage(
-  ticketId: TicketId
-): (page: CommandPage) => void {
+export function useOpenTicketPage(ticketId: TicketId) {
   const { orgSlug, slug } = useProjectRoute()
   const setCommandMenu = useAtomSet(commandMenuState)
   const selected = useSelectedTickets(selectionKey(slug, ticketId))
-  return (page) =>
+  return (page: CommandPage) =>
     setCommandMenu(
       openCommandMenu({ orgSlug, slug, ticketId }, page, selected())
     )

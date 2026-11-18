@@ -102,46 +102,47 @@ export function AppEditorServices({
 }: Readonly<{ children: ReactNode }>) {
   const router = useRouter()
   const services = useMemo(
-    (): EditorServices => ({
-      navigate: (href) => void router.navigate({ href }),
-      useMentionSearch,
-      mentionHref: {
-        user: (scope) => `${projectPath(scope)}/settings/team`,
-        ticket: (scope, ticketId) =>
-          `${projectPath(scope)}/tickets/${encodeURIComponent(ticketId)}`
-      },
-      renderTicketPreview: (ticketId, scope) => (
-        <TicketPreviewBody ticketId={ticketId} scope={scope} interactive />
-      ),
-      renderCommentPreview: (ticketId, commentId, scope) => (
-        <CommentPreviewBody
-          ticketId={ticketId}
-          commentId={commentId}
-          scope={scope}
-        />
-      ),
-      useLinkPreview,
-      useUploadAttachment,
-      useFigmaLinks,
-      openBlockGallery: () => {
-        const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
-        const search = { tab: "sections" as const }
-        if (params.orgSlug === undefined) return
-        if (params.slug === undefined)
-          void router.navigate({
-            to: "/orgs/$orgSlug/settings/types",
-            params: { orgSlug: params.orgSlug },
-            search
-          })
-        else
-          void router.navigate({
-            to: "/orgs/$orgSlug/projects/$slug/settings/types",
-            params: { orgSlug: params.orgSlug, slug: params.slug },
-            search
-          })
-      },
-      renderPdf
-    }),
+    () =>
+      ({
+        navigate: (href) => void router.navigate({ href }),
+        useMentionSearch,
+        mentionHref: {
+          user: (scope) => `${projectPath(scope)}/settings/team`,
+          ticket: (scope, ticketId) =>
+            `${projectPath(scope)}/tickets/${encodeURIComponent(ticketId)}`
+        },
+        renderTicketPreview: (ticketId, scope) => (
+          <TicketPreviewBody ticketId={ticketId} scope={scope} interactive />
+        ),
+        renderCommentPreview: (ticketId, commentId, scope) => (
+          <CommentPreviewBody
+            ticketId={ticketId}
+            commentId={commentId}
+            scope={scope}
+          />
+        ),
+        useLinkPreview,
+        useUploadAttachment,
+        useFigmaLinks,
+        openBlockGallery: () => {
+          const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
+          const search = { tab: "sections" as const }
+          if (params.orgSlug === undefined) return
+          if (params.slug === undefined)
+            void router.navigate({
+              to: "/orgs/$orgSlug/settings/types",
+              params: { orgSlug: params.orgSlug },
+              search
+            })
+          else
+            void router.navigate({
+              to: "/orgs/$orgSlug/projects/$slug/settings/types",
+              params: { orgSlug: params.orgSlug, slug: params.slug },
+              search
+            })
+        },
+        renderPdf
+      }) satisfies EditorServices,
     [router]
   )
   return (

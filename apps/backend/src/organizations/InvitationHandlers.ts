@@ -47,38 +47,37 @@ export const acceptErrorToFailure = (
   state: BetterAuth.InvitationState | null,
   now: Date,
   recipientEmail: string
-): Effect.Effect<never, NotFound | InvitationNotAcceptable> => {
-  if (!isClientRefusal(error)) return Effect.die(error)
-  const code = betterAuthErrorCode(error)
-  if (code === null) {
-    if (betterAuthErrorStatus(error) !== UNNAMED_REFUSAL_STATUS) {
-      return Effect.die(error)
+) =>
+  Effect.gen(function* () {
+    if (!isClientRefusal(error)) return yield* Effect.die(error)
+    const code = betterAuthErrorCode(error)
+    if (code === null) {
+      if (betterAuthErrorStatus(error) !== UNNAMED_REFUSAL_STATUS) {
+        return yield* Effect.die(error)
+      }
+    } else if (!namesAKnownRefusal(code)) {
+      return yield* Effect.die(error)
     }
-  } else if (!namesAKnownRefusal(code)) {
-    return Effect.die(error)
-  }
-  if (state === null || !addressedTo(state, recipientEmail)) {
-    return Effect.fail(new NotFound())
-  }
-  if (code !== null && VERIFICATION_REQUIRED.has(code)) {
-    return Effect.fail(
-      new InvitationNotAcceptable({ reason: "email_verification_required" })
-    )
-  }
-  if (code === MEMBERSHIP_LIMIT) {
-    return Effect.fail(
-      new InvitationNotAcceptable({ reason: "membership_limit_reached" })
-    )
-  }
-  if (state.expiresAt.getTime() <= now.getTime()) {
-    return Effect.fail(new InvitationNotAcceptable({ reason: "expired" }))
-  }
-  return Effect.fail(new NotFound())
-}
+    if (state === null || !addressedTo(state, recipientEmail)) {
+      return yield* new NotFound()
+    }
+    if (code !== null && VERIFICATION_REQUIRED.has(code)) {
+      return yield* new InvitationNotAcceptable({
+        reason: "email_verification_required"
+      })
+    }
+    if (code === MEMBERSHIP_LIMIT) {
+      return yield* new InvitationNotAcceptable({
+        reason: "membership_limit_reached"
+      })
+    }
+    if (state.expiresAt.getTime() <= now.getTime()) {
+      return yield* new InvitationNotAcceptable({ reason: "expired" })
+    }
+    return yield* new NotFound()
+  })
 
-export const invitationErrorToFailure = (
-  error: BetterAuth.BetterAuthError
-): Effect.Effect<never, NotFound> => {
+export const invitationErrorToFailure = (error: BetterAuth.BetterAuthError) => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
   if (code === null) {
@@ -92,7 +91,7 @@ export const invitationErrorToFailure = (
 
 export const listInvitationsErrorToFailure = (
   error: BetterAuth.BetterAuthError
-): Effect.Effect<never, InvitationNotAcceptable> => {
+) => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
   if (code !== null && VERIFICATION_REQUIRED.has(code)) {

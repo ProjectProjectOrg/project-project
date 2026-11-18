@@ -63,62 +63,61 @@ type Call =
       change: GitHubCheckWebhookChange
     }>
 
-const makeSink = (
-  calls: Array<Call>
-): GitHubWebhooks.GitHubWebhookMutationSink => ({
-  installationDeleted: (installationId) =>
-    Effect.sync(() => {
-      calls.push({ type: "deleted", installationId })
-    }),
-  installationSuspended: (installationId) =>
-    Effect.sync(() => {
-      calls.push({ type: "suspended", installationId })
-    }),
-  installationUnsuspended: (installationId) =>
-    Effect.sync(() => {
-      calls.push({ type: "unsuspended", installationId })
-    }),
-  repositoriesRemoved: (installationId, repoIds) =>
-    Effect.sync(() => {
-      calls.push({ type: "reposRemoved", installationId, repoIds })
-    }),
-  pullRequestChanged: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "pullRequestChanged", change })
-    }),
-  repositoryRenamed: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "repositoryRenamed", change })
-    }),
-  repositoryTransferred: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "repositoryTransferred", change })
-    }),
-  repositoryArchived: (installationId, repoId) =>
-    Effect.sync(() => {
-      calls.push({ type: "repositoryArchived", installationId, repoId })
-    }),
-  repositoryUnarchived: (installationId, repoId) =>
-    Effect.sync(() => {
-      calls.push({ type: "repositoryUnarchived", installationId, repoId })
-    }),
-  repositoryDeleted: (installationId, repoId) =>
-    Effect.sync(() => {
-      calls.push({ type: "repositoryDeleted", installationId, repoId })
-    }),
-  branchDeleted: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "branchDeleted", change })
-    }),
-  branchCreated: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "branchCreated", change })
-    }),
-  checkStateChanged: (change) =>
-    Effect.sync(() => {
-      calls.push({ type: "checkStateChanged", change })
-    })
-})
+const makeSink = (calls: Array<Call>) =>
+  ({
+    installationDeleted: (installationId) =>
+      Effect.sync(() => {
+        calls.push({ type: "deleted", installationId })
+      }),
+    installationSuspended: (installationId) =>
+      Effect.sync(() => {
+        calls.push({ type: "suspended", installationId })
+      }),
+    installationUnsuspended: (installationId) =>
+      Effect.sync(() => {
+        calls.push({ type: "unsuspended", installationId })
+      }),
+    repositoriesRemoved: (installationId, repoIds) =>
+      Effect.sync(() => {
+        calls.push({ type: "reposRemoved", installationId, repoIds })
+      }),
+    pullRequestChanged: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "pullRequestChanged", change })
+      }),
+    repositoryRenamed: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "repositoryRenamed", change })
+      }),
+    repositoryTransferred: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "repositoryTransferred", change })
+      }),
+    repositoryArchived: (installationId, repoId) =>
+      Effect.sync(() => {
+        calls.push({ type: "repositoryArchived", installationId, repoId })
+      }),
+    repositoryUnarchived: (installationId, repoId) =>
+      Effect.sync(() => {
+        calls.push({ type: "repositoryUnarchived", installationId, repoId })
+      }),
+    repositoryDeleted: (installationId, repoId) =>
+      Effect.sync(() => {
+        calls.push({ type: "repositoryDeleted", installationId, repoId })
+      }),
+    branchDeleted: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "branchDeleted", change })
+      }),
+    branchCreated: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "branchCreated", change })
+      }),
+    checkStateChanged: (change) =>
+      Effect.sync(() => {
+        calls.push({ type: "checkStateChanged", change })
+      })
+  }) satisfies GitHubWebhooks.GitHubWebhookMutationSink
 
 const delivery = (event: string, body: Schema.Json) => ({
   event,

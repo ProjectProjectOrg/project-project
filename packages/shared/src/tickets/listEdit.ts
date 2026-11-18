@@ -19,17 +19,14 @@ const isReplacement = <A>(edit: ListEdit<A>): edit is ReadonlyArray<A> =>
 export const applyListEdit = <A>(
   current: ReadonlyArray<A>,
   edit: ListEdit<A>
-): ReadonlyArray<A> => {
+) => {
   if (isReplacement(edit)) return [...new Set(edit)]
   const remove = new Set(edit.remove)
   const kept = current.filter((value) => !remove.has(value))
   return [...new Set([...kept, ...(edit.add ?? [])])]
 }
 
-export const composeListEdit = <A>(
-  first: ListEdit<A>,
-  then: ListEdit<A>
-): ListEdit<A> => {
+export const composeListEdit = <A>(first: ListEdit<A>, then: ListEdit<A>) => {
   if (isReplacement(then)) return then
   if (isReplacement(first)) return applyListEdit(first, then)
   const added = new Set(then.add)
@@ -50,13 +47,13 @@ export const composeListEdit = <A>(
   }
 }
 
-export const listEditAdds = <A>(edit: ListEdit<A>): ReadonlyArray<A> =>
+export const listEditAdds = <A>(edit: ListEdit<A>) =>
   isReplacement(edit) ? edit : (edit.add ?? [])
 
 export const listEditBetween = <A>(
   before: ReadonlyArray<A>,
   after: ReadonlyArray<A>
-): ListEdit<A> => ({
+) => ({
   add: after.filter((value) => !before.includes(value)),
   remove: before.filter((value) => !after.includes(value))
 })

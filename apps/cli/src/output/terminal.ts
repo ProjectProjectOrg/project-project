@@ -10,7 +10,7 @@ export const plain: Terminal = { fancy: false, color: false }
 export const terminalFor = (
   stream: Readonly<{ isTTY?: boolean }>,
   env: Env = process.env
-): Terminal => {
+) => {
   const fancy = stream.isTTY === true && env.TERM !== "dumb"
   return {
     fancy,
@@ -34,7 +34,7 @@ export const visibleWidth = (text: string) => Bun.stringWidth(text)
 export const padVisible = (text: string, width: number) =>
   text + " ".repeat(Math.max(0, width - visibleWidth(text)))
 
-export const wrap = (line: string, width: number): ReadonlyArray<string> =>
+export const wrap = (line: string, width: number) =>
   line.split(" ").reduce<Array<string>>((lines, word) => {
     const last = lines.at(-1)
     if (last !== undefined && visibleWidth(`${last} ${word}`) <= width) {

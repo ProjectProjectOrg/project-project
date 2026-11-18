@@ -120,7 +120,7 @@ export type JiraFindingGroup = Readonly<{
   findings: ReadonlyArray<JiraMigrationFinding>
 }>
 
-const rank = (kind: string): number => {
+const rank = (kind: string) => {
   const known = kinds.get(kind)
   return known === undefined
     ? sectionOrder.length
@@ -129,7 +129,7 @@ const rank = (kind: string): number => {
 
 export function groupJiraFindings(
   findings: ReadonlyArray<JiraMigrationFinding>
-): ReadonlyArray<JiraFindingGroup> {
+) {
   const byKind = new Map<string, Array<JiraMigrationFinding>>()
   for (const finding of findings) {
     const group = byKind.get(finding.kind)

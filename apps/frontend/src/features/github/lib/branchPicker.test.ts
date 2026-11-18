@@ -11,7 +11,8 @@ import {
   withoutTicketId
 } from "./branchPicker"
 
-const branch = (name: string): BranchListItem => ({ name, isProtected: false })
+const branch = (name: string) =>
+  ({ name, isProtected: false }) satisfies BranchListItem
 
 describe("defaultBranchName", () => {
   it("fills the default template", () => {

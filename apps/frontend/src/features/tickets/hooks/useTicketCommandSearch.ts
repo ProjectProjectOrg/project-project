@@ -41,7 +41,7 @@ export type TicketCommandSearch = Readonly<{
   searching: boolean
 }>
 
-function useDelayedFlag(on: boolean, wait: number): boolean {
+function useDelayedFlag(on: boolean, wait: number) {
   const [settled] = useDebouncedValue(on, { wait })
   return on && settled
 }
@@ -50,7 +50,7 @@ const titleScore = (
   ticket: Readonly<{ id: string; title: string }>,
   query: string,
   inProject: boolean
-): number | null => {
+) => {
   const score = scoreSearch({ label: ticket.title, prefix: ticket.id }, query)
   return score === null ? null : score + (inProject ? PROJECT_BONUS : 0)
 }
@@ -59,9 +59,9 @@ const titleMatches = (
   titles: ReadonlyArray<Readonly<{ id: string; title: string }>>,
   query: string,
   projectSlug: string
-): ReadonlyArray<TicketTarget> =>
+) =>
   titles
-    .flatMap((ticket): ReadonlyArray<TicketTarget> => {
+    .flatMap((ticket) => {
       const score = titleScore(ticket, query, true)
       return score === null
         ? []
@@ -73,7 +73,7 @@ const titleMatches = (
 export function useTicketCommandSearch(
   { orgSlug, projectSlug }: CommandContext,
   search: string
-): TicketCommandSearch {
+) {
   const query = search.trim()
   const inProject = projectSlug !== null && query !== ""
   const textQuery = inProject && query.length >= TEXT_SEARCH_MIN
@@ -141,14 +141,12 @@ export function useTicketCommandSearch(
     query,
     projectSlug
   )
-  const text = textHits.map(
-    (hit): TicketTarget => ({
-      id: hit.id,
-      title: hit.title,
-      projectSlug,
-      match: hit.match
-    })
-  )
+  const text = textHits.map((hit) => ({
+    id: hit.id,
+    title: hit.title,
+    projectSlug,
+    match: hit.match
+  }))
   const seen = new Set<string>(recent.map(ticketCommandValue))
   const found = [...titles, ...text].filter((target) => {
     const value = ticketCommandValue(target)

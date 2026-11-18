@@ -17,23 +17,19 @@ export type PhaseEntry =
   | Readonly<{ kind: "phase"; phase: StatusPhase }>
   | Readonly<{ kind: "status"; status: ProjectStatus }>
 
-export const isPinnedStatus = (slug: string): boolean =>
+export const isPinnedStatus = (slug: string) =>
   slug === PHASE_ANCHOR.started || slug === PHASE_ANCHOR.finished
 
-export const phaseEntries = (
-  statuses: ReadonlyArray<ProjectStatus>
-): ReadonlyArray<PhaseEntry> => {
+export const phaseEntries = (statuses: ReadonlyArray<ProjectStatus>) => {
   const sorted = [...statuses].toSorted(compareByOrderKey)
-  return STATUS_PHASES.flatMap(
-    (phase): ReadonlyArray<PhaseEntry> => [
-      { kind: "phase", phase },
-      ...sorted.flatMap((status) =>
-        statusPhaseOf(statuses, status.slug) === phase
-          ? [{ kind: "status" as const, status }]
-          : []
-      )
-    ]
-  )
+  return STATUS_PHASES.flatMap<PhaseEntry>((phase) => [
+    { kind: "phase", phase },
+    ...sorted.flatMap((status) =>
+      statusPhaseOf(statuses, status.slug) === phase
+        ? [{ kind: "status" as const, status }]
+        : []
+    )
+  ])
 }
 
 const statusIndex = (entries: ReadonlyArray<PhaseEntry>, slug: string) =>
@@ -44,7 +40,7 @@ const statusIndex = (entries: ReadonlyArray<PhaseEntry>, slug: string) =>
 export const placeStatus = (
   entries: ReadonlyArray<PhaseEntry>,
   slug: string
-): OrderKey | null => {
+) => {
   const at = statusIndex(entries, slug)
   const entry = entries[at]
   if (entry?.kind !== "status" || isPinnedStatus(slug)) return null
@@ -93,7 +89,7 @@ export const moveStatus = (
   entries: ReadonlyArray<PhaseEntry>,
   slug: string,
   delta: -1 | 1
-): OrderKey | null => {
+) => {
   let current = entries
   let at = statusIndex(current, slug)
   while (at + delta >= 1 && at + delta < current.length) {
@@ -108,7 +104,7 @@ export const moveStatus = (
   return null
 }
 
-export const keepsBaselineOrder = (order: ReadonlyArray<string>): boolean => {
+export const keepsBaselineOrder = (order: ReadonlyArray<string>) => {
   const positions = BASELINE_STATUS_SLUGS.map((slug) =>
     order.indexOf(slug)
   ).filter((position) => position >= 0)
@@ -128,7 +124,7 @@ const isBaselineSlug = (slug: string) =>
 export const boardReorders = (
   order: ReadonlyArray<StatusSlug>,
   statuses: ReadonlyArray<ProjectStatus>
-): ReadonlyArray<StatusReorderUpdate> => {
+) => {
   const keys = new Map(statuses.map((s) => [s.slug, s.orderKey]))
   const anchored = hasBaselineOrder(statuses)
   const updates: Array<StatusReorderUpdate> = []

@@ -80,7 +80,7 @@ interface BenchmarkResult {
   readonly firstFailure: string | null
 }
 
-const argumentValue = (name: string): string | undefined => {
+const argumentValue = (name: string) => {
   const prefix = `${name}=`
   const inline = process.argv.find((argument) => argument.startsWith(prefix))
   if (inline) return inline.slice(prefix.length)
@@ -103,9 +103,7 @@ const positiveInteger = (
   return parsed
 }
 
-const parseConcurrencies = (
-  value: string | undefined
-): ReadonlyArray<number> => {
+const parseConcurrencies = (value: string | undefined) => {
   if (value === undefined) return [1, 8, 32]
   const values = value
     .split(",")
@@ -114,7 +112,7 @@ const parseConcurrencies = (
   return [...new Set(values)]
 }
 
-const parseOptions = (): Options => ({
+const parseOptions = () => ({
   scratchParent: resolve(argumentValue("--scratch-parent") ?? tmpdir()),
   ticketCount: positiveInteger(argumentValue("--tickets"), 1_000, "--tickets"),
   sampleCount: positiveInteger(argumentValue("--samples"), 200, "--samples"),
@@ -136,13 +134,13 @@ Options:
   --help                   Show this help`)
 }
 
-const bodySizeKiB = (index: number): number => {
+const bodySizeKiB = (index: number) => {
   if (index % 20 === 0) return 64
   if (index % 4 === 0) return 16
   return 4
 }
 
-const makeBody = (index: number): string => {
+const makeBody = (index: number) => {
   const targetLength = bodySizeKiB(index) * 1_024
   const heading = `# Benchmark ticket ${index + 1}\n\n`
   const paragraph =
@@ -154,7 +152,7 @@ const makeBody = (index: number): string => {
   )
 }
 
-const makeDocument = (index: number): TicketDocs.TicketDocument => {
+const makeDocument = (index: number) => {
   const timestamp = new Date("2026-01-01T00:00:00.000Z")
   return {
     id: decodeTicketId(`T-${index + 1}`),
@@ -176,18 +174,18 @@ const makeDocument = (index: number): TicketDocs.TicketDocument => {
     updatedAt: timestamp,
     body: makeBody(index),
     commentsRegion: ""
-  }
+  } satisfies TicketDocs.TicketDocument
 }
 
-const percentile = (sorted: ReadonlyArray<number>, value: number): number => {
+const percentile = (sorted: ReadonlyArray<number>, value: number) => {
   if (sorted.length === 0) return 0
   const index = Math.max(0, Math.ceil(sorted.length * value) - 1)
   return sorted[Math.min(index, sorted.length - 1)]
 }
 
-const round = (value: number): number => Math.round(value * 100) / 100
+const round = (value: number) => Math.round(value * 100) / 100
 
-const timed = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<Sample> =>
+const timed = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.gen(function* () {
     const startedAt = yield* Clock.currentTimeNanos
     const exit = yield* Effect.exit(effect)
@@ -195,7 +193,7 @@ const timed = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<Sample> =>
     return {
       durationMs: Number(finishedAt - startedAt) / 1_000_000,
       failure: Exit.isSuccess(exit) ? null : Cause.pretty(exit.cause)
-    }
+    } satisfies Sample
   })
 
 const runWorkload = <A, E>(
@@ -203,7 +201,7 @@ const runWorkload = <A, E>(
   concurrency: number,
   sampleCount: number,
   effectFor: (sample: number) => Effect.Effect<A, E>
-): Effect.Effect<BenchmarkResult> =>
+) =>
   Effect.gen(function* () {
     const warmupCount = Math.min(10, sampleCount)
     yield* Effect.forEach(

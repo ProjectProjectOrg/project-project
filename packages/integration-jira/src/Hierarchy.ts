@@ -1,4 +1,4 @@
-import { canHoldChildren, canHaveParent, type TypeKey } from "@pp/shared"
+import { canHoldChildren, canHaveParent } from "@pp/shared"
 
 import type { JiraMappingSource, JiraMigrationMappings } from "./Mappings"
 
@@ -42,7 +42,7 @@ export type JiraHierarchySource = Readonly<{
 export function resolveJiraHierarchy(
   source: JiraHierarchySource,
   mappings: Pick<JiraMigrationMappings, "issueTypes" | "restrictions">
-): JiraHierarchy {
+) {
   const excludedRestrictions = new Set(
     mappings.restrictions
       .filter(({ resolution }) => resolution === "exclude")
@@ -69,7 +69,7 @@ export function resolveJiraHierarchy(
       .filter(({ id }) => !excluded.has(id))
       .map((issue) => [issue.id, issue])
   )
-  const typeOf = (issueId: string): TypeKey | null => {
+  const typeOf = (issueId: string) => {
     const issue = issues.get(issueId)
     return (issue && types.get(issue.issueTypeId)) ?? null
   }
@@ -78,7 +78,7 @@ export function resolveJiraHierarchy(
   const dropped: Array<JiraParentDrop> = []
   const resolving = new Set<string>()
 
-  const parentOf = (issueId: string): string | null => {
+  const parentOf = (issueId: string) => {
     const known = resolved.get(issueId)
     if (known !== undefined) return known
     const issue = issues.get(issueId)
@@ -131,5 +131,5 @@ export function resolveJiraHierarchy(
         left.issueId.localeCompare(right.issueId, "en") ||
         left.parentIssueId.localeCompare(right.parentIssueId, "en")
     )
-  }
+  } satisfies JiraHierarchy
 }

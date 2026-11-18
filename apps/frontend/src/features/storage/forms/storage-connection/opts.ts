@@ -27,9 +27,7 @@ const StorageConnectionSchema = Schema.Struct({
   forcePathStyle: Schema.Boolean
 })
 
-export const toConnectStorageInput = (
-  values: StorageConnectionValues
-): ConnectStorageInput => {
+export const toConnectStorageInput = (values: StorageConnectionValues) => {
   const keyPrefix = values.keyPrefix.trim()
   return {
     endpoint: values.endpoint.trim(),
@@ -39,7 +37,7 @@ export const toConnectStorageInput = (
     secretAccessKey: values.secretAccessKey,
     keyPrefix: keyPrefix.length > 0 ? keyPrefix : null,
     forcePathStyle: values.forcePathStyle
-  }
+  } satisfies ConnectStorageInput
 }
 
 const defaultValues: StorageConnectionValues = {

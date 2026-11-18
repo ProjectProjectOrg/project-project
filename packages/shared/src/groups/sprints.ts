@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 
 import type { Group, GroupId } from "./Group"
 
-const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
+const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
 export const SprintState = Schema.Literals(["active", "planned", "completed"])
 export type SprintState = typeof SprintState.Type
@@ -11,7 +11,7 @@ export type SprintState = typeof SprintState.Type
 export function sprintState(
   sprint: Pick<Group, "completedAt" | "startsAt">,
   now: Date = nowDate()
-): SprintState {
+) {
   if (sprint.completedAt !== null) return "completed"
   if (sprint.startsAt === null || sprint.startsAt > now) return "planned"
   return "active"
@@ -27,13 +27,13 @@ const compareStartsThenCreated = (a: Group, b: Group) => {
   return compareCreatedAt(a, b)
 }
 
-const onlySprints = (groups: ReadonlyArray<Group>): ReadonlyArray<Group> =>
+const onlySprints = (groups: ReadonlyArray<Group>) =>
   groups.filter((g) => g.kind === "sprint")
 
 export function pickActiveSprint(
   groups: ReadonlyArray<Group>,
   now: Date = nowDate()
-): Group | null {
+) {
   const active = onlySprints(groups).filter(
     (g) => sprintState(g, now) === "active"
   )
@@ -44,7 +44,7 @@ export function pickActiveSprint(
 export function pickEarliestPlannedSprint(
   groups: ReadonlyArray<Group>,
   now: Date = nowDate()
-): Group | null {
+) {
   const planned = onlySprints(groups).filter(
     (g) => sprintState(g, now) === "planned"
   )
@@ -55,7 +55,7 @@ export function pickEarliestPlannedSprint(
 export function activeAndPlannedCount(
   groups: ReadonlyArray<Group>,
   now: Date = nowDate()
-): number {
+) {
   return onlySprints(groups).filter((g) => sprintState(g, now) !== "completed")
     .length
 }
@@ -64,7 +64,7 @@ export function backlogSprintSections(
   sprints: ReadonlyArray<Group>,
   selected?: ReadonlyArray<GroupId | "ungrouped">,
   now: Date = nowDate()
-): ReadonlyArray<Group | null> {
+) {
   const rank = { planned: 0, active: 1, completed: 2 }
   const ordered = sprints.toSorted((a, b) => {
     const stateOrder = rank[sprintState(a, now)] - rank[sprintState(b, now)]
@@ -90,9 +90,7 @@ type ClaimingSprint = Readonly<{
   tickets: ReadonlyArray<string>
 }>
 
-export function sprintClaims(
-  newestFirst: ReadonlyArray<ClaimingSprint>
-): ReadonlyMap<string, GroupId> {
+export function sprintClaims(newestFirst: ReadonlyArray<ClaimingSprint>) {
   const claims = new Map<string, GroupId>()
   const open = newestFirst.filter((sprint) => sprint.completedAt === null)
   const completed = newestFirst.filter((sprint) => sprint.completedAt !== null)

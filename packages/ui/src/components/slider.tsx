@@ -471,7 +471,7 @@ function Slider({
   }, [valuesKey, min, max, isRange, motionX0, motionX1])
 
   const clampForRange = useCallback(
-    (px: number, thumbIndex: number): number => {
+    (px: number, thumbIndex: number) => {
       if (!isRange) return px
       if (thumbIndex === 0) {
         return Math.min(px, motionX1.get() - THUMB_SIZE * 0.5)
@@ -670,7 +670,7 @@ function Slider({
 
   const isInteracting = isHovered || isPressed
 
-  const thumbAriaLabel = (index: number): string | undefined =>
+  const thumbAriaLabel = (index: number) =>
     isRange ? thumbLabels?.[index] : label
 
   const valueDisplay = showValue && valuePosition !== "tooltip" && (

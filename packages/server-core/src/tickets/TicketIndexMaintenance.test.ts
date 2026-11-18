@@ -40,28 +40,29 @@ const doc = (
   id: string,
   updatedAt: string,
   overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument => ({
-  id: ticketId(id),
-  title: `Ticket ${id}`,
-  status: ticketStatus("todo"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: at("2026-05-01T00:00:00.000Z"),
-  updatedBy: "user-1",
-  updatedAt: at(updatedAt),
-  body: "",
-  commentsRegion: "",
-  ...overrides
-})
+) =>
+  ({
+    id: ticketId(id),
+    title: `Ticket ${id}`,
+    status: ticketStatus("todo"),
+    type: TypeKey.make("feat"),
+    priority: "med",
+    rank: TicketRank.make("a0"),
+    tags: [],
+    branch: null,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    assignees: [],
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: at("2026-05-01T00:00:00.000Z"),
+    updatedBy: "user-1",
+    updatedAt: at(updatedAt),
+    body: "",
+    commentsRegion: "",
+    ...overrides
+  }) satisfies TicketDocs.TicketDocument
 
 describe("ticketIndexRowsFor", () => {
   it.effect(
@@ -362,7 +363,7 @@ const makeHarness = (config: {
   documents: ReadonlyArray<TicketDocs.TicketDocument>
   skipped?: number
   indexed: ReadonlyArray<IndexedTicketRef>
-}): Harness => {
+}) => {
   const writes: Harness["writes"] = []
   const deps: TicketIndexReconcilerDeps = {
     listProjects: Effect.succeed(config.projects ?? [project]),

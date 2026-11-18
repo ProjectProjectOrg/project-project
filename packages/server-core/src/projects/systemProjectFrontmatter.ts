@@ -8,14 +8,13 @@ const SYSTEM_KEY = "system"
 
 const decodeSystemRole = Schema.decodeUnknownOption(SystemProjectRole)
 
-export const systemRoleFrom = (
-  data: Record<string, unknown>
-): Option.Option<SystemProjectRole> => decodeSystemRole(data[SYSTEM_KEY])
+export const systemRoleFrom = (data: Record<string, unknown>) =>
+  decodeSystemRole(data[SYSTEM_KEY])
 
 export const withSystemRole = (
   frontmatter: Record<string, unknown>,
   role: Option.Option<SystemProjectRole>
-): Record<string, unknown> => {
+) => {
   const { [SYSTEM_KEY]: _previous, ...rest } = frontmatter
   return Option.match(role, {
     onNone: () => rest,

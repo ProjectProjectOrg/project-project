@@ -66,7 +66,7 @@ function addDays(date: Date, days: number) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
 }
 
-const flatMatchers = (matchers: DayPickerProps["disabled"]): Matcher[] =>
+const flatMatchers = (matchers: DayPickerProps["disabled"]) =>
   matchers === undefined ? [] : Array.isArray(matchers) ? matchers : [matchers]
 
 type Band = Readonly<{ from: number; to: number }>
@@ -880,7 +880,7 @@ function Day({
   const gridLast = lastDate ? dayNumber(lastDate) : n
   const weekday = (((n - gridFirst) % 7) + 7) % 7
   const drawn = (d: number) => d >= gridFirst && d <= gridLast
-  const slice = (band: Band | null): CSSProperties | null => {
+  const slice = (band: Band | null) => {
     if (
       !band ||
       !visible ||

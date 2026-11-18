@@ -8,12 +8,13 @@ import * as Option from "effect/Option"
 
 import { type SavedServer, ServerStore } from "./ServerStore"
 
-const server = (origin: string): SavedServer => ({
-  origin,
-  user: { id: "u-1", name: "Ada", email: "ada@example.com" },
-  endpoints: { token: `${origin}/api/auth/oauth2/token` },
-  tokens: { accessToken: "a", refreshToken: "r", expiresAt: 1 }
-})
+const server = (origin: string) =>
+  ({
+    origin,
+    user: { id: "u-1", name: "Ada", email: "ada@example.com" },
+    endpoints: { token: `${origin}/api/auth/oauth2/token` },
+    tokens: { accessToken: "a", refreshToken: "r", expiresAt: 1 }
+  }) satisfies SavedServer
 
 const inTempConfig = <A, E>(
   effect: Effect.Effect<A, E, ServerStore | FileSystem.FileSystem>

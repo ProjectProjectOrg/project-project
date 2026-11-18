@@ -92,7 +92,7 @@ export function EditorServicesProvider({
   return <ServicesContext value={services}>{children}</ServicesContext>
 }
 
-export function useEditorServices(): EditorServices {
+export function useEditorServices() {
   const services = use(ServicesContext)
   if (services === null)
     throw new Error("The editor needs an EditorServicesProvider around it.")

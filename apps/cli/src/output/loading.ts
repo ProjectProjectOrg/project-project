@@ -18,20 +18,19 @@ const write = (text: string) =>
     process.stderr.write(text)
   })
 
-const animate = (label: string, terminal: Terminal) => {
-  const loop = (frame: number): Effect.Effect<never> =>
-    write(
-      `\r\x1b[?25l${loadingFrame(frame, terminal)}  ${muted(label, terminal)}`
-    ).pipe(
-      Effect.andThen(Effect.sleep("70 millis")),
-      Effect.andThen(Effect.suspend(() => loop(frame + 1)))
-    )
-  return loop(0)
-}
+const animate = (label: string, terminal: Terminal) =>
+  Effect.gen(function* () {
+    for (let frame = 0; ; frame++) {
+      yield* write(
+        `\r\x1b[?25l${loadingFrame(frame, terminal)}  ${muted(label, terminal)}`
+      )
+      yield* Effect.sleep("70 millis")
+    }
+  })
 
 export const withLoading =
   (label: string) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
+  <A, E, R>(effect: Effect.Effect<A, E, R>) => {
     const terminal = stderrTerminal()
     if (
       !terminal.fancy ||

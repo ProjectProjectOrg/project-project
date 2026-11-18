@@ -17,7 +17,7 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
 export const syncedChipLabel = (
   mode: SyncedBlockMode,
   origin: LibraryOrigin
-): string =>
+) =>
   mode === "reference"
     ? m.editor_synced_linked()
     : m.editor_synced_from({ origin: ORIGIN_LABELS[origin]() })
@@ -36,7 +36,7 @@ const EDITABLE_FROM: Record<
 export const canEditDefinition = (
   origin: LibraryOrigin,
   canEdit: LayerPermissions
-): boolean => EDITABLE_FROM[origin](canEdit)
+) => EDITABLE_FROM[origin](canEdit)
 
 export type SyncedEditAction = "edit" | "managed" | "none"
 
@@ -44,12 +44,12 @@ export const syncedEditAction = (
   library: Library,
   origin: LibraryOrigin,
   canEdit: LayerPermissions
-): SyncedEditAction => {
+) => {
   if (library === BUILTIN_LIBRARY) return "none"
   return canEditDefinition(origin, canEdit) ? "edit" : "managed"
 }
 
-export const managedInLabel = (origin: LibraryOrigin): string =>
+export const managedInLabel = (origin: LibraryOrigin) =>
   origin === "project"
     ? m.editor_synced_managed_project()
     : m.editor_synced_managed_org()

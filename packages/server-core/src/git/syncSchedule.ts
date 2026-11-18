@@ -14,7 +14,7 @@ export type SyncTiming = Readonly<{
 const ACTIVE_WINDOW = Duration.minutes(30)
 const MAX_BACKOFF = Duration.minutes(30)
 
-const intervalFor = (timing: SyncTiming): Duration.Duration => {
+const intervalFor = (timing: SyncTiming) => {
   if (timing.failures > 0) {
     return Duration.min(
       Duration.times(Duration.minutes(1), 2 ** (timing.failures - 1)),
@@ -30,7 +30,7 @@ const intervalFor = (timing: SyncTiming): Duration.Duration => {
   return recentlyActive ? Duration.minutes(1) : Duration.minutes(5)
 }
 
-export const nextSyncAt = (timing: SyncTiming): Date =>
+export const nextSyncAt = (timing: SyncTiming) =>
   DateTime.toDate(
     DateTime.makeUnsafe(
       Math.max(

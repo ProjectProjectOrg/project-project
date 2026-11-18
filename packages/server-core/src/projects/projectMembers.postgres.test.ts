@@ -168,27 +168,22 @@ describe.skipIf(!databaseUrl)("project members", () => {
     projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin], {
       listIds: () => Effect.succeed([...ticketFiles]),
       update: (orgSlug, projectSlug, ticketId) =>
-        Effect.suspend(
-          (): Effect.Effect<
-            never,
-            TicketDocs.MalformedTicketDocument | NotFound
-          > => {
-            unassignAttempts.push(ticketId)
-            unassignedProjects.push(projectSlug)
-            return ticketId === "MEM-901"
-              ? Effect.fail(
-                  new TicketDocs.MalformedTicketDocument({
-                    orgSlug,
-                    slug: projectSlug,
-                    ticketId,
-                    path: `${ticketId}.md`,
-                    reason: "frontmatter",
-                    cause: null
-                  })
-                )
-              : Effect.fail(new NotFound())
-          }
-        )
+        Effect.suspend(() => {
+          unassignAttempts.push(ticketId)
+          unassignedProjects.push(projectSlug)
+          return Effect.fail(
+            ticketId === "MEM-901"
+              ? new TicketDocs.MalformedTicketDocument({
+                  orgSlug,
+                  slug: projectSlug,
+                  ticketId,
+                  path: `${ticketId}.md`,
+                  reason: "frontmatter",
+                  cause: null
+                })
+              : new NotFound()
+          )
+        })
     })
   })
 

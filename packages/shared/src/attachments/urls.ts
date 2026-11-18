@@ -5,10 +5,10 @@ import { AttachmentId } from "./Attachment"
 
 export const ATTACHMENT_URL_PREFIX = "/api/attachments"
 
-export const attachmentUrl = (orgSlug: string, id: string): string =>
+export const attachmentUrl = (orgSlug: string, id: string) =>
   `${ATTACHMENT_URL_PREFIX}/${orgSlug}/${id}`
 
-export const attachmentDownloadUrl = (orgSlug: string, id: string): string =>
+export const attachmentDownloadUrl = (orgSlug: string, id: string) =>
   `${attachmentUrl(orgSlug, id)}?download=1`
 
 export interface AttachmentRef {
@@ -22,12 +22,12 @@ const AttachmentRefSchema = Schema.Struct({
 })
 const decodeAttachmentRef = Schema.decodeUnknownOption(AttachmentRefSchema)
 
-const stripQuery = (url: string): string => {
+const stripQuery = (url: string) => {
   const cut = url.search(/[?#]/)
   return cut === -1 ? url : url.slice(0, cut)
 }
 
-export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
+export const parseAttachmentUrl = (url: string) => {
   if (!url.startsWith(`${ATTACHMENT_URL_PREFIX}/`)) return null
   const rest = stripQuery(url).slice(ATTACHMENT_URL_PREFIX.length + 1)
   const parts = rest.split("/")
@@ -43,9 +43,7 @@ export const ATTACHMENT_WIDTH_RUNGS = [
 
 const TOP_RUNG = ATTACHMENT_WIDTH_RUNGS[ATTACHMENT_WIDTH_RUNGS.length - 1]
 
-export const resolveAttachmentWidthRung = (
-  raw: string | number | null
-): number | null => {
+export const resolveAttachmentWidthRung = (raw: string | number | null) => {
   if (raw === null) return null
   const parsed = typeof raw === "number" ? raw : Number(raw)
   if (!Number.isInteger(parsed) || parsed <= 0 || parsed > TOP_RUNG) return null
@@ -55,7 +53,7 @@ export const resolveAttachmentWidthRung = (
 export const attachmentWidthForCss = (
   cssWidth: number,
   devicePixelRatio: number
-): number | null =>
+) =>
   resolveAttachmentWidthRung(
     Math.min(TOP_RUNG, Math.ceil(cssWidth * Math.max(1, devicePixelRatio)))
   )
@@ -88,25 +86,26 @@ export interface AttachmentViewParams {
   readonly density: AttachmentDensity
 }
 
-const searchParams = (url: string): URLSearchParams => {
+const searchParams = (url: string) => {
   const cut = url.search(/[?#]/)
   if (cut === -1 || url[cut] === "#") return new URLSearchParams()
   return new URLSearchParams(stripQuery(url.slice(cut + 1)))
 }
 
-export const attachmentViewParams = (url: string): AttachmentViewParams => {
+export const attachmentViewParams = (url: string) => {
   const decoded = decodeRawAttachmentViewParams(searchParams(url))
-  if (Option.isNone(decoded)) return { width: null, density: "rich" }
+  if (Option.isNone(decoded))
+    return { width: null, density: "rich" } satisfies AttachmentViewParams
   const params = decoded.value
   const width =
     params.w === undefined ? Option.none() : decodeAttachmentWidth(params.w)
   return {
     width: Option.getOrNull(width),
     density: params.d === "compact" ? "compact" : "rich"
-  }
+  } satisfies AttachmentViewParams
 }
 
-export const attachmentSrc = (url: string): string => {
+export const attachmentSrc = (url: string) => {
   const base = stripQuery(url)
   const params = searchParams(url)
   const width = params.get(WIDTH_PARAM)
@@ -115,7 +114,7 @@ export const attachmentSrc = (url: string): string => {
     : `${base}?${WIDTH_PARAM}=${encodeURIComponent(width)}`
 }
 
-export const attachmentDownloadSrc = (url: string): string =>
+export const attachmentDownloadSrc = (url: string) =>
   `${stripQuery(url)}?download=1`
 
 export const withAttachmentParams = (
@@ -124,7 +123,7 @@ export const withAttachmentParams = (
     readonly width?: number | null
     readonly density?: AttachmentDensity
   }
-): string => {
+) => {
   const base = stripQuery(url)
   const query = new URLSearchParams()
   const width = params.width ?? null
@@ -144,7 +143,7 @@ export const formatAttachmentMarkdown = (input: {
   readonly url: string
   readonly width?: number | null
   readonly density?: AttachmentDensity
-}): string => {
+}) => {
   const alt = input.alt.replace(/([[\]\\*_`~&<>])/g, "\\$1")
   const url = withAttachmentParams(input.url, {
     width: input.width,
@@ -158,9 +157,7 @@ const ATTACHMENT_URL_CANDIDATE_RE = new RegExp(
   "g"
 )
 
-export const extractAttachmentRefs = (
-  markdown: string
-): ReadonlyArray<AttachmentRef> => {
+export const extractAttachmentRefs = (markdown: string) => {
   const seen = new Set<string>()
   const out: AttachmentRef[] = []
   for (const match of markdown.matchAll(ATTACHMENT_URL_CANDIDATE_RE)) {
@@ -198,9 +195,7 @@ const FORMAT_SUFFIXES: ReadonlyArray<
   [".mov", "video"]
 ]
 
-export const attachmentFileFormat = (
-  filename: string
-): AttachmentFileFormat => {
+export const attachmentFileFormat = (filename: string) => {
   const name = filename.trim().toLowerCase()
   for (const [suffix, format] of FORMAT_SUFFIXES) {
     if (name.length > suffix.length && name.endsWith(suffix)) return format

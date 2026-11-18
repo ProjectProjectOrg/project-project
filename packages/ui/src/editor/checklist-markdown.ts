@@ -25,8 +25,7 @@ const TASK_MARKER = /^\[[ xX]?\](?=\s|$)/
 const TYPED_TASK_MARKER = /^\[([ xX])?\]\s$/
 
 const escapeTaskMarker =
-  (exportChildren: (node: ElementNode) => string) =>
-  (node: ElementNode): string => {
+  (exportChildren: (node: ElementNode) => string) => (node: ElementNode) => {
     const text = exportChildren(node)
     const list = node.getParent()
     return $isListItemNode(node) &&
@@ -48,7 +47,7 @@ const $isNestedListHolder = (node: LexicalNode | null): node is ListItemNode =>
   !node.isEmpty() &&
   node.getChildren().every($isListNode)
 
-const $nestedListsOf = (item: ListItemNode): ReadonlyArray<ListItemNode> => {
+const $nestedListsOf = (item: ListItemNode) => {
   const holders: Array<ListItemNode> = []
   let next = item.getNextSibling()
   while ($isNestedListHolder(next)) {
@@ -81,7 +80,7 @@ export function $convertToChecklistItem(item: ListItemNode, checked: boolean) {
   if (list.isEmpty()) list.remove()
 }
 
-function $applyTypedTaskMarker(key: string, offset: number): boolean {
+function $applyTypedTaskMarker(key: string, offset: number) {
   const text = $getNodeByKey(key)
   if (!$isTextNode(text) || text.hasFormat("code")) return false
   const item = text.getParent()
@@ -107,7 +106,7 @@ function $applyTypedTaskMarker(key: string, offset: number): boolean {
   return true
 }
 
-export function registerChecklistShortcut(editor: LexicalEditor): () => void {
+export function registerChecklistShortcut(editor: LexicalEditor) {
   return editor.registerUpdateListener(
     ({ tags, dirtyLeaves, editorState, prevEditorState }) => {
       if (tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)) return

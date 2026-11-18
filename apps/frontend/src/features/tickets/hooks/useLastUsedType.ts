@@ -19,12 +19,9 @@ export const lastUsedTypeKey = (
   viewerId: string,
   orgSlug: string,
   slug: string
-): string => `projectproject:last-type:${viewerId}:${orgSlug}/${slug}`
+) => `projectproject:last-type:${viewerId}:${orgSlug}/${slug}`
 
-export function useLastUsedType(
-  orgSlug: string,
-  slug: string
-): readonly [TypeKey | null | undefined, (type: TypeKey | null) => void] {
+export function useLastUsedType(orgSlug: string, slug: string) {
   const viewerId = useAtomValue(currentUserId)
   const [stored, store] = useLocalStorageState(
     lastUsedTypeKey(viewerId ?? "", orgSlug, slug),
@@ -35,5 +32,5 @@ export function useLastUsedType(
     (type: TypeKey | null) => store({ type }),
     [store]
   )
-  return [stored === null ? undefined : stored.type, remember]
+  return [stored === null ? undefined : stored.type, remember] as const
 }

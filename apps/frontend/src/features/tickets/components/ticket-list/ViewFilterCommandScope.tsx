@@ -65,27 +65,28 @@ export function ViewFilterCommandScope({
           ]
         : []),
       ...options.map(
-        (option): Command => ({
-          id: `view.filter.${option.key}`,
-          group: "view",
-          listed: "search",
-          parent: option.chosen
-            ? m.tickets_command_filter_remove_parent
-            : m.tickets_command_filter_parent,
-          label: () =>
-            isValueDimension(option.choice.dimension)
-              ? m.tickets_command_filter_value({
-                  dimension:
-                    FILTER_DIMENSION_META[option.choice.dimension].label(),
-                  value: option.label
-                })
-              : option.label,
-          icon: option.icon,
-          run: (_context, env) => {
-            toggle(option.choice)
-            env.close()
-          }
-        })
+        (option) =>
+          ({
+            id: `view.filter.${option.key}`,
+            group: "view",
+            listed: "search",
+            parent: option.chosen
+              ? m.tickets_command_filter_remove_parent
+              : m.tickets_command_filter_parent,
+            label: () =>
+              isValueDimension(option.choice.dimension)
+                ? m.tickets_command_filter_value({
+                    dimension:
+                      FILTER_DIMENSION_META[option.choice.dimension].label(),
+                    value: option.label
+                  })
+                : option.label,
+            icon: option.icon,
+            run: (_context, env) => {
+              toggle(option.choice)
+              env.close()
+            }
+          }) satisfies Command
       )
     ]
     return { view: { options, toggle, prefetch }, commands }

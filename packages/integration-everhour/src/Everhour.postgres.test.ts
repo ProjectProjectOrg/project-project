@@ -65,7 +65,7 @@ type FakeEverhour = Readonly<{
 
 const userOf = (apiKey: string) => apiKey.replace(/^key-/, "")
 
-const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
+const fakeEverhour = (users: ReadonlyArray<string>) => {
   const project = { users: [...users] }
   const assignedWith: Array<string> = []
   const settings: FakeEverhour["settings"] = {
@@ -77,12 +77,13 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   const hooks: FakeEverhour["hooks"] = { beforeProjectRead: () => Effect.void }
   const records = new Map<string, EverhourClient.EverhourTimeRecord>()
   let nextEntry = 1000
-  const remote = (): EverhourClient.EverhourProject => ({
-    id: "ev:project",
-    name: "Website",
-    type: "board",
-    users: [...project.users]
-  })
+  const remote = () =>
+    ({
+      id: "ev:project",
+      name: "Website",
+      type: "board",
+      users: [...project.users]
+    }) satisfies EverhourClient.EverhourProject
   const service: EverhourClient.Everhour["Service"] = {
     getCurrentUser: unexpected("getCurrentUser"),
     getProject: () =>

@@ -37,10 +37,11 @@ const pointed: PointedTicket = {
   search: undefined
 }
 
-const selected = (ticketId: string): SelectedTicket => ({
-  ...row,
-  id: id(ticketId)
-})
+const selected = (ticketId: string) =>
+  ({
+    ...row,
+    id: id(ticketId)
+  }) satisfies SelectedTicket
 
 const openTicket: CommandScope = {
   ticket: { orgSlug: "acme", slug: "app", ticketId: id("T-1") }

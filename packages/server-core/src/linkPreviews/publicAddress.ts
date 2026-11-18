@@ -2,7 +2,7 @@ import { isIP } from "node:net"
 
 type Ipv4Range = readonly [base: number, prefix: number]
 
-const ipv4 = (address: string): number | null => {
+const ipv4 = (address: string) => {
   const parts = address.split(".")
   if (parts.length !== 4) return null
   let value = 0
@@ -15,10 +15,8 @@ const ipv4 = (address: string): number | null => {
   return value
 }
 
-const range = (base: string, prefix: number): Ipv4Range => [
-  ipv4(base) ?? 0,
-  prefix
-]
+const range = (base: string, prefix: number) =>
+  [ipv4(base) ?? 0, prefix] satisfies Ipv4Range
 
 const NON_PUBLIC_IPV4: ReadonlyArray<Ipv4Range> = [
   range("0.0.0.0", 8),
@@ -38,18 +36,18 @@ const NON_PUBLIC_IPV4: ReadonlyArray<Ipv4Range> = [
   range("240.0.0.0", 4)
 ]
 
-const inRange = (value: number, [base, prefix]: Ipv4Range): boolean => {
+const inRange = (value: number, [base, prefix]: Ipv4Range) => {
   const size = 2 ** (32 - prefix)
   return Math.floor(value / size) === Math.floor(base / size)
 }
 
-const isPublicIpv4 = (address: string): boolean => {
+const isPublicIpv4 = (address: string) => {
   const value = ipv4(address)
   if (value === null) return false
   return !NON_PUBLIC_IPV4.some((r) => inRange(value, r))
 }
 
-const ipv6Groups = (address: string): ReadonlyArray<number> | null => {
+const ipv6Groups = (address: string) => {
   const zoneless = address.split("%")[0] ?? ""
   const lastColon = zoneless.lastIndexOf(":")
   const tail = zoneless.slice(lastColon + 1)
@@ -71,13 +69,13 @@ const ipv6Groups = (address: string): ReadonlyArray<number> | null => {
     : groups
 }
 
-const embeddedIpv4 = (groups: ReadonlyArray<number>): string => {
+const embeddedIpv4 = (groups: ReadonlyArray<number>) => {
   const high = groups[6] ?? 0
   const low = groups[7] ?? 0
   return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".")
 }
 
-const isPublicIpv6 = (address: string): boolean => {
+const isPublicIpv6 = (address: string) => {
   const groups = ipv6Groups(address)
   if (groups === null) return false
   const [first = 0, second = 0] = groups
@@ -97,7 +95,7 @@ const isPublicIpv6 = (address: string): boolean => {
   return true
 }
 
-export const isPublicAddress = (address: string): boolean => {
+export const isPublicAddress = (address: string) => {
   switch (isIP(address)) {
     case 4:
       return isPublicIpv4(address)

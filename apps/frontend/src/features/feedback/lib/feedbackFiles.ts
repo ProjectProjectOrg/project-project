@@ -21,7 +21,7 @@ export type AcceptedFiles<F extends FileCandidate> = Readonly<{
 export const acceptFiles = <F extends FileCandidate>(
   current: number,
   incoming: ReadonlyArray<F>
-): AcceptedFiles<F> => {
+) => {
   const valid = incoming.filter(
     (file) =>
       file.size > 0 &&
@@ -43,7 +43,7 @@ export const acceptFiles = <F extends FileCandidate>(
   return { accepted, rejection } satisfies AcceptedFiles<F>
 }
 
-export const formatFileSize = (bytes: number): string =>
+export const formatFileSize = (bytes: number) =>
   bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} KB`
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`

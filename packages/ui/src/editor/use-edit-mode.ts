@@ -100,7 +100,7 @@ export function useEditMode({
   return { editing, startEditing, stopEditing }
 }
 
-const selectedRangeIn = (root: HTMLElement | null): Range | null => {
+const selectedRangeIn = (root: HTMLElement | null) => {
   const selection = window.getSelection()
   if (root === null || selection === null || selection.isCollapsed) return null
   const range = selection.getRangeAt(0).cloneRange()

@@ -18,10 +18,7 @@ const invitationsAtom = Atom.optimistic(invitationsQuery)
 
 export const invitations = () => invitationsAtom
 
-const without = (
-  value: ReadonlyArray<UserInvitation>,
-  invitationId: string
-): ReadonlyArray<UserInvitation> =>
+const without = (value: ReadonlyArray<UserInvitation>, invitationId: string) =>
   value.filter((invitation) => invitation.id !== invitationId)
 
 export const acceptInvitation = Atom.family(

@@ -18,7 +18,7 @@ const ticket = (id: string, status: string, createdAt: string) => ({
   createdAt: at(createdAt)
 })
 
-const input = (overrides: Partial<OverviewInput> = {}): OverviewInput => ({
+const input = (overrides: Partial<OverviewInput> = {}) => ({
   scope: "acme/web",
   statuses,
   tickets: [],

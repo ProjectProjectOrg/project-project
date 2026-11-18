@@ -10,7 +10,7 @@ import {
 
 export function useChildTicketCount(
   parent: Pick<Ticket, "id" | "subTicketCount">
-): number {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(
     childTickets(childTicketsRequest(orgSlug, slug, parent.id))

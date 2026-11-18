@@ -16,9 +16,7 @@ export type PastedPart =
 
 const GLOBAL_RE = new RegExp(ATTACHMENT_MARKDOWN_RE.source, "g")
 
-export const splitPastedAttachments = (
-  text: string
-): ReadonlyArray<PastedPart> | null => {
+export const splitPastedAttachments = (text: string) => {
   const parts: Array<PastedPart> = []
   let cursor = 0
   let found = false

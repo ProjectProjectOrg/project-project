@@ -39,7 +39,7 @@ const knownAspects = new Map<string, number>()
 const REVEAL = "transition-[opacity] duration-150 ease-out"
 const SHOWN = "opacity-100"
 
-const audibleVolume = (video: HTMLVideoElement): number =>
+const audibleVolume = (video: HTMLVideoElement) =>
   video.muted ? 0 : video.volume
 
 function useIdle() {
@@ -72,7 +72,7 @@ function useVideoActions(
   rootRef: RefObject<HTMLSpanElement | null>,
   videoRef: RefObject<HTMLVideoElement | null>,
   setTime: (seconds: number) => void
-): AttachmentVideoActions {
+) {
   return useMemo<AttachmentVideoActions>(
     () => ({
       toggle: () => {

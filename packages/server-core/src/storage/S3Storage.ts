@@ -44,7 +44,7 @@ export type S3Connection = Readonly<{
 
 const MAX_FILENAME_LENGTH = 120
 
-export const sanitizeFilename = (filename: string): string => {
+export const sanitizeFilename = (filename: string) => {
   const collapsed = filename
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
@@ -68,14 +68,14 @@ export type AttachmentKeyInput = Readonly<{
   filename: string
 }>
 
-export const attachmentObjectKey = (input: AttachmentKeyInput): string => {
+export const attachmentObjectKey = (input: AttachmentKeyInput) => {
   const prefix = (input.keyPrefix ?? "").replace(/^\/+|\/+$/g, "")
   const scope = input.ticketId === null ? "images" : `tickets/${input.ticketId}`
   const tail = `orgs/${input.orgSlug}/projects/${input.projectSlug}/${scope}/${input.attachmentId}-${sanitizeFilename(input.filename)}`
   return prefix === "" ? tail : `${prefix}/${tail}`
 }
 
-export const normalizeEtag = (etag: string | undefined): string | null => {
+export const normalizeEtag = (etag: string | undefined) => {
   if (!etag) return null
   const trimmed = etag.replace(/^"|"$/g, "").toLowerCase()
   return /^[0-9a-f]{32}$/.test(trimmed) ? trimmed : null

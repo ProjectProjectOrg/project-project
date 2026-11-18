@@ -96,7 +96,7 @@ export function SlashMenuPlugin({
     [editor, transformers]
   )
 
-  const menu = useMemo((): SlashMenuState => {
+  const menu = useMemo(() => {
     if (query === null) return EMPTY_MENU
     const view = slashMenuView(
       { library, lookup, ticketType, body, query, basicLabel, mode },

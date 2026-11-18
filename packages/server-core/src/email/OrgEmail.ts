@@ -21,7 +21,7 @@ import { Smtp } from "./Smtp"
 
 type EmailRow = typeof organizationEmail.$inferSelect
 
-const settingsOf = (row: EmailRow): EmailSettings => ({
+const settingsOf = (row: EmailRow) => ({
   host: row.host,
   port: row.port,
   security: row.security,
@@ -31,7 +31,7 @@ const settingsOf = (row: EmailRow): EmailSettings => ({
   replyTo: row.replyTo
 })
 
-const emailStatus = (row: EmailRow | undefined): OrgEmailStatus =>
+const emailStatus = (row: EmailRow | undefined) =>
   row
     ? {
         settings: settingsOf(row),

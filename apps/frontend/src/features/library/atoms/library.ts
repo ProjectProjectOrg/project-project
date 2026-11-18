@@ -40,18 +40,17 @@ export type ProjectLibraryRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const orgLibraryRequest = (orgSlug: string): OrgLibraryRequest => ({
-  _view: "orgLibrary",
-  params: { orgSlug }
-})
+export const orgLibraryRequest = (orgSlug: string) =>
+  ({
+    _view: "orgLibrary",
+    params: { orgSlug }
+  }) satisfies OrgLibraryRequest
 
-export const projectLibraryRequest = (
-  orgSlug: string,
-  slug: string
-): ProjectLibraryRequest => ({
-  _view: "projectLibrary",
-  params: { orgSlug, slug }
-})
+export const projectLibraryRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "projectLibrary",
+    params: { orgSlug, slug }
+  }) satisfies ProjectLibraryRequest
 
 const scopeOf = (req: ProjectLibraryRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

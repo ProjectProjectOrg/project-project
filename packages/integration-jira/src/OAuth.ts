@@ -36,10 +36,10 @@ export type JiraTokenGrant = Readonly<{
   grantedScopes: ReadonlyArray<string>
 }>
 
-export const jiraRedirectUri = (baseUrl: string): string =>
+export const jiraRedirectUri = (baseUrl: string) =>
   new URL(JIRA_OAUTH_CALLBACK_PATH, baseUrl).toString()
 
-export const jiraCodeChallenge = (verifier: string): string =>
+export const jiraCodeChallenge = (verifier: string) =>
   createHash("sha256").update(verifier).digest("base64url")
 
 export type JiraAuthorizeInput = Readonly<{
@@ -50,7 +50,7 @@ export type JiraAuthorizeInput = Readonly<{
   authorizationEndpoint?: string
 }>
 
-export const jiraAuthorizeUrl = (input: JiraAuthorizeInput): string => {
+export const jiraAuthorizeUrl = (input: JiraAuthorizeInput) => {
   const url = new URL(
     input.authorizationEndpoint ?? "https://auth.atlassian.com/authorize"
   )
@@ -66,7 +66,7 @@ export const jiraAuthorizeUrl = (input: JiraAuthorizeInput): string => {
   return url.toString()
 }
 
-export const validateReturnPath = (value: string): string | null => {
+export const validateReturnPath = (value: string) => {
   if (
     !value.startsWith("/") ||
     value.startsWith("//") ||
@@ -87,10 +87,7 @@ export const validateReturnPath = (value: string): string | null => {
   return `${url.pathname}${url.search}${url.hash}`
 }
 
-export const parseTokenGrant = (
-  payload: Schema.Json,
-  now: DateTime.Utc
-): JiraTokenGrant | null => {
+export const parseTokenGrant = (payload: Schema.Json, now: DateTime.Utc) => {
   const result = decodeUnknownJiraTokenResponseExit(payload)
   if (Exit.isFailure(result)) return null
   const token = result.value
@@ -109,7 +106,7 @@ export const parseTokenGrant = (
 
 const requiredScopes = new Set(JIRA_SCOPES.split(" "))
 
-export const hasRequiredScopes = (scopes: ReadonlyArray<string>): boolean => {
+export const hasRequiredScopes = (scopes: ReadonlyArray<string>) => {
   const granted = new Set(scopes)
   return [...requiredScopes].every((scope) => granted.has(scope))
 }
@@ -119,9 +116,7 @@ export type JiraTokenRejection =
   | "transient"
   | "invalid_response"
 
-export const classifyTokenRejection = (
-  payload: Schema.Json
-): JiraTokenRejection => {
+export const classifyTokenRejection = (payload: Schema.Json) => {
   const result = decodeUnknownJiraTokenErrorResponseExit(payload)
   if (Exit.isFailure(result)) return "invalid_response"
   return result.value.error === "invalid_grant" ? "invalid_grant" : "transient"

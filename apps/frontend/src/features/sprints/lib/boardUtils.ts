@@ -39,16 +39,14 @@ export const isDragData = Schema.is(DragData)
 export const isDropData = Schema.is(DropData)
 export const isColumnDropData = Schema.is(ColumnDropData)
 
-export function boardStatusesFor(
-  statuses: ReadonlyArray<ProjectStatus>
-): ReadonlyArray<TicketStatus> {
+export function boardStatusesFor(statuses: ReadonlyArray<ProjectStatus>) {
   return [...statuses].toSorted(compareByOrderKey).map((s) => s.slug)
 }
 
 export function groupTicketsByStatus(
   tickets: ReadonlyArray<Ticket>,
   statusSlugs: ReadonlyArray<string>
-): Record<string, ReadonlyArray<Ticket>> {
+) {
   const out: Record<string, Array<Ticket>> = {}
   for (const slug of statusSlugs) out[slug] = []
   const fallback = statusSlugs[0]
@@ -70,7 +68,7 @@ export function boardMove(
   drop:
     | Pick<CardDropData, "type" | "id" | "edge">
     | Pick<ColumnDropData, "type">
-): TicketMove | undefined {
+) {
   const last = column.findLast((ticket) => ticket.id !== movingId)
   const to: TicketPosition | undefined =
     drop.type === "card"
@@ -91,7 +89,10 @@ export function boardMove(
 export function boardEdit(
   status: TicketStatus | undefined,
   position: TicketMove | undefined
-): TicketEdit | null {
-  if (status === undefined) return position === undefined ? null : { position }
-  return position === undefined ? { status } : { status, position }
+) {
+  if (status === undefined)
+    return position === undefined ? null : ({ position } satisfies TicketEdit)
+  return position === undefined
+    ? ({ status } satisfies TicketEdit)
+    : ({ status, position } satisfies TicketEdit)
 }

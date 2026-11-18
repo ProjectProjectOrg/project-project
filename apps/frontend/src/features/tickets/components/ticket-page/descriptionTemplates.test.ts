@@ -44,15 +44,15 @@ import {
 const lookup = lookupFor(BUILTIN_LIBRARY)
 const context = { transformers: MARKDOWN_TRANSFORMERS, lookup }
 
-const template = (key: string): TypeDefinition => {
+const template = (key: string) => {
   const found = BUILTIN_LIBRARY.types.find((entry) => entry.key === key)
   if (found === undefined) throw new Error(`no template ${key}`)
   return found
 }
 
-const expanded = (key: string): string => expandType(template(key), lookup)
+const expanded = (key: string) => expandType(template(key), lookup)
 
-function editorWith(markdown: string): LexicalEditor {
+function editorWith(markdown: string) {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "description-templates-test",
@@ -80,7 +80,7 @@ function editorWith(markdown: string): LexicalEditor {
   return editor
 }
 
-const bodyOf = (editor: LexicalEditor): string =>
+const bodyOf = (editor: LexicalEditor) =>
   editor
     .getEditorState()
     .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
@@ -246,14 +246,14 @@ const chainContext = {
   lookup: chainLookup
 }
 
-function liveEditor(markdown: string): LexicalEditor {
+function liveEditor(markdown: string) {
   const editor = editorWith(markdown)
   registerSyncedBlocks(editor, chainLookup, MARKDOWN_TRANSFORMERS, () => {})
   editor.update(() => {}, { discrete: true })
   return editor
 }
 
-const defaultBody = (type: string): string => {
+const defaultBody = (type: string) => {
   const found = typeFor(chainLibrary, type)
   if (found === null) throw new Error(`no default for ${type}`)
   return expandType(found, chainLookup)
@@ -263,7 +263,7 @@ const changeType = (
   editor: LexicalEditor,
   from: string | null,
   to: string | null
-): string | null => {
+) => {
   const next = templateSwap({
     library: chainLibrary,
     body: bodyOf(editor),

@@ -28,38 +28,39 @@ const loadingState: IntegrationState = {
   loading: true
 }
 
-const notSetUp = (): IntegrationState => ({
-  tone: "idle",
-  label: m.org_integrations_status_not_set_up(),
-  connected: false,
-  loading: false
-})
+const notSetUp = () =>
+  ({
+    tone: "idle",
+    label: m.org_integrations_status_not_set_up(),
+    connected: false,
+    loading: false
+  }) satisfies IntegrationState
 
-const attention = (): IntegrationState => ({
-  tone: "attention",
-  label: m.org_integrations_status_attention(),
-  connected: true,
-  loading: false
-})
+const attention = () =>
+  ({
+    tone: "attention",
+    label: m.org_integrations_status_attention(),
+    connected: true,
+    loading: false
+  }) satisfies IntegrationState
 
-const unavailable = (): IntegrationState => ({
-  tone: "attention",
-  label: m.org_integrations_status_unavailable(),
-  connected: false,
-  loading: false
-})
+const unavailable = () =>
+  ({
+    tone: "attention",
+    label: m.org_integrations_status_unavailable(),
+    connected: false,
+    loading: false
+  }) satisfies IntegrationState
 
-const connected = (): IntegrationState => ({
-  tone: "connected",
-  label: m.org_integrations_status_connected(),
-  connected: true,
-  loading: false
-})
+const connected = () =>
+  ({
+    tone: "connected",
+    label: m.org_integrations_status_connected(),
+    connected: true,
+    loading: false
+  }) satisfies IntegrationState
 
-export function useGithubAppState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useGithubAppState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? githubIntegration(githubOrgRequest(orgSlug)) : disabledState
   )
@@ -70,10 +71,7 @@ export function useGithubAppState(
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useStorageState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useStorageState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? orgStorage(storageRequest(orgSlug)) : disabledState
   )
@@ -84,10 +82,7 @@ export function useStorageState(
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useEmailState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useEmailState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? orgEmail(emailRequest(orgSlug)) : disabledState
   )
@@ -99,10 +94,7 @@ export function useEmailState(
   return connected()
 }
 
-export function useSlackState(
-  orgSlug: string,
-  enabled = true
-): IntegrationState {
+export function useSlackState(orgSlug: string, enabled = true) {
   const result = useAtomValue(
     enabled ? slackOrg(slackOrgRequest(orgSlug)) : disabledState
   )
@@ -116,18 +108,18 @@ export function useSlackState(
 export function perProjectState(
   needsStorage: boolean,
   storage: IntegrationState
-): IntegrationState {
+) {
   if (needsStorage && !storage.loading && !storage.connected)
     return {
       tone: "attention",
       label: m.org_integrations_status_needs_storage(),
       connected: false,
       loading: false
-    }
+    } satisfies IntegrationState
   return {
     tone: "idle",
     label: m.org_integrations_status_per_project(),
     connected: false,
     loading: false
-  }
+  } satisfies IntegrationState
 }

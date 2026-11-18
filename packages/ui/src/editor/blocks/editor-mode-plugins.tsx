@@ -37,11 +37,7 @@ type ChipBox = Readonly<{
   height: number
 }>
 
-const boxFor = (
-  editor: LexicalEditor,
-  anchor: HTMLElement,
-  key: NodeKey
-): ChipBox | null => {
+const boxFor = (editor: LexicalEditor, anchor: HTMLElement, key: NodeKey) => {
   const element = editor.getElementByKey(key)
   if (element === null) return null
   const outer = anchor.getBoundingClientRect()
@@ -59,7 +55,7 @@ const keyForElement = (
   editor: LexicalEditor,
   keys: ReadonlyArray<NodeKey>,
   target: EventTarget | null
-): NodeKey | null => {
+) => {
   if (!(target instanceof Element)) return null
   const block = target.closest(".ticket-block")
   if (block === null) return null

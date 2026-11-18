@@ -55,19 +55,20 @@ describe.skipIf(!databaseUrl)("PullRequestSnapshots", () => {
 
   const snapshot = (
     overrides: Partial<PullRequestSnapshots.PullRequestSnapshot>
-  ): PullRequestSnapshots.PullRequestSnapshot => ({
-    repositoryId,
-    number: 42,
-    branch: "feat/T-1",
-    base: "main",
-    state: "open",
-    draft: false,
-    title: "Add search",
-    mergedAt: null,
-    checks: "passing",
-    observedAt: isoDate("2026-04-01T00:00:10Z"),
-    ...overrides
-  })
+  ) =>
+    ({
+      repositoryId,
+      number: 42,
+      branch: "feat/T-1",
+      base: "main",
+      state: "open",
+      draft: false,
+      title: "Add search",
+      mergedAt: null,
+      checks: "passing",
+      observedAt: isoDate("2026-04-01T00:00:10Z"),
+      ...overrides
+    }) satisfies PullRequestSnapshots.PullRequestSnapshot
 
   it.effect(
     "keeps the newest observation and the details an update leaves out",

@@ -39,9 +39,7 @@ const RELATED_PAYLOADS: Readonly<
   blockedBy: () => ({})
 }
 
-export const relatedPayload = (
-  related: RelatedTo | null
-): Partial<CreateTicketInput> =>
+export const relatedPayload = (related: RelatedTo | null) =>
   related === null ? {} : RELATED_PAYLOADS[related.kind](related.ticketId)
 
 // What the next "New ticket" should start from (project, sprint, a ticket

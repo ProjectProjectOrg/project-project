@@ -6,6 +6,7 @@ import {
   movedPin,
   nestPins,
   showsLiveRow,
+  type PinNode,
   withoutPin,
   withPredictedPin
 } from "./pins"
@@ -141,16 +142,16 @@ describe("movedPin", () => {
 
 type Row = Readonly<{ id: string; parent: string | null }>
 
-const ticket = (id: string, parent: string | null = null): Row => ({
+const ticket = (id: string, parent: string | null = null) => ({
   id,
   parent
 })
-const sprint = (id: string): Row => ({ id, parent: null })
+const sprint = (id: string) => ({ id, parent: null })
 
 // A tree as nested ids: a leaf is its id, a parent is [id, children].
-const renderTree = (
-  nodes: ReturnType<typeof nestPins<Row>>
-): ReadonlyArray<unknown> =>
+const renderTree: (
+  nodes: ReadonlyArray<PinNode<Row>>
+) => ReadonlyArray<unknown> = (nodes) =>
   nodes.map((node) =>
     node.children.length === 0
       ? node.row.id

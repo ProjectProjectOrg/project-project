@@ -21,16 +21,13 @@ export type PinPrediction =
 
 const decodeOrderKey = Schema.decodeSync(PinOrderKey)
 
-export const pinKey = (pin: PinRef): string =>
+export const pinKey = (pin: PinRef) =>
   `${pin.projectSlug}:${pin.kind}:${pin.ref}`
 
-export const samePin = (a: PinRef, b: PinRef): boolean =>
+export const samePin = (a: PinRef, b: PinRef) =>
   a.projectSlug === b.projectSlug && a.kind === b.kind && a.ref === b.ref
 
-export const pinsIn = (
-  pins: ReadonlyArray<SidebarPin>,
-  projectSlug: string
-): ReadonlyArray<SidebarPin> =>
+export const pinsIn = (pins: ReadonlyArray<SidebarPin>, projectSlug: string) =>
   pins.filter((pin) => pin.projectSlug === projectSlug)
 
 const compareBytes = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
@@ -41,23 +38,18 @@ const comparePins = (a: SidebarPin, b: SidebarPin) =>
   compareBytes(a.kind, b.kind) ||
   compareBytes(a.ref, b.ref)
 
-export const withPin = (
-  pins: ReadonlyArray<SidebarPin>,
-  pin: SidebarPin
-): ReadonlyArray<SidebarPin> =>
+export const withPin = (pins: ReadonlyArray<SidebarPin>, pin: SidebarPin) =>
   [...pins.filter((each) => !samePin(each, pin)), pin].toSorted(comparePins)
 
-export const withoutPin = (
-  pins: ReadonlyArray<SidebarPin>,
-  target: PinRef
-): ReadonlyArray<SidebarPin> => pins.filter((pin) => !samePin(pin, target))
+export const withoutPin = (pins: ReadonlyArray<SidebarPin>, target: PinRef) =>
+  pins.filter((pin) => !samePin(pin, target))
 
 export const predictPin = (
   pins: ReadonlyArray<SidebarPin>,
   projectSlug: string,
   payload: PinTarget,
   prediction: PinPrediction
-): SidebarPin | null => {
+) => {
   const [top] = pinsIn(pins, projectSlug)
   const orderKey = decodeOrderKey(
     generateKeyBetween(null, top?.orderKey ?? null)
@@ -69,7 +61,7 @@ export const predictPin = (
       ref: payload.ref,
       orderKey,
       ticket: prediction.ticket
-    }
+    } satisfies SidebarPin
   if (payload.kind === "sprint" && "sprint" in prediction)
     return {
       projectSlug,
@@ -77,7 +69,7 @@ export const predictPin = (
       ref: payload.ref,
       orderKey,
       sprint: prediction.sprint
-    }
+    } satisfies SidebarPin
   return null
 }
 
@@ -86,7 +78,7 @@ export const withPredictedPin = (
   projectSlug: string,
   payload: PinTarget,
   prediction: PinPrediction
-): ReadonlyArray<SidebarPin> => {
+) => {
   const pin = predictPin(pins, projectSlug, payload, prediction)
   return pin === null ? pins : withPin(pins, pin)
 }
@@ -111,7 +103,7 @@ const sameKeys = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
 export const movedPin = (
   pins: ReadonlyArray<SidebarPin>,
   order: ReadonlyArray<string>
-): PinMove | null => {
+) => {
   const byKey = new Map(pins.map((pin) => [pinKey(pin), pin] as const))
   const before = pins.map(pinKey)
   const after = order.filter((key) => byKey.has(key))
@@ -138,7 +130,7 @@ export const withOrderKey = (
   pins: ReadonlyArray<SidebarPin>,
   target: PinRef,
   orderKey: PinOrderKey
-): ReadonlyArray<SidebarPin> => {
+) => {
   const pin = pins.find((each) => samePin(each, target))
   return pin === undefined ? pins : withPin(pins, { ...pin, orderKey })
 }
@@ -156,19 +148,19 @@ type TicketLink = Readonly<{ id: string; parent: string | null }>
 export const nestPins = <Row>(
   rows: ReadonlyArray<Row>,
   ticketOf: (row: Row) => TicketLink | null
-): ReadonlyArray<PinNode<Row>> => {
+) => {
   const byTicket = new Map<string, Row>()
   for (const row of rows) {
     const ticket = ticketOf(row)
     if (ticket !== null && !byTicket.has(ticket.id))
       byTicket.set(ticket.id, row)
   }
-  const parentOf = (row: Row): Row | undefined => {
+  const parentOf = (row: Row) => {
     const parent = ticketOf(row)?.parent
     return parent == null ? undefined : byTicket.get(parent)
   }
   // A row whose parents lead back to it (data mid-update) stays at the top.
-  const nests = (row: Row): boolean => {
+  const nests = (row: Row) => {
     let parent = parentOf(row)
     for (let step = 0; parent !== undefined && step < rows.length; step++) {
       if (parent === row) return false
@@ -183,14 +175,14 @@ export const nestPins = <Row>(
     if (parent === undefined) top.push(row)
     else children.set(parent, [...(children.get(parent) ?? []), row])
   }
-  const node = (row: Row): PinNode<Row> => ({
+  const node: (row: Row) => PinNode<Row> = (row) => ({
     row,
     children: (children.get(row) ?? []).map(node)
   })
   return top.map(node)
 }
 
-export const ticketLinkOf = (display: PinPrediction): TicketLink | null =>
+export const ticketLinkOf = (display: PinPrediction) =>
   "ticket" in display
     ? { id: display.ticket.id, parent: display.ticket.parent ?? null }
     : null

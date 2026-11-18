@@ -329,22 +329,23 @@ export const ticketCommands: ReadonlyArray<Command> = [
     }
   },
   ...COPY_FORMATS.map(
-    ({ id, label, icon, keywords, text }): Command => ({
-      id: `ticket.copy-${id}`,
-      group: "ticketActions",
-      label,
-      icon,
-      keywords,
-      listed: "search",
-      when: ({ ticketDetail }) => ticketDetail !== null,
-      run: (context, env) => {
-        const { ticket, ticketDetail } = context
-        if (ticket !== null && ticketDetail !== null) {
-          env.copy(text(ticketDetail, ticket, ticketLink(context)))
+    ({ id, label, icon, keywords, text }) =>
+      ({
+        id: `ticket.copy-${id}`,
+        group: "ticketActions",
+        label,
+        icon,
+        keywords,
+        listed: "search",
+        when: ({ ticketDetail }) => ticketDetail !== null,
+        run: (context, env) => {
+          const { ticket, ticketDetail } = context
+          if (ticket !== null && ticketDetail !== null) {
+            env.copy(text(ticketDetail, ticket, ticketLink(context)))
+          }
+          env.close()
         }
-        env.close()
-      }
-    })
+      }) satisfies Command
   ),
   {
     id: "ticket.open",

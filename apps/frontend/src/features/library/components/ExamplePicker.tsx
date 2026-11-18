@@ -30,36 +30,29 @@ export type Example = Readonly<{
   detail: ReactNode
 }>
 
-export function useExamples(
-  kind: LibraryKind,
-  library: Library
-): ReadonlyArray<Example> {
+export function useExamples(kind: LibraryKind, library: Library) {
   return useMemo(() => {
     if (kind === "section")
-      return exampleSections(library).map(
-        (draft: BlockDraft): Example => ({
-          key: draft.key,
-          name: draft.name,
-          icon: draft.icon,
-          color: draft.color,
-          detail: (
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{draft.description}</span>
-              {draft.sync ? <SameOnEveryTicketBadge /> : null}
-            </span>
-          )
-        })
-      )
-    const lookup = blockLookupFor(libraryWithExamples(library))
-    return exampleTypes(library).map(
-      (draft): Example => ({
+      return exampleSections(library).map((draft: BlockDraft) => ({
         key: draft.key,
         name: draft.name,
         icon: draft.icon,
         color: draft.color,
-        detail: <BlockStrip blocks={templateSketch(draft.body, lookup, 0)} />
-      })
-    )
+        detail: (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate">{draft.description}</span>
+            {draft.sync ? <SameOnEveryTicketBadge /> : null}
+          </span>
+        )
+      }))
+    const lookup = blockLookupFor(libraryWithExamples(library))
+    return exampleTypes(library).map((draft) => ({
+      key: draft.key,
+      name: draft.name,
+      icon: draft.icon,
+      color: draft.color,
+      detail: <BlockStrip blocks={templateSketch(draft.body, lookup, 0)} />
+    }))
   }, [kind, library])
 }
 

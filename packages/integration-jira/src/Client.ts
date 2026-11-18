@@ -121,7 +121,7 @@ export const paginateOffset = <A, E>(
   fetchPage: (
     startAt: number
   ) => Effect.Effect<Omit<JiraOffsetPage<A>, "raw">, E>
-): Effect.Effect<ReadonlyArray<A>, E | JiraError> =>
+) =>
   Stream.paginate(
     0,
     Effect.fn(function* (startAt) {
@@ -299,7 +299,7 @@ const errorMessagesOf = (body: Schema.Json) =>
         .slice(0, 10)
         .map((message) => message.slice(0, 500))
     ),
-    Option.getOrElse((): ReadonlyArray<string> => [])
+    Option.getOrElse(() => [])
   )
 
 const decodeFailure = (operation: string, error: Schema.SchemaError) => {
@@ -402,7 +402,7 @@ const make = Effect.gen(function* () {
   const errorMessages = (response: Transport.JiraTransportResponse) =>
     response.json.pipe(
       Effect.map(errorMessagesOf),
-      Effect.orElseSucceed((): ReadonlyArray<string> => [])
+      Effect.orElseSucceed(() => [])
     )
 
   const checkResponse = Effect.fn("JiraClient.checkResponse")(function* (
@@ -457,7 +457,7 @@ const make = Effect.gen(function* () {
     decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>,
     body?: Schema.Json,
     cursor: string | null = null
-  ): Effect.Effect<JiraSnapshot<A>, JiraCallError> =>
+  ) =>
     authorize(userId, operation, (token) =>
       transport.execute({
         method,
@@ -519,12 +519,7 @@ const make = Effect.gen(function* () {
         isLast: Schema.optional(Schema.Boolean)
       }).pipe(Schema.encodeKeys({ values: field }))
     )
-    return (
-      userId: string,
-      operation: string,
-      url: string,
-      startAt = 0
-    ): Effect.Effect<JiraOffsetPage<A>, JiraCallError> => {
+    return (userId: string, operation: string, url: string, startAt = 0) => {
       const target = new URL(url)
       target.searchParams.set("startAt", String(startAt))
       target.searchParams.set("maxResults", "100")

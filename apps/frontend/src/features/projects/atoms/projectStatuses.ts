@@ -25,13 +25,11 @@ export type StatusesRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const statusesRequest = (
-  orgSlug: string,
-  slug: string
-): StatusesRequest => ({
-  _view: "statuses",
-  params: { orgSlug, slug }
-})
+export const statusesRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "statuses",
+    params: { orgSlug, slug }
+  }) satisfies StatusesRequest
 
 const scopeOf = (req: StatusesRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -64,7 +62,7 @@ const replaceStatus = (
 const syntheticStatus = (
   statuses: ReadonlyArray<ProjectStatus>,
   input: CreateStatusInput
-): ReadonlyArray<ProjectStatus> => {
+) => {
   const derivedSlug = deriveStatusSlug(input.label)
   if (derivedSlug.length === 0) return statuses
   if (statuses.some((status) => status.slug === derivedSlug)) return statuses

@@ -9,27 +9,19 @@ export type RailBounds = Readonly<{
   clipLeft: number | null
 }>
 
-export const railLeft = ({
-  hostLeft,
-  textLeft,
-  gap,
-  clipLeft
-}: RailBounds): number | null => {
+export const railLeft = ({ hostLeft, textLeft, gap, clipLeft }: RailBounds) => {
   const preferred = hostLeft - gap - RAIL_SIZE
   const left =
     clipLeft === null ? preferred : Math.max(preferred, clipLeft + RAIL_EDGE)
   return left + RAIL_SIZE > textLeft - RAIL_EDGE ? null : left - textLeft
 }
 
-const clipsHorizontally = (element: Element): boolean => {
+const clipsHorizontally = (element: Element) => {
   const overflow = getComputedStyle(element).overflowX
   return overflow !== "visible" && overflow !== ""
 }
 
-export const measureRailBounds = (
-  anchor: HTMLElement,
-  host: HTMLElement
-): RailBounds => {
+export const measureRailBounds = (anchor: HTMLElement, host: HTMLElement) => {
   let clip: Element | null = host.parentElement
   while (clip !== null && !clipsHorizontally(clip)) clip = clip.parentElement
   return {
@@ -43,12 +35,12 @@ export const measureRailBounds = (
   }
 }
 
-export const railHost = (anchor: HTMLElement): HTMLElement =>
+export const railHost = (anchor: HTMLElement) =>
   anchor.closest<HTMLElement>("[data-block-rail-host]") ??
   anchor.closest<HTMLElement>(".block-gutter") ??
   anchor
 
-export const layoutTop = (element: HTMLElement, anchor: HTMLElement): number =>
+export const layoutTop = (element: HTMLElement, anchor: HTMLElement) =>
   element.offsetParent === anchor
     ? element.offsetTop
     : element.getBoundingClientRect().top - anchor.getBoundingClientRect().top

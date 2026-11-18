@@ -14,7 +14,7 @@ export type ResourceChallenge = Readonly<{
 export const bearerChallenge = (resource: string) =>
   `Bearer resource_metadata="${protectedResourceMetadataUrl(resource)}"`
 
-const invalidDpopProof = (resource: string): ResourceChallenge => ({
+const invalidDpopProof = (resource: string) => ({
   status: 401,
   message: "Invalid DPoP proof",
   wwwAuthenticate: `DPoP error="invalid_dpop_proof", algs="${DPOP_SIGNING_ALGORITHMS.join(" ")}", ${bearerChallenge(resource)}`
@@ -23,16 +23,13 @@ const invalidDpopProof = (resource: string): ResourceChallenge => ({
 export const resourceChallenge = (cause: unknown, resource: string) =>
   Effect.try(() => createResourceServerChallenge(cause, resource)).pipe(
     Effect.map((apiError) =>
-      Option.map(
-        Option.fromNullishOr(apiError),
-        (challenge): ResourceChallenge => ({
-          status: challenge.statusCode,
-          message: challenge.message,
-          wwwAuthenticate:
-            new Headers(challenge.headers).get("www-authenticate") ??
-            bearerChallenge(resource)
-        })
-      )
+      Option.map(Option.fromNullishOr(apiError), (challenge) => ({
+        status: challenge.statusCode,
+        message: challenge.message,
+        wwwAuthenticate:
+          new Headers(challenge.headers).get("www-authenticate") ??
+          bearerChallenge(resource)
+      }))
     ),
     Effect.catch(() => Effect.succeedSome(invalidDpopProof(resource)))
   )

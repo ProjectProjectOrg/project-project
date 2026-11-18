@@ -23,7 +23,7 @@ export type Loadable<T> = Readonly<{ load: () => Promise<T> }>
 
 // Loads once. The promise is marked fulfilled the way React's use() reads it,
 // so a page or demo that has loaded renders at once instead of suspending.
-const loadable = <T>(load: () => Promise<T>): Loadable<T> => {
+const loadable = <T>(load: () => Promise<T>) => {
   let promise: Promise<T> | undefined
   return {
     load: () => {
@@ -150,7 +150,7 @@ export const demoIdOf = (path: string) =>
 
 // Everything a path needs before it can show in full: a page with its demos,
 // or a lone demo.
-export const preloadPath = async (path: string): Promise<void> => {
+export const preloadPath = async (path: string) => {
   const demoId = demoIdOf(path)
   await (
     demoId === undefined

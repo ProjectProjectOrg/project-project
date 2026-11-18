@@ -7,14 +7,11 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  countPhases,
-  type PhaseCounts
-} from "@/features/sprints/lib/sprintOverview"
+import { countPhases } from "@/features/sprints/lib/sprintOverview"
 
 import { useSprintTickets } from "./useSprintPlanning"
 
-export function useSprintPhaseCounts(id: GroupId): PhaseCounts | null {
+export function useSprintPhaseCounts(id: GroupId) {
   const { orgSlug, slug } = useProjectRoute()
   const tickets = useSprintTickets(id)
   const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))

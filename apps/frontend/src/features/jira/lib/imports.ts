@@ -16,14 +16,12 @@ export type JiraImportGroups = Readonly<{
 const newestFirst = (a: JiraMigrationSummary, b: JiraMigrationSummary) =>
   DateTime.toEpochMillis(b.updatedAt) - DateTime.toEpochMillis(a.updatedAt)
 
-export const isRunningJiraImport = (summary: JiraMigrationSummary): boolean =>
+export const isRunningJiraImport = (summary: JiraMigrationSummary) =>
   isActiveJiraImport(summary.status) ||
   summary.status === "failed" ||
   summary.status === "reconnect_required"
 
-export function groupJiraImports(
-  imports: ReadonlyArray<JiraMigrationSummary>
-): JiraImportGroups {
+export function groupJiraImports(imports: ReadonlyArray<JiraMigrationSummary>) {
   const sorted = imports.toSorted(newestFirst)
   return {
     running: sorted.filter(isRunningJiraImport),
@@ -36,7 +34,7 @@ export const unfinishedImportOf = (
   imports: ReadonlyArray<JiraMigrationSummary>,
   cloudId: string,
   projectId: string
-): JiraMigrationSummary | undefined =>
+) =>
   imports
     .toSorted(newestFirst)
     .find(
@@ -48,7 +46,7 @@ export const unfinishedImportOf = (
 
 export const jiraProgressRatio = (
   progress: JiraMigrationSummary["progress"]
-): number | null =>
+) =>
   progress.total === null || progress.total <= 0
     ? null
     : Math.min(1, Math.max(0, progress.done / progress.total))

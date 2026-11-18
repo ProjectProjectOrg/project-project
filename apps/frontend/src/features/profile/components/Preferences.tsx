@@ -17,7 +17,7 @@ import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { THEME_ITEMS, useTheme } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
 
-function editorHint(preference: EditorPreference): string {
+function editorHint(preference: EditorPreference) {
   switch (preference) {
     case "github_dev":
       return m.profile_editor_hint_github_dev()

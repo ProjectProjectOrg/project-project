@@ -37,7 +37,7 @@ export type JiraImportScreenInput = Readonly<{
   landing: JiraImportStep
 }>
 
-const configurationScreen = (step: JiraImportStep): JiraImportScreen =>
+const configurationScreen = (step: JiraImportStep) =>
   step === "scan" ? "scan-summary" : step
 
 export function jiraImportScreen({
@@ -47,7 +47,7 @@ export function jiraImportScreen({
   step,
   reconfigure,
   landing
-}: JiraImportScreenInput): JiraImportScreen {
+}: JiraImportScreenInput) {
   switch (status) {
     case "scanning":
       return "scan-progress"
@@ -68,10 +68,7 @@ export function jiraImportScreen({
   }
 }
 
-export const jiraImportStage = (
-  screen: JiraImportScreen,
-  hasScan: boolean
-): JiraImportStage => {
+export const jiraImportStage = (screen: JiraImportScreen, hasScan: boolean) => {
   switch (screen) {
     case "scan-progress":
     case "scan-summary":
@@ -91,19 +88,23 @@ export const jiraImportStage = (
 export const jiraLandingStep = (
   hasConfiguration: boolean,
   setupNeedsAttention: boolean
-): JiraImportStep =>
-  !hasConfiguration ? "scan" : setupNeedsAttention ? "setup" : "review"
+) =>
+  (!hasConfiguration
+    ? "scan"
+    : setupNeedsAttention
+      ? "setup"
+      : "review") satisfies JiraImportStep
 
-export const isConfiguringJiraImport = (status: JiraMigrationStatus): boolean =>
+export const isConfiguringJiraImport = (status: JiraMigrationStatus) =>
   status === "needs_configuration" || status === "ready"
 
-export const isActiveJiraImport = (status: JiraMigrationStatus): boolean =>
+export const isActiveJiraImport = (status: JiraMigrationStatus) =>
   status === "scanning" || status === "migrating" || status === "cancelling"
 
-export const isFinishedJiraImport = (status: JiraMigrationStatus): boolean =>
+export const isFinishedJiraImport = (status: JiraMigrationStatus) =>
   status === "succeeded" || status === "cancelled"
 
-export const jiraImportStageIndex = (stage: JiraImportStage): number =>
+export const jiraImportStageIndex = (stage: JiraImportStage) =>
   jiraImportStages.indexOf(stage)
 
 const stageLabels: Readonly<Record<JiraImportStage, () => string>> = {
@@ -114,7 +115,7 @@ const stageLabels: Readonly<Record<JiraImportStage, () => string>> = {
   import: m.jira_import_stage_import
 }
 
-export const jiraImportStageLabel = (stage: JiraImportStage): string =>
+export const jiraImportStageLabel = (stage: JiraImportStage) =>
   stageLabels[stage]()
 
 const statusLabels: Readonly<Record<JiraMigrationStatus, () => string>> = {
@@ -129,5 +130,5 @@ const statusLabels: Readonly<Record<JiraMigrationStatus, () => string>> = {
   succeeded: m.jira_import_status_done
 }
 
-export const jiraImportStatusLabel = (status: JiraMigrationStatus): string =>
+export const jiraImportStatusLabel = (status: JiraMigrationStatus) =>
   statusLabels[status]()

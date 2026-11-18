@@ -107,10 +107,7 @@ const flagName = (flag: HelpDoc.FlagDoc, terminal: Terminal) => {
   return `${names} ${muted(`<${type}>`, terminal)}`
 }
 
-const flagRows = (
-  flags: ReadonlyArray<HelpDoc.FlagDoc>,
-  terminal: Terminal
-): ReadonlyArray<Row> =>
+const flagRows = (flags: ReadonlyArray<HelpDoc.FlagDoc>, terminal: Terminal) =>
   flags.map((flag) => ({
     left: flagName(flag, terminal),
     right: Option.getOrElse(flag.description, () => "")
@@ -221,7 +218,7 @@ export const helpFormatter = (
   terminal: Terminal,
   columns: number,
   shared: ReadonlyArray<string>
-): CliOutput.Formatter => {
+) => {
   const fallback = CliOutput.defaultFormatter({ colors: terminal.color })
   return {
     formatHelpDoc: (doc) => renderHelp(doc, terminal, columns, shared),
@@ -229,5 +226,5 @@ export const helpFormatter = (
     formatError: fallback.formatError,
     formatErrors: fallback.formatErrors,
     formatVersion: fallback.formatVersion
-  }
+  } satisfies CliOutput.Formatter
 }

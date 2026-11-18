@@ -123,20 +123,20 @@ const encodeManifest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
 type InstallSession = typeof githubAppInstallSession.$inferSelect
 
-const githubAuthorizeUrl = (clientId: string, state: string): string => {
+const githubAuthorizeUrl = (clientId: string, state: string) => {
   const url = new URL("https://github.com/login/oauth/authorize")
   url.searchParams.set("client_id", clientId)
   url.searchParams.set("state", state)
   return url.toString()
 }
 
-const githubInstallUrl = (slug: string, state: string): string => {
+const githubInstallUrl = (slug: string, state: string) => {
   const url = new URL(`https://github.com/apps/${slug}/installations/new`)
   url.searchParams.set("state", state)
   return url.toString()
 }
 
-const isLocalUrl = (raw: string): boolean => {
+const isLocalUrl = (raw: string) => {
   const { hostname } = new URL(raw)
   return hostname === "localhost" || hostname === "127.0.0.1"
 }
@@ -219,7 +219,7 @@ const make = Effect.gen(function* () {
 
   const statusOf = Effect.fn("GitHubIntegrations.statusOf")(function* (
     organizationId: string
-  ): Effect.fn.Return<GithubOrgIntegrationStatus> {
+  ) {
     const [appRows, rows, allowed] = yield* Effect.all(
       [
         apps.list(organizationId),
@@ -262,7 +262,7 @@ const make = Effect.gen(function* () {
         lastCheckedAt: row.lastCheckedAt,
         lastCheckError: row.lastCheckError
       }))
-    }
+    } satisfies GithubOrgIntegrationStatus
   })
 
   const getStatus = Effect.fn("GitHubIntegrations.getStatus")(function* () {
@@ -274,7 +274,7 @@ const make = Effect.gen(function* () {
     function* (
       appId: string | null,
       returnProjectSlug: Slug | null | undefined
-    ): Effect.fn.Return<string, NotFound, OrgScope> {
+    ) {
       const org = yield* OrgScope
       const returnProject =
         returnProjectSlug == null
@@ -322,9 +322,7 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const sessionForState = (
-    state: string
-  ): Effect.Effect<InstallSession, NotFound> =>
+  const sessionForState = (state: string) =>
     Effect.gen(function* () {
       const now = yield* DateTime.nowAsDate
       const session = yield* db.query.githubAppInstallSession
@@ -393,13 +391,7 @@ const make = Effect.gen(function* () {
   })
 
   const completeSetup = Effect.fn("GitHubIntegrations.completeSetup")(
-    function* (
-      state: string,
-      installationId: string
-    ): Effect.fn.Return<
-      Readonly<{ authorizeUrl: string }>,
-      NotFound | GitHubError
-    > {
+    function* (state: string, installationId: string) {
       const session = yield* sessionForState(state)
       const app = yield* sessionApp(session)
       const now = yield* DateTime.nowAsDate
@@ -464,10 +456,7 @@ const make = Effect.gen(function* () {
     session: InstallSession,
     appId: string,
     account: GitHubInstallationAccount
-  ): Effect.Effect<
-    Readonly<{ redirectUrl: string }>,
-    NotFound | Forbidden | GitHubError
-  > =>
+  ) =>
     Effect.gen(function* () {
       yield* sql
         .withTransaction(
@@ -582,13 +571,7 @@ const make = Effect.gen(function* () {
     })
 
   const completeCallback = Effect.fn("GitHubIntegrations.completeCallback")(
-    function* (
-      state: string,
-      code: string
-    ): Effect.fn.Return<
-      Readonly<{ redirectUrl: string }>,
-      NotFound | Forbidden | RateLimited | GitHubError
-    > {
+    function* (state: string, code: string) {
       const session = yield* sessionForState(state)
       const app = yield* sessionApp(session)
       const userToken = yield* github.exchangeAppUserCode(app.id, code)
@@ -666,9 +649,7 @@ const make = Effect.gen(function* () {
 
   const installationChoices = Effect.fn(
     "GitHubIntegrations.installationChoices"
-  )(function* (
-    state: string
-  ): Effect.fn.Return<GithubInstallationChoices, NotFound, OrgScope> {
+  )(function* (state: string) {
     const { session, candidates } = yield* choiceSession(state)
     const elsewhere = yield* installationsConnectedElsewhere(
       session.organizationId,
@@ -685,14 +666,7 @@ const make = Effect.gen(function* () {
   })
 
   const chooseInstallation = Effect.fn("GitHubIntegrations.chooseInstallation")(
-    function* (
-      state: string,
-      installationId: string | null
-    ): Effect.fn.Return<
-      Readonly<{ redirectUrl: string }>,
-      NotFound | Forbidden | Conflict | GitHubError,
-      OrgScope
-    > {
+    function* (state: string, installationId: string | null) {
       const { session, app, candidates } = yield* choiceSession(state)
       if (installationId === null) {
         return { redirectUrl: githubInstallUrl(app.slug, state) }

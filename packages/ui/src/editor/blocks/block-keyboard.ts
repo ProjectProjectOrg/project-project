@@ -40,9 +40,7 @@ const MOVE_KEYS: ReadonlyArray<readonly [string, BlockDirection]> = [
   ["ArrowDown", "down"]
 ]
 
-export const moveShortcutDirection = (
-  event: KeyboardEvent
-): BlockDirection | null =>
+export const moveShortcutDirection = (event: KeyboardEvent) =>
   MOVE_KEYS.find(([key]) =>
     isExactShortcutMatch(event, key, {
       ...PRIMARY,
@@ -51,7 +49,7 @@ export const moveShortcutDirection = (
     })
   )?.[1] ?? null
 
-export const isOpenMenuShortcut = (event: KeyboardEvent): boolean =>
+export const isOpenMenuShortcut = (event: KeyboardEvent) =>
   isExactShortcutMatch(event, ".", {
     ...PRIMARY,
     shiftKey: false,
@@ -63,7 +61,7 @@ export const OPEN_MENU_SHORTCUT = IS_APPLE ? "⌘." : "Ctrl+."
 export function registerBlockKeyboard(
   editor: LexicalEditor,
   handlers: BlockKeyboardHandlers
-): () => void {
+) {
   const move = (node: TopLevelBlockNode, direction: BlockDirection) =>
     handlers.onMoved(node, $moveBlock(node, direction), direction)
 

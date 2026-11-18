@@ -17,19 +17,23 @@ export const projectMemberOf = (scope: OrgScope["Service"]) =>
 export const projectScopeOf = (
   scope: OrgScope["Service"],
   row: Readonly<{ projectId: string; slug: string; role: string | null }>
-): Effect.Effect<Option.Option<ProjectScope["Service"]>> =>
+) =>
   decodeRole(row.role).pipe(
     Effect.orDie,
     Effect.map((role) =>
-      Option.map(Effective.roleOnProject(scope.role, role), (permissions) => ({
-        userId: scope.userId,
-        organizationId: scope.organizationId,
-        orgSlug: scope.orgSlug,
-        orgRole: scope.role,
-        projectId: row.projectId,
-        slug: row.slug,
-        role,
-        permissions
-      }))
+      Option.map(
+        Effective.roleOnProject(scope.role, role),
+        (permissions) =>
+          ({
+            userId: scope.userId,
+            organizationId: scope.organizationId,
+            orgSlug: scope.orgSlug,
+            orgRole: scope.role,
+            projectId: row.projectId,
+            slug: row.slug,
+            role,
+            permissions
+          }) satisfies ProjectScope["Service"]
+      )
     )
   )

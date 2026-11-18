@@ -58,18 +58,15 @@ const context: CommandContext = {
   canManageProject: true
 }
 
-const command = (
-  id: string,
-  group: Command["group"],
-  when?: Command["when"]
-): Command => ({
-  id,
-  group,
-  label: () => id,
-  icon: Settings,
-  when,
-  page: "theme"
-})
+const command = (id: string, group: Command["group"], when?: Command["when"]) =>
+  ({
+    id,
+    group,
+    label: () => id,
+    icon: Settings,
+    when,
+    page: "theme"
+  }) satisfies Command
 
 describe("visibleCommands", () => {
   it("orders commands by group and drops those that don't apply", () => {

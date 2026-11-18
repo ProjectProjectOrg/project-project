@@ -53,7 +53,7 @@ export type TicketStatus = typeof TicketStatus.Type
 export function isCarryover(
   status: TicketStatus,
   finished: ReadonlySet<string>
-): boolean {
+) {
   return !finished.has(status)
 }
 

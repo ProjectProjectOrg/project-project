@@ -5,14 +5,14 @@ import { compareCodePoints } from "@/lib/orderKey"
 
 type Ranked = Readonly<{ id: string; rank: TicketRank }>
 
-export const compareByRank = (a: Ranked, b: Ranked): number =>
+export const compareByRank = (a: Ranked, b: Ranked) =>
   compareCodePoints(a.rank, b.rank) || compareCodePoints(a.id, b.id)
 
 export const predictRanks = (
   ranked: ReadonlyArray<Ranked>,
   movingIds: ReadonlyArray<string>,
   position: TicketPosition
-): ReadonlyArray<TicketRank> | null => {
+) => {
   const others = ranked.filter((ticket) => !movingIds.includes(ticket.id))
   const anchorId = "after" in position ? position.after : position.before
   const index = others.findIndex((ticket) => ticket.id === anchorId)
@@ -34,4 +34,4 @@ export const predictRank = (
   ranked: ReadonlyArray<Ranked>,
   movingId: string,
   position: TicketPosition
-): TicketRank | null => predictRanks(ranked, [movingId], position)?.[0] ?? null
+) => predictRanks(ranked, [movingId], position)?.[0] ?? null

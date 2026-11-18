@@ -14,10 +14,11 @@ export const ticketSubscribersRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): TicketSubscribersRequest => ({
-  _view: "ticketSubscribers",
-  params: { orgSlug, slug, id }
-})
+) =>
+  ({
+    _view: "ticketSubscribers",
+    params: { orgSlug, slug, id }
+  }) satisfies TicketSubscribersRequest
 
 const subscribersQuery = (req: TicketSubscribersRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)

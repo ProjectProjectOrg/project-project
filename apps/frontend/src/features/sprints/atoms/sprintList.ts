@@ -32,10 +32,11 @@ export type SprintListRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const sprintListRequest = (
-  orgSlug: string,
-  slug: string
-): SprintListRequest => ({ _view: "sprintList", params: { orgSlug, slug } })
+export const sprintListRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "sprintList",
+    params: { orgSlug, slug }
+  }) satisfies SprintListRequest
 
 const scopeOf = (req: SprintListRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -71,10 +72,10 @@ const makeGroupId = Schema.decodeUnknownSync(GroupId)
 const makeGroupColor = Schema.decodeUnknownSync(GroupColor)
 
 let syntheticSprintCounter = 0
-const nextSyntheticSprintId = (): GroupId =>
+const nextSyntheticSprintId = () =>
   makeGroupId(`G-${++syntheticSprintCounter + 9_999_000}`)
 
-const buildSyntheticSprint = (input: CreateGroupInput): Group => {
+const buildSyntheticSprint = (input: CreateGroupInput) => {
   const now = DateTime.toDate(DateTime.nowUnsafe())
   return {
     id: nextSyntheticSprintId(),
@@ -88,14 +89,14 @@ const buildSyntheticSprint = (input: CreateGroupInput): Group => {
     createdBy: "",
     createdAt: now,
     updatedAt: now
-  }
+  } satisfies Group
 }
 
 const confirmCreatedSprint = (
   sprints: ReadonlyArray<Group>,
   input: CreateGroupInput,
   created: Group
-): Array<Group> => {
+) => {
   let replaced = false
   const next: Array<Group> = []
   for (const sprint of sprints) {
@@ -186,7 +187,7 @@ const applyCompleteSprintResult = (
   groupId: GroupId,
   destination: CompleteSprintDestination,
   result: CompleteSprintOutput
-): Array<Group> => {
+) => {
   const carried = new Set(result.carried)
   return sprints.map((sprint) => {
     if (sprint.id === groupId) return result.target
@@ -246,7 +247,7 @@ const confirmAddedTickets = (
   groupId: GroupId,
   ticketIds: ReadonlyArray<TicketId>,
   result: UpdateGroupTicketsOutput
-): Array<Group> => {
+) => {
   const evicted = new Map(
     result.evicted.map((entry) => [entry.groupId, new Set(entry.ticketIds)])
   )
@@ -274,7 +275,7 @@ const confirmRemovedTicket = (
   groupId: GroupId,
   ticketId: TicketId,
   result: UpdateGroupTicketsOutput
-): Array<Group> =>
+) =>
   sprints.map((sprint) =>
     sprint.id === groupId
       ? {
@@ -288,17 +289,18 @@ const membershipKeys = (
   scope: string,
   groupId: GroupId,
   result: UpdateGroupTicketsOutput
-): ReadonlyArray<ReactivityKey> => [
-  Keys.sprintMembership(scope),
-  Keys.sprintMembership(scope, groupId),
-  Keys.sprint(scope, groupId),
-  ...result.evicted.map((evicted) =>
-    Keys.sprintMembership(scope, evicted.groupId)
-  ),
-  ...result.evicted.map((evicted) => Keys.sprint(scope, evicted.groupId)),
-  Keys.ticketsIn(scope),
-  Keys.ticketLists(scope)
-]
+) =>
+  [
+    Keys.sprintMembership(scope),
+    Keys.sprintMembership(scope, groupId),
+    Keys.sprint(scope, groupId),
+    ...result.evicted.map((evicted) =>
+      Keys.sprintMembership(scope, evicted.groupId)
+    ),
+    ...result.evicted.map((evicted) => Keys.sprint(scope, evicted.groupId)),
+    Keys.ticketsIn(scope),
+    Keys.ticketLists(scope)
+  ] satisfies ReadonlyArray<ReactivityKey>
 
 export const addTicketsToSprint = Atom.family(
   ({ req, ticketId }: SprintTicketKey) =>
@@ -409,7 +411,7 @@ export const assignTicketToSprint = (
   req: SprintListRequest,
   ticketId: TicketId,
   groupId: GroupId
-): void => {
+) => {
   void fireMutation(registry, addTicketsToSprint({ req, ticketId }), {
     groupId
   })
@@ -440,13 +442,14 @@ export const removeTicketsFromSprint = Atom.family(
 export const sprintAssignmentKeys = (
   scope: string,
   groupId: GroupId | undefined
-): ReadonlyArray<ReactivityKey> => [
-  Keys.sprints(scope),
-  Keys.sprintMembership(scope),
-  ...(groupId === undefined
-    ? []
-    : [Keys.sprintMembership(scope, groupId), Keys.sprint(scope, groupId)])
-]
+) =>
+  [
+    Keys.sprints(scope),
+    Keys.sprintMembership(scope),
+    ...(groupId === undefined
+      ? []
+      : [Keys.sprintMembership(scope, groupId), Keys.sprint(scope, groupId)])
+  ] satisfies ReadonlyArray<ReactivityKey>
 
 export const createInSprint = Effect.fnUntraced(function* (
   params: SprintListRequest["params"],
@@ -495,7 +498,7 @@ export const removeTicketFromSprint = (
   req: SprintListRequest,
   ticketId: TicketId,
   groupId: GroupId
-): void => {
+) => {
   void fireMutation(registry, removeTicketsFromSprint({ req, ticketId }), {
     groupId
   })

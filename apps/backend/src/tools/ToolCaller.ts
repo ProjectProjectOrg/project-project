@@ -21,9 +21,7 @@ const actorOf = (caller: Caller) =>
     onSome: (client) => ActivityActor.agent(caller.user.id, client)
   })
 
-export const withToolCaller = <A, E, R>(
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, Exclude<Exclude<R, CurrentUser>, ActivityActor>> =>
+export const withToolCaller = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.flatMap(
     ToolCaller,
     Option.match({

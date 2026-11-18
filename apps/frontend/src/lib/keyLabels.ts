@@ -3,4 +3,4 @@ import { keyLabelsFrom } from "@pp/ui/lib/keyLabels"
 
 import { m } from "@/paraglide/messages"
 
-export const keyLabels = (): KeyLabels => keyLabelsFrom(m)
+export const keyLabels = () => keyLabelsFrom(m) satisfies KeyLabels

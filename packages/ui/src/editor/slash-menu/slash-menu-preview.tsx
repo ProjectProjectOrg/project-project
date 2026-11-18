@@ -27,7 +27,7 @@ export const BASIC_LITERALS: Readonly<Record<BasicBlockKind, string>> = {
   hint: "{{ }}"
 }
 
-const basicSample = (kind: BasicBlockKind, label: string): string => {
+const basicSample = (kind: BasicBlockKind, label: string) => {
   switch (kind) {
     case "paragraph":
       return label
@@ -57,7 +57,7 @@ const basicSample = (kind: BasicBlockKind, label: string): string => {
   }
 }
 
-const previewMarkdown = (item: SlashItem, label: string): string | null => {
+const previewMarkdown = (item: SlashItem, label: string) => {
   switch (item.kind) {
     case "block":
       return hintsAsEmphasis(item.definition.content)
@@ -68,7 +68,7 @@ const previewMarkdown = (item: SlashItem, label: string): string | null => {
   }
 }
 
-const previewDescription = (item: SlashItem): string | null => {
+const previewDescription = (item: SlashItem) => {
   if (item.kind === "block") return item.definition.description || null
   if (item.kind === "gallery") return m.editor_slash_preview_gallery()
   return null

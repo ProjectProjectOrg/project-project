@@ -15,18 +15,17 @@ export const everhourSpans = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       }
     })
     yield* effect.pipe(Effect.withTracer(tracer))
-    return spans.flatMap(
-      (span): ReadonlyArray<TracedSpan> =>
-        span.name.startsWith("Everhour")
-          ? [
-              {
-                name: span.name,
-                parent: Option.match(span.parent, {
-                  onNone: () => null,
-                  onSome: (parent) => ("name" in parent ? parent.name : null)
-                })
-              }
-            ]
-          : []
+    return spans.flatMap((span) =>
+      span.name.startsWith("Everhour")
+        ? [
+            {
+              name: span.name,
+              parent: Option.match(span.parent, {
+                onNone: () => null,
+                onSome: (parent) => ("name" in parent ? parent.name : null)
+              })
+            }
+          ]
+        : []
     )
   })

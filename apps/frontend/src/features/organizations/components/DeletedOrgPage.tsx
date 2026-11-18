@@ -19,7 +19,7 @@ import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-const formatDate = (date: Date): string =>
+const formatDate = (date: Date) =>
   new Intl.DateTimeFormat(getLocale(), { dateStyle: "long" }).format(date)
 
 export function DeletedOrgPage({ orgSlug }: { orgSlug: string }) {

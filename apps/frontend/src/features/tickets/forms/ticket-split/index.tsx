@@ -39,8 +39,12 @@ import {
   toSplitTicketInput
 } from "./opts"
 
-const railShapeFor = (index: number, total: number): RailShape =>
-  index === 0 ? "node" : index === total - 1 ? "stem-end" : "stem"
+const railShapeFor = (index: number, total: number) =>
+  (index === 0
+    ? "node"
+    : index === total - 1
+      ? "stem-end"
+      : "stem") satisfies RailShape
 
 const PENDING_NUMBER = "X"
 

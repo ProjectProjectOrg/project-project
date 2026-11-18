@@ -42,7 +42,7 @@ export function useCreatorType({
   slug: string
   epics: boolean
   initial?: TypeKey
-}>): CreatorType {
+}>) {
   const libraryAtom = projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   const result = useAtomValue(libraryAtom)
   const refreshLibrary = useAtomRefresh(libraryAtom)
@@ -79,6 +79,6 @@ export function useCreatorType({
       payload: { type },
       prediction: typePrediction(library, type),
       settle
-    }
+    } satisfies CreatorType
   }, [library, epics, lastUsed, type, reset, settle])
 }

@@ -35,16 +35,20 @@ export const initialBannerImageState: BannerImageState<never> = {
 export const bannerImageReducer = <I>(
   state: BannerImageState<I>,
   event: BannerImageEvent<I>
-): BannerImageState<I> => {
+) => {
   switch (event.type) {
     case "lookupSkipped":
-      return { ...state, lookup: "miss" }
+      return { ...state, lookup: "miss" } satisfies BannerImageState<I>
     case "lookupStarted":
-      return { ...state, lookup: "pending" }
+      return { ...state, lookup: "pending" } satisfies BannerImageState<I>
     case "lookupHit":
-      return { ...state, lookup: "hit", cachedRender: event.url }
+      return {
+        ...state,
+        lookup: "hit",
+        cachedRender: event.url
+      } satisfies BannerImageState<I>
     case "lookupMissed":
-      return { ...state, lookup: "miss" }
+      return { ...state, lookup: "miss" } satisfies BannerImageState<I>
     case "imageLoaded":
       return { ...state, naturalSize: event.size }
     case "imageDecoded":
@@ -65,4 +69,4 @@ export const bannerImageReducer = <I>(
 export const shouldLoadBannerImage = (
   state: BannerImageState<unknown>,
   editing: boolean
-): boolean => state.lookup === "miss" || editing
+) => state.lookup === "miss" || editing

@@ -5,13 +5,13 @@ export type RankableMember = Readonly<{
   username?: string | null
 }>
 
-const normalize = (value: string): string =>
+const normalize = (value: string) =>
   value.trim().toLowerCase().replace(/\s+/g, " ")
 
-const startsAnyWord = (value: string, needle: string): boolean =>
+const startsAnyWord = (value: string, needle: string) =>
   value.split(/[\s._-]+/).some((word) => word.startsWith(needle))
 
-const scoreOf = (member: RankableMember, needle: string): number | null => {
+const scoreOf = (member: RankableMember, needle: string) => {
   if (needle === "") return 0
   const name = normalize(member.name)
   const username = normalize(member.username ?? "")
@@ -33,7 +33,7 @@ export const rankMembers = <M extends RankableMember>(
   members: ReadonlyArray<M>,
   query: string,
   involved: ReadonlyArray<string> = []
-): ReadonlyArray<M> => {
+) => {
   const needle = normalize(query)
   const involvedSet = new Set(involved)
   return members

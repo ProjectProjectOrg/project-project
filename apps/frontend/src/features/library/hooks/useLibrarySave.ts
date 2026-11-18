@@ -27,7 +27,7 @@ export const runLibraryMutation = <A, E extends Readonly<{ _tag: string }>, I>(
   registry: Registry.AtomRegistry,
   atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, I>,
   input: I
-): Promise<string | null> =>
+) =>
   fireMutation(registry, atom, input).then((result) =>
     mutationErrorText(result)
   )
@@ -40,7 +40,7 @@ export type LibrarySave = Readonly<{
   run: (task: Task) => Promise<void>
 }>
 
-export function useLibrarySave(): LibrarySave {
+export function useLibrarySave() {
   const registry = useContext(RegistryContext)
   const chainRef = useRef<Promise<void>>(Promise.resolve())
   const pendingRef = useRef(0)
@@ -67,15 +67,29 @@ export function useLibrarySave(): LibrarySave {
     [registry]
   )
 
-  return { status, error, run }
+  return { status, error, run } satisfies LibrarySave
 }
 
-export const saveTypeTask =
-  (scope: LibraryScope, key: TypeKey, patch: UpdateTypeInput): Task =>
-  (registry) =>
-    runLibraryMutation(registry, updateTypeAtom(scope, key), patch)
+export const saveTypeTask = (
+  scope: LibraryScope,
+  key: TypeKey,
+  patch: UpdateTypeInput
+) =>
+  ((registry) =>
+    runLibraryMutation(
+      registry,
+      updateTypeAtom(scope, key),
+      patch
+    )) satisfies Task
 
-export const saveBlockTask =
-  (scope: LibraryScope, key: BlockKey, patch: UpdateBlockInput): Task =>
-  (registry) =>
-    runLibraryMutation(registry, updateBlockAtom(scope, key), patch)
+export const saveBlockTask = (
+  scope: LibraryScope,
+  key: BlockKey,
+  patch: UpdateBlockInput
+) =>
+  ((registry) =>
+    runLibraryMutation(
+      registry,
+      updateBlockAtom(scope, key),
+      patch
+    )) satisfies Task

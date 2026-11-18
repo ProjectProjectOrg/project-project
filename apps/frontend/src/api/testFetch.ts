@@ -9,7 +9,7 @@ const unsetHandler: FetchHandler = () =>
   Promise.reject(new Error("no fetch handler set for this test"))
 
 // FetchHttpClient.Fetch memoises globalThis.fetch on first read, so one stub dispatches to a swappable handler.
-export const stubFetch = (): { set: (handler: FetchHandler) => void } => {
+export const stubFetch = () => {
   let handler: FetchHandler = unsetHandler
   beforeAll(() => {
     if (typeof location === "undefined") {
@@ -23,7 +23,7 @@ export const stubFetch = (): { set: (handler: FetchHandler) => void } => {
     handler = unsetHandler
   })
   return {
-    set: (next) => {
+    set: (next: FetchHandler) => {
       handler = next
     }
   }

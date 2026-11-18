@@ -14,18 +14,17 @@ const systemPermissions = Effective.roleOnProject("owner", null).pipe(
   Option.getOrElse(() => Project.projectStatement.role({}))
 )
 
-const systemScope = (
-  project: GitSyncSchedule.DueProject
-): ProjectScope["Service"] => ({
-  userId: "system",
-  organizationId: project.organizationId,
-  orgSlug: project.orgSlug,
-  orgRole: "owner",
-  projectId: project.projectId,
-  slug: project.slug,
-  role: null,
-  permissions: systemPermissions
-})
+const systemScope = (project: GitSyncSchedule.DueProject) =>
+  ({
+    userId: "system",
+    organizationId: project.organizationId,
+    orgSlug: project.orgSlug,
+    orgRole: "owner",
+    projectId: project.projectId,
+    slug: project.slug,
+    role: null,
+    permissions: systemPermissions
+  }) satisfies ProjectScope["Service"]
 
 export const sweep = Effect.gen(function* () {
   const schedule = yield* GitSyncSchedule.GitSyncSchedule

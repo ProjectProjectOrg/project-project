@@ -17,7 +17,7 @@ const subscribe = (onChange: () => void) => {
   return () => observer.disconnect()
 }
 
-const current = (): Theme =>
+const current = () =>
   document.documentElement.classList.contains("dark") ? "dark" : "light"
 
 /** The theme on screen, light or dark. */
@@ -25,7 +25,7 @@ export const useTheme = () => useSyncExternalStore(subscribe, current)
 
 const listeners = new Set<() => void>()
 
-function stored(): ThemePreference {
+function stored() {
   try {
     const value = localStorage.getItem(STORAGE_KEY)
     return value === "light" || value === "dark" ? value : "system"
@@ -47,7 +47,7 @@ export const useThemePreference = () =>
 
 const prefersDark = () => matchMedia("(prefers-color-scheme: dark)").matches
 
-const resolve = (next: ThemePreference): Theme =>
+const resolve = (next: ThemePreference) =>
   next === "system" ? (prefersDark() ? "dark" : "light") : next
 
 const apply = (theme: Theme) =>

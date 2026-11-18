@@ -26,7 +26,7 @@ export function readViewPreference(
   orgSlug: string,
   slug: string,
   scope: ViewScope
-): ViewPreference {
+) {
   return readLocalStorage(
     viewPreferenceKey(orgSlug, slug, scope),
     viewPreferenceCodec,
@@ -38,7 +38,7 @@ export function useViewPreference(
   orgSlug: string,
   slug: string,
   scope: ViewScope
-): readonly [ViewPreference, (next: ViewPreference) => void] {
+) {
   return useLocalStorageState(
     viewPreferenceKey(orgSlug, slug, scope),
     viewPreferenceCodec,
@@ -53,10 +53,7 @@ export function useProjectView(
   slug: string,
   searchView: string | undefined,
   scope: ViewScope
-): Readonly<{
-  view: ProjectView
-  setPreference: (next: ViewPreference) => void
-}> {
+) {
   const [preference, setPreference] = useViewPreference(orgSlug, slug, scope)
   const fromSearch: ViewPreference | undefined =
     searchView === "list" || searchView === "board" ? searchView : undefined
@@ -73,5 +70,8 @@ export function useProjectView(
   return {
     view: searchView === "description" ? "description" : preference,
     setPreference
-  }
+  } satisfies Readonly<{
+    view: ProjectView
+    setPreference: (next: ViewPreference) => void
+  }>
 }

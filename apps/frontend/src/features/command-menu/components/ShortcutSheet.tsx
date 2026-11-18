@@ -12,20 +12,19 @@ import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 export function ShortcutSheetPage({ chip, onBack, env }: CommandPageProps) {
   const groups = shortcutGroups(useAppHotkeyList())
   const items = groups.flatMap(({ group, items: entries }) =>
-    entries.flatMap(
-      ({ appHotkey, status }): Array<CommandFrameItem> =>
-        appHotkey.hotkey === null
-          ? []
-          : [
-              {
-                value: appHotkey.id,
-                label: appHotkey.meta?.name ?? appHotkey.id,
-                group,
-                icon: CommandKeyIcon,
-                shortcut: appHotkey.hotkey,
-                disabled: status === "inactive"
-              }
-            ]
+    entries.flatMap<CommandFrameItem>(({ appHotkey, status }) =>
+      appHotkey.hotkey === null
+        ? []
+        : [
+            {
+              value: appHotkey.id,
+              label: appHotkey.meta?.name ?? appHotkey.id,
+              group,
+              icon: CommandKeyIcon,
+              shortcut: appHotkey.hotkey,
+              disabled: status === "inactive"
+            }
+          ]
     )
   )
   return (

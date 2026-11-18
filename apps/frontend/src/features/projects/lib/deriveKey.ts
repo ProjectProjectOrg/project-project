@@ -1,4 +1,4 @@
-export function deriveKey(name: string): string {
+export function deriveKey(name: string) {
   const cleaned = name
     .toUpperCase()
     .replace(/[^A-Z0-9 ]/g, " ")
@@ -16,7 +16,7 @@ export function deriveKey(name: string): string {
   return candidate.replace(/^[0-9]+/, "").slice(0, 10)
 }
 
-export const sanitizeKey = (value: string): string =>
+export const sanitizeKey = (value: string) =>
   value
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")

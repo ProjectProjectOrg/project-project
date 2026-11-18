@@ -185,11 +185,12 @@ export type GeneratedRoute = Readonly<
     }
 >
 
-const json = (body: Schema.Json, status = 200): GeneratedRoute => ({
-  kind: "json",
-  status,
-  body
-})
+const json = (body: Schema.Json, status = 200) =>
+  ({
+    kind: "json",
+    status,
+    body
+  }) satisfies GeneratedRoute
 
 const notFound = json(
   { errorMessages: ["Issue does not exist or you do not have permission."] },
@@ -272,7 +273,7 @@ export const buildGeneratedSite = (
       : index === 7
         ? "Automation for Jira"
         : `Person ${index}`
-  const user = (index: number): JsonObject => {
+  const user = (index: number) => {
     const accountId = `gen-user-${index}`
     const displayName = displayNameOf(index)
     return {
@@ -296,7 +297,7 @@ export const buildGeneratedSite = (
 
   const statusCount = Math.max(3, scale.statuses)
   const statusName = (index: number) => statusNames[index] ?? `Stage ${index}`
-  const status = (index: number): JsonObject => ({
+  const status = (index: number) => ({
     id: `gen-status-${index}`,
     name: statusName(index),
     description: `Generated status ${index}`,
@@ -337,13 +338,13 @@ export const buildGeneratedSite = (
   }
 
   const label = (index: number) => collidingLabels[index] ?? `label-${index}`
-  const component = (index: number): JsonObject => ({
+  const component = (index: number) => ({
     id: `gen-component-${index}`,
     name: `Component ${index}`,
     description: index % 2 === 0 ? `Owns area ${index}` : null,
     ...(index % 3 === 0 ? { lead: user(index % Math.max(1, scale.users)) } : {})
   })
-  const version = (index: number): JsonObject => ({
+  const version = (index: number) => ({
     id: `gen-version-${index}`,
     name: `v${index + 1}.0`,
     description: index % 2 === 0 ? `Release ${index + 1}` : null,
@@ -363,7 +364,7 @@ export const buildGeneratedSite = (
     { board: TEAM_BOARD, id: 2011, name: "Team Sprint 1", state: "active" },
     { board: TEAM_BOARD, id: 2012, name: "Team Sprint 2", state: "future" }
   ]
-  const sprintBody = (sprint: (typeof sprints)[number]): JsonObject => ({
+  const sprintBody = (sprint: (typeof sprints)[number]) => ({
     id: sprint.id,
     name: sprint.name,
     state: sprint.state,
@@ -403,19 +404,19 @@ export const buildGeneratedSite = (
     return members
   }
 
-  const text = (value: string): JsonObject => ({ type: "text", text: value })
-  const paragraph = (...content: ReadonlyArray<Schema.Json>): JsonObject => ({
+  const text = (value: string) => ({ type: "text", text: value })
+  const paragraph = (...content: ReadonlyArray<Schema.Json>) => ({
     type: "paragraph",
     content
   })
-  const simpleAdf = (value: string): JsonObject => ({
+  const simpleAdf = (value: string) => ({
     version: 1,
     type: "doc",
     content: [paragraph(text(value))]
   })
-  const richAdf = (index: number): JsonObject => {
+  const richAdf = (index: number) => {
     const mentioned = userIndexFor(`mention:${index}`)
-    return {
+    const doc: JsonObject = {
       version: 1,
       type: "doc",
       content: [
@@ -611,6 +612,7 @@ export const buildGeneratedSite = (
         }
       ]
     }
+    return doc
   }
 
   const commentCount = (index: number) =>
@@ -626,7 +628,7 @@ export const buildGeneratedSite = (
       ? Math.min(MAX_CHILDREN, 120)
       : exponential(`worklogs:${index}`, scale.worklogs)
 
-  const comment = (index: number, position: number): JsonObject => {
+  const comment = (index: number, position: number) => {
     const malformed =
       scale.faults.malformedComment &&
       index === Math.min(3, scale.issues) &&
@@ -661,7 +663,7 @@ export const buildGeneratedSite = (
         : {})
     }
   }
-  const worklog = (index: number, position: number): JsonObject => ({
+  const worklog = (index: number, position: number) => ({
     id: String(30_000_000 + index * 1000 + position),
     issueId: issueId(index),
     author: userFor(`worklog-author:${index}:${position}`),
@@ -676,7 +678,7 @@ export const buildGeneratedSite = (
       ? { visibility: { type: "group", value: "jira-admins" } }
       : {})
   })
-  const changelog = (index: number, position: number): JsonObject => {
+  const changelog = (index: number, position: number) => {
     const from = pick(`changelog-from:${index}:${position}`, statusCount)
     const to = pick(`changelog-to:${index}:${position}`, statusCount)
     return {
@@ -771,10 +773,7 @@ export const buildGeneratedSite = (
     size: number
     author: JsonObject
   }>
-  const attachmentMeta = (
-    index: number,
-    slot: number
-  ): AttachmentMeta | null => {
+  const attachmentMeta = (index: number, slot: number) => {
     const large = slot === LARGE_ATTACHMENT_SLOT
     if (
       large ? !largeAttachmentIssues.has(index) : slot >= attachmentCount(index)
@@ -800,14 +799,14 @@ export const buildGeneratedSite = (
       mimeType,
       size,
       author: userFor(`attachment-author:${index}:${slot}`)
-    }
+    } satisfies AttachmentMeta
   }
   const attachmentsOf = (index: number) =>
     Array.from({ length: ATTACHMENT_SLOTS }, (_, slot) =>
       attachmentMeta(index, slot)
     ).filter(Predicate.isNotNull)
 
-  const linksOf = (index: number): ReadonlyArray<JsonObject> => {
+  const linksOf = (index: number) => {
     const reference = (target: number) => ({
       id: issueId(target),
       key: issueKey(target),
@@ -863,7 +862,7 @@ export const buildGeneratedSite = (
     return links
   }
 
-  const issue = (index: number): JsonObject => {
+  const issue = (index: number) => {
     const type = issueType(index)
     const statusIndex = pick(`status:${index}`, statusCount)
     const parent = parentOf(index)
@@ -877,7 +876,7 @@ export const buildGeneratedSite = (
     const labelCount = pick(`label-count:${index}`, 4)
     const componentCount = pick(`component-count:${index}`, 3)
     const sprintIds = sprintIdsOf(index)
-    return {
+    const body: JsonObject = {
       id: issueId(index),
       key: issueKey(index),
       self: `${api}/issue/${issueId(index)}`,
@@ -1023,6 +1022,7 @@ export const buildGeneratedSite = (
         updated: iso(Date.UTC(2025, 6, 1) + index * 60_000)
       }
     }
+    return body
   }
 
   const offset = (
@@ -1047,7 +1047,7 @@ export const buildGeneratedSite = (
     })
   }
 
-  const projectBody = (): JsonObject => ({
+  const projectBody = () => ({
     id: GENERATED_PROJECT.id,
     key: GENERATED_PROJECT.key,
     name: GENERATED_PROJECT.name,
@@ -1059,7 +1059,7 @@ export const buildGeneratedSite = (
     avatarUrls: { "48x48": `${siteUrl}/avatar/generated.png` }
   })
 
-  const extraProject = (index: number): JsonObject => ({
+  const extraProject = (index: number) => ({
     id: String(30_000 + index),
     key: `PRJ${index}`,
     name: `Portfolio ${index}`,
@@ -1102,7 +1102,7 @@ export const buildGeneratedSite = (
     return all
   }
 
-  const attachmentRoute = (id: string): GeneratedRoute => {
+  const attachmentRoute = (id: string) => {
     const numeric = Number(id) - ATTACHMENT_BASE
     const index = Math.floor(numeric / ATTACHMENT_SLOTS)
     const meta =
@@ -1130,7 +1130,7 @@ export const buildGeneratedSite = (
             return [chunk, position + length] as const
           })
         )
-    }
+    } satisfies GeneratedRoute
   }
 
   const route = (
@@ -1138,7 +1138,7 @@ export const buildGeneratedSite = (
     url: URL,
     body: Schema.Json | undefined,
     smallProject: Readonly<{ id: string; key: string; body: JsonObject }>
-  ): GeneratedRoute | null => {
+  ) => {
     const path = url.pathname
     const startAt = Number(url.searchParams.get("startAt") ?? "0")
     const maxResults = Number(url.searchParams.get("maxResults") ?? "50")

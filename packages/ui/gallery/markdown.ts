@@ -30,7 +30,7 @@ const LIBRARY: Readonly<Record<string, string>> = {
 const META_PATTERN = /export const meta = (\{[\s\S]*?\n\});?\n/
 const DEMO_PATTERN = /^<Demo\s+([\s\S]*?)\/>/gm
 
-const listMdx = (dir: string): ReadonlyArray<string> =>
+const listMdx: (dir: string) => ReadonlyArray<string> = (dir) =>
   readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) return listMdx(full)
@@ -49,7 +49,7 @@ const sourceLine = (source: Source) => {
     : `- ${linked} (${source.note})`
 }
 
-const readMeta = (raw: string): Meta | null => {
+const readMeta = (raw: string) => {
   const metaMatch = META_PATTERN.exec(raw)
   if (metaMatch?.[1] === undefined) return null
   return runInNewContext(`(${metaMatch[1]})`) as Meta
@@ -58,7 +58,7 @@ const readMeta = (raw: string): Meta | null => {
 const slugOf = (docsRoot: string, file: string) =>
   relative(docsRoot, file).replace(/(\/page)?\.mdx$/, "")
 
-function toMarkdown(file: string, docsRoot: string): MarkdownPage | null {
+function toMarkdown(file: string, docsRoot: string) {
   const raw = readFileSync(file, "utf8")
   const meta = readMeta(raw)
   if (meta === null) return null
@@ -86,7 +86,7 @@ function toMarkdown(file: string, docsRoot: string): MarkdownPage | null {
     path: slug === "introduction" ? "/" : `/${slug}`,
     meta,
     markdown: `${[...header, body].join("\n\n")}\n`
-  }
+  } satisfies MarkdownPage
 }
 
 const markdownPathOf = (path: string) =>
@@ -102,7 +102,7 @@ function llmsIndex(pages: ReadonlyArray<MarkdownPage>) {
   return `# ProjectProject UI\n\n> The design-system primitives in @pp/ui. Every page is available as Markdown.\n\n${lines.join("\n")}\n`
 }
 
-export function markdownPages(docsRoot: string): Plugin {
+export function markdownPages(docsRoot: string) {
   const load = () =>
     listMdx(docsRoot)
       .map((file) => toMarkdown(file, docsRoot))
@@ -153,7 +153,7 @@ export function markdownPages(docsRoot: string): Plugin {
           source: page.markdown
         })
     }
-  }
+  } satisfies Plugin
 }
 
 const PAGES_ID = "virtual:gallery-pages"
@@ -161,7 +161,7 @@ const RESOLVED_PAGES_ID = `\0${PAGES_ID}`
 
 // Every page's meta, read from the .mdx source on the server, so the sidebar
 // and search list all pages without loading any of them.
-export function pageIndex(docsRoot: string): Plugin {
+export function pageIndex(docsRoot: string) {
   const source = () =>
     `export default ${JSON.stringify(
       listMdx(docsRoot).flatMap((file) => {
@@ -195,5 +195,5 @@ export function pageIndex(docsRoot: string): Plugin {
       for (const event of ["add", "change", "unlink"] as const)
         server.watcher.on(event, (file) => refresh(server, file))
     }
-  }
+  } satisfies Plugin
 }

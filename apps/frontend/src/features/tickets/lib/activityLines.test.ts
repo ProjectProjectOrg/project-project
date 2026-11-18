@@ -20,18 +20,19 @@ const at = DateTime.toDate(DateTime.makeUnsafe("2026-10-16T12:00:00Z"))
 const changeItem = (
   change: TicketActivityChangeEncoded,
   cause: ActivityCause | null = null
-): ActivityItem => ({
-  kind: "entry",
-  key: "a",
-  entry: {
-    kind: "change",
-    id: "a",
-    occurredAt: at,
-    actor: { kind: "system", source: "automation" },
-    cause,
-    change: decodeChange(change)
-  }
-})
+) =>
+  ({
+    kind: "entry",
+    key: "a",
+    entry: {
+      kind: "change",
+      id: "a",
+      occurredAt: at,
+      actor: { kind: "system", source: "automation" },
+      cause,
+      change: decodeChange(change)
+    }
+  }) satisfies ActivityItem
 
 const lines = (change: TicketActivityChangeEncoded) =>
   activityLines(changeItem(change))

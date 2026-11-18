@@ -309,20 +309,18 @@ const make = Effect.gen(function* () {
   const withRanksLock = <A, E, R>(
     project: Readonly<{ orgSlug: string; slug: string }>,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
-    withTicketRanksLock(project.orgSlug, project.slug, effect)
+  ) => withTicketRanksLock(project.orgSlug, project.slug, effect)
 
   const withRelationsLock = <A, E, R>(
     project: TicketProject,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
-    withTicketRelationsLock(project.orgSlug, project.slug, effect)
+  ) => withTicketRelationsLock(project.orgSlug, project.slug, effect)
 
   const validateRelationTargets = (
     project: TicketProject,
     ticket: TicketId | null,
     targets: ReadonlyArray<TicketId>
-  ): Effect.Effect<void, Validation> =>
+  ) =>
     targets.length === 0
       ? Effect.void
       : ticketIndex.existingIds(project, targets).pipe(
@@ -339,7 +337,7 @@ const make = Effect.gen(function* () {
       blockedBy?: ReadonlyArray<TicketId>
       relatedTo?: ReadonlyArray<TicketId>
     }>
-  ): Effect.Effect<void, Validation> =>
+  ) =>
     Effect.gen(function* () {
       yield* validateRelationTargets(project, ticket, [
         ...(input.blockedBy ?? []),
@@ -363,7 +361,7 @@ const make = Effect.gen(function* () {
   const validateTagsExist = (
     projectId: string,
     requested: ReadonlyArray<string>
-  ): Effect.Effect<void, Validation> =>
+  ) =>
     Effect.gen(function* () {
       if (requested.length === 0) return
       const rows = yield* db.query.projectTag
@@ -381,10 +379,7 @@ const make = Effect.gen(function* () {
       }
     })
 
-  const validateStatusExists = (
-    projectId: string,
-    requested: TicketStatus
-  ): Effect.Effect<void, Validation> =>
+  const validateStatusExists = (projectId: string, requested: TicketStatus) =>
     Effect.gen(function* () {
       const rows = yield* db.query.projectStatus
         .findMany({
@@ -424,7 +419,7 @@ const make = Effect.gen(function* () {
     body: string,
     project: TicketProject,
     previousBody = ""
-  ): Effect.Effect<void, NotFound | MentionInvalid, ProjectScope> =>
+  ) =>
     validateBodyMentionsWithLookups(
       body,
       {
@@ -435,9 +430,7 @@ const make = Effect.gen(function* () {
       previousBody
     )
 
-  const validateAssigneesAreMembers = (
-    assignees: ReadonlyArray<string>
-  ): Effect.Effect<void, Validation, ProjectScope> =>
+  const validateAssigneesAreMembers = (assignees: ReadonlyArray<string>) =>
     Effect.gen(function* () {
       const members = yield* projectMembers.memberIds()
       const invalid = assignees.filter((id) => !members.has(id))
@@ -448,10 +441,7 @@ const make = Effect.gen(function* () {
       }
     })
 
-  const hierarchyLookups = (
-    project: TicketProject,
-    viewerId: string
-  ): HierarchyLookups => {
+  const hierarchyLookups = (project: TicketProject, viewerId: string) => {
     const found = new Map<TicketId, HierarchyNode | undefined>()
     return {
       find: (id) =>
@@ -465,7 +455,7 @@ const make = Effect.gen(function* () {
               Effect.tap((entry) => Effect.sync(() => found.set(id, entry)))
             ),
       hasChildren: (id) => hasChildren(project, viewerId, id)
-    }
+    } satisfies HierarchyLookups
   }
 
   const validateNewParent = (
@@ -473,7 +463,7 @@ const make = Effect.gen(function* () {
     viewerId: string,
     type: TypeKey | null,
     parent: TicketId | undefined
-  ): Effect.Effect<void, Validation> =>
+  ) =>
     validateHierarchy(hierarchyLookups(project, viewerId), {
       id: null,
       fromType: null,
@@ -482,11 +472,7 @@ const make = Effect.gen(function* () {
       parentChanged: parent !== undefined
     })
 
-  const childIds = (
-    project: TicketProject,
-    viewerId: string,
-    id: string
-  ): Effect.Effect<ReadonlyArray<string>> =>
+  const childIds = (project: TicketProject, viewerId: string, id: string) =>
     Effect.forEach(
       [false, true],
       (archived) =>
@@ -506,11 +492,7 @@ const make = Effect.gen(function* () {
       { concurrency: 2 }
     ).pipe(Effect.map((pages) => pages.flat()))
 
-  const hasChildren = (
-    project: TicketProject,
-    viewerId: string,
-    id: string
-  ): Effect.Effect<boolean> =>
+  const hasChildren = (project: TicketProject, viewerId: string, id: string) =>
     Effect.forEach(
       [false, true],
       (archived) =>
@@ -527,7 +509,7 @@ const make = Effect.gen(function* () {
     projectKey: ProjectKey,
     buildDocument: (id: TicketId) => TicketDocs.TicketDocument,
     onFileWritten?: (document: TicketDocs.TicketDocument) => void
-  ): Effect.Effect<TicketDocs.TicketDocument, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       while (true) {
         const candidate = makeTicketId(
@@ -618,7 +600,7 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     ticketId: string,
     position: TicketPosition
-  ): Effect.Effect<TicketRank, NotFound | Validation> =>
+  ) =>
     Effect.gen(function* () {
       const [anchor, side] =
         "after" in position
@@ -651,13 +633,7 @@ const make = Effect.gen(function* () {
     return new Map(ordered.map((ticket, index) => [ticket.id, ranks[index]]))
   })
 
-  const expansionFor = (
-    project: TicketProject,
-    type: TypeKey | null
-  ): Effect.Effect<
-    Library.TypeExpansion | null,
-    NotFound | Validation | Markdown.MarkdownError
-  > =>
+  const expansionFor = (project: TicketProject, type: TypeKey | null) =>
     type === null
       ? Effect.succeed(null)
       : library.expandForCreate(project.orgSlug, project.slug, type)
@@ -665,7 +641,7 @@ const make = Effect.gen(function* () {
   const validateTypesExist = (
     project: TicketProject,
     types: ReadonlyArray<TypeKey | null>
-  ): Effect.Effect<void, Validation | Markdown.MarkdownError> => {
+  ) => {
     const wanted = types.filter((type) => type !== null)
     if (wanted.length === 0) return Effect.void
     return library.typeKeys(project.orgSlug, project.slug).pipe(
@@ -678,15 +654,9 @@ const make = Effect.gen(function* () {
     )
   }
 
-  const bodyAfterTypeChange = (
-    project: TicketProject,
-    type: TypeKey | null
-  ): Effect.Effect<
-    (body: string) => string,
-    NotFound | Validation | Markdown.MarkdownError
-  > =>
+  const bodyAfterTypeChange = (project: TicketProject, type: TypeKey | null) =>
     type === null
-      ? Effect.succeed((body) => body)
+      ? Effect.succeed((body: string) => body)
       : Effect.all(
           [
             library.expandForCreate(project.orgSlug, project.slug, type),
@@ -696,7 +666,7 @@ const make = Effect.gen(function* () {
         ).pipe(
           Effect.map(
             ([expansion, isUntouched]) =>
-              (body) =>
+              (body: string) =>
                 isUntouched(body) ? expansion.body : body
           )
         )
@@ -1515,7 +1485,7 @@ const make = Effect.gen(function* () {
   const reserveFreeTicketId = (
     project: TicketProject,
     projectKey: ProjectKey
-  ): Effect.Effect<TicketId, Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       while (true) {
         const candidate = makeTicketId(
@@ -1531,9 +1501,7 @@ const make = Effect.gen(function* () {
       }
     })
 
-  const withoutGitLink = (
-    document: TicketDocs.TicketDocument
-  ): TicketDocs.TicketDocument => ({
+  const withoutGitLink = (document: TicketDocs.TicketDocument) => ({
     ...document,
     branch: null,
     branchAutoLinkDisabled: undefined,
@@ -1550,7 +1518,7 @@ const make = Effect.gen(function* () {
     source: TicketProject,
     destination: TicketProject,
     moved: ReadonlyArray<MovedTicket>
-  ): Effect.Effect<void> =>
+  ) =>
     db
       .transaction(() =>
         lockTickets(
@@ -2001,14 +1969,9 @@ const make = Effect.gen(function* () {
     } satisfies MoveTicketResult
   })
 
-  const remove = Effect.fn("TicketCommands.remove")(function* (
-    id: string,
-    options?: DeleteTicketQuery
-  ): Effect.fn.Return<
-    void,
-    NotFound | Markdown.MarkdownError,
-    ProjectScope | ActivityActor
-  > {
+  const remove: TicketCommands["Service"]["remove"] = Effect.fn(
+    "TicketCommands.remove"
+  )(function* (id, options) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId } = scope
     yield* groups.withSprints(() => groups.removeTicketFromAllGroups(scope, id))
@@ -2091,7 +2054,7 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     ids: ReadonlyArray<string>,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
+  ) =>
     ids
       .toSorted()
       .reduceRight(

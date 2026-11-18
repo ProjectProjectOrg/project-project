@@ -36,7 +36,7 @@ const refreshed = (server: SavedServer) =>
           )
       })
     ),
-    (tokens): SavedServer => ({ ...server, tokens })
+    (tokens) => ({ ...server, tokens })
   )
 
 export const freshAccessToken = Effect.fn("freshAccessToken")(function* (

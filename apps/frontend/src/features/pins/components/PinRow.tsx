@@ -24,7 +24,7 @@ type PinRowProps = Readonly<{
   onPinned?: () => void
 }>
 
-export const predictionOf = (pin: SidebarPin): PinPrediction =>
+export const predictionOf = (pin: SidebarPin) =>
   pin.kind === "ticket" ? { ticket: pin.ticket } : { sprint: pin.sprint }
 
 export function PinRow(props: PinRowProps & Readonly<{ pinned: boolean }>) {

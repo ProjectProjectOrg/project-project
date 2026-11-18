@@ -129,7 +129,7 @@ const ignoreChange = () => {}
 function useCommandEnv(
   state: CommandMenuState,
   onChange: (state: CommandMenuState) => void
-): CommandEnv {
+) {
   const registry = useContext(RegistryContext)
   const navigate = useNavigate()
   return {
@@ -140,7 +140,7 @@ function useCommandEnv(
     open: (page, from) => onChange(pushCommandPage(state, page, from)),
     actOn: (ticket, from) => onChange(actOnTicket(state, ticket, from)),
     close: () => onChange(CLOSED_COMMAND_MENU)
-  }
+  } satisfies CommandEnv
 }
 
 function CommandMenuPage({

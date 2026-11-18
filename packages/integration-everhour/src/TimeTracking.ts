@@ -106,7 +106,7 @@ export const timerComment = (
   ticketId: string | null,
   ticketTitle: string | null,
   note?: string
-): string => {
+) => {
   const trimmedNote = note?.trim()
   const head = ticketId
     ? ticketTitle
@@ -126,7 +126,7 @@ export const summariseAttribution = (
     }>
   >,
   everhourUserId: string | null
-): { totalSeconds: number; userSeconds: number } => {
+) => {
   let totalSeconds = 0
   let userSeconds = 0
   for (const row of rows) {
@@ -138,9 +138,7 @@ export const summariseAttribution = (
   return { totalSeconds, userSeconds }
 }
 
-export const latestEntry = (
-  record: Client.EverhourTimeRecord
-): Client.EverhourTimeEntry | null =>
+export const latestEntry = (record: Client.EverhourTimeRecord) =>
   record.history.reduce<Client.EverhourTimeEntry | null>(
     (latest, entry) =>
       latest === null || Number(entry.id) > Number(latest.id) ? entry : latest,
@@ -155,12 +153,9 @@ export const resolveSprintForTicket = (
     }>
   >,
   ticketId: string
-): string | null =>
-  sprints.find((sprint) => sprint.tickets.includes(ticketId))?.id ?? null
+) => sprints.find((sprint) => sprint.tickets.includes(ticketId))?.id ?? null
 
-export const workTypeOptions = (
-  config: OrgEverhourConfig
-): ReadonlyArray<WorkTypeOption> =>
+export const workTypeOptions = (config: OrgEverhourConfig) =>
   [...config.workTypes]
     .sort((a, b) => a.order - b.order)
     .map((workType) => ({ key: workType.key, label: workType.label }))
@@ -233,11 +228,10 @@ const make = Effect.gen(function* () {
       })
       .pipe(
         Effect.orDie,
-        Effect.map(
-          (row): OrgEverhourConfig =>
-            row?.config === null || row?.config === undefined
-              ? { workTypes: DEFAULT_WORK_TYPES }
-              : decodeOrgEverhourConfig(row.config)
+        Effect.map((row) =>
+          row?.config === null || row?.config === undefined
+            ? { workTypes: DEFAULT_WORK_TYPES }
+            : decodeOrgEverhourConfig(row.config)
         )
       )
 
@@ -409,10 +403,7 @@ const make = Effect.gen(function* () {
     track.pipe(
       Effect.catchTag("EverhourProjectAccessDenied", (denied) =>
         assignToProject(link, everhourUserId).pipe(
-          Effect.flatMap(
-            (assigned): Effect.Effect<A, Client.EverhourTrackingError> =>
-              assigned ? track : Effect.fail(denied)
-          )
+          Effect.flatMap((assigned) => (assigned ? track : Effect.fail(denied)))
         )
       )
     )

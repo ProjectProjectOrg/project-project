@@ -1,14 +1,11 @@
-import { getSharedHighlighter, type ThemedToken } from "@pierre/diffs"
+import { getSharedHighlighter } from "@pierre/diffs"
 
 export type InlineLanguage = "tsx" | "css"
 
-export const guessLanguage = (code: string): InlineLanguage =>
+export const guessLanguage = (code: string) =>
   /^[a-z-]+:\s/.test(code) ? "css" : "tsx"
 
-export async function tokenizeLine(
-  code: string,
-  lang: InlineLanguage
-): Promise<ReadonlyArray<ThemedToken>> {
+export async function tokenizeLine(code: string, lang: InlineLanguage) {
   const highlighter = await getSharedHighlighter({
     themes: ["pierre-light", "pierre-dark"],
     langs: [lang]

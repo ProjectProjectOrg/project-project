@@ -1,12 +1,12 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { $insertNodes, COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical"
-import { useEffect, type JSX } from "react"
+import { useEffect } from "react"
 
 import { m } from "../messages"
 import { $createPaperNode } from "./paper-node"
 import { isPaperDesignUrl } from "./paper-url"
 
-export function PaperPlugin(): JSX.Element | null {
+export function PaperPlugin() {
   const [editor] = useLexicalComposerContext()
 
   useEffect(

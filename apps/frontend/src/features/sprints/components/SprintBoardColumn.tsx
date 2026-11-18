@@ -53,14 +53,14 @@ export const columnReorder = (
   reorder: StatusReorder | null,
   order: ReadonlyArray<Ticket["status"]>,
   status: Ticket["status"]
-): ColumnReorder | undefined =>
+) =>
   reorder === null
     ? undefined
-    : {
+    : ({
         start: reorder.enterReorder,
         end: reorder.saveReorder,
         move: (delta) => reorder.moveStatus(order, status, delta)
-      }
+      } satisfies ColumnReorder)
 
 function MetaGlyph({
   meta

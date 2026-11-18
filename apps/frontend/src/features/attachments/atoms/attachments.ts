@@ -57,12 +57,12 @@ export const uploadAttachmentRequest = (
   orgSlug: string,
   slug: string,
   id: TicketId
-): UploadAttachmentRequest => ({ orgSlug, slug, id })
+) => ({ orgSlug, slug, id })
 
-export const uploadProjectImageRequest = (
-  orgSlug: string,
-  slug: string
-): UploadProjectImageRequest => ({ orgSlug, slug })
+export const uploadProjectImageRequest = (orgSlug: string, slug: string) => ({
+  orgSlug,
+  slug
+})
 
 const transferAttachment = (input: UploadAttachmentInput, uploadUrl: string) =>
   Effect.callback<void, AttachmentUploadFailed>((resume, signal) => {
@@ -196,7 +196,7 @@ export type OrgAttachmentsRequest = Readonly<{
 export const orgAttachmentsRequest = (
   orgSlug: string,
   query: Omit<OrgAttachmentsRequest["query"], "limit">
-): OrgAttachmentsRequest => ({
+) => ({
   params: { orgSlug },
   query: { ...query, limit: ORG_ATTACHMENTS_PAGE_SIZE }
 })
@@ -216,11 +216,6 @@ const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
 
-type OrgAttachmentsView = Readonly<{
-  list: AttachmentListPage
-  summary: AttachmentSummary
-}>
-
 const orgAttachmentsView = (req: OrgAttachmentsRequest) =>
   Atom.readable(
     (get) =>
@@ -229,7 +224,7 @@ const orgAttachmentsView = (req: OrgAttachmentsRequest) =>
           get(orgAttachmentsQuery(req)),
           get(orgAttachmentsSummaryQuery(req))
         ]),
-        ([list, summary]): OrgAttachmentsView => ({ list, summary })
+        ([list, summary]) => ({ list, summary })
       ),
     (refresh) => {
       refresh(orgAttachmentsQuery(req))
@@ -256,7 +251,7 @@ export const orgAttachmentsSummary = Atom.family((req: OrgAttachmentsRequest) =>
 const removeFromSummary = (
   summary: AttachmentSummary,
   removed: AttachmentListPage["items"]
-): AttachmentSummary => {
+) => {
   const counts = new Map(
     summary.byStatus.map((total) => [total.status, { ...total }])
   )

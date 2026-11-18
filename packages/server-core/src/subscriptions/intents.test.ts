@@ -13,14 +13,15 @@ const userId = Schema.decodeUnknownSync(UserId)
 
 const mention = (id: string) => `[@${id}](${formatMentionHref("user", id)})`
 
-const comment = (id: string, author: string, body: string): CommentBlock => ({
-  id,
-  author: { kind: "user", userId: author },
-  origin: "native",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
-  editedAt: null,
-  body
-})
+const comment = (id: string, author: string, body: string) =>
+  ({
+    id,
+    author: { kind: "user", userId: author },
+    origin: "native",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
+    editedAt: null,
+    body
+  }) satisfies CommentBlock
 
 const base: SubscriptionSource = {
   id: Schema.decodeUnknownSync(TicketId)("T-1"),

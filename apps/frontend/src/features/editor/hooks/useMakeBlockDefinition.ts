@@ -30,10 +30,10 @@ export function useMakeBlockDefinition(
   orgSlug: string,
   slug: string,
   onError: (message: string) => void
-): NonNullable<EditorBlocks["onMakeDefinition"]> {
+) {
   const registry = useContext(RegistryContext)
   return useCallback(
-    (definition: BlockDefinition, content: string) => {
+    ((definition: BlockDefinition, content: string) => {
       const target = {
         req: projectLibraryRequest(orgSlug, slug),
         key: definition.key
@@ -46,7 +46,7 @@ export function useMakeBlockDefinition(
         { content: restoreDefinitionHints(content, definition.content) },
         onError
       )
-    },
+    }) satisfies NonNullable<EditorBlocks["onMakeDefinition"]>,
     [onError, orgSlug, registry, slug]
   )
 }

@@ -52,7 +52,7 @@ const make = Effect.gen(function* () {
 
   const findManyByIds = Effect.fn("Users.findManyByIds")(function* (
     ids: ReadonlyArray<string>
-  ): Effect.fn.Return<ReadonlyArray<UserSummary>> {
+  ) {
     if (ids.length === 0) return []
     return yield* db.query.user
       .findMany({
@@ -66,7 +66,7 @@ const make = Effect.gen(function* () {
 
   const fullByIds = Effect.fn("Users.fullByIds")(function* (
     ids: ReadonlyArray<string>
-  ): Effect.fn.Return<ReadonlyArray<User>> {
+  ) {
     if (ids.length === 0) return []
     const rows = yield* db.query.user
       .findMany({
@@ -84,27 +84,28 @@ const make = Effect.gen(function* () {
       })
       .pipe(Effect.orDie)
     return rows.map(
-      (r): User => ({
-        id: decodeUserId(r.id),
-        email: r.email,
-        name: r.name,
-        username: r.username,
-        image: r.image ?? null,
-        createdAt: r.createdAt,
-        activeOrgSlug: null,
-        personalGithub: {
-          connected: false
-        },
-        editorPreference: "github",
-        personalEverhour: {
-          connected: false,
-          everhourUserId: null,
-          name: null,
-          email: null,
-          lastVerifiedAt: null,
-          lastCheckError: null
-        }
-      })
+      (r) =>
+        ({
+          id: decodeUserId(r.id),
+          email: r.email,
+          name: r.name,
+          username: r.username,
+          image: r.image ?? null,
+          createdAt: r.createdAt,
+          activeOrgSlug: null,
+          personalGithub: {
+            connected: false
+          },
+          editorPreference: "github",
+          personalEverhour: {
+            connected: false,
+            everhourUserId: null,
+            name: null,
+            email: null,
+            lastVerifiedAt: null,
+            lastCheckError: null
+          }
+        }) satisfies User
     )
   })
 

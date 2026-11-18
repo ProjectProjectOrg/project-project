@@ -64,31 +64,29 @@ const TestLayer = testLayer()
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
-const ticketDocument = (
-  id: string,
-  branchAutoLinkDisabled?: boolean
-): TicketDocs.TicketDocument => ({
-  id: ticketId(id),
-  title: "Persist branch matching preference",
-  status: ticketStatus("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: "chore/branch-matching",
-  branchAutoLinkDisabled,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
-  updatedBy: "user-1",
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
-  commentsRegion: "",
-  body: "# Branch matching\n"
-})
+const ticketDocument = (id: string, branchAutoLinkDisabled?: boolean) =>
+  ({
+    id: ticketId(id),
+    title: "Persist branch matching preference",
+    status: ticketStatus("todo"),
+    type: TypeKey.make("chore"),
+    priority: "med",
+    rank: TicketRank.make("a0"),
+    tags: [],
+    branch: "chore/branch-matching",
+    branchAutoLinkDisabled,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    assignees: [],
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
+    updatedBy: "user-1",
+    updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
+    commentsRegion: "",
+    body: "# Branch matching\n"
+  }) satisfies TicketDocs.TicketDocument
 
 describe("TicketDocs tracing", () => {
   it.effect(
@@ -627,7 +625,7 @@ describe("TicketDocs activity capture", () => {
     run: (
       docs: TicketDocs.TicketDocs["Service"]
     ) => Effect.Effect<A, E, ActivityActor>,
-    actor = ActivityActor.user("user-2")
+    actor: ActivityActor["Service"] = ActivityActor.user("user-2")
   ) => {
     const recorded: Array<RecordedActivity> = []
     return Effect.gen(function* () {
