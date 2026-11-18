@@ -6,16 +6,13 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import {
   Conflict,
-  Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   LastProjectPmBlocked,
-  NotFound,
   RateLimited,
   RepoGone,
   StorageError,
-  Unauthorized,
   Validation
 } from "../errors"
 import { BranchListResponse, GitStatesResponse } from "../github/GitState"
@@ -59,8 +56,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects", {
       params: OrgPath,
-      success: Schema.Array(Project),
-      error: [Unauthorized, NotFound]
+      success: Schema.Array(Project)
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -70,7 +66,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       params: OrgPath,
       payload: CreateProjectInput,
       success: Project,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: Conflict
     })
       .annotate(RequiresOrg, { project: ["create"] })
       .middleware(OrgAccess)
@@ -78,8 +74,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug", {
       params: ProjectPath,
-      success: ProjectDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: ProjectDetail
     })
       .annotate(RequiresProject, { docs: ["read"] })
       .middleware(ProjectAccess)
@@ -88,8 +83,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
     HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug", {
       params: ProjectPath,
       payload: UpdateProjectInput,
-      success: ProjectDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: ProjectDetail
     })
       .annotate(RequiresProject, { docs: ["write"] })
       .middleware(ProjectAccess)
@@ -101,8 +95,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: ProjectPath,
         payload: UpdateProjectSetupInput,
-        success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: ProjectDetail
       }
     )
       .annotate(RequiresProject, { settings: ["manage"] })
@@ -110,8 +103,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .add(
     HttpApiEndpoint.delete("delete", "/orgs/:orgSlug/projects/:slug", {
-      params: ProjectPath,
-      error: [Unauthorized, NotFound, Forbidden]
+      params: ProjectPath
     })
       .annotate(RequiresProject, { project: ["delete"] })
       .middleware(ProjectAccess)
@@ -122,7 +114,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       success: HttpApiSchema.StreamUint8Array({
         contentType: "application/gzip"
       }),
-      error: [Unauthorized, NotFound, Forbidden, StorageError]
+      error: StorageError
     })
       .annotate(RequiresProject, { project: ["export"] })
       .middleware(ProjectAccess)
@@ -133,8 +125,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/integrations/github",
       {
         params: OrgPath,
-        success: GithubOrgIntegrationStatus,
-        error: [Unauthorized, NotFound]
+        success: GithubOrgIntegrationStatus
       }
     )
       .annotate(RequiresOrg, "membership")
@@ -148,7 +139,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         params: OrgPath,
         payload: StartGithubAppManifestInput,
         success: StartGithubAppManifestResponse,
-        error: [Unauthorized, NotFound, Forbidden, GitHubError]
+        error: GitHubError
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -160,8 +151,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/integrations/github/apps/:appId",
       {
         params: Schema.Struct({ ...OrgPath.fields, appId: Schema.String }),
-        success: GithubOrgIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: GithubOrgIntegrationStatus
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -177,8 +167,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
           installationId: Schema.String
         }),
         payload: UpdateGithubInstallationInput,
-        success: GithubOrgIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: GithubOrgIntegrationStatus
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -193,8 +182,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
           ...OrgPath.fields,
           installationId: Schema.String
         }),
-        success: GithubOrgIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: GithubOrgIntegrationStatus
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -208,7 +196,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         params: OrgPath,
         payload: StartGithubInstallInput,
         success: StartGithubInstallResponse,
-        error: [Unauthorized, NotFound, Forbidden, GitHubError]
+        error: GitHubError
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -221,8 +209,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: OrgPath,
         query: Schema.Struct({ state: Schema.NonEmptyString }),
-        success: GithubInstallationChoices,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: GithubInstallationChoices
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -236,7 +223,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         params: OrgPath,
         payload: ChooseGithubInstallationInput,
         success: ChooseGithubInstallationResponse,
-        error: [Unauthorized, NotFound, Forbidden, Conflict, GitHubError]
+        error: [Conflict, GitHubError]
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -259,14 +246,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
           installationId: Schema.optional(Schema.String)
         }),
         success: GithubRepoPage,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          RepoGone,
-          RateLimited,
-          GitHubError
-        ]
+        error: [RepoGone, RateLimited, GitHubError]
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -277,7 +257,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       params: ProjectPath,
       payload: AddMemberInput,
       success: ProjectDetail,
-      error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
+      error: LastProjectPmBlocked
     })
       .annotate(RequiresProject, { members: ["manage"] })
       .middleware(ProjectAccess)
@@ -290,7 +270,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         params: ProjectMemberPath,
         payload: UpdateMemberInput,
         success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
+        error: LastProjectPmBlocked
       }
     )
       .annotate(RequiresProject, { members: ["manage"] })
@@ -303,13 +283,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: ProjectMemberPath,
         success: ProjectDetail,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Validation,
-          LastProjectPmBlocked
-        ]
+        error: [Validation, LastProjectPmBlocked]
       }
     )
       .annotate(RequiresProject, { members: ["manage"] })
@@ -319,7 +293,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/projects/:slug/leave", {
       params: ProjectPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden, LastProjectPmBlocked]
+      error: LastProjectPmBlocked
     })
       .annotate(RequiresProject, "membership")
       .middleware(ProjectAccess)
@@ -330,8 +304,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/projects/:slug/pending-members/:invitationId",
       {
         params: PendingProjectMemberPath,
-        success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: ProjectDetail
       }
     )
       .annotate(RequiresProject, { members: ["manage"] })
@@ -346,9 +319,6 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         payload: ConnectGithubInput,
         success: ProjectDetail,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           Conflict,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
@@ -370,8 +340,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
           ...ProjectPath.fields,
           repoId: Schema.String
         }),
-        success: ProjectDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: ProjectDetail
       }
     )
       .annotate(RequiresProject, { github: ["write"] })
@@ -383,8 +352,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/projects/:slug/git-states",
       {
         params: ProjectPath,
-        success: GitStatesResponse,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: GitStatesResponse
       }
     )
       .annotate(RequiresProject, { github: ["read"] })
@@ -404,9 +372,6 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         }),
         success: BranchListResponse,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
@@ -424,8 +389,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/projects/:slug/github/installations",
       {
         params: ProjectPath,
-        success: Schema.Array(ProjectGithubInstallation),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(ProjectGithubInstallation)
       }
     )
       .annotate(RequiresProject, { github: ["write"] })
@@ -448,14 +412,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
           installationId: Schema.optional(Schema.String)
         }),
         success: GithubRepoPage,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          RepoGone,
-          RateLimited,
-          GitHubError
-        ]
+        error: [RepoGone, RateLimited, GitHubError]
       }
     )
       .annotate(RequiresProject, { github: ["write"] })

@@ -1,6 +1,7 @@
 import {
   Conflict,
   Forbidden,
+  InvalidRequest,
   NotFound,
   Unauthorized,
   Validation
@@ -132,6 +133,18 @@ describe("unexpected error details", () => {
   ])("returns the generic message for %s", (payload) => {
     expect(errorMessage(decodeErrorPayload(payload))).toBe(
       "Something went wrong."
+    )
+  })
+})
+
+describe("invalid request", () => {
+  it("asks the user to refresh instead of reporting an unknown error", () => {
+    expect(
+      errorMessage(
+        new InvalidRequest({ part: "payload", message: "Expected string" })
+      )
+    ).toBe(
+      "The server couldn't read this request. Refresh the page and try again."
     )
   })
 })

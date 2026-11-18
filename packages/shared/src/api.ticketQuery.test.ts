@@ -29,6 +29,7 @@ import {
   TicketListQuery,
   TicketOrderKeyQuery
 } from "./filters/Ticket"
+import { RequestValidation } from "./http/RequestValidation"
 import { TicketDetail } from "./tickets/Ticket"
 
 const decodeTicketListQuery = Schema.decodeEffect(TicketListQuery)
@@ -90,6 +91,8 @@ const auth = Layer.succeed(Authentication, {
       Effect.provideService(ActivityActor, ActivityActor.user(user.id))
     )
 })
+const requestValidation = Layer.succeed(RequestValidation, (effect) => effect)
+
 const projectAccess = Layer.succeed(ProjectAccess, (effect) =>
   Effect.provideService(effect, ProjectScope, {
     userId: user.id,
@@ -127,7 +130,11 @@ const makeHarness = Effect.gen(function* () {
           Effect.as({ ticket, orderKey: null })
         )
       )
-  ).pipe(Layer.provideMerge(auth), Layer.provideMerge(projectAccess))
+  ).pipe(
+    Layer.provideMerge(auth),
+    Layer.provideMerge(projectAccess),
+    Layer.provideMerge(requestValidation)
+  )
   const client = yield* HttpApiTest.groups(api, ["tickets"]).pipe(
     Effect.provide(Layer.merge(handlers, HttpServer.layerServices))
   )

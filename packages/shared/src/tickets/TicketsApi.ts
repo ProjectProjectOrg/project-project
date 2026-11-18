@@ -10,16 +10,13 @@ import {
   BranchNotFound,
   BranchProtected,
   Conflict,
-  Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   MentionInvalid,
-  NotFound,
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
-  Unauthorized,
   Validation
 } from "../errors"
 import { ClearStaleEstimatesResult } from "../estimates/Estimate"
@@ -103,8 +100,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
     HttpApiEndpoint.get("mine", "/orgs/:orgSlug/tickets/mine", {
       params: OrgPath,
       query: MyTicketsQuery,
-      success: OrgTicketPage,
-      error: [Unauthorized, NotFound]
+      success: OrgTicketPage
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -115,8 +111,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/tickets/mine/by-project",
       {
         params: OrgPath,
-        success: Schema.Array(ProjectTicketsPreview),
-        error: [Unauthorized, NotFound]
+        success: Schema.Array(ProjectTicketsPreview)
       }
     )
       .annotate(RequiresOrg, "membership")
@@ -125,8 +120,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("recent", "/orgs/:orgSlug/tickets/recent", {
       params: OrgPath,
-      success: Schema.Array(RecentTicketRow),
-      error: [Unauthorized, NotFound]
+      success: Schema.Array(RecentTicketRow)
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)
@@ -138,8 +132,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketListHttpQuery,
-        success: TicketSections,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketSections
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -152,8 +145,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketListHttpQuery,
-        success: TicketSprintSections,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketSprintSections
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -167,13 +159,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: BulkUpdateTicketsInput,
         success: BulkUpdateTicketsResult,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Validation,
-          SprintCompletedImmutable
-        ]
+        error: [Validation, SprintCompletedImmutable]
       }
     )
       .annotate(RequiresProject, "membership")
@@ -187,14 +173,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: BulkArchiveTicketsInput,
         success: BulkTicketsResult,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid
-        ]
+        error: [Conflict, Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -207,8 +186,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         payload: BulkDeleteTicketsInput,
-        success: BulkTicketsResult,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: BulkTicketsResult
       }
     )
       .annotate(RequiresProject, { ticket: ["delete"] })
@@ -221,8 +199,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketListHttpQuery,
-        success: TicketEpicSections,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketEpicSections
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -235,8 +212,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketListHttpQuery,
-        success: TicketEpicSections,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketEpicSections
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -246,8 +222,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
       query: TicketPageHttpQuery,
-      success: TicketListPage,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: TicketListPage
     })
       .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
@@ -259,8 +234,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketSearchQuery,
-        success: Schema.Array(Ticket),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(Ticket)
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -272,8 +246,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/titles",
       {
         params: ProjectPath,
-        success: Schema.Array(TicketTitle),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(TicketTitle)
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -286,8 +259,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketTextSearchQuery,
-        success: Schema.Array(TicketTextHit),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(TicketTextHit)
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -300,8 +272,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: ProjectPath,
         query: TicketCountQuery,
-        success: TicketCounts,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketCounts
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -315,7 +286,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: QuickCreateTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { ticket: ["create"] })
@@ -326,7 +297,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       params: ProjectPath,
       payload: CreateTicketInput,
       success: TicketDetail,
-      error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+      error: [Validation, MentionInvalid]
     })
       .annotate(RequiresProject, { ticket: ["create"] })
       .middleware(ProjectAccess)
@@ -337,8 +308,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/estimates/clear-stale",
       {
         params: ProjectPath,
-        success: ClearStaleEstimatesResult,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: ClearStaleEstimatesResult
       }
     )
       .annotate(RequiresProject, { settings: ["manage"] })
@@ -347,8 +317,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id", {
       params: TicketPath,
-      success: TicketDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      success: TicketDetail
     })
       .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
@@ -362,8 +331,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         query: Schema.Struct({
           from: Schema.optional(Schema.fromJsonString(TicketListSource))
         }),
-        success: Schema.NullOr(TicketSequence),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.NullOr(TicketSequence)
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -378,14 +346,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
         success: TicketUpdateResult,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Validation,
-          MentionInvalid,
-          SprintCompletedImmutable
-        ]
+        error: [Validation, MentionInvalid, SprintCompletedImmutable]
       }
     )
       .annotate(RequiresProject, "membership")
@@ -397,8 +358,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
       {
         params: TicketPath,
-        query: DeleteTicketQuery,
-        error: [Unauthorized, NotFound, Forbidden]
+        query: DeleteTicketQuery
       }
     )
       .annotate(RequiresProject, { ticket: ["delete"] })
@@ -412,14 +372,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: ArchiveTicketInput,
         success: TicketDetail,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid
-        ]
+        error: [Conflict, Validation, MentionInvalid]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -432,7 +385,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -446,7 +399,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: MarkTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
+        error: Validation
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -459,8 +412,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         payload: MarkTicketInput,
-        success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketDetail
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -475,9 +427,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: CreateBranchInput,
         success: TicketDetail,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           Conflict,
           BranchExists,
           BranchProtected,
@@ -501,9 +450,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: OpenPrInput,
         success: OpenPrResult,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           Conflict,
           BranchProtected,
           GitHubTokenExpired,
@@ -523,8 +469,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/branch",
       {
         params: TicketPath,
-        success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketDetail
       }
     )
       .annotate(RequiresProject, { github: ["write"] })
@@ -538,15 +483,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: SplitTicketInput,
         success: SplitTicketResult,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid,
-          SprintCompletedImmutable
-        ]
+        error: [Conflict, Validation, MentionInvalid, SprintCompletedImmutable]
       }
     )
       .annotate(RequiresProject, { ticket: ["create"] })
@@ -560,7 +497,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: MoveTicketInput,
         success: MoveTicketResult,
-        error: [Unauthorized, NotFound, Forbidden, Conflict, Validation]
+        error: [Conflict, Validation]
       }
     )
       .annotate(RequiresProject, { ticket: ["delete"] })
@@ -572,8 +509,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/moved-to",
       {
         params: TicketPath,
-        success: MovedTicketLocation,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: MovedTicketLocation
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
@@ -588,9 +524,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: AttachBranchInput,
         success: TicketDetail,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           Conflict,
           BranchNotFound,
           GitHubTokenExpired,
@@ -612,7 +545,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: AttachBranchInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     )
       .annotate(RequiresProject, { github: ["write"] })
@@ -627,9 +560,6 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: AttachBranchInput,
         success: TicketDetail,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           Conflict,
           BranchNotFound,
           GitHubTokenExpired,
@@ -654,7 +584,7 @@ export const TicketActivityGroup = HttpApiGroup.make("ticketActivity")
         params: TicketPath,
         query: Schema.Struct({ cursor: Schema.optional(Schema.String) }),
         success: TicketActivityPage,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
+        error: Validation
       }
     ).annotate(RequiresProject, { ticket: ["read"] })
   )

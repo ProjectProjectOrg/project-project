@@ -49,6 +49,7 @@ import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import { RequestValidationLive } from "../http/RequestValidation"
 import { TicketsHandlerLive } from "../tickets/Handlers"
 import { OrgAccessLive, ProjectAccessLive } from "./AccessMiddleware"
 
@@ -273,6 +274,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             Layer.provide(access())
           )
         ),
+        Layer.provide(RequestValidationLive),
         Layer.provide(
           Layer.succeed(Authentication, {
             sessionCookie: (httpEffect) =>

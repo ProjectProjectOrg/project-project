@@ -3,14 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import {
-  Conflict,
-  Forbidden,
-  MentionInvalid,
-  NotFound,
-  Unauthorized,
-  Validation
-} from "../errors"
+import { Conflict, MentionInvalid, Validation } from "../errors"
 import { TicketPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
@@ -31,8 +24,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/comments",
       {
         params: TicketPath,
-        success: Schema.Array(Comment),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(Comment)
       }
     ).annotate(RequiresProject, { ticket: ["read"] })
   )
@@ -44,14 +36,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         params: TicketPath,
         payload: CreateCommentInput,
         success: Comment,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Validation,
-          MentionInvalid,
-          Conflict
-        ]
+        error: [Validation, MentionInvalid, Conflict]
       }
     ).annotate(RequiresProject, { comment: ["create"] })
   )
@@ -63,7 +48,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         params: TicketCommentPath,
         payload: UpdateCommentInput,
         success: Comment,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [Validation, MentionInvalid]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -73,8 +58,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId/resolution",
       {
         params: TicketCommentPath,
-        success: Comment,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Comment
       }
     ).annotate(RequiresProject, { comment: ["create"] })
   )
@@ -84,8 +68,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId/resolution",
       {
         params: TicketCommentPath,
-        success: Comment,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Comment
       }
     ).annotate(RequiresProject, { comment: ["create"] })
   )
@@ -95,8 +78,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId",
       {
         params: TicketCommentPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     ).annotate(RequiresProject, "membership")
   )

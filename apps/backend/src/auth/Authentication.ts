@@ -21,14 +21,6 @@
 // be present" as a precondition. Without one, the request short-circuits
 // with `Unauthorized` *before* this function runs.
 //
-// MAPPING THE BOUNDARY ERROR
-// ----------------------------------------------------------------------------
-// `BetterAuth.getSession` can fail with `BetterAuthError` (e.g. DB blip,
-// malformed cookie payload). The wire type of this middleware is
-// `Unauthorized`, so we collapse `BetterAuthError → Unauthorized` via
-// `Effect.mapError`. The cause is lost from the client's perspective; if you
-// want it preserved server-side, log it via `Effect.tapCause(...)` first.
-//
 // `getSession` also returns `null` when the cookie is structurally valid but
 // expired/revoked. That isn't a Promise rejection, just a `null` result — we
 // translate it to `Unauthorized` explicitly.
@@ -53,6 +45,7 @@ import { HttpServerRequest } from "effect/http"
 import * as Layer from "effect/Layer"
 
 import { toWebHeaders } from "../http/toWebHeaders"
+import { isClientRefusal } from "../organizations/Handlers"
 
 export function normalizeEditorPreference(
   value: string | null | undefined
@@ -79,7 +72,13 @@ export const AuthenticationLive = Layer.effect(
           const req = yield* HttpServerRequest.HttpServerRequest
           const session = yield* ba
             .getSession(toWebHeaders(req.headers))
-            .pipe(Effect.mapError(() => new Unauthorized()))
+            .pipe(
+              Effect.catchTag("BetterAuthError", (error) =>
+                isClientRefusal(error)
+                  ? Effect.fail(new Unauthorized())
+                  : Effect.die(error)
+              )
+            )
 
           if (session === null) {
             return yield* new Unauthorized()

@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, Forbidden, NotFound, Unauthorized } from "../errors"
+import { Conflict } from "../errors"
 import { ProjectPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./Tag"
@@ -22,8 +22,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tags", {
       params: ProjectPath,
-      success: Schema.Array(Tag),
-      error: [Unauthorized, NotFound, Forbidden]
+      success: Schema.Array(Tag)
     }).annotate(RequiresProject, { ticket: ["read"] })
   )
   .add(
@@ -32,8 +31,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
       "/orgs/:orgSlug/projects/:slug/tags/usage-counts",
       {
         params: ProjectPath,
-        success: TagUsageCounts,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TagUsageCounts
       }
     ).annotate(RequiresProject, { ticket: ["read"] })
   )
@@ -42,7 +40,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
       params: ProjectPath,
       payload: CreateTagInput,
       success: Tag,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: Conflict
     }).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .add(
@@ -53,7 +51,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
         params: ProjectTagPath,
         payload: UpdateTagInput,
         success: Tag,
-        error: [Unauthorized, NotFound, Forbidden, Conflict]
+        error: Conflict
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
@@ -63,8 +61,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
       "/orgs/:orgSlug/projects/:slug/tags/:name",
       {
         params: ProjectTagPath,
-        success: HttpApiSchema.NoContent,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: HttpApiSchema.NoContent
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

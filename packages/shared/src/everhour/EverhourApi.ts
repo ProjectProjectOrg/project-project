@@ -10,10 +10,7 @@ import {
   EverhourConfigMissing,
   EverhourError,
   EverhourProjectAccessDenied,
-  EverhourRateLimited,
-  Forbidden,
-  NotFound,
-  Unauthorized
+  EverhourRateLimited
 } from "../errors"
 import { GroupPath, OrgPath, ProjectPath, TicketPath } from "../http/paths"
 import {
@@ -35,8 +32,7 @@ import {
 export const EverhourGroup = HttpApiGroup.make("everhour")
   .add(
     HttpApiEndpoint.get("profile", "/integrations/everhour/profile", {
-      success: PersonalEverhour,
-      error: Unauthorized
+      success: PersonalEverhour
     })
   )
   .add(
@@ -44,7 +40,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       payload: ConnectEverhourProfileInput,
       success: PersonalEverhour,
       error: [
-        Unauthorized,
         EverhourAuthInvalid,
         EverhourRateLimited,
         EverhourConfigMissing,
@@ -57,8 +52,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "disconnectProfile",
       "/integrations/everhour/profile",
       {
-        success: PersonalEverhour,
-        error: Unauthorized
+        success: PersonalEverhour
       }
     )
   )
@@ -68,8 +62,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "/orgs/:orgSlug/projects/:slug/integrations/everhour",
       {
         params: ProjectPath,
-        success: EverhourProjectIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: EverhourProjectIntegrationStatus
       }
     )
       .annotate(RequiresProject, { time: ["read"] })
@@ -83,9 +76,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         params: ProjectPath,
         success: EverhourSyncSummary,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourRateLimited,
@@ -105,9 +95,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         params: ProjectPath,
         success: EverhourSyncSummary,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourRateLimited,
@@ -125,8 +112,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "/orgs/:orgSlug/projects/:slug/integrations/everhour",
       {
         params: ProjectPath,
-        success: EverhourProjectIntegrationStatus,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: EverhourProjectIntegrationStatus
       }
     )
       .annotate(RequiresProject, { settings: ["manage"] })
@@ -138,8 +124,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/everhour/work-types",
       {
         params: TicketPath,
-        success: Schema.Array(WorkTypeOption),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.Array(WorkTypeOption)
       }
     )
       .annotate(RequiresProject, { time: ["log"] })
@@ -154,9 +139,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         payload: StartTimerInput,
         success: ActiveTimer,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourProjectAccessDenied,
@@ -178,9 +160,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         payload: StartSprintTimerInput,
         success: ActiveTimer,
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourProjectAccessDenied,
@@ -198,8 +177,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       params: OrgPath,
       success: Schema.NullOr(ActiveTimer),
       error: [
-        Unauthorized,
-        NotFound,
         EverhourApiKeyMissing,
         EverhourAuthInvalid,
         EverhourRateLimited,
@@ -218,8 +195,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         params: OrgPath,
         success: Schema.NullOr(ActiveTimer),
         error: [
-          Unauthorized,
-          NotFound,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourRateLimited,
@@ -240,9 +215,6 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
         payload: LogTimeInput,
         success: Schema.NullOr(TicketTimeSummary),
         error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
           EverhourApiKeyMissing,
           EverhourAuthInvalid,
           EverhourProjectAccessDenied,
@@ -261,8 +233,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/everhour/time",
       {
         params: TicketPath,
-        success: TicketTimeSummary,
-        error: [Unauthorized, NotFound, Forbidden]
+        success: TicketTimeSummary
       }
     )
       .annotate(RequiresProject, { time: ["read"] })
@@ -274,8 +245,7 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       "/orgs/:orgSlug/projects/:slug/groups/:id/everhour/time",
       {
         params: GroupPath,
-        success: Schema.NullOr(SprintTimeSummary),
-        error: [Unauthorized, NotFound, Forbidden]
+        success: Schema.NullOr(SprintTimeSummary)
       }
     )
       .annotate(RequiresProject, { time: ["read"] })
