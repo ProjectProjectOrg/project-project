@@ -190,6 +190,12 @@ Read `docs/frontend/data-layer.md` before adding or changing a read, a mutation 
 
 The `effect-atom-optimistic-updates` skill has worked examples.
 
+## Verifying
+
+- While you iterate, run only the tests beside your change from the owning package with its own runner: `bunx vitest run <files>` (add `-t "<name>"` for big files), or `bun test <files>` where the package script uses `bun test`. Postgres-backed tests skip without `PROJECTPROJECT_TEST_DATABASE_URL`; `check:changed` provides it.
+- Before you push, run `bun run check:changed`: a repo-wide format check, then lint, typecheck and tests for affected packages, plus the lint-rule and agent-script tests.
+- Do not run repo-wide checks (`bun run test`, `test:all`, `check`, `typecheck`) unless asked. CI owns the full suite.
+
 ## Test scope
 
 Keep tests for domain logic, API contracts, atoms, and hooks. Do not add component-rendering tests, DOM markup snapshots, or assertions about component styling. Test hooks with `renderHook`; provider wrappers are allowed. Do not hide component rendering behind test helpers. Oxlint rejects Testing Library `render` imports and direct React renderer imports in tests.
