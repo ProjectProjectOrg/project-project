@@ -2,7 +2,7 @@ import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Hitbox } from "@pp/ui/hitbox"
+import { chipClassName } from "@pp/ui/chip"
 import { Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
@@ -96,36 +96,32 @@ export function SprintField({
         }}
         onRequestNewSprint={onRequestNewSprint}
         trigger={
-          <Hitbox
-            mode="inline"
-            margin="2"
+          <button
+            type="button"
             onClick={(e) => e.stopPropagation()}
             aria-label={
               failed
                 ? m.tickets_sprint_assign_error_fallback()
                 : m.tickets_sprint_chip_aria({ name: membership.name })
             }
-            className="min-w-0"
+            className={chipClassName({
+              interaction: "press",
+              className: cn(
+                "max-w-[14ch] gap-1",
+                failed && "text-destructive hover:text-destructive"
+              )
+            })}
           >
+            <SprintStateIcon sprint={membership} size="xs" />
             <span
               className={cn(
-                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-caption transition-colors hitbox-hover:bg-foreground/5",
-                failed
-                  ? "text-destructive"
-                  : "text-muted-foreground hitbox-hover:text-foreground"
+                "truncate",
+                variant === "responsive" && "hidden sm:inline"
               )}
             >
-              <SprintStateIcon sprint={membership} size="xs" />
-              <span
-                className={cn(
-                  "truncate",
-                  variant === "responsive" && "hidden sm:inline"
-                )}
-              >
-                {membership.name}
-              </span>
+              {membership.name}
             </span>
-          </Hitbox>
+          </button>
         }
       />
     </fieldset>

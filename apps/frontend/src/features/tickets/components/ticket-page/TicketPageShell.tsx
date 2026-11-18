@@ -14,14 +14,14 @@ export function TicketPageShell({
   children: ReactNode
 }>) {
   return (
-    <div className="ticket-page grid w-full grid-cols-1 gap-x-16 gap-y-3 lg:grid-cols-[minmax(0,42rem)_18rem] lg:pl-[max(2.75rem,calc((100%-64rem)/2))]">
+    <div className="ticket-page grid w-full grid-cols-1 gap-x-16 gap-y-3 lg:grid-cols-[minmax(0,42rem)_18rem]">
       <div className="flex items-center justify-between gap-3 lg:contents">
-        <div className="lg:mx-auto lg:w-full lg:max-w-[42rem]">{back}</div>
+        <div>{back}</div>
         <div className="flex items-center justify-end gap-2 lg:justify-start lg:pl-5 [&>*]:shrink-0">
           {actions}
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-[42rem] min-w-0 flex-col gap-3">
+      <div className="flex w-full max-w-[42rem] min-w-0 flex-col gap-3">
         {header}
         {children}
       </div>

@@ -1,4 +1,6 @@
 import { Checkbox } from "@pp/ui/checkbox"
+import { chipClassName } from "@pp/ui/chip"
+import { Flag } from "@pp/ui/icons"
 import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
 import { ListRowCrumbs, type ListRowCrumb } from "@pp/ui/list-row-crumbs"
@@ -119,10 +121,28 @@ export function Row({
           </span>
           <GitChip pr={ticket.pr} />
           <RelationChip count={ticket.links} />
+          <SprintChip sprint={ticket.sprint} />
         </>
       }
       estimate={<EstimateChip estimate={ticket.estimate} />}
       assignee={<AssigneeField assignee={ticket.assignee} size={20} />}
     />
+  )
+}
+
+function SprintChip({ sprint }: Readonly<{ sprint?: string }>) {
+  if (!sprint) return null
+  return (
+    <button
+      type="button"
+      aria-label={`Sprint: ${sprint}`}
+      className={chipClassName({
+        interaction: "press",
+        className: "max-w-[14ch] gap-1"
+      })}
+    >
+      <Flag className="size-3 shrink-0" strokeWidth={1.75} />
+      <span className="truncate">{sprint}</span>
+    </button>
   )
 }

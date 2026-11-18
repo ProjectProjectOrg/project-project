@@ -54,6 +54,7 @@ export type SampleTicket = Readonly<{
   estimate?: number
   assignee?: Readonly<{ id: string; name: string }>
   flagged?: boolean
+  sprint?: string
 }>
 
 export const INVITED: SampleTicket = {
@@ -63,7 +64,8 @@ export const INVITED: SampleTicket = {
   priority: "medium",
   tags: [{ name: "onboarding", color: "oklch(0.7 0.15 150)" }],
   estimate: 3,
-  assignee: { id: "u1", name: "Wouter Missler" }
+  assignee: { id: "u1", name: "Wouter Missler" },
+  sprint: "Verification"
 }
 
 export const AUDIT: SampleTicket = {
@@ -73,7 +75,8 @@ export const AUDIT: SampleTicket = {
   priority: "urgent",
   subTickets: { done: 1, total: 3 },
   links: 2,
-  estimate: 5
+  estimate: 5,
+  sprint: "Verification"
 }
 
 export const FOCUS: SampleTicket = {
@@ -211,7 +214,7 @@ export function AssigneeField({
       ) : (
         <span
           // Like the app: the empty face waits for the row's or card's hover.
-          className="grid place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 group-hover/card:opacity-100 group-hover/reveal:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-data-[force~=hover]/card:opacity-100 group-data-[force~=hover]/reveal:opacity-100"
+          className="grid place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 corner-squircle group-hover/card:opacity-100 group-hover/reveal:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-data-[force~=hover]/card:opacity-100 group-data-[force~=hover]/reveal:opacity-100"
           style={{ width: size, height: size }}
         >
           <User className="size-3.5" strokeWidth={1.75} />

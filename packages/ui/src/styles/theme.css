@@ -546,6 +546,27 @@
   }
 }
 
+/* Moving to the next submenu row, the old submenu closes when Base UI's
+   safe triangle gives up, and the row under the cursor only takes the hover
+   on the next mouse move: for a few frames no submenu shows. So a closing
+   submenu stays up for at most 50ms, and hides the moment another submenu
+   is open and placed (its positioner is inline `opacity: 0` until then). */
+[data-slot="dropdown-menu-sub-content"][data-closed] {
+  animation: submenu-hold 50ms steps(1, end);
+}
+:root:has(
+    [data-slot="dropdown-menu-sub-positioner"]:not([style*="opacity: 0"])
+      > [data-open]
+  )
+  [data-slot="dropdown-menu-sub-content"][data-closed] {
+  visibility: hidden;
+}
+@keyframes submenu-hold {
+  to {
+    opacity: 1;
+  }
+}
+
 /* Focus ring, the standard for every interactive @pp/ui component: a 2px
    outline in the app's grey --ring, standing 2px off the element. */
 .focus-ring:focus-visible {

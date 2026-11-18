@@ -105,7 +105,7 @@ function TriggerVisual({
     return (
       <>
         {empty && (
-          <span className="grid size-5 place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-[opacity,color,background-color] duration-150 group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 hitbox-hover:bg-hover hitbox-hover:text-foreground">
+          <span className="grid size-5 place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-colors corner-squircle not-in-data-keyboard-navigation:group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 hitbox-hover:bg-hover hitbox-hover:text-foreground">
             <UserRound className="size-3" strokeWidth={1.75} />
           </span>
         )}
@@ -118,7 +118,7 @@ function TriggerVisual({
   return (
     <span className="inline-flex items-center text-muted-foreground transition-colors hitbox-hover:text-foreground">
       {empty && (
-        <span className="grid size-5 shrink-0 place-items-center rounded-full opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100">
+        <span className="grid size-5 shrink-0 place-items-center rounded-full opacity-0 shadow-[inset_0_0_0_1px_var(--border)] corner-squircle not-in-data-keyboard-navigation:group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100">
           <UserRound className="size-3" strokeWidth={1.75} />
         </span>
       )}
