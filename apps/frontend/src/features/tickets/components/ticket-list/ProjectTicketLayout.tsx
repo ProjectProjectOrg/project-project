@@ -35,6 +35,7 @@ import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { ListDragOverlay } from "./ListDragOverlay"
 import { ListKeyboardProvider } from "./ListKeyboard"
+import { ScrollFloor } from "./ScrollFloor"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 import { StickyListBar } from "./StickyListBar"
 import { TicketSelectionProvider } from "./TicketSelection"
@@ -200,6 +201,7 @@ export function ProjectTicketLayout({
               <ListDragOverlay />
             </ListKeyboardProvider>
           </TicketSelectionProvider>
+          <ScrollFloor />
         </div>
       </PageContainer>
     </>
