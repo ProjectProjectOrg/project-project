@@ -58,6 +58,7 @@ import {
 import type { Tool } from "effect/ai"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
 
 import { createTicket } from "../tickets/createTicket"
 import { toolRunner } from "./runTool"
@@ -363,13 +364,14 @@ const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
   Effect.gen(function* () {
     const ticket = yield* (yield* TicketQueries.TicketQueries).get(id)
     const result = applyTicketBodyEdits(ticket.body, edits)
-    if (!result.ok) {
+    if (Result.isFailure(result)) {
+      const { index, failure } = result.failure
       return yield* new Validation({
-        reason: `edit_failed:${result.index}:${formatTicketBodyEditFailure(result.failure)}`
+        reason: `edit_failed:${index}:${formatTicketBodyEditFailure(failure)}`
       })
     }
     return {
-      body: yield* sanitizeMcpBody(result.body),
+      body: yield* sanitizeMcpBody(result.success),
       expectedBody: ticket.body
     }
   })

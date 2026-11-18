@@ -1,6 +1,7 @@
+import * as Result from "effect/Result"
 import { describe, expect, it } from "vitest"
 
-import { applyTicketBodyEdits } from "./bodyEdits"
+import { applyTicketBodyEdits, TicketBodyEditFailure } from "./bodyEdits"
 
 const BODY = [
   "Intro.",
@@ -31,10 +32,9 @@ describe("applyTicketBodyEdits", () => {
       { kind: "replace", oldText: "- [ ] First", newText: "- [x] First" }
     ])
 
-    expect(result).toEqual({
-      ok: true,
-      body: BODY.replace("- [ ] First", "- [x] First")
-    })
+    expect(result).toEqual(
+      Result.succeed(BODY.replace("- [ ] First", "- [x] First"))
+    )
   })
 
   it("rejects text that matches nothing", () => {
@@ -42,7 +42,9 @@ describe("applyTicketBodyEdits", () => {
       applyTicketBodyEdits(BODY, [
         { kind: "replace", oldText: "Missing", newText: "x" }
       ])
-    ).toEqual({ ok: false, index: 0, failure: { code: "no_match" } })
+    ).toEqual(
+      Result.fail({ index: 0, failure: TicketBodyEditFailure.NoMatch() })
+    )
   })
 
   it("rejects an ambiguous match unless replaceAll is set", () => {
@@ -52,13 +54,14 @@ describe("applyTicketBodyEdits", () => {
       newText: "- [x]"
     } as const
 
-    expect(applyTicketBodyEdits(BODY, [edit])).toEqual({
-      ok: false,
-      index: 0,
-      failure: { code: "multiple_matches", count: 3 }
-    })
+    expect(applyTicketBodyEdits(BODY, [edit])).toEqual(
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.MultipleMatches({ count: 3 })
+      })
+    )
     expect(applyTicketBodyEdits(BODY, [{ ...edit, replaceAll: true }])).toEqual(
-      { ok: true, body: BODY.replaceAll("- [ ]", "- [x]") }
+      Result.succeed(BODY.replaceAll("- [ ]", "- [x]"))
     )
   })
 
@@ -67,10 +70,10 @@ describe("applyTicketBodyEdits", () => {
       applyTicketBodyEdits("Intro.\n\n", [
         { kind: "append", text: "![shot.png](/api/attachments/o/1)" }
       ])
-    ).toEqual({ ok: true, body: "Intro.\n\n![shot.png](/api/attachments/o/1)" })
+    ).toEqual(Result.succeed("Intro.\n\n![shot.png](/api/attachments/o/1)"))
     expect(
       applyTicketBodyEdits("", [{ kind: "append", text: "First line" }])
-    ).toEqual({ ok: true, body: "First line" })
+    ).toEqual(Result.succeed("First line"))
   })
 
   it("replaces a named block's content and keeps its tags and surroundings", () => {
@@ -82,10 +85,11 @@ describe("applyTicketBodyEdits", () => {
       }
     ])
 
-    expect(result).toEqual({
-      ok: true,
-      body: BODY.replace("- [ ] First\n- [ ] Second", "- [ ] Only one")
-    })
+    expect(result).toEqual(
+      Result.succeed(
+        BODY.replace("- [ ] First\n- [ ] Second", "- [ ] Only one")
+      )
+    )
   })
 
   it("refuses to replace a synced, missing or repeated block", () => {
@@ -95,15 +99,18 @@ describe("applyTicketBodyEdits", () => {
       ])
     const twice = `${BODY}\n\n<block type="acceptance-criteria">\n\nAgain\n\n</block>`
 
-    expect(replace("definition-of-done")).toMatchObject({
-      failure: { code: "block_synced" }
-    })
-    expect(replace("context")).toMatchObject({
-      failure: { code: "block_not_found" }
-    })
-    expect(replace("acceptance-criteria", twice)).toMatchObject({
-      failure: { code: "block_ambiguous", count: 2 }
-    })
+    expect(replace("definition-of-done")).toEqual(
+      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockSynced() })
+    )
+    expect(replace("context")).toEqual(
+      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockNotFound() })
+    )
+    expect(replace("acceptance-criteria", twice)).toEqual(
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.BlockAmbiguous({ count: 2 })
+      })
+    )
   })
 
   it("ignores block markup inside a code fence", () => {
@@ -121,7 +128,9 @@ describe("applyTicketBodyEdits", () => {
       applyTicketBodyEdits(fenced, [
         { kind: "replace_block", type: "context", content: "x" }
       ])
-    ).toMatchObject({ ok: false, failure: { code: "block_not_found" } })
+    ).toEqual(
+      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockNotFound() })
+    )
   })
 
   it("applies edits in order and reports the index of the first failure", () => {
@@ -130,14 +139,16 @@ describe("applyTicketBodyEdits", () => {
         { kind: "replace", oldText: "Intro.", newText: "Lead." },
         { kind: "replace", oldText: "Lead.", newText: "Opening." }
       ])
-    ).toMatchObject({ ok: true, body: expect.stringMatching(/^Opening\./) })
+    ).toEqual(Result.succeed(expect.stringMatching(/^Opening\./)))
     expect(
       applyTicketBodyEdits(BODY, [
         { kind: "append", text: "More." },
         { kind: "replace", oldText: "Intro.", newText: "Lead." },
         { kind: "replace", oldText: "Intro.", newText: "Again." }
       ])
-    ).toEqual({ ok: false, index: 2, failure: { code: "no_match" } })
+    ).toEqual(
+      Result.fail({ index: 2, failure: TicketBodyEditFailure.NoMatch() })
+    )
   })
 
   it("names the edit that breaks block markup", () => {
@@ -146,11 +157,12 @@ describe("applyTicketBodyEdits", () => {
         { kind: "append", text: "More." },
         { kind: "append", text: '<block type="context">\n\nUnclosed' }
       ])
-    ).toMatchObject({
-      ok: false,
-      index: 1,
-      failure: { code: "block_markup" }
-    })
+    ).toEqual(
+      Result.fail({
+        index: 1,
+        failure: expect.objectContaining({ _tag: "BlockMarkup" })
+      })
+    )
   })
 
   it("keeps the indentation of inserted code", () => {
@@ -158,10 +170,7 @@ describe("applyTicketBodyEdits", () => {
       applyTicketBodyEdits("Intro.", [
         { kind: "append", text: "\n    const a = 1\n    const b = 2\n" }
       ])
-    ).toEqual({
-      ok: true,
-      body: "Intro.\n\n    const a = 1\n    const b = 2"
-    })
+    ).toEqual(Result.succeed("Intro.\n\n    const a = 1\n    const b = 2"))
     expect(
       applyTicketBodyEdits(BODY, [
         {
@@ -170,9 +179,8 @@ describe("applyTicketBodyEdits", () => {
           content: "    indented"
         }
       ])
-    ).toMatchObject({
-      ok: true,
-      body: expect.stringContaining("\n\n    indented\n\n</block>")
-    })
+    ).toEqual(
+      Result.succeed(expect.stringContaining("\n\n    indented\n\n</block>"))
+    )
   })
 })

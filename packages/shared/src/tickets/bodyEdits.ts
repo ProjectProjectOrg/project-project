@@ -1,3 +1,5 @@
+import * as Data from "effect/Data"
+import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 
 import {
@@ -46,21 +48,21 @@ export const TicketBodyEdits = Schema.Array(TicketBodyEdit).pipe(
   Schema.check(Schema.isMaxLength(TICKET_BODY_EDITS_MAX))
 )
 
-export type TicketBodyEditFailure =
-  | Readonly<{ code: "no_match" }>
-  | Readonly<{ code: "multiple_matches"; count: number }>
-  | Readonly<{ code: "block_not_found" }>
-  | Readonly<{ code: "block_ambiguous"; count: number }>
-  | Readonly<{ code: "block_synced" }>
-  | Readonly<{ code: "block_markup"; issue: string }>
+export type TicketBodyEditFailure = Data.TaggedEnum<{
+  NoMatch: {}
+  MultipleMatches: { readonly count: number }
+  BlockNotFound: {}
+  BlockAmbiguous: { readonly count: number }
+  BlockSynced: {}
+  BlockMarkup: { readonly issue: string }
+}>
 
-export type TicketBodyEditsResult =
-  | Readonly<{ ok: true; body: string }>
-  | Readonly<{ ok: false; index: number; failure: TicketBodyEditFailure }>
+export const TicketBodyEditFailure = Data.taggedEnum<TicketBodyEditFailure>()
 
-type EditOutcome =
-  | Readonly<{ ok: true; body: string }>
-  | Readonly<{ ok: false; failure: TicketBodyEditFailure }>
+const failEdit = (failure: TicketBodyEditFailure) => Result.fail(failure)
+
+const failAt = (index: number, failure: TicketBodyEditFailure) =>
+  Result.fail({ index, failure })
 
 type BlockSpan = Readonly<{
   open: number
@@ -79,27 +81,16 @@ const replaceText = (body: string, edit: typeof ReplaceTextEdit.Type) => {
   const oldText = normalizeLineEndings(edit.oldText)
   const newText = normalizeLineEndings(edit.newText)
   const count = countOccurrences(body, oldText)
-  if (count === 0)
-    return { ok: false, failure: { code: "no_match" } } satisfies EditOutcome
-  if (count > 1 && edit.replaceAll !== true) {
-    return {
-      ok: false,
-      failure: { code: "multiple_matches", count }
-    } satisfies EditOutcome
-  }
-  return {
-    ok: true,
-    body: body.split(oldText).join(newText)
-  } satisfies EditOutcome
+  if (count === 0) return failEdit(TicketBodyEditFailure.NoMatch())
+  if (count > 1 && edit.replaceAll !== true)
+    return failEdit(TicketBodyEditFailure.MultipleMatches({ count }))
+  return Result.succeed(body.split(oldText).join(newText))
 }
 
 const append = (body: string, edit: typeof AppendEdit.Type) => {
   const head = body.trimEnd()
   const text = trimBlankLines(normalizeLineEndings(edit.text))
-  return {
-    ok: true,
-    body: head === "" ? text : `${head}\n\n${text}`
-  } satisfies EditOutcome
+  return Result.succeed(head === "" ? text : `${head}\n\n${text}`)
 }
 
 const blockSpans = (lines: ReadonlyArray<string>) => {
@@ -121,34 +112,21 @@ const blockSpans = (lines: ReadonlyArray<string>) => {
 const replaceBlock = (body: string, edit: typeof ReplaceBlockEdit.Type) => {
   const lines = body.split("\n")
   const matches = blockSpans(lines).filter((span) => span.type === edit.type)
-  if (matches.length === 0) {
-    return {
-      ok: false,
-      failure: { code: "block_not_found" }
-    } satisfies EditOutcome
-  }
-  if (matches.length > 1) {
-    return {
-      ok: false,
-      failure: { code: "block_ambiguous", count: matches.length }
-    } satisfies EditOutcome
-  }
+  if (matches.length === 0)
+    return failEdit(TicketBodyEditFailure.BlockNotFound())
+  if (matches.length > 1)
+    return failEdit(
+      TicketBodyEditFailure.BlockAmbiguous({ count: matches.length })
+    )
   const [span] = matches
-  if (span.sync)
-    return {
-      ok: false,
-      failure: { code: "block_synced" }
-    } satisfies EditOutcome
+  if (span.sync) return failEdit(TicketBodyEditFailure.BlockSynced())
   const content = trimBlankLines(normalizeLineEndings(edit.content))
   const inner = content === "" ? [""] : ["", ...content.split("\n"), ""]
-  return {
-    ok: true,
-    body: [
-      ...lines.slice(0, span.open + 1),
-      ...inner,
-      ...lines.slice(span.end)
-    ].join("\n")
-  } satisfies EditOutcome
+  return Result.succeed(
+    [...lines.slice(0, span.open + 1), ...inner, ...lines.slice(span.end)].join(
+      "\n"
+    )
+  )
 }
 
 const applyEdit = (body: string, edit: TicketBodyEdit) => {
@@ -170,38 +148,24 @@ export const applyTicketBodyEdits = (
   const checkMarkup = validateTicketBlocks(current).length === 0
   for (const [index, edit] of edits.entries()) {
     const outcome = applyEdit(current, edit)
-    if (!outcome.ok)
-      return {
-        ok: false,
-        index,
-        failure: outcome.failure
-      } satisfies TicketBodyEditsResult
-    const [issue] = checkMarkup ? validateTicketBlocks(outcome.body) : []
+    if (Result.isFailure(outcome)) return failAt(index, outcome.failure)
+    const [issue] = checkMarkup ? validateTicketBlocks(outcome.success) : []
     if (issue !== undefined) {
-      return {
-        ok: false,
-        index,
-        failure: { code: "block_markup", issue: formatBlockIssue(issue) }
-      } satisfies TicketBodyEditsResult
+      const failure = TicketBodyEditFailure.BlockMarkup({
+        issue: formatBlockIssue(issue)
+      })
+      return failAt(index, failure)
     }
-    current = outcome.body
+    current = outcome.success
   }
-  return { ok: true, body: current } satisfies TicketBodyEditsResult
+  return Result.succeed(current)
 }
 
-export const formatTicketBodyEditFailure = (failure: TicketBodyEditFailure) => {
-  switch (failure.code) {
-    case "no_match":
-      return "no_match"
-    case "multiple_matches":
-      return `multiple_matches:${failure.count}`
-    case "block_not_found":
-      return "block_not_found"
-    case "block_ambiguous":
-      return `block_ambiguous:${failure.count}`
-    case "block_synced":
-      return "block_synced"
-    case "block_markup":
-      return `block_markup:${failure.issue}`
-  }
-}
+export const formatTicketBodyEditFailure = TicketBodyEditFailure.$match({
+  NoMatch: () => "no_match",
+  MultipleMatches: ({ count }) => `multiple_matches:${count}`,
+  BlockNotFound: () => "block_not_found",
+  BlockAmbiguous: ({ count }) => `block_ambiguous:${count}`,
+  BlockSynced: () => "block_synced",
+  BlockMarkup: ({ issue }) => `block_markup:${issue}`
+})
