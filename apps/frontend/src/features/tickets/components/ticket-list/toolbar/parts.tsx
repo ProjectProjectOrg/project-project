@@ -14,18 +14,13 @@ import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { menuItemMetaClass } from "@/components/ui/menu-styles"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   statusesFor,
   statusesRequest
@@ -171,8 +166,24 @@ export function Status({
 
   return (
     <ControlSlot>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+      <Select
+        items={options.map((option, index) => ({
+          separated: index === 0,
+          value: option.value,
+          textValue: option.label,
+          label: (
+            <>
+              {option.icon}
+              <span className="truncate">{option.label}</span>
+              {countBadge(option.count)}
+            </>
+          )
+        }))}
+        value={status}
+        onValueChange={setStatus}
+        contentProps={{ align: "start", className: "w-52", finalFocus: false }}
+      >
+        <SelectTrigger
           render={
             <ToolbarButton
               active={active}
@@ -202,30 +213,7 @@ export function Status({
             </ToolbarButton>
           }
         />
-        <DropdownMenuContent
-          align="start"
-          sideOffset={6}
-          className="w-52"
-          finalFocus={false}
-        >
-          <DropdownMenuRadioGroup
-            value={status}
-            onValueChange={setStatus}
-            items={options.map((option, index) => ({
-              separated: index === 0,
-              value: option.value,
-              closeOnClick: true,
-              label: (
-                <>
-                  {option.icon}
-                  <span className="truncate">{option.label}</span>
-                  {countBadge(option.count)}
-                </>
-              )
-            }))}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </Select>
     </ControlSlot>
   )
 }
@@ -238,8 +226,17 @@ export function Sort() {
     onQueryChange({ ...query, sort: { key, dir: NATURAL_SORT_DIR[key] } })
   return (
     <motion.div layout="position" transition={transitions.layout}>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+      <Select
+        items={sortKeysFor(estimation).map((k) => ({
+          value: k,
+          textValue: SORT_LABELS[k](),
+          label: SORT_LABELS[k]()
+        }))}
+        value={sortKey}
+        onValueChange={setSortKey}
+        contentProps={{ align: "end", className: "w-44" }}
+      >
+        <SelectTrigger
           render={
             <ToolbarButton
               aria-label={m.tickets_sort_aria_label({
@@ -254,18 +251,7 @@ export function Sort() {
             </ToolbarButton>
           }
         />
-        <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-          <DropdownMenuRadioGroup
-            value={sortKey}
-            onValueChange={setSortKey}
-            items={sortKeysFor(estimation).map((k) => ({
-              value: k,
-              closeOnClick: true,
-              label: SORT_LABELS[k]()
-            }))}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </Select>
     </motion.div>
   )
 }

@@ -23,11 +23,11 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import { Input } from "@/components/ui/input"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   PRIORITY_LABELS,
@@ -179,22 +179,22 @@ function ChoiceTrigger({
   ariaLabel: string
 }>) {
   return (
-    <DropdownMenuTrigger
+    <SelectTrigger
       disabled={disabled}
       aria-label={ariaLabel}
       render={
-        <Button type="button" variant="chip" size="sm" className="-ml-1.5">
-          {icon}
-          <span>{label}</span>
-          {disabled ? null : (
-            <ChevronDown
-              className="size-3.5 text-muted-foreground"
-              strokeWidth={1.75}
-            />
-          )}
-        </Button>
+        <Button type="button" variant="chip" size="sm" className="-ml-1.5" />
       }
-    />
+    >
+      {icon}
+      <span>{label}</span>
+      {disabled ? null : (
+        <ChevronDown
+          className="size-3.5 text-muted-foreground"
+          strokeWidth={1.75}
+        />
+      )}
+    </SelectTrigger>
   )
 }
 
@@ -213,7 +213,36 @@ export function NullablePriorityField({
   const label = value === null ? noneLabel() : PRIORITY_LABELS[value]()
   const Icon = meta?.icon ?? null
   return (
-    <DropdownMenu>
+    <Select
+      items={[null, ...PRIORITY_ORDER].map((priority) => {
+        const itemMeta = priority === null ? null : PRIORITY_META[priority]
+        const ItemIcon = itemMeta?.icon ?? null
+        const itemLabel =
+          priority === null ? noneLabel() : PRIORITY_LABELS[priority]()
+        return {
+          value: priority ?? NO_PRIORITY,
+          textValue: itemLabel,
+          separated: priority === null,
+          label: (
+            <>
+              {ItemIcon === null ? (
+                <span className="size-4" aria-hidden />
+              ) : (
+                <ItemIcon
+                  className={cn("size-4", itemMeta?.className)}
+                  strokeWidth={1.75}
+                />
+              )}
+              {itemLabel}
+            </>
+          )
+        }
+      })}
+      value={value ?? NO_PRIORITY}
+      disabled={disabled}
+      onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
+      contentProps={{ align: "start", className: "w-44" }}
+    >
       <ChoiceTrigger
         label={label}
         disabled={disabled}
@@ -227,37 +256,7 @@ export function NullablePriorityField({
           )
         }
       />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        <DropdownMenuRadioGroup
-          value={value ?? NO_PRIORITY}
-          onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
-          items={[null, ...PRIORITY_ORDER].map((priority) => {
-            const itemMeta = priority === null ? null : PRIORITY_META[priority]
-            const ItemIcon = itemMeta?.icon ?? null
-            return {
-              value: priority ?? NO_PRIORITY,
-              closeOnClick: true,
-              separated: priority === null,
-              label: (
-                <>
-                  {ItemIcon === null ? (
-                    <span className="size-4" aria-hidden />
-                  ) : (
-                    <ItemIcon
-                      className={cn("size-4", itemMeta?.className)}
-                      strokeWidth={1.75}
-                    />
-                  )}
-                  {priority === null
-                    ? noneLabel()
-                    : PRIORITY_LABELS[priority]()}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }
 

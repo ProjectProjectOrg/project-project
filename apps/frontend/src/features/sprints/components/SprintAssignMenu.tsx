@@ -1,29 +1,24 @@
-import * as DateTime from "effect/DateTime"
-import { Plus, X } from "lucide-react"
-import { type ComponentProps } from "react"
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { menuItemMetaClass } from "@/components/ui/menu-styles"
-
-type TriggerRender = ComponentProps<typeof DropdownMenuTrigger>["render"]
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
   sprintState,
   type Group
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
+import { Plus, X } from "lucide-react"
+import type { ComponentProps, ReactElement } from "react"
 
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
 import { SprintStateIcon } from "./SprintChip"
+
+type SelectProps = ComponentProps<typeof Select>
+
+const NO_SPRINT = "__no-sprint"
+const NEW_SPRINT = "__new-sprint"
 
 function rangeText(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
@@ -35,15 +30,15 @@ function rangeText(s: Group): string {
 }
 
 export type SprintAssignMenuProps = {
-  trigger: TriggerRender
+  trigger: ReactElement
   sprints: ReadonlyArray<Group>
   selectedId: Group["id"] | null
   onSelect: (sprint: Group) => void
   onClear?: () => void
   onRequestNewSprint?: () => void
   open?: boolean
-  onOpenChange?: ComponentProps<typeof DropdownMenu>["onOpenChange"]
-  finalFocus?: ComponentProps<typeof DropdownMenuContent>["finalFocus"]
+  onOpenChange?: SelectProps["onOpenChange"]
+  finalFocus?: NonNullable<SelectProps["contentProps"]>["finalFocus"]
   clearLabel?: string
 }
 
@@ -58,6 +53,19 @@ export function pickDefaultSprint(
   )
 }
 
+const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
+  const now = DateTime.toDate(DateTime.nowUnsafe())
+  const stateOrder = { active: 0, planned: 1, completed: 2 } as const
+  return sprints
+    .filter((s) => s.completedAt === null)
+    .toSorted((a, b) => {
+      const sa = stateOrder[sprintState(a, now)]
+      const sb = stateOrder[sprintState(b, now)]
+      if (sa !== sb) return sa - sb
+      return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+    })
+}
+
 export function SprintAssignMenu({
   trigger,
   sprints,
@@ -70,95 +78,78 @@ export function SprintAssignMenu({
   finalFocus,
   clearLabel
 }: SprintAssignMenuProps) {
+  const eligible = eligibleSprints(sprints)
+  const sprintOptions = eligible.map((s, index) => ({
+    value: s.id,
+    textValue: s.name,
+    separated:
+      index === eligible.length - 1 &&
+      (onClear !== undefined || onRequestNewSprint !== undefined),
+    label: (
+      <>
+        <SprintStateIcon sprint={s} size="xs" />
+        <span className="min-w-0 flex-1 truncate">{s.name}</span>
+        <span data-menu-meta className={menuItemMetaClass}>
+          {rangeText(s)}
+        </span>
+      </>
+    )
+  }))
+  const clearText = clearLabel ?? m.tickets_sprint_popover_remove_action()
+  const clearOptions =
+    onClear === undefined
+      ? []
+      : [
+          {
+            value: NO_SPRINT,
+            textValue: clearText,
+            label: (
+              <>
+                <X strokeWidth={1.75} />
+                {clearText}
+              </>
+            )
+          }
+        ]
+  const newSprintText = m.tickets_sprint_popover_new_sprint_action()
+  const actionOptions =
+    onRequestNewSprint === undefined
+      ? []
+      : [
+          {
+            value: NEW_SPRINT,
+            textValue: newSprintText,
+            label: (
+              <>
+                <Plus strokeWidth={1.75} />
+                {newSprintText}
+              </>
+            ),
+            onAction: onRequestNewSprint
+          }
+        ]
+  const items = [...sprintOptions, ...clearOptions, ...actionOptions]
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-64"
-        onClick={(e) => e.stopPropagation()}
-        finalFocus={finalFocus ?? false}
-      >
-        <SprintAssignMenuItems
-          sprints={sprints}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onClear={onClear}
-          onRequestNewSprint={onRequestNewSprint}
-          clearLabel={clearLabel}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function SprintAssignMenuItems({
-  sprints,
-  selectedId,
-  onSelect,
-  onClear,
-  onRequestNewSprint,
-  clearLabel
-}: Pick<
-  SprintAssignMenuProps,
-  | "sprints"
-  | "selectedId"
-  | "onSelect"
-  | "onClear"
-  | "onRequestNewSprint"
-  | "clearLabel"
->) {
-  const now = DateTime.toDate(DateTime.nowUnsafe())
-  const eligible = sprints
-    .filter((s) => s.completedAt === null)
-    .slice()
-    .sort((a, b) => {
-      const stateOrder = { active: 0, planned: 1, completed: 2 } as const
-      const sa = stateOrder[sprintState(a, now)]
-      const sb = stateOrder[sprintState(b, now)]
-      if (sa !== sb) return sa - sb
-      return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
-    })
-
-  return (
-    <>
-      <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
-        {m.tickets_sprint_popover_title()}
-      </div>
-      <DropdownMenuRadioGroup
-        value={selectedId}
-        onValueChange={(id: Group["id"]) => {
-          const next = eligible.find((s) => s.id === id)
-          if (next && id !== selectedId) onSelect(next)
-        }}
-        items={eligible.map((s) => ({
-          value: s.id,
-          closeOnClick: true,
-          label: (
-            <>
-              <SprintStateIcon sprint={s} size="xs" />
-              <span className="min-w-0 flex-1 truncate">{s.name}</span>
-              <span data-menu-meta className={menuItemMetaClass}>
-                {rangeText(s)}
-              </span>
-            </>
-          )
-        }))}
-      />
-      {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
-      {onRequestNewSprint && (
-        <DropdownMenuItem onClick={() => onRequestNewSprint()}>
-          <Plus strokeWidth={1.75} />
-          {m.tickets_sprint_popover_new_sprint_action()}
-        </DropdownMenuItem>
-      )}
-      {onClear && (
-        <DropdownMenuItem onClick={() => onClear()}>
-          <X strokeWidth={1.75} />
-          {clearLabel ?? m.tickets_sprint_popover_remove_action()}
-        </DropdownMenuItem>
-      )}
-    </>
+    <Select
+      items={items}
+      value={selectedId ?? (onClear === undefined ? null : NO_SPRINT)}
+      open={open}
+      onOpenChange={onOpenChange}
+      onValueChange={(id) => {
+        if (id === NO_SPRINT) {
+          if (selectedId !== null) onClear?.()
+          return
+        }
+        const next = eligible.find((s) => s.id === id)
+        if (next && id !== selectedId) onSelect(next)
+      }}
+      contentProps={{
+        align: "start",
+        className: "w-64",
+        finalFocus: finalFocus ?? false
+      }}
+    >
+      <SelectTrigger render={trigger} />
+    </Select>
   )
 }

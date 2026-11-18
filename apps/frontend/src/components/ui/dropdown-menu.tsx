@@ -42,7 +42,7 @@ function FilterableRoot({
   if (!filterable) return children
   const options = filterable === true ? {} : filterable
   return (
-    <MenuPrimitive.FilterProvider autoHighlight {...options}>
+    <MenuPrimitive.FilterProvider autoHighlight="always" {...options}>
       {children}
     </MenuPrimitive.FilterProvider>
   )

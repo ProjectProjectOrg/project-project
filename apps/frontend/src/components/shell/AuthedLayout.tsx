@@ -18,7 +18,9 @@ import { SidebarSlotProvider } from "@/components/shell/SidebarSlot"
 import { UserMenu } from "@/components/shell/UserMenu"
 import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
+import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
+import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
 export function AuthedLayout() {
@@ -80,6 +82,10 @@ function Shell({ user }: { user: User }) {
           </div>
         </main>
       </div>
+      {user.activeOrgSlug ? (
+        <CommandMenuHost orgSlug={user.activeOrgSlug} />
+      ) : null}
+      <CreateTicketDialogHost />
     </div>
   )
 }

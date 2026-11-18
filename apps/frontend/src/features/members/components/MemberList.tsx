@@ -3,17 +3,13 @@ import { MoreHorizontal, Plus } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 
 import { Badge, type BadgeTone } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -47,8 +43,25 @@ export function RoleSelect<R extends string>({
   const current = meta[value]
   const Icon = current.icon
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={roles.map((role) => {
+        const RoleIcon = meta[role].icon
+        return {
+          value: role,
+          textValue: meta[role].label(),
+          label: (
+            <>
+              <RoleIcon className="size-4" strokeWidth={1.75} />
+              {meta[role].label()}
+            </>
+          )
+        }
+      })}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "end", className: "w-32" }}
+    >
+      <SelectTrigger
         render={
           <Badge
             tone={current.tone}
@@ -69,26 +82,7 @@ export function RoleSelect<R extends string>({
           </Badge>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={roles.map((role) => {
-            const RoleIcon = meta[role].icon
-            return {
-              value: role,
-              closeOnClick: true,
-              label: (
-                <>
-                  <RoleIcon className="size-4" strokeWidth={1.75} />
-                  {meta[role].label()}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }
 
