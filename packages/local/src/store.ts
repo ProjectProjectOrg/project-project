@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { LocalDb, type Write, type Writer } from "./LocalDb"
+import { createTicketOrderIndex, dropTicketOrderIndexes } from "./migrations"
 import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
   applyGroupIntents,
@@ -61,7 +62,8 @@ import {
   localTicketData,
   localTickets,
   localTicketTags,
-  type LocalSortKey
+  type LocalSortKey,
+  SORT_KEYS
 } from "./tables"
 import { decodeStatus, finishedStatuses } from "./ticketRows"
 
@@ -439,6 +441,7 @@ export const dropCopyBatch = (copy: number) =>
     const sqlClient = yield* SqlClient.SqlClient
     return yield* sqlClient.withTransaction(
       Effect.gen(function* () {
+        yield* dropTicketOrderIndexes(copy)
         const tickets = (yield* db
           .select({ id: localTickets.id })
           .from(localTickets)
@@ -641,6 +644,10 @@ export const publishStaging = (scope: string, writer: Writer) =>
     const staged = yield* stagingRow(scope)
     if (staged === null || staged.next !== null) return null
     yield* deriveCopy(staged.copy, writer)
+    for (const key of SORT_KEYS) {
+      yield* writer.write(createTicketOrderIndex(staged.copy, key))
+      yield* writer.readsWaiting
+    }
     return yield* writer.write(
       sqlClient.withTransaction(
         Effect.gen(function* () {

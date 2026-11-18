@@ -162,6 +162,36 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
+it.effect(
+  "an interrupted publish leaves the old copy readable and can resume",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", snapshot("1.2", [ticket("T-1", "old")]))
+      const replacement = [ticket("T-1", "new"), ticket("T-2", "second")]
+      yield* beginStaging("a/p", onePage("2.0", replacement), directly)
+      let writes = 0
+      const interrupted = {
+        write: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          Effect.suspend(() =>
+            ++writes === 3 ? Effect.die("worker stopped") : effect
+          ),
+        readsWaiting: Effect.succeed(false)
+      }
+      expect(
+        Exit.isFailure(yield* Effect.exit(publishStaging("a/p", interrupted)))
+      ).toBe(true)
+      expect(yield* cursorOf("a/p")).toBe("1.2")
+      expect((yield* readFacts("a/p")).facts.tickets[0]?.data).toContain("old")
+      yield* publishStaging("a/p", directly)
+      expect(
+        differences(
+          yield* readFacts("a/p"),
+          snapshotFacts(snapshot("2.0", replacement))
+        )
+      ).toEqual([])
+    }).pipe(Effect.provide(TestDatabase))
+)
+
 const numbered = (from: number, to: number) =>
   Array.from({ length: to - from + 1 }, (_, index) => {
     const n = String(from + index).padStart(4, "0")

@@ -222,6 +222,34 @@ const groupEdits = Effect.gen(function* () {
     primary key (copy, id))`
 })
 
+export const createTicketOrderIndex = Effect.fnUntraced(function* (
+  copy: number,
+  key: LocalSortKey
+) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql.unsafe(
+    `create index if not exists local_tickets_${key}_${copy} on local_tickets (copy, archived, status, ${orderColumn(key)}) where copy = ${copy}`
+  )
+})
+
+export const dropTicketOrderIndexes = Effect.fnUntraced(function* (
+  copy: number
+) {
+  const sql = yield* SqlClient.SqlClient
+  for (const key of SORT_KEYS)
+    yield* sql.unsafe(`drop index if exists local_tickets_${key}_${copy}`)
+})
+
+const copyOrderIndexes = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  for (const key of SORT_KEYS)
+    yield* sql.unsafe(`drop index if exists local_tickets_${key}`)
+  for (const { copy } of yield* sql<
+    Readonly<{ copy: number }>
+  >`select copy from local_sync`)
+    for (const key of SORT_KEYS) yield* createTicketOrderIndex(copy, key)
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
@@ -231,5 +259,6 @@ export const localMigrations = Migrator.fromRecord({
   "0006_descriptions": descriptions,
   "0007_sections": sections,
   "0008_description_copy": descriptionCopy,
-  "0009_group_edits": groupEdits
+  "0009_group_edits": groupEdits,
+  "0010_copy_order_indexes": copyOrderIndexes
 })
