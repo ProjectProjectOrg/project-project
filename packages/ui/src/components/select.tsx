@@ -406,7 +406,7 @@ type SelectItemProps = Omit<
 // turns semibold. No row fill and
 // no trailing tick, so it never stacks with the sliding highlight.
 const choiceItemClass =
-  "transition-[color,font-weight] duration-150 data-[selected]:font-semibold data-[selected]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
+  "transition-[color,font-weight] duration-150 data-[selected]:font-semibold data-[selected]:text-foreground lit:duration-0 motion-reduce:transition-none"
 
 const choiceIndicatorClass =
   "w-4 shrink-0 opacity-0 transition-opacity duration-80 ease-standard group-data-[selected]/choice:opacity-100 group-data-[selected]/choice:duration-60 motion-reduce:transition-none"

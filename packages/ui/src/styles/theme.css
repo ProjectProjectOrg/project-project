@@ -7,6 +7,10 @@
 @plugin "@toolwind/corner-shape";
 
 @custom-variant dark (&:is(.dark *));
+/* A menu row the highlight sits on: Base UI's highlighted row, the row it
+   holds on while the pointer crosses a separator, or the row it rests on
+   with no pointer (menu-highlight.tsx). */
+@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting]));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 
 /* Allo (OFL), the interface face: the variable font (weight, roundness,
