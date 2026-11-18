@@ -1,11 +1,11 @@
 import { TAG_COLOR_WHEEL, type StatusIconName } from "@pp/shared"
+import { IconGridPicker } from "@pp/ui/icon-grid-picker"
+import { cn } from "@pp/ui/lib/utils"
 
-import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import {
   STATUS_ICON_NAMES,
   getStatusIcon
 } from "@/features/statuses/lib/statusIcons"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -71,7 +71,7 @@ export function StatusIconPicker({
                 aria-label={m.color_swatch_aria_label({ hex: swatch.hex })}
                 aria-pressed={swatch.hex.toLowerCase() === color?.toLowerCase()}
                 onClick={() => onColorChange(swatch.hex)}
-                className="flex size-7 items-center justify-center rounded-[8px] transition-all duration-100 hover:bg-hover aria-pressed:bg-active"
+                className="flex size-7 items-center justify-center rounded-[8px] transition-all duration-100 hover:bg-hover active:scale-[0.97] aria-pressed:bg-active"
               >
                 <span
                   className="size-4 rounded-full border border-border/60"

@@ -33,7 +33,3 @@ export const submitFeedback = Atom.family((orgSlug: string) =>
     })
   )
 )
-
-export const sendFeedbackDialog = Atom.make<Readonly<{
-  orgSlug: string
-}> | null>(null).pipe(Atom.keepAlive)

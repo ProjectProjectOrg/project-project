@@ -1,19 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { TicketId, TicketParent } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import {
-  Flag,
-  FlagOff,
-  Layers,
-  Link2,
-  Stamp,
-  X,
-  type LucideIcon
-} from "lucide-react"
-import { Fragment, useContext } from "react"
-
-import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -21,7 +8,20 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import {
+  Flag,
+  FlagOff,
+  Layers,
+  Link2,
+  Stamp,
+  X,
+  type IconType
+} from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
+import { Fragment, useContext } from "react"
+
+import { fireMutation } from "@/api/viewMutation"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,
@@ -32,6 +32,7 @@ import { useOpenTicketPage } from "@/features/tickets/components/ticket-menu/use
 import { removableRelations } from "@/features/tickets/lib/relationGroups"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -62,6 +63,7 @@ export function MarkAsSubmenu({
             {m.tickets_mark_remove_flag()}
             <DropdownMenuShortcut
               keys={appHotkeys["tickets.flag"].defaultHotkey}
+              keyLabels={keyLabels()}
             />
           </DropdownMenuItem>
         ) : (
@@ -70,6 +72,7 @@ export function MarkAsSubmenu({
             {m.tickets_mark_flagged()}
             <DropdownMenuShortcut
               keys={appHotkeys["tickets.flag"].defaultHotkey}
+              keyLabels={keyLabels()}
             />
           </DropdownMenuItem>
         )}
@@ -171,7 +174,7 @@ function RelationItem({
   title,
   onClick
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   kind: string
   id: string
   title: string
@@ -187,7 +190,7 @@ function RelationItem({
       <Icon className="size-4 text-muted-foreground" strokeWidth={1.75} />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="shrink-0 text-muted-foreground">{kind}</span>
-        <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-muted-foreground tabular-nums">
           {id}
         </span>
         <span className="min-w-0 flex-1 truncate">{title}</span>

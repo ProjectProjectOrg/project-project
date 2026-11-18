@@ -3,8 +3,8 @@ import type {
   JiraMigrationRequirements,
   JiraMigrationScanSummary
 } from "@pp/shared"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { FactBlock, FactList, FactRow } from "@/features/jira/components/Facts"
 import { conflictMessages } from "@/features/jira/lib/destination"
 import {
@@ -50,10 +50,10 @@ export function CreatedBlock({
           {destination.name}
         </FactRow>
         <FactRow label={m.jira_import_destination_key()}>
-          <span className="font-mono">{destination.key}</span>
+          <span className="tabular-nums">{destination.key}</span>
         </FactRow>
         <FactRow label={m.jira_import_destination_slug()}>
-          <span className="font-mono">{destination.slug}</span>
+          <span className="tabular-nums">{destination.slug}</span>
         </FactRow>
         <FactRow label={m.jira_import_fact_tickets()}>
           {excluded === 0

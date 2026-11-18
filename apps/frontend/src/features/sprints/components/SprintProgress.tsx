@@ -1,4 +1,3 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
 import { useAtomValue } from "@effect/atom-react"
 import {
   ESTIMATE_SIZES,
@@ -6,17 +5,19 @@ import {
   type EstimateSummary,
   type Group
 } from "@pp/shared"
+import { chipClassName } from "@pp/ui/chip"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
+import { CircleDashed, Shirt } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleDashed, Shirt } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { PreviewCardContent } from "@/components/ui/preview-card"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import {
   sprintTimeAtom,
   sprintTimerRequest
@@ -29,12 +30,9 @@ import {
   isEmptyEstimateSummary
 } from "@/features/tickets/lib/estimateMeta"
 import { formatWorkDuration } from "@/lib/duration"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { sprintStatusText } from "./SprintChip"
-
-const PREVIEW_DELAY_MS = 400
 
 export const DONE_TONE = "bg-foreground/75"
 export const STARTED_TONE = "bg-foreground/30"
@@ -52,22 +50,28 @@ export function SprintProgress({
   if (isEmptyEstimateSummary(summary)) return null
   const estimate = sprintEstimate(sprint, summary)
   return (
-    <span className="flex items-center gap-3.5 tabular-nums">
+    <>
       {estimate !== null && (
-        <PreviewCard.Root>
-          <PreviewCard.Trigger
-            render={<span className="flex items-center gap-1.5" />}
-            delay={PREVIEW_DELAY_MS}
+        <HoverCard>
+          <HoverCardTrigger
+            render={
+              <span
+                className={chipClassName({
+                  interaction: "hover",
+                  className: "tabular-nums"
+                })}
+              />
+            }
           >
             {estimate}
-          </PreviewCard.Trigger>
-          <PreviewCardContent
+          </HoverCardTrigger>
+          <HoverCardContent
             align="end"
             className="pointer-events-none flex w-64 flex-col gap-3"
           >
             <SprintPreview sprint={sprint} summary={summary} />
-          </PreviewCardContent>
-        </PreviewCard.Root>
+          </HoverCardContent>
+        </HoverCard>
       )}
       {summary.unestimated > 0 && (
         <UnestimatedChip
@@ -75,7 +79,7 @@ export function SprintProgress({
           onShow={onShowUnestimated}
         />
       )}
-    </span>
+    </>
   )
 }
 
@@ -85,7 +89,7 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
     if (sizes.length === 0) return null
     return (
       <>
-        <Shirt className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <Shirt className="size-3 shrink-0" strokeWidth={1.75} />
         {sizes.map((size) => (
           <span key={size}>
             <span className="font-semibold text-foreground">{size}</span>
@@ -100,7 +104,7 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
     const Icon = ESTIMATE_UNIT_ICON[summary.unit]
     return (
       <>
-        <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <Icon className="size-3 shrink-0" strokeWidth={1.75} />
         <span className="text-foreground">
           {formatEstimateAmount(summary.unit, summary.committed)}
         </span>
@@ -154,7 +158,7 @@ function UnestimatedChip({
 }: Readonly<{ count: number; onShow: (() => void) | undefined }>) {
   const content = (
     <>
-      <CircleDashed className="size-3.5 shrink-0" strokeWidth={2} />
+      <CircleDashed className="size-3 shrink-0" strokeWidth={2} />
       {count}
     </>
   )
@@ -170,10 +174,18 @@ function UnestimatedChip({
                 event.stopPropagation()
                 onShow()
               }}
-              className="-my-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pr-1.5 pl-1 text-state-warning transition-all duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+              className={chipClassName({
+                interaction: "press",
+                className:
+                  "text-state-warning tabular-nums hover:text-state-warning"
+              })}
             />
           ) : (
-            <span className="inline-flex items-center gap-1 text-state-warning" />
+            <span
+              className={chipClassName({
+                className: "text-state-warning tabular-nums"
+              })}
+            />
           )
         }
       >

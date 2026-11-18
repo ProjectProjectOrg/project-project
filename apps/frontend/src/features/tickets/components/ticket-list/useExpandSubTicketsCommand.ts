@@ -1,4 +1,4 @@
-import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
+import { ChevronsDownUp, ChevronsUpDown } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"

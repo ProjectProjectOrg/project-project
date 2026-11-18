@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { attachmentUrl, ProjectIcon, type ProjectIconImage } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -34,7 +35,6 @@ import {
 import { compressImage } from "@/features/projects/lib/imageCompression"
 import { useSave } from "@/hooks/useSave"
 import { useAppForm, useFormValues } from "@/lib/form"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { CropStep } from "./CropStep"

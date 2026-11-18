@@ -1,18 +1,19 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type FormEvent, useState } from "react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsInput } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   connectEverhourProfileAtom,
   disconnectEverhourProfileAtom
 } from "@/features/everhour/atoms/everhour"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
-import { cn } from "@/lib/utils"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export function EverhourRows({
@@ -76,6 +77,8 @@ export function EverhourRows({
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm>
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
+                describeError={describeCause}
                 prompt={m.profile_everhour_disconnect_confirm()}
                 label={m.profile_everhour_disconnect_button()}
                 onConfirm={async () => Exit.isSuccess(await disconnect())}

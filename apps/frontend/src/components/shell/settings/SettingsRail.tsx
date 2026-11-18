@@ -1,26 +1,24 @@
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "@pp/ui/hooks/useFluidHover"
+import type { IconType } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import {
   Link,
   useLocation,
   useMatchRoute,
   type LinkComponentProps
 } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
-import {
-  createContext,
-  use,
-  useRef,
-  type ReactNode,
-  type RefObject
-} from "react"
+import { createContext, use, useRef, type ReactNode } from "react"
 
-import { navActiveFill, navActiveState } from "@/components/shell/NavItem"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "@/hooks/useFluidHover"
-import { cn } from "@/lib/utils"
+// Chrome composites background-color transitions and can paint their start colour for one frame as they end.
+const navActiveFill =
+  "before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-accent before:opacity-0 before:transition-opacity hover:before:duration-0"
+
+const navActiveState = "font-semibold text-foreground before:opacity-100"
 
 const SettingsRailNavContext = createContext<
   UseFluidHoverReturn["registerItem"] | null
@@ -52,22 +50,11 @@ export function SettingsRailNav({
   )
 }
 
-export function useSettingsRailItem(
-  index: number,
-  ref: RefObject<HTMLElement | null>
-) {
-  useRegisterFluidHoverItem(
-    use(SettingsRailNavContext) ?? undefined,
-    index,
-    ref
-  )
-}
-
 type SettingsRailLinkProps = Omit<
   LinkComponentProps,
   "children" | "className"
 > &
-  Readonly<{ icon: LucideIcon; label: string; index: number }>
+  Readonly<{ icon: IconType; label: string; index: number }>
 
 export function SettingsRailLink({
   icon: Icon,
@@ -91,7 +78,7 @@ export function SettingsRailLink({
       {...linkProps}
       ref={ref}
       className={cn(
-        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors duration-100 before:duration-100",
+        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-[color,transform] duration-100 before:duration-100 active:scale-[0.97]",
         navActiveFill,
         active
           ? navActiveState

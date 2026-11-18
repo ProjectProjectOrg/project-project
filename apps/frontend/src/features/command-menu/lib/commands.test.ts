@@ -5,9 +5,9 @@ import {
   TicketStatus,
   TypeKey
 } from "@pp/shared"
+import { Settings } from "@pp/ui/icons"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { Settings } from "lucide-react"
 import { describe, expect, it, vi } from "vitest"
 
 import { organizationCommands } from "@/features/organizations/commands"

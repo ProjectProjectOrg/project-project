@@ -37,7 +37,7 @@ function card(id: string) {
   element.dataset.boardCard = id
   const link = document.createElement("a")
   link.href = `#${id}`
-  link.dataset.rowLink = ""
+  link.dataset.itemLink = ""
   link.textContent = id
   const assignee = document.createElement("button")
   assignee.textContent = "Assignee"

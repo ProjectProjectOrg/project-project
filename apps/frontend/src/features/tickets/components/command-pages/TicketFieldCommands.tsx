@@ -1,24 +1,26 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
-import * as Option from "effect/Option"
-import * as Result from "effect/reactivity/AsyncResult"
-import * as Schema from "effect/Schema"
-import { Archive, CircleSlash, Layers, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
-
 import {
   CommandMenuCheck,
   CommandMenuItem,
   CommandMenuShortcut
-} from "@/components/ui/command-menu"
+} from "@pp/ui/command-menu"
+import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
+import { Archive, CircleSlash, Flag, Layers, Plus, Trash2 } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
+import * as Result from "effect/reactivity/AsyncResult"
+import * as Schema from "effect/Schema"
+import { useState } from "react"
+
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import { scopeSelectionClear } from "@/features/command-menu/lib/commandScopes"
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   projectActor,
   projectRequest
@@ -26,13 +28,15 @@ import {
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   bulkArchiveTickets,
-  bulkDeleteTickets
+  bulkDeleteTickets,
+  bulkUpdateTickets
 } from "@/features/tickets/atoms/bulkTickets"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   archiveTicket,
   deleteTicket,
-  ticketRequest
+  ticketRequest,
+  updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
@@ -42,6 +46,7 @@ import {
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
+import { flagFor } from "@/features/tickets/lib/ticketFlag"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import {
   typeKeyOfOption,
@@ -50,7 +55,7 @@ import {
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { useTicketMutation } from "./useTicketMutation"
@@ -61,6 +66,7 @@ export type TicketPageProps = CommandPageProps &
 const CLEAR = "clear"
 const CREATE_TAG = "create-tag"
 const ARCHIVE = "archive"
+const FLAG = "flag"
 const DELETE = "delete"
 const DELETE_CASCADE = "delete-cascade"
 const POINT_PRESETS = [1, 2, 3, 5, 8, 13] as const
@@ -155,6 +161,7 @@ export function TicketEstimatePage({
             </span>
             <CommandMenuCheck
               checked={option !== undefined && sameEstimate(estimate, option)}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )
@@ -199,7 +206,11 @@ export function TicketTypePage({
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
           {number !== undefined && (
-            <CommandMenuShortcut keys={number} aria-hidden />
+            <CommandMenuShortcut
+              keys={number}
+              keyLabels={keyLabels()}
+              aria-hidden
+            />
           )}
           <CommandMenuCheck
             checked={
@@ -207,6 +218,7 @@ export function TicketTypePage({
               current.type !== undefined &&
               typeOptionValue(current.type) === item.value
             }
+            label={m.chrome_command_menu_selected()}
           />
         </CommandMenuItem>
       )}
@@ -291,6 +303,7 @@ export function TicketTagsPage({
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             <CommandMenuCheck
               checked={tag !== undefined && applied.includes(tag.name)}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )
@@ -352,7 +365,7 @@ export function TicketParentPage({
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
             ) : (
               <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+                <span className="min-w-(--row-key-width) shrink-0 text-caption text-muted-foreground tabular-nums">
                   {epic.id}
                 </span>
                 <span className="min-w-0 truncate">{epic.title}</span>
@@ -360,6 +373,7 @@ export function TicketParentPage({
             )}
             <CommandMenuCheck
               checked={epic !== undefined && epic.id === parent}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )
@@ -443,6 +457,94 @@ export function TicketArchivePage({
           return
         }
         if (many) clearSelection?.()
+        env.close()
+      }}
+    />
+  )
+}
+
+// Flagging from cmd+k: type an optional reason, then pick the action. The
+// ticket menu's flag popover does the same on the page.
+export function TicketFlagPage({
+  ticket,
+  context,
+  chip,
+  onBack,
+  env
+}: TicketPageProps) {
+  const { userId } = useAtomValue(
+    projectActor(projectRequest(ticket.orgSlug, ticket.slug))
+  )
+  const update = useAtomSet(
+    updateTicketDetail(
+      ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+    ),
+    { mode: "promiseExit" }
+  )
+  const updateMany = useAtomSet(
+    bulkUpdateTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug }),
+    { mode: "promiseExit" }
+  )
+  const many = context.selection.length > 1
+  const [reason, setReason] = useState("")
+  const [failure, setFailure] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const trimmed = reason.trim()
+  return (
+    <CommandFrame
+      chip={chip}
+      placeholder={m.tickets_flag_reason_placeholder()}
+      onBack={onBack}
+      filter={false}
+      onSearchChange={setReason}
+      notice={failure}
+      items={[
+        {
+          value: FLAG,
+          label: many
+            ? m.tickets_menu_flag_many({ count: context.selection.length })
+            : trimmed === ""
+              ? m.tickets_command_flag_action({ id: ticket.ticketId })
+              : m.tickets_command_flag_with_reason({ id: ticket.ticketId }),
+          icon: Flag
+        }
+      ]}
+      renderItem={(item) => (
+        <CommandMenuItem value={item.value}>
+          <span className="min-w-0 flex-1 truncate">
+            {many ? (
+              item.label
+            ) : (
+              <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
+            )}
+          </span>
+        </CommandMenuItem>
+      )}
+      onSelect={async () => {
+        if (pending) return
+        setPending(true)
+        setFailure(null)
+        const failed = many
+          ? failureOf(
+              await updateMany({
+                tickets: context.selection.map((each) => each.id),
+                patch: { flag: trimmed === "" ? {} : { reason: trimmed } }
+              })
+            )
+          : failureOf(
+              await update({
+                flag: flagFor(
+                  trimmed,
+                  userId,
+                  DateTime.toDate(DateTime.nowUnsafe())
+                )
+              })
+            )
+        setPending(false)
+        if (failed !== null) {
+          setFailure(failed)
+          return
+        }
         env.close()
       }}
     />

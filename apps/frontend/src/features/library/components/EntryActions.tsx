@@ -1,8 +1,10 @@
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import * as Exit from "effect/Exit"
+import type { ComponentProps } from "react"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 type Outcome = Exit.Exit<unknown, unknown>
@@ -15,17 +17,20 @@ export function EntryActions({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+// Also renders as a popover's trigger, so it passes through the props and
+// ref the popover gives it.
 export function DeleteEntryTrigger({
   label,
-  onClick
-}: Readonly<{ label: string; onClick: () => void }>) {
+  ...props
+}: Readonly<{ label: string }> &
+  Omit<ComponentProps<typeof Button>, "children">) {
   return (
     <Button
       type="button"
       variant="tertiary"
       size="sm"
       className="text-destructive hover:text-destructive"
-      onClick={onClick}
+      {...props}
     >
       {label}
     </Button>
@@ -42,7 +47,7 @@ export function DeleteEntryConfirm({
   onDelete: () => Promise<Outcome>
 }>) {
   return (
-    <ConfirmButton.Root className="flex-wrap">
+    <ConfirmButton.Root flow className="flex-wrap">
       <ConfirmButton.Trigger
         type="button"
         variant="tertiary"
@@ -53,6 +58,8 @@ export function DeleteEntryConfirm({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="flex-wrap">
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           prompt={m.templates_settings_delete_confirm({ name })}
           label={m.templates_settings_action_delete()}
           onConfirm={() => onDelete().then(Exit.isSuccess)}

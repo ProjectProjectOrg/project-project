@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
+import { CopyButton } from "@pp/ui/copy-button"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
-import { CopyButton } from "@/components/ui/copy-button"
 import { m } from "@/paraglide/messages"
 
 import { instanceHealth } from "../atoms/instance"
@@ -16,7 +16,7 @@ export function InstanceInfo() {
       {version ? (
         <>
           <span
-            className="min-w-0 truncate font-mono text-micro transition-colors group-hover/reveal:text-muted-foreground"
+            className="min-w-0 truncate text-micro tabular-nums transition-colors group-hover/reveal:text-muted-foreground"
             title={version}
           >
             {displayVersion(version)}

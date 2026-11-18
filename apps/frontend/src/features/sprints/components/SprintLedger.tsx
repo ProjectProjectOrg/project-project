@@ -1,11 +1,16 @@
 import { useAtomSet } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem
+} from "@pp/ui/hooks/useFluidHover"
+import { ChevronRight, Play } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight, Play } from "lucide-react"
 import { createContext, use, useRef, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintListRequest,
@@ -20,8 +25,6 @@ import {
   startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
 import { sprintSectionAnchor } from "@/features/tickets/lib/sprintSectionAnchor"
-import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { sprintStatusText, SprintStateIcon } from "./SprintChip"

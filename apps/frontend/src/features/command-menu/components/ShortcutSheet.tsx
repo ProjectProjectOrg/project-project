@@ -1,67 +1,40 @@
-import { useAtom } from "@effect/atom-react"
-import { useAppHotkeyList, useHotkey } from "@tanstack/react-hotkeys"
+import { Command as CommandKeyIcon } from "@pp/ui/icons"
+import { useAppHotkeyList } from "@tanstack/react-hotkeys"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { KbdShortcut } from "@/components/ui/kbd"
-import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { shortcutSheetOpen } from "../atoms/commandMenu"
+import type { CommandPageProps } from "../lib/commandPages"
 import { shortcutGroups } from "../lib/shortcutGroups"
+import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
-export function ShortcutSheet() {
-  const [open, setOpen] = useAtom(shortcutSheetOpen)
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="lg" position="center">
-        <DialogHeader>
-          <DialogTitle>{m.chrome_keyboard_shortcuts()}</DialogTitle>
-        </DialogHeader>
-        {open && <ShortcutList onClose={() => setOpen(false)} />}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ShortcutList({ onClose }: Readonly<{ onClose: () => void }>) {
-  useHotkey(appHotkeys["app.shortcuts"], (event) => {
-    if (!event.repeat) onClose()
-  })
+// "Keyboard shortcuts" in cmd+k: every app hotkey, grouped and searchable.
+// Shortcuts that don't apply on this page are listed but disabled.
+export function ShortcutSheetPage({ chip, onBack, env }: CommandPageProps) {
   const groups = shortcutGroups(useAppHotkeyList())
+  const items = groups.flatMap(({ group, items: entries }) =>
+    entries.flatMap(
+      ({ appHotkey, status }): Array<CommandFrameItem> =>
+        appHotkey.hotkey === null
+          ? []
+          : [
+              {
+                value: appHotkey.id,
+                label: appHotkey.meta?.name ?? appHotkey.id,
+                group,
+                icon: CommandKeyIcon,
+                shortcut: appHotkey.hotkey,
+                disabled: status === "inactive"
+              }
+            ]
+    )
+  )
   return (
-    <div className="-mx-1 max-h-[75dvh] overflow-y-auto px-1">
-      <div className="gap-8 sm:columns-2">
-        {groups.map(({ group, items }) => (
-          <section
-            key={group}
-            className="mb-5 flex break-inside-avoid flex-col gap-1"
-          >
-            <h3 className="text-caption text-muted-foreground">{group}</h3>
-            <ul className="flex flex-col">
-              {items.map(({ appHotkey, status }) => (
-                <li
-                  key={appHotkey.id}
-                  className={cn(
-                    "flex h-8 items-center justify-between gap-4 text-body",
-                    status === "inactive" && "text-muted-foreground"
-                  )}
-                >
-                  <span className="truncate">{appHotkey.meta?.name}</span>
-                  {appHotkey.hotkey !== null && (
-                    <KbdShortcut keys={appHotkey.hotkey} />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-    </div>
+    <CommandFrame
+      chip={chip}
+      placeholder={m.chrome_keyboard_shortcuts()}
+      onBack={onBack}
+      items={items}
+      onSelect={() => env.close()}
+    />
   )
 }

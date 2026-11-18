@@ -10,9 +10,10 @@
   "scripts": {
     "dev:backend": "turbo run dev --filter @pp/backend",
     "dev:frontend": "turbo run dev --filter @pp/frontend",
+    "dev:gallery": "turbo run dev --filter @pp/ui",
     "dev:db": "docker compose up --wait --wait-timeout 60 postgres",
     "dev:stop": "docker compose stop postgres",
-    "dev": "bun run dev:db && turbo run dev --filter @pp/backend --filter @pp/frontend",
+    "dev": "bun run dev:db && turbo run dev --filter @pp/backend --filter @pp/frontend --filter @pp/ui",
     "build": "turbo run build --filter @pp/frontend",
     "test": "bun scripts/test-isolated.ts",
     "test:all": "bun run test:lint && bun run test:agent && turbo run test --concurrency=1",

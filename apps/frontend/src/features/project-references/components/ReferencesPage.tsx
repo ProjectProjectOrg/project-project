@@ -1,14 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@pp/ui/empty"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { PageContainer, PageHeader } from "@/components/shell/Page"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle
-} from "@/components/ui/empty"
 import {
   referencesRequest,
   referencesToFix,

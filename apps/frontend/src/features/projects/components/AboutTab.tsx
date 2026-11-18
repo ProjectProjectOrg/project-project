@@ -1,18 +1,17 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import type { ProjectDetail } from "@pp/shared"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
+import { useEditMode } from "@pp/ui/editor/use-edit-mode"
+import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import type { LexicalEditor as LexicalEditorType } from "lexical"
 import { useRef, useState } from "react"
 
 import { PageContainer } from "@/components/shell/Page"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { useEditMode } from "@/features/editor/hooks/useEditMode"
 import { updateProject } from "@/features/projects/atoms/projects"
 import { AboutGoTo } from "@/features/projects/components/about/AboutGoTo"
 import { AboutLinks } from "@/features/projects/components/about/AboutLinks"
@@ -23,10 +22,9 @@ import {
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
 import { isBlankAbout } from "@/features/projects/lib/aboutTemplate"
-import { bannerDefaults } from "@/features/projects/lib/bannerPresets"
 import { DescriptionActions } from "@/features/tickets/components/ticket-page/DescriptionActions"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export function AboutTab() {
@@ -35,12 +33,6 @@ export function AboutTab() {
 
   return (
     <PageContainer>
-      {project.banner ? (
-        <div
-          aria-hidden
-          style={{ height: `calc(${bannerDefaults.height}px - 3rem)` }}
-        />
-      ) : null}
       <div className="grid grid-cols-1 gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,42rem)_18rem] lg:justify-between">
         <AboutDescription project={project} canEdit={canEdit} />
         <aside className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start lg:pt-2">
@@ -70,7 +62,8 @@ function AboutDescription({
   const rootRef = useRef<HTMLDivElement>(null)
   const { editing, startEditing, stopEditing } = useEditMode({
     editorRef,
-    rootRef
+    rootRef,
+    startHotkey: appHotkeys["tickets.edit-description"]
   })
 
   if (!canEdit) {

@@ -1,5 +1,5 @@
 import type { TicketDetail } from "@pp/shared"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"

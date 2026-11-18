@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -7,7 +8,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { figmaProfileAtom } from "@/features/figma/atoms/figma"
 import {
   IntegrationDetail,

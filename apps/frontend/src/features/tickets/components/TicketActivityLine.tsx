@@ -7,7 +7,7 @@ import type {
   TypeDefinition,
   TypeKey
 } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
+import { Markdown } from "@pp/ui/editor/markdown"
 import {
   GitBranch,
   GitMerge,
@@ -15,12 +15,20 @@ import {
   GitPullRequestClosed,
   Layers,
   Zap,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import {
+  TimelineChange,
+  TimelineLiteral,
+  TimelineQuote,
+  TimelineValue,
+  TimelineValues
+} from "@pp/ui/timeline"
+import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
@@ -36,10 +44,9 @@ import {
 } from "@/features/tickets/lib/priorityMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { resolveType, typeName } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {
+const GROUP_ICONS: Readonly<Record<GroupKind, IconType>> = {
   sprint: Zap,
   epic: Layers,
   milestone: Layers,
@@ -59,27 +66,26 @@ function Value({
   iconColor,
   children
 }: Readonly<{
-  icon?: LucideIcon
+  icon?: IconType
   iconClassName?: string
   iconColor?: string | null
   children: ReactNode
 }>) {
   return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
-      {Icon && (
-        <Icon
-          className={cn("size-3.5 shrink-0", iconClassName)}
-          style={iconColor ? { color: iconColor } : undefined}
-          strokeWidth={1.75}
-        />
-      )}
+    <TimelineValue
+      icon={
+        Icon && (
+          <Icon
+            className={cn(iconClassName)}
+            style={iconColor ? { color: iconColor } : undefined}
+            strokeWidth={1.75}
+          />
+        )
+      }
+    >
       {children}
-    </span>
+    </TimelineValue>
   )
-}
-
-function Literal({ children }: Readonly<{ children: ReactNode }>) {
-  return <span className="font-mono text-body">{children}</span>
 }
 
 function StatusValue({
@@ -118,10 +124,11 @@ function TypeValue({
 }>) {
   const shown = resolveType(types, type)
   return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
-      {shown !== null && <TypeGlyph type={shown} className="size-3.5" />}
+    <TimelineValue
+      icon={shown !== null && <TypeGlyph type={shown} className="size-3.5" />}
+    >
       {typeName(shown)}
-    </span>
+    </TimelineValue>
   )
 }
 
@@ -130,22 +137,21 @@ function People({
   members
 }: Readonly<{ ids: ReadonlyArray<string>; members: ReadonlyArray<Member> }>) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-2 align-bottom">
+    <TimelineValues>
       {ids.map((id) => {
         const member = members.find((candidate) => candidate.id === id)
         return (
-          <span
+          <TimelineValue
             key={id}
-            className="inline-flex items-center gap-1 whitespace-nowrap text-foreground"
+            icon={member && <MemberAvatar member={member} size={16} />}
           >
-            {member && <MemberAvatar member={member} size={16} />}
             {member?.name ||
               member?.email ||
               m.tickets_activity_actor_unknown()}
-          </span>
+          </TimelineValue>
         )
       })}
-    </span>
+    </TimelineValues>
   )
 }
 
@@ -154,7 +160,7 @@ function Tags({
   tags
 }: Readonly<{ names: ReadonlyArray<string>; tags: ReadonlyArray<Tag> }>) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-1 align-bottom">
+    <TimelineValues className="gap-1">
       {names.map((name) => (
         <TagChip
           key={name}
@@ -163,12 +169,12 @@ function Tags({
           color={tags.find((tag) => tag.name === name)?.color ?? null}
         />
       ))}
-    </span>
+    </TimelineValues>
   )
 }
 
 const LITERAL_ICONS: Readonly<
-  Record<ActivityLiteralIcon, Readonly<{ icon: LucideIcon; className: string }>>
+  Record<ActivityLiteralIcon, Readonly<{ icon: IconType; className: string }>>
 > = {
   branch: { icon: GitBranch, className: "text-muted-foreground" },
   stack: { icon: Layers, className: "text-muted-foreground" },
@@ -186,7 +192,7 @@ function TicketValue({ id }: Readonly<{ id: string }>) {
       preload="intent"
       className="text-foreground underline-offset-2 transition-colors hover:underline"
     >
-      <Literal>{id}</Literal>
+      <TimelineLiteral>{id}</TimelineLiteral>
     </Link>
   )
 }
@@ -202,7 +208,7 @@ function ActivityValueView({
       const icon = value.icon === null ? null : LITERAL_ICONS[value.icon]
       return (
         <Value icon={icon?.icon} iconClassName={icon?.className}>
-          <Literal>{value.text}</Literal>
+          <TimelineLiteral>{value.text}</TimelineLiteral>
         </Value>
       )
     }
@@ -238,25 +244,23 @@ function ActivityLineBodyView({
     case "field":
       return (
         <>
-          {body.label} <ActivityValueView value={body.from} lookups={lookups} />
-          <span aria-hidden="true" className="mx-1">
-            →
-          </span>
-          <span className="sr-only"> {m.tickets_activity_field_to()} </span>
-          <ActivityValueView value={body.to} lookups={lookups} />
+          {body.label}{" "}
+          <TimelineChange
+            from={<ActivityValueView value={body.from} lookups={lookups} />}
+            to={<ActivityValueView value={body.to} lookups={lookups} />}
+            toLabel={m.tickets_activity_field_to()}
+          />
         </>
       )
   }
   return (
     <>
       {body.text}{" "}
-      <Markdown
-        size="compact"
-        blocks="flat"
-        className="mt-1 border-l-2 border-border pl-2.5 text-foreground"
-      >
-        {body.quote}
-      </Markdown>
+      <TimelineQuote>
+        <Markdown size="compact" blocks="flat">
+          {body.quote}
+        </Markdown>
+      </TimelineQuote>
     </>
   )
 }

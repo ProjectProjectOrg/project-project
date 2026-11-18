@@ -1,6 +1,6 @@
 import type { JiraMigrationFinding, JiraMigrationScanSummary } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 
-import { Button } from "@/components/ui/button"
 import { scanFacts } from "@/features/jira/lib/facts"
 import { formatDateTime, formatNumber } from "@/features/jira/lib/format"
 import { jiraVisibility } from "@/features/jira/lib/warnings"

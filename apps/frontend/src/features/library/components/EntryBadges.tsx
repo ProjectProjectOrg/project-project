@@ -1,4 +1,5 @@
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@pp/ui/badge"
+
 import { m } from "@/paraglide/messages"
 
 export function ChangedHereBadge({ project }: Readonly<{ project?: string }>) {

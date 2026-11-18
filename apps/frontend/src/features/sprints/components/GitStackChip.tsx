@@ -1,12 +1,12 @@
 import type { GitState, StackLayerState } from "@pp/shared"
-import { Layers } from "lucide-react"
+import { Layers } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 
 import {
   layerTone,
   stackSummary,
   TONES
 } from "@/features/github/components/ticket-git/TicketStack"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CHECKS, needsAttention, reportedChecks, type Checks } from "./gitLooks"
@@ -72,12 +72,12 @@ function StackLayerRow({ layer }: Readonly<{ layer: StackLayerState }>) {
       />
       <span className="sr-only">{label()}</span>
       {layer.pr === null ? (
-        <span className="min-w-0 truncate font-mono text-caption">
+        <span className="min-w-0 truncate text-caption tabular-nums">
           {layer.branch}
         </span>
       ) : (
         <>
-          <span className="shrink-0 font-mono text-caption tabular-nums">
+          <span className="shrink-0 text-caption tabular-nums">
             #{layer.pr.number}
           </span>
           <span className="min-w-0 flex-1 truncate text-foreground">

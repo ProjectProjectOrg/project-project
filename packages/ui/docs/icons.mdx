@@ -1,0 +1,48 @@
+export const meta = {
+  title: "Icons",
+  group: "Design system",
+  order: 9,
+  description:
+    "Every icon is from Hugeicons' free set, behind one module, @pp/ui/icons. What we use, where to find more and how to add one."
+}
+
+## What we use
+
+[Hugeicons](https://hugeicons.com/icons), the free set (`@hugeicons/core-free-icons`), in its stroke rounded style: round caps and joins on a 24px grid. Strokes are 1.5px everywhere, so icons sit with Allo's text weight.
+
+## Where to find one
+
+Browse [hugeicons.com/icons](https://hugeicons.com/icons) with the **Free** filter on and the **Stroke rounded** style. An icon's page gives its name for the free package, such as `Calendar03Icon`. Pro icons aren't in the package, so a match that's only in Pro means picking the closest free one.
+
+## Using an icon
+
+Import it from `@pp/ui/icons` under its plain name, never from Hugeicons directly:
+
+```tsx
+import { Calendar, Plus } from "@pp/ui/icons"
+
+<Button leadingIcon={Plus}>New ticket</Button>
+<Calendar className="size-4 text-muted-foreground" />
+```
+
+- Size with `size-*` classes; a component that takes an icon (`Button`'s `leadingIcon`, menu items) sizes it for you.
+- Icons take `currentColor`, so they follow the text colour.
+- The stroke is set in `theme.css` (`svg[data-icon]`), and every shape inherits it, so a width on the svg (a highlighted row's `stroke-[2]`) reaches the whole icon.
+
+## Adding one
+
+1. Find it on hugeicons.com (free, stroke rounded).
+2. In `packages/ui/src/components/icons.tsx`, import it from `@hugeicons/core-free-icons` and export it under a plain name: `export const Calendar = icon(Calendar03Icon, "Calendar")`.
+3. Keep the exports in alphabetical order, and reuse an existing export when one already fits, so one idea has one icon across the app.
+
+If the free set has nothing close, draw the glyph in its style (24px grid, round caps and joins, 1.5 stroke) as an `IconSvgElement` in the same file and wrap it with `icon()`, like `Delete` (a backspace key).
+
+## Rules
+
+### One module
+
+The app never imports Hugeicons, and `lucide-react` is banned by lint. Going through `@pp/ui/icons` keeps one name per idea, one stroke width and one place to swap a glyph for the whole app.
+
+### Plain names
+
+Exports are named for what they show (`Plus`, `X`, `GitBranch`), not after Hugeicons' numbered names, so swapping a glyph never touches a call site.

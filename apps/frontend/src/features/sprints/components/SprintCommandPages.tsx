@@ -1,9 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { pickActiveSprint, type Group } from "@pp/shared"
-import { useDebouncedValue } from "@tanstack/react-pacer"
-import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
+import { CommandMenuItem } from "@pp/ui/command-menu"
 import {
   CalendarDays,
   CalendarX,
@@ -12,19 +9,26 @@ import {
   Pencil,
   Plus,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { parseDayAt, WEEKDAYS } from "@pp/ui/lib/parseDate"
+import { cn } from "@pp/ui/lib/utils"
+import { useDebouncedValue } from "@tanstack/react-pacer"
+import { useNavigate } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import { useState, type ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { SprintContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import {
   deleteSprint,
   sprintListRequest,
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
-import { parseStartDate, WEEKDAYS } from "@/features/sprints/lib/parseStartDate"
 import {
   addDays,
   DEFAULT_SPRINT_DAYS,
@@ -36,7 +40,6 @@ import {
   type StartPreset
 } from "@/features/sprints/lib/sprintDates"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useCompleteSprint } from "./CompleteSprintMenu"
@@ -142,7 +145,9 @@ export function SprintSchedulePage({ sprint, onBack, env }: SprintPageProps) {
     sprint.sprints.filter((other) => other.id !== sprint.sprint.id)
   )
   const presets = startPresets({ activeEnd: active?.endsAt ?? null })
-  const parsed = parseStartDate(query)
+  const parsed = Option.getOrNull(
+    Option.map(parseDayAt(query, DateTime.nowUnsafe()), DateTime.toDateUtc)
+  )
   const [settled] = useDebouncedValue(query, { wait: 400 })
   const [lastParsed, setLastParsed] = useState<Date | null>(null)
   if (parsed !== null && parsed.getTime() !== lastParsed?.getTime()) {
@@ -298,7 +303,18 @@ export function SprintRenamePage({ sprint, onBack, env }: SprintPageProps) {
 }
 
 export function SprintCompletePage({ sprint, onBack, env }: SprintPageProps) {
-  const action = useCompleteSprint(sprint)
+  const action = useCompleteSprint({
+    ...sprint,
+    // Completing into a new sprint continues on cmd+k's New sprint page.
+    onNew: () => {
+      env.registry.set(newSprintRequest, {
+        orgSlug: sprint.orgSlug,
+        projectSlug: sprint.slug,
+        completeFrom: sprint.sprint
+      })
+      env.open("createSprint")
+    }
+  })
   const { unfinished, targets, completeTo, completeToNew } = action
   const items =
     unfinished === 0

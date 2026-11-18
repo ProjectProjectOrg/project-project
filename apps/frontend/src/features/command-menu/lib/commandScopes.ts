@@ -1,11 +1,13 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
-import type {
-  PointedTicket,
-  SelectedTicket,
-  SprintContext,
-  TicketContext,
-  ViewContext
+import {
+  openCommandMenu,
+  type CommandMenuState,
+  type PointedTicket,
+  type SelectedTicket,
+  type SprintContext,
+  type TicketContext,
+  type ViewContext
 } from "./commandMenu"
 import type { Command } from "./commands"
 
@@ -92,4 +94,13 @@ export const commandTarget = (
           ticketId: pointed.ticketId
         }
   return { ticket, selection: [] }
+}
+
+export const openFromScopes = (
+  orgSlug: string,
+  scopes: ReadonlyArray<CommandScope>,
+  pointed: PointedTicket | null
+): CommandMenuState => {
+  const target = commandTarget(orgSlug, scopes, pointed)
+  return openCommandMenu(target.ticket, "root", target.selection, pointed)
 }

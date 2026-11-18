@@ -1,5 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { LogOut, MailCheck } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import {
   getRouteApi,
   Link,
@@ -9,7 +12,6 @@ import {
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { LogOut, MailCheck } from "lucide-react"
 import { useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -17,7 +19,6 @@ import {
   OnboardingGateStatus,
   OnboardingShell
 } from "@/components/shell/OnboardingShell"
-import { Button } from "@/components/ui/button"
 import { logout, me, setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
   acceptInvitation,
@@ -30,7 +31,6 @@ import {
 } from "@/features/organizations/lib/invitations"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/invite/$invitationId")
@@ -193,7 +193,7 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
           aria-hidden
           className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border ring-inset"
         >
-          <span className="font-mono text-title leading-none text-foreground">
+          <span className="text-title leading-none text-foreground tabular-nums">
             {initial}
           </span>
         </div>

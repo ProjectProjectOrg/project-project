@@ -1,7 +1,7 @@
+import { Button } from "@pp/ui/button"
 import type { ReactNode } from "react"
 
 import { SettingsSection } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 export type StepFrame = Readonly<{
@@ -44,7 +44,7 @@ export function SetupStep({
       </SettingsSection>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p
-          className="font-mono text-caption text-muted-foreground"
+          className="text-caption text-muted-foreground tabular-nums"
           aria-live="polite"
         >
           {frame.progress}

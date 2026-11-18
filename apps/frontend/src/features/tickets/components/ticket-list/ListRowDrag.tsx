@@ -17,6 +17,7 @@ import {
   TypeKey,
   type Ticket
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import * as Schema from "effect/Schema"
 import { motion } from "motion/react"
 import {
@@ -46,7 +47,6 @@ import {
   type RowGap
 } from "@/features/tickets/lib/listDrop"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
-import { cn } from "@/lib/utils"
 
 import { fireSelected } from "./selectionStore"
 import { useSelectionActions, useSelectionStore } from "./TicketSelection"

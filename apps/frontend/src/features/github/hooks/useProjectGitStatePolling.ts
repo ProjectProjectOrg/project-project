@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GitStatesResponse } from "@pp/shared"
+import { useVisibleInterval } from "@pp/ui/hooks/useVisibleInterval"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useEffect, useRef } from "react"
 
@@ -13,7 +14,6 @@ import {
   shouldInvalidateTicketsForGitStates
 } from "@/features/github/lib/gitStateChanges"
 import { projectRequest } from "@/features/projects/atoms/projects"
-import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 const POLL_INTERVAL_MS = 15_000
 

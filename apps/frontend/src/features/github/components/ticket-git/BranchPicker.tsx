@@ -1,14 +1,5 @@
 import { RegistryContext, useAtomSet } from "@effect/atom-react"
 import type { GithubConnection, Ticket } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Option from "effect/Option"
-import * as Predicate from "effect/Predicate"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { GitBranch, Plus } from "lucide-react"
-import { useContext, useState, type ReactElement, type RefObject } from "react"
-
-import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +9,17 @@ import {
   DropdownMenuList,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { GitBranch, Plus } from "@pp/ui/icons"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { Link } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { useContext, useState, type ReactElement, type RefObject } from "react"
+
+import { fireMutation } from "@/api/viewMutation"
 import {
   attachBranch,
   branchAttempt,
@@ -199,7 +199,7 @@ function BranchPickerList({
       <DropdownMenuInput
         placeholder={placeholder}
         aria-label={placeholder}
-        className="font-mono placeholder:font-sans"
+        className="tabular-nums placeholder:font-sans"
       />
       <BranchResultsFrame results={results} empty={entries.length === 0}>
         <DropdownMenuList
@@ -234,7 +234,7 @@ function BranchPickerList({
                 <GitBranch />
                 <MiddleTruncate
                   value={entry.branch.name}
-                  className="flex-1 font-mono text-foreground"
+                  className="flex-1 text-foreground tabular-nums"
                 />
                 <BranchBadge branch={entry.branch} defaultBase={defaultBase} />
               </DropdownMenuItem>

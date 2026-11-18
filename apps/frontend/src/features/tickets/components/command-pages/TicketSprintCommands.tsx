@@ -1,17 +1,17 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { CircleSlash, Plus, Timer } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleSlash, Plus, Timer } from "lucide-react"
 import { useContext, type ReactNode } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
   TicketContext
 } from "@/features/command-menu/lib/commandMenu"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import {
   assignTicketToSprint,
   bulkAddTicketsToSprint,
@@ -41,13 +41,16 @@ export function TicketSprintCommands({
   selection,
   chip,
   onBack,
-  onClose
+  onClose,
+  onNewSprint
 }: Readonly<{
   ticket: TicketContext
   selection: ReadonlyArray<SelectedTicket>
   chip: ReactNode
   onBack: () => void
   onClose: () => void
+  // Opens cmd+k's New sprint page; the tickets ride along in newSprintRequest.
+  onNewSprint: () => void
 }>) {
   const registry = useContext(RegistryContext)
   const req = sprintListRequest(orgSlug, slug)
@@ -68,12 +71,12 @@ export function TicketSprintCommands({
   )
   const byId = new Map<string, Group>(open.map((sprint) => [sprint.id, sprint]))
   const newSprint = () => {
-    registry.set(createSprintDialog, {
+    registry.set(newSprintRequest, {
       orgSlug,
       projectSlug: slug,
       tickets: ids
     })
-    onClose()
+    onNewSprint()
   }
   return (
     <CommandFrame
@@ -144,6 +147,7 @@ export function TicketSprintCommands({
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             <CommandMenuCheck
               checked={sprint !== undefined && sprint === current}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )

@@ -6,11 +6,12 @@ import {
   type TicketDetail,
   type TicketId
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react"
 
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   projectEstimation,
   projectRequest
@@ -42,10 +43,9 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const loadMarkdown = () => import("@/features/editor/components/Markdown")
+const loadMarkdown = () => import("@pp/ui/editor/markdown")
 
 const Markdown = lazy(() =>
   loadMarkdown().then((mod) => ({ default: mod.Markdown }))
@@ -111,7 +111,7 @@ export function TicketPeek({
       ))}
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-caption text-muted-foreground tabular-nums">
+          <span className="text-caption text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           <h2 className="line-clamp-2 text-title leading-snug font-semibold">

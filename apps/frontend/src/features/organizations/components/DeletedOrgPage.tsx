@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OrgDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
 import { useRouter } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -8,8 +10,6 @@ import * as Predicate from "effect/Predicate"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import {
   orgDetail,
   orgRequest,
@@ -73,7 +73,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   return (
     <DitherShell contained animated>
       <div className="relative flex max-w-[42ch] flex-col items-center gap-3 px-8 pt-10 text-center">
-        <span className="font-mono text-body text-muted-foreground">
+        <span className="text-body text-muted-foreground tabular-nums">
           {org.slug}
         </span>
         <h1 className="text-display font-bold text-foreground">

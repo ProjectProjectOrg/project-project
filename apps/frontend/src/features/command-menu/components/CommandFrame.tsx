@@ -1,17 +1,12 @@
 import type { TextRange } from "@pp/shared"
-import type { Hotkey, HotkeyChord } from "@tanstack/react-hotkeys"
-import { Search } from "lucide-react"
-import { motion } from "motion/react"
-import { useEffect, useId, useRef, useState, type ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   CommandMenu,
   CommandMenuEmpty,
   CommandMenuInput,
   CommandMenuList,
   type CommandMenuItemData
-} from "@/components/ui/command-menu"
+} from "@pp/ui/command-menu"
 import {
   Empty,
   EmptyContent,
@@ -19,11 +14,16 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
-import { numberKey } from "@/components/ui/kbd"
+} from "@pp/ui/empty"
+import { Search } from "@pp/ui/icons"
+import { numberKey } from "@pp/ui/kbd"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { cn } from "@pp/ui/lib/utils"
+import type { Hotkey, HotkeyChord } from "@tanstack/react-hotkeys"
+import { motion } from "motion/react"
+import { useEffect, useId, useRef, useState, type ReactNode } from "react"
+
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
-import type { IconComponent } from "@/lib/icon"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SearchFooter } from "./CommandFrameFooter"
@@ -192,8 +192,12 @@ export function CommandFrame({
       onActOn={onActOn}
       initialValue={initialFocus}
     >
-      <div className="flex flex-col gap-1 border-b border-border/60 px-1 pt-2 pb-1">
-        {chip !== null && <div className="px-2">{chip}</div>}
+      <div className="flex flex-col border-b border-border/60 has-[[data-slot=command-frame-chip]]:pt-2">
+        {chip !== null && (
+          <div data-slot="command-frame-chip" className="px-3.5">
+            {chip}
+          </div>
+        )}
         <span id={backHint} className="sr-only">
           {m.chrome_command_menu_back_hint()}
         </span>
@@ -286,7 +290,7 @@ export function CommandFrame({
           )}
         >
           <CommandMenuList
-            className="min-h-0 flex-1 p-1.5"
+            className="min-h-0 flex-1"
             renderItem={(item) => {
               if (renderItem) return renderItem(item, numbers.get(item.value))
               const decoration = decorations.get(item.value)
@@ -335,7 +339,7 @@ function CommandFrameEmpty({
   action
 }: CommandEmpty) {
   return (
-    <Empty variant="compact">
+    <Empty intensity="subtle" animated={false} className="m-1.5 min-h-56">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon strokeWidth={1.75} />
@@ -344,7 +348,7 @@ function CommandFrameEmpty({
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       {action !== undefined && (
-        <EmptyContent className="mt-3">
+        <EmptyContent>
           <Button
             type="button"
             variant="tertiary"

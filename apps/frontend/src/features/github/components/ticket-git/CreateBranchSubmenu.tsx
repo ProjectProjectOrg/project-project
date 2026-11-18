@@ -1,8 +1,5 @@
 import { TicketStatus } from "@pp/shared"
 import type { GithubConnection, TicketDetail } from "@pp/shared"
-import { CornerDownLeft, Plus } from "lucide-react"
-import { useState } from "react"
-
 import {
   DropdownMenuGroup,
   DropdownMenuInput,
@@ -11,14 +8,18 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { Plus } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { useState } from "react"
+
 import { useCreateBranch } from "@/features/github/hooks/useCreateBranch"
 import {
   branchMenuFilter,
   sanitizeBranchName
 } from "@/features/github/lib/branchPicker"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { BaseBranchSubmenu, StatusSubmenu } from "./BranchPickerOptions"
@@ -61,7 +62,7 @@ export function CreateBranchSubmenu({
         <span className="shrink-0">{m.git_branch_picker_create()}</span>
         <MiddleTruncate
           value={suggestedName}
-          className="-ml-1 flex-1 font-mono text-foreground"
+          className="-ml-1 flex-1 text-foreground tabular-nums"
         />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="flex w-72 flex-col">
@@ -69,7 +70,7 @@ export function CreateBranchSubmenu({
           placeholder={m.git_branch_create_name_label()}
           aria-label={m.git_branch_create_name_label()}
           spellCheck={false}
-          className="font-mono placeholder:font-sans"
+          className="tabular-nums placeholder:font-sans"
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.nativeEvent.isComposing) return
             const highlighted = event.currentTarget.getAttribute(
@@ -99,12 +100,13 @@ export function CreateBranchSubmenu({
         >
           <Plus />
           <span className="flex-1">{m.git_branch_create_submit()}</span>
-          <KbdGroup data-menu-meta aria-hidden>
-            <Kbd size="sm">{m.git_branch_create_key_shift()}</Kbd>
-            <Kbd size="sm">
-              <CornerDownLeft />
-            </Kbd>
-          </KbdGroup>
+          <KbdShortcut
+            data-menu-meta
+            aria-hidden
+            size="sm"
+            keys="shift+↵"
+            keyLabels={keyLabels()}
+          />
         </DropdownMenuItem>
       </DropdownMenuSubContent>
     </DropdownMenuSub>

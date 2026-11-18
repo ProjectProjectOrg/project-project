@@ -1,16 +1,17 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import * as Exit from "effect/Exit"
-import * as Atom from "effect/reactivity/Atom"
-import { Plus } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useRef, useState } from "react"
-
+import { Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@/components/ui/input-group"
-import { KbdShortcut } from "@/components/ui/kbd"
+} from "@pp/ui/input-group"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { transitions } from "@pp/ui/lib/springs"
+import * as Exit from "effect/Exit"
+import * as Atom from "effect/reactivity/Atom"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { useRef, useState } from "react"
+
 import {
   createProject,
   projectsRequest
@@ -20,9 +21,9 @@ import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { errorMessage } from "@/lib/errorMessage"
 import { useAppForm, useFormValues } from "@/lib/form"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -166,13 +167,14 @@ export function CreateProjectRow({
                         aria-disabled={submitting}
                         maxLength={10}
                         style={{ width: "calc(4ch + 0.5rem)" }}
-                        className="shrink-0 bg-transparent pr-2 font-mono text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
+                        className="shrink-0 bg-transparent pr-2 text-body text-foreground tabular-nums outline-none placeholder:text-muted-foreground read-only:cursor-wait"
                       />
                     </motion.div>
                   )}
                 </AnimatePresence>
                 {!focused && !trimmed && !error && (
                   <KbdShortcut
+                    keyLabels={keyLabels()}
                     keys={appHotkeys["projects.create"].defaultHotkey}
                     aria-hidden
                   />
@@ -189,7 +191,7 @@ export function CreateProjectRow({
                     className="overflow-hidden"
                   >
                     <div className="mt-2 flex items-center gap-3 pl-3">
-                      <div className="flex min-w-0 items-center gap-2 font-mono text-micro text-muted-foreground">
+                      <div className="flex min-w-0 items-center gap-2 text-micro text-muted-foreground tabular-nums">
                         <span className="text-muted-foreground">→</span>
                         {key && (
                           <>

@@ -1,8 +1,8 @@
+import { Badge, type BadgeTone } from "@pp/ui/badge"
+import { ArrowRight, ChevronLeft } from "@pp/ui/icons"
 import { Link, type LinkProps } from "@tanstack/react-router"
-import { ArrowRight, ChevronLeft } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Badge, type BadgeTone } from "@/components/ui/badge"
 import {
   IntegrationLogo,
   type IntegrationKind

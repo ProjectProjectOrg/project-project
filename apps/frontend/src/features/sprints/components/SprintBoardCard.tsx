@@ -2,10 +2,13 @@ import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import { isEpic } from "@pp/shared"
 import type { Member, Ticket } from "@pp/shared"
+import { BoardCard } from "@pp/ui/board-card"
+import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
+import { ItemLink } from "@pp/ui/item-link"
+import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 import { memo, type ReactNode, use } from "react"
 
-import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
@@ -67,64 +70,61 @@ function BoardCardFields({
         onPatch={onPatch}
         fromList
       >
-        <div
+        <BoardCard
           {...pointAt}
           data-board-card={ticket.id}
+          flagged={ticket.flag !== null}
           onPointerEnter={(event) => {
             pointAt.onPointerEnter(event)
             preloadChildren()
           }}
-          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:bg-surface-4 has-[[data-row-link]:focus-visible]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:duration-0 data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
-        >
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug, slug, id: ticket.id }}
-            search={from ?? {}}
-            preload="intent"
-            draggable={false}
-            data-row-link
-            aria-label={`${ticket.id} ${ticket.title}`}
-            aria-haspopup="menu"
-            aria-keyshortcuts="Shift+F10"
-            className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-          />
-          <div className="flex min-w-0 flex-col gap-2.5 pb-1">
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-                <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                  <span className="shrink-0 font-mono tabular-nums">
-                    {ticket.id}
-                  </span>
-                  {ticket.parent && !isEpic(ticket.parent) && (
-                    <ParentTicketCrumb parent={ticket.parent} />
-                  )}
-                </span>
-                {shows("assignee") && (
-                  <span className="ml-auto flex shrink-0 items-center">
-                    <fieldset disabled={!canAssign} className="contents">
-                      <AssigneeField
-                        ticket={ticket}
-                        members={members}
-                        variant="card"
-                        onPatch={onPatch}
-                      />
-                    </fieldset>
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 text-subtitle leading-snug font-semibold">
-                <span className="line-clamp-2">{ticket.title}</span>
-              </div>
-            </div>
+          link={
+            <ItemLink
+              render={
+                <Link
+                  to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                  params={{ orgSlug, slug, id: ticket.id }}
+                  search={from ?? {}}
+                  preload="intent"
+                />
+              }
+              aria-label={`${ticket.id} ${ticket.title}`}
+              aria-haspopup="menu"
+              aria-keyshortcuts="Shift+F10"
+            />
+          }
+          meta={
+            <>
+              <TicketKey value={ticket.id} />
+              {ticket.parent && !isEpic(ticket.parent) && (
+                <ParentTicketCrumb parent={ticket.parent} />
+              )}
+            </>
+          }
+          assignee={
+            shows("assignee") && (
+              <fieldset disabled={!canAssign} className="contents">
+                <AssigneeField
+                  ticket={ticket}
+                  members={members}
+                  variant="card"
+                  onPatch={onPatch}
+                />
+              </fieldset>
+            )
+          }
+          title={ticket.title}
+          properties={
             <BoardCardProperties
               ticket={ticket}
               editable={editable}
               onPatch={onPatch}
               failure={failure}
             />
-          </div>
+          }
+        >
           <BoardCardChildren parent={ticket} />
-        </div>
+        </BoardCard>
       </TicketContextMenu>
     </DeferredDropdownMenus>
   )

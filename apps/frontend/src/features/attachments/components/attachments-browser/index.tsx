@@ -3,15 +3,22 @@ import type {
   AttachmentRow as AttachmentRowData,
   AttachmentSort
 } from "@pp/shared"
+import { Checkbox } from "@pp/ui/checkbox"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+import { CloudOff, FilterX, FolderOpen } from "@pp/ui/icons"
+import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   deleteOrgAttachments,
   ORG_ATTACHMENTS_PAGE_SIZE,
@@ -24,6 +31,7 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { deletePrompt } from "./deletePrompt"
@@ -166,19 +174,19 @@ function AttachmentStorageGate({
       onInitial={() => <TableSkeleton />}
       onSuccess={({ value }) =>
         value.status === "not_connected" ? (
-          <Empty
-            variant="inline"
-            className="border border-dashed border-border"
-          >
-            <EmptyTitle className="text-body font-semibold">
-              {m.attachments_empty_no_storage_title()}
-            </EmptyTitle>
-            <EmptyDescription className="max-w-sm text-caption">
-              {m.attachments_empty_no_storage_body()}
-            </EmptyDescription>
+          <Empty intensity="subtle" animated={false}>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CloudOff strokeWidth={1.75} />
+              </EmptyMedia>
+              <EmptyTitle>{m.attachments_empty_no_storage_title()}</EmptyTitle>
+              <EmptyDescription>
+                {m.attachments_empty_no_storage_body()}
+              </EmptyDescription>
+            </EmptyHeader>
           </Empty>
         ) : (
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipGroup>{children}</TooltipGroup>
         )
       }
     />
@@ -235,7 +243,7 @@ function AttachmentsTable({
     <div className={waiting ? "animate-pulse" : undefined}>
       <div className="max-h-[calc(100vh-24rem)] min-h-64 overflow-auto rounded-lg border border-border">
         <table className="w-full min-w-[720px] table-auto border-collapse text-left">
-          <thead className="sticky top-0 z-10 bg-background">
+          <thead className="sticky top-0 z-10 bg-page">
             <tr className="border-b border-border text-caption text-muted-foreground">
               <th scope="col" className="w-6 px-2 py-2 font-normal">
                 <Checkbox
@@ -284,7 +292,7 @@ function AttachmentsTable({
 
       {selectedIds.length > 0 ? (
         <div className="flex items-center justify-end gap-3 pt-3">
-          <ConfirmButton.Root>
+          <ConfirmButton.Root flow>
             <ConfirmButton.Trigger type="button" variant="secondary" size="sm">
               {m.attachments_delete_selected({ count: selectedIds.length })}
             </ConfirmButton.Trigger>
@@ -315,17 +323,26 @@ function AttachmentsTable({
 
 function EmptyRows({ filtered }: { filtered: boolean }) {
   return (
-    <Empty variant="inline" className="border border-dashed border-border">
-      <EmptyTitle className="text-body font-semibold">
-        {filtered
-          ? m.attachments_empty_filtered_title()
-          : m.attachments_empty_none_title()}
-      </EmptyTitle>
-      <EmptyDescription className="max-w-sm text-caption">
-        {filtered
-          ? m.attachments_empty_filtered_body()
-          : m.attachments_empty_none_body()}
-      </EmptyDescription>
+    <Empty intensity="subtle" animated={false}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {filtered ? (
+            <FilterX strokeWidth={1.75} />
+          ) : (
+            <FolderOpen strokeWidth={1.75} />
+          )}
+        </EmptyMedia>
+        <EmptyTitle>
+          {filtered
+            ? m.attachments_empty_filtered_title()
+            : m.attachments_empty_none_title()}
+        </EmptyTitle>
+        <EmptyDescription>
+          {filtered
+            ? m.attachments_empty_filtered_body()
+            : m.attachments_empty_none_body()}
+        </EmptyDescription>
+      </EmptyHeader>
     </Empty>
   )
 }
@@ -351,7 +368,7 @@ function DeleteCell({
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="absolute top-1/2 -right-1 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover py-1 pr-2 pl-3.5 whitespace-nowrap shadow-sm">
+      <ConfirmButton.Confirm>
         <DeleteConfirm
           prompt={deletePrompt({
             count: 1,
@@ -383,6 +400,8 @@ function DeleteConfirm({
   )
   return (
     <ConfirmButton.Action
+      cancelLabel={m.common_cancel_button()}
+      describeError={describeCause}
       prompt={prompt}
       label={m.attachments_delete_button()}
       onConfirm={async () => {

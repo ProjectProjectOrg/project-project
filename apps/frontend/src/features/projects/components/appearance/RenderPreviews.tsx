@@ -1,14 +1,13 @@
-import type { ProjectBanner, ProjectIconImage } from "@pp/shared"
+import type { ProjectBanner, ProjectIconImage, ProjectTone } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import {
   LiveIconImage,
   type LiveIcon
 } from "@/features/projects/components/appearance/IconPreviewTile"
 import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/components/ProjectBanner"
-import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function RenderPreviews({
@@ -17,6 +16,8 @@ export function RenderPreviews({
   icon,
   iconImage,
   color,
+  tone,
+  colors,
   banner,
   live,
   waiting = false
@@ -26,6 +27,8 @@ export function RenderPreviews({
   icon: string
   iconImage: ProjectIconImage | null
   color: string
+  tone: ProjectTone
+  colors: ReadonlyArray<string>
   banner: ProjectBanner | null
   live?: LiveIcon | null
   waiting?: boolean
@@ -37,6 +40,8 @@ export function RenderPreviews({
       icon={live?.kind === "emoji" ? live.emoji : icon}
       iconImage={live ? null : iconImage}
       color={color}
+      tone={tone}
+      colors={colors}
       size="md"
       seed={slug}
       iconNode={
@@ -46,21 +51,19 @@ export function RenderPreviews({
   )
 
   const sidebar = (
-    <span
-      aria-hidden
-      className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
-    >
-      {live?.kind === "image" ? (
-        <LiveIconImage live={live} />
-      ) : (
-        <ProjectIconDisplay
-          orgSlug={orgSlug}
-          icon={live?.kind === "emoji" ? live.emoji : icon}
-          iconImage={live ? null : iconImage}
-          size={16}
-        />
-      )}
-    </span>
+    <ProjectIconTile
+      orgSlug={orgSlug}
+      icon={live?.kind === "emoji" ? live.emoji : icon}
+      iconImage={live ? null : iconImage}
+      color={color}
+      tone={tone}
+      colors={colors}
+      size="xs"
+      seed={slug}
+      iconNode={
+        live?.kind === "image" ? <LiveIconImage live={live} /> : undefined
+      }
+    />
   )
 
   return (
@@ -81,7 +84,7 @@ export function RenderPreviews({
           {header}
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-title font-semibold">{name}</span>
-            <span className="truncate font-mono text-body text-muted-foreground">
+            <span className="truncate text-body text-muted-foreground tabular-nums">
               {projectKey}
             </span>
           </span>

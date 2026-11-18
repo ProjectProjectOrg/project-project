@@ -1,0 +1,132 @@
+export const meta = {
+  title: "Command menu",
+  group: "Primitives",
+  description:
+    "A searchable list of commands with groups, a sliding highlight, keyboard shortcuts and footer hints. It powers the ⌘K palette, the editor's slash menu and the sprint ticket creator.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Dialog",
+      note: "the ⌘K popup in CommandMenuDialog",
+      href: "https://base-ui.com/react/components/dialog"
+    },
+    {
+      kind: "fluid",
+      name: "useFluidHover",
+      note: "the highlight that glides to the row nearest the cursor",
+      href: "https://www.fluidfunctionalism.com"
+    },
+    {
+      kind: "own",
+      name: "CommandMenu",
+      note: "list, keyboard model, shortcuts and footer"
+    }
+  ]
+}
+
+## Overview
+
+Every part at once: tabs, the search input, group headings, the highlighted row (the first enabled row), a plain row, a row with a shortcut, a checked row, a disabled row and the footer hints. The second panel shows the empty state. Type to filter, or use the arrow keys and Enter in the input.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-96 place-items-start"
+/>
+
+## Usage
+
+```tsx
+import {
+  CommandMenu,
+  CommandMenuDialog,
+  CommandMenuEmpty,
+  CommandMenuInput,
+  CommandMenuItem,
+  CommandMenuList,
+  CommandMenuShortcut
+} from "@pp/ui/command-menu"
+
+;<CommandMenuDialog
+  open={open}
+  onOpenChange={setOpen}
+  title={m.chrome_command_menu_title()}
+>
+  <CommandMenu stretch items={visible} resetKey={query} onSelect={run}>
+    <CommandMenuInput
+      placeholder={m.chrome_command_menu_placeholder()}
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+    />
+    <CommandMenuList
+      renderItem={(item) => (
+        <CommandMenuItem value={item.value}>
+          {item.label}
+          <CommandMenuShortcut keys="mod+shift+c" keyLabels={keyLabels()} />
+        </CommandMenuItem>
+      )}
+    >
+      <CommandMenuEmpty>{m.chrome_command_menu_empty_list()}</CommandMenuEmpty>
+    </CommandMenuList>
+  </CommandMenu>
+</CommandMenuDialog>
+```
+
+`keyLabels` names the keys off a Mac (`Ctrl`, `Enter`, …); the app builds it from its Paraglide messages in `lib/keyLabels.ts`. On a Mac, modifiers and arrows render as glyphs.
+
+| Part                    | Prop                                          | Type                                           | Default   |
+| ----------------------- | --------------------------------------------- | ---------------------------------------------- | --------- |
+| `CommandMenu`           | `items`                                       | `{ value, label, icon?, group?, disabled? }[]` |           |
+|                         | `onSelect`                                    | `(item) => void`                               |           |
+|                         | `onActOn`                                     | `(item) => boolean` (Tab on a row)             |           |
+|                         | `initialValue`                                | `string \| null`                               | `null`    |
+|                         | `resetKey`                                    | `string` (the query; resets the highlight)     | `""`      |
+|                         | `stretch`                                     | `boolean` (fill the parent's height)           | `false`   |
+| `CommandMenuDialog`     | `open`, `onOpenChange`                        | `boolean`, `(open) => void`                    |           |
+|                         | `title`                                       | `string` (screen-reader title)                 |           |
+|                         | `shortcut`                                    | `AppHotkey \| null` (opens it; closes it too)  |           |
+|                         | `pulseKey`                                    | `string` (a change pulses the open dialog)     |           |
+| `CommandMenuTabs`       | `tabs`, `value`, `onValueChange`, `tabsLabel` | `{ value, label, icon?, count? }[]`, …         |           |
+| `CommandMenuList`       | `renderItem`                                  | `(item, index) => ReactNode`                   |           |
+| `CommandMenuItem`       | `value`                                       | `string`                                       |           |
+| `CommandMenuShortcut`   | `keys`, `keyLabels`                           | `string \| string[]` (a sequence), `KeyLabels` |           |
+| `CommandMenuFooterHint` | `label`, `keys`, `keyLabels`                  | `string`, `string \| string[]`, `KeyLabels`    |           |
+| `CommandMenuCheck`      | `checked`, `label`                            | `boolean` (unchecked keeps the space), `string` (screen-reader text for the tick) | |
+
+## Rules
+
+### Rows are dropdown menu items
+
+The palette is a menu you type into, so a row *is* a `DropdownMenuItem`, 1:1. It uses the same `menuItemClass` and is driven by the same `data-highlighted` attribute. That gives it the same 36px height, 8px padding, type, muted resting colour, foreground when highlighted, and icon stroke going from 1.75 to 2. The highlight matches too: a 34px fill (1px in from the row's top and bottom) with a 14px radius. A change to the dropdown item lands here as well.
+
+### Hover, then press
+
+The highlight glides between rows on `--hover`. It fills with `--active` while the pointer is down on a row. These are the ghost button's fills, the same ones the dropdown highlight uses, so pressing a row feels like pressing a button. The fill changes over 80ms.
+
+### The keyboard and the pointer share one highlight
+
+↑↓ and the pointer move the same highlight. When the pointer leaves the list, the highlight goes back to the last row it was on, so Enter always runs the row you can see.
+
+### Disabled rows stay in place at half opacity
+
+A disabled row keeps its spot, and the arrow keys and the pointer skip it. It shows at 50% opacity with a not-allowed cursor, like a disabled menu item. Removing it would make the rest of the list jump when it becomes available again.
+
+### One inset grid
+
+The input's text, the group headings and the row icons share one left edge, 14px in (the list's 6px padding plus a row's 8px). The row highlight and the tab pills sit 6px in. The input row is 44px tall, 8px more than a row, so the query has room above and below. Callers don't pad the input or the list themselves.
+
+### Squircle surface
+
+The ⌘K dialog and the slash menu use a 20px radius shaped by `--button-corner`. That is close to the tab pill's 16px corner plus its 6px inset, so the inner and outer corners read as concentric.
+
+### The rest of the palette is as designed
+
+The surface, tabs, input, scroll fade, footer hints and open pulse were already polished before this pass and are deliberately unchanged.
+
+## Examples
+
+### ⌘K palette
+
+The app's palette in a `CommandMenuDialog`: an input, grouped commands with their shortcuts, and selecting a row closes it. The gallery opens it from a button; the app opens it with ⌘K.
+
+<Demo name="palette" title="⌘K palette" />

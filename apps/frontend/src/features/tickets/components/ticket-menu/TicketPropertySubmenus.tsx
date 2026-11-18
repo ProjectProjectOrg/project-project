@@ -1,15 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import { listEditBetween, type Member, type TicketId } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import {
-  CircleDot,
-  Gauge,
-  Shapes,
-  SignalHigh,
-  Tag,
-  UserRound
-} from "lucide-react"
-
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuEmpty,
@@ -20,9 +10,20 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import {
+  CircleDot,
+  Gauge,
+  Shapes,
+  SignalHigh,
+  Tag,
+  UserRound
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import * as Result from "effect/reactivity/AsyncResult"
+
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -49,7 +50,7 @@ import {
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
@@ -140,6 +141,7 @@ export function TicketPropertySubmenus({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger
               hotkey={appHotkeys["tickets.status"].defaultHotkey}
+              keyLabels={keyLabels()}
             >
               <CircleDot className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_status()}
@@ -155,6 +157,7 @@ export function TicketPropertySubmenus({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger
               hotkey={appHotkeys["tickets.priority"].defaultHotkey}
+              keyLabels={keyLabels()}
             >
               <SignalHigh className="size-4" strokeWidth={1.75} />
               {m.tickets_command_set_priority()}
@@ -170,6 +173,7 @@ export function TicketPropertySubmenus({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger
               hotkey={appHotkeys["tickets.type"].defaultHotkey}
+              keyLabels={keyLabels()}
             >
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
@@ -195,6 +199,7 @@ export function TicketPropertySubmenus({
         <DropdownMenuSub filterable>
           <DropdownMenuSubTrigger
             hotkey={appHotkeys["tickets.assign"].defaultHotkey}
+            keyLabels={keyLabels()}
           >
             <UserRound className="size-4" strokeWidth={1.75} />
             {m.tickets_command_assign()}
@@ -272,7 +277,10 @@ function TagsSubmenu({
       filterable={menu.filterable}
       onOpenChange={menu.onOpenChange}
     >
-      <DropdownMenuSubTrigger hotkey={appHotkeys["tickets.tags"].defaultHotkey}>
+      <DropdownMenuSubTrigger
+        hotkey={appHotkeys["tickets.tags"].defaultHotkey}
+        keyLabels={keyLabels()}
+      >
         <Tag className="size-4" strokeWidth={1.75} />
         {m.tickets_command_tags()}
       </DropdownMenuSubTrigger>

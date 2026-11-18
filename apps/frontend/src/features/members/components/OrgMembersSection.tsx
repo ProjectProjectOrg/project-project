@@ -5,10 +5,10 @@ import type {
   OrgMember,
   OrgRole
 } from "@pp/shared"
+import { Crown, ShieldCheck, UserRound } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Crown, ShieldCheck, UserRound } from "lucide-react"
 import { useState } from "react"
 
 import type { RoleMeta } from "@/features/members/components/MemberList"
@@ -74,7 +74,7 @@ const orgErrorText = <A,>(state: Result.AsyncResult<A, OrgFailure>) => {
     <>
       {error.message}
       {error.projectSlugs && error.projectSlugs.length > 0 ? (
-        <span className="font-mono"> {error.projectSlugs.join(", ")}</span>
+        <span className="tabular-nums"> {error.projectSlugs.join(", ")}</span>
       ) : null}
     </>
   )
@@ -224,7 +224,6 @@ function OrgMemberRow({
               prompt: m.org_members_transfer_confirm_prompt({ name }),
               label: m.org_members_make_owner(),
               busyLabel: m.org_members_transfer_in_progress(),
-              waiting: transferState.waiting,
               error: orgErrorText(transferState),
               run: () => transfer(undefined)
             }
@@ -235,7 +234,6 @@ function OrgMemberRow({
               prompt: m.members_remove_confirm_prompt({ name }),
               label: m.members_remove_button(),
               busyLabel: m.members_remove_in_progress(),
-              waiting: removeState.waiting,
               error: orgErrorText(removeState),
               run: () => remove(undefined)
             }
@@ -247,7 +245,6 @@ function OrgMemberRow({
                 }),
                 label: m.org_members_leave_button(),
                 busyLabel: m.org_members_leave_in_progress(),
-                waiting: leaveState.waiting,
                 error: orgErrorText(leaveState),
                 run: async () => {
                   const exit = await leave(undefined)
@@ -285,7 +282,6 @@ function OrgInvitationRow({
               }),
               label: m.members_pending_cancel_button(),
               busyLabel: m.members_pending_cancel_in_progress(),
-              waiting: state.waiting,
               error: orgErrorText(state),
               run: () => cancel(undefined)
             }

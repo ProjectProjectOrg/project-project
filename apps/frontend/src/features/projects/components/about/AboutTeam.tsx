@@ -1,8 +1,8 @@
 import type { ProjectDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Link } from "@tanstack/react-router"
 
-import { Button } from "@/components/ui/button"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { ROLE_META } from "@/features/members/components/ProjectMembersSection"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
@@ -44,9 +44,9 @@ export function AboutTeam({
       </ul>
       {hidden > 0 || pendingMembers.length > 0 ? (
         <Button
-          variant="sidebar-link"
+          variant="ghost"
           size="sm"
-          className="mt-1 -ml-1.5"
+          className="mt-1 -ml-1.5 w-fit max-w-full justify-start gap-2 px-1.5"
           render={<Link {...team} />}
         >
           {[

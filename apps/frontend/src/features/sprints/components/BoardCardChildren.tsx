@@ -1,5 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { hasSubTickets, type Ticket, type TicketId } from "@pp/shared"
+import {
+  BoardCardSubTicket,
+  BoardCardSubTickets,
+  BoardCardSubTicketsMore,
+  BoardCardSubTicketsNote,
+  subTicketsShown
+} from "@pp/ui/board-card"
+import { transitions } from "@pp/ui/lib/springs"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -15,8 +23,6 @@ import {
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
@@ -56,7 +62,7 @@ export function BoardCardChildren({ parent }: Readonly<{ parent: Parent }>) {
     <AnimatePresence initial={false}>
       {expanded && (
         <motion.div {...heightReveal} className="overflow-y-clip">
-          <div className="pt-1.5">
+          <div className="pt-2">
             <ExpandedChildren parent={parent.id} />
           </div>
         </motion.div>
@@ -75,27 +81,17 @@ function ExpandedChildren({ parent }: Readonly<{ parent: TicketId }>) {
       ? m.tickets_sub_tickets_load_failed()
       : null
   return (
-    <ul className="grid grid-cols-[auto_auto_minmax(0,1fr)] border-t border-border/60 pt-1">
+    <BoardCardSubTickets>
       {status !== null ? (
-        <li
-          className={cn(
-            "col-span-full px-1 py-1 text-caption text-muted-foreground",
-            Result.isInitial(result) && "animate-pulse"
-          )}
-        >
+        <BoardCardSubTicketsNote loading={Result.isInitial(result)}>
           {status}
-        </li>
+        </BoardCardSubTicketsNote>
       ) : (
         <ChildLines rows={Result.getOrElse(result, () => [])} />
       )}
-    </ul>
+    </BoardCardSubTickets>
   )
 }
-
-const PREVIEW_COUNT = 3
-
-const bleedHover =
-  "transition-colors before:absolute before:inset-y-0 before:-inset-x-1.5 before:-z-10 before:rounded-sm before:content-[''] before:[transition:inherit] hover:before:bg-hover"
 
 function ChildLines({
   rows
@@ -104,44 +100,31 @@ function ChildLines({
 }>) {
   const [showAll, setShowAll] = useState(false)
   const heightReveal = useHeightReveal()
-  const hidden = rows.length - PREVIEW_COUNT
+  const shown = subTicketsShown(rows.length)
+  const hidden = rows.length - shown
   const idWidth = `${Math.max(...rows.map((row) => row.ticket.id.length))}ch`
   const line = (row: TicketRow) => (
     <ChildLine key={row.key} ticket={row.ticket} idWidth={idWidth} />
   )
   return (
     <>
-      {rows.slice(0, PREVIEW_COUNT).map(line)}
+      {rows.slice(0, shown).map(line)}
       <AnimatePresence initial={false}>
         {showAll && hidden > 0 && (
           <motion.li
             {...heightReveal}
             className="col-span-full grid grid-cols-subgrid overflow-y-clip"
           >
-            <ul className="contents">{rows.slice(PREVIEW_COUNT).map(line)}</ul>
+            <ul className="contents">{rows.slice(shown).map(line)}</ul>
           </motion.li>
         )}
       </AnimatePresence>
       {hidden > 0 && (
-        <li className="col-span-full">
-          <button
-            type="button"
-            draggable={false}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowAll((all) => !all)
-            }}
-            className={cn(
-              "flex h-7 w-full items-center pl-7.5 text-caption text-muted-foreground outline-none hover:text-foreground focus-visible:before:ring-1 focus-visible:before:ring-ring focus-visible:before:ring-inset",
-              bleedHover
-            )}
-          >
-            {showAll
-              ? m.tickets_sub_tickets_show_less()
-              : m.tickets_sub_tickets_show_more({ count: hidden })}
-          </button>
-        </li>
+        <BoardCardSubTicketsMore onClick={() => setShowAll((all) => !all)}>
+          {showAll
+            ? m.tickets_sub_tickets_show_less()
+            : m.tickets_sub_tickets_show_more({ count: hidden })}
+        </BoardCardSubTicketsMore>
       )}
     </>
   )
@@ -153,36 +136,24 @@ function ChildLine({
 }: Readonly<{ ticket: Ticket; idWidth: string }>) {
   const { orgSlug, slug } = useProjectRoute()
   return (
-    <li
-      className={cn(
-        "relative z-20 col-span-full grid h-7 grid-cols-subgrid items-center gap-x-2 pr-2 text-caption",
-        bleedHover
-      )}
-    >
-      <span className="grid w-[22px] place-items-center">
+    <BoardCardSubTicket
+      status={
         <TicketStatusIcon
           status={ticket.status}
           orgSlug={orgSlug}
           slug={slug}
         />
-      </span>
-      <span
-        style={{ minWidth: idWidth }}
-        className="shrink-0 font-mono text-muted-foreground tabular-nums"
-      >
-        {ticket.id}
-      </span>
-      <Link
-        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-        params={{ orgSlug, slug, id: ticket.id }}
-        preload="intent"
-        draggable={false}
-        data-row-link
-        title={ticket.title}
-        className="min-w-0 truncate outline-none after:absolute after:-inset-x-1.5 after:inset-y-0 after:rounded-sm after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-      >
-        {ticket.title}
-      </Link>
-    </li>
+      }
+      ticketKey={ticket.id}
+      keyWidth={idWidth}
+      title={ticket.title}
+      render={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+          params={{ orgSlug, slug, id: ticket.id }}
+          preload="intent"
+        />
+      }
+    />
   )
 }

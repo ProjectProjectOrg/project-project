@@ -1,11 +1,16 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import { Link2 } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Link2 } from "lucide-react"
 import {
   useEffect,
   useRef,
@@ -14,12 +19,7 @@ import {
   type KeyboardEvent
 } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   project as projectView,
   projectRequest
@@ -117,12 +117,12 @@ export function SubTicketComposer({
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="flex flex-col rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      className="flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] [corner-shape:var(--button-corner)]"
     >
-      <Composer.Title className="mt-4">
+      <Composer.Title>
         <Input
           ref={titleInput}
-          variant="composer-title"
+          variant="bare"
           aria-label={m.tickets_create_title_aria_label()}
           placeholder={
             inEpic
@@ -154,39 +154,41 @@ export function SubTicketComposer({
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Chips className="gap-0.5 pl-2 [&_[data-slot=button]]:h-7 [&_[data-slot=button]]:px-2">
-        <TicketFieldChips
-          orgSlug={orgSlug}
-          slug={slug}
-          creatorType={creatorType}
-          value={fields}
-          onChange={(patch) =>
-            setFields((current) => ({ ...current, ...patch }))
-          }
-        />
-      </Composer.Chips>
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer className="mt-1.5 p-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          iconLeft
-          className="mr-auto pl-2.5"
-          onClick={attachExisting}
-        >
-          <Link2 className="size-3.5" strokeWidth={1.75} />
-          {m.tickets_children_attach_button()}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={trimmed === ""}>
-          {inEpic
-            ? m.tickets_create_dialog_submit()
-            : m.tickets_children_create_sub_ticket()}
-        </Button>
-      </Composer.Footer>
+      <Composer.Tray>
+        <Composer.Fields>
+          <TicketFieldChips
+            orgSlug={orgSlug}
+            slug={slug}
+            creatorType={creatorType}
+            value={fields}
+            onChange={(patch) =>
+              setFields((current) => ({ ...current, ...patch }))
+            }
+          />
+        </Composer.Fields>
+        <Composer.Footer>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            leadingIcon={Link2}
+            onClick={attachExisting}
+          >
+            {m.tickets_children_attach_button()}
+          </Button>
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={trimmed === ""}>
+              {inEpic
+                ? m.tickets_create_dialog_submit()
+                : m.tickets_children_create_sub_ticket()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

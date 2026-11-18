@@ -19,7 +19,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { ignoreReorder, type StatusReorder } from "../hooks/useStatusReorder"
+import type { StatusReorder } from "../hooks/useStatusReorder"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDescription } from "./SprintDescription"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
@@ -43,8 +43,6 @@ export function SprintDetail({
   const canReorder = actor.call("statuses", "reorder")
   const req = sprintRequest(orgSlug, slug, groupId)
   const sprint = useAtomValue(sprintDetail(req))
-  const { reorderMode, dragOrder, enterReorder, cancelReorder, setDragOrder } =
-    reorder
 
   const isBoard = view === "board"
   const isDescription = view === "description"
@@ -94,11 +92,7 @@ export function SprintDetail({
             query={listQuery}
             members={project.members}
             isCompleted={isCompleted}
-            reorderMode={reorderMode}
-            onEnterReorder={canReorder ? enterReorder : ignoreReorder}
-            onExitReorder={cancelReorder}
-            dragOrder={dragOrder}
-            setDragOrder={setDragOrder}
+            reorder={canReorder ? reorder : null}
           />
         </TicketViewSourceContext>
       ) : (

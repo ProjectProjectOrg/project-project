@@ -1,10 +1,10 @@
 import type { ArchiveTicketInput } from "@pp/shared"
-import { Archive, ArchiveRestore } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { Archive, ArchiveRestore } from "@pp/ui/icons"
+import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import {
   ArchiveForm,
   type ArchiveExit,

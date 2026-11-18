@@ -1,10 +1,10 @@
 import type { TypeDefinition, TypeKey } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { type MouseEvent } from "react"
 
-import { Button } from "@/components/ui/button"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const keepEditorFocus = (event: MouseEvent) => event.preventDefault()
@@ -37,7 +37,8 @@ export function DescriptionTypeStarts({
           <Button
             key={type.key}
             type="button"
-            variant="chip"
+            variant="ghost"
+            tone="strong"
             className="h-7"
             onMouseDown={keepEditorFocus}
             onClick={() => onStart(type.key)}

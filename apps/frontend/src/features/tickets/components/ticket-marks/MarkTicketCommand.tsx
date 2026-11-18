@@ -1,19 +1,20 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { EMPTY_TICKET_RELATIONS, type Ticket } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { CircleAlert, Search } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleAlert, Search } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import {
   CommandFrame,
   type CommandEmpty
 } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
-import { markDuplicateDialog } from "@/features/tickets/atoms/markDuplicateDialog"
+import { markDuplicateRequest } from "@/features/tickets/atoms/markDuplicateRequest"
 import {
   recentTickets,
   recentTicketsRequest
@@ -34,7 +35,6 @@ import {
 } from "@/features/tickets/lib/relationGroups"
 import { useSettledValue } from "@/hooks/useSettledValue"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { TicketStatusIcon } from "./TicketStatusIcon"
@@ -60,13 +60,17 @@ export function MarkTicketCommand({
   kind,
   chip,
   onBack,
-  onDone
+  onDone,
+  onDuplicate
 }: Readonly<{
   ticket: TicketContext
   kind: MarkPickKind
   chip: ReactNode
   onBack: () => void
   onDone: () => void
+  // Duplicates are confirmed on a page of their own (both tickets side by
+  // side): this opens it once the request is set.
+  onDuplicate: () => void
 }>) {
   const req = ticketRequest(orgSlug, slug, ticketId)
   const detail = useAtomValue(ticketDetail(req))
@@ -74,7 +78,7 @@ export function MarkTicketCommand({
     ? detail.value.relations
     : EMPTY_TICKET_RELATIONS
   const mark = useAtomSet(markTicket(req), { mode: "promiseExit" })
-  const openDuplicate = useAtomSet(markDuplicateDialog)
+  const setDuplicate = useAtomSet(markDuplicateRequest)
   const [search, setSearch] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -133,8 +137,8 @@ export function MarkTicketCommand({
   const pick = async (target: Ticket) => {
     if (pending) return
     if (kind === "duplicateOf") {
-      onDone()
-      openDuplicate({ orgSlug, slug, ticketId, originalId: target.id })
+      setDuplicate({ orgSlug, slug, ticketId, originalId: target.id })
+      onDuplicate()
       return
     }
     setPending(true)
@@ -188,7 +192,7 @@ export function MarkTicketCommand({
               className="size-4"
             />
             <span className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+              <span className="min-w-(--row-key-width) shrink-0 text-caption text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span

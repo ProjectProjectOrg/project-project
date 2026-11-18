@@ -1,14 +1,14 @@
 import type { TicketId, TicketSequence, TicketSequenceEntry } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ChevronDown, ChevronUp } from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
-import { ChevronDown, ChevronUp } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { appHotkeys } from "@/lib/appHotkeys"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 type Step = Readonly<{
@@ -45,7 +45,7 @@ export function TicketStepper({
   return (
     <div className="flex items-center gap-0.5">
       <span
-        className="mr-1.5 text-right font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
+        className="mr-1.5 text-right text-caption whitespace-nowrap text-muted-foreground tabular-nums"
         style={{ minWidth: `${label({ position: total, total }).length}ch` }}
       >
         {label({ position: index + 1, total })}

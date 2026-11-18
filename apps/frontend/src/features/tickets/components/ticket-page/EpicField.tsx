@@ -1,11 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Ticket } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowUpRight, Layers, Plus, X } from "lucide-react"
-import { useState } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +11,12 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { ArrowUpRight, Layers, Plus, X } from "@pp/ui/icons"
+import { Link } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useState } from "react"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import { ParentTicketLink } from "@/features/tickets/components/ticket-page/ParentTicketLink"
@@ -58,7 +58,8 @@ export function EpicField({
         render={
           <Button
             type="button"
-            variant={parent === null ? "chip-muted" : "chip"}
+            variant="ghost"
+            tone={parent === null ? "muted" : "strong"}
             className="min-w-0"
             aria-label={
               parent === null

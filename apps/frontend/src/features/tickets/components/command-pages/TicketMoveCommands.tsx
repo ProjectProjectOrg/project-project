@@ -5,13 +5,14 @@ import {
   type Project,
   type TicketDetail
 } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { FolderInput } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderInput } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import {
@@ -26,7 +27,6 @@ import {
 import { useMoveDestination } from "@/features/tickets/hooks/useMoveDestination"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { TicketPageProps } from "./TicketFieldCommands"

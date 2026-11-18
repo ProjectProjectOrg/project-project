@@ -1,11 +1,12 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { ArrowRight } from "@pp/ui/icons"
+import { ListSectionBody } from "@pp/ui/list-section"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Button } from "@/components/ui/button"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
@@ -19,7 +20,6 @@ import {
   type OrgTicketUpdates,
   type ProjectTicketGroup
 } from "@/features/tickets/atoms/myTickets"
-import { SectionBody } from "@/features/tickets/components/ticket-list/SectionBody"
 import { useCollapsedInSet } from "@/features/tickets/components/ticket-list/sectionCollapse"
 import {
   SectionHeader,
@@ -78,6 +78,8 @@ export function ProjectGroupedList(props: GroupedListProps) {
                   icon={group.project.icon}
                   iconImage={group.project.iconImage}
                   color={group.project.color}
+                  tone={group.project.tone}
+                  colors={group.project.colors}
                   size="xs"
                   seed={group.project.slug}
                 />
@@ -242,7 +244,7 @@ function GroupSection({
         onDismissCreate={noop}
         creator={null}
       />
-      <SectionBody collapsed={collapsed}>
+      <ListSectionBody collapsed={collapsed}>
         {group.tickets.length === 0 ? (
           <div className="px-3 py-4 text-center text-caption text-muted-foreground">
             —
@@ -266,7 +268,7 @@ function GroupSection({
           expanded &&
           group.tickets.length < group.count &&
           group.expandable.pagination}
-      </SectionBody>
+      </ListSectionBody>
     </div>
   )
 }

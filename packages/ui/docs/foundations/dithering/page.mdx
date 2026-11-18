@@ -1,0 +1,50 @@
+export const meta = {
+  title: "Dithering",
+  group: "Design system",
+  order: 8,
+  description:
+    "The brand's signature: ordered dithering, two greys stepped through a Bayer matrix. It lives in graphics (the mark, empty states, generated avatars and tiles) and never on a control.",
+  sources: [
+    { kind: "own", name: "Dither", note: "WebGL, ordered dithering" },
+    { kind: "own", name: "lib/ditherPaint", note: "the 4×4 Bayer painter for avatars and tiles" }
+  ]
+}
+
+## Overview
+
+<Demo name="overview" title="Where it lives" />
+
+## Usage
+
+You rarely draw dithering yourself; the components that carry it do:
+
+```tsx
+<Empty>…</Empty>                          {/* a dithered well, seeded */}
+<MemberAvatar member={member} size={24} /> {/* a photo, or a generated orb */}
+<ProjectIcon seed={project.id} color={project.color} size={28} />
+<Logo />
+```
+
+The tokens: `--dither-front` and `--dither-back` (the two greys), and `--dither-front-subtle` / `--dither-front-strong` for the empty state's intensities.
+
+## Rules
+
+### Two languages that never compete
+
+The interface is clean and type-driven (buttons, inputs, rows, menus in neutral greys); the graphics are dithered. Keeping them apart is what lets both work: the chrome stays quiet enough to disappear under the work, and the dithering stays rare enough to be recognisable as the brand.
+
+### Never on a control
+
+Dithering on a button, a row or a field would make it noisy and harder to read, and would spend the signature on something people look through, not at. The one dithered button (`variant="dither"`) is for marketing and hero moments; the app itself doesn't use it.
+
+### Generated, never drawn per screen
+
+Empty states use a dithered well with a random seed and an icon tile, never a custom illustration, so no two look alike and no screen needs artwork. Members without a photo get an orb seeded by their id; projects get a tile seeded by theirs. The same seed always paints the same picture, so a person or a project is recognisable at a glance.
+
+### Colour stays the user's
+
+The mark and empty states are grey. Avatars and tiles take colour only from the user's palette ([Colour](/foundations/colour)): a project's chosen colour, or three tag-wheel colours for a person, translucent over the surface so they read as pastels in light and deep tones in dark.
+
+### Stepped, not smooth
+
+Ordered dithering on a 4×4 Bayer matrix, at device pixels, so the pattern stays crisp at any zoom: a soft gradient would look like any other app; the stepped one is ours.

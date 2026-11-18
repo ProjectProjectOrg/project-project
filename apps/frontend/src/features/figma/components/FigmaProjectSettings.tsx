@@ -1,12 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { type FormEvent, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   connectFigmaProjectAtom,
   disconnectFigmaProjectAtom,
@@ -18,7 +19,6 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor } from "@/hooks/useActor"
 import { figmaStatusErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { FigmaTokenWalkthrough } from "./FigmaTokenWalkthrough"
@@ -104,7 +104,7 @@ function FigmaProjectContent({
       description={
         <span className={cn(busy && "animate-pulse")}>
           {status.connected && status.handle ? (
-            <span className="font-mono">{status.handle}</span>
+            <span className="tabular-nums">{status.handle}</span>
           ) : status.storageConnected ? (
             m.figma_project_description()
           ) : (

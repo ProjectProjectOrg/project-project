@@ -6,8 +6,6 @@ import {
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
-import type * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
   GitBranchMinus,
@@ -15,9 +13,13 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  type LucideIcon,
+  type IconType,
   Minus
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import type * as Exit from "effect/Exit"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -27,7 +29,6 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   gitAutomationFor,
   gitAutomationRequest,
@@ -40,7 +41,6 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusOption } from "@/features/statuses/components/StatusOption"
 import { useSave } from "@/hooks/useSave"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const DONT_MOVE = ""
@@ -48,7 +48,7 @@ const DONT_MOVE = ""
 const EVENTS: Readonly<
   Record<
     GitAutomationEvent,
-    Readonly<{ icon: LucideIcon; label: () => string; hint: () => string }>
+    Readonly<{ icon: IconType; label: () => string; hint: () => string }>
   >
 > = {
   branch_linked: {

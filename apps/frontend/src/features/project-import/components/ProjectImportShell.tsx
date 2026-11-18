@@ -1,4 +1,5 @@
 import type { ProjectImportStatus } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
@@ -6,7 +7,6 @@ import {
   type WizardNavigation,
   WizardShell
 } from "@/components/shell/wizard/WizardShell"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 const projectImportStages = [

@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -9,7 +10,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
   orgRequest,
@@ -17,6 +17,7 @@ import {
   userOrgs
 } from "@/features/organizations/atoms/orgs"
 import { nextActiveOrgSlug } from "@/features/organizations/lib/orgReflow"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export function OrgDangerZone({
@@ -60,12 +61,14 @@ export function OrgDangerZone({
             days: ORG_DELETE_GRACE_DAYS
           })}
         >
-          <ConfirmButton.Root className="w-full">
+          <ConfirmButton.Root flow className="w-full">
             <ConfirmButton.Trigger variant="destructive" size="sm">
               {m.org_danger_delete_button()}
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm className="w-full">
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
+                describeError={describeCause}
                 layout="stacked"
                 prompt={m.org_danger_delete_confirm_label({ slug: org.slug })}
                 typed={org.slug}

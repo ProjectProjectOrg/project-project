@@ -1,0 +1,54 @@
+export const meta = {
+  title: "Formatting toolbar",
+  group: "Editor",
+  order: 3,
+  description:
+    "The toolbar over a text selection: the inline formats, a link, and the block types the selection can turn into. For people who don't type Markdown.",
+  sources: [
+    { kind: "base-ui", name: "Toolbar", href: "https://base-ui.com/react/components/toolbar" },
+    { kind: "own", name: "FormattingToolbarPlugin" }
+  ]
+}
+
+## Overview
+
+Two words start selected, so the toolbar is open; select anything else to move it.
+
+<Demo name="overview" title="Over a selection" />
+
+## Usage
+
+```tsx
+import { FormattingToolbarPlugin } from "@pp/ui/editor/formatting-toolbar"
+import { formattingToolbarLabels } from "@pp/ui/editor/formatting-toolbar-labels"
+
+<FormattingToolbarPlugin labels={formattingToolbarLabels()} />
+```
+
+`LexicalEditor` includes it whenever it's editable. `formattingToolbarLabels()` builds the labels from the editor's messages; pass your own `labels` to use it in another Lexical editor.
+
+| Prop | |
+| --- | --- |
+| `labels` | The toolbar and its groups (`toolbar`, `text`, `block`), each format's name, `link`, `unlink`, `linkPlaceholder`, and the six block types' names |
+
+## Rules
+
+### It follows the selection, not the pointer
+
+It appears once a non-empty selection settles (after the pointer lifts, so dragging doesn't flicker it), centred over a selection within one line and at its start over a longer one, and stays above the text. A collapsed caret hides it.
+
+### What it does is what Markdown can say
+
+Bold, italic, strikethrough and inline code; a link; and heading, bulleted, numbered and check lists, quote and code block. Nothing it applies is lost when the description is saved as Markdown.
+
+### Pressed means "this is what it is"
+
+A format or block type that already applies is pressed; pressing it again removes it (a pressed block type turns back into a paragraph, a pressed list un-lists).
+
+### A link is typed in place
+
+Link swaps the buttons for an input over the same selection; Enter applies (a bare hostname gets https://), Escape or blur cancel. Inside a link the same button removes it.
+
+### Keyboard
+
+Alt+F10 moves focus into the toolbar; arrows, Home and End move between buttons, and Escape or Tab return to the text with the selection intact.

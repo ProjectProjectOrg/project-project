@@ -1,0 +1,105 @@
+export const meta = {
+  title: "Select",
+  group: "Primitives",
+  description:
+    "Pick one value (or several) from a list that opens under a trigger. Shares the dropdown menu's surface and sliding highlight. Used for filters, view options and settings rows.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Select",
+      href: "https://base-ui.com/react/components/select"
+    },
+    { kind: "own", name: "MenuHighlight", note: "sliding highlight, shared with the dropdown menu" }
+  ]
+}
+
+## Overview
+
+The open popup with a chosen row, a separator and a disabled row, then every trigger variant and state. Hover and focus are pinned with `data-force`.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+Pass the options as `items` and put a `SelectTrigger` inside. The trigger shows `selectedLabel`, or `placeholder` while nothing is chosen.
+
+```tsx
+import { Select, SelectTrigger } from "@pp/ui/select"
+
+<Select
+  value={sort}
+  onValueChange={onSortChange}
+  items={SORTS.map((key) => ({ value: key, label: SORT_LABEL[key]() }))}
+>
+  <SelectTrigger
+    placeholder={m.attachments_sort_label()}
+    selectedLabel={SORT_LABEL[sort]()}
+    aria-label={m.attachments_sort_label()}
+  />
+</Select>
+```
+
+`Select`:
+
+| Prop            | Type                                                                 | Default     |
+| --------------- | -------------------------------------------------------------------- | ----------- |
+| `items`         | `{ value, label, textValue?, icon?, separated?, disabled?, onAction? }[]` |             |
+| `value`         | `Value \| null` (`Value[]` with `multiple`)                         |             |
+| `defaultValue`  | `Value \| null` (`Value[]` with `multiple`)                         |             |
+| `onValueChange` | `(value) => void`                                                    |             |
+| `multiple`      | `boolean`                                                            | `false`     |
+| `size`          | `"default" \| "compact"`                                             | `"default"` |
+| `contentProps`  | `{ align?, side?, sideOffset?, className?, finalFocus? }`            |             |
+| `open`          | `boolean`                                                            |             |
+| `onOpenChange`  | `(open, details) => void`                                            |             |
+| `disabled`      | `boolean`                                                            | `false`     |
+| `name`          | `string`                                                             |             |
+| `required`      | `boolean`                                                            | `false`     |
+
+An item with `onAction` runs it instead of becoming the value, and shows no tick.
+
+`SelectTrigger`:
+
+| Prop            | Type                          | Default      |
+| --------------- | ----------------------------- | ------------ |
+| `variant`       | `"bordered" \| "borderless"`  | `"bordered"` |
+| `size`          | `"default" \| "compact"`      | `"default"`  |
+| `selectedLabel` | `ReactNode`                   |              |
+| `placeholder`   | `string`                      |              |
+| `icon`          | `IconComponent`               |              |
+| `error`         | `string`                      |              |
+| `render`        | `ReactElement` (own trigger)  |              |
+
+## Rules
+
+- The trigger is a `Button` with `variant="field"`: the Input's `--field` fill and hairline, corners at half the height, the shared focus ring, a 97% press. The chevron turns over while the list is open.
+- The chosen row marks itself like a dropdown radio row: a leading dot and a semibold label, no row fill and no trailing tick.
+- Picking a row plays the same spring as the dropdown: the slot opens and the dot pops in while the list closes.
+- A new value plays through `TextSwap`: shared letters stay, the rest roll over glyph by glyph, and the trigger's width eases to fit. A trigger passed through `render` wraps its value in `TextSwap` itself, with its icon in `icon`.
+- The list is at least 192px wide, or as wide as its trigger when that is wider, and grows with its options beyond that.
+
+## Examples
+
+### Git automation rules
+
+The Git automation settings: a select per Git event picks the status a ticket moves to, with "Don't move" set apart above the statuses. The trigger shows the same icon and label as the chosen row.
+
+<Demo name="git-automation" title="Git automation" />
+
+### Jira status mapping
+
+The Jira import maps each Jira status to a project status with compact selects. An unmapped status shows the placeholder, and the last row creates a new status instead of picking one.
+
+<Demo name="jira-mapping" title="Jira status mapping" />
+
+### Member roles
+
+The role badge in the members list is the trigger itself, through `render`, so a role changes in place.
+
+<Demo name="member-roles" title="Member roles" />
+
+### Ticket type
+
+The type field on a ticket: a ghost trigger with the type's glyph, "No type" after a separator, and an "Edit types…" row with `onAction` that runs instead of becoming the value.
+
+<Demo name="ticket-type" title="Ticket type" />

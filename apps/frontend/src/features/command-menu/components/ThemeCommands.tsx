@@ -1,6 +1,7 @@
-import { Monitor, Moon, Sun } from "lucide-react"
+import { CommandMenuItem, CommandMenuCheck } from "@pp/ui/command-menu"
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
+import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
 
-import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
 
@@ -14,6 +15,9 @@ const THEMES: ReadonlyArray<
   { value: "dark", label: m.theme_dark, icon: Moon },
   { value: "system", label: m.theme_system, icon: Monitor }
 ]
+
+const revealFromCentre = () =>
+  setThemeRevealOrigin(window.innerWidth / 2, window.innerHeight / 2)
 
 export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
   const { preference, setPreference } = useTheme()
@@ -29,7 +33,10 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
       }))}
       onSelect={(item) => {
         const theme = THEMES.find((candidate) => candidate.value === item.value)
-        if (theme) setPreference(theme.value)
+        if (theme) {
+          revealFromCentre()
+          setPreference(theme.value)
+        }
         env.close()
       }}
       renderItem={(item) => {
@@ -38,7 +45,10 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
         return (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            <CommandMenuCheck checked={preference === theme.value} />
+            <CommandMenuCheck
+              checked={preference === theme.value}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}

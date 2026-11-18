@@ -1,14 +1,14 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { keepInPlace } from "@pp/ui/lib/keepInPlace"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
 import {
   loadMoreMyTickets,
   type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { TicketPagination } from "@/features/tickets/components/ticket-list/SectionList"
-import { keepInPlace } from "@/lib/keepInPlace"
 import { m } from "@/paraglide/messages"
 
 type MyTicketsPaginationProps = Readonly<{

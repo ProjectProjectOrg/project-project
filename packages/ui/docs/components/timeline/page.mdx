@@ -1,0 +1,98 @@
+export const meta = {
+  title: "Timeline",
+  group: "Primitives",
+  description:
+    "A ticket's activity on its page: what happened to it, oldest or newest first, with its comments in between. Events hang on a rail through their actors' marks; a long run of changes folds into one row that opens in place.",
+  sources: [
+    {
+      kind: "own",
+      name: "Timeline",
+      note: "Ported from the app's ticket timeline; the rail, folds and comments redesigned"
+    }
+  ]
+}
+
+## Overview
+
+Open a run, then flip the order: the changes always unfold right under their summary.
+
+<Demo name="overview" title="A ticket's activity" />
+
+## Usage
+
+The app reads the activity, groups it into runs and fills the slots: the actor's mark and name, the line, the time. Strings come from its messages.
+
+```tsx
+import {
+  Timeline,
+  TimelineEntry,
+  TimelineEvent,
+  TimelineRun
+} from "@pp/ui/timeline"
+
+<Timeline className="[--timeline-inset:var(--ticket-box-offset)]">
+  <TimelineEvent
+    mark={<ActorMark actor={actor} />}
+    actor={<ActorName actor={actor} />}
+    time={<TimelineTime at={at} />}
+  >
+    <ActivityLineView line={line} lookups={lookups} />
+  </TimelineEvent>
+  <TimelineRun
+    marks={people.map((actor) => <ActorMark actor={actor} />)}
+    label={<><ActorName actor={lead} /> {m.tickets_activity_run_changes({ count })}</>}
+    time={<TimelineTime at={newest.at} />}
+    open={open}
+    onOpenChange={setOpen}
+  >
+    {foldedEvents}
+  </TimelineRun>
+  <TimelineEntry>{renderComment(comment)}</TimelineEntry>
+</Timeline>
+```
+
+| Part | Holds |
+| --- | --- |
+| `Timeline` | the list and its rail; `--timeline-inset` sets where the rows start (0 by default) |
+| `TimelineEvent` | one event: `mark` (20px), `actor`, the line, `time` |
+| `TimelineRun` | a folded run: `marks` (20px, stacked), `label`, `time`, `open` and `onOpenChange`; its children are the folded events, in the order to show them |
+| `TimelineEntry` | a slot for something that isn't an event: a comment |
+| `TimelineMark` | puts something on the rail (a comment's avatar) |
+| `TimelineIndent` | one step in (a comment's replies) |
+| `TimelineActor` | the name in ink; `via` adds the client an agent acted through |
+| `TimelineValue` | a value with its icon or avatar, kept on one line |
+| `TimelineValues` | several values (people, tags), wrapping together |
+| `TimelineLiteral` | a branch, a pull request, a ticket key, with tabular figures |
+| `TimelineChange` | `from → to`; screen readers hear `toLabel` instead of the arrow |
+| `TimelineQuote` | quoted text under the line |
+| `TimelineSkeleton` | loading, announced with `label` |
+
+## Rules
+
+### The line is muted, the facts are in ink
+
+Each event is one muted sentence. The actor's name and every value in it (a status, a person, a branch) are in the text colour, so the eye skims the facts and the connecting words fall back.
+
+### One rail through the marks
+
+The rail is one path through the centre of every mark (anything in a `TimelineMark`), drawn at 60% of `--border` so it sits behind the facts. A lone event has none.
+
+### Indents bend the rail with squircle corners
+
+A run's opened changes and a comment's replies sit one step in (22px), and the rail reaches them with the same bend every time: two corners of the design system's `superellipse(1.5)` with a short straight between them, ending just above the first indented mark and starting just below the last one. Straight everywhere else, so the line stays predictable.
+
+### Runs open right under themselves
+
+A run of changes folds into one row: the people in it as a 20px stack and "Ana and 2 others made 6 changes". It opens in place, right under itself, in either order, so the row you clicked never moves. The fold eases open over 340ms on the house curve while the changes fade in 40ms apart, and the rail eases out into the indent with it (and back on close). Reduced motion opens it at once.
+
+## Examples
+
+### States
+
+<Demo name="states" title="States" />
+
+### Git
+
+A ticket's branch and pull requests: a branch linked and one stacked on it, a pull request opened, closed and opened again, then merged. GitHub is the actor for pull requests (its branch glyph on a plain avatar), and the status follows by the project's git automation rules. Every git value is its icon and the literal in Allo with tabular figures; the pull request's icon takes its state's colour (open in the info blue, merged in the merged violet, closed muted).
+
+<Demo name="git" title="Branches, pull requests and automations" />

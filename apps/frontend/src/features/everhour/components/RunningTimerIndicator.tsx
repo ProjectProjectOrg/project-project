@@ -8,21 +8,18 @@ import {
   type ActiveTimer,
   type Group
 } from "@pp/shared"
+import { Timer } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { useLocation } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
-import { Timer } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useMemo, useState } from "react"
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   everhourProjectRequest,
   everhourProfileAtom,
@@ -46,7 +43,6 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { mutationErrorText } from "@/lib/mutationError"
-import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
@@ -339,7 +335,7 @@ function ConnectedProjectTimerIndicator({
       aria-label={
         timer ? m.time_timer_running_on({ label }) : m.time_timer_open()
       }
-      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
     >
       <Timer
         className="size-4 shrink-0 text-muted-foreground"
@@ -353,7 +349,7 @@ function ConnectedProjectTimerIndicator({
       >
         <span className="max-w-40 truncate text-body">{visibleLabel}</span>
         {timer ? (
-          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
             {formatClock(elapsed)}
           </span>
         ) : null}
@@ -386,7 +382,7 @@ function ConnectedProjectTimerIndicator({
               </div>
             </div>
             {timer ? (
-              <div className="font-mono text-caption text-muted-foreground tabular-nums">
+              <div className="text-caption text-muted-foreground tabular-nums">
                 {formatClock(elapsed)}
               </div>
             ) : null}

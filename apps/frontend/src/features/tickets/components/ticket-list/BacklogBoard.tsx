@@ -1,4 +1,3 @@
-import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   RegistryContext,
   useAtomRefresh,
@@ -14,29 +13,37 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import {
+  BoardColumns,
+  useBoardAutoScroll,
+  useBoardCardDrop
+} from "@pp/ui/board-drag"
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
+import { cn } from "@pp/ui/lib/utils"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion, Reorder } from "motion/react"
+import { motion } from "motion/react"
 import { useContext, useEffect, useMemo, useRef } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { HiddenColumnsEmpty } from "@/features/sprints/components/HiddenColumnsEmpty"
-import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
+import {
+  columnReorder,
+  SprintBoardColumn
+} from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardColumns } from "@/features/sprints/hooks/useBoardColumns"
 import {
   BoardKeyboardContext,
   useBoardKeyboardNavigation
 } from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
-import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
-import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
+import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { visibleColumns } from "@/features/sprints/lib/boardColumns"
 import {
   boardEdit,
@@ -56,7 +63,6 @@ import {
 } from "@/features/tickets/atoms/backlog"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useExpandSubTicketsCommand } from "./useExpandSubTicketsCommand"
@@ -67,11 +73,8 @@ type BacklogBoardProps = Readonly<{
   query: TicketListQuery
   members: ReadonlyArray<Member>
   snapshot: BacklogValue
-  reorderMode: boolean
-  onEnterReorder: () => void
-  onExitReorder: () => void
-  dragOrder: ReadonlyArray<TicketStatus> | null
-  setDragOrder: (next: ReadonlyArray<TicketStatus> | null) => void
+  // Reordering the columns by their grips; null for people who can't.
+  reorder: StatusReorder | null
 }>
 
 export function BacklogBoard(props: BacklogBoardProps) {
@@ -102,11 +105,7 @@ function BacklogBoardContent({
   members,
   snapshot,
   statuses,
-  reorderMode,
-  onEnterReorder,
-  onExitReorder,
-  dragOrder,
-  setDragOrder
+  reorder
 }: BacklogBoardProps & { statuses: ReadonlyArray<ProjectStatus> }) {
   useExpandSubTicketsCommand()
   const { orgSlug, slug } = useProjectRoute()
@@ -121,9 +120,10 @@ function BacklogBoardContent({
     query.sort.key === "manual" &&
     TicketPolicy.canChange(actor, { content: true })
   const canDrag = canMove || manual
-  const groupRef = useReorderMode(reorderMode, onExitReorder)
+  const reorderMode = reorder?.reorderMode ?? false
+  const dragOrder = reorder?.dragOrder ?? null
   const { height, hasRightOverflow } = useBoardViewport(ref)
-  useHorizontalAutoScroll(ref, !reorderMode && canDrag)
+  useBoardAutoScroll(ref, !reorderMode && canDrag)
 
   const registry = useContext(RegistryContext)
 
@@ -158,34 +158,22 @@ function BacklogBoardContent({
   const columnsRef = useRef(columns)
   columnsRef.current = columns
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el || reorderMode || !canDrag) return
-    return monitorForElements({
-      onDrop({ source, location }) {
-        const target = location.current.dropTargets[0]
-        if (!target) return
-        const src = source.data
-        const dst = target.data
-        if (!isDragData(src) || !isDropData(dst)) return
-        if (dst.type === "card" && dst.id === src.id) return
-        const row = columnsRef.current
-          .find((column) => column.status === src.status)
-          ?.rows.find((r) => r.ticket.id === src.id)
-        if (!row || row.pending) return
-        const status = dst.status !== src.status ? dst.status : undefined
-        if (status !== undefined && !canMove) return
-        const column =
-          columnsRef.current.find((c) => c.status === dst.status)?.tickets ?? []
-        const position = manual
-          ? boardMove(column, column, src.id, dst)
-          : undefined
-        const edit = boardEdit(status, position)
-        if (edit === null) return
-        registry.set(updateBacklogTicket({ req, id: src.id }), edit)
-      }
-    })
-  }, [canDrag, canMove, manual, reorderMode, req, registry])
+  useBoardCardDrop(!reorderMode && canDrag, (src, dst) => {
+    if (!isDragData(src) || !isDropData(dst)) return
+    if (dst.type === "card" && dst.id === src.id) return
+    const row = columnsRef.current
+      .find((column) => column.status === src.status)
+      ?.rows.find((r) => r.ticket.id === src.id)
+    if (!row || row.pending) return
+    const status = dst.status !== src.status ? dst.status : undefined
+    if (status !== undefined && !canMove) return
+    const column =
+      columnsRef.current.find((c) => c.status === dst.status)?.tickets ?? []
+    const position = manual ? boardMove(column, column, src.id, dst) : undefined
+    const edit = boardEdit(status, position)
+    if (edit === null) return
+    registry.set(updateBacklogTicket({ req, id: src.id }), edit)
+  })
 
   const keyboard = useBoardKeyboardNavigation(
     ref,
@@ -213,13 +201,11 @@ function BacklogBoardContent({
           {order.length === 0 && layout.hidden.length > 0 ? (
             <HiddenColumnsEmpty onShowAll={layout.showAll} />
           ) : (
-            <Reorder.Group
-              ref={groupRef}
-              as="div"
+            <BoardColumns
               role={keyboard.context ? "row" : undefined}
-              axis="x"
-              values={[...order]}
-              onReorder={(next) => setDragOrder(next)}
+              values={order}
+              reordering={reorderMode}
+              onReorder={(next) => reorder?.setDragOrder(next)}
               className="flex h-full gap-3"
             >
               {order.map((status, columnIndex) => {
@@ -240,7 +226,7 @@ function BacklogBoardContent({
                     inertTicketIds={inertTicketIds}
                     lastFlash={null}
                     reorderMode={reorderMode}
-                    onActivateReorder={onEnterReorder}
+                    reorder={columnReorder(reorder, order, status)}
                     collapsed={layout.collapsed.includes(status)}
                     onToggleCollapsed={() => layout.toggleCollapsed(status)}
                     footer={(nearEnd) =>
@@ -259,7 +245,7 @@ function BacklogBoardContent({
                   />
                 )
               })}
-            </Reorder.Group>
+            </BoardColumns>
           )}
         </motion.div>
       </BoardKeyboardContext>

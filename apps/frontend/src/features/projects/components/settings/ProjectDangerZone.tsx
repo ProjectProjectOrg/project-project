@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 
@@ -7,7 +8,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   deleteProject,
   projectRequest
@@ -36,12 +36,13 @@ export function ProjectDangerZone({
           label={m.project_settings_delete_heading()}
           description={m.project_settings_delete_description()}
         >
-          <ConfirmButton.Root className="w-full">
+          <ConfirmButton.Root flow className="w-full">
             <ConfirmButton.Trigger variant="destructive" size="sm">
               {m.project_detail_delete_button()}
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm className="w-full">
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
                 layout="stacked"
                 prompt={m.project_settings_delete_confirm_prompt({
                   key: projectKey

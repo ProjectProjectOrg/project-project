@@ -1,14 +1,14 @@
 import { useAtomValue } from "@effect/atom-react"
 import { canHaveParent } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch, GitMerge, Layers, Settings2 } from "lucide-react"
-
 import {
   DropdownMenuItem,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { GitBranch, GitMerge, Layers, Settings2 } from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
+
 import { project } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"

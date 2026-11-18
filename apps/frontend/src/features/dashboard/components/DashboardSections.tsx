@@ -1,19 +1,33 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import {
+  BoardColumn,
+  boardColumnClass,
+  BoardColumnTitle
+} from "@pp/ui/board-column"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+import {
+  Activity,
+  CircleDot,
+  Columns3,
+  FolderKanban,
+  Inbox,
+  Rows3
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import { StatusGlyph } from "@pp/ui/status-glyph"
 import * as Schema from "effect/Schema"
-import { CircleDot, Columns3, FolderKanban, Rows3 } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import {
-  BoardColumnShell,
-  BOARD_COLUMN_CLASS
-} from "@/features/sprints/components/BoardColumnShell"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import {
   myTicketBoard,
@@ -33,7 +47,6 @@ import {
   createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { DashboardCard, DashboardRows } from "./DashboardTicket"
@@ -246,7 +259,7 @@ export function RecentTicketsSection({
         onInitial={() => <RowsSkeleton count={3} />}
         onSuccess={({ value }) =>
           value.tickets.length === 0 ? (
-            <EmptyNote>{m.org_dashboard_recent_empty()}</EmptyNote>
+            <EmptyRecent />
           ) : (
             <DashboardRows
               orgSlug={orgSlug}
@@ -273,15 +286,21 @@ function TicketBoard({
     <div className="scroll-fade-x -mx-4 h-[min(40rem,70vh)] overflow-x-auto px-4">
       <div className="flex h-full gap-3">
         {columns.map((column) => (
-          <BoardColumnShell
+          <BoardColumn
             key={column.key}
-            meta={{
-              icon: getStatusIcon(column.icon),
-              label: column.label,
-              className: "",
-              color: column.color
-            }}
+            title={
+              <BoardColumnTitle
+                icon={
+                  <StatusGlyph
+                    icon={getStatusIcon(column.icon)}
+                    color={column.color}
+                  />
+                }
+                label={column.label}
+              />
+            }
             count={column.count}
+            scrollLabel={m.common_scroll_area_label()}
           >
             {column.items.map((item) => (
               <DashboardCard
@@ -291,28 +310,43 @@ function TicketBoard({
                 update={myTicketUpdates(req)}
               />
             ))}
-          </BoardColumnShell>
+          </BoardColumn>
         ))}
       </div>
     </div>
   )
 }
 
+// Dashboard sections sit side by side under the projects, so their empty
+// states stay subtle and still.
 function EmptyTickets() {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <div className="text-body font-semibold">
-        {m.org_dashboard_my_tickets_empty_title()}
-      </div>
-      <p className="mt-1 text-caption text-muted-foreground">
-        {m.org_dashboard_my_tickets_empty_body()}
-      </p>
-    </div>
+    <Empty intensity="subtle" animated={false} className="min-h-56">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Inbox strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.org_dashboard_my_tickets_empty_title()}</EmptyTitle>
+        <EmptyDescription>
+          {m.org_dashboard_my_tickets_empty_body()}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }
 
-function EmptyNote({ children }: Readonly<{ children: ReactNode }>) {
-  return <p className="px-3 text-caption text-muted-foreground">{children}</p>
+function EmptyRecent() {
+  return (
+    <Empty intensity="subtle" animated={false} className="min-h-56">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Activity strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.org_dashboard_recent_empty_title()}</EmptyTitle>
+        <EmptyDescription>{m.org_dashboard_recent_empty()}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
 }
 
 function RowsSkeleton({ count }: Readonly<{ count: number }>) {
@@ -329,7 +363,7 @@ function BoardSkeleton() {
   return (
     <div className="flex gap-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn(BOARD_COLUMN_CLASS, "skeleton h-48")} />
+        <div key={i} className={cn(boardColumnClass, "skeleton h-48")} />
       ))}
     </div>
   )

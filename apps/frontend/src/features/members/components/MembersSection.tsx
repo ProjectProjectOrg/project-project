@@ -1,20 +1,18 @@
+import {
+  DropdownMenu,
+  DropdownMenuConfirmItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from "@pp/ui/dropdown-menu"
+import { Crown, Link2, LogOut, Trash2 } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
+import { MemberAvatar, type AvatarSubject } from "@pp/ui/member-avatar"
 import * as Exit from "effect/Exit"
-import { Crown, Link2, LogOut, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
 import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
-import {
-  MemberAvatar,
-  type AvatarSubject
-} from "@/features/members/components/MemberAvatar"
 import {
   AddMemberForm,
   MemberMenuSpacer,
@@ -25,15 +23,14 @@ import {
   RoleSelect,
   type RoleMeta
 } from "@/features/members/components/MemberList"
-import { transitions } from "@/lib/springs"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export type MemberConfirm = Readonly<{
-  prompt: ReactNode
+  prompt: string
   label: string
   busyLabel: string
   run: () => Promise<Exit.Exit<unknown, unknown>>
-  waiting: boolean
   error: ReactNode
 }>
 
@@ -196,80 +193,49 @@ function MemberMenu<R extends string, A extends R>({
     <DropdownMenu>
       <MemberMenuTrigger label={m.members_actions_aria_label()} />
       <DropdownMenuContent align="end" sideOffset={6} className="w-60">
-        <ConfirmButton.Root bare>
-          <ConfirmButton.Idle>
-            {assign.map(({ role, label }) => {
-              const RoleIcon = roles[role].icon
-              return (
-                <DropdownMenuItem
-                  key={role}
-                  onClick={() => menu.changeRole(role)}
-                  className="cursor-pointer"
-                >
-                  <RoleIcon className="size-4" strokeWidth={1.75} />
-                  {label}
-                </DropdownMenuItem>
+        {assign.map(({ role, label }) => {
+          const RoleIcon = roles[role].icon
+          return (
+            <DropdownMenuItem
+              key={role}
+              onClick={() => menu.changeRole(role)}
+              className="cursor-pointer"
+            >
+              <RoleIcon className="size-4" strokeWidth={1.75} />
+              {label}
+            </DropdownMenuItem>
+          )
+        })}
+        {transfer && (
+          <DropdownMenuConfirmItem
+            tone="neutral"
+            icon={<Crown className="size-4" strokeWidth={1.75} />}
+            label={transfer.label}
+            confirmLabel={transfer.prompt}
+            busyLabel={transfer.busyLabel}
+            describeError={describeCause}
+            onConfirm={transfer.run}
+          />
+        )}
+        {(assign.length > 0 || transfer) && exit && <DropdownMenuSeparator />}
+        {exit && (
+          <DropdownMenuConfirmItem
+            icon={
+              exit.kind === "leave" ? (
+                <LogOut className="size-4" strokeWidth={1.75} />
+              ) : (
+                <Trash2 className="size-4" strokeWidth={1.75} />
               )
-            })}
-            {transfer && (
-              <ConfirmButton.MenuItem
-                confirm="transfer"
-                closeOnClick={false}
-                className="cursor-pointer"
-              >
-                <Crown className="size-4" strokeWidth={1.75} />
-                {transfer.label}
-              </ConfirmButton.MenuItem>
-            )}
-            {(assign.length > 0 || transfer) && exit && (
-              <DropdownMenuSeparator />
-            )}
-            {exit && (
-              <ConfirmButton.MenuItem
-                confirm="exit"
-                closeOnClick={false}
-                variant="destructive"
-              >
-                {exit.kind === "leave" ? (
-                  <LogOut className="size-4" strokeWidth={1.75} />
-                ) : (
-                  <Trash2 className="size-4" strokeWidth={1.75} />
-                )}
-                {exit.label}
-              </ConfirmButton.MenuItem>
-            )}
-          </ConfirmButton.Idle>
-          {transfer && (
-            <MenuConfirm
-              when="transfer"
-              confirm={{ ...transfer, error: null }}
-            />
-          )}
-          {exit && (
-            <MenuConfirm when="exit" confirm={{ ...exit, error: null }} />
-          )}
-        </ConfirmButton.Root>
+            }
+            label={exit.label}
+            confirmLabel={exit.prompt}
+            busyLabel={exit.busyLabel}
+            describeError={describeCause}
+            onConfirm={exit.run}
+          />
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-function MenuConfirm({
-  when,
-  confirm
-}: Readonly<{ when: string; confirm: MemberConfirm }>) {
-  return (
-    <ConfirmButton.Confirm when={when} className="block">
-      <ConfirmButton.Action
-        layout="menu"
-        prompt={confirm.prompt}
-        label={confirm.label}
-        busyLabel={confirm.busyLabel}
-        waiting={confirm.waiting}
-        error={confirm.error}
-        onConfirm={confirm.run}
-      />
-    </ConfirmButton.Confirm>
   )
 }
 
@@ -303,36 +269,30 @@ export function PendingRowView<R extends string>({
                 label={m.members_pending_actions_aria_label()}
               />
               <DropdownMenuContent align="end" sideOffset={6} className="w-52">
-                <ConfirmButton.Root bare>
-                  <ConfirmButton.Idle>
-                    {inviteLink !== null && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          void navigator.clipboard.writeText(inviteLink)
-                        }
-                        className="cursor-pointer"
-                      >
-                        <Link2 className="size-4" strokeWidth={1.75} />
-                        {m.members_pending_copy_link()}
-                      </DropdownMenuItem>
-                    )}
-                    {inviteLink !== null && cancel !== null && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {cancel !== null && (
-                      <ConfirmButton.MenuItem
-                        closeOnClick={false}
-                        variant="destructive"
-                      >
-                        <Trash2 className="size-4" strokeWidth={1.75} />
-                        {cancel.label}
-                      </ConfirmButton.MenuItem>
-                    )}
-                  </ConfirmButton.Idle>
-                  {cancel !== null && (
-                    <MenuConfirm when="default" confirm={cancel} />
-                  )}
-                </ConfirmButton.Root>
+                {inviteLink !== null && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void navigator.clipboard.writeText(inviteLink)
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Link2 className="size-4" strokeWidth={1.75} />
+                    {m.members_pending_copy_link()}
+                  </DropdownMenuItem>
+                )}
+                {inviteLink !== null && cancel !== null && (
+                  <DropdownMenuSeparator />
+                )}
+                {cancel !== null && (
+                  <DropdownMenuConfirmItem
+                    icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+                    label={cancel.label}
+                    confirmLabel={cancel.prompt}
+                    busyLabel={cancel.busyLabel}
+                    describeError={describeCause}
+                    onConfirm={cancel.run}
+                  />
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )

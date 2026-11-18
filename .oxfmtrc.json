@@ -16,7 +16,10 @@
   "sortPackageJson": true,
   "overrides": [
     {
-      "files": ["apps/frontend/**/*.{js,jsx,ts,tsx}"],
+      "files": [
+        "apps/frontend/**/*.{js,jsx,ts,tsx}",
+        "packages/ui/**/*.{js,jsx,ts,tsx}"
+      ],
       "options": {
         "sortTailwindcss": {
           "stylesheet": "./apps/frontend/src/styles.css",
@@ -26,6 +29,7 @@
     }
   ],
   "ignorePatterns": [
+    "packages/ui/docs/**/*.mdx",
     ".agent/**",
     ".agents/**",
     ".claude/**",

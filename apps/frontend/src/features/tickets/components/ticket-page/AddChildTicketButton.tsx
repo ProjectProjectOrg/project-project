@@ -1,22 +1,20 @@
 import { useAtomSet } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
-import { ListPlus, Plus } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  DropdownMenuItem,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/context-menu"
+import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+import { ListPlus, Plus } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "type">
@@ -45,28 +43,29 @@ export function AddChildTicketButton({
         render={
           <Button
             type="button"
-            variant="quiet"
+            variant="ghost"
             size="square-7"
             aria-label={label}
             aria-keyshortcuts={
               appHotkeys["tickets.add-sub-ticket"].defaultHotkey
             }
             onClick={onCreate}
-            className={cn("", className)}
+            className={cn("motion-safe:active:scale-100", className)}
           />
         }
       >
         <Plus className="size-4" strokeWidth={1.75} />
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <DropdownMenuItem onClick={onCreate} className="cursor-pointer">
+        <DropdownMenuItem onClick={onCreate}>
           <Plus className="size-4" strokeWidth={1.75} />
           {label}
           <DropdownMenuShortcut
             keys={appHotkeys["tickets.add-sub-ticket"].defaultHotkey}
+            keyLabels={keyLabels()}
           />
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={attachExisting} className="cursor-pointer">
+        <DropdownMenuItem onClick={attachExisting}>
           <ListPlus className="size-4" strokeWidth={1.75} />
           {m.tickets_menu_attach_sub_ticket()}
         </DropdownMenuItem>

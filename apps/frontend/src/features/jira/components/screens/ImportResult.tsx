@@ -4,14 +4,14 @@ import type {
   JiraMigrationResult,
   JiraSkippedAttachment
 } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { Button } from "@pp/ui/button"
+import { Markdown } from "@pp/ui/editor/markdown"
 import { Link } from "@tanstack/react-router"
 import { useId, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { AutoHeight } from "@/components/ui/auto-height"
-import { Button } from "@/components/ui/button"
-import { Markdown } from "@/features/editor/components/Markdown"
 import {
   jiraMigrationReport,
   jiraReportRequest,
@@ -129,7 +129,7 @@ function SkippedAttachments({
               note={replacementNotes[attachment.replacement]()}
             >
               <span className="flex flex-col gap-1">
-                <span className="font-mono break-all">
+                <span className="break-all tabular-nums">
                   {attachment.filename}
                 </span>
                 <span className="flex flex-wrap gap-x-4 text-caption">

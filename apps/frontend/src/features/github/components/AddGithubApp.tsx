@@ -1,12 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { ExternalLink } from "@pp/ui/icons"
 import * as Exit from "effect/Exit"
-import { ExternalLink } from "lucide-react"
 
 import {
   SettingsGroup,
   SettingsRow
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import {
   githubOrgRequest,
   startGithubAppManifest

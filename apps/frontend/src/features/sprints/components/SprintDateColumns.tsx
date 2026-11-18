@@ -1,4 +1,5 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@pp/ui/lib/utils"
+
 import { getLocale } from "@/paraglide/runtime"
 
 const FIGURE_SPACE = " "

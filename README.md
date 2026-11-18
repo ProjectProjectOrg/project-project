@@ -20,6 +20,7 @@ packages/
 ├── access/                   # Roles and permission policies
 ├── db/                       # Drizzle schema and migrations
 ├── server-core/              # Domain services
+├── ui/                       # Design-system primitives, theme tokens, gallery
 └── integration-*/            # github, slack, everhour, jira
 docs/                         # Architecture, deploy, integration guides, specs
 ```

@@ -1,9 +1,17 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { CircleCheck, Paperclip } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
+import { spring } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { CircleCheck, Paperclip } from "lucide-react"
-import { AnimatePresence, motion, type Variants } from "motion/react"
+import { motion, type Variants } from "motion/react"
 import {
   useRef,
   useState,
@@ -15,22 +23,12 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { submitFeedback } from "@/features/feedback/atoms/feedback"
 import { FeedbackFileList } from "@/features/feedback/components/FeedbackFileList"
 import { useFeedbackFiles } from "@/features/feedback/hooks/useFeedbackFiles"
 import type { FileRejection } from "@/features/feedback/lib/feedbackFiles"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
-import { blurSwap, spring } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { sendFeedbackFormOpts } from "./opts"
@@ -153,7 +151,7 @@ export function SendFeedbackForm({
         className="col-start-1 row-start-1 flex flex-col"
         aria-label={m.feedback_title()}
       >
-        <Composer.Header className="pl-3">
+        <Composer.Header control>
           <form.Field name="kind">
             {(field) => (
               <SegmentedTabs
@@ -177,7 +175,7 @@ export function SendFeedbackForm({
               <Composer.Title className="grid leading-6">
                 <Input
                   ref={titleRef}
-                  variant="composer-title"
+                  variant="bare"
                   autoFocus
                   value={field.value}
                   maxLength={200}
@@ -191,10 +189,7 @@ export function SendFeedbackForm({
                   className="col-start-1 row-start-1 leading-6"
                 />
                 {field.value === "" ? (
-                  <TitlePlaceholder
-                    placeholder={placeholder}
-                    kind={values.kind}
-                  />
+                  <TitlePlaceholder placeholder={placeholder} />
                 ) : null}
               </Composer.Title>
             )
@@ -217,7 +212,6 @@ export function SendFeedbackForm({
             </Composer.Body>
           )}
         </form.Field>
-        <AttachRow attachments={attachments} onFiles={files.add} />
         <div className="px-4 pt-2 empty:hidden">
           <FeedbackFileList drafts={files.drafts} onRemove={files.remove} />
         </div>
@@ -232,19 +226,33 @@ export function SendFeedbackForm({
             return <Composer.Error>{message}</Composer.Error>
           }}
         </form.Field>
-        <Composer.Footer>
-          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-            {m.common_cancel_button()}
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={busy}
-            className={cn(state.waiting && "animate-pulse")}
-          >
-            {state.waiting ? m.feedback_sending() : m.feedback_submit()}
-          </Button>
-        </Composer.Footer>
+        <Composer.Tray>
+          {attachments ? (
+            <Composer.Fields>
+              <AttachButton onFiles={files.add} />
+            </Composer.Fields>
+          ) : null}
+          <Composer.Footer>
+            <Composer.Hint>
+              {attachments
+                ? m.feedback_attach_hint()
+                : m.feedback_attach_unavailable()}
+            </Composer.Hint>
+            <Composer.Actions>
+              <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+                {m.common_cancel_button()}
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy}
+                className={cn(state.waiting && "animate-pulse")}
+              >
+                {state.waiting ? m.feedback_sending() : m.feedback_submit()}
+              </Button>
+            </Composer.Actions>
+          </Composer.Footer>
+        </Composer.Tray>
       </motion.form>
       <FeedbackSent sent={sent} onSendAnother={sendAnother} />
       <span aria-live="polite" className="sr-only">
@@ -254,47 +262,14 @@ export function SendFeedbackForm({
   )
 }
 
-function TitlePlaceholder({
-  placeholder,
-  kind
-}: Readonly<{ placeholder: string; kind: FeedbackKind }>) {
+function TitlePlaceholder({ placeholder }: Readonly<{ placeholder: string }>) {
   return (
     <span
       aria-hidden
       className="pointer-events-none col-start-1 row-start-1 grid text-muted-foreground"
     >
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={kind}
-          variants={blurSwap}
-          initial="hidden"
-          animate="shown"
-          exit="hidden"
-          className="col-start-1 row-start-1 whitespace-nowrap"
-        >
-          {placeholder}
-        </motion.span>
-      </AnimatePresence>
+      <TextSwap className="col-start-1 row-start-1">{placeholder}</TextSwap>
     </span>
-  )
-}
-
-function AttachRow({
-  attachments,
-  onFiles
-}: Readonly<{
-  attachments: boolean
-  onFiles: (files: ReadonlyArray<File>) => void
-}>) {
-  return (
-    <Composer.Chips>
-      {attachments ? <AttachButton onFiles={onFiles} /> : null}
-      <Composer.Hint>
-        {attachments
-          ? m.feedback_attach_hint()
-          : m.feedback_attach_unavailable()}
-      </Composer.Hint>
-    </Composer.Chips>
   )
 }
 
@@ -306,7 +281,8 @@ function AttachButton({
     <>
       <Button
         type="button"
-        variant="chip"
+        variant="ghost"
+        tone="strong"
         onClick={() => inputRef.current?.click()}
       >
         <Paperclip className="size-3.5" strokeWidth={1.75} />

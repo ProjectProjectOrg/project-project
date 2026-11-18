@@ -1,5 +1,6 @@
+import { Input } from "@pp/ui/input"
+
 import { StepFrame } from "@/components/shell/wizard/StepFrame"
-import { Input } from "@/components/ui/input"
 import { sanitizeKey } from "@/features/projects/lib/deriveKey"
 import { m } from "@/paraglide/messages"
 

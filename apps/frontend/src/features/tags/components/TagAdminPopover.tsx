@@ -1,19 +1,15 @@
 import { TagColor, TagName, type Tag } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ColorPicker } from "@pp/ui/color-picker"
+import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
+import { Trash2 } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
+import { transitions } from "@pp/ui/lib/springs"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Schema from "effect/Schema"
-import { Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ColorPicker } from "@/components/ui/color-picker"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
@@ -143,11 +139,13 @@ function Editor({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <ColorPicker
+          swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
           value={tag.color}
           onChange={(hex) => onPatch({ color: makeTagColor(hex) })}
           ariaLabel={m.tags_color_aria_label({ name: tag.name })}
         />
-        <input
+        <Input
+          size="sm"
           value={draftName}
           onChange={(e) => setDraftName(e.target.value.toLowerCase())}
           onBlur={commit}
@@ -164,21 +162,18 @@ function Editor({
           aria-label={m.tags_name_aria_label()}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? "tag-rename-error" : undefined}
-          className={cn(
-            "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-caption transition-colors outline-none",
-            invalid
-              ? "border-destructive/60 focus-visible:border-destructive"
-              : "border-border focus-visible:border-foreground/40"
-          )}
+          className="min-w-0 flex-1"
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="square-7"
           onClick={() => openConfirm()}
           aria-label={m.tags_delete_button()}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-destructive/10 hover:text-destructive"
+          className="not-disabled:hover:text-destructive"
         >
           <Trash2 className="size-3.5" strokeWidth={1.75} />
-        </button>
+        </Button>
       </div>
       {invalid ? (
         <p
@@ -236,9 +231,10 @@ function Confirm({
       <div className="flex gap-1">
         <Button
           size="sm"
+          variant="destructive"
           onClick={() => void run()}
           disabled={busy}
-          className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          className="flex-1"
         >
           {busy ? m.tags_delete_in_progress() : m.tags_delete_button()}
         </Button>

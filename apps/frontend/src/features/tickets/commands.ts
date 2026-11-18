@@ -1,8 +1,5 @@
 import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
-import * as Effect from "effect/Effect"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import {
   Archive,
   ArchiveRestore,
@@ -12,6 +9,7 @@ import {
   CircleDot,
   CircleSlash,
   Copy,
+  ExternalLink,
   FileText,
   FolderInput,
   Gauge,
@@ -20,7 +18,6 @@ import {
   Shapes,
   SignalHigh,
   Split,
-  SquareArrowOutUpRight,
   Tag,
   Timer,
   Trash2,
@@ -28,7 +25,11 @@ import {
   UserCheck,
   UserMinus,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { createElement } from "react"
 
 import {
@@ -55,7 +56,7 @@ import {
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import {
   ticketRequest,
   unarchiveTicket,
@@ -67,7 +68,6 @@ import {
 } from "@/features/tickets/lib/ticketClipboard"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null
@@ -351,7 +351,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     hotkey: appHotkeys["tickets.open"],
     group: "ticketActions",
     label: m.tickets_shortcut_open,
-    icon: SquareArrowOutUpRight,
+    icon: ExternalLink,
     listed: "search",
     when: onTicket,
     run: ({ ticket }, env) => {
@@ -507,8 +507,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: ({ sprint, tickets }) =>
       tickets.create && (sprint === null || sprint.sprint.completedAt !== null),
     run: ({ orgSlug, projectSlug }, env) => {
-      env.close()
-      env.registry.set(createTicketDialog, { orgSlug, projectSlug })
+      env.registry.set(newTicketRequest, { orgSlug, projectSlug })
+      env.open("createTicket")
     }
   }
 ]

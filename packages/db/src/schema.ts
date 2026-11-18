@@ -117,6 +117,15 @@ export const projectIndex = pgTable(
     name: text("name").notNull(),
     icon: text("icon").notNull(),
     color: text("color").notNull(),
+    // The generated tile's colouring: one hue or several.
+    tone: text("tone", { enum: ["mono", "multi"] })
+      .notNull()
+      .default("mono"),
+    // Multicolour's picked colours (#rrggbb, up to three); none means seeded.
+    colors: jsonb("colors")
+      .$type<ReadonlyArray<string>>()
+      .notNull()
+      .default([]),
     banner: jsonb("banner").$type<ProjectBanner>(),
     iconImage: jsonb("icon_image").$type<ProjectIconImage>(),
     estimation: text("estimation", {
@@ -1170,6 +1179,36 @@ export const inboxRow = pgTable(
       foreignColumns: [projectMember.projectId, projectMember.userId]
     }).onDelete("cascade"),
     index("inbox_row_user_idx").on(t.userId, t.state, t.latestAt)
+  ]
+)
+
+export const sidebarPin = pgTable(
+  "sidebar_pin",
+  {
+    userId: text("user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    kind: text("kind", { enum: ["ticket", "sprint"] }).notNull(),
+    ref: text("ref").notNull(),
+    orderKey: text("order_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.projectId, t.kind, t.ref] }),
+    foreignKey({
+      name: "sidebar_pin_project_fkey",
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "sidebar_pin_org_member_fkey",
+      columns: [t.organizationId, t.userId],
+      foreignColumns: [member.organizationId, member.userId]
+    }).onDelete("cascade"),
+    index("sidebar_pin_user_org_idx").on(t.userId, t.organizationId),
+    index("sidebar_pin_target_idx").on(t.projectId, t.kind, t.ref)
   ]
 )
 export type TicketActivityOutboxRow = Readonly<

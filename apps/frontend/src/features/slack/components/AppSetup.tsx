@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import { Download, ExternalLink } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Download, ExternalLink } from "@pp/ui/icons"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -9,7 +10,6 @@ import {
   SettingsRow
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 import { slackManifest, slackOrgRequest } from "../atoms/slack"
@@ -109,7 +109,7 @@ export function SlackAppSetup({
             open={manifestOpen}
             onToggle={() => setManifestOpen((open) => !open)}
           >
-            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-caption">
+            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-caption tabular-nums">
               {value.manifest}
             </pre>
           </SettingsDisclosureItem>

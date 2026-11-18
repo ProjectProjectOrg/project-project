@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketListQuery } from "@pp/shared"
-import { useNavigate } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -17,20 +16,6 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
     mode: "promiseExit"
   })
   const createState = useAtomValue(quickCreateBacklogTicket(req))
-  const navigate = useNavigate()
 
-  return (
-    <TicketComposer
-      epics
-      create={create}
-      createState={createState}
-      onCreated={(ticket) =>
-        void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-          params: { orgSlug, slug, id: ticket.id },
-          search: { focusBody: "1" }
-        })
-      }
-    />
-  )
+  return <TicketComposer epics create={create} createState={createState} />
 }

@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import { STATE_COLORS } from "@pp/shared"
+import { provideEditorMessages } from "@pp/ui/editor/messages"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import {
   createBrowserHistory,
@@ -9,6 +9,8 @@ import {
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
+import { m } from "@/paraglide/messages"
+
 import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
@@ -17,15 +19,8 @@ import { authClient } from "./services/AuthClient"
 
 import "./styles.css"
 
-const stateColorStyle = document.createElement("style")
-const lightStateVars = Object.entries(STATE_COLORS)
-  .map(([name, c]) => `--state-${name}:${c.light.oklch};`)
-  .join("")
-const darkStateVars = Object.entries(STATE_COLORS)
-  .map(([name, c]) => `--state-${name}:${c.dark.oklch};`)
-  .join("")
-stateColorStyle.textContent = `:root{${lightStateVars}}.dark{${darkStateVars}}`
-document.head.appendChild(stateColorStyle)
+// The editor (@pp/ui/editor) reads its strings from the app's messages.
+provideEditorMessages(m)
 
 const history = createBrowserHistory()
 const sessions = createSessionCache((registry) =>

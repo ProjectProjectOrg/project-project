@@ -1,14 +1,13 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import type { Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import { Plus } from "lucide-react"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { PageContainer } from "@/components/shell/Page"
-import { Button } from "@/components/ui/button"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
 import {
   sprintList,
   sprintListRequest
@@ -18,6 +17,7 @@ import { sprintOverview } from "@/features/sprints/lib/sprintOverview"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
+import { NewSprintPopover } from "./NewSprintPopover"
 import { LedgerGroup, LedgerList, LedgerRow } from "./SprintLedger"
 import { SprintsEmpty } from "./SprintsEmpty"
 
@@ -163,17 +163,21 @@ function Overview({
 function NewSprintButton({
   variant
 }: Readonly<{ variant: "primary" | "secondary" }>) {
-  const { orgSlug, slug } = routeApi.useParams()
-  const open = useAtomSet(createSprintDialog)
+  const [open, setOpen] = useState(false)
   return (
-    <Button
-      variant={variant}
-      size={variant === "primary" ? "sm" : "xs"}
-      leadingIcon={Plus}
-      onClick={() => open({ orgSlug, projectSlug: slug })}
-    >
-      {m.sprints_new_button()}
-    </Button>
+    <NewSprintPopover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          variant={variant}
+          size={variant === "primary" ? "sm" : "xs"}
+          leadingIcon={Plus}
+        >
+          {m.sprints_new_button()}
+        </Button>
+      }
+    />
   )
 }
 

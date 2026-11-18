@@ -1,5 +1,8 @@
-import type { ButtonProps } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import type { ButtonProps } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+
+import { describeCause } from "@/lib/errorMessage"
+import { m } from "@/paraglide/messages"
 
 export function ConfirmAction({
   trigger,
@@ -31,6 +34,8 @@ export function ConfirmAction({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm>
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           prompt={prompt}
           label={label}
           tone={tone}

@@ -7,12 +7,12 @@ import {
   type TicketPriority,
   type TypeDefinition
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useEffect, useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   jiraDestinationConflicts,
   jiraDestinationConflictsRequest

@@ -1,9 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { BranchListItem, GithubConnection, TicketStatus } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch } from "lucide-react"
-import { useState } from "react"
-
 import {
   DropdownMenuInput,
   DropdownMenuList,
@@ -11,8 +7,13 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { GitBranch } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useState } from "react"
+
 import { useBranchResults } from "@/features/github/hooks/useBranchResults"
 import {
   baseBranchOrder,
@@ -29,7 +30,6 @@ import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"
@@ -56,7 +56,7 @@ export function BaseBranchSubmenu(props: BaseBranchProps) {
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
           <GitBranch className="size-3.5" />
-          <MiddleTruncate value={value} className="font-mono" />
+          <MiddleTruncate value={value} className="tabular-nums" />
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
@@ -85,7 +85,7 @@ function BaseBranchOptions({
       <DropdownMenuInput
         placeholder={m.git_search_branches_placeholder()}
         aria-label={m.git_search_branches_placeholder()}
-        className="font-mono placeholder:font-sans"
+        className="tabular-nums placeholder:font-sans"
       />
       <BranchResultsFrame results={results} empty={items.length === 0}>
         <DropdownMenuList
@@ -102,7 +102,7 @@ function BaseBranchOptions({
                 <>
                   <MiddleTruncate
                     value={branch.name}
-                    className="flex-1 font-mono text-foreground"
+                    className="flex-1 text-foreground tabular-nums"
                   />
                   <BranchBadge branch={branch} defaultBase={defaultBase} />
                 </>

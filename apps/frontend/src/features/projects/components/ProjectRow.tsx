@@ -1,11 +1,11 @@
 import { type Project } from "@pp/shared"
+import { ChevronRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight } from "lucide-react"
 
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { formatRelative } from "@/lib/relativeTime"
-import { cn } from "@/lib/utils"
 
 export function ProjectRow({
   orgSlug,
@@ -34,12 +34,14 @@ export function ProjectRow({
         icon={project.icon}
         iconImage={project.iconImage}
         color={project.color}
+        tone={project.tone}
+        colors={project.colors}
         size="sm"
         seed={project.slug}
       />
       <div className="min-w-0 flex-1">
         <div className="truncate text-body font-semibold">{project.name}</div>
-        <div className="truncate font-mono text-caption text-muted-foreground">
+        <div className="truncate text-caption text-muted-foreground tabular-nums">
           {project.key} /{project.slug}
         </div>
       </div>

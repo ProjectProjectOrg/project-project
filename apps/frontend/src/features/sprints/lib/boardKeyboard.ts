@@ -1,4 +1,4 @@
-import { ownsKeystrokes } from "@/lib/keyboard"
+import { ownsKeystrokes } from "@pp/ui/lib/keyboard"
 
 const letterArrows = new Map([
   ["h", "ArrowLeft"],
@@ -40,7 +40,7 @@ const observedChanges: MutationObserverInit = {
 }
 
 const cardSelector = "[data-board-card]"
-const primarySelector = "[data-board-card] > [data-row-link]"
+const primarySelector = "[data-board-card] > [data-item-link]"
 
 const available = (element: HTMLElement): boolean =>
   !element.closest('[inert], [hidden], [aria-hidden="true"]') &&

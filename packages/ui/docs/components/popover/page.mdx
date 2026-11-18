@@ -1,0 +1,135 @@
+export const meta = {
+  title: "Popover",
+  group: "Primitives",
+  description:
+    "A floating panel opened from a trigger, for small forms and settings that don't fit a menu. Used for the ticket toolbar's view options, the sprint creator, tag admin, save-as-template and the archive confirmation.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Popover",
+      href: "https://base-ui.com/react/components/popover"
+    },
+    {
+      kind: "shadcn",
+      name: "popover",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/popover"
+    }
+  ]
+}
+
+## Overview
+
+The popover open on its surface, with a title, a close button, body text and actions. Click the trigger to close and reopen it.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-96 place-items-start"
+/>
+
+## Usage
+
+```tsx
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+
+export function ViewOptions() {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <ToolbarButton aria-label={m.tickets_view_options_label()}>
+            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            {m.tickets_view_options_label()}
+          </ToolbarButton>
+        }
+      />
+      <PopoverContent
+        aria-label={m.tickets_view_options_label()}
+        align="end"
+        side="bottom"
+        className="w-80 p-0"
+      >
+        <div className="space-y-2 p-3">
+          <Ordering />
+          <DisplayProperties />
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+```
+
+`PopoverContent` wraps Base UI's portal, positioner and popup, so placement props go straight on it. `PopoverTitle` and `PopoverClose` pass through to Base UI.
+
+| Prop                 | Type                                     | Default    |
+| -------------------- | ---------------------------------------- | ---------- |
+| `side`               | `"top" \| "bottom" \| "left" \| "right"` | `"bottom"` |
+| `align`              | `"start" \| "center" \| "end"`           | `"end"`    |
+| `sideOffset`         | `number`                                 | `4`        |
+| `alignOffset`        | `number`                                 |            |
+| `anchor`             | element, ref or virtual element          | trigger    |
+| `collisionAvoidance` | Base UI collision settings               |            |
+| `collisionBoundary`  | `Element \| "clipping-ancestors"`        |            |
+| `collisionPadding`   | `number`                                 |            |
+| `keepMounted`        | `boolean` (keep the popup in the DOM)    | `false`    |
+
+## Rules
+
+### One surface for every popup
+
+Popover, dropdown menu, select, context menu and hover card all use `popupSurfaceClass` from `menu-styles.ts`: the card fill, a 60% hairline border and 20px corners. A popover opened next to a menu looks like the same kind of thing, so restyle the shared class, never one popup.
+
+### No shadows
+
+The hairline alone separates the panel from the page, in light and dark. Shadows stay off popups, including callsite overrides such as `shadow-md`.
+
+### Same motion as menus
+
+Opening fades in, scales up from 95% and slides 8px out from the trigger's side over 150ms, scaled from the trigger's corner (`--transform-origin`). Closing fades and scales back to 95%. Reduced motion turns the animation off.
+
+### 12px padding, or none
+
+The default padding is 12px. Content that brings its own sections and dividers, like View options or the sprint creator, passes `p-0` and pads each section itself, so dividers run edge to edge.
+
+## Examples
+
+### View options
+
+The ticket toolbar's View options popover in the backlog list: the list and board switch, grouping and ordering pickers with a sort direction button, and display property chips with a reset once they differ from the default.
+
+<Demo
+  name="view-options"
+  title="View options"
+  className="min-h-[28rem] place-items-start"
+/>
+
+### New sprint
+
+The sprint rail's "New sprint" button opens the sprint composer: a whole form in a popover, with the date range picker as a second popover nested inside it. Focus stays trapped in the form, and the nested calendar closes on its own without closing the form.
+
+<Demo
+  name="new-sprint"
+  title="New sprint"
+  className="min-h-[30rem] place-items-start"
+/>
+
+### Estimate
+
+The estimate property on a ticket page or board card. One field, a live reading of what you typed that blurs between values, and Clear and Save. An invalid entry replaces the reading with the error, so nothing below it moves.
+
+<Demo
+  name="estimate"
+  title="Estimate"
+  className="min-h-72 place-items-start"
+/>
+
+### Tag admin
+
+Clicking a tag in the tag editor. Recolour it with the colour wheel, rename it in place, or delete it: the delete swaps the popover's content for a confirmation instead of opening a dialog.
+
+<Demo
+  name="tag-admin"
+  title="Tag admin"
+  className="min-h-56 place-items-start"
+/>

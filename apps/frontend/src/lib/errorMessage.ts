@@ -55,6 +55,7 @@ import type {
   Validation
 } from "@pp/shared"
 import { EmailFailureReason, InvitationNotAcceptableReason } from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as Match from "effect/Match"
 import type * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
@@ -479,3 +480,6 @@ export const emailFailureMessage = (reason: EmailFailureReason): string =>
     password_required: m.org_email_error_password_required,
     settings_changed: m.org_email_error_settings_changed
   })[reason]()
+
+export const describeCause = (cause: Cause.Cause<unknown>): string =>
+  errorMessage(Cause.squash(cause))

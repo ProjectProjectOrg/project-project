@@ -1,5 +1,6 @@
 import { RegistryContext } from "@effect/atom-react"
 import type { Ticket } from "@pp/shared"
+import { isKeyboardNavigating } from "@pp/ui/lib/keyboard"
 import {
   useContext,
   useEffect,
@@ -12,7 +13,6 @@ import {
 
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { isKeyboardNavigating } from "@/lib/keyboard"
 
 import { commandMenuState, pointedTicket } from "../atoms/commandMenu"
 import { pointedAt, type TicketContext } from "../lib/commandMenu"

@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
+
 import type { JiraImportDraftSave } from "@/features/jira/hooks/useJiraImportDraft"
 import { jiraConnectHref } from "@/features/jira/lib/connect"
 import { m } from "@/paraglide/messages"

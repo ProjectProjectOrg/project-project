@@ -1,19 +1,17 @@
-import {
-  RegistryContext,
-  useAtomRefresh,
-  useAtomValue
-} from "@effect/atom-react"
-import { isEpic, isEpicType } from "@pp/shared"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { isEpicType } from "@pp/shared"
 import type { Group, Ticket, TicketParent } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useContext, useMemo, useRef, useState, type FormEvent } from "react"
+import { useMemo, useRef, useState, type FormEvent } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
 import { currentUserId } from "@/features/auth/atoms/auth"
+import { useOpenCommandMenu } from "@/features/command-menu/hooks/useOpenCommandMenu"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
   project as projectView,
@@ -21,13 +19,14 @@ import {
 } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
-  assignTicketToSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
+import { keyLabels } from "@/lib/keyLabels"
 import {
   mutationErrorText,
   ticketCreateErrorMessage
@@ -57,7 +56,6 @@ export function TicketComposer({
   onCreated
 }: TicketComposerProps) {
   const { orgSlug, slug } = useProjectRoute()
-  const registry = useContext(RegistryContext)
   const submitting = createState.waiting
   const error = mutationErrorText(
     createState,
@@ -89,7 +87,7 @@ export function TicketComposer({
   const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  const { active: expanded, leave } = useCreatorFocus(formRef)
+  const { active: expanded } = useCreatorFocus(formRef)
   const trimmed = title.trim()
 
   const selectedSprint =
@@ -100,11 +98,12 @@ export function TicketComposer({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    inputRef.current?.blur()
-    leave()
+    // The ticket lands in the list; the field stays for the next one.
     const exit = await create({
       payload: { title: trimmed, ...creatorType.payload },
       parent,
+      sprint:
+        selectedSprint && !isEpicType(type) ? selectedSprint.id : undefined,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
         createdBy: viewerId ?? "",
@@ -116,13 +115,28 @@ export function TicketComposer({
     creatorType.settle(exit)
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
-      if (selectedSprint && !isEpic(ticket)) {
-        assignTicketToSprint(registry, sprintReq, ticket.id, selectedSprint.id)
-      }
       setTitle("")
       refreshGitStates()
       onCreated?.(ticket)
     }
+  }
+
+  // ⌘↵: carry on in cmd+k's New ticket, with the title, type and sprint
+  // so far, to fill in the rest (description, fields).
+  const setNewTicket = useAtomSet(newTicketRequest)
+  const openCommandMenu = useOpenCommandMenu(orgSlug)
+  const addDetails = () => {
+    setNewTicket({
+      orgSlug,
+      projectSlug: slug,
+      title: trimmed === "" ? undefined : trimmed,
+      type: type ?? undefined,
+      sprint:
+        selectedSprint && !isEpicType(type) ? selectedSprint.id : undefined,
+      from: "inline"
+    })
+    setTitle("")
+    openCommandMenu("createTicket")
   }
 
   const typeAddon = (
@@ -155,6 +169,11 @@ export function TicketComposer({
         value={title}
         onValueChange={setTitle}
         onSubmit={onSubmit}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return
+          e.preventDefault()
+          addDetails()
+        }}
         expanded={expanded}
         placeholder={m.tickets_create_title_placeholder()}
         ariaLabel={m.tickets_create_title_aria_label()}
@@ -168,10 +187,22 @@ export function TicketComposer({
         belowInput={
           <AutoHeight>
             {expanded && (
-              <StartsWithLine
-                start={creatorType.start}
-                className="px-3 pt-1.5"
-              />
+              <div className="flex items-center gap-3 px-3 pt-1.5">
+                <StartsWithLine start={creatorType.start} />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={addDetails}
+                  className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0"
+                >
+                  {m.tickets_create_add_details()}
+                  <KbdShortcut
+                    size="sm"
+                    keys="mod+enter"
+                    keyLabels={keyLabels()}
+                  />
+                </button>
+              </div>
             )}
           </AutoHeight>
         }

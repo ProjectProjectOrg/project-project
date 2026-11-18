@@ -1,9 +1,9 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { Button } from "@pp/ui/button"
+import { Checkbox } from "@pp/ui/checkbox"
 import { useState } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { FactList, FactRow } from "@/features/jira/components/Facts"
 import {
   attachmentSkip,
@@ -81,7 +81,7 @@ export function SkippedAttachments({
                     label={formatFileSize(attachment.byteSize)}
                     note={skip === null ? undefined : skipReasons[skip]()}
                   >
-                    <span className="font-mono break-all">
+                    <span className="break-all tabular-nums">
                       {attachment.filename}
                     </span>
                   </FactRow>
@@ -143,7 +143,7 @@ export function FailedAttachments({
                       commit()
                     }}
                   />
-                  <span className="min-w-0 truncate font-mono">
+                  <span className="min-w-0 truncate tabular-nums">
                     {attachment.filename}
                   </span>
                   <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">

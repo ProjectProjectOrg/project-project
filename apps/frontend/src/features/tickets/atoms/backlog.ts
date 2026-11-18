@@ -17,6 +17,10 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import {
+  createInSprint,
+  sprintAssignmentKeys
+} from "@/features/sprints/atoms/sprintList"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
@@ -383,25 +387,25 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
     name: "quickCreateBacklogTicket",
     predict: (value, input: QuickCreateInput) =>
       insertCreated(req, value, input),
-    call: (client, input, get) =>
-      client.tickets
-        .quickCreate({
-          params: req.params,
-          payload: quickCreatePayload(input)
-        })
-        .pipe(
-          Effect.tap((created) =>
-            Effect.sync(() =>
-              recordCreatedKey(
-                get,
-                scopeOf(req),
-                created.id,
-                input.prediction.clientId
-              )
+    call: (_client, input, get) =>
+      createInSprint(req.params, quickCreatePayload(input), input.sprint).pipe(
+        Effect.tap((created) =>
+          Effect.sync(() =>
+            recordCreatedKey(
+              get,
+              scopeOf(req),
+              created.id,
+              input.prediction.clientId
             )
           )
-        ),
+        )
+      ),
     confirm: confirmCreated,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (_value, input) => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      ...(input.sprint === undefined
+        ? []
+        : sprintAssignmentKeys(scopeOf(req), input.sprint))
+    ]
   })
 )

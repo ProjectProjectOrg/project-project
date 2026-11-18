@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Unlink as Link2Off } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Link2Off } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import {
   referencesRequest,
   referencesToFix

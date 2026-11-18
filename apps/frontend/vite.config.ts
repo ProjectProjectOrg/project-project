@@ -56,7 +56,7 @@ const chunkGroups = [
   { name: "i18n", test: /[\\/]src[\\/]paraglide[\\/]/ },
   {
     name: "icons",
-    test: packages(["lucide-react"])
+    test: packages(["@hugeicons/react", "@hugeicons/core-free-icons"])
   }
 ]
 
@@ -112,7 +112,9 @@ export default defineConfig(({ mode }) => ({
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: domTests,
           environment: "node",
-          isolate: true
+          isolate: true,
+          // Scritto (TextSwap) imports its own CSS from its JS.
+          server: { deps: { inline: [/@scritto\//] } }
         }
       },
       {
@@ -123,7 +125,10 @@ export default defineConfig(({ mode }) => ({
           pool: "forks",
           isolate: true,
           execArgv: ["--no-experimental-webstorage"],
-          environmentOptions: { jsdom: { url: "http://localhost/" } }
+          environmentOptions: { jsdom: { url: "http://localhost/" } },
+          // Scritto (TextSwap) imports its own CSS from its JS; let Vite
+          // transform it instead of handing a .css import to Node.
+          server: { deps: { inline: [/@scritto\//] } }
         }
       }
     ]

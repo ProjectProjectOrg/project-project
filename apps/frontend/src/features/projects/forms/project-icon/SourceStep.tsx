@@ -1,16 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
-import { Link } from "@tanstack/react-router"
-import { Database, Upload } from "lucide-react"
-import { useRef, useState } from "react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   EmojiPicker,
   EmojiPickerContent,
   EmojiPickerSearch
-} from "@/components/ui/emoji-picker"
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
+} from "@pp/ui/emoji-picker"
+import { Database, Upload } from "@pp/ui/icons"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
+import { Link } from "@tanstack/react-router"
+import { useRef, useState } from "react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -103,7 +103,9 @@ export function SourceStep({
                           placeholder={m.project_identity_emoji_search_placeholder()}
                           aria-label={m.project_identity_emoji_aria_label()}
                         />
-                        <EmojiPickerContent />
+                        <EmojiPickerContent
+                          emptyLabel={m.project_identity_emoji_empty()}
+                        />
                       </EmojiPicker>
                     )}
                   </group.Field>

@@ -1,7 +1,7 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Select, SelectTrigger } from "@pp/ui/select"
 
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
 import type { JiraImportSetup } from "@/features/jira/lib/draft"
 import {

@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { GroupId, Member, TicketListQuery } from "@pp/shared"
+import { ListHoverScope } from "@pp/ui/list-row"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -19,7 +20,6 @@ import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
-import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
 import { useSubTicketsSettled } from "./useSubTicketsSettled"
 
@@ -48,19 +48,17 @@ export function TicketList({
   ...props
 }: TicketListProps) {
   return (
-    <CreatorActiveScope>
-      <div className="group/list flex flex-col gap-3">
-        {creator ?? <BacklogTicketCreator query={props.query} />}
-        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
-          {toolbar}
-          <TicketListContent
-            {...props}
-            sections={sections}
-            showSections={showSections}
-          />
-        </DimWhileCreating>
+    <div className="group/list flex flex-col gap-3">
+      {creator ?? <BacklogTicketCreator query={props.query} />}
+      <div className="flex flex-col gap-3">
+        {toolbar}
+        <TicketListContent
+          {...props}
+          sections={sections}
+          showSections={showSections}
+        />
       </div>
-    </CreatorActiveScope>
+    </div>
   )
 }
 
@@ -72,17 +70,22 @@ export function TicketListContent({
   const statusShown = useShownOnce(!showSections)
   const sectionsShown = useShownOnce(showSections)
   const statusSections = <StatusSections {...props} />
-  return sections ? (
-    <>
-      <Activity mode={showSections ? "hidden" : "visible"}>
-        {statusShown && statusSections}
-      </Activity>
-      <Activity mode={showSections ? "visible" : "hidden"}>
-        {sectionsShown && sections}
-      </Activity>
-    </>
-  ) : (
-    statusSections
+  // One gliding hover across every section's rows.
+  return (
+    <ListHoverScope>
+      {sections ? (
+        <>
+          <Activity mode={showSections ? "hidden" : "visible"}>
+            {statusShown && statusSections}
+          </Activity>
+          <Activity mode={showSections ? "visible" : "hidden"}>
+            {sectionsShown && sections}
+          </Activity>
+        </>
+      ) : (
+        statusSections
+      )}
+    </ListHoverScope>
   )
 }
 

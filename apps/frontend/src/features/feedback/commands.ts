@@ -1,7 +1,6 @@
-import { MessageSquarePlus } from "lucide-react"
+import { MessageSquarePlus } from "@pp/ui/icons"
 
 import type { Command } from "@/features/command-menu/lib/commands"
-import { sendFeedbackDialog } from "@/features/feedback/atoms/feedback"
 import { m } from "@/paraglide/messages"
 
 export const feedbackCommands: ReadonlyArray<Command> = [
@@ -12,9 +11,8 @@ export const feedbackCommands: ReadonlyArray<Command> = [
     icon: MessageSquarePlus,
     keywords: ["bug", "report", "feature", "request", "issue"],
     when: ({ canSendFeedback }) => canSendFeedback,
-    run: ({ orgSlug }, env) => {
-      env.close()
-      env.registry.set(sendFeedbackDialog, { orgSlug })
+    run: (_context, env) => {
+      env.open("sendFeedback")
     }
   }
 ]

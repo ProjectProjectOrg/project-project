@@ -1,21 +1,22 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { JiraMigrationSummary } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
-import { MotionConfig } from "motion/react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { PageContainer, PageHeader } from "@/components/shell/Page"
-import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { Import, Plus } from "@pp/ui/icons"
+import { Link } from "@tanstack/react-router"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { MotionConfig } from "motion/react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
+import { PageContainer, PageHeader } from "@/components/shell/Page"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   jiraMigrations,
   jiraOrgRequest,
@@ -122,6 +123,9 @@ function ImportsEmpty({ orgSlug }: Readonly<{ orgSlug: string }>) {
   return (
     <Empty>
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Import strokeWidth={1.75} />
+        </EmptyMedia>
         <EmptyTitle>{m.jira_import_empty_title()}</EmptyTitle>
         <EmptyDescription>{m.jira_import_empty_description()}</EmptyDescription>
       </EmptyHeader>

@@ -1,0 +1,118 @@
+export const meta = {
+  title: "Composer",
+  group: "Patterns",
+  description:
+    "The popover form for writing something new: a ticket, a sub-ticket, a sprint, feedback, or the reason for archiving or flagging a ticket. The writing sits on the card; fields, a note and the actions sit in a tray below it.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Popover",
+      href: "https://base-ui.com/react/components/popover"
+    },
+    {
+      kind: "own",
+      name: "Composer",
+      note: "Header, Title, Body, Error, Tray, Fields, Footer, Actions and Hint"
+    }
+  ]
+}
+
+## Overview
+
+New ticket in cmd+k (press C, or pick New ticket), in the command menu's panel: the header line holds the project it goes into and "New ticket", the card holds the writing, the tray below holds everything else. In the examples, each composer is shown on its own, without its trigger.
+
+<Demo name="new-ticket" title="New ticket" />
+
+## Usage
+
+```tsx
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { Input } from "@pp/ui/input"
+
+<Composer.Popover align="end">
+  <form onSubmit={submit} className="flex flex-col">
+    <Composer.Header>{related}</Composer.Header>
+    <Composer.Title>
+      <Input variant="bare" placeholder={m.tickets_create_dialog_title_placeholder()} />
+    </Composer.Title>
+    <Composer.Body>
+      <LexicalEditor placeholder={m.tickets_create_dialog_description_placeholder()} />
+    </Composer.Body>
+    <Composer.Error>{failure}</Composer.Error>
+    <Composer.Tray>
+      <Composer.Fields>
+        <TicketFieldChips … />
+      </Composer.Fields>
+      <Composer.Footer>
+        <Composer.Hint>{startText(creatorType.start)}</Composer.Hint>
+        <Composer.Actions>
+          <Button variant="ghost" size="sm">{m.common_cancel_button()}</Button>
+          <Button type="submit" size="sm">{m.tickets_create_dialog_submit()}</Button>
+        </Composer.Actions>
+      </Composer.Footer>
+    </Composer.Tray>
+  </form>
+</Composer.Popover>
+```
+
+| Part      | Holds                                                         |
+| --------- | ------------------------------------------------------------- |
+| `Popover` | the surface: 32rem, 20px squircle corners                     |
+| `Header`  | optional context: "Archive PP-214", "Blocks PP-214", or a control choosing it |
+| `Title`   | a bare `Input`, or the subject's title as text                |
+| `Body`    | the editor or textarea                                        |
+| `Error`   | the failure, above the tray                                   |
+| `Tray`    | everything that isn't writing                                 |
+| `Fields`  | field chips; any button inside becomes 28px with 10px sides   |
+| `Footer`  | the last row: a `Hint` or a secondary control, then `Actions` |
+| `Actions` | Cancel and the primary, pushed to the end                     |
+| `Hint`    | one quiet line with an info icon                              |
+
+## Rules
+
+### Two zones: writing and controls
+
+The card holds what you write: the context line, the title, the body. The tray below holds everything that isn't writing: the fields, a note, the actions. The tray is `--composer-tray`, halfway between the card and the page, so the controls read as a step down from the writing, without a rule between them. The body's box ends 6px above the tray, the same 6px the tray keeps inside, so the edge between them sits in the middle.
+
+### One 16px line
+
+Text starts 16px in throughout: the context, the title, the body, the hint. Field chips and the footer's buttons are ghost buttons with 10px sides on a tray with 6px padding, so their icons land on the same line.
+
+### Parts own their spacing
+
+Every part sets its own padding, and the title tucks up under a header on its own. Call sites never pad a part: the six composers used to patch the insets six different ways. A header that holds a control instead of text (feedback's kind tabs) passes `control`: the control's edge sits on the 16px line, 16px from the top, and the title's text lands 16px below it. A ghost button that opens the header (cmd+k's project picker) is sized like a field chip, 28px with 10px sides, and pulled out by those sides, so its project tile starts on the 16px line like the title and the chips below; only its hover fill reaches past it.
+
+### Fixed order
+
+Header, title, body, error, then the tray: fields, then a footer with the hint (or a secondary control, like a sprint's dates or "Add existing") at the start and the actions at the end. Archive's reasons are fields, so they sit in the tray like every other composer's chips.
+
+### Concentric corners
+
+The tray's 28px buttons have 14px corners and sit 6px from its edges, so the popover's corners are 20px in the same shape. The sub-ticket card, which isn't a popover, uses the same 20px.
+
+## Examples
+
+### Create ticket
+
+<Demo name="create-ticket" title="Create ticket" />
+
+### Sub-ticket
+
+<Demo name="sub-ticket" title="Sub-ticket" />
+
+### New sprint
+
+<Demo name="new-sprint" title="New sprint" />
+
+### Archive
+
+<Demo name="archive" title="Archive" />
+
+### Flag
+
+<Demo name="flag" title="Flag" />
+
+### Send feedback
+
+<Demo name="feedback" title="Send feedback" />

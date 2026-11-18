@@ -4,7 +4,7 @@ import {
   SlidersHorizontal,
   Users,
   Workflow
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

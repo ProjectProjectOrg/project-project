@@ -6,13 +6,7 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
-import { useNavigate, useRouter } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { FilterX, ListChecks } from "lucide-react"
-import { useMemo, useState, type ReactNode } from "react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   Empty,
   EmptyContent,
@@ -20,7 +14,13 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { FilterX, ListChecks } from "@pp/ui/icons"
+import { useNavigate, useRouter } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useMemo, useState, type ReactNode } from "react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   statusesFor,
   statusesRequest
@@ -44,7 +44,7 @@ import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
-import { CreatingSectionsProvider, SectionList } from "./SectionList"
+import { SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -159,7 +159,10 @@ export function SegmentedList({
           <EmptyTitle>{m.tickets_empty_title()}</EmptyTitle>
           <EmptyDescription>
             {m.tickets_empty_hint_prefix()}{" "}
-            <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
+            <span className="tabular-nums">
+              {m.tickets_empty_hint_folder()}
+            </span>
+            .
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -168,7 +171,7 @@ export function SegmentedList({
 
   if (filteredStatuses.length === 0 && hasActiveFilter) {
     return (
-      <Empty>
+      <Empty animated={false}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FilterX strokeWidth={1.75} />
@@ -198,27 +201,25 @@ export function SegmentedList({
       style={{ overflowAnchor: "none" }}
       className="flex flex-col gap-1"
     >
-      <CreatingSectionsProvider>
-        {filteredStatuses.map((status) => (
-          <StatusSection
-            key={status}
-            persistKey={persistKey}
-            searchQuery={query.q}
-            status={status}
-            statuses={statuses}
-            query={query}
-            update={update}
-            bulkUpdate={bulkUpdate}
-            bulkMove={bulkMove}
-            count={byStatus[status] ?? 0}
-            page={sections[status] ?? EMPTY_PAGE}
-            members={members}
-            activePreviewId={preview.activePreviewId}
-            onPreviewPointerEnter={preview.onPreviewPointerEnter}
-            onPreviewOpenChange={preview.onPreviewOpenChange}
-          />
-        ))}
-      </CreatingSectionsProvider>
+      {filteredStatuses.map((status) => (
+        <StatusSection
+          key={status}
+          persistKey={persistKey}
+          searchQuery={query.q}
+          status={status}
+          statuses={statuses}
+          query={query}
+          update={update}
+          bulkUpdate={bulkUpdate}
+          bulkMove={bulkMove}
+          count={byStatus[status] ?? 0}
+          page={sections[status] ?? EMPTY_PAGE}
+          members={members}
+          activePreviewId={preview.activePreviewId}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
+        />
+      ))}
     </div>
   )
 }

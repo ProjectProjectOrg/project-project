@@ -1,9 +1,17 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, canJoinSprint } from "@pp/shared"
 import type { ArchiveTicketInput, Member, Ticket, TicketId } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import {
+  DropdownMenu,
+  DropdownMenuConfirmItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import {
   Archive,
   ArchiveRestore,
@@ -13,12 +21,15 @@ import {
   MoreHorizontal,
   Split,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Popover } from "@pp/ui/popover"
+import { Link } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   cloneElement,
   Fragment,
   useContext,
-  useId,
   useRef,
   useState,
   type KeyboardEvent,
@@ -28,19 +39,6 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Composer } from "@/components/ui/composer"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
-import { Popover } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   removeTicketFromSprint,
@@ -53,13 +51,15 @@ import {
   bulkArchiveTickets,
   bulkDeleteTickets
 } from "@/features/tickets/atoms/bulkTickets"
-import { flagTicketDialog } from "@/features/tickets/atoms/flagTicketDialog"
+import type { RelatedKind } from "@/features/tickets/atoms/createTicket"
 import {
   archiveTicket,
   deleteTicket,
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
+import { CreateTicketForm } from "@/features/tickets/components/create-ticket/CreateTicketForm"
+import { FlagTicket } from "@/features/tickets/components/FlagTicket"
 import {
   useForgetTicket,
   useSelectionActions
@@ -80,6 +80,8 @@ import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { describeCause } from "@/lib/errorMessage"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { BranchSubmenu } from "./BranchSubmenu"
@@ -118,7 +120,14 @@ export type TicketMenuProps = Readonly<{
   fromList?: boolean
 }>
 
-type Flow = "archive" | "template" | null
+type Flow = "archive" | "template" | "flag" | `related:${RelatedKind}` | null
+
+const RELATED_FLOWS: Readonly<Record<string, RelatedKind>> = {
+  "related:subTicket": "subTicket",
+  "related:blocking": "blocking",
+  "related:blockedBy": "blockedBy",
+  "related:related": "related"
+}
 
 type ContextTarget = Readonly<{
   "data-popup-open"?: string
@@ -141,7 +150,7 @@ export function TicketContextMenu({
   } = useTicketContextMenu()
   const [flow, setFlow] = useState<Flow>(null)
   return (
-    <ConfirmButton.Root bare>
+    <>
       {cloneElement(children, {
         "data-popup-open": open ? "" : undefined,
         onContextMenu: openAt,
@@ -165,7 +174,7 @@ export function TicketContextMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       <TicketMenuFlows {...menu} flow={flow} onFlow={setFlow} anchor={anchor} />
-    </ConfirmButton.Root>
+    </>
   )
 }
 
@@ -173,7 +182,7 @@ export function TicketMenuButton(menu: TicketMenuProps) {
   const trigger = useRef<HTMLButtonElement>(null)
   const [flow, setFlow] = useState<Flow>(null)
   return (
-    <ConfirmButton.Root bare>
+    <>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -200,7 +209,7 @@ export function TicketMenuButton(menu: TicketMenuProps) {
         onFlow={setFlow}
         anchor={trigger}
       />
-    </ConfirmButton.Root>
+    </>
   )
 }
 
@@ -210,6 +219,7 @@ function TicketMenuItems({
   onPatch,
   template,
   fromList = false,
+  onDeleted,
   onFlow
 }: TicketMenuProps & Readonly<{ onFlow: (flow: Flow) => void }>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -219,7 +229,6 @@ function TicketMenuItems({
   const archived = ticket.archivedAt !== null
   const canPlan = can.planSprints && canJoinSprint(ticket.type)
   const openPage = useOpenTicketPage(ticket.id)
-  const openFlagDialog = useAtomSet(flagTicketDialog)
   const parent = ticket.parent ?? null
   const detachable = parent !== null && can.edit
   const { count, selectedTickets } = useSelectionActions(
@@ -251,15 +260,7 @@ function TicketMenuItems({
         {single && canPlan && <RemoveFromSprintItem ticketId={ticket.id} />}
         {!single && can.edit && (
           <DropdownMenuItem
-            onClick={() =>
-              openFlagDialog({
-                orgSlug,
-                slug,
-                ticketId: ticket.id,
-                title: ticket.title,
-                selection: selectedTickets.map((each) => each.id)
-              })
-            }
+            onClick={() => onFlow("flag")}
             className="cursor-pointer"
           >
             <Flag className="size-4" strokeWidth={1.75} />
@@ -283,21 +284,17 @@ function TicketMenuItems({
     single && ((!archived && (can.edit || can.create)) || detachable) && (
       <Fragment key="relations">
         {!archived && can.create && (
-          <CreateRelatedSubmenu ticket={ticket} canAttach={can.edit} />
+          <CreateRelatedSubmenu
+            ticket={ticket}
+            canAttach={can.edit}
+            onCreate={(kind) => onFlow(`related:${kind}`)}
+          />
         )}
         {!archived && can.edit && (
           <MarkAsSubmenu
             ticketId={ticket.id}
             flagged={ticket.flag !== null}
-            onFlag={() =>
-              openFlagDialog({
-                orgSlug,
-                slug,
-                ticketId: ticket.id,
-                title: ticket.title,
-                selection: []
-              })
-            }
+            onFlag={() => onFlow("flag")}
             onUnflag={() => onPatch({ flag: null })}
           />
         )}
@@ -372,22 +369,14 @@ function TicketMenuItems({
                 : m.tickets_row_archive_many_menu_item({ count })}
               <DropdownMenuShortcut
                 keys={appHotkeys["tickets.archive"].defaultHotkey}
+                keyLabels={keyLabels()}
               />
             </DropdownMenuItem>
           ))}
       </Fragment>
     ),
     can.delete && (
-      <ConfirmButton.MenuItem
-        key="delete"
-        variant="destructive"
-        className="cursor-pointer"
-      >
-        <Trash2 className="size-4" strokeWidth={1.75} />
-        {single
-          ? m.tickets_row_delete_menu_item()
-          : m.tickets_row_delete_many_menu_item({ count })}
-      </ConfirmButton.MenuItem>
+      <DeleteTicketItems key="delete" ticket={ticket} onDeleted={onDeleted} />
     )
   ].filter((section) => section !== false)
   return sections.map((section, index) => (
@@ -418,6 +407,87 @@ function RemoveFromSprintItem({ ticketId }: Readonly<{ ticketId: TicketId }>) {
   )
 }
 
+// Delete, confirmed in place. With a selection it deletes the selection;
+// a ticket with sub-tickets gets a second item that deletes them too
+// (an epic's are its tickets).
+function DeleteTicketItems({
+  ticket,
+  onDeleted
+}: Readonly<{ ticket: TicketMenuProps["ticket"]; onDeleted?: () => void }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const remove = useAtomSet(
+    deleteTicket(ticketRequest(orgSlug, slug, ticket.id)),
+    {
+      mode: "promiseExit"
+    }
+  )
+  const removeMany = useAtomSet(bulkDeleteTickets({ orgSlug, slug }), {
+    mode: "promiseExit"
+  })
+  const selection = useSelectionActions(selectionKey(slug, ticket.id))
+  const forget = useForgetTicket(selectionKey(slug, ticket.id))
+  const icon = <Trash2 className="size-4" strokeWidth={1.75} />
+
+  if (selection.count > 1) {
+    const count = selection.count
+    return (
+      <DropdownMenuConfirmItem
+        icon={icon}
+        label={m.tickets_row_delete_many_menu_item({ count })}
+        confirmLabel={m.tickets_row_delete_many_confirm({ count })}
+        describeError={describeCause}
+        busyLabel={m.common_deleting_button()}
+        onConfirm={async () => {
+          const exit = await removeMany({ tickets: selection.selectedIds() })
+          if (Exit.isSuccess(exit)) selection.clear()
+          return exit
+        }}
+      />
+    )
+  }
+
+  const removeOne = (cascade: boolean) => async () => {
+    const exit = await remove({ cascadeSubTickets: cascade })
+    if (Exit.isSuccess(exit)) {
+      forget(cascade)
+      onDeleted?.()
+    }
+    return exit
+  }
+  const count = ticket.subTicketCount ?? 0
+  const epic = isEpic(ticket)
+  return (
+    <>
+      <DropdownMenuConfirmItem
+        icon={icon}
+        label={m.tickets_row_delete_menu_item()}
+        confirmLabel={m.tickets_row_delete_confirm()}
+        describeError={describeCause}
+        busyLabel={m.common_deleting_button()}
+        onConfirm={removeOne(false)}
+      />
+      {count > 0 && (
+        <DropdownMenuConfirmItem
+          icon={icon}
+          label={
+            epic
+              ? m.tickets_row_delete_with_tickets_menu_item({ count })
+              : m.tickets_row_delete_with_sub_tickets_menu_item({ count })
+          }
+          confirmLabel={
+            epic
+              ? m.tickets_row_delete_with_tickets_confirm({ count })
+              : m.tickets_row_delete_with_sub_tickets_confirm({ count })
+          }
+          describeError={describeCause}
+          busyLabel={m.common_deleting_button()}
+          onConfirm={removeOne(true)}
+        />
+      )}
+    </>
+  )
+}
+
 type TicketMenuFlowsProps = TicketMenuProps &
   Readonly<{
     flow: Flow
@@ -426,8 +496,7 @@ type TicketMenuFlowsProps = TicketMenuProps &
   }>
 
 function TicketMenuFlows(props: TicketMenuFlowsProps) {
-  const { active } = useConfirmButton()
-  const needed = props.flow !== null || active !== null
+  const needed = props.flow !== null
   const [used, setUsed] = useState(needed)
   if (needed && !used) setUsed(true)
   return used ? <TicketMenuFlowPopovers {...props} /> : null
@@ -435,7 +504,6 @@ function TicketMenuFlows(props: TicketMenuFlowsProps) {
 
 function TicketMenuFlowPopovers({
   ticket,
-  onDeleted,
   template,
   flow,
   onFlow,
@@ -445,8 +513,6 @@ function TicketMenuFlowPopovers({
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
   const archiveState = useAtomValue(archiveTicket(req))
-  const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
-  const removeState = useAtomValue(deleteTicket(req))
   const selection = useSelectionActions(selectionKey(slug, ticket.id))
   const many = selection.count > 1
   const project = { orgSlug, slug }
@@ -454,15 +520,9 @@ function TicketMenuFlowPopovers({
     mode: "promiseExit"
   })
   const archiveManyState = useAtomValue(bulkArchiveTickets(project))
-  const removeMany = useAtomSet(bulkDeleteTickets(project), {
-    mode: "promiseExit"
-  })
-  const removeManyState = useAtomValue(bulkDeleteTickets(project))
-  const [cascade, setCascade] = useState(false)
-  const cascadeId = useId()
-  const subTickets = ticket.subTicketCount ?? 0
   const popupAnchor = anchor ?? undefined
   const forget = useForgetTicket(selectionKey(slug, ticket.id))
+  const relatedKind = flow === null ? undefined : RELATED_FLOWS[flow]
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     if (many) {
@@ -509,63 +569,53 @@ function TicketMenuFlowPopovers({
           />
         </Composer.Popover>
       </Popover>
-      <ConfirmButton.Popover anchor={popupAnchor} className="w-72">
-        <ConfirmButton.Action
-          layout="stacked"
-          prompt={
-            many
-              ? m.tickets_row_delete_many_confirm({ count: selection.count })
-              : m.tickets_row_delete_confirm()
-          }
-          description={m.tickets_row_delete_description()}
-          label={m.common_delete_confirm_button()}
-          waiting={(many ? removeManyState : removeState).waiting}
-          error={
-            (
-              many
-                ? Result.isFailure(removeManyState)
-                : Result.isFailure(removeState)
-            )
-              ? many
-                ? m.tickets_row_delete_many_error_fallback()
-                : m.tickets_row_delete_error_fallback()
-              : null
-          }
-          onConfirm={async () => {
-            if (many) {
-              const exit = await removeMany({
-                tickets: selection.selectedIds()
-              })
-              if (Exit.isSuccess(exit)) selection.clear()
-              return exit
-            }
-            const exit = await remove({ cascadeSubTickets: cascade })
-            if (Exit.isSuccess(exit)) {
-              forget(cascade)
-              onDeleted?.()
-            }
-            return exit
-          }}
+      <Popover
+        open={flow === "flag"}
+        onOpenChange={(open) => onFlow(open ? "flag" : null)}
+      >
+        <Composer.Popover
+          anchor={popupAnchor}
+          align="end"
+          sideOffset={6}
+          onClick={(event) => event.stopPropagation()}
         >
-          {!many && subTickets > 0 && (
-            <label
-              htmlFor={cascadeId}
-              className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground"
-            >
-              <Checkbox
-                id={cascadeId}
-                checked={cascade}
-                onCheckedChange={setCascade}
-              />
-              {isEpic(ticket)
-                ? m.tickets_detail_delete_cascade_tickets({ count: subTickets })
-                : m.tickets_detail_delete_cascade_sub_tickets({
-                    count: subTickets
-                  })}
-            </label>
+          <FlagTicket
+            request={{
+              orgSlug,
+              slug,
+              ticketId: ticket.id,
+              title: ticket.title,
+              selection: many ? selection.selectedIds() : []
+            }}
+            onDone={() => onFlow(null)}
+          />
+        </Composer.Popover>
+      </Popover>
+      <Popover
+        open={relatedKind !== undefined}
+        onOpenChange={(open) => {
+          if (!open) onFlow(null)
+        }}
+      >
+        <Composer.Popover
+          anchor={popupAnchor}
+          align="end"
+          sideOffset={6}
+          aria-label={m.tickets_create_dialog_title()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {relatedKind !== undefined && (
+            <CreateTicketForm
+              request={{
+                orgSlug,
+                projectSlug: slug,
+                related: { kind: relatedKind, ticketId: ticket.id }
+              }}
+              onDone={() => onFlow(null)}
+            />
           )}
-        </ConfirmButton.Action>
-      </ConfirmButton.Popover>
+        </Composer.Popover>
+      </Popover>
       {template !== undefined && (
         <SaveAsTemplatePopover
           {...template}

@@ -1,10 +1,9 @@
 import { isEpic } from "@pp/shared"
-import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
+import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "@pp/ui/icons"
 
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
 import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
-import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import { SquarePlusCorner } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { MARK_KINDS } from "@/features/tickets/components/ticket-marks/markKinds"
 import { removableRelations } from "@/features/tickets/lib/relationGroups"
@@ -65,14 +64,9 @@ export const relationCommands: ReadonlyArray<Command> = [
       (context.selection.length > 1
         ? context.selection.some((each) => each.flag === null)
         : context.ticketData !== null && context.ticketData.flag === null),
-    run: ({ ticket, ticketData, selection }, env) => {
+    run: ({ ticket, ticketData }, env) => {
       if (ticket === null || ticketData === null) return
-      openFlagDialog(
-        env,
-        ticket,
-        ticketData.title,
-        selection.map((each) => each.id)
-      )
+      env.open("ticketFlag")
     }
   },
   {

@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { Comment, TicketDetail } from "@pp/shared"
+import { CornerDownLeft } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
-import { CornerDownRight } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
@@ -69,9 +69,13 @@ function CreatedTicketLine({
   return (
     <>
       <span className="flex items-center gap-1.5 text-muted-foreground">
-        <CornerDownRight className="size-3.5" strokeWidth={1.75} aria-hidden />
+        <CornerDownLeft
+          className="size-3.5 -scale-x-100"
+          strokeWidth={1.75}
+          aria-hidden
+        />
         {m.comments_created_ticket({
-          name: creator?.name ?? creator?.email ?? ticket.createdBy
+          name: creator?.name || creator?.email || ticket.createdBy
         })}
       </span>
       <Link
@@ -84,7 +88,7 @@ function CreatedTicketLine({
           orgSlug={orgSlug}
           slug={slug}
         />
-        <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
         <span className="truncate">{ticket.title}</span>

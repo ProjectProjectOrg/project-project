@@ -5,7 +5,6 @@ import {
   type Group,
   type UpdateGroupInput
 } from "@pp/shared"
-import { useMatch, useNavigate } from "@tanstack/react-router"
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,7 +23,8 @@ import {
   Trash2,
   Trophy,
   Zap
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { useMatch, useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
@@ -38,8 +38,9 @@ import {
 import { startSprintPatch } from "@/features/sprints/lib/sprintDates"
 import { nowDate } from "@/features/sprints/lib/sprintDates"
 import { sprintNeighbours } from "@/features/sprints/lib/sprintTargets"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView, type ProjectView } from "@/hooks/useViewPreference"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { useUnfinishedCount } from "./CompleteSprintMenu"
@@ -212,18 +213,19 @@ export function useSprintActions({
     if (state !== "completed") {
       commands.push({
         id: "sprint.create-ticket",
+        hotkey: appHotkeys["tickets.create-anywhere"],
         group: "sprint",
         label: () => m.sprints_command_create_ticket({ name: sprint.name }),
         icon: Plus,
         keywords: ["new", "add", "issue", "ticket"],
         when: ({ tickets }) => tickets.create,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createTicketDialog, {
+          env.registry.set(newTicketRequest, {
             orgSlug,
             projectSlug: slug,
             sprint: sprint.id
           })
+          env.open("createTicket")
         }
       })
     }

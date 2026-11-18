@@ -1,10 +1,9 @@
 import type { Group, UserId } from "@pp/shared"
+import { chipClassName } from "@pp/ui/chip"
+import { Scale } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   useSprintPlanning,
@@ -18,7 +17,6 @@ import {
   planTotals
 } from "@/features/sprints/lib/sprintPlan"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { AssigneeLoadCard } from "./AssigneeLoadCard"
@@ -39,18 +37,23 @@ export function SprintPlanSummary({
   const { committed } = planTotals(tickets, measure)
   const over = capacity !== null && committed > capacity
   return (
-    <span className="flex items-center gap-3.5 tabular-nums">
+    <>
       {capacity !== null && (
         <Tooltip>
           <TooltipTrigger
             render={
               <span
-                className={cn(
-                  over ? "text-state-warning" : "text-muted-foreground"
-                )}
+                className={chipClassName({
+                  interaction: "hover",
+                  className: cn(
+                    "tabular-nums",
+                    over && "text-state-warning hover:text-state-warning"
+                  )
+                })}
               />
             }
           >
+            <Scale className="size-3 shrink-0" strokeWidth={1.75} />
             {over
               ? m.sprints_capacity_over({
                   amount: formatAmount(measure, committed - capacity)
@@ -69,7 +72,7 @@ export function SprintPlanSummary({
       )}
       <ul
         aria-label={m.sprints_load_label()}
-        className="flex items-center gap-1.5"
+        className="flex items-center gap-1.5 pl-1"
       >
         {loadByAssignee(tickets, measure).map(({ assignee }) => {
           const member = members.find((each) => each.id === assignee)
@@ -94,6 +97,6 @@ export function SprintPlanSummary({
           )
         })}
       </ul>
-    </span>
+    </>
   )
 }

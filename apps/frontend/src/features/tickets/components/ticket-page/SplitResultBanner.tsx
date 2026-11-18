@@ -1,8 +1,8 @@
 import type { TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Split, X } from "@pp/ui/icons"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { Split, X } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"
 
@@ -32,7 +32,7 @@ export function SplitResultBanner({
               key={id}
               to="/orgs/$orgSlug/projects/$slug/tickets/$id"
               params={{ orgSlug, slug, id }}
-              className="rounded-md bg-foreground/5 px-2 py-0.5 font-mono text-micro tabular-nums transition-colors hover:bg-foreground/10"
+              className="rounded-md bg-foreground/5 px-2 py-0.5 text-micro tabular-nums transition-colors hover:bg-foreground/10"
             >
               {id}
             </Link>

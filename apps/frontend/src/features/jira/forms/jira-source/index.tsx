@@ -1,12 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { JiraSite } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   createJiraMigration,
   jiraMigrations,

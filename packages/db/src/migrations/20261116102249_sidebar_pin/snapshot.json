@@ -1,0 +1,375 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "de323ced-1edf-49ab-a491-3432179bfa10",
+  "prevIds": [
+    "b5aa0a0f-305c-4dd4-8382-c03df8748973"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "sidebar_pin"
+      ],
+      "writes": [
+        "s|tbl|public.sidebar_pin",
+        "n|tbl|public.sidebar_pin",
+        "e|tbl|public.sidebar_pin",
+        "n|rel|public.sidebar_pin",
+        "n|type|public.sidebar_pin",
+        "n|rel|public.sidebar_pin_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "sidebar_pin",
+        "sidebar_pin_user_org_idx"
+      ],
+      "writes": [
+        "s|idx|public.sidebar_pin_user_org_idx",
+        "n|idx|public.sidebar_pin_user_org_idx",
+        "e|idx|public.sidebar_pin_user_org_idx",
+        "n|rel|public.sidebar_pin_user_org_idx"
+      ],
+      "reads": [
+        "n|tbl|public.sidebar_pin",
+        "n|sch|public",
+        "n|col|public.sidebar_pin.user_id",
+        "n|col|public.sidebar_pin.organization_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "sidebar_pin",
+        "sidebar_pin_target_idx"
+      ],
+      "writes": [
+        "s|idx|public.sidebar_pin_target_idx",
+        "n|idx|public.sidebar_pin_target_idx",
+        "e|idx|public.sidebar_pin_target_idx",
+        "n|rel|public.sidebar_pin_target_idx"
+      ],
+      "reads": [
+        "n|tbl|public.sidebar_pin",
+        "n|sch|public",
+        "n|col|public.sidebar_pin.project_id",
+        "n|col|public.sidebar_pin.kind",
+        "n|col|public.sidebar_pin.ref"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "sidebar_pin"
+      ],
+      "writes": [
+        "s|fk|public.sidebar_pin.sidebar_pin_project_fkey",
+        "n|fk|public.sidebar_pin.sidebar_pin_project_fkey",
+        "e|fk|public.sidebar_pin.sidebar_pin_project_fkey",
+        "n|con|public.sidebar_pin.sidebar_pin_project_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sidebar_pin",
+        "n|sch|public",
+        "n|tbl|public.project_index",
+        "n|sch|public",
+        "n|col|public.sidebar_pin.project_id",
+        "n|col|public.sidebar_pin.organization_id",
+        "n|col|public.project_index.id",
+        "n|col|public.project_index.organization_id",
+        "e|uniqueness|public.project_index.id.organization_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "sidebar_pin"
+      ],
+      "writes": [
+        "s|fk|public.sidebar_pin.sidebar_pin_org_member_fkey",
+        "n|fk|public.sidebar_pin.sidebar_pin_org_member_fkey",
+        "e|fk|public.sidebar_pin.sidebar_pin_org_member_fkey",
+        "n|con|public.sidebar_pin.sidebar_pin_org_member_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sidebar_pin",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.sidebar_pin.organization_id",
+        "n|col|public.sidebar_pin.user_id",
+        "n|col|public.member.organization_id",
+        "n|col|public.member.user_id",
+        "e|uniqueness|public.member.organization_id.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sidebar_pin",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "organization_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "ref",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "order_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "sidebar_pin_user_org_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "organization_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "sidebar_pin_target_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "kind",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "ref",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "sidebar_pin_project_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "organization_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_index",
+        "columnsTo": [
+          "id",
+          "organization_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "sidebar_pin_org_member_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "organization_id",
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "organization_id",
+          "user_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sidebar_pin",
+        "name": "sidebar_pin_pkey",
+        "columns": [
+          "user_id",
+          "project_id",
+          "kind",
+          "ref"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

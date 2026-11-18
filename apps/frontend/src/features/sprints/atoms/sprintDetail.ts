@@ -44,6 +44,6 @@ export const updateSprintDetail = Atom.family((req: SprintRequest) =>
     call: (client, patch) =>
       client.groups.update({ params: req.params, payload: patch }),
     confirm: replaceWith,
-    publish: () => [Keys.sprints(scopeOf(req))]
+    publish: () => [Keys.sprints(scopeOf(req)), Keys.pins(req.params.orgSlug)]
   })
 )

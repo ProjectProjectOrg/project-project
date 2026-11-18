@@ -1,10 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
+import { LibraryContext } from "@pp/ui/editor/blocks/block-chrome"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import type { ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { LibraryCreateForm } from "@/features/library/forms/library-create"
 import { m } from "@/paraglide/messages"
 

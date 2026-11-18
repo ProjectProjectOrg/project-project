@@ -1,19 +1,22 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { Plus, X } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
-import { Plus, X } from "lucide-react"
 import { useMemo, useRef, useState, type ComponentProps } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   applyTagsInEditor,
@@ -29,7 +32,6 @@ import {
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -163,7 +165,8 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           render={
             <Button
               type="button"
-              variant={displayed.length === 0 ? "chip-muted" : "chip"}
+              variant="ghost"
+              tone={displayed.length === 0 ? "muted" : "strong"}
               size={displayed.length === 0 ? undefined : "icon-sm"}
               className="motion-safe:transition-[background-color,color,scale]"
               aria-label={m.tags_add_button()}
@@ -242,11 +245,13 @@ function AppliedTagChip({
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
   }
   const hex = color ?? NEUTRAL
-  const wrapperClass = cn(
-    "inline-flex h-6 w-fit shrink-0 items-center gap-1.5 rounded-md px-2 text-caption whitespace-nowrap transition-colors",
-    waiting && "animate-pulse"
-  )
-  const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
+  // The tag's own hue through the badge's clean-colour recipe, like TagChip.
+  const badgeProps = {
+    "data-slot": "tag-chip",
+    tone: null,
+    className: cn("gap-1.5", waiting && "animate-pulse"),
+    style: { "--badge-tone": hex }
+  } as const
   const removeButton = (
     <button
       type="button"
@@ -255,7 +260,7 @@ function AppliedTagChip({
         e.stopPropagation()
         onRemove()
       }}
-      className="-mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/20"
+      className="focus-ring -mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
     >
       <X className="size-3" strokeWidth={2} />
     </button>
@@ -263,15 +268,15 @@ function AppliedTagChip({
 
   if (!canManage || !tag) {
     return (
-      <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
-        {name}
+      <Badge {...badgeProps}>
+        <TextSwap>{name}</TextSwap>
         {removeButton}
-      </span>
+      </Badge>
     )
   }
 
   return (
-    <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
+    <Badge {...badgeProps}>
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
@@ -280,15 +285,11 @@ function AppliedTagChip({
         onDelete={removeTag}
         onOpenChange={onManagementOpenChange}
       >
-        <button
-          type="button"
-          aria-label={m.tags_edit_aria_label({ name })}
-          className="cursor-pointer rounded"
-        >
-          {name}
+        <button type="button" aria-label={m.tags_edit_aria_label({ name })}>
+          <TextSwap>{name}</TextSwap>
         </button>
       </TagAdminPopover>
       {removeButton}
-    </span>
+    </Badge>
   )
 }

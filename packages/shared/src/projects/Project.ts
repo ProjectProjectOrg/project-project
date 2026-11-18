@@ -55,6 +55,18 @@ export const ProjectColor = Schema.String.pipe(
 )
 export type ProjectColor = typeof ProjectColor.Type
 
+// How the project's generated tile uses its colour: in one hue, or in
+// several (the multicolour choice in the colour picker).
+export const ProjectTone = Schema.Literals(["mono", "multi"])
+export type ProjectTone = typeof ProjectTone.Type
+
+// The colours Multicolour picked, up to three (the tile's base, middle and
+// deep steps). None means the tile's own seeded colours.
+export const ProjectColors = Schema.Array(ProjectColor).pipe(
+  Schema.check(Schema.isMaxLength(3))
+)
+export type ProjectColors = typeof ProjectColors.Type
+
 export const AssignableRole = Role
 export type AssignableRole = typeof AssignableRole.Type
 
@@ -298,6 +310,12 @@ export const Project = Schema.Struct({
   name: Schema.String,
   icon: ProjectIcon,
   color: ProjectColor,
+  tone: ProjectTone.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("mono" as const))
+  ),
+  colors: ProjectColors.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString
 })
@@ -368,6 +386,8 @@ export const UpdateProjectInput = Schema.Struct({
   links: Schema.optional(ProjectLinks),
   icon: Schema.optional(ProjectIcon),
   color: Schema.optional(ProjectColor),
+  tone: Schema.optional(ProjectTone),
+  colors: Schema.optional(ProjectColors),
   estimation: Schema.optional(EstimationMode)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type

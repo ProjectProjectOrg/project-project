@@ -1,5 +1,6 @@
 import type { ComponentType } from "react"
 
+import { SendFeedbackPage } from "@/features/feedback/components/SendFeedbackPage"
 import {
   GithubRegisterAppCommand,
   GithubInstallAppCommand
@@ -12,6 +13,7 @@ import {
   CreateProjectPage,
   SwitchProjectPage
 } from "@/features/projects/components/ProjectCommandPages"
+import { CreateSprintPage } from "@/features/sprints/components/CreateSprintPage"
 import { SprintAddTicketsPage } from "@/features/sprints/components/SprintAddTicketsPage"
 import {
   SprintCompletePage,
@@ -27,6 +29,7 @@ import {
   TicketArchivePage,
   TicketDeletePage,
   TicketEstimatePage,
+  TicketFlagPage,
   TicketParentPage,
   TicketTagsPage,
   TicketTypePage,
@@ -45,10 +48,13 @@ import {
   viewFilterDimensionPage,
   ViewFilterPage
 } from "@/features/tickets/components/command-pages/ViewFilterCommands"
+import { CreateTicketPage } from "@/features/tickets/components/create-ticket/CreateTicketPage"
+import { MarkDuplicatePage } from "@/features/tickets/components/MarkDuplicatePage"
 import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkAsCommands"
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 
+import { ShortcutSheetPage } from "./components/ShortcutSheet"
 import { ThemeCommands } from "./components/ThemeCommands"
 import type { CommandPage } from "./lib/commandMenu"
 import type { CommandPageProps } from "./lib/commandPages"
@@ -97,6 +103,7 @@ function TicketSprintPage({ context, chip, onBack, env }: CommandPageProps) {
       chip={chip}
       onBack={onBack}
       onClose={env.close}
+      onNewSprint={() => env.open("createSprint")}
     />
   )
 }
@@ -117,6 +124,7 @@ const markPage = (kind: MarkPickKind) =>
         chip={chip}
         onBack={onBack}
         onDone={env.close}
+        onDuplicate={() => env.open("ticketDuplicate")}
       />
     )
   }
@@ -145,6 +153,8 @@ export const COMMAND_PAGES: Readonly<
   ticketCreateRelated: ticketPage(TicketCreateRelatedPage),
   ticketRemoveRelation: ticketPage(TicketRemoveRelationPage),
   ticketArchive: ticketPage(TicketArchivePage),
+  ticketFlag: ticketPage(TicketFlagPage),
+  ticketDuplicate: MarkDuplicatePage,
   ticketDelete: ticketPage(TicketDeletePage),
   githubRegisterApp: GithubRegisterAppCommand,
   githubInstallApp: GithubInstallAppCommand,
@@ -158,7 +168,11 @@ export const COMMAND_PAGES: Readonly<
   switchOrg: SwitchOrgCommands,
   switchProject: SwitchProjectPage,
   createProject: CreateProjectPage,
+  createSprint: CreateSprintPage,
+  createTicket: CreateTicketPage,
+  sendFeedback: SendFeedbackPage,
   theme: ThemeCommands,
+  shortcuts: ShortcutSheetPage,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,
   "filter:type": viewFilterDimensionPage("type"),

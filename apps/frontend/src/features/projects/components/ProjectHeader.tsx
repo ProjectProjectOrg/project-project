@@ -6,15 +6,25 @@ import {
   type Group,
   type ProjectDetail as ProjectDetailType
 } from "@pp/shared"
-import { Link, useMatches } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
+import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import {
   ArrowLeft,
   FileText,
   MoreHorizontal,
   SlidersHorizontal
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { bareFieldStateClass } from "@pp/ui/input"
+import { spring, transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { Link, useMatches } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   AnimatePresence,
   LayoutGroup,
@@ -23,13 +33,6 @@ import {
 } from "motion/react"
 import { useState, type KeyboardEvent, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { GithubChip } from "@/features/github/components/GithubChip"
 import { connectedRepos } from "@/features/github/lib/repos"
 import {
@@ -54,8 +57,6 @@ import {
 } from "@/features/sprints/components/SprintHeaderFields"
 import { SprintStartButton } from "@/features/sprints/components/SprintStartButton"
 import { useProjectActor } from "@/hooks/useActor"
-import { springs, transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const CURRENT_SPRINT_ROUTE =
@@ -95,7 +96,7 @@ function MorphSlot({
         transition={
           layoutId
             ? {
-                layout: springs.moderate,
+                layout: spring.moderate,
                 opacity: transitions.presence,
                 filter: transitions.presence
               }
@@ -192,6 +193,8 @@ export function ProjectHeader({
                 icon={project.icon}
                 iconImage={project.iconImage}
                 color={project.color}
+                tone={project.tone}
+                colors={project.colors}
                 size="md"
                 seed={slug}
               />
@@ -344,8 +347,8 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          canEdit && "hover:bg-hover"
+          bareFieldStateClass,
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
         {name}
@@ -361,7 +364,10 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-1 ring-ring outline-none"
+        className={cn(
+          bareFieldStateClass,
+          "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
+        )}
         maxLength={120}
         aria-label={m.project_detail_name_aria_label()}
       />
@@ -384,7 +390,7 @@ function ProjectMenu() {
       <DropdownMenuTrigger
         render={
           <Button
-            variant="quiet"
+            variant="ghost"
             size="square-8"
             aria-label={m.project_detail_actions_aria_label()}
             className="focus-visible:ring-2"

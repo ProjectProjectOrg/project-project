@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import {
@@ -7,7 +8,6 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 
 const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 

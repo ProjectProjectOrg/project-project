@@ -1,7 +1,7 @@
-import { Archive, MoreHorizontal } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Archive, MoreHorizontal } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"

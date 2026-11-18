@@ -1,4 +1,4 @@
-import { Bot, Plug, SlidersHorizontal, UserRound } from "lucide-react"
+import { Bot, Plug, SlidersHorizontal, UserRound } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

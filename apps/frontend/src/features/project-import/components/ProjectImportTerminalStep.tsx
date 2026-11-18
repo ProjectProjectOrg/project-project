@@ -1,8 +1,8 @@
 import type { ProjectImport } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Link } from "@tanstack/react-router"
 
 import { TerminalSurface } from "@/components/shell/TerminalSurface"
-import { Button } from "@/components/ui/button"
 import {
   importFailureMessage,
   integrationList

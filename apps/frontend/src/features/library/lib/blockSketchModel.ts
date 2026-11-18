@@ -6,8 +6,7 @@ import {
   type BlockOutlineNode,
   type HintListKind
 } from "@pp/shared"
-
-import { blockChrome } from "@/features/editor/lib/blockChrome"
+import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 
 export type SketchLine = "heading" | "text" | "bullet" | "number" | "task"
 

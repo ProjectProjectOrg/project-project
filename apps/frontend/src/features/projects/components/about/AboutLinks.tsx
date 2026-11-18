@@ -1,30 +1,23 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { ProjectLink } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { Button } from "@pp/ui/button"
+import { CopyButton } from "@pp/ui/copy-button"
+import { FigmaGlyph } from "@pp/ui/editor/figma/figma-chip"
+import { PaperGlyph } from "@pp/ui/editor/paper/paper-glyph"
 import {
   GitBranch,
   Globe,
   Laptop,
   Pencil,
   Plus,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useRef, useState, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { CopyButton } from "@/components/ui/copy-button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-import { FigmaGlyph } from "@/features/editor/lexical/FigmaChip"
-import { PaperGlyph } from "@/features/editor/lexical/PaperNode"
 import { useLinkPreview } from "@/features/link-previews/hooks/useLinkPreview"
 import { updateProject } from "@/features/projects/atoms/projects"
 import { ProjectLinkForm } from "@/features/projects/forms/project-link"
@@ -36,11 +29,10 @@ import {
 } from "@/features/projects/lib/projectLinks"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const KIND_ICONS: Readonly<
-  Record<Exclude<ProjectLinkKind, "figma" | "paper" | "web">, LucideIcon>
+  Record<Exclude<ProjectLinkKind, "figma" | "paper" | "web">, IconType>
 > = {
   github: GitBranch,
   local: Laptop
@@ -101,7 +93,7 @@ export function AboutLinks({
             }
             trigger={
               <Button
-                variant="quiet"
+                variant="ghost"
                 size="square-7"
                 aria-label={m.project_links_add_title()}
                 title={m.project_links_add_title()}
@@ -124,8 +116,9 @@ export function AboutLinks({
       ))}
       {links.length === 0 ? (
         <Button
-          variant="sidebar-link"
+          variant="ghost"
           size="sm"
+          className="w-fit max-w-full justify-start px-1.5"
           leadingIcon={Plus}
           onClick={() => setAdding(true)}
         >
@@ -154,20 +147,22 @@ function LinkRow({
   onRemove: () => Promise<string | null>
 }>) {
   const [editing, setEditing] = useState(false)
-  const [tooltip, setTooltip] = useState(false)
+  const [truncated, setTruncated] = useState(false)
   const rowRef = useRef<HTMLAnchorElement>(null)
+  const measure = () => setTruncated(isTruncated(rowRef.current))
   return (
-    <div className="group/reveal relative w-full min-w-0">
-      <Tooltip
-        open={tooltip}
-        onOpenChange={(open) => setTooltip(open && isTruncated(rowRef.current))}
-      >
+    <div
+      className="group/reveal relative w-full min-w-0"
+      onPointerEnter={measure}
+      onFocus={measure}
+    >
+      <Tooltip>
         <TooltipTrigger
           render={
             <Button
-              variant="sidebar-link"
+              variant="ghost"
               size="sm"
-              className="h-auto w-full flex-col items-stretch gap-0 rounded-lg pt-0.5 pb-1.5 group-hover/reveal:bg-hover group-hover/reveal:text-foreground"
+              className="h-auto w-full flex-col items-stretch justify-start gap-0 rounded-lg px-1.5 pt-0.5 pb-1.5 group-hover/reveal:bg-hover group-hover/reveal:text-foreground"
               render={
                 <a
                   ref={rowRef}
@@ -203,16 +198,16 @@ function LinkRow({
         <TooltipContent
           side="bottom"
           align="start"
-          className="max-w-80 font-mono break-all"
+          className="max-w-80 break-all tabular-nums"
         >
-          {link.url}
+          {truncated ? link.url : null}
         </TooltipContent>
       </Tooltip>
       {canEdit ? (
         <div className="absolute top-0.5 right-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100 has-[[data-popup-open]]:opacity-100 pointer-coarse:opacity-100">
           <CopyButton
             value={link.url}
-            variant="quiet"
+            variant="ghost"
             size="square-6"
             iconClassName="size-3.5"
             copyLabel={m.project_links_copy_aria_label({ label: link.label })}
@@ -227,7 +222,7 @@ function LinkRow({
             onRemove={onRemove}
             trigger={
               <Button
-                variant="quiet"
+                variant="ghost"
                 size="square-6"
                 aria-label={m.project_links_edit_aria_label({
                   label: link.label

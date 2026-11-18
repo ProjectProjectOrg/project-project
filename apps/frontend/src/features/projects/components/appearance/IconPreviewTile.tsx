@@ -1,6 +1,7 @@
+import { cn } from "@pp/ui/lib/utils"
+
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import type { IconCrop, IconTreatment } from "@/features/projects/lib/iconDraft"
-import { cn } from "@/lib/utils"
 
 export type LiveIcon =
   | { readonly kind: "emoji"; readonly emoji: string }

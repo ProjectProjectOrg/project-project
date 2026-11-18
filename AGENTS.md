@@ -52,7 +52,6 @@ features/<feature>/
   hooks/        useX.ts
   lib/          pure feature logic and its tests
 components/
-  ui/           design-system primitives only (shadcn and Fluid)
   shell/        app chrome: layout, sidebar, nav, page and settings scaffolding, ErrorPage, NotFoundPage
 lib/            cross-feature helpers only
 hooks/          cross-feature hooks only
@@ -61,10 +60,17 @@ routes/         route files
 
 - **Routes stay thin.** A route file holds `createFileRoute` options (`beforeLoad`, `loader`, `validateSearch`) and renders one component imported from `features/*` or `components/shell`. Page components read params and search through `getRouteApi("<route id>")`; nothing outside `routes/` imports from `routes/`. Tests of route modules sit beside them with a `-` prefix so the router ignores them.
 - **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
-- **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
+- **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `packages/ui/src/components` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
 - Tests sit beside the module they test.
 - **Pure logic lives in `lib/` with tests.** Sorting, grouping, formatting, payload building and state transitions that a component holds move to `features/<x>/lib/` with a sibling test, not into `*.logic.ts` files beside the component; the component keeps rendering and wiring.
 - **Project scope.** Components rendered only inside a project read `orgSlug` and `slug` from `useProjectRoute()` (`features/projects/hooks/useProject.ts`), which reads `ProjectContext`. `ProjectLayout` provides it for the project route and `DashboardTicket` for each dashboard row, so don't drill the slugs as props. Components also rendered at org scope (dashboard lists, project tiles, hover cards that show another project's ticket) keep explicit props. Sidebar slots render outside the project tree, so a project-scoped slot wraps its content in `ProjectContext`.
+
+### UI package: `@pp/ui`
+
+Design-system primitives (shadcn and Fluid) live in `packages/ui`, not in the app. Import them as `@pp/ui/<name>` (`@pp/ui/checkbox`), their helpers as `@pp/ui/lib/*` and `@pp/ui/hooks/*`. The app imports `@pp/ui/theme.css` right after Tailwind; it holds the tokens, type scale, fonts and global interaction rules.
+
+- **No translations in the package.** Every visible or spoken string is a prop (`closeLabel`, `cancelLabel`, `keyLabels`, `navLabels`, …), and the app passes its Paraglide messages. Never import `@/paraglide` or app modules from `packages/ui`, and never give a string prop an English default.
+- **Gallery.** Every primitive gets a page in `packages/ui/docs/components/<name>/page.mdx` with its design rules, and demos as plain React files in its `demos/` folder, placed with `<Demo name="…" title="…" />`. A `States` demo pins hover, pressed and focus through `data-force`. Each demo runs an axe check, and `/demo/<page>/<name>` renders it alone (`?theme=dark` for dark). The gallery is built from `@pp/ui` itself; it starts with `bun run dev` from the root, or alone with `bun run dev:gallery` (port 6006). The `ui-components` skill (`.agents/skills/ui-components/SKILL.md`) covers adding, changing and documenting a primitive.
 
 ### Types: readonly type aliases, never interfaces
 
@@ -89,9 +95,13 @@ Exception: a single short line is acceptable only when a value would actively mi
 
 Forbidden, regardless: multi-line comment blocks, design-rationale prose, layout reasoning, "this used to be X" notes, restatements of what the code obviously does, before/after explanations, and "we picked this because" passages. Those go in the commit message. If you catch yourself writing more than one line, delete the whole comment.
 
-### Press feel — no scale
+### Press feel — buttons scale down on active
 
-Nothing scales on `:active`. A press shows through the pressed fill (`bg-active`) and the action's own result, never a transform.
+Buttons should scale to **97%** on `:active` with a **100–150ms** transform transition, so the user feels the press land. Use `active:scale-[0.97]` (or `active:[&>span]:scale-[0.97]` when the button's content is what should compress, e.g. an icon button) paired with `transition-transform duration-100`.
+
+This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
+
+Buttons that open a popup press like any other button. A popup anchors to its trigger's box, and a pressed trigger is 3% smaller, so `@pp/ui`'s Popover, Dropdown menu and Select measure the trigger (or an `anchor` element you pass) through `lib/popupAnchor`, which divides the press scale back out. Don't add a no-scale exception for popup triggers.
 
 ### Hover feel — instant in, eased out
 
@@ -117,12 +127,18 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 Each UI pattern has exactly one primitive. Reach for it (or add a variant to it) before writing a second version:
 
-- **Segmented tabs:** `SegmentedTabs` (`components/ui/segmented-tabs.tsx`), controlled by `value` / `onValueChange`, with `default | inline | view` variants and `labels="active"` for icon-only tabs. A tab that must be a router link passes an item `render` element.
-- **Command menu:** the Fluid `CommandMenu` (`components/ui/command-menu.tsx`), with `CommandMenuInput` when the list filters from a text box. There is no cmdk.
-- **Confirm:** `ConfirmButton` (`components/ui/confirm-button.tsx`). It owns its open state; callers never keep a `confirming` boolean. It covers inline swaps (`Trigger`, `DeleteTrigger`, `Confirm`), confirms opened from a menu (`MenuItem`, `Popover`, or `Idle` plus `Confirm` inside the menu), typed confirmation (`Action typed`), and the mutation atom's `waiting` / `error`.
-- **Inline embed chip:** `Chip` (`components/ui/chip.tsx`) for bordered inline chips in the editor. Tinted labels and tags use `Badge`.
+- **Segmented tabs:** `SegmentedTabs` (`packages/ui/src/components/segmented-tabs.tsx`), controlled by `value` / `onValueChange`, with `default | inline | view` variants and `labels="active"` for icon-only tabs. A tab that must be a router link passes an item `render` element.
+- **Command menu:** the Fluid `CommandMenu` (`packages/ui/src/components/command-menu.tsx`), with `CommandMenuInput` when the list filters from a text box. There is no cmdk.
+- **Confirm:** `ConfirmButton` (`packages/ui/src/components/confirm-button.tsx`). It owns its open state; callers never keep a `confirming` boolean. It covers inline swaps (`Trigger`, `DeleteTrigger`, `Confirm`), confirms opened from a menu (`MenuItem`, `Popover`, or `Idle` plus `Confirm` inside the menu), typed confirmation (`Action typed`), and the mutation atom's `waiting` / `error`.
+- **Inline embed chip:** a soft `Badge size="xs"` (`packages/ui/src/components/badge.tsx`) on the text's line, with actions as 24px `chipIconActionClass` targets beside the name, never inside it (attachment, Figma and Paper chips), and centred on the text with `inline-chip`, never nudged by hand; tinted labels and tags use the default `soft` variant too, and counts next to a label use `variant="count"`.
 - **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
 - **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
+
+### No dialogs
+
+The app has no modal dialogs (PRODUCT.md, "Zero dialogs"), and `@pp/ui` has no Dialog component. The cmd+k menu is the one modal surface. An action reached from cmd+k is a cmd+k page (`features/command-menu/pages.tsx`, built on `CommandFrame`; see `CreateTicketPage`, `CreateSprintPage`, `TicketFlagPage`). An action on the page opens a `Popover` on its trigger; when it's picked from a menu, anchor the popover to the menu's trigger (`anchor` ref) or run it as a ticket-menu flow (`TicketMenu` `Flow`). A command that needs input to carry over (a sprint, a related ticket, a typed title) sets a request atom (`newTicketRequest`, `newSprintRequest`) before `env.open(page)`.
+
+Confirmations never open a popover either. A destructive or irreversible action in a menu (delete, remove, disconnect, transfer, cancel an invite) is a `DropdownMenuConfirmItem`, which confirms in place; one on the page is a `ConfirmButton` capsule. Follow the states, wording and checklist on the gallery's Dropdown menu page, "Confirm items": always pass `busyLabel`, and return the mutation's `Exit` from `onConfirm` so failures show in the item.
 
 ### Ticket rows are one component
 

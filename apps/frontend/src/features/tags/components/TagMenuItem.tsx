@@ -1,6 +1,5 @@
 import type { Tag } from "@pp/shared"
-
-import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
+import { DropdownMenuCheckboxItem } from "@pp/ui/dropdown-menu"
 
 export function TagMenuItem({
   tag,
@@ -12,13 +11,18 @@ export function TagMenuItem({
   onToggle: () => void
 }>) {
   return (
-    <CheckboxMenuItem label={tag.name} checked={checked} onToggle={onToggle}>
+    <DropdownMenuCheckboxItem
+      label={tag.name}
+      checked={checked}
+      closeOnClick={false}
+      onCheckedChange={onToggle}
+    >
       <span
         aria-hidden
         className="size-2 shrink-0 rounded-full"
         style={{ backgroundColor: tag.color }}
       />
       <span className="min-w-0 truncate">{tag.name}</span>
-    </CheckboxMenuItem>
+    </DropdownMenuCheckboxItem>
   )
 }

@@ -7,12 +7,12 @@ import type {
   TicketDetail,
   TicketId
 } from "@pp/shared"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { Archive } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Archive } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Markdown } from "@/features/editor/components/Markdown"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
 import {
@@ -273,7 +273,9 @@ export function TicketPage({
               onStartType={(type) => onTypePatch({ type })}
             />
           ) : (
-            <Markdown>{ticket.body}</Markdown>
+            <Markdown figmaTarget={{ orgSlug, slug, ticketId: ticket.id }}>
+              {ticket.body}
+            </Markdown>
           )}
         </div>
 

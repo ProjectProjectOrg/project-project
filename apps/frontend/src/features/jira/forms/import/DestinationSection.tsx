@@ -1,6 +1,7 @@
 import type { JiraMigrationDestinationConflict } from "@pp/shared"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
 
-import { Input } from "@/components/ui/input"
 import {
   conflictFor,
   destinationFieldSchemas,
@@ -8,7 +9,6 @@ import {
 } from "@/features/jira/lib/destination"
 import type { JiraImportSetup } from "@/features/jira/lib/draft"
 import type { JiraSetupCounts } from "@/features/jira/lib/setup"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { validateDestinationField, type JiraImportForm } from "./opts"
@@ -93,7 +93,7 @@ export function DestinationSection({
                   <Input
                     value={field.value}
                     aria-invalid={error !== null}
-                    className={literal ? "font-mono" : undefined}
+                    className={literal ? "tabular-nums" : undefined}
                     onBlur={field.handleBlur}
                     onChange={(event) => {
                       field.handleChange(

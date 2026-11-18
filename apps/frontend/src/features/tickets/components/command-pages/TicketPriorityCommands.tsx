@@ -1,11 +1,12 @@
 import type { TicketPriority } from "@pp/shared"
-import type { ReactNode } from "react"
-
 import {
   CommandMenuCheck,
   CommandMenuItem,
   CommandMenuShortcut
-} from "@/components/ui/command-menu"
+} from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
+import type { ReactNode } from "react"
+
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
@@ -16,7 +17,7 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { useTicketMutation } from "./useTicketMutation"
@@ -66,9 +67,16 @@ export function TicketPriorityCommands({
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {number !== undefined && (
-              <CommandMenuShortcut keys={number} aria-hidden />
+              <CommandMenuShortcut
+                keys={number}
+                keyLabels={keyLabels()}
+                aria-hidden
+              />
             )}
-            <CommandMenuCheck checked={current?.priority === priority} />
+            <CommandMenuCheck
+              checked={current?.priority === priority}
+              label={m.chrome_command_menu_selected()}
+            />
           </CommandMenuItem>
         )
       }}

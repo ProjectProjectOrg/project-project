@@ -1,5 +1,5 @@
+import { ArrowUpRight } from "@pp/ui/icons"
 import { Link, type LinkComponentProps } from "@tanstack/react-router"
-import { ArrowUpRight } from "lucide-react"
 
 export function SectionLink({
   label,

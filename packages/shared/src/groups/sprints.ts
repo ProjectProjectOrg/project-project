@@ -8,7 +8,10 @@ const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
 export const SprintState = Schema.Literals(["active", "planned", "completed"])
 export type SprintState = typeof SprintState.Type
 
-export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
+export function sprintState(
+  sprint: Pick<Group, "completedAt" | "startsAt">,
+  now: Date = nowDate()
+): SprintState {
   if (sprint.completedAt !== null) return "completed"
   if (sprint.startsAt === null || sprint.startsAt > now) return "planned"
   return "active"

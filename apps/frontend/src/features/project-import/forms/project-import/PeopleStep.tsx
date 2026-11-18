@@ -1,11 +1,11 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { OrgMember, ProjectImportPerson } from "@pp/shared"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { Select, SelectTrigger } from "@pp/ui/select"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { MappingLabel, MappingRow } from "@/components/shell/MappingRow"
 import { StepFrame } from "@/components/shell/wizard/StepFrame"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { orgMembers, orgRequest } from "@/features/organizations/atoms/orgs"
 import { m } from "@/paraglide/messages"
 

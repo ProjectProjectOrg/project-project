@@ -1,4 +1,3 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
 import {
   RegistryContext,
   useAtomRefresh,
@@ -11,30 +10,27 @@ import {
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import {
+  closeHoverCard,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
+import { Copy } from "@pp/ui/icons"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { TicketLine, TicketLines, TicketLinesLabel } from "@pp/ui/ticket-lines"
 import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import { Copy } from "lucide-react"
-import {
-  createRef,
-  useContext,
-  useEffect,
-  type ComponentProps,
-  type ReactNode
-} from "react"
+import { Fragment, useContext, useEffect, type ComponentProps } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { PreviewCardContent } from "@/components/ui/preview-card"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
-import {
-  project,
-  type ProjectRequest
-} from "@/features/projects/atoms/projects"
+import { project } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
   statusesRequest
@@ -65,7 +61,6 @@ import {
   type RelationPreviewKind
 } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =
@@ -82,50 +77,43 @@ type TicketPreview =
   | Readonly<{ kind: "tag"; name: TagName }>
   | Readonly<{ kind: "tags"; names: ReadonlyArray<TagName> }>
 
-type TicketPreviewPayload = Readonly<{
-  project: ProjectRequest
-  preview: TicketPreview
-}>
+// Ticket previews are hover cards in the tooltip host: one on screen at a
+// time, gliding between triggers. A click on a ticket line closes it at once.
+const closePreviewNow = closeHoverCard
 
-const ticketPreview = PreviewCard.createHandle<TicketPreviewPayload>()
-const ticketPreviewActions = createRef<PreviewCard.Root.Actions>()
-
-const closePreviewNow = () => {
-  ticketPreview.close()
-  ticketPreviewActions.current?.unmount()
-}
-
-const PREVIEW_DELAY_MS = 400
-
+// A chip or link that previews on hover (and on focus). Chips whose preview
+// holds more than they say (lists, a flag's reason) also open on click, for
+// the keyboard and touch.
 export function TicketPreviewTrigger({
   preview,
+  onClick,
   ...props
 }: Readonly<{ preview: TicketPreview }> &
-  Omit<
-    ComponentProps<typeof PreviewCard.Trigger>,
-    "handle" | "payload" | "delay" | "closeDelay" | "onPointerEnter"
-  >) {
+  Omit<ComponentProps<typeof HoverCardTrigger>, "openOnClick">) {
   const project = useProjectRequest()
   const warm = useWarmPreview()
+  const opensOnClick = preview.kind !== "ticket"
   return (
-    <PreviewCard.Trigger
-      handle={ticketPreview}
-      payload={{ project, preview }}
-      delay={PREVIEW_DELAY_MS}
-      closeDelay={0}
-      aria-haspopup={preview.kind === "ticket" ? undefined : "dialog"}
-      onPointerEnter={() => warm(preview)}
-      onClick={
-        preview.kind === "ticket"
-          ? undefined
-          : (event) => {
-              event.stopPropagation()
-              warm(preview)
-              ticketPreview.open(event.currentTarget.id)
-            }
-      }
-      {...props}
-    />
+    <HoverCard>
+      <HoverCardTrigger
+        openOnClick={opensOnClick}
+        aria-haspopup={opensOnClick ? "dialog" : undefined}
+        onPointerEnter={() => warm(preview)}
+        onClick={(event) => {
+          if (opensOnClick) {
+            event.stopPropagation()
+            warm(preview)
+          }
+          onClick?.(event)
+        }}
+        {...props}
+      />
+      <HoverCardContent className={PREVIEW_WIDTHS[preview.kind]}>
+        <ProjectContext value={project}>
+          <PreviewContent preview={preview} />
+        </ProjectContext>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -150,29 +138,20 @@ function useWarmPreview() {
   }
 }
 
+// Loads the Markdown renderer ahead of the first ticket preview. (The
+// previews themselves render where their triggers are.)
 export function TicketPreviewRoot() {
   useEffect(() => {
     void loadMarkdown()
   }, [])
-  return (
-    <PreviewCard.Root handle={ticketPreview} actionsRef={ticketPreviewActions}>
-      {({ payload }) =>
-        payload !== undefined && (
-          <PreviewCardContent className={PREVIEW_WIDTHS[payload.preview.kind]}>
-            <ProjectContext value={payload.project}>
-              <PreviewContent preview={payload.preview} />
-            </ProjectContext>
-          </PreviewCardContent>
-        )
-      }
-    </PreviewCard.Root>
-  )
+  return null
 }
 
 const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
-  ticket: "w-80",
-  relations: "w-72 p-1.5",
-  subTickets: "w-72 p-1.5",
+  ticket: "w-80 p-3",
+  // Ticket lists are menu rows, so the popup pads like a menu's.
+  relations: "w-72 p-1",
+  subTickets: "w-72 p-1",
   flag: "w-72 p-1.5",
   tag: "w-64 p-0",
   tags: "w-56 p-1.5"
@@ -236,13 +215,20 @@ function RelationsPreview({
     finished
   )
   if (groups.length === 0) return <PreviewEmpty />
-  return groups.map((group) => (
-    <PreviewList key={group.key} label={RELATION_PREVIEW_LABELS[group.key]()}>
-      {group.tickets.map((ticket) => (
-        <PreviewTicketRow key={ticket.id} ticket={ticket} />
+  return (
+    <TicketLines>
+      {groups.map((group) => (
+        <Fragment key={group.key}>
+          <TicketLinesLabel>
+            {RELATION_PREVIEW_LABELS[group.key]()}
+          </TicketLinesLabel>
+          {group.tickets.map((ticket) => (
+            <PreviewTicketRow key={ticket.id} ticket={ticket} />
+          ))}
+        </Fragment>
       ))}
-    </PreviewList>
-  ))
+    </TicketLines>
+  )
 }
 
 function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
@@ -366,7 +352,8 @@ function SubTicketsPreview({
   )
   if (!Result.isSuccess(rows)) return <ListSkeleton />
   return (
-    <PreviewList label={label}>
+    <TicketLines>
+      <TicketLinesLabel>{label}</TicketLinesLabel>
       {rows.value.map(({ key, ticket }) => (
         <PreviewTicketRow
           key={key}
@@ -375,24 +362,11 @@ function SubTicketsPreview({
           search={search}
         />
       ))}
-    </PreviewList>
+    </TicketLines>
   )
 }
 
-function PreviewList({
-  label,
-  children
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return (
-    <div className="flex flex-col">
-      <div className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
-        {label}
-      </div>
-      {children}
-    </div>
-  )
-}
-
+// A previewed ticket: a menu row (TicketLine) that opens the ticket.
 function PreviewTicketRow({
   ticket,
   current = false,
@@ -403,40 +377,28 @@ function PreviewTicketRow({
   search?: TicketDetailSearch
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const className =
-    "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-body text-muted-foreground"
-  const content = (
-    <>
-      <TicketStatusIcon status={ticket.status} orgSlug={orgSlug} slug={slug} />
-      <span className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-caption tabular-nums">
-          {ticket.id}
-        </span>
-        <span className="min-w-0 truncate text-foreground">{ticket.title}</span>
-      </span>
-    </>
-  )
-  if (current) {
-    return (
-      <div aria-current="page" className={cn(className, "bg-active")}>
-        {content}
-      </div>
-    )
-  }
   return (
-    <Link
-      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-      params={{ orgSlug, slug, id: ticket.id }}
-      search={search ?? {}}
-      preload="intent"
+    <TicketLine
+      status={
+        <TicketStatusIcon
+          status={ticket.status}
+          orgSlug={orgSlug}
+          slug={slug}
+        />
+      }
+      ticketKey={ticket.id}
+      title={ticket.title}
+      current={current}
       onClick={closePreviewNow}
-      className={cn(
-        className,
-        "transition-colors outline-none hover:bg-hover focus-visible:bg-hover"
-      )}
-    >
-      {content}
-    </Link>
+      render={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+          params={{ orgSlug, slug, id: ticket.id }}
+          search={search ?? {}}
+          preload="intent"
+        />
+      }
+    />
   )
 }
 

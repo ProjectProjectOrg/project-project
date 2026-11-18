@@ -1,5 +1,5 @@
 import type { GithubConnection } from "@pp/shared"
-import { GitBranch } from "lucide-react"
+import { GitBranch } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"

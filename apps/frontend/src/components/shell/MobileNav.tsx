@@ -1,17 +1,11 @@
 import type { User } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Menu } from "@pp/ui/icons"
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@pp/ui/sheet"
 import { useRouter } from "@tanstack/react-router"
-import { Menu } from "lucide-react"
-import { LayoutGroup } from "motion/react"
 import { useEffect, useState } from "react"
 
-import { SidebarContent } from "@/components/shell/Sidebar"
-import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger
-} from "@/components/ui/sheet"
+import { SidebarContent } from "@/components/shell/sidebar/Sidebar"
 import { m } from "@/paraglide/messages"
 
 export function MobileNav({ user }: { user: User }) {
@@ -40,7 +34,7 @@ export function MobileNav({ user }: { user: User }) {
       <SheetTrigger
         render={
           <Button
-            variant="quiet"
+            variant="ghost"
             size="square-9"
             aria-label={m.chrome_nav_open()}
             className="lg:hidden"
@@ -49,11 +43,9 @@ export function MobileNav({ user }: { user: User }) {
           </Button>
         }
       />
-      <SheetContent side="left" showCloseButton={false}>
+      <SheetContent side="left" className="w-auto">
         <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
-        <LayoutGroup id="sidebar-drawer">
-          <SidebarContent user={user} />
-        </LayoutGroup>
+        <SidebarContent user={user} />
       </SheetContent>
     </Sheet>
   )

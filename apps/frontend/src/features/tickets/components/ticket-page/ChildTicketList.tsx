@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Member, Ticket } from "@pp/shared"
+import { listGridClassName } from "@pp/ui/list-row"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -10,10 +11,7 @@ import {
   childTickets,
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
-import {
-  Row,
-  rowGridClassName
-} from "@/features/tickets/components/ticket-list/Row"
+import { Row } from "@/features/tickets/components/ticket-list/Row"
 import {
   SelectionOrder,
   TicketSelectionProvider
@@ -62,7 +60,7 @@ export function ChildTicketList({
               <TicketViewSourceContext
                 value={{ from: "parent", parentId: parent.id }}
               >
-                <div className={rowGridClassName}>
+                <div className={listGridClassName}>
                   {value.map((row) => (
                     <Row
                       key={row.key}

@@ -1,13 +1,14 @@
 import { pickActiveSprint, pickEarliestPlannedSprint } from "@pp/shared"
+import { Flag, Plus, Zap } from "@pp/ui/icons"
 import { useMatch, useNavigate } from "@tanstack/react-router"
-import { Flag, Plus, Zap } from "lucide-react"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { Command } from "@/features/command-menu/lib/commands"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView } from "@/hooks/useViewPreference"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -64,8 +65,8 @@ export function BacklogCommandScope({
         label: m.sprints_command_plan_new,
         icon: Flag,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createSprintDialog, { orgSlug, projectSlug: slug })
+          env.registry.set(newSprintRequest, { orgSlug, projectSlug: slug })
+          env.open("createSprint")
         }
       })
     }
@@ -83,14 +84,15 @@ export function BacklogCommandScope({
     if (planned !== null) {
       commands.push({
         id: "backlog.create-ticket",
+        hotkey: appHotkeys["tickets.create-anywhere"],
         group: "create",
         label: m.tickets_command_create,
         icon: Plus,
         keywords: ["new", "add", "issue"],
         when: ({ tickets }) => tickets.create,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createTicketDialog, { orgSlug, projectSlug: slug })
+          env.registry.set(newTicketRequest, { orgSlug, projectSlug: slug })
+          env.open("createTicket")
         }
       })
     }

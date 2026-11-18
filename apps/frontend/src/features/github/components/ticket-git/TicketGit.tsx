@@ -6,10 +6,11 @@ import type {
   Ticket,
   TicketDetail
 } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { AlertTriangle, Circle, Layers } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { AlertTriangle, Circle, Layers } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import {
   StackedBranches,
   stackSummary
@@ -20,7 +21,6 @@ import { repoSlug, ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchAttemptError } from "./BranchAttemptError"

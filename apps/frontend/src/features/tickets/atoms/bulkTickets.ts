@@ -31,7 +31,8 @@ export const bulkChangedKeys = (
     ...Keys.ticketsChanged(scope),
     Keys.sprintMembership(scope),
     ...(sprintChanged ? [Keys.sprints(scope)] : []),
-    ...tickets.map((id) => Keys.ticket(scope, id))
+    ...tickets.map((id) => Keys.ticket(scope, id)),
+    Keys.pins(req.orgSlug)
   ]
 }
 

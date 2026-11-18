@@ -1,10 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TypeKey } from "@pp/shared"
+import type { EditorBlocks } from "@pp/ui/editor/blocks/editor-blocks"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo } from "react"
 
-import type { EditorBlocks } from "@/features/editor/lexical/blocks/editorBlocks"
 import {
   projectLibraryFor,
   projectLibraryRequest

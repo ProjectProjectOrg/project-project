@@ -1,8 +1,17 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+import { FolderPlus, Plus } from "@pp/ui/icons"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { PageContainer, PageHeader } from "@/components/shell/Page"
@@ -24,7 +33,6 @@ import {
 } from "@/features/projects/atoms/projects"
 import { TicketSelectionProvider } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useOrgActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/")
@@ -101,28 +109,30 @@ function greet(): string {
   return m.org_dashboard_greeting_evening()
 }
 
+// The dashboard of an organisation with no projects: the whole screen is the
+// invitation, so the dither is at its strongest and drifts.
 function NewProjectCTA({ orgSlug }: { orgSlug: string }) {
   return (
-    <Link
-      to="/orgs/$orgSlug/projects"
-      params={{ orgSlug }}
-      className={cn(
-        "group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-background/50 px-6 py-12 text-center transition-colors",
-        "hover:border-border hover:bg-hover"
-      )}
-    >
-      <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-background group-hover:text-foreground">
-        <Plus className="size-5" strokeWidth={1.75} />
-      </div>
-      <div>
-        <div className="text-body font-semibold">
-          {m.org_dashboard_first_project_cta_title()}
-        </div>
-        <p className="mt-1 max-w-sm text-caption text-muted-foreground">
+    <Empty intensity="strong">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FolderPlus strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.org_dashboard_first_project_cta_title()}</EmptyTitle>
+        <EmptyDescription>
           {m.org_dashboard_first_project_cta_body()}
-        </p>
-      </div>
-    </Link>
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button
+          size="sm"
+          leadingIcon={Plus}
+          render={<Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />}
+        >
+          {m.org_dashboard_first_project_cta_action()}
+        </Button>
+      </EmptyContent>
+    </Empty>
   )
 }
 

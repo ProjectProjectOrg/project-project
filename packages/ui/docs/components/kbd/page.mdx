@@ -1,0 +1,78 @@
+export const meta = {
+  title: "Kbd",
+  group: "Primitives",
+  description:
+    "A key or a shortcut: the / that focuses a search, Esc and ↵ on buttons, shortcuts in menus, tooltips and ⌘K.",
+  sources: [
+    {
+      kind: "shadcn",
+      name: "kbd",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/kbd"
+    }
+  ]
+}
+
+## Overview
+
+The same key on every surface it appears on. It takes its fill and glyph from the text around it, so a key on a primary button or in a tooltip needs no overrides.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { Kbd, KbdShortcut } from "@pp/ui/kbd"
+import { keyLabels } from "@/lib/keyLabels"
+
+// One key, as typed.
+<Kbd aria-hidden>/</Kbd>
+
+// A shortcut: ⌘ ⇧ P on a Mac, Ctrl Shift P elsewhere.
+<KbdShortcut keys="mod+shift+p" keyLabels={keyLabels()} />
+
+// Glyphs render as icons on every platform.
+<KbdShortcut size="sm" keys="↵" keyLabels={keyLabels()} />
+```
+
+| Part          | Prop        | Type                                                  | Default     |
+| ------------- | ----------- | ----------------------------------------------------- | ----------- |
+| `Kbd`         | `size`      | `"default"` (20px) \| `"sm"` (16px)                   | `"default"` |
+| `KbdShortcut` | `keys`      | `string \| string[]`: `"mod+k"`, `"g+b"`, `"↵"`, `"↑↓"` |             |
+|               | `keyLabels` | `KeyLabels`: names for keys off a Mac, from the app's messages | |
+|               | `size`      | as `Kbd`                                              | `"default"` |
+| `KbdGroup`    |             | keys side by side, 2px apart                          |             |
+
+## Rules
+
+### One keycap
+
+Kbd is the only keycap in the app. ⌘K's shortcuts (`CommandMenuShortcut`) and its footer hints render `KbdShortcut`, and the input group no longer styles its own key. A key looks the same in a field, a menu, on a button and in ⌘K.
+
+### Colour comes from where it sits
+
+The glyph is the surrounding text colour, so it keeps that text's contrast, and the fill is that colour at 8%. On a muted menu row the key is quiet, on a primary button it inverts with the button, and in the ink tooltip it turns light. Call sites never recolour a key.
+
+### Shape and light
+
+The corners are half the key's height (10px at 20px, 8px at 16px), shaped by `--button-corner`, like the buttons. There's no outline. A soft glow along the bottom inside edge (`--kbd-glow`) gives the key a little depth, like a key catching light. In the search field the key sits 8px in on every side, so its 10px corners are concentric with the field's 18px. On a button the bottom light comes from the button's own text colour at 20%, so a key on the dark primary button gets a soft edge rather than a white bevel.
+
+### Letters sit in the middle of the key
+
+Kbd trims its text to cap height and baseline (`text-box: trim-both cap alphabetic`), so flex centring lands on the capitals, not on the font's line box. Glyph icons get an explicit size (12px, 10px small), so a menu row's or a button's own icon sizing never blows them up.
+
+### In a button, a key sits like a trailing icon
+
+A button that ends in a key pulls its end padding in to (height − key height) ÷ 2, so the key is equally far from the top, bottom and end: 6px for a small key on a 28px button, 6px for a default key on a 32px one. Button does this itself; call sites don't set padding.
+
+### Shortcuts are written once
+
+`keys` takes the shortcut the code listens for (`"mod+shift+p"`). `KbdShortcut` turns it into ⌘ ⇧ P on a Mac and Ctrl Shift P elsewhere, from the app's `keyLabels`. Arrows, ↵, ⇧, ⌘ and the other modifiers draw as icons, so they sit on the same line and weight as letters. The glyph itself stays in the text for screen readers.
+
+### Keys are hints, not controls
+
+A key is decoration next to a control that already says what it does. Mark it `aria-hidden` and put the shortcut on the control with `aria-keyshortcuts`. Keys don't react to hover or press.
+
+## Examples
+
+<Demo name="in-the-app" title="In the app" />

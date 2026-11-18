@@ -89,6 +89,8 @@ export type CommandPage =
   | "ticketCreateRelated"
   | "ticketRemoveRelation"
   | "ticketArchive"
+  | "ticketFlag"
+  | "ticketDuplicate"
   | "ticketDelete"
   | "githubRegisterApp"
   | "githubInstallApp"
@@ -98,7 +100,11 @@ export type CommandPage =
   | "switchOrg"
   | "switchProject"
   | "createProject"
+  | "createSprint"
+  | "createTicket"
+  | "sendFeedback"
   | "theme"
+  | "shortcuts"
   | "editorPreference"
   | "viewFilter"
   | FilterPage
@@ -148,6 +154,7 @@ const SELECTION_PAGES: ReadonlySet<CommandPage> = new Set<CommandPage>([
   "ticketType",
   "ticketTags",
   "ticketArchive",
+  "ticketFlag",
   "ticketDelete"
 ])
 

@@ -1,7 +1,7 @@
 import type { GithubConnection } from "@pp/shared"
-import { GitBranch } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { GitBranch } from "@pp/ui/icons"
 
-import { Button } from "@/components/ui/button"
 import { repoUrl } from "@/features/github/lib/branchUrl"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
@@ -28,9 +28,9 @@ export function AboutRepositories({
       {repos.map((repo) => (
         <Button
           key={repo.repoId || `${repo.repoOwner}/${repo.repoName}`}
-          variant="sidebar-link"
+          variant="ghost"
           size="sm"
-          className="w-full"
+          className="w-full justify-start gap-2 px-1.5"
           render={
             <a
               href={repoUrl(repo)}

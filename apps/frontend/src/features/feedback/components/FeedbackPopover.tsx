@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Composer } from "@pp/ui/composer"
+import { Popover, PopoverTitle } from "@pp/ui/popover"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import type { RefObject } from "react"
 
-import { Composer } from "@/components/ui/composer"
-import { Popover, PopoverTitle } from "@/components/ui/popover"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 

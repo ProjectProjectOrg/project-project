@@ -20,34 +20,36 @@ export const OUTER_RING: ReadonlyArray<ColorSwatch> = OUTER_HUES.map((h) =>
   swatch(h, OUTER.L, OUTER.C)
 )
 
+// The picker's colours, laid out as a honeycomb (ColorPicker): 12 strong
+// colours (the outer ring without its repeat of the first hue), 6 soft ones
+// on the hues where the honeycomb's inner ring meets them, and 4 neutrals.
+export const STRONG_RING: ReadonlyArray<ColorSwatch> = OUTER_RING.slice(0, 12)
+
+export const SOFT_RING: ReadonlyArray<ColorSwatch> = [
+  45, 105, 165, 225, 285, 345
+].map((h) => swatch(h, INNER.L, INNER.C))
+
+export const NEUTRALS: ReadonlyArray<ColorSwatch> = [
+  0.45, 0.66, 0.84, 0.98
+].map((L) => swatch(0, L, 0))
+
+// Every colour the picker offers.
 export const TAG_COLOR_WHEEL: ReadonlyArray<ColorSwatch> = [
-  ...INNER_RING,
-  ...OUTER_RING
+  ...SOFT_RING,
+  ...STRONG_RING,
+  ...NEUTRALS
+]
+
+// Every colour that may be stored: the picker's, plus the earlier soft ring
+// (INNER_RING), which saved tags, statuses and templates may still use.
+export const STORED_COLORS: ReadonlyArray<ColorSwatch> = [
+  ...TAG_COLOR_WHEEL,
+  ...INNER_RING
 ]
 
 export const TAG_DEFAULT_PALETTE: ReadonlyArray<string> = OUTER_RING.map(
   (c) => c.hex
 )
-
-export type StateColorToken = {
-  readonly light: ColorSwatch
-  readonly dark: ColorSwatch
-}
-
-function monoState(s: ColorSwatch): StateColorToken {
-  return { light: s, dark: s }
-}
-
-export const STATE_COLORS = {
-  danger: monoState(swatch(15, OUTER.L, OUTER.C)),
-  warning: {
-    light: swatch(75, 0.5, 0.16),
-    dark: swatch(75, 0.78, 0.07)
-  },
-  success: monoState(swatch(135, OUTER.L, OUTER.C)),
-  info: monoState(swatch(255, OUTER.L, OUTER.C)),
-  merged: monoState(swatch(285, OUTER.L, OUTER.C))
-} as const satisfies Record<string, StateColorToken>
 
 export const BASELINE_STATUS_COLORS: ReadonlyArray<string> = [
   "#a3a3a3",

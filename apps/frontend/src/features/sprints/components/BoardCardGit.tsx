@@ -5,15 +5,16 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ArrowRight,
   GitBranch,
   LoaderCircle
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Result from "effect/reactivity/AsyncResult"
 
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { pendingLabel } from "@/features/github/components/ticket-git/GitField"
 import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
@@ -23,7 +24,6 @@ import { ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { formatRelative } from "@/lib/relativeTime"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { GitChipMenu } from "./GitChipMenu"
@@ -257,14 +257,18 @@ function BranchChip({
               </PreviewItem>
             )}
             <PreviewItem icon={ArrowRight}>
-              <span className="font-mono">{base}</span>
+              <span className="tabular-nums">{base}</span>
             </PreviewItem>
           </PreviewMeta>
         </>
       }
     >
       <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
-      <MiddleTruncate value={label} title={undefined} className="font-mono" />
+      <MiddleTruncate
+        value={label}
+        title={undefined}
+        className="tabular-nums"
+      />
     </GitPreview>
   )
 }
@@ -317,10 +321,10 @@ function PullRequestChip({
                 <MiddleTruncate
                   value={pr.branch}
                   title={undefined}
-                  className="max-w-28 font-mono"
+                  className="max-w-28 tabular-nums"
                 />
                 <ArrowRight className="size-3 shrink-0" strokeWidth={1.75} />
-                <span className="font-mono">{pr.baseBranch}</span>
+                <span className="tabular-nums">{pr.baseBranch}</span>
               </PreviewItem>
             )}
           </PreviewMeta>

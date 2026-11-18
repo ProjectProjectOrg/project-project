@@ -82,7 +82,7 @@ export function ReviewStep({
             {(destination) => (
               <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="font-semibold">{destination.name}</span>
-                <span className="font-mono text-caption text-muted-foreground">
+                <span className="text-caption text-muted-foreground tabular-nums">
                   {destination.key} · {destination.slug}
                 </span>
               </div>
@@ -111,7 +111,7 @@ export function ReviewStep({
               {imported.types.map((type) => (
                 <li key={type.sourceKey}>
                   {type.name}{" "}
-                  <span className="font-mono text-caption">{type.key}</span>
+                  <span className="text-caption tabular-nums">{type.key}</span>
                 </li>
               ))}
             </ul>

@@ -1,14 +1,15 @@
 import type { TicketId, TicketPriority } from "@pp/shared"
-import type { ReactElement } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { ShortcutTooltip } from "@/components/ui/tooltip"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
+import type { ReactElement } from "react"
+
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
@@ -16,7 +17,7 @@ import {
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 export const priorityOptions = () =>
@@ -51,7 +52,10 @@ export function PriorityMenu({
 }>) {
   return (
     <DropdownMenu disabled={disabled}>
-      <ShortcutTooltip hotkey={appHotkeys["tickets.priority"]}>
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.priority"]}
+        keyLabels={keyLabels()}
+      >
         <DropdownMenuTrigger render={trigger} />
       </ShortcutTooltip>
       <DropdownMenuContent
@@ -95,7 +99,8 @@ export function PrioritySelect({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           size={showLabel ? undefined : "square-6"}
           onClick={(e) => stopPropagation && e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
@@ -153,7 +158,8 @@ export function PriorityBadgeTrigger({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
           className={className}

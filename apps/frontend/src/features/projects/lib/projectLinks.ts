@@ -1,6 +1,5 @@
 import { parseFigmaUrl } from "@pp/shared"
-
-import { isPaperDesignUrl } from "@/features/editor/lexical/paperUrl"
+import { isPaperDesignUrl } from "@pp/ui/editor/paper/paper-url"
 
 export type ProjectLinkKind = "figma" | "paper" | "github" | "local" | "web"
 

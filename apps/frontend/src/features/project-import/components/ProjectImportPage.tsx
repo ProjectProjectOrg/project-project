@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { ProjectImport } from "@pp/shared"
+import { useVisibleInterval } from "@pp/ui/hooks/useVisibleInterval"
 import { getRouteApi } from "@tanstack/react-router"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -8,7 +9,6 @@ import {
   projectImportRequest
 } from "@/features/project-import/atoms/projectImport"
 import { ProjectImportWizard } from "@/features/project-import/forms/project-import"
-import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 import {
   projectImportStageForStatus,

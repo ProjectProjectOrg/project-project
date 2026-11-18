@@ -1,13 +1,13 @@
+import { Button } from "@pp/ui/button"
+import { ChevronLeft } from "@pp/ui/icons"
 import {
   Link,
   useCanGoBack,
   useRouter,
   type LinkComponentProps
 } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
 import type { MouseEvent } from "react"
 
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 type BackButtonProps = {
@@ -34,7 +34,7 @@ export function BackButton({ fallback, label, className }: BackButtonProps) {
 
   return (
     <Button
-      variant="chip-muted"
+      variant="ghost"
       className={className}
       render={<Link {...fallback} onClick={handleClick} />}
     >

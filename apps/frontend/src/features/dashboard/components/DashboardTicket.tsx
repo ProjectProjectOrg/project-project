@@ -1,6 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
+import { boardCardSlotClass } from "@pp/ui/board-column"
+import { cn } from "@pp/ui/lib/utils"
+import { listGridClassName } from "@pp/ui/list-row"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type ReactNode } from "react"
 
@@ -11,21 +14,16 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
-import { BOARD_CARD_SLOT_CLASS } from "@/features/sprints/components/BoardColumnShell"
 import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
 import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import type {
   OrgTicket,
   OrgTicketUpdates
 } from "@/features/tickets/atoms/myTickets"
-import {
-  Row,
-  rowGridClassName
-} from "@/features/tickets/components/ticket-list/Row"
+import { Row } from "@/features/tickets/components/ticket-list/Row"
 import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
-import { cn } from "@/lib/utils"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
@@ -93,7 +91,7 @@ export function DashboardRow({
           onPreviewOpenChange={onPreviewOpenChange}
         />
         {below !== undefined && (
-          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 pb-2.5">
+          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) pr-3 pb-2.5 pl-(--list-pad-start)">
             {below}
           </div>
         )}
@@ -108,7 +106,7 @@ export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
   const members = useProjectMembers(orgSlug, item.project.slug)
   return (
     <ProjectContext.Provider value={projectReq}>
-      <div className={BOARD_CARD_SLOT_CLASS}>
+      <div className={boardCardSlotClass}>
         <SprintBoardCard
           ticket={item.ticket}
           members={members}
@@ -142,7 +140,7 @@ export function DashboardRows({
         bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug })
       }))}
     >
-      <div className={cn(rowGridClassName, below !== undefined && "gap-y-2")}>
+      <div className={cn(listGridClassName, below !== undefined && "gap-y-2")}>
         {tickets.map((item) => (
           <DashboardRow
             key={`${item.project.slug}/${item.ticket.id}`}

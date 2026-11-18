@@ -1,11 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Ticket, TicketStatus } from "@pp/shared"
-import { useNavigate } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRight } from "lucide-react"
-import { type MouseEvent } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +8,14 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { ShortcutTooltip } from "@/components/ui/tooltip"
+} from "@pp/ui/dropdown-menu"
+import { ArrowRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
+import { useNavigate } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { type MouseEvent } from "react"
+
 import {
   statusesFor,
   statusesRequest
@@ -27,7 +28,7 @@ import {
 } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 function StatusTrigger({
@@ -61,12 +62,17 @@ function StatusTrigger({
     disabled
   }
   return (
-    <ShortcutTooltip hotkey={appHotkeys["tickets.status"]} label={label}>
+    <ShortcutTooltip
+      hotkey={appHotkeys["tickets.status"]}
+      label={label}
+      keyLabels={keyLabels()}
+    >
       <DropdownMenuTrigger
         render={
           <Button
             type="button"
-            variant="chip"
+            variant="ghost"
+            tone="strong"
             size={showLabel ? undefined : "square-6"}
             {...triggerProps}
           />
@@ -77,7 +83,7 @@ function StatusTrigger({
             {icon}
             <span
               aria-hidden
-              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-region"
+              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
             />
           </span>
         ) : (

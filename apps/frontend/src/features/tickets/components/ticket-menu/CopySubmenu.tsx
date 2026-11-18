@@ -1,17 +1,17 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Hotkey } from "@tanstack/react-hotkeys"
-import * as Result from "effect/reactivity/AsyncResult"
-import { Bot, Copy, FileText, Hash, Link2, Type } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
-
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
+  DropdownMenuShortcut,
+  DropdownMenuSubTrigger
+} from "@pp/ui/dropdown-menu"
+import { Bot, Copy, FileText, Hash, Link2, Type } from "@pp/ui/icons"
+import type { IconType } from "@pp/ui/icons"
+import type { Hotkey } from "@tanstack/react-hotkeys"
+import * as Result from "effect/reactivity/AsyncResult"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,
@@ -23,6 +23,7 @@ import {
   ticketUrl
 } from "@/features/tickets/lib/ticketClipboard"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
@@ -35,7 +36,7 @@ function CopyItem({
   text,
   hotkey
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   label: string
   text: string | null
   hotkey?: Hotkey
@@ -50,7 +51,9 @@ function CopyItem({
     >
       <Icon className="size-4" strokeWidth={1.75} />
       {label}
-      {hotkey !== undefined && <DropdownMenuShortcut keys={hotkey} />}
+      {hotkey !== undefined && (
+        <DropdownMenuShortcut keys={hotkey} keyLabels={keyLabels()} />
+      )}
     </DropdownMenuItem>
   )
 }

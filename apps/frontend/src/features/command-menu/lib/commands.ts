@@ -7,6 +7,7 @@ import type {
   TicketDetail,
   Tools
 } from "@pp/shared"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import type { AppHotkey } from "@tanstack/react-hotkeys"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
@@ -15,7 +16,6 @@ import type { ReactNode } from "react"
 
 import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import type { TicketNavigationSearch } from "@/features/tickets/lib/ticketSearch"
-import type { IconComponent } from "@/lib/icon"
 
 import type {
   CommandPage,

@@ -1,10 +1,10 @@
+import { cn } from "@pp/ui/lib/utils"
+import { MenuNote } from "@pp/ui/menu-note"
+import { menuLabelClass } from "@pp/ui/menu-styles"
 import type { ReactNode } from "react"
 
-import { MenuNote } from "@/components/ui/menu-note"
-import { menuLabelClass } from "@/components/ui/menu-styles"
 import type { BranchResults } from "@/features/github/hooks/useBranchResults"
 import { textLinkClass } from "@/lib/textLink"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function BranchResultsFrame({

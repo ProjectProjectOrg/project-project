@@ -1,10 +1,10 @@
 import { RegistryContext, useAtom, useAtomValue } from "@effect/atom-react"
+import { CommandMenuDialog } from "@pp/ui/command-menu"
+import { Freeze } from "@pp/ui/freeze"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { useContext, useEffect, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { CommandMenuDialog } from "@/components/ui/command-menu"
-import { Freeze } from "@/components/ui/freeze"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
 import { TicketContextChip } from "@/features/tickets/components/command-pages/TicketContextChip"
 import { TicketSelectionChips } from "@/features/tickets/components/command-pages/TicketSelectionChips"
@@ -29,7 +29,7 @@ import {
 } from "../lib/commandMenu"
 import type { CommandContext, CommandEnv } from "../lib/commands"
 import {
-  commandTarget,
+  openFromScopes,
   scopeCommands,
   scopeSprint,
   scopeView,
@@ -39,7 +39,6 @@ import { COMMAND_PAGES } from "../pages"
 import { commandRegistry } from "../registry"
 import { CommandHotkeys } from "./CommandHotkeys"
 import { RootCommands } from "./RootCommands"
-import { ShortcutSheet } from "./ShortcutSheet"
 
 export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const registry = useContext(RegistryContext)
@@ -53,17 +52,13 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
     <>
       <CommandMenuDialog
         open={state.open}
-        onOpenChange={(open) => {
-          if (!open) {
-            setState(CLOSED_COMMAND_MENU)
-            return
-          }
-          const pointed = registry.get(pointedTicket)
-          const target = commandTarget(orgSlug, scopes, pointed)
+        onOpenChange={(open) =>
           setState(
-            openCommandMenu(target.ticket, "root", target.selection, pointed)
+            open
+              ? openFromScopes(orgSlug, scopes, registry.get(pointedTicket))
+              : CLOSED_COMMAND_MENU
           )
-        }}
+        }
         title={m.chrome_command_menu_title()}
         shortcut={appHotkeys["app.command-menu"]}
         pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
@@ -81,7 +76,6 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
         )}
       </CommandMenuDialog>
       <CommandHotkeys orgSlug={orgSlug} />
-      <ShortcutSheet />
       {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
     </>
   )

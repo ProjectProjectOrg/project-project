@@ -1,24 +1,24 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { JiraProjectChoice } from "@pp/shared"
-import { Check } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   CommandMenu,
   CommandMenuEmpty,
   CommandMenuInput,
   CommandMenuItem,
   CommandMenuList
-} from "@/components/ui/command-menu"
-import { WeightLabel } from "@/components/ui/weight-label"
+} from "@pp/ui/command-menu"
+import { Check } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { WeightLabel } from "@pp/ui/weight-label"
+import { useEffect, useRef, useState } from "react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   jiraProjects,
   jiraProjectsRequest
 } from "@/features/jira/atoms/jiraMigration"
 import { filterJiraProjects } from "@/features/jira/lib/source"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export const pickerHeightClass = "h-[296px]"
@@ -104,7 +104,7 @@ function ProjectList({
             const project = byId.get(item.value)
             return (
               <CommandMenuItem value={item.value}>
-                <span className="w-16 shrink-0 truncate font-mono text-caption text-muted-foreground">
+                <span className="w-16 shrink-0 truncate text-caption text-muted-foreground tabular-nums">
                   {project?.key}
                 </span>
                 <span className="flex min-w-0 flex-1">

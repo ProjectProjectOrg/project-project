@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomSet } from "@effect/atom-react"
 import type { JiraMigrationStatus } from "@pp/shared"
+import { useVisibleInterval } from "@pp/ui/hooks/useVisibleInterval"
 import { useEffect, useRef } from "react"
 
 import {
@@ -10,7 +11,6 @@ import {
   jiraOrgRequest
 } from "@/features/jira/atoms/jiraMigration"
 import { isActiveJiraImport } from "@/features/jira/lib/stages"
-import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 const POLL_INTERVAL_MS = 2_000
 

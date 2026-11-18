@@ -1,48 +1,17 @@
 import {
-  createContext,
-  use,
-  useEffect,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@pp/ui/input-group"
+import { cn } from "@pp/ui/lib/utils"
+import { comboboxProps, type ListboxState } from "@pp/ui/menu-listbox"
+import {
+  Children,
   useId,
-  useMemo,
-  useState,
   type FormEvent,
   type ReactNode,
   type RefObject
 } from "react"
-
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group"
-import { KbdShortcut } from "@/components/ui/kbd"
-import { comboboxProps, type ListboxState } from "@/components/ui/menu-listbox"
-import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
-import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
-
-type CreatorActive = Readonly<{
-  active: boolean
-  setActive: (active: boolean) => void
-}>
-
-const CreatorActiveContext = createContext<CreatorActive | null>(null)
-
-export function CreatorActiveScope({
-  children
-}: Readonly<{ children: ReactNode }>) {
-  const [active, setActive] = useState(false)
-  const value = useMemo<CreatorActive>(() => ({ active, setActive }), [active])
-  return <CreatorActiveContext value={value}>{children}</CreatorActiveContext>
-}
-
-export function DimWhileCreating({
-  className,
-  children
-}: Readonly<{ className?: string; children: ReactNode }>) {
-  const active = use(CreatorActiveContext)?.active ?? false
-  return <div className={cn(className, active && "opacity-35")}>{children}</div>
-}
 
 export type TicketCreatorShellProps = Readonly<{
   inputRef: RefObject<HTMLInputElement | null>
@@ -86,13 +55,6 @@ export function TicketCreatorShell({
   belowInput
 }: TicketCreatorShellProps) {
   const errorId = useId()
-  useGlobalShortcut(appHotkeys["tickets.create"], inputRef)
-
-  const setCreatorActive = use(CreatorActiveContext)?.setActive
-  useEffect(() => {
-    setCreatorActive?.(expanded)
-    return () => setCreatorActive?.(false)
-  }, [setCreatorActive, expanded])
 
   return (
     <form
@@ -108,11 +70,13 @@ export function TicketCreatorShell({
           expanded && "pl-[5px]"
         )}
       >
-        {leadingAddons.map((addon, i) => (
-          <InputGroupAddon key={i} className="w-auto">
-            {addon}
+        {/* One slot for every leading chip, 4px apart, so they read as a
+            pair and the field's 8px gap only falls before the title. */}
+        {leadingAddons.length > 0 && (
+          <InputGroupAddon className="flex w-auto gap-1">
+            {Children.toArray(leadingAddons)}
           </InputGroupAddon>
-        ))}
+        )}
         <InputGroupInput
           ref={inputRef}
           {...comboboxProps(listbox)}
@@ -135,7 +99,6 @@ export function TicketCreatorShell({
           }}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          aria-keyshortcuts={appHotkeys["tickets.create"].defaultHotkey}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           readOnly={busy}
@@ -151,14 +114,7 @@ export function TicketCreatorShell({
           >
             {error}
           </span>
-        ) : (
-          !expanded && (
-            <KbdShortcut
-              keys={appHotkeys["tickets.create"].defaultHotkey}
-              aria-hidden
-            />
-          )
-        )}
+        ) : null}
       </InputGroup>
       {belowInput}
     </form>

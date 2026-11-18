@@ -1,4 +1,3 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
 import { useAtomValue } from "@effect/atom-react"
 import {
   activeEstimate,
@@ -6,12 +5,17 @@ import {
   type Member,
   type Ticket
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@pp/ui/hover-card"
+import { ArrowRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRight } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { PreviewCardContent } from "@/components/ui/preview-card"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -27,12 +31,10 @@ import {
 } from "@/features/sprints/lib/sprintPlan"
 import { formatEstimateValue } from "@/features/tickets/lib/estimateMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { DONE_TONE, UNSTARTED_TONE } from "./SprintProgress"
 
-const PREVIEW_DELAY_MS = 300
 const LISTED_TICKETS = 4
 const HEADROOM = 1.15
 
@@ -60,9 +62,8 @@ export function AssigneeLoadCard({
   )
   const name = member?.name ?? m.sprints_load_unassigned()
   return (
-    <PreviewCard.Root>
-      <PreviewCard.Trigger
-        delay={PREVIEW_DELAY_MS}
+    <HoverCard>
+      <HoverCardTrigger
         render={
           <button
             type="button"
@@ -77,8 +78,8 @@ export function AssigneeLoadCard({
       >
         <Avatar member={member} size={16} />
         <span className="tabular-nums">{amount}</span>
-      </PreviewCard.Trigger>
-      <PreviewCardContent align="end" className="flex w-80 flex-col gap-3">
+      </HoverCardTrigger>
+      <HoverCardContent align="end" className="flex w-80 flex-col gap-3 p-3">
         <div className="flex items-center gap-2.5">
           <Avatar member={member} size={28} />
           <div className="flex min-w-0 flex-col">
@@ -136,8 +137,8 @@ export function AssigneeLoadCard({
             </Button>
           </div>
         )}
-      </PreviewCardContent>
-    </PreviewCard.Root>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -258,7 +259,7 @@ function TicketPeek({
                 style={meta.color ? { color: meta.color } : undefined}
                 strokeWidth={1.75}
               />
-              <span className="font-mono text-muted-foreground tabular-nums">
+              <span className="text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span className="truncate">{ticket.title}</span>

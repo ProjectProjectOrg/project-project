@@ -1,11 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
 import {
   connectEverhourProjectAtom,
@@ -19,7 +20,6 @@ import { IntegrationLogo } from "@/features/integrations/components/IntegrationL
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -133,7 +133,7 @@ function EverhourSettingsContent({
             )}
           </span>
           {status.everhourProjectId ? (
-            <span className="font-mono">
+            <span className="tabular-nums">
               {status.everhourProjectName} · {status.everhourProjectId}
             </span>
           ) : null}

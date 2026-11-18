@@ -1,6 +1,5 @@
+import { AutoHeight } from "@pp/ui/auto-height"
 import type { ReactNode } from "react"
-
-import { AutoHeight } from "@/components/ui/auto-height"
 
 export function StepFrame({
   title,

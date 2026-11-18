@@ -10,17 +10,18 @@ import type {
   TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
+import { OctagonMinus } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { PopoverContent } from "@pp/ui/popover"
 import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
-import { KbdShortcut } from "@/components/ui/kbd"
-import { PopoverContent } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   projectEstimation,
   projectRequest
@@ -47,15 +48,15 @@ import {
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
-type MarkdownModule = typeof import("@/features/editor/components/Markdown")
+type MarkdownModule = typeof import("@pp/ui/editor/markdown")
 
 let loadedMarkdown: MarkdownModule | null = null
 
 export const loadMarkdown = () =>
-  import("@/features/editor/components/Markdown").then((mod) => {
+  import("@pp/ui/editor/markdown").then((mod) => {
     loadedMarkdown = mod
     return mod
   })
@@ -96,6 +97,7 @@ export function TicketHoverCard({
 }) {
   return (
     <PopoverContent
+      surface="hover"
       className={cn("w-80", !interactive && "pointer-events-none")}
       align="start"
       anchor={anchor}
@@ -147,7 +149,11 @@ export function TicketPreviewBody({
               {ticket.title}
             </div>
             {shortcut !== undefined && (
-              <KbdShortcut keys={shortcut} aria-hidden />
+              <KbdShortcut
+                keys={shortcut}
+                keyLabels={keyLabels()}
+                aria-hidden
+              />
             )}
           </div>
           <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
@@ -172,7 +178,7 @@ export function TicketPreviewBody({
                 <>
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-(color:--tooltip) via-(color:--tooltip)/90 to-transparent"
                   />
                   <Link
                     to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -263,7 +269,7 @@ function MetaRow({
       {visibleAssignees.length > 0 && (
         <span className="ml-auto inline-flex items-center gap-1">
           {visibleAssignees.map((member) => (
-            <MemberAvatar key={member.id} member={member} size={16} />
+            <MemberAvatar key={member.id} member={member} size={24} />
           ))}
         </span>
       )}
@@ -292,7 +298,9 @@ export function BlockedLine({
         <span className="shrink-0 text-muted-foreground">
           {m.tickets_hover_blocked_by()}
         </span>
-        <span className="shrink-0 font-mono text-foreground">{first.id}</span>
+        <span className="shrink-0 text-foreground tabular-nums">
+          {first.id}
+        </span>
         <span className="min-w-0 flex-1 truncate">{first.title}</span>
       </span>
       {blockers.length > 1 ? (

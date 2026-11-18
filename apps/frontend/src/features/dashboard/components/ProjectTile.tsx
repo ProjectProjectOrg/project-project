@@ -1,11 +1,11 @@
 import type { Project } from "@pp/shared"
+import { ArrowRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight } from "lucide-react"
 
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { formatRelative } from "@/lib/relativeTime"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function ProjectTile({
@@ -36,6 +36,8 @@ export function ProjectTile({
           icon={project.icon}
           iconImage={project.iconImage}
           color={project.color}
+          tone={project.tone}
+          colors={project.colors}
           size="sm"
           seed={project.slug}
         />
@@ -46,7 +48,7 @@ export function ProjectTile({
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-body font-semibold">{project.name}</div>
-        <div className="truncate font-mono text-caption text-muted-foreground">
+        <div className="truncate text-caption text-muted-foreground tabular-nums">
           /{project.slug}
         </div>
       </div>

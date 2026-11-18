@@ -1,7 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection } from "@pp/shared"
+import { GitBranchPlus, Link2 } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranchPlus, Link2 } from "lucide-react"
 import { useContext, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

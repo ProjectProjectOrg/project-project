@@ -1,11 +1,11 @@
 import type { Ticket, TicketId } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -40,7 +40,7 @@ function TicketPreview({
         className={cn("size-4 shrink-0", priority.className)}
       />
       <TypeGlyph type={type} />
-      <span className="shrink-0 font-mono text-caption text-muted-foreground">
+      <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
         {ticket.id}
       </span>
       <span className="min-w-0 flex-1 truncate">{ticket.title}</span>
@@ -74,7 +74,7 @@ function StackPreview({ ids }: Readonly<{ ids: ReadonlyArray<TicketId> }>) {
         <span className="shrink-0">
           {m.tickets_drag_count({ count: ids.length })}
         </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-caption text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground tabular-nums">
           {shown}
         </span>
         {more > 0 && (

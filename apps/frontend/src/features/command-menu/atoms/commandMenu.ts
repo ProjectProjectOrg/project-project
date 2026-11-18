@@ -15,8 +15,6 @@ export const commandScopes = Atom.make<ReadonlyArray<CommandScope>>([]).pipe(
   Atom.keepAlive
 )
 
-export const shortcutSheetOpen = Atom.make(false).pipe(Atom.keepAlive)
-
 export const pointedTicket = Atom.make<PointedTicket | null>(null).pipe(
   Atom.keepAlive
 )

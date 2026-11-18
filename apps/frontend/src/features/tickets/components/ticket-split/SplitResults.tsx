@@ -1,8 +1,8 @@
-import { Plus, X } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Plus, X } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type RailShape = "node" | "stem" | "stem-end"
@@ -80,7 +80,7 @@ function Row({
         <Rail shape={shape} connectUp={connectUp} />
         {status}
         {priority}
-        <span className="inline-flex shrink-0 items-center font-mono text-caption text-muted-foreground tabular-nums">
+        <span className="inline-flex shrink-0 items-center text-caption text-muted-foreground tabular-nums">
           {ticketId}
         </span>
         <div className="flex min-w-0 items-center">{title}</div>

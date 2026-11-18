@@ -1,13 +1,13 @@
 import type { GroupDetail, Member, TicketListQuery } from "@pp/shared"
-import { ListChecks, Trophy } from "lucide-react"
-
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { ListChecks, Trophy } from "@pp/ui/icons"
+
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { m } from "@/paraglide/messages"
 
@@ -28,7 +28,7 @@ export function SprintTicketList({
       members={members}
       sprint={sprint.id}
       empty={
-        <Empty>
+        <Empty animated={!completed}>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Icon strokeWidth={1.75} />

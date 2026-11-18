@@ -1,0 +1,94 @@
+export const meta = {
+  title: "Date picker",
+  group: "Primitives",
+  description:
+    "Picking a day or a range: type it (\"fri\", \"mon for 2 weeks\") or click it. New sprints, scheduling a sprint, a sprint's dates and logging time.",
+  sources: [
+    {
+      kind: "own",
+      name: "DatePicker",
+      note: "Popover, a type line, Calendar and a tray"
+    },
+    {
+      kind: "own",
+      name: "Calendar",
+      note: "on React DayPicker",
+      href: "https://daypicker.dev"
+    },
+    {
+      kind: "own",
+      name: "chrono-node",
+      note: "reads typed dates, behind @pp/ui/lib/parseDate",
+      href: "https://github.com/wanasit/chrono"
+    }
+  ]
+}
+
+## Overview
+
+Open a picker and type: "fri", "nov 20", "in 3 days"; for a range, "mon for 2 weeks" or "monday next week until two weeks later". The calendar previews what you typed and ↵ applies it. Clicking a day works too.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { DatePicker } from "@pp/ui/date-picker"
+import { dateLabels } from "@/lib/dateLabels"
+
+// A day, in a form field.
+<DatePicker mode="single" allowPast value={day} onChange={setDay} labels={dateLabels("single")} />
+
+// A range, behind a custom trigger, with a quick pick and Clear.
+<DatePicker
+  mode="range"
+  value={range}
+  onChange={setRange}
+  labels={dateLabels("range", m.sprints_clear_dates())}
+  quickPicks={[{ label: m.sprints_start_today(), value: defaultSprintRange() }]}
+  disabled={{ before: today }}
+  trigger={<Button variant="ghost" size="sm" leadingIcon={CalendarDays}>{label}</Button>}
+/>
+```
+
+| Prop                    | Type                                              | Default                 |
+| ----------------------- | ------------------------------------------------- | ----------------------- |
+| `mode`                  | `"single" \| "range"`                             |                         |
+| `value`, `onChange`     | `Date \| undefined`, or `{ from, to }`            |                         |
+| `labels`                | placeholder, type, unreadable, months, `clear?`   | `dateLabels()` in the app |
+| `quickPicks`            | `{ label, value }[]` in the tray                  |                         |
+| `disabled`              | DayPicker matcher, e.g. `{ before: today }`       |                         |
+| `allowPast`             | typed days before today count                     | `false`                 |
+| `hint`                  | a line above the type line                        |                         |
+| `trigger`               | a custom trigger (split button, inline text)      | a field                 |
+| `open`, `onOpenChange`  | control it, e.g. to save on close                 |                         |
+
+## Rules
+
+### Type first, click second
+
+The popover opens with focus on a type line. "fri", "nov 20", "20/11", "in 3 days", "mon - fri", "nov 16 to 27", "mon for 2 weeks" and "monday next week until two weeks later" all work. The calendar jumps to and previews the result as you type, the line shows it with ↵, and Enter applies it. Text that isn't a date says so; nothing changes until it reads. Clicking a day is always there too.
+
+### Or type into the trigger itself
+
+With focus on the field trigger, just start typing: the trigger turns into a text field in place, the same size, shape and fill, with what it reads shown at its end. Enter or leaving the field applies a readable date; text that isn't a date stays put on Enter (marked invalid) and is dropped on leaving; Escape cancels. No popover opens, so a date can be set without the mouse in two keystrokes and a word.
+
+### A library reads the dates
+
+Typed dates are read by chrono-node, behind `@pp/ui/lib/parseDate`: an Effect-native layer that returns whole local days (`DateTime.Zoned`) as `Option`s, reads a range's end from its start ("two weeks later" means after the start, not after today), and adds "for N weeks". ⌘K's sprint scheduling reads with the same layer.
+
+### One picker everywhere
+
+New sprints, a sprint's start, a sprint's dates and logging time all use this picker, so typing works in each. Log time no longer uses the browser's own date field. The trigger is a field by default; a split button or inline text passes its own `trigger`.
+
+### The tray
+
+Quick picks ("Start today") sit at the start of the tray and Clear (or Unschedule) at the end, on the composer's tray tint. Picking either closes the popover.
+
+### Ranges stay open, days close
+
+Picking a single day closes the picker. A range stays open while it's being picked and closes when typed in full; the sprint header saves its range when the picker closes.
+
+## Examples
+
+<Demo name="in-the-app" title="In the app" />

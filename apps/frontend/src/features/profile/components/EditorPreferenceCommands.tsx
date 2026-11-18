@@ -1,14 +1,14 @@
 import { useAtomValue } from "@effect/atom-react"
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { fireMutation } from "@/api/viewMutation"
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function EditorPreferenceCommands({
@@ -69,7 +69,10 @@ export function EditorPreferenceCommands({
           >
             {item.label}
           </span>
-          <CommandMenuCheck checked={current === item.value} />
+          <CommandMenuCheck
+            checked={current === item.value}
+            label={m.chrome_command_menu_selected()}
+          />
         </CommandMenuItem>
       )}
     />

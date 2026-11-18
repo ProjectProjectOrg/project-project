@@ -1,6 +1,4 @@
-import { EyeOff } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   Empty,
   EmptyContent,
@@ -8,14 +6,16 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { EyeOff } from "@pp/ui/icons"
+
 import { m } from "@/paraglide/messages"
 
 export function HiddenColumnsEmpty({
   onShowAll
 }: Readonly<{ onShowAll: () => void }>) {
   return (
-    <Empty>
+    <Empty animated={false}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <EyeOff strokeWidth={1.75} />

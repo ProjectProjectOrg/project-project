@@ -1,5 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { SlackOrgStatus } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import { useState } from "react"
@@ -9,17 +12,15 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import {
   connectSlackOrg,
   disconnectSlackOrg,
   slackOrgRequest
 } from "@/features/slack/atoms/slack"
+import { describeCause } from "@/lib/errorMessage"
 import { useAppForm } from "@/lib/form"
 import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { AccountStep } from "./AccountStep"
@@ -134,6 +135,8 @@ export function SlackConnectionForm({
                     </ConfirmButton.Trigger>
                     <ConfirmButton.Confirm>
                       <ConfirmButton.Action
+                        cancelLabel={m.common_cancel_button()}
+                        describeError={describeCause}
                         prompt={m.slack_disconnect_confirm()}
                         label={m.slack_disconnect()}
                         onConfirm={async () => {

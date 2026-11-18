@@ -1,0 +1,43 @@
+export const meta = {
+  title: "Embeds and links",
+  group: "Editor",
+  order: 6,
+  description:
+    "What a pasted link becomes: a Figma frame or a Paper file as a chip (or, for Figma, a live embed), and plain URLs as links with their page's icon.",
+  sources: [
+    { kind: "own", name: "FigmaNode", note: "Figma's embed for the rich view" },
+    { kind: "own", name: "PaperNode" },
+    { kind: "own", name: "LinkFaviconsPlugin" }
+  ]
+}
+
+## Overview
+
+Hover the Figma chip for its thumbnail.
+
+<Demo name="overview" title="In a description" />
+
+## Usage
+
+Pasting does it: a Figma or Paper URL becomes its node, any other URL a link. The app provides what the editor shows about them:
+
+| `EditorServices` | |
+| --- | --- |
+| `useFigmaLinks(target)` | The ticket's Figma frames: name, file and thumbnail (`null` until loaded, and `lastModified` null while Figma hasn't answered, which polls) |
+| `useLinkPreview(url)` | A page's title and favicon, for links and their chips |
+
+In Markdown they stay links: `[Onboarding](https://www.figma.com/design/…)` (add `pp-density=compact` for the chip), `[Sign-in](https://app.paper.design/file/…)`.
+
+## Rules
+
+### Two densities, like attachments
+
+A Figma frame is a chip in the text (compact) or Figma's live embed on its own line (rich), and the editor toggles between them; the chip's hover shows the frame's thumbnail once Figma has answered. The rich embed sits on the attachments' surface (an 18px lit squircle, the frame in a well, its name and an open link in the row under it), and the name and link glide between the two. Paper files are chips, styled like Figma's. Read-only [Markdown](/editor/markdown) shows the same chips and embeds.
+
+### Names come from the source
+
+A chip shows the frame's name from Figma (falling back to the link's text), with the file's name on hover, so a renamed frame updates everywhere.
+
+### Links show their page
+
+A URL becomes a link with its page's favicon before it; favicons fade in once, then come from the cache. Read-only ([Markdown](/editor/markdown)), a link whose text is just its URL shows the page's title instead. The editor keeps the URL: a link's text is what's saved and what you're editing, so it never stands in a title you didn't type.

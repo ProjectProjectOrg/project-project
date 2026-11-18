@@ -1,8 +1,8 @@
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
 import { Link, useRouter } from "@tanstack/react-router"
 import * as Predicate from "effect/Predicate"
 
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -39,7 +39,7 @@ export function ErrorPage({
     <DitherShell animated contained={contained}>
       <div className="relative flex flex-col items-center gap-3 px-8 pt-10 text-center">
         {/* oxlint-disable-next-line workspace/type-scale -- a decorative numeral, not text on the scale */}
-        <span className="font-mono text-5xl text-muted-foreground">
+        <span className="text-5xl text-muted-foreground tabular-nums">
           {code ?? m.error_page_code()}
         </span>
         <h1 className="text-display font-bold text-foreground">
@@ -69,7 +69,7 @@ export function ErrorPage({
         </Button>
 
         {detail ? (
-          <p className="mt-1 text-center font-mono text-micro leading-relaxed break-words text-muted-foreground">
+          <p className="mt-1 text-center text-micro leading-relaxed break-words text-muted-foreground tabular-nums">
             {detail}
           </p>
         ) : null}

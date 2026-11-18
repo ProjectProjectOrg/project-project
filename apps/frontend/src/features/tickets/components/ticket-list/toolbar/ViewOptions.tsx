@@ -1,22 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
 import { NATURAL_SORT_DIR } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
+import { ArrowUp, ArrowDown, SlidersHorizontal } from "@pp/ui/icons"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Switch } from "@pp/ui/switch"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  ArrowUp,
-  ArrowDown,
-  ChevronDown,
-  SlidersHorizontal
-} from "lucide-react"
 import { useRef, useState, type ComponentProps } from "react"
 
-import { Button } from "@/components/ui/button"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { Switch } from "@/components/ui/switch"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintListRequest,
@@ -33,7 +24,7 @@ import { m } from "@/paraglide/messages"
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
 import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
-import { OptionPicker, ToolbarButton } from "./shared"
+import { OptionPicker, ToolbarButton, ToolbarChevron } from "./shared"
 
 export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
   const { viewControls, boardScope, searchActive: compact } = useTicketToolbar()
@@ -61,7 +52,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
             <CollapsingLabel show={!compact}>
               {m.tickets_view_options_label()}
             </CollapsingLabel>
-            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+            <ToolbarChevron />
           </ToolbarButton>
         }
       />
@@ -136,7 +127,7 @@ function DisplayProperties() {
           <Button
             key={property}
             type="button"
-            variant="chip-toggle"
+            variant="ghost"
             size="sm"
             aria-pressed={shows(property)}
             onClick={() => toggle(property)}

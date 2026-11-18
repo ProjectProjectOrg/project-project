@@ -21,6 +21,11 @@ import {
   type TypeDefinition,
   TypeKey
 } from "@pp/shared"
+import { BUILTIN_LIBRARY, lookupFor } from "@pp/ui/editor/blocks/block-chrome"
+import { SyncedBlockExtension } from "@pp/ui/editor/blocks/synced-block-node"
+import { registerSyncedBlocks } from "@pp/ui/editor/blocks/synced-blocks"
+import { TicketBlockExtension } from "@pp/ui/editor/blocks/ticket-block-extension"
+import { MARKDOWN_TRANSFORMERS } from "@pp/ui/editor/editor-transformers"
 import {
   HISTORY_PUSH_TAG,
   UNDO_COMMAND,
@@ -28,12 +33,6 @@ import {
   type LexicalEditor
 } from "lexical"
 import { describe, expect, it } from "vitest"
-
-import { MARKDOWN_TRANSFORMERS } from "@/features/editor/components/LexicalEditor"
-import { SyncedBlockExtension } from "@/features/editor/lexical/blocks/SyncedBlockNode"
-import { registerSyncedBlocks } from "@/features/editor/lexical/blocks/syncedBlocks"
-import { TicketBlockExtension } from "@/features/editor/lexical/TicketBlockExtension"
-import { BUILTIN_LIBRARY, lookupFor } from "@/features/editor/lib/blockChrome"
 
 import {
   $replaceWithTemplate,

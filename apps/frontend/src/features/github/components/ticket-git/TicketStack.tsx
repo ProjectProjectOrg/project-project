@@ -6,8 +6,6 @@ import type {
   StackLayerState,
   TicketDetail
 } from "@pp/shared"
-import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
 import {
   AlertTriangle,
   GitBranch,
@@ -16,18 +14,20 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   Layers,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import { useMemo, useState } from "react"
 
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchMenu } from "./BranchMenu"
@@ -46,7 +46,7 @@ export const layerTone = (layer: StackLayerState): LayerTone => {
 export const TONES: Readonly<
   Record<
     LayerTone,
-    Readonly<{ icon: LucideIcon; className: string; label: () => string }>
+    Readonly<{ icon: IconType; className: string; label: () => string }>
   >
 > = {
   draft: {
@@ -360,7 +360,7 @@ function StackLayerRow({
             </a>
           )}
           <span
-            className={cn("min-w-0 truncate", title === "" && "font-mono")}
+            className={cn("min-w-0 truncate", title === "" && "tabular-nums")}
             title={layer.branch}
           >
             {title === "" ? layer.branch : title}
@@ -369,10 +369,10 @@ function StackLayerRow({
         {hasMeta && (
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-micro text-muted-foreground">
             {title !== "" && (
-              <MiddleTruncate value={layer.branch} className="font-mono" />
+              <MiddleTruncate value={layer.branch} className="tabular-nums" />
             )}
             {showBase && (
-              <span className="truncate font-mono">
+              <span className="truncate tabular-nums">
                 {m.git_stack_base({ base: layer.base ?? "" })}
               </span>
             )}

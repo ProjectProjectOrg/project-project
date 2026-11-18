@@ -1,8 +1,8 @@
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
+import type { SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Schema from "effect/Schema"
-import { Monitor, Moon, Sun } from "lucide-react"
 import { useCallback, useEffect } from "react"
 
-import type { SegmentedItem } from "@/components/ui/segmented-tabs"
 import {
   createLocalStorageStringCodec,
   useLocalStorageState
@@ -37,7 +37,15 @@ function applyResolved(pref: ThemePreference) {
   document.documentElement.classList.toggle("dark", next === "dark")
 }
 
-let latestSwitch: ViewTransition | null = null
+// The theme switcher's pill slides for 280ms. The page-wide reveal waits most
+// of that out: the reveal snapshots the page, so a slide running inside it
+// would be hidden until the circle passed, and the old tab would seem to
+// vanish.
+const REVEAL_DELAY_MS = 200
+
+// Module-wide, since every useTheme() instance shares the stored preference
+// and would otherwise apply the new theme before the reveal.
+const reveal = { pending: false }
 
 export function useTheme() {
   const [preference, storePreference] = useLocalStorageState(
@@ -47,7 +55,7 @@ export function useTheme() {
   )
 
   useEffect(() => {
-    applyResolved(preference)
+    if (!reveal.pending) applyResolved(preference)
     if (preference !== "system") return
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     const onChange = () => applyResolved("system")
@@ -57,26 +65,22 @@ export function useTheme() {
 
   const setPreference = useCallback(
     (next: ThemePreference) => {
-      const apply = () => {
-        applyResolved(next)
-        storePreference(next)
-      }
-      if (
+      const canReveal =
         typeof document !== "undefined" &&
-        "startViewTransition" in document
-      ) {
-        const root = document.documentElement
-        root.classList.add("pp-theme-switching")
-        const transition = document.startViewTransition(apply)
-        latestSwitch = transition
-        void transition.finished.finally(() => {
-          if (latestSwitch !== transition) return
-          latestSwitch = null
-          root.classList.remove("pp-theme-switching")
-        })
-      } else {
-        apply()
+        "startViewTransition" in document &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (!canReveal) {
+        storePreference(next)
+        return
       }
+      reveal.pending = true
+      storePreference(next)
+      window.setTimeout(() => {
+        document.startViewTransition(() => {
+          applyResolved(next)
+          reveal.pending = false
+        })
+      }, REVEAL_DELAY_MS)
     },
     [storePreference]
   )

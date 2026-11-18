@@ -10,6 +10,16 @@
   "tags_edit_aria_label": "Edit tag {name}",
   "tags_more": "+{count}",
   "tags_more_aria_label": "{count} more tags",
+  "tags_count_aria_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} tag",
+        "countPlural=*": "{count} tags"
+      }
+    }
+  ],
   "tags_name_aria_label": "Tag name",
   "tags_name_validation_hint": "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters.",
   "tags_remove_aria_label": "Remove tag {name}",

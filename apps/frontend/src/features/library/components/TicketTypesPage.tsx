@@ -1,15 +1,12 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
-import { Plus } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { LibraryContext } from "@pp/ui/editor/blocks/block-chrome"
+import { Plus } from "@pp/ui/icons"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { Button } from "@/components/ui/button"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { m } from "@/paraglide/messages"
 
 import { libraryView, type LibraryScope } from "../atoms/libraryScope"

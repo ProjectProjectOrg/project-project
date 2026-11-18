@@ -1,10 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ReferenceKind } from "@pp/shared"
-import { useDebouncedValue } from "@tanstack/react-pacer"
-import * as Result from "effect/reactivity/AsyncResult"
-import { useState } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +9,12 @@ import {
   DropdownMenuItem,
   DropdownMenuList,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+} from "@pp/ui/dropdown-menu"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { useDebouncedValue } from "@tanstack/react-pacer"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useState } from "react"
+
 import {
   useProject,
   useProjectRoute
@@ -129,7 +129,7 @@ function TicketOptions({
             label={`${ticket.id} ${ticket.title}`}
             onClick={() => onPick(ticket.id)}
           >
-            <span className="shrink-0 font-mono text-caption text-muted-foreground">
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
               {ticket.id}
             </span>
             <span className="min-w-0 truncate">{ticket.title}</span>

@@ -6,11 +6,23 @@ import {
 } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import {
+  CommandMenu,
+  CommandMenuItem,
+  CommandMenuList,
+  commandMenuItemId,
+  useCommandMenu,
+  type CommandMenuItemData
+} from "@pp/ui/command-menu"
+import { Check, Plus } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import type { ListboxState } from "@pp/ui/menu-listbox"
+import { MenuNote } from "@pp/ui/menu-note"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
-import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Check, Plus } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import {
   useContext,
@@ -25,17 +37,7 @@ import {
   type Ref
 } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
-import {
-  CommandMenu,
-  CommandMenuItem,
-  CommandMenuList,
-  commandMenuItemId,
-  useCommandMenu,
-  type CommandMenuItemData
-} from "@/components/ui/command-menu"
-import type { ListboxState } from "@/components/ui/menu-listbox"
-import { MenuNote } from "@/components/ui/menu-note"
+import { useOpenCommandMenu } from "@/features/command-menu/hooks/useOpenCommandMenu"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -47,15 +49,19 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import {
+  justCreatedTicket,
+  newTicketRequest
+} from "@/features/tickets/atoms/createTicket"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { PagedSearchResults } from "@/hooks/usePagedSearch"
+import { keyLabels } from "@/lib/keyLabels"
 import {
   mutationErrorText,
   ticketCreateErrorMessage
 } from "@/lib/mutationError"
 import { isNearScrollEnd } from "@/lib/scroll"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CreatorTypeMenu } from "./CreatorMenus"
@@ -106,7 +112,8 @@ export function SprintTicketCreator({
     ) ?? (Result.isFailure(bulkAddState) ? m.sprints_add_epic_failed() : null)
   const projectReq = projectRequest(orgSlug, slug)
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
-  const navigate = useNavigate()
+  const setNewTicket = useAtomSet(newTicketRequest)
+  const openCommandMenu = useOpenCommandMenu(orgSlug)
 
   const [title, setTitle] = useState("")
   const creatorType = useCreatorType({ orgSlug, slug, epics: false })
@@ -190,12 +197,17 @@ export function SprintTicketCreator({
     setTitle("")
   }
 
-  function openCreatedTicket(id: TicketId) {
-    void navigate({
-      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-      params: { orgSlug, slug, id },
-      search: { focusBody: "1" }
+  function addDetails() {
+    setNewTicket({
+      orgSlug,
+      projectSlug: slug,
+      title: trimmed === "" ? undefined : trimmed,
+      type: creatorType.type ?? undefined,
+      sprint: groupId,
+      from: "inline"
     })
+    reset()
+    openCommandMenu("createTicket")
   }
 
   async function createTicket(title: string) {
@@ -203,9 +215,12 @@ export function SprintTicketCreator({
     const exit = await create({ title, ...creatorType.payload })
     creatorType.settle(exit)
     if (Exit.isSuccess(exit)) {
+      registry.set(justCreatedTicket, {
+        id: exit.value.id,
+        at: performance.now()
+      })
       refreshGitStates()
       reset()
-      openCreatedTicket(exit.value.id)
     }
   }
 
@@ -255,6 +270,11 @@ export function SprintTicketCreator({
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (pendingEpic !== null) {
       picker.onKeyDown(e)
+      return
+    }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      addDetails()
       return
     }
     if (e.key === "Escape" && dropdownOpen) {
@@ -408,10 +428,22 @@ export function SprintTicketCreator({
             {dropdown}
             <AutoHeight>
               {expanded && (
-                <StartsWithLine
-                  start={creatorType.start}
-                  className="px-3 pt-1.5"
-                />
+                <div className="flex items-center gap-3 px-3 pt-1.5">
+                  <StartsWithLine start={creatorType.start} />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={addDetails}
+                    className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0"
+                  >
+                    {m.tickets_create_add_details()}
+                    <KbdShortcut
+                      size="sm"
+                      keys="mod+enter"
+                      keyLabels={keyLabels()}
+                    />
+                  </button>
+                </div>
               )}
             </AutoHeight>
             <span role="status" className="sr-only">
@@ -520,7 +552,7 @@ function ExistingOption({
         className="size-4"
       />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
         <span className="min-w-0 truncate">

@@ -1,10 +1,11 @@
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { Building2, EyeOff, Folder, Lock } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
-import { Building2, EyeOff, Folder, Lock } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { cn } from "@/lib/utils"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { orgScope, type LibraryScope } from "../atoms/libraryScope"
@@ -203,7 +204,7 @@ export function ScopeBox(props: ScopeBoxProps) {
               </Button>
             ) : null}
             {view.canRevert ? (
-              <ConfirmButton.Root className="flex-wrap gap-2">
+              <ConfirmButton.Root flow className="flex-wrap gap-2">
                 <ConfirmButton.Trigger
                   type="button"
                   variant="tertiary"
@@ -215,6 +216,8 @@ export function ScopeBox(props: ScopeBoxProps) {
                 </ConfirmButton.Trigger>
                 <ConfirmButton.Confirm className="flex-wrap">
                   <ConfirmButton.Action
+                    cancelLabel={m.common_cancel_button()}
+                    describeError={describeCause}
                     prompt={
                       scope.layer === "project"
                         ? m.templates_types_revert_project_confirm({ project })

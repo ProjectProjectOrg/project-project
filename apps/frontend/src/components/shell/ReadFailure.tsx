@@ -1,7 +1,8 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+
 import type { AsyncFailure } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function ReadFailure<E>({

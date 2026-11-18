@@ -1,5 +1,10 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
+import { Button } from "@pp/ui/button"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { Markdown } from "@pp/ui/editor/markdown"
+import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
+import { type SaveStatus } from "@pp/ui/editor/save-queue"
 import { getRouteApi } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -9,13 +14,6 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/features/editor/components/LexicalEditor"
-import { Markdown } from "@/features/editor/components/Markdown"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import {
   projectRequest,
   updateProject
@@ -51,6 +49,8 @@ export function ProjectGeneralSettings() {
         icon={project.icon}
         iconImage={project.iconImage}
         color={project.color}
+        tone={project.tone}
+        colors={project.colors}
         banner={project.banner}
         canEdit={canEdit}
       />
@@ -78,7 +78,7 @@ export function ProjectGeneralSettings() {
             label={m.project_settings_key_label()}
             description={m.project_settings_key_description()}
           >
-            <span className="font-mono text-body text-muted-foreground">
+            <span className="text-body text-muted-foreground tabular-nums">
               {project.key}
             </span>
           </SettingsRow>

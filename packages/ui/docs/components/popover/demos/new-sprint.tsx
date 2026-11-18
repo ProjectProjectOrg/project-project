@@ -1,0 +1,168 @@
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { DatePicker } from "@pp/ui/date-picker"
+import { CalendarDays, Plus } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
+import { Popover, PopoverTrigger } from "@pp/ui/popover"
+import * as DateTime from "effect/DateTime"
+import { useState } from "react"
+
+const DATE_LABELS = {
+  placeholder: "Pick dates",
+  type: "Type dates: mon for 2 weeks, nov 16 to 27",
+  unreadable: "Can't read that date",
+  previousMonth: "Previous month",
+  nextMonth: "Next month",
+  clear: "Clear dates"
+} as const
+
+const USER_TOGGLES = new Set([
+  "trigger-press",
+  "escape-key",
+  "close-press",
+  "outside-press"
+])
+
+const formatDay = (date: Date) =>
+  new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date)
+
+type DateDraft = { from?: Date; to?: Date }
+
+const datesLabel = (range: DateDraft) => {
+  if (range.from === undefined) return "No dates"
+  if (range.to === undefined) return `Starts ${formatDay(range.from)}`
+  return `${formatDay(range.from)} – ${formatDay(range.to)}`
+}
+
+const twoWeeksFromToday = (): DateDraft => {
+  const now = DateTime.nowUnsafe()
+  return {
+    from: DateTime.toDate(now),
+    to: DateTime.toDate(DateTime.add(now, { days: 13 }))
+  }
+}
+
+const SPRINTS = ["Sprint 14", "Sprint 13", "Sprint 12"]
+
+// The sprint rail's "New sprint" button (in the sidebar, on the frame) opens
+// the sprint composer: a popover holding a whole form, with a second popover
+// nested inside for the date range.
+export default function NewSprint() {
+  const [open, setOpen] = useState(true)
+  const [name, setName] = useState("")
+  const [range, setRange] = useState<DateDraft>({})
+  const today = DateTime.toDate(DateTime.nowUnsafe())
+  const startsNow = range.from !== undefined && range.from <= today
+
+  return (
+    <div className="flex w-60 flex-col gap-0.5 rounded-[20px] bg-background p-2 corner-squircle">
+      {SPRINTS.map((sprint) => (
+        <p key={sprint} className="px-2 py-1.5 text-body text-muted-foreground">
+          {sprint}
+        </p>
+      ))}
+      <Popover
+        open={open}
+        onOpenChange={(next, details) => {
+          if (USER_TOGGLES.has(details.reason)) setOpen(next)
+        }}
+        modal="trap-focus"
+      >
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="dither"
+              className="mt-1 w-full justify-start text-primary-foreground"
+              leadingIcon={Plus}
+              ditherFrom="var(--primary)"
+              ditherTo="var(--background)"
+              ditherDirection="r"
+              ditherStops={[0.7, 1]}
+              ditherHoverStops={[0.5, 1]}
+            />
+          }
+        >
+          New sprint
+        </PopoverTrigger>
+        <Composer.Popover align="start" sideOffset={6} aria-label="New sprint">
+          <form
+            className="flex flex-col"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setOpen(false)
+            }}
+          >
+            <Composer.Title className="mt-4">
+              <Input
+                variant="bare"
+                className="text-title font-semibold"
+                aria-label="Sprint name…"
+                placeholder="Sprint name…"
+                value={name}
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Composer.Title>
+            <Composer.Body>
+              <textarea
+                aria-label="Description"
+                placeholder="Add a goal or description…"
+                rows={3}
+                className="w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
+              />
+            </Composer.Body>
+            <Composer.Footer className="justify-between pl-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <DatePicker
+                  mode="range"
+                  value={{ from: range.from, to: range.to }}
+                  onChange={(next) =>
+                    setRange({ from: next.from, to: next.to })
+                  }
+                  labels={DATE_LABELS}
+                  quickPicks={[
+                    {
+                      label: "Start today",
+                      value: { from: undefined, ...twoWeeksFromToday() }
+                    }
+                  ]}
+                  disabled={{ before: today }}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      tone="strong"
+                      size="sm"
+                      leadingIcon={CalendarDays}
+                    >
+                      {datesLabel(range)}
+                    </Button>
+                  }
+                />
+                {range.from === undefined && (
+                  <Composer.Hint>
+                    Stays planned until you start it
+                  </Composer.Hint>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={name.trim() === ""}>
+                  {startsNow ? "Create and start" : "Create sprint"}
+                </Button>
+              </div>
+            </Composer.Footer>
+          </form>
+        </Composer.Popover>
+      </Popover>
+    </div>
+  )
+}

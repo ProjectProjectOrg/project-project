@@ -1,8 +1,10 @@
-import { ChevronRight, CircleAlert } from "lucide-react"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { ChevronRight, CircleAlert } from "@pp/ui/icons"
+import { spring } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { motion } from "motion/react"
 import type { ReactNode } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
 import type { JiraImportSetup } from "@/features/jira/lib/draft"
 import {
   jiraSectionSummary,
@@ -14,8 +16,6 @@ import {
   type JiraSetupCounts,
   type JiraSetupSection
 } from "@/features/jira/lib/setup"
-import { spring } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function SetupSection({
@@ -42,7 +42,7 @@ export function SetupSection({
       id={jiraSetupSectionId(section)}
       className="scroll-mt-4 border-b border-border last:border-b-0"
     >
-      <div className="sticky top-0 z-20 -mx-3 bg-region px-3">
+      <div className="sticky top-0 z-20 -mx-3 bg-page px-3">
         <button
           type="button"
           aria-expanded={open}

@@ -1,19 +1,15 @@
 import { attachmentDownloadUrl, isRasterImageContentType } from "@pp/shared"
 import type { AttachmentRow, AttachmentTicketRef } from "@pp/shared"
 import { formatAttachmentMarkdown } from "@pp/shared"
+import { Checkbox } from "@pp/ui/checkbox"
+import { CopyButton } from "@pp/ui/copy-button"
+import { Download, FileText } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { TooltipGroupTrigger } from "@pp/ui/tooltip"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { Download, FileText } from "lucide-react"
 
-import { Checkbox } from "@/components/ui/checkbox"
-import { CopyButton } from "@/components/ui/copy-button"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { formatBytes } from "@/lib/formatBytes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -67,7 +63,9 @@ export function Row({
       <td className="w-full max-w-0 px-2 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <Thumbnail row={row} />
-          <span className="truncate font-mono text-body">{row.filename}</span>
+          <span className="truncate text-body tabular-nums">
+            {row.filename}
+          </span>
         </div>
       </td>
 
@@ -104,39 +102,37 @@ export function Row({
       >
         <div className="flex items-center justify-end gap-0.5">
           <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-within:opacity-100">
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <CopyButton
-                  nativeTitle={false}
-                  value={formatAttachmentMarkdown({
-                    kind: isRasterImageContentType(row.contentType)
-                      ? "image"
-                      : "file",
-                    alt: row.filename,
-                    url: row.url
-                  })}
-                  copyLabel={m.attachments_copy_markdown()}
-                  copiedLabel={m.attachments_copied()}
-                />
-              </TooltipTrigger>
-              <TooltipContent>{m.attachments_copy_markdown()}</TooltipContent>
-            </Tooltip>
+            <TooltipGroupTrigger
+              tooltip={m.attachments_copy_markdown()}
+              render={<span className="inline-flex" />}
+            >
+              <CopyButton
+                nativeTitle={false}
+                value={formatAttachmentMarkdown({
+                  kind: isRasterImageContentType(row.contentType)
+                    ? "image"
+                    : "file",
+                  alt: row.filename,
+                  url: row.url
+                })}
+                copyLabel={m.attachments_copy_markdown()}
+                copiedLabel={m.attachments_copied()}
+              />
+            </TooltipGroupTrigger>
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <a
-                    href={attachmentDownloadUrl(orgSlug, row.id)}
-                    download={row.filename}
-                    aria-label={m.attachments_download()}
-                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
-                  />
-                }
-              >
-                <Download className="size-3.5" strokeWidth={1.75} />
-              </TooltipTrigger>
-              <TooltipContent>{m.attachments_download()}</TooltipContent>
-            </Tooltip>
+            <TooltipGroupTrigger
+              tooltip={m.attachments_download()}
+              render={
+                <a
+                  href={attachmentDownloadUrl(orgSlug, row.id)}
+                  download={row.filename}
+                  aria-label={m.attachments_download()}
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+                />
+              }
+            >
+              <Download className="size-3.5" strokeWidth={1.75} />
+            </TooltipGroupTrigger>
           </span>
           {children}
         </div>
@@ -175,7 +171,7 @@ function TicketCell({
   if (row.tickets.length === 0) {
     return (
       <span
-        className="font-mono text-body text-muted-foreground"
+        className="text-body text-muted-foreground tabular-nums"
         title={m.attachments_ticket_unreferenced()}
       >
         {row.ticketId}
@@ -191,7 +187,7 @@ function TicketCell({
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug: first.projectSlug, id: first.ticketId }}
         onClick={(event) => event.stopPropagation()}
-        className="font-mono text-body text-muted-foreground transition-colors hover:text-foreground"
+        className="text-body text-muted-foreground tabular-nums transition-colors hover:text-foreground"
       >
         {first.ticketId}
       </Link>
@@ -212,7 +208,7 @@ function TicketCell({
         }))}
       >
         <SelectTrigger
-          className="h-7 w-auto gap-1.5 px-2 font-mono text-body"
+          className="h-7 w-auto gap-1.5 px-2 text-body tabular-nums"
           placeholder={m.attachments_ticket_count({
             count: row.tickets.length
           })}

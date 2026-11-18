@@ -5,7 +5,15 @@ import {
   type Comment,
   type TicketId
 } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
+import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuConfirmItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import {
   CircleCheck,
   CircleDashed,
@@ -14,20 +22,14 @@ import {
   ListPlus,
   MoreHorizontal,
   Pencil,
-  SquarePlus,
+  Plus,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import type { Ref } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { useOpenCommandMenu } from "@/features/command-menu/hooks/useOpenCommandMenu"
 import {
   commentMarkdown,
   commentUrl
@@ -35,14 +37,15 @@ import {
 import { ticketFromComment } from "@/features/comments/lib/ticketFromComment"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
-  createTicketDialog,
+  newTicketRequest,
   type RelatedKind
-} from "@/features/tickets/atoms/createTicketDialog"
+} from "@/features/tickets/atoms/createTicket"
 import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { useProjectActor } from "@/hooks/useActor"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export type CommentMenuProps = Readonly<{
@@ -52,6 +55,7 @@ export type CommentMenuProps = Readonly<{
   canEdit: boolean
   canDelete: boolean
   onEdit: () => void
+  onDelete: () => Promise<Exit.Exit<unknown, unknown>>
   resolved: boolean
   onResolve: ((resolved: boolean) => void) | undefined
 }>
@@ -65,6 +69,7 @@ export function CommentMenuItems({
   canEdit,
   canDelete,
   onEdit,
+  onDelete,
   resolved,
   onResolve
 }: CommentMenuProps) {
@@ -116,13 +121,14 @@ export function CommentMenuItems({
       {canDelete && (
         <>
           <DropdownMenuSeparator />
-          <ConfirmButton.MenuItem
-            variant="destructive"
-            className="cursor-pointer"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.comments_menu_delete()}
-          </ConfirmButton.MenuItem>
+          <DropdownMenuConfirmItem
+            icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+            label={m.comments_menu_delete()}
+            confirmLabel={m.comments_delete_confirm()}
+            busyLabel={m.common_deleting_button()}
+            describeError={describeCause}
+            onConfirm={onDelete}
+          />
         </>
       )}
     </>
@@ -135,27 +141,30 @@ function CreateTicketItems({
 }: Readonly<{ comment: Comment; ticketId: TicketId }>) {
   const { orgSlug, slug } = useProjectRoute()
   const canCreate = useProjectActor().call("tickets", "create")
-  const openDialog = useAtomSet(createTicketDialog)
+  const setRequest = useAtomSet(newTicketRequest)
+  const openCommandMenu = useOpenCommandMenu(orgSlug)
   const source = useAtomValue(
     ticketDetail(ticketRequest(orgSlug, slug, ticketId))
   )
   if (!canCreate) return null
   const ticket = Result.isSuccess(source) ? source.value : null
-  const open = (kind: RelatedKind) =>
-    openDialog({
+  const open = (kind: RelatedKind) => {
+    setRequest({
       orgSlug,
       projectSlug: slug,
       ...ticketFromComment(comment, slug, ticketId),
       related: { kind, ticketId },
       fromComment: { ticketId, commentId: comment.id }
     })
+    openCommandMenu("createTicket")
+  }
   return (
     <>
       <DropdownMenuItem
         onClick={() => open("related")}
         className="cursor-pointer"
       >
-        <SquarePlus className="size-4" strokeWidth={1.75} />
+        <Plus className="size-4" strokeWidth={1.75} />
         {m.comments_menu_create_ticket()}
       </DropdownMenuItem>
       {ticket !== null && canHoldChildren(ticket, ticket.parent) && (
@@ -185,7 +194,7 @@ export function CommentMenuButton({
           <Button
             ref={ref}
             type="button"
-            variant="quiet"
+            variant="ghost"
             size="square-7"
             aria-label={m.comments_menu_aria_label()}
             className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 data-popup-open:opacity-100 pointer-coarse:opacity-100"

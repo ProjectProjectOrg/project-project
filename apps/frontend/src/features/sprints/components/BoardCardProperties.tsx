@@ -1,28 +1,34 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
-  hasSubTickets,
   type Ticket,
   type TicketParent,
   type TicketPriority,
   isEpic
 } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronRight, Layers } from "lucide-react"
-import { useState, type ComponentProps, type ReactNode } from "react"
-
+import {
+  ChipDots,
+  ChipSeparator,
+  chipClassName,
+  chipNarrowOnlyClass,
+  chipWideOnlyClass
+} from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { ChevronRight, Layers } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { Link } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useState, type ComponentProps, type ReactNode } from "react"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
-import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import {
   FlagChip,
   RelationChips,
@@ -31,31 +37,18 @@ import {
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
 import {
   PRIORITY_LABELS,
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"
 
-export const boardChipClass =
-  "inline-flex h-6 max-w-48 min-w-0 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-caption text-muted-foreground inset-ring inset-ring-border/60"
-
-const hoverChipClass =
-  "transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover data-[popup-open]:text-foreground"
-
-export const interactiveChipClass = cn("cursor-pointer", hoverChipClass)
-
-export const relationChipClass = cn(
-  boardChipClass,
-  hoverChipClass,
-  "min-w-6 justify-center gap-1 px-1.5 [&_svg]:size-3"
-)
+const pressChip = chipClassName({ interaction: "press" })
+const labelChip = chipClassName({ kind: "label", interaction: "press" })
 
 export function BoardCardProperties({
   ticket,
@@ -70,38 +63,25 @@ export function BoardCardProperties({
 }>) {
   const estimation = useEstimationMode()
   const { shows } = useDisplayProperties()
+  // One order on every card: the fixed-width chips first, so they stand at
+  // the same spot on every card, then the ones as long as their text (epic,
+  // tags), which wrap last. Tags past two fold into "+N", previewed on hover.
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1 [&:not(:has(>:not(:empty)))]:hidden [&>:empty]:hidden">
-      <FlagChip
-        ticket={ticket}
-        className={cn(
-          boardChipClass,
-          hoverChipClass,
-          "w-[22px] justify-center px-0 [&_svg]:size-3"
-        )}
-      />
+    <>
       <PriorityChip
         priority={ticket.priority}
         editable={editable}
         onChange={(priority) => onPatch({ priority })}
       />
-      <BoardSubTicketsChip ticket={ticket} />
-      {shows("tags") && (
-        <TagChips
-          names={ticket.tags}
-          onPatch={editable ? onPatch : undefined}
-        />
-      )}
-      {shows("git") && (
-        <BoardCardGit
-          ticket={ticket}
-          chipClassName={cn(boardChipClass, interactiveChipClass)}
-        />
-      )}
-      <RelationChips ticket={ticket} className={relationChipClass} />
-      {isEpic(ticket.parent) && shows("epic") && (
-        <EpicChip epic={ticket.parent} />
-      )}
+      <FlagChip
+        ticket={ticket}
+        className={chipClassName({
+          interaction: "hover",
+          shape: "icon",
+          className: "w-[22px] [&_svg]:size-3"
+        })}
+      />
+      <ChipSeparator />
       {ticket.estimate !== null &&
         estimation !== "off" &&
         shows("estimate") && (
@@ -110,12 +90,31 @@ export function BoardCardProperties({
               ticket={ticket}
               mode={estimation}
               onPatch={onPatch}
-              className={cn(boardChipClass, interactiveChipClass)}
+              variant="compact"
+              className={pressChip}
             />
           </fieldset>
         )}
+      <BoardSubTicketsChip ticket={ticket} />
+      <RelationChips
+        ticket={ticket}
+        className={chipClassName({ interaction: "hover", shape: "count" })}
+      />
+      {shows("git") && (
+        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
+      )}
+      {isEpic(ticket.parent) && shows("epic") && (
+        <EpicChip epic={ticket.parent} />
+      )}
+      {shows("tags") && (
+        <TagChips
+          names={ticket.tags}
+          onPatch={editable ? onPatch : undefined}
+          max={2}
+        />
+      )}
       {failure}
-    </div>
+    </>
   )
 }
 
@@ -144,11 +143,7 @@ function PriorityChip({
           onClick={(event) => event.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label })}
           title={label}
-          className={cn(
-            boardChipClass,
-            interactiveChipClass,
-            "w-6 justify-center px-0"
-          )}
+          className={chipClassName({ interaction: "press", shape: "icon" })}
         >
           <Icon
             className={cn("size-3 shrink-0", meta.className)}
@@ -160,29 +155,17 @@ function PriorityChip({
   )
 }
 
+// Progress previews the sub-tickets on hover, like links preview theirs, also
+// while the card lists them, so every chip on the card answers a hover.
 function BoardSubTicketsChip({
   ticket
 }: Readonly<{
   ticket: Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
 }>) {
-  const [expanded] = useSubTicketsExpanded()
-  if (!expanded) {
-    return (
-      <SubTicketsChip
-        ticket={ticket}
-        className={cn(boardChipClass, hoverChipClass)}
-      />
-    )
-  }
-  if (!hasSubTickets(ticket)) return null
-  const done = ticket.subTicketDoneCount ?? 0
-  const total = ticket.subTicketCount ?? 0
   return (
-    <SubTicketCount
-      done={done}
-      total={total}
-      title={m.tickets_sub_tickets_progress({ done, total })}
-      className={boardChipClass}
+    <SubTicketsChip
+      ticket={ticket}
+      className={chipClassName({ interaction: "hover" })}
     />
   )
 }
@@ -198,7 +181,7 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
           params={{ orgSlug, slug, id: epic.id }}
           preload="intent"
           draggable={false}
-          className={cn(boardChipClass, interactiveChipClass)}
+          className={labelChip}
         />
       }
     >
@@ -237,14 +220,19 @@ export function ParentTicketCrumb({
   )
 }
 
+// A ticket's tags: the first `max` as chips, the rest behind "+N". With
+// `collapse` (list rows), a narrow list folds them all into one chip of
+// dots and a count (chipNarrowOnlyClass).
 export function TagChips({
   names,
   onPatch,
-  max
+  max,
+  collapse = false
 }: Readonly<{
   names: Ticket["tags"]
   onPatch?: (patch: TicketEdit) => void
   max?: number
+  collapse?: boolean
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
@@ -254,18 +242,15 @@ export function TagChips({
   )
   const shown = max === undefined ? names : names.slice(0, max)
   const hidden = names.slice(shown.length)
+  const wide = collapse ? chipWideOnlyClass : undefined
   const chip = (
     key: string,
     preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
     content: ReactNode,
-    label?: string
+    label?: string,
+    className?: string
   ) => {
-    const button = (
-      <button
-        type="button"
-        className={cn(boardChipClass, interactiveChipClass)}
-      />
-    )
+    const button = <button type="button" className={cn(labelChip, className)} />
     return onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
@@ -302,7 +287,9 @@ export function TagChips({
               style={{ backgroundColor: colors.get(name) ?? undefined }}
             />
             <span className="truncate">{name}</span>
-          </>
+          </>,
+          undefined,
+          wide
         )
       )}
       {hidden.length > 0 &&
@@ -312,7 +299,19 @@ export function TagChips({
           <span className="tabular-nums">
             {m.tags_more({ count: hidden.length })}
           </span>,
-          m.tags_more_aria_label({ count: hidden.length })
+          m.tags_more_aria_label({ count: hidden.length }),
+          wide
+        )}
+      {collapse &&
+        chip(
+          "all",
+          { kind: "tags", names },
+          <>
+            <ChipDots colors={names.map((name) => colors.get(name))} />
+            <span className="tabular-nums">{names.length}</span>
+          </>,
+          m.tags_count_aria_label({ count: names.length }),
+          chipNarrowOnlyClass
         )}
     </>
   )

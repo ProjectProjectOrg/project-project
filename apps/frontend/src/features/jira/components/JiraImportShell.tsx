@@ -1,5 +1,14 @@
+import { Button } from "@pp/ui/button"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem
+} from "@pp/ui/hooks/useFluidHover"
+import { Check } from "@pp/ui/icons"
+import { spring } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { WeightLabel } from "@pp/ui/weight-label"
 import { Link } from "@tanstack/react-router"
-import { Check } from "lucide-react"
 import {
   AnimatePresence,
   MotionConfig,
@@ -9,18 +18,12 @@ import {
 import { useRef, type ReactNode } from "react"
 
 import { PageContainer, PageHeader } from "@/components/shell/Page"
-import { Button } from "@/components/ui/button"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
-import { WeightLabel } from "@/components/ui/weight-label"
 import {
   jiraImportStageIndex,
   jiraImportStageLabel,
   jiraImportStages,
   type JiraImportStage
 } from "@/features/jira/lib/stages"
-import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
-import { spring } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { IconSwap } from "./IconSwap"
@@ -190,11 +193,7 @@ function StageItem({
       ) : null}
       <IconSwap
         showSecond={complete}
-        first={
-          <span className="font-mono text-caption tabular-nums">
-            {index + 1}
-          </span>
-        }
+        first={<span className="text-caption tabular-nums">{index + 1}</span>}
         second={<Check className="size-3.5" strokeWidth={1.75} />}
       />
       <WeightLabel active={current} truncate>
@@ -214,7 +213,7 @@ function StageItem({
           onClick={onSelect}
           className={cn(
             className,
-            "cursor-pointer transition-colors data-[fluid-hover-active]:text-foreground"
+            "cursor-pointer transition-[color,transform] active:scale-[0.97] data-[fluid-hover-active]:text-foreground"
           )}
         >
           {content}

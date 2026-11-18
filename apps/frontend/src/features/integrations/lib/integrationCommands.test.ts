@@ -1,6 +1,6 @@
 import { OrgActor } from "@pp/shared"
+import { HardDrive } from "@pp/ui/icons"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
-import { HardDrive } from "lucide-react"
 import { describe, expect, it, vi } from "vitest"
 
 import type {

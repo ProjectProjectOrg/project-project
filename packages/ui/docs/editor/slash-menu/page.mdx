@@ -1,0 +1,71 @@
+export const meta = {
+  title: "Slash menu",
+  group: "Editor",
+  order: 2,
+  description:
+    "What “/” opens in the editor: the project's sections and the Markdown block types, filtered as you type, with a preview of the highlighted one. A component of its own; the editor positions it at the caret and drives it with its keys.",
+  sources: [
+    { kind: "own", name: "SlashMenu", note: "on CommandMenu" },
+    { kind: "own", name: "SlashMenuPlugin", note: "Lexical's typeahead trigger" }
+  ]
+}
+
+## Overview
+
+The menu on its own, filtered from an input. Arrows move, Enter picks, Tab switches tabs; at 44rem it shows the highlighted item's preview.
+
+<Demo name="overview" title="Filtering and picking" className="min-h-[34rem] place-items-start" />
+
+## Usage
+
+```tsx
+import { slashMenuView } from "@pp/ui/editor/slash-menu/slash-menu-items"
+import { SlashMenu, SlashMenuInputKeys } from "@pp/ui/editor/slash-menu/slash-menu"
+import { basicLabel } from "@pp/ui/editor/slash-menu/slash-menu-item"
+
+const menu = slashMenuView({ library, lookup, ticketType, body, query, basicLabel }, tab)
+
+<SlashMenu
+  menu={menu}
+  query={query}
+  library={library}
+  preview
+  detachRef={detachRef}
+  onPick={(key) => insert(key)}
+  onTab={setTab}
+  keys={<SlashMenuInputKeys input={input} detachRef={detachRef} />}
+/>
+```
+
+In the editor, `SlashMenuPlugin` does all of this: it opens on "/", builds the menu from the library, positions it, binds the keys to the editor and inserts the pick.
+
+| Prop | |
+| --- | --- |
+| `menu` | The tab, the tab counts and the sections (`slashMenuView`) |
+| `query`, `library` | What was typed after "/", for the empty state; the library, for previews |
+| `preview` | Show the highlighted item's preview beside the list (needs 44rem) |
+| `detachRef` | Set when the pick should insert a synced section's copy (Alt) |
+| `onPick`, `onTab` | The picked item's key; the tab to show |
+| `keys` | What drives the keyboard: `SlashMenuKeys` (the editor) or `SlashMenuInputKeys` (an input) |
+
+## Rules
+
+### Three tabs, three sections
+
+All, Sections and Markdown. All lists Suggested first (sections the ticket's type expects but doesn't have yet), then Markdown (headings, lists, quote, code, divider, table), then Sections (the library's); a query re-ranks them so the section with a name match comes first. Each tab shows its count, so an empty one is visible before switching.
+
+### Filter by name, then by alias
+
+The query matches an item's name first, then its Markdown aliases ("h2", "todo", "ol"), so people who think in Markdown find the block too. No match says what was typed.
+
+### Preview when there's room
+
+At 44rem the highlighted item's preview sits beside the list (a block's content, drawn small; a Markdown type's literal). Narrower, the list takes the width and the preview is dropped; the menu never covers the caret line.
+
+### Alt copies a synced section
+
+Picking a synced section inserts a live copy that follows its definition; Alt+Enter (or Alt+click) inserts a detached copy you can edit. The row says so with a hint.
+
+## Examples
+
+<Demo name="in-the-editor" title="In the editor" className="min-h-[34rem] place-items-start" />

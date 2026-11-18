@@ -1,10 +1,11 @@
 import type { ProjectLink } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { useId } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Kbd } from "@/components/ui/kbd"
 import { useAppForm } from "@/lib/form"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { projectLinkFormOpts, toProjectLink } from "./opts"
@@ -51,7 +52,7 @@ export function ProjectLinkForm({
             </label>
             <Input
               id={labelId}
-              variant="popover"
+              size="md"
               placeholder={m.project_links_label_placeholder()}
               value={field.value}
               maxLength={80}
@@ -74,7 +75,7 @@ export function ProjectLinkForm({
               id={urlId}
               type="url"
               inputMode="url"
-              variant="popover"
+              size="md"
               placeholder={m.project_links_url_placeholder()}
               value={field.value}
               onChange={(event) => field.handleChange(event.target.value)}
@@ -114,13 +115,7 @@ export function ProjectLinkForm({
           {initial === undefined
             ? m.project_links_add_button()
             : m.project_links_save_button()}
-          <Kbd
-            aria-hidden
-            size="sm"
-            className="bg-background/15 text-background"
-          >
-            ↵
-          </Kbd>
+          <KbdShortcut aria-hidden size="sm" keys="↵" keyLabels={keyLabels()} />
         </Button>
       </div>
     </form>

@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Dither, type TimeWarpZone } from "@pp/ui/dither"
+import { Logo, Wordmark } from "@pp/ui/logo"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useRef, useState } from "react"
 
-import { Logo, Wordmark } from "@/components/shell/Logo"
-import { Button } from "@/components/ui/button"
-import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { me, signInProviders } from "@/features/auth/atoms/auth"
 import { MagicLinkForm } from "@/features/auth/forms/magic-link"
 import {
@@ -181,7 +181,7 @@ function GoogleMark({
   size = 16,
   className
 }: {
-  size?: number
+  size?: number | string
   className?: string
 }) {
   return (
@@ -217,7 +217,7 @@ function MicrosoftMark({
   size = 16,
   className
 }: {
-  size?: number
+  size?: number | string
   className?: string
 }) {
   return (

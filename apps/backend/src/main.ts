@@ -125,6 +125,7 @@ import {
 import { OrgEmailHandlerLive } from "./organizations/EmailHandlers"
 import { OrgHandlerLive } from "./organizations/Handlers"
 import { InvitationsHandlerLive } from "./organizations/InvitationHandlers"
+import { SidebarPinsHandlerLive } from "./pins/Handlers"
 import { ProjectsHandlerLive } from "./projects/Handlers"
 import { ProjectImportsHandlerLive } from "./projects/ImportHandlers"
 import { ProjectReferencesHandlerLive } from "./projects/ReferenceHandlers"
@@ -209,7 +210,8 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
       CommentsHandlerLive,
       TicketActivityHandlerLive,
       TicketSubscriptionsHandlerLive,
-      InboxHandlerLive
+      InboxHandlerLive,
+      SidebarPinsHandlerLive
     )
   ),
   Layer.provide(TagsHandlerLive),

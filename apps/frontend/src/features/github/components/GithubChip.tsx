@@ -1,28 +1,28 @@
 import type { GithubConnection } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import {
-  AlertTriangle,
-  ChevronDown,
-  ExternalLink,
-  GitBranch as GithubIcon,
-  Settings2
-} from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MenuNote } from "@/components/ui/menu-note"
+} from "@pp/ui/dropdown-menu"
+import {
+  AlertTriangle,
+  ChevronDown,
+  ExternalLink,
+  GitBranch as GithubIcon,
+  Settings2
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MenuNote } from "@pp/ui/menu-note"
+import { Link } from "@tanstack/react-router"
+
 import { ConnectMenu } from "@/features/github/components/ConnectMenu"
 import { useCanManageGithub } from "@/features/github/hooks/useCanManageGithub"
 import { useGithubWarning } from "@/features/github/hooks/useGithubWarning"
 import { repoUrl } from "@/features/github/lib/branchUrl"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 function RepoName({ owner, name }: Readonly<{ owner: string; name: string }>) {

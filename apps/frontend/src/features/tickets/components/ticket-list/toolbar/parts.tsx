@@ -1,17 +1,18 @@
-import { Search as SearchIcon, X } from "lucide-react"
-import { useRef } from "react"
-
-import { Button } from "@/components/ui/button"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { Button } from "@pp/ui/button"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
+import { Search as SearchIcon, X } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@/components/ui/input-group"
-import { KbdShortcut } from "@/components/ui/kbd"
+} from "@pp/ui/input-group"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { useRef } from "react"
+
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { MIN_SEARCH_CHARS } from "../search"
@@ -61,6 +62,7 @@ export function SearchInput() {
       ) : !compact ? (
         <KbdShortcut
           keys={appHotkeys["tickets.search"].defaultHotkey}
+          keyLabels={keyLabels()}
           aria-hidden
         />
       ) : null}
@@ -77,7 +79,7 @@ export function ClearAll() {
         onClick={clearAll}
         disabled={!hasActiveFilters}
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
           "hover:border-destructive/60 hover:bg-destructive/15",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
         )}

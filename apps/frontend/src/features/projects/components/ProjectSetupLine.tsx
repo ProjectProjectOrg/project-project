@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
+import { GitBranch, UserPlus, X } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch, UserPlus, X } from "lucide-react"
 
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
@@ -70,10 +70,7 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
   const Icon = next.icon
 
   return (
-    <div
-      data-nav-skip
-      className="group/setup-line flex items-center gap-2 border-t border-border/60 px-3 py-2 text-caption text-muted-foreground"
-    >
+    <div className="group/setup-line mx-2 mb-1 flex items-center gap-2 px-2.5 py-1 text-caption text-muted-foreground">
       <Link
         to={next.to}
         params={{ orgSlug, slug }}

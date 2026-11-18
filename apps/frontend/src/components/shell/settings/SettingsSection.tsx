@@ -1,15 +1,15 @@
 import { useRender } from "@base-ui/react/use-render"
+import { SurfaceProvider } from "@pp/ui/lib/surfaceContext"
+import { cn } from "@pp/ui/lib/utils"
 import {
   createContext,
   use,
   useId,
   useMemo,
   type ComponentProps,
+  type MouseEvent,
   type ReactNode
 } from "react"
-
-import { SurfaceProvider } from "@/lib/surfaceContext"
-import { cn } from "@/lib/utils"
 
 type SettingsSectionProps = Readonly<{
   title?: ReactNode
@@ -84,6 +84,23 @@ export function useSettingsRow(): SettingsRowIds {
   return ids
 }
 
+// A row holding a switch toggles it from anywhere on the row: the whole row
+// is the hit area, with a hover fill to show it. Clicks on other controls in
+// the row (buttons, links, fields) keep their own behaviour.
+const ROW_SWITCH_CLASS =
+  "transition-colors has-[[data-slot=switch]:not([data-disabled],[data-loading])]:cursor-pointer has-[[data-slot=switch]:not([data-disabled],[data-loading])]:hover:bg-hover has-[[data-slot=switch]]:select-none"
+
+const ROW_CONTROLS =
+  "button, a, input, textarea, select, label, [role=switch], [role=button], [role=combobox], [role=menuitem], [role=tab]"
+
+function toggleRowSwitch(event: MouseEvent<HTMLDivElement>) {
+  if (event.target instanceof Element && event.target.closest(ROW_CONTROLS))
+    return
+  event.currentTarget
+    .querySelector<HTMLElement>('[data-slot="switch"]')
+    ?.click()
+}
+
 type SettingsRowProps = Readonly<{
   label: ReactNode
   description?: ReactNode
@@ -114,10 +131,13 @@ export function SettingsRow({
 
   return (
     <SettingsRowContext value={ids}>
+      {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a pointer shortcut only: keyboard users reach the switch itself */}
       <div
+        onClick={toggleRowSwitch}
         className={cn(
           "flex min-h-14 gap-x-4 gap-y-3 px-4 py-3",
-          layout === "inline" ? "items-center" : "flex-col"
+          layout === "inline" ? "items-center" : "flex-col",
+          ROW_SWITCH_CLASS
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">

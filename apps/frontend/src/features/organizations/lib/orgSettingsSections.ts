@@ -1,4 +1,4 @@
-import { Plug, Shapes, SlidersHorizontal, Users } from "lucide-react"
+import { Plug, Shapes, SlidersHorizontal, Users } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

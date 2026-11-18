@@ -1,9 +1,10 @@
 import type { Group, TypeKey } from "@pp/shared"
-import { Plus } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
@@ -114,7 +115,6 @@ export function CreatorTypeMenu({
             tone="muted"
             icon={<TypeGlyph type={shown} />}
             label={label}
-            contentKey={typeOptionValue(type)}
             aria-label={m.tickets_create_type_aria_label({ type: label })}
           />
         }
@@ -152,13 +152,18 @@ export function CreatorTypeSelect({
         render={
           <Button
             type="button"
-            variant="chip"
+            variant="ghost"
+            tone="strong"
             aria-label={m.tickets_type_aria_label({ label })}
           />
         }
       >
-        <TypeGlyph type={shown} className="size-3.5" />
-        <span>{label}</span>
+        <TextSwap
+          className="gap-1.5"
+          icon={<TypeGlyph type={shown} className="size-3.5" />}
+        >
+          {label}
+        </TextSwap>
       </SelectTrigger>
     </Select>
   )
@@ -199,7 +204,6 @@ export function CreatorSprintMenu({
           }
           label={selected ? selected.name : m.tickets_assign_sprint_chip()}
           labelClassName="max-w-[10ch]"
-          contentKey={selected?.id ?? "none"}
           aria-label={
             selected
               ? m.tickets_sprint_chip_aria({ name: selected.name })

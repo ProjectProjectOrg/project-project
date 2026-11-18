@@ -1,12 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { canJoinSprint } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { Check } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Check } from "lucide-react"
 import { useContext, useState } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import {
   assignTicketToSprint,
@@ -22,7 +23,6 @@ import {
 } from "@/features/tickets/atoms/ticketSearch"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useSettledValue } from "@/hooks/useSettledValue"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SprintContextChip, type SprintPageProps } from "./SprintCommandPages"
@@ -118,7 +118,7 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
               className="size-4"
             />
             <span className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+              <span className="min-w-(--row-key-width) shrink-0 text-caption text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span className="min-w-0 truncate">{ticket.title}</span>

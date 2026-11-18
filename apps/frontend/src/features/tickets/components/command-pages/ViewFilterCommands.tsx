@@ -1,6 +1,6 @@
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
 import { useEffect } from "react"
 
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import {
@@ -111,6 +111,7 @@ export function ViewFilterPage({ context, onBack, env }: CommandPageProps) {
             )}
             <CommandMenuCheck
               checked={row?.kind === "toggle" && row.option.chosen}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )
@@ -150,6 +151,7 @@ export const viewFilterDimensionPage = (dimension: ValueFilterDimension) =>
               checked={options.some(
                 (option) => option.key === item.value && option.chosen
               )}
+              label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
         )}

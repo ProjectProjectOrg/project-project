@@ -7,20 +7,17 @@ import {
   type EstimateUnit,
   type EstimationMode
 } from "@pp/shared"
-import { Plus, X } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { Button } from "@pp/ui/button"
+import { Plus, X } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import { ShortcutTooltip } from "@/components/ui/tooltip"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimate,
@@ -31,8 +28,7 @@ import {
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { formatWorkDurationLong } from "@/lib/duration"
-import { blurSwap } from "@/lib/springs"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const NO_ESTIMATE = "__no-estimate"
@@ -135,7 +131,10 @@ export function EstimateBadgeTrigger({
       }}
       contentProps={{ align: "start", className: "w-40", finalFocus: false }}
     >
-      <ShortcutTooltip hotkey={appHotkeys["tickets.estimate"]}>
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.estimate"]}
+        keyLabels={keyLabels()}
+      >
         <SelectTrigger render={trigger} />
       </ShortcutTooltip>
     </Select>
@@ -159,14 +158,19 @@ function estimateTrigger(
   return (
     <Button
       type="button"
-      variant={active === null ? "chip-muted" : "chip"}
+      variant="ghost"
+      tone={active === null ? "muted" : "strong"}
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
       className={className}
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
-      <span>{label}</span>
+      <TextSwap
+        className="gap-1.5"
+        icon={<Icon className="size-3.5" strokeWidth={1.75} />}
+      >
+        {label}
+      </TextSwap>
     </Button>
   )
 }
@@ -258,7 +262,10 @@ function EstimateInputPopover({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <ShortcutTooltip hotkey={appHotkeys["tickets.estimate"]}>
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.estimate"]}
+        keyLabels={keyLabels()}
+      >
         <PopoverTrigger render={trigger} />
       </ShortcutTooltip>
       <PopoverContent
@@ -341,7 +348,7 @@ function EstimateInputForm({
           setDraft(event.target.value)
           setInvalid(false)
         }}
-        variant="popover"
+        size="md"
         className="tabular-nums"
       />
       {invalid ? (
@@ -350,13 +357,13 @@ function EstimateInputForm({
         </p>
       ) : (
         unit === "time" && (
-          <BlurSwapLine
-            text={
-              parsed?.unit === "time"
+          <p className="text-caption text-muted-foreground tabular-nums">
+            <TextSwap announce className="whitespace-normal">
+              {parsed?.unit === "time"
                 ? formatWorkDurationLong(parsed.minutes * 60)
-                : m.tickets_estimate_time_hint()
-            }
-          />
+                : m.tickets_estimate_time_hint()}
+            </TextSwap>
+          </p>
         )
       )}
       <div className="flex items-center justify-end gap-1">
@@ -372,37 +379,9 @@ function EstimateInputForm({
         )}
         <Button type="submit" size="sm" disabled={draft.trim() === ""}>
           {m.tickets_estimate_time_save()}
-          <Kbd
-            aria-hidden
-            size="sm"
-            className="bg-background/15 text-background"
-          >
-            ↵
-          </Kbd>
+          <KbdShortcut aria-hidden size="sm" keys="↵" keyLabels={keyLabels()} />
         </Button>
       </div>
     </form>
-  )
-}
-
-function BlurSwapLine({ text }: Readonly<{ text: string }>) {
-  return (
-    <p
-      aria-live="polite"
-      className="grid text-caption text-muted-foreground tabular-nums"
-    >
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={text}
-          variants={blurSwap}
-          initial="hidden"
-          animate="shown"
-          exit="hidden"
-          className="col-start-1 row-start-1"
-        >
-          {text}
-        </motion.span>
-      </AnimatePresence>
-    </p>
   )
 }

@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { getRouteApi } from "@tanstack/react-router"
 
 import {
@@ -6,7 +7,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { EverhourSettingsRow } from "@/features/everhour/components/EverhourProjectSettings"
 import { FigmaProjectSettings } from "@/features/figma/components/FigmaProjectSettings"
 import { GithubSettingsRows } from "@/features/github/components/GithubSettingsRows"

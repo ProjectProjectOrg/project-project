@@ -1,22 +1,23 @@
-import type { LucideIcon } from "lucide-react"
-import { MoreHorizontal, Plus } from "lucide-react"
-import type { FormEvent, ReactNode } from "react"
-
-import { Badge, type BadgeTone } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge, type BadgeTone } from "@pp/ui/badge"
+import { Button } from "@pp/ui/button"
+import { DropdownMenuTrigger } from "@pp/ui/dropdown-menu"
+import type { IconType } from "@pp/ui/icons"
+import { MoreHorizontal, Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@/components/ui/input-group"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+} from "@pp/ui/input-group"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
+import type { FormEvent, ReactNode } from "react"
+
 import { m } from "@/paraglide/messages"
 
 export type RoleMeta = Readonly<{
   label: () => string
-  icon: LucideIcon
+  icon: IconType
   tone: BadgeTone
 }>
 
@@ -67,7 +68,7 @@ export function RoleSelect<R extends string>({
           <Badge
             tone={current.tone}
             size="sm"
-            className="cursor-pointer transition-colors"
+            className="cursor-pointer"
             render={
               <button
                 type="button"
@@ -78,8 +79,12 @@ export function RoleSelect<R extends string>({
               />
             }
           >
-            <Icon strokeWidth={1.75} />
-            {current.label()}
+            <TextSwap
+              className="gap-1"
+              icon={<Icon className="size-3 shrink-0" strokeWidth={1.75} />}
+            >
+              {current.label()}
+            </TextSwap>
           </Badge>
         }
       />
@@ -225,7 +230,7 @@ export function PendingInviteRow({
   return (
     <MemberRowLayout
       leading={
-        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-caption text-muted-foreground">
+        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border text-caption text-muted-foreground tabular-nums">
           {initial}
         </div>
       }

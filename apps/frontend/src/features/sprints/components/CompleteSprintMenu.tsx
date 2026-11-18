@@ -6,10 +6,7 @@ import {
   type CompleteSprintDestination,
   type Group
 } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, Inbox, Plus, Trophy } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,22 +17,26 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { ChevronDown, Inbox, Plus, Trophy } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useRef, useState } from "react"
+
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"
 import {
   completeSprint,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { sprintEnded } from "@/features/sprints/lib/sprintDates"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { NewSprintPopover } from "./NewSprintPopover"
 import { SprintStateIcon } from "./SprintChip"
 
 export function useUnfinishedCount({
@@ -63,14 +64,21 @@ export function useCompleteSprint({
   orgSlug,
   slug,
   sprint,
-  sprints
-}: SprintPair & Readonly<{ orgSlug: string; slug: string }>) {
+  sprints,
+  onNew
+}: SprintPair &
+  Readonly<{
+    orgSlug: string
+    slug: string
+    // "Complete into a new sprint": on the page this opens the new-sprint
+    // popover on the menu's button; in cmd+k it opens the New sprint page.
+    onNew: () => void
+  }>) {
   const mutation = completeSprint({
     req: sprintListRequest(orgSlug, slug),
     groupId: sprint.id
   })
   const complete = useAtomSet(mutation)
-  const openCreate = useAtomSet(createSprintDialog)
   const unfinished = useUnfinishedCount({ orgSlug, slug, sprint })
   const others = sprints.filter(
     (other) => other.id !== sprint.id && other.completedAt === null
@@ -80,12 +88,7 @@ export function useCompleteSprint({
     next === null ? others : [next, ...others.filter((other) => other !== next)]
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ destination })
-  const completeToNew = () =>
-    openCreate({
-      orgSlug,
-      projectSlug: slug,
-      completeFrom: sprint
-    })
+  const completeToNew = onNew
   return { unfinished, targets, completeTo, completeToNew }
 }
 
@@ -129,7 +132,9 @@ const trophy = (
   <Trophy className="size-4 text-state-success" strokeWidth={1.75} />
 )
 
-export function CompleteSprintSubmenu(props: SprintPair) {
+export function CompleteSprintSubmenu(
+  props: SprintPair & Readonly<{ onNew: () => void }>
+) {
   const action = useCompleteSprint({ ...useProjectRoute(), ...props })
   if (action.unfinished === 0) {
     return (
@@ -156,7 +161,13 @@ export function CompleteSprintSubmenu(props: SprintPair) {
 }
 
 export function CompleteSprintButton(props: SprintPair) {
-  const action = useCompleteSprint({ ...useProjectRoute(), ...props })
+  const [creating, setCreating] = useState(false)
+  const button = useRef<HTMLButtonElement>(null)
+  const action = useCompleteSprint({
+    ...useProjectRoute(),
+    ...props,
+    onNew: () => setCreating(true)
+  })
   const className = cn(
     sprintEnded(props.sprint) &&
       "border-state-warning/50 text-state-warning hover:text-state-warning"
@@ -176,29 +187,38 @@ export function CompleteSprintButton(props: SprintPair) {
     )
   }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="tertiary"
-            size="sm"
-            leadingIcon={Trophy}
-            className={className}
-            trailingIcon={ChevronDown}
-          >
-            {m.sprints_complete_button()}
-          </Button>
-        }
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              ref={button}
+              type="button"
+              variant="tertiary"
+              size="sm"
+              leadingIcon={Trophy}
+              className={className}
+              trailingIcon={ChevronDown}
+            >
+              {m.sprints_complete_button()}
+            </Button>
+          }
+        />
+        <DropdownMenuContent
+          align="end"
+          sideOffset={6}
+          finalFocus={false}
+          className="w-60"
+        >
+          <DestinationItems action={action} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <NewSprintPopover
+        anchor={button}
+        open={creating}
+        onOpenChange={setCreating}
+        completeFrom={props.sprint}
       />
-      <DropdownMenuContent
-        align="end"
-        sideOffset={6}
-        finalFocus={false}
-        className="w-60"
-      >
-        <DestinationItems action={action} />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </>
   )
 }

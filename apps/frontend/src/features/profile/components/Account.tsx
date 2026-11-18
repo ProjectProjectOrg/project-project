@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { User } from "@pp/shared"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -41,7 +41,7 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           <p className="text-caption text-muted-foreground">
             {user.username ? (
               <>
-                <span className="font-mono">@{user.username}</span>
+                <span className="tabular-nums">@{user.username}</span>
                 <span className="mx-1.5">·</span>
               </>
             ) : null}
@@ -49,7 +49,7 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           </p>
         </div>
         <SettingsRow label={m.profile_user_id_label()}>
-          <span className="font-mono text-body text-muted-foreground">
+          <span className="text-body text-muted-foreground tabular-nums">
             {user.id}
           </span>
         </SettingsRow>

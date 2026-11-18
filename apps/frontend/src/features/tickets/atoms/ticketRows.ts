@@ -27,6 +27,7 @@ import {
 } from "@/features/tickets/lib/ticketPatch"
 
 import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
+import { justCreatedTicket } from "./createTicket"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
@@ -161,6 +162,7 @@ export const recordCreatedKey = (
 ) => {
   const index = createdKeys(scope)
   get.set(index, new Map(get(index)).set(id, clientId))
+  get.set(justCreatedTicket, { id, at: performance.now() })
 }
 
 type Page<Item> = Readonly<{
@@ -278,12 +280,16 @@ export const coalescingTicketUpdate = <V, VE>(
         payload: toUpdateInput(edit)
       }),
     confirm: (value, confirmed) => update.confirm(value, confirmed),
-    publish: (_confirmed, payload) =>
-      update.publish?.(payload) ??
-      (payload.sprint === undefined
-        ? Keys.ticketChanged(
-            projectScope(update.path.orgSlug, update.path.slug),
-            update.path.id
-          )
-        : bulkChangedKeys(update.path, [update.path.id], true))
+    publish: (_confirmed, payload) => [
+      ...(update.publish?.(payload) ??
+        (payload.sprint === undefined
+          ? Keys.ticketChanged(
+              projectScope(update.path.orgSlug, update.path.slug),
+              update.path.id
+            )
+          : bulkChangedKeys(update.path, [update.path.id], true))),
+      ...(payload.title === undefined && payload.status === undefined
+        ? []
+        : [Keys.pins(update.path.orgSlug)])
+    ]
   })

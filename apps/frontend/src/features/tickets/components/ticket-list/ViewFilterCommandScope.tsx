@@ -1,5 +1,5 @@
 import type { TicketListQuery } from "@pp/shared"
-import { FilterX, SlidersHorizontal } from "lucide-react"
+import { FilterX, SlidersHorizontal } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"

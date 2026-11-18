@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OrgStorageStatus } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import * as Exit from "effect/Exit"
 
 import {
@@ -11,7 +12,6 @@ import {
   SettingsInput,
   SettingsSwitch
 } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
 import {
   connectStorage,
   storageRequest

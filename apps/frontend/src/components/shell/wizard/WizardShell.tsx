@@ -1,8 +1,7 @@
-import { Check } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Check } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import type { ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 export type WizardStage<Id extends string> = Readonly<{
   id: Id
@@ -73,7 +72,7 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
                     {complete ? (
                       <Check className="size-3.5" strokeWidth={1.75} />
                     ) : (
-                      <span className="w-3.5 shrink-0 text-center font-mono text-caption tabular-nums">
+                      <span className="w-3.5 shrink-0 text-center text-caption tabular-nums">
                         {index + 1}
                       </span>
                     )}
@@ -84,8 +83,9 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
                   <Button
                     key={stage.id}
                     type="button"
-                    variant="step"
+                    variant="ghost"
                     size="step"
+                    className="w-full justify-start rounded-xl text-left text-muted-foreground hover:text-foreground"
                     onClick={() => navigation.onNavigate(target)}
                   >
                     {content}

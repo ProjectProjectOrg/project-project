@@ -1,17 +1,13 @@
+import { Button } from "@pp/ui/button"
+import { ChevronLeft, ChevronRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import useEmblaCarousel from "embla-carousel-react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import applicationAccessImage from "@/assets/everhour-walkthrough/everhour-application-access.png"
 import profileMenuImage from "@/assets/everhour-walkthrough/everhour-profile-menu.png"
 import projectProjectKeyImage from "@/assets/everhour-walkthrough/projectproject-everhour-key.png"
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function EverhourApiKeyWalkthrough() {
@@ -64,7 +60,8 @@ export function EverhourApiKeyWalkthrough() {
         render={
           <Button
             type="button"
-            variant="inline-help"
+            variant="ghost"
+            className="align-middle text-micro"
             size="icon-xs"
             aria-label={m.project_settings_everhour_help_trigger_label()}
           >
@@ -127,7 +124,7 @@ export function EverhourApiKeyWalkthrough() {
                   aria-current={index === selectedIndex ? "step" : undefined}
                   onClick={() => emblaApi?.scrollTo(index)}
                   className={cn(
-                    "size-1.5 rounded-full transition-all duration-150",
+                    "size-1.5 rounded-full transition-all duration-150 active:scale-[0.97]",
                     index === selectedIndex
                       ? "w-4 bg-foreground"
                       : "bg-muted-foreground/35 hover:bg-muted-foreground/60"

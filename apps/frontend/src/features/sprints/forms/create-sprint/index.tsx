@@ -1,41 +1,28 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { DatePicker } from "@pp/ui/date-picker"
+import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
+import { ArrowRightLeft, CalendarDays } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRightLeft, CalendarDays } from "lucide-react"
-import {
-  useContext,
-  useState,
-  type ComponentType,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode
-} from "react"
+import { useContext, useState, type FormEvent, type KeyboardEvent } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
 import {
   createSprintInProject,
-  type CreateSprintDialogRequest
-} from "@/features/sprints/atoms/createSprintDialog"
+  type CreateSprintRequest
+} from "@/features/sprints/atoms/createSprint"
 import {
   completeSprint,
   sprintListRequest
@@ -47,6 +34,7 @@ import {
   formatSprintDates,
   type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
+import { dateLabels } from "@/lib/dateLabels"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -55,11 +43,9 @@ const datesLabel = (draft: SprintDateDraft) =>
 
 export function CreateSprintForm({
   request,
-  Title,
   onDone
 }: Readonly<{
-  request: CreateSprintDialogRequest
-  Title: ComponentType<{ className?: string; children: ReactNode }>
+  request: CreateSprintRequest
   onDone: () => void
 }>) {
   const { orgSlug, completeFrom, tickets } = request
@@ -67,12 +53,11 @@ export function CreateSprintForm({
   const navigate = useNavigate()
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
-  const [picked, setPicked] = useState(request.projectSlug)
-  const slug = picked ?? projects[0]?.slug ?? null
+  // The popover opens inside one project; the first project is a fallback.
+  const slug = request.projectSlug ?? projects[0]?.slug ?? null
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [range, setRange] = useState<SprintDateDraft>({})
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [created, setCreated] = useState<Group["id"] | null>(null)
   const [pending, setPending] = useState(false)
@@ -142,20 +127,9 @@ export function CreateSprintForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <Composer.Header>
-        <ProjectSelect
-          projects={projects}
-          value={slug}
-          onChange={setPicked}
-          readOnly={completeFrom !== undefined || tickets !== undefined}
-        />
-        <Title className="text-body font-normal text-muted-foreground">
-          {m.sprints_create_dialog_title()}
-        </Title>
-      </Composer.Header>
       <Composer.Title>
         <Input
-          variant="composer-title"
+          variant="bare"
           autoFocus
           aria-label={m.sprints_new_name_placeholder()}
           placeholder={m.sprints_new_name_placeholder()}
@@ -177,69 +151,51 @@ export function CreateSprintForm({
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Chips>
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger render={<Button type="button" variant="chip" />}>
-            <CalendarDays className="size-3.5" strokeWidth={1.75} />
-            <span>{datesLabel(range)}</span>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            initialFocus={false}
-            className="w-auto p-0"
-          >
-            <Calendar
-              mode="range"
-              selected={{ from: range.from, to: range.to }}
-              onSelect={(next) => setRange(next ?? {})}
-              disabled={{ before: today }}
-              defaultMonth={range.from ?? today}
-            />
-            <div className="flex justify-between gap-2 border-t border-border/60 p-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                onClick={() => {
-                  setRange(defaultSprintRange())
-                  setPickerOpen(false)
-                }}
-              >
-                {m.sprints_start_today()}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                disabled={range.from === undefined}
-                onClick={() => {
-                  setRange({})
-                  setPickerOpen(false)
-                }}
-              >
-                {m.sprints_clear_dates()}
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-        {range.from === undefined && (
-          <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
-        )}
-      </Composer.Chips>
       {completeFrom !== undefined && slug !== null && (
         <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
       )}
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer>
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={!canSubmit}>
-          {startsNow
-            ? m.sprints_create_dialog_submit_start()
-            : m.sprints_create_dialog_submit()}
-        </Button>
-      </Composer.Footer>
+      <Composer.Tray>
+        <Composer.Footer>
+          <DatePicker
+            mode="range"
+            value={{ from: range.from, to: range.to }}
+            onChange={(next) => setRange({ from: next.from, to: next.to })}
+            labels={dateLabels("range", m.sprints_clear_dates())}
+            quickPicks={[
+              {
+                label: m.sprints_start_today(),
+                value: { from: undefined, ...defaultSprintRange() }
+              }
+            ]}
+            disabled={{ before: today }}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                tone="strong"
+                size="sm"
+                leadingIcon={CalendarDays}
+              >
+                {datesLabel(range)}
+              </Button>
+            }
+          />
+          {range.from === undefined && (
+            <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
+          )}
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={!canSubmit}>
+              {startsNow
+                ? m.sprints_create_dialog_submit_start()
+                : m.sprints_create_dialog_submit()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

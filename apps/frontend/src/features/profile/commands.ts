@@ -1,4 +1,4 @@
-import { Bot, CodeXml, Terminal } from "lucide-react"
+import { Bot, CodeXml, Terminal } from "@pp/ui/icons"
 
 import type { Command } from "@/features/command-menu/lib/commands"
 import { m } from "@/paraglide/messages"

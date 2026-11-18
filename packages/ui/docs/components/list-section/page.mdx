@@ -1,0 +1,93 @@
+export const meta = {
+  title: "List section",
+  group: "Primitives",
+  description:
+    "A group of ticket rows (a status, a sprint, an epic, a dashboard group) under a sticky header that collapses it, with a \"+\" that turns the header into an inline ticket creator.",
+  sources: [
+    {
+      kind: "own",
+      name: "ListSectionHeader, ListSectionBody",
+      note: "Ported from the app's backlog sections; polish pass still to come"
+    }
+  ]
+}
+
+## Overview
+
+Four sections: a status, a sprint with its dates and points, one that starts collapsed, and one where nobody can create tickets. Click a header (or its chevron) to collapse it; click "+" to type a new ticket, and Escape or "×" to stop.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+The app's `SectionHeader` picks the icon and label (a status's, or a sprint's or epic's heading) and passes its messages.
+
+```tsx
+import { ListSectionBody, ListSectionHeader } from "@pp/ui/list-section"
+import { StatusGlyph } from "@pp/ui/status-glyph"
+
+<ListSectionHeader
+  icon={<StatusGlyph icon={meta.icon} className={meta.className} color={meta.color} />}
+  label={label}
+  count={count}
+  countLabel={m.tickets_section_count_aria_label({ count })}
+  collapsed={collapsed}
+  onToggleCollapsed={onToggleCollapsed}
+  collapseLabel={m.tickets_section_collapse_aria_label({ label })}
+  create={
+    canCreate
+      ? {
+          creating,
+          creator: <SectionTicketCreator … />,
+          onStart: onStartCreate,
+          onDismiss: onDismissCreate,
+          label: m.tickets_section_create_aria_label({ label }),
+          dismissLabel: m.tickets_section_create_dismiss_aria_label({ label })
+        }
+      : undefined
+  }
+/>
+<ListSectionBody collapsed={collapsed}>{rows}</ListSectionBody>
+```
+
+| Prop | Type | What it does |
+| --- | --- | --- |
+| `icon` | `ReactNode` | In the status column: a `StatusGlyph`, or a sprint's or epic's icon |
+| `label` | `string` | The section's name |
+| `count`, `countLabel` | `number`, `string` | The count, rolling when it changes, and what it reads out ("4 tickets") |
+| `detail` | `ReactNode` | Chips at the end (dates, points); hidden on narrow screens |
+| `collapsed`, `onToggleCollapsed` | `boolean`, `() => void` | Open or closed; the whole header toggles |
+| `collapseLabel` | `string` | The chevron's name |
+| `create` | `SectionCreate` | The "+" and the inline creator; leave out where nobody can create tickets |
+
+`ListSectionBody` takes `collapsed` and the rows. `StatusGlyph` (`@pp/ui/status-glyph`) is the status icon at list size, shared with board columns.
+
+## Rules
+
+### The bar matches the rows
+
+The header is a 40px bar with button corners (20px, `--button-corner`), the same height and shape as the rows under it. Its count is a plain number (no badge) that rolls through TextSwap when tickets move in or out. Its detail (a sprint's dates, estimate, unestimated tickets, capacity and load) is a row of chips in the card's language (`chipClassName`: icon and shortest value), each with its own hover and preview; a click on a chip never toggles the section.
+
+### Pressing, pinning, folding
+
+Pressing the bar steps its fill one shade darker, unless the press is on one of its own controls (a chip, the chevron, the "+"), which press themselves. While the bar is pinned to the top of the scroll area it carries `data-stuck` and lifts with `shadow-surface-3`, so rows read as passing under it. Rows open and close at once, with no height or fade animation: on a long list (hundreds of rows) animating the fold stutters, and under a pinned bar the toggle already scrolls to keep the header in place (`keepInPlace`).
+
+### Creating turns the bar into the field
+
+"+" turns the bar into the input it holds: the fill becomes `--field` with the segment hairline, the heading slides out to the left as the creator slides in from the "+" side (a short blur crossfade), and the "+" turns into "×".
+
+### The header lines up with its rows
+
+The chevron sits in the checkbox column (`--list-lead`) and the icon in the status column (`--list-icon`), so a section's icon stands right above its rows' status icons and the titles start on one line.
+
+### Collapsing keeps the header where it is
+
+Opening or closing a section changes the height of everything under it, which would move the page under the pointer. The toggle runs through `keepInPlace` (`@pp/ui/lib/keepInPlace`), which scrolls by the change so the header stays put on screen, and the next click lands on the same header.
+
+### Creating happens in the header
+
+The new ticket is typed where it will land, and the header stops toggling while the creator is open, so a click into the field doesn't collapse the section.
+
+### A closed section is out of reach
+
+The collapsed body is `inert` and hidden from assistive tech, so Tab and screen readers skip rows nobody can see.

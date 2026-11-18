@@ -1,8 +1,8 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
-import { Ban, Undo2 } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Ban, Undo2 } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
 import type { JiraImportSetup, TagChoice } from "@/features/jira/lib/draft"
 import { formatCount } from "@/features/jira/lib/format"
@@ -158,7 +158,7 @@ export function TagsSection({
                         </span>
                       ) : (
                         <Input
-                          variant="compact"
+                          size="sm"
                           aria-label={m.jira_import_tags_name_label({
                             tag: tag.source.value
                           })}
@@ -175,7 +175,7 @@ export function TagsSection({
                         />
                       )}
                       <Button
-                        variant="quiet"
+                        variant="ghost"
                         size="square-7"
                         aria-label={
                           skipped

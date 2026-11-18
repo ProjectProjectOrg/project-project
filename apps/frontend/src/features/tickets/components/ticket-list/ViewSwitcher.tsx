@@ -1,12 +1,9 @@
+import { Columns3, Rows3 } from "@pp/ui/icons"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { useMatch, useNavigate } from "@tanstack/react-router"
-import { Columns3, Rows3 } from "lucide-react"
 import { startTransition } from "react"
 import { flushSync } from "react-dom"
 
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
@@ -40,7 +37,6 @@ export function ViewSwitcher() {
     const { groupId } = sprintMatch.params
     return (
       <SwitcherTabs
-        variant="view"
         ariaLabel={m.sprints_view_tabs_aria_label()}
         current={view === "description" ? "list" : view}
         items={[
@@ -65,7 +61,6 @@ export function ViewSwitcher() {
 
   return (
     <SwitcherTabs
-      variant="view"
       ariaLabel={m.tickets_view_tabs_aria_label()}
       current={view === "description" ? "list" : view}
       items={[
@@ -92,23 +87,17 @@ function SwitcherTabs<K extends string>({
   ariaLabel,
   current,
   items,
-  onSelect,
-  variant
+  onSelect
 }: Readonly<{
-  variant: "default" | "view"
   ariaLabel: string
   current: K
   items: ReadonlyArray<SegmentedItem<K>>
   onSelect: (next: K) => void
 }>) {
   return (
-    <div
-      role="group"
-      aria-label={ariaLabel}
-      className={variant === "view" ? "w-full" : "ml-auto"}
-    >
+    <div role="group" aria-label={ariaLabel} className="w-full">
       <SegmentedTabs
-        variant={variant}
+        fill
         items={items}
         value={current}
         onValueChange={onSelect}

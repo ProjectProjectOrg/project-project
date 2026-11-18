@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
+import { ArrowUpRight, GitBranch } from "@pp/ui/icons"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowUpRight, GitBranch } from "lucide-react"
 
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { me } from "@/features/auth/atoms/auth"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"
 
@@ -36,7 +36,7 @@ export function BranchChip({
       draggable={false}
       onClick={(e) => e.stopPropagation()}
       title={name}
-      className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-caption text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
+      className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-caption text-muted-foreground tabular-nums transition-colors duration-100 hover:bg-hover hover:text-foreground"
     >
       <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
       <MiddleTruncate value={displayName ?? name} title={name} />

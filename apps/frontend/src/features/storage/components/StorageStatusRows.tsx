@@ -1,11 +1,11 @@
 import type { OrgStorageStatus } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -65,7 +65,7 @@ export function StorageStatusRows({
 function ValueRow({ label, value }: { label: string; value: string | null }) {
   return (
     <SettingsRow label={label}>
-      <span className="font-mono text-body text-muted-foreground">
+      <span className="text-body text-muted-foreground tabular-nums">
         {value ?? m.storage_value_none()}
       </span>
     </SettingsRow>

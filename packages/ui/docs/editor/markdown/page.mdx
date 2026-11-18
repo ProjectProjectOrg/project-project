@@ -1,0 +1,46 @@
+export const meta = {
+  title: "Markdown",
+  group: "Editor",
+  order: 7,
+  description:
+    "Markdown rendered read-only, looking exactly like the editor: descriptions people can't edit, comments, previews and activity.",
+  sources: [
+    { kind: "own", name: "Markdown", note: "react-markdown with remark-gfm" }
+  ]
+}
+
+## Overview
+
+A description and a comment (compact).
+
+<Demo name="overview" title="Read-only" />
+
+## Usage
+
+```tsx
+import { Markdown } from "@pp/ui/editor/markdown"
+
+<Markdown>{ticket.body}</Markdown>
+<Markdown size="compact">{comment.body}</Markdown>
+```
+
+| Prop | |
+| --- | --- |
+| `children` | The Markdown |
+| `size` | `"default"`, or `"compact"` for comments (tighter headings) |
+| `blocks` | `"frame"` (blocks with their icons, the default) or `"flat"` (blocks as plain sections) |
+| `figmaTarget` | The ticket its Figma links belong to: their names and thumbnails (`EditorServices` `useFigmaLinks`), and live embeds for rich links. Without it (previews, hover cards) every Figma link is a chip with the link's text |
+
+## Rules
+
+### One look for reading and editing
+
+`Markdown` and the editor share their styles (`.prose-md`, in `prose.css`), and the same mentions, attachments, blocks, Figma and Paper chips and code highlighting, so switching a description into edit mode moves nothing.
+
+### Checkboxes are the Checkbox
+
+Task lists render the Checkbox component, read-only, like the editor's checklist items. (`MarkdownSegment` takes `onToggleTask` for surfaces that let you tick them without editing.)
+
+### Links show their page, unsafe ones are dropped
+
+Links get their page's title and favicon like in the editor. Unsafe URLs (`javascript:` and the like) are dropped, while mention and attachment links stay.

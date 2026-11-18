@@ -1,8 +1,8 @@
-import { ArrowLeft } from "lucide-react"
+import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
+import type { SaveStatus } from "@pp/ui/editor/save-queue"
+import { ArrowLeft } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
-import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -32,7 +32,7 @@ export function LibraryEditorHeader({
       <LibraryListLink
         scope={scope}
         kind={kind}
-        className="-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+        className="-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.97]"
       >
         <ArrowLeft className="size-3.5" strokeWidth={1.75} />
         {kind === "type"

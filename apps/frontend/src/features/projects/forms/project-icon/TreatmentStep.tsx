@@ -1,8 +1,8 @@
-import { AlertCircle } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { AlertCircle } from "@pp/ui/icons"
+import { Slider } from "@pp/ui/slider"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
 import { CUTOUT_MAX_TOLERANCE } from "@/features/projects/lib/iconCutout"

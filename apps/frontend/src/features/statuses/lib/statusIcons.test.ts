@@ -1,4 +1,4 @@
-import { Circle, CircleCheck } from "lucide-react"
+import { Circle, CircleCheck } from "@pp/ui/icons"
 import { describe, expect, it } from "vitest"
 
 import { getStatusIcon } from "./statusIcons"

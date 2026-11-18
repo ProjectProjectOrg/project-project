@@ -1,17 +1,14 @@
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import { Switch } from "@pp/ui/switch"
 import { useRef, useState, type ComponentProps } from "react"
 
 import { useSettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Input } from "@/components/ui/input"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
-import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
 
 type SettingsTextFieldProps = Pick<
   ComponentProps<typeof Input>,
-  "variant" | "aria-label"
+  "variant" | "size" | "aria-label"
 > &
   Readonly<{
     value: string
@@ -34,6 +31,7 @@ export function SettingsTextField({
   allowEmpty = false,
   className,
   variant,
+  size,
   "aria-label": ariaLabel
 }: SettingsTextFieldProps) {
   const { labelId, descriptionId } = useSettingsRow()
@@ -61,6 +59,7 @@ export function SettingsTextField({
     <Input
       value={draft}
       variant={variant}
+      size={size}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {

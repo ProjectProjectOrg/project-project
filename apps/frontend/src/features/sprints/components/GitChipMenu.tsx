@@ -5,22 +5,10 @@ import type {
   Ticket
 } from "@pp/shared"
 import {
-  ArrowUpRight,
-  Copy,
-  GitBranch,
-  GitPullRequestCreateArrow,
-  Layers,
-  Link as LinkIcon,
-  Unlink
-} from "lucide-react"
-import { Fragment, useRef, useState, type ReactNode } from "react"
-
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger
-} from "@/components/ui/context-menu"
+} from "@pp/ui/context-menu"
 import {
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -29,9 +17,20 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import {
+  ArrowUpRight,
+  Copy,
+  GitBranch,
+  GitPullRequestCreateArrow,
+  Layers,
+  Link as LinkIcon
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { Fragment, useRef, useState, type ReactNode } from "react"
+
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
-import { RemoveBranchAction } from "@/features/github/components/ticket-git/BranchMenu"
+import { RemoveBranchItem } from "@/features/github/components/ticket-git/BranchMenu"
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
 import {
   layerTone,
@@ -41,7 +40,6 @@ import {
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { canStackOn } from "@/features/github/lib/stacking"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -186,16 +184,11 @@ export function GitChipMenu({
         {m.git_stack_add_button()}
       </DropdownMenuItem>
     ),
-    canClear && (
-      <ConfirmButton.MenuItem key="remove" variant="destructive">
-        <Unlink strokeWidth={1.75} />
-        {m.git_branch_remove_item()}
-      </ConfirmButton.MenuItem>
-    )
+    canClear && <RemoveBranchItem key="remove" ticket={ticket} />
   ].filter((section) => section !== false)
 
   return (
-    <ConfirmButton.Root bare>
+    <>
       <ContextMenu>
         <ContextMenuTrigger
           render={
@@ -228,12 +221,7 @@ export function GitChipMenu({
           onOpenChange={setStacking}
         />
       )}
-      {canClear && (
-        <ConfirmButton.Popover anchor={anchor} className="w-72">
-          <RemoveBranchAction ticket={ticket} />
-        </ConfirmButton.Popover>
-      )}
-    </ConfirmButton.Root>
+    </>
   )
 }
 
@@ -297,7 +285,7 @@ function StackLayerItem({ layer }: Readonly<{ layer: StackLayerState }>) {
     return (
       <DropdownMenuItem disabled>
         <Icon className={className} strokeWidth={1.75} />
-        <span className="min-w-0 truncate font-mono text-caption">
+        <span className="min-w-0 truncate text-caption tabular-nums">
           {layer.branch}
         </span>
       </DropdownMenuItem>
@@ -341,9 +329,7 @@ function PullRequestItem({
       }
     >
       {icon}
-      <span className="shrink-0 font-mono text-caption tabular-nums">
-        #{number}
-      </span>
+      <span className="shrink-0 text-caption tabular-nums">#{number}</span>
       <span className="min-w-0 flex-1 truncate text-foreground">{title}</span>
       {dot !== null && (
         <span

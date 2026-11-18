@@ -1,15 +1,18 @@
 import type { JiraMigrationSummary } from "@pp/shared"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem
+} from "@pp/ui/hooks/useFluidHover"
 import { Link } from "@tanstack/react-router"
 import { useRef } from "react"
 
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { formatDateTime } from "@/features/jira/lib/format"
 import {
   isRunningJiraImport,
   jiraProgressRatio
 } from "@/features/jira/lib/imports"
 import { jiraImportStatusLabel } from "@/features/jira/lib/stages"
-import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
 import { m } from "@/paraglide/messages"
 
 import { ProgressBar } from "./ProgressBar"
@@ -75,11 +78,11 @@ function ImportRow({
   const projectSlug =
     summary.status === "succeeded" ? summary.destinationProjectSlug : null
   const className =
-    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-body text-foreground"
+    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-body text-foreground transition-transform duration-100 active:scale-[0.97]"
   const content = (
     <>
       <span className="flex min-w-0 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-caption text-muted-foreground">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {summary.sourceProjectKey}
         </span>
         <span className="truncate">{summary.sourceProjectName}</span>
@@ -88,7 +91,7 @@ function ImportRow({
             <span aria-hidden className="shrink-0 text-muted-foreground">
               {m.jira_import_row_arrow()}
             </span>
-            <span className="shrink-0 font-mono text-caption text-muted-foreground">
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
               {destination.key}
             </span>
             <span className="truncate text-muted-foreground">

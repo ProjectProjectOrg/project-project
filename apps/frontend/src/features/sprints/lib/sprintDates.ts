@@ -1,10 +1,9 @@
 import { sprintState, type Group } from "@pp/shared"
+import { localToday } from "@pp/ui/lib/parseDate"
 import * as DateTime from "effect/DateTime"
 
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-
-import { localToday } from "./parseStartDate"
 
 export type SprintDateDraft = Readonly<{
   from?: Date | undefined
@@ -129,7 +128,7 @@ export const sprintCountdown = (
 }
 
 export const sprintEnded = (
-  sprint: Group,
+  sprint: Pick<Group, "completedAt" | "startsAt" | "endsAt">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
 ): boolean =>
   sprintState(sprint, now) === "active" &&

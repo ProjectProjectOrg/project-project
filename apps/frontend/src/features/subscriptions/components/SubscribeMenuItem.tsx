@@ -1,14 +1,11 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
+import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+import { Bell, BellOff } from "@pp/ui/icons"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Bell, BellOff } from "lucide-react"
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import {
-  DropdownMenuItem,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   setSubscribed,
@@ -16,6 +13,7 @@ import {
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 export function SubscribeMenuItem({
@@ -40,6 +38,7 @@ export function SubscribeMenuItem({
         ? m.tickets_unsubscribe_button()
         : m.tickets_subscribe_button()}
       <DropdownMenuShortcut
+        keyLabels={keyLabels()}
         keys={appHotkeys["tickets.subscribe"].defaultHotkey}
       />
     </DropdownMenuItem>

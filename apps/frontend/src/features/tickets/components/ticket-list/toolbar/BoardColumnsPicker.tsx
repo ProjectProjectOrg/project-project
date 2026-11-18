@@ -1,15 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown } from "lucide-react"
-
-import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { menuItemMetaClass } from "@/components/ui/menu-styles"
-import { triggerVariants } from "@/components/ui/select"
+} from "@pp/ui/dropdown-menu"
+import { ChevronDown } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
+import * as Result from "effect/reactivity/AsyncResult"
+
 import {
   statusesFor,
   statusesRequest
@@ -21,7 +22,6 @@ import {
 } from "@/features/sprints/hooks/useBoardColumns"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketToolbar } from "./context"
@@ -52,16 +52,14 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
             label,
             value: displayValue
           })}
-          className={cn(
-            triggerVariants(),
-            "ml-auto h-8 w-40 min-w-0 rounded-[20px]"
-          )}
+          render={<Button type="button" variant="field" size="md" />}
+          className="ml-auto w-40 min-w-0 gap-2"
         >
           <span className="min-w-0 flex-1 truncate text-left">
             {displayValue}
           </span>
           <ChevronDown
-            className="size-4 shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground"
+            className="size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-280 ease-spring group-hover:text-foreground group-data-[popup-open]:rotate-180 group-data-[popup-open]:text-foreground motion-reduce:transition-none"
             strokeWidth={2}
           />
         </DropdownMenuTrigger>
@@ -70,11 +68,12 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
             const meta = statusMetaFor(status, statuses)
             const Icon = meta.icon
             return (
-              <CheckboxMenuItem
+              <DropdownMenuCheckboxItem
                 key={status}
                 label={meta.label}
                 checked={visible.includes(status)}
-                onToggle={() => layout.toggleHidden(status)}
+                closeOnClick={false}
+                onCheckedChange={() => layout.toggleHidden(status)}
               >
                 <Icon
                   className={cn("size-4", meta.className)}
@@ -87,7 +86,7 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
                     {counts[status] ?? 0}
                   </span>
                 )}
-              </CheckboxMenuItem>
+              </DropdownMenuCheckboxItem>
             )
           })}
         </DropdownMenuContent>

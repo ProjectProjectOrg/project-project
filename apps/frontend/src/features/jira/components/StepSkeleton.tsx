@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@pp/ui/lib/utils"
 
 import { pickerHeightClass } from "./ProjectPicker"
 

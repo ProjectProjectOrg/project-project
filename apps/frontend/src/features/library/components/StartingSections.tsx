@@ -4,23 +4,24 @@ import {
   type BlockLookup,
   type Library
 } from "@pp/shared"
-import { GripVertical, Plus, Text, X } from "lucide-react"
-import { Reorder, useDragControls } from "motion/react"
-import { useMemo, useRef, useState, type ReactNode } from "react"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@pp/ui/badge"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { blockChrome } from "@/features/editor/lib/blockChrome"
-import { SURFACE_BG } from "@/lib/surfaceClasses"
-import { useSurface } from "@/lib/surfaceContext"
-import { cn } from "@/lib/utils"
+} from "@pp/ui/dropdown-menu"
+import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
+import { GripVertical, Plus, Text, X } from "@pp/ui/icons"
+import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
+import { useSurface } from "@pp/ui/lib/surfaceContext"
+import { cn } from "@pp/ui/lib/utils"
+import { Reorder, useDragControls } from "motion/react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
+
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -34,10 +35,9 @@ import {
   withSection,
   type StartingRow
 } from "../lib/startingSections"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { LibraryEntryLink } from "./LibraryEntryLink"
-import { NewSectionDialog } from "./NewSectionDialog"
+import { NewSectionPopover } from "./NewSectionPopover"
 
 type StartingSectionsProps = Readonly<{
   scope: LibraryScope
@@ -105,6 +105,7 @@ export function StartingSections({
   onChange
 }: StartingSectionsProps) {
   const [creating, setCreating] = useState(false)
+  const addButton = useRef<HTMLButtonElement>(null)
   const lookup = useMemo(() => blockLookupFor(library), [library])
   const rows = useMemo(() => startingRows(body), [body])
   const [dragOrder, setDragOrder] = useState<ReadonlyArray<StartingRow> | null>(
@@ -172,6 +173,7 @@ export function StartingSections({
         <DropdownMenuTrigger
           render={
             <Button
+              ref={addButton}
               type="button"
               variant="tertiary"
               size="sm"
@@ -201,10 +203,11 @@ export function StartingSections({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <NewSectionDialog
+      <NewSectionPopover
         scope={scope}
         library={library}
         typeName={typeName}
+        anchor={addButton}
         open={creating}
         onOpenChange={setCreating}
         onCreated={(key) => commit(withSection(rows, key))}
@@ -340,7 +343,7 @@ function RowCard({
       {onRemove === undefined ? null : (
         <Button
           type="button"
-          variant="quiet"
+          variant="ghost"
           size="square-7"
           className="relative"
           aria-label={m.templates_types_remove_aria({ name: view.name })}

@@ -1,9 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { FixReferenceAction, ReferenceKind } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Hash, Link2, UserRound } from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import { Link } from "@tanstack/react-router"
-import { Hash, Link2, UserRound } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import {
   fixReference,
   type ReferencesRequest
@@ -14,7 +15,6 @@ import type {
   ReferenceOccurrences
 } from "@/features/project-references/lib/referenceGroups"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import type { IconComponent } from "@/lib/icon"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -66,7 +66,7 @@ export function ReferenceGroupCard({
           </div>
           <div className="flex min-w-0 items-baseline gap-1.5 text-caption text-muted-foreground">
             <span className="shrink-0">{KIND_LABELS[group.kind]()}</span>
-            <span className="truncate font-mono">{group.target}</span>
+            <span className="truncate tabular-nums">{group.target}</span>
           </div>
           {error ? (
             <p role="alert" className="text-caption text-destructive">
@@ -121,7 +121,7 @@ function OccurrenceRow({
       <Link
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug, id: occurrences.ticketId }}
-        className="shrink-0 rounded-md px-1 font-mono text-caption leading-5 text-muted-foreground tabular-nums transition-colors hover:bg-hover hover:text-foreground"
+        className="shrink-0 rounded-md px-1 text-caption leading-5 text-muted-foreground tabular-nums transition-colors hover:bg-hover hover:text-foreground"
       >
         {occurrences.ticketId}
       </Link>

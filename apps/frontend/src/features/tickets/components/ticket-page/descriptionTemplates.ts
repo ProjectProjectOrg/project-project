@@ -9,6 +9,9 @@ import {
   type TypeDefinition,
   type TypeKey
 } from "@pp/shared"
+import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
+import { $applyTemplate } from "@pp/ui/editor/blocks/block-commands"
+import { $runSlashItem } from "@pp/ui/editor/slash-menu/slash-commands"
 import {
   $createParagraphNode,
   $getRoot,
@@ -19,10 +22,6 @@ import {
   HISTORY_PUSH_TAG,
   type LexicalEditor
 } from "lexical"
-
-import { $applyTemplate } from "@/features/editor/lexical/blocks/blockCommands"
-import { $runSlashItem } from "@/features/editor/lexical/blocks/slashCommands"
-import { lookupFor } from "@/features/editor/lib/blockChrome"
 
 export type TemplateSwapInput = Readonly<{
   library: Library

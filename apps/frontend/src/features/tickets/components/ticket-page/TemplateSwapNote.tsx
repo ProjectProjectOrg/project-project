@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
+
 import { m } from "@/paraglide/messages"
 
 export function TemplateSwapNote({

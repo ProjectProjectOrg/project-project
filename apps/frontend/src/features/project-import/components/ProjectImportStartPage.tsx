@@ -1,11 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Upload } from "@pp/ui/icons"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { Upload } from "lucide-react"
 import { useRef, useState } from "react"
 
 import { StepFrame } from "@/components/shell/wizard/StepFrame"
-import { Button } from "@/components/ui/button"
 import {
   projectImportOrgRequest,
   uploadProjectImport

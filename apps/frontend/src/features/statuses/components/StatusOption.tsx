@@ -1,7 +1,7 @@
 import type { ProjectStatus } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 
 export function StatusOption({
   slug,

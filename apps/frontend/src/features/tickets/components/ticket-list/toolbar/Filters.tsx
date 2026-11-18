@@ -6,35 +6,8 @@ import {
   type TicketFilter,
   type Member
 } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
-import * as Result from "effect/reactivity/AsyncResult"
-import {
-  Archive,
-  ChevronDown,
-  CircleDot,
-  Flag,
-  Gauge,
-  ListFilter,
-  OctagonMinus,
-  Shapes,
-  Tag,
-  Timer,
-  UserRound,
-  X,
-  type LucideIcon
-} from "lucide-react"
-import {
-  Fragment,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode
-} from "react"
-
-import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import { CountPill } from "@/components/ui/count-pill"
+import { Badge } from "@pp/ui/badge"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -48,10 +21,37 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { menuItemMetaClass } from "@/components/ui/menu-styles"
+} from "@pp/ui/dropdown-menu"
+import {
+  Archive,
+  CircleDot,
+  Flag,
+  Gauge,
+  ListFilter,
+  OctagonMinus,
+  Shapes,
+  Tag,
+  Timer,
+  UserRound,
+  X,
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
+import { TextSwap } from "@pp/ui/text-swap"
+import * as DateTime from "effect/DateTime"
+import * as Result from "effect/reactivity/AsyncResult"
+import {
+  Fragment,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode
+} from "react"
+
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -80,7 +80,6 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketToolbar } from "./context"
@@ -89,7 +88,7 @@ import {
   clearedFilters,
   type FilterDimension
 } from "./model"
-import { ToolbarButton } from "./shared"
+import { ToolbarButton, ToolbarChevron } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
 const TOGGLES: ReadonlySet<FilterDimension> = new Set([
@@ -155,10 +154,12 @@ export function Filters() {
             <CollapsingLabel show={!compact}>
               {m.tickets_filters_label()}
             </CollapsingLabel>
-            <CollapsingLabel show={active} contentKey={shownCount}>
-              <CountPill active>{shownCount}</CountPill>
+            <CollapsingLabel show={active}>
+              <Badge variant="count" active>
+                <TextSwap speed="fast">{String(shownCount)}</TextSwap>
+              </Badge>
             </CollapsingLabel>
-            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+            <ToolbarChevron />
           </ToolbarButton>
         }
       />
@@ -271,7 +272,7 @@ function FilterSubmenu({
   className = "w-48",
   children
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   label: string
   filterable?: boolean
   className?: string
@@ -310,13 +311,14 @@ function CheckboxOptions<A extends string>({
     <>
       {options.map((option) => (
         <Fragment key={option.value}>
-          <CheckboxMenuItem
+          <DropdownMenuCheckboxItem
             label={option.label}
             checked={selected?.includes(option.value) === true}
-            onToggle={() => onChange(toggled(selected, option.value))}
+            closeOnClick={false}
+            onCheckedChange={() => onChange(toggled(selected, option.value))}
           >
             {option.content}
-          </CheckboxMenuItem>
+          </DropdownMenuCheckboxItem>
           {option.separated && <DropdownMenuSeparator />}
         </Fragment>
       ))}

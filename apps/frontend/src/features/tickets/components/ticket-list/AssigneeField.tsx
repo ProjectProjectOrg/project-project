@@ -1,10 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { listEditBetween, type Member, type TicketId } from "@pp/shared"
-import * as Match from "effect/Match"
-import { UserCheck, UserMinus, UserRound } from "lucide-react"
-import type { ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -16,17 +12,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
-import { ShortcutTooltip } from "@/components/ui/tooltip"
+} from "@pp/ui/dropdown-menu"
+import { Hitbox } from "@pp/ui/hitbox"
+import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
+import * as Match from "effect/Match"
+import type { ReactNode } from "react"
+
 import { currentUserId } from "@/features/auth/atoms/auth"
-import {
-  AvatarStack,
-  MemberAvatar
-} from "@/features/members/components/MemberAvatar"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
@@ -101,10 +100,12 @@ function TriggerVisual({
     )
   }
   if (variant === "card") {
+    // Like the row's: the empty face waits for the card's hover, focus or
+    // open menu.
     return (
       <>
         {empty && (
-          <span className="grid size-5 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] transition-colors hitbox-hover:bg-hover hitbox-hover:text-foreground">
+          <span className="grid size-5 place-items-center rounded-full text-muted-foreground opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-[opacity,color,background-color] duration-150 group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 hitbox-hover:bg-hover hitbox-hover:text-foreground">
             <UserRound className="size-3" strokeWidth={1.75} />
           </span>
         )}
@@ -112,10 +113,12 @@ function TriggerVisual({
       </>
     )
   }
+  // In a row the empty face waits for the row's hover (or focus, or its
+  // open menu), so unassigned rows don't fill the column with placeholders.
   return (
     <span className="inline-flex items-center text-muted-foreground transition-colors hitbox-hover:text-foreground">
       {empty && (
-        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/15">
+        <span className="grid size-5 shrink-0 place-items-center rounded-full opacity-0 shadow-[inset_0_0_0_1px_var(--border)] transition-opacity duration-150 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100">
           <UserRound className="size-3" strokeWidth={1.75} />
         </span>
       )}
@@ -139,12 +142,16 @@ function Trigger({
 }) {
   if (variant === "chip") {
     return (
-      <ShortcutTooltip hotkey={appHotkeys["tickets.assign"]}>
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.assign"]}
+        keyLabels={keyLabels()}
+      >
         <DropdownMenuTrigger
           render={
             <Button
               type="button"
-              variant={empty ? "chip-muted" : "chip"}
+              variant="ghost"
+              tone={empty ? "muted" : "strong"}
               aria-label={label}
             >
               {children}
@@ -155,7 +162,10 @@ function Trigger({
     )
   }
   return (
-    <ShortcutTooltip hotkey={appHotkeys["tickets.assign"]}>
+    <ShortcutTooltip
+      hotkey={appHotkeys["tickets.assign"]}
+      keyLabels={keyLabels()}
+    >
       <DropdownMenuTrigger
         render={
           <Hitbox
@@ -163,7 +173,8 @@ function Trigger({
             margin="2"
             onClick={(e) => e.stopPropagation()}
             aria-label={label}
-            className={className}
+            // A 24px target around the 20px face in rows.
+            className={cn("min-h-6 min-w-6 justify-center", className)}
           >
             {children}
           </Hitbox>
@@ -205,6 +216,7 @@ export function AssignMeItem({
         {label}
         <DropdownMenuShortcut
           keys={appHotkeys["tickets.assign-me"].defaultHotkey}
+          keyLabels={keyLabels()}
         />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -289,7 +301,7 @@ export function AssigneeSelect({
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-body">{member.name}</div>
                 {member.username && (
-                  <div className="truncate font-mono text-micro text-muted-foreground">
+                  <div className="truncate text-micro text-muted-foreground tabular-nums">
                     @{member.username}
                   </div>
                 )}

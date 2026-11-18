@@ -1,6 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
+} from "@pp/ui/dropdown-menu"
 import {
   ArrowUpRight,
   Copy,
@@ -8,18 +15,11 @@ import {
   GitPullRequest,
   Layers,
   Unlink
-} from "lucide-react"
+} from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
 import { clearBranch } from "@/features/github/atoms/github"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { repoUrl } from "@/features/github/lib/branchUrl"
@@ -27,6 +27,7 @@ import { ticketRepo } from "@/features/github/lib/repos"
 import { project } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
@@ -119,6 +120,7 @@ function BranchItems({
         {m.tickets_command_copy_branch()}
         <DropdownMenuShortcut
           keys={appHotkeys["tickets.copy-branch"].defaultHotkey}
+          keyLabels={keyLabels()}
         />
       </DropdownMenuItem>
       {(canStack || canUnlink) && <DropdownMenuSeparator />}

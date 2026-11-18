@@ -6,12 +6,12 @@ import type {
   PendingProjectMember,
   Role
 } from "@pp/shared"
+import { Briefcase, ShieldCheck, UserRound } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Briefcase, ShieldCheck, UserRound } from "lucide-react"
 import { useState } from "react"
 
 import type { RoleMeta } from "@/features/members/components/MemberList"
@@ -202,7 +202,7 @@ function ProjectMemberRow({
         <>
           {member.username ? (
             <>
-              <span className="font-mono">@{member.username}</span>
+              <span className="tabular-nums">@{member.username}</span>
               <span className="mx-1.5">·</span>
             </>
           ) : null}
@@ -229,7 +229,6 @@ function ProjectMemberRow({
                 prompt: m.members_leave_confirm_prompt(),
                 label: m.members_leave_button(),
                 busyLabel: m.members_leave_in_progress(),
-                waiting: leaveState.waiting,
                 error: memberActionError(leaveState),
                 run: async () => {
                   const exit = await leave()
@@ -248,7 +247,6 @@ function ProjectMemberRow({
                 prompt: m.members_remove_confirm_prompt({ name: member.name }),
                 label: m.members_remove_button(),
                 busyLabel: m.members_remove_in_progress(),
-                waiting: removeState.waiting,
                 error: memberActionError(removeState),
                 run: () => remove()
               }
@@ -266,7 +264,6 @@ function ProjectPendingRow({
     id: pending.invitationId
   })
   const cancel = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
   const optimistic = pending.invitationId.startsWith("optimistic:")
   return (
     <PendingRowView
@@ -287,7 +284,6 @@ function ProjectPendingRow({
               }),
               label: m.members_pending_cancel_button(),
               busyLabel: m.members_pending_cancel_in_progress(),
-              waiting: state.waiting,
               error: null,
               run: () => cancel()
             }

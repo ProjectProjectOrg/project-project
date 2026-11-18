@@ -6,33 +6,34 @@ import {
   type LibraryColor,
   type TicketPriority
 } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import * as Schema from "effect/Schema"
-import { ChevronDown, Plus, X } from "lucide-react"
-import { useState, type ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
-import { ColorPicker } from "@/components/ui/color-picker"
+import { Button } from "@pp/ui/button"
+import { ColorPicker } from "@pp/ui/color-picker"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { IconGridPicker } from "@/components/ui/icon-grid-picker"
-import { Input } from "@/components/ui/input"
-import { Select, SelectTrigger } from "@/components/ui/select"
+} from "@pp/ui/dropdown-menu"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
+import { IconGridPicker } from "@pp/ui/icon-grid-picker"
+import { ChevronDown, Plus, X } from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Schema from "effect/Schema"
+import { useState, type ReactNode } from "react"
+
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 
 const NO_PRIORITY = "none" as const
 
@@ -67,7 +68,7 @@ export function CommitInput({
   }
   return (
     <Input
-      variant="inline"
+      size="sm"
       aria-label={ariaLabel}
       placeholder={placeholder}
       maxLength={maxLength}
@@ -82,7 +83,7 @@ export function CommitInput({
           event.currentTarget.blur()
         }
       }}
-      className={cn("-mx-2", className)}
+      className={className}
     />
   )
 }
@@ -136,23 +137,16 @@ export function IconAndColorField({
         disabled={disabled}
       />
       {disabled ? null : (
-        <>
-          <ColorPicker
-            value={color ?? ""}
-            onChange={onColor}
-            ariaLabel={m.templates_editor_color_aria()}
-          />
-          {color === null ? null : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => onColor(null)}
-            >
-              {m.templates_editor_color_clear()}
-            </Button>
-          )}
-        </>
+        <ColorPicker
+          swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
+          value={color}
+          onChange={onColor}
+          ariaLabel={m.templates_editor_color_aria()}
+          clear={{
+            label: m.templates_editor_color_clear(),
+            onClear: () => onColor(null)
+          }}
+        />
       )}
     </div>
   )
@@ -166,10 +160,19 @@ function ChoiceTrigger({
   return (
     <SelectTrigger
       aria-label={ariaLabel}
-      render={<Button type="button" variant="chip" size="sm" bleed="start" />}
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          tone="strong"
+          size="sm"
+          bleed="start"
+        />
+      }
     >
-      {icon}
-      <span>{label}</span>
+      <TextSwap className="gap-1" icon={icon}>
+        {label}
+      </TextSwap>
       <ChevronDown
         className="size-3.5 text-muted-foreground"
         strokeWidth={1.75}
@@ -272,7 +275,7 @@ function TagChips({
               type="button"
               aria-label={m.templates_editor_tag_remove_aria({ tag })}
               onClick={() => onRemove(tag)}
-              className="text-muted-foreground transition-all duration-100 hover:text-foreground"
+              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
             >
               <X className="size-3" strokeWidth={1.75} />
             </button>
@@ -353,7 +356,7 @@ function FreeTagInput({
   const invalid = next !== "" && !isTagName(next)
   return (
     <Input
-      variant="inline"
+      size="sm"
       aria-label={m.templates_editor_tag_add()}
       aria-invalid={invalid}
       placeholder={m.templates_editor_tag_add()}
@@ -365,7 +368,7 @@ function FreeTagInput({
         if (!value.includes(next)) onChange([...value, next])
         setDraft("")
       }}
-      className="-mx-2 w-32 text-caption"
+      className="w-32"
     />
   )
 }

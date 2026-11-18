@@ -1,9 +1,16 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
-import { Link, useNavigate } from "@tanstack/react-router"
-import * as DateTime from "effect/DateTime"
-import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
+import type { DateRange } from "@pp/ui/calendar"
+import { DatePicker } from "@pp/ui/date-picker"
+import {
+  DropdownMenu,
+  DropdownMenuConfirmItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { Hitbox } from "@pp/ui/hitbox"
 import {
   CalendarX,
   MoreHorizontal,
@@ -11,25 +18,14 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { bareFieldStateClass } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
+import { Link, useNavigate } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState, type KeyboardEvent } from "react"
 
-import type { DateRange } from "@/components/ui/calendar"
-import { Calendar } from "@/components/ui/calendar"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   completeSprint,
@@ -44,10 +40,12 @@ import {
   sprintDatesPatch,
   startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
-import { cn } from "@/lib/utils"
+import { dateLabels } from "@/lib/dateLabels"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
+import { NewSprintPopover } from "./NewSprintPopover"
 import {
   shortDateFormatter,
   sprintStatusText,
@@ -70,69 +68,85 @@ export function SprintStatusSelect({
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const reopenState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const isCompleted = sprint.completedAt !== null
+  const [creating, setCreating] = useState(false)
+  const statusButton = useRef<HTMLButtonElement>(null)
   const reopening = reopenState.waiting
   const failed =
     Result.isFailure(completeState) || Result.isFailure(reopenState)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hitbox
-            mode="inline"
-            margin="1"
-            aria-label={m.sprints_status_aria_label()}
-          >
-            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
-              <SprintStateIcon sprint={sprint} size="lg" />
-            </span>
-          </Hitbox>
-        }
-      />
-      <DropdownMenuContent align="start" sideOffset={8} className="w-56">
-        {sprintState(sprint) === "planned" ? (
-          <>
-            <DropdownMenuItem
-              onClick={() => update(startSprintPatch(sprint, nowDate()))}
-              disabled={reopening}
-              className="cursor-pointer"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          ref={statusButton}
+          render={
+            <Hitbox
+              mode="inline"
+              margin="1"
+              aria-label={m.sprints_status_aria_label()}
             >
-              <Play className="size-4" strokeWidth={1.75} />
-              {m.sprints_start_button()}
-            </DropdownMenuItem>
-            {sprint.startsAt !== null && (
+              <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
+                <SprintStateIcon sprint={sprint} size="lg" />
+              </span>
+            </Hitbox>
+          }
+        />
+        <DropdownMenuContent align="start" sideOffset={8} className="w-56">
+          {sprintState(sprint) === "planned" ? (
+            <>
               <DropdownMenuItem
-                onClick={() => update({ startsAt: null, endsAt: null })}
+                onClick={() => update(startSprintPatch(sprint, nowDate()))}
                 disabled={reopening}
                 className="cursor-pointer"
               >
-                <CalendarX className="size-4" strokeWidth={1.75} />
-                {m.sprints_unschedule()}
+                <Play className="size-4" strokeWidth={1.75} />
+                {m.sprints_start_button()}
               </DropdownMenuItem>
-            )}
-          </>
-        ) : isCompleted ? (
-          <DropdownMenuItem
-            onClick={() => update({ completedAt: null })}
-            disabled={reopening}
-            className="cursor-pointer"
-          >
-            <RotateCcw className="size-4" strokeWidth={1.75} />
-            {m.sprints_reopen_button()}
-          </DropdownMenuItem>
-        ) : (
-          <CompleteSprintSubmenu sprint={sprint} sprints={sprints} />
-        )}
-        {failed && (
-          <div
-            role="alert"
-            className="px-2 py-1.5 text-caption text-destructive"
-          >
-            {m.sprints_status_error_fallback()}
-          </div>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              {sprint.startsAt !== null && (
+                <DropdownMenuItem
+                  onClick={() => update({ startsAt: null, endsAt: null })}
+                  disabled={reopening}
+                  className="cursor-pointer"
+                >
+                  <CalendarX className="size-4" strokeWidth={1.75} />
+                  {m.sprints_unschedule()}
+                </DropdownMenuItem>
+              )}
+            </>
+          ) : isCompleted ? (
+            <DropdownMenuItem
+              onClick={() => update({ completedAt: null })}
+              disabled={reopening}
+              className="cursor-pointer"
+            >
+              <RotateCcw className="size-4" strokeWidth={1.75} />
+              {m.sprints_reopen_button()}
+            </DropdownMenuItem>
+          ) : (
+            <CompleteSprintSubmenu
+              sprint={sprint}
+              sprints={sprints}
+              onNew={() => setCreating(true)}
+            />
+          )}
+          {failed && (
+            <div
+              role="alert"
+              className="px-2 py-1.5 text-caption text-destructive"
+            >
+              {m.sprints_status_error_fallback()}
+            </div>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* "Complete into a new sprint" opens the composer on this button. */}
+      <NewSprintPopover
+        anchor={statusButton}
+        open={creating}
+        onOpenChange={setCreating}
+        completeFrom={sprint}
+      />
+    </>
   )
 }
 
@@ -187,8 +201,8 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors duration-100",
-          !disabled && "hover:bg-hover"
+          bareFieldStateClass,
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
         {sprint.name}
@@ -204,7 +218,10 @@ export function SprintNameField({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
+        className={cn(
+          bareFieldStateClass,
+          "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
+        )}
         maxLength={120}
       />
       {failed && (
@@ -235,7 +252,7 @@ export function SprintSubtitle({
           <span aria-hidden>·</span>
           <span
             className={cn(
-              "font-mono tabular-nums",
+              "tabular-nums",
               sprintEnded(sprint) && "text-state-warning"
             )}
           >
@@ -272,10 +289,11 @@ function SprintDatesField({
         : `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
 
   if (disabled) {
-    return <span className="font-mono tabular-nums">{label}</span>
+    return <span className="tabular-nums">{label}</span>
   }
   return (
-    <Popover
+    <DatePicker
+      mode="range"
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
@@ -286,26 +304,19 @@ function SprintDatesField({
         const patch = sprintDatesPatch(sprint, draft)
         if (patch) update(patch)
       }}
-    >
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors duration-100 hover:bg-hover hover:text-foreground"
-          >
-            {label}
-          </button>
-        }
-      />
-      <PopoverContent align="start" initialFocus={false} className="w-auto p-0">
-        <Calendar
-          mode="range"
-          selected={draft}
-          onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
-          defaultMonth={draft.from ?? DateTime.toDate(DateTime.nowUnsafe())}
-        />
-      </PopoverContent>
-    </Popover>
+      value={{ from: draft.from, to: draft.to }}
+      onChange={(next) => setDraft({ from: next.from, to: next.to })}
+      labels={dateLabels("range")}
+      allowPast
+      trigger={
+        <button
+          type="button"
+          className="-mx-1 rounded px-1 tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+        >
+          {label}
+        </button>
+      }
+    />
   )
 }
 
@@ -316,10 +327,6 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   const remove = useAtomSet(deleteSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
-  const removeState = useAtomValue(deleteSprint({ req, groupId: sprint.id }))
-  const deleting = removeState.waiting
-  const deleteFailed = Result.isFailure(removeState)
-  const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
     const exit = await remove(undefined)
@@ -333,53 +340,40 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   }
 
   return (
-    <ConfirmButton.Root bare>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.sprints_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+        <DropdownMenuItem
           render={
-            <button
-              ref={trigger}
-              type="button"
-              aria-label={m.sprints_actions_aria_label()}
-              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MoreHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/settings"
+              params={{ orgSlug, slug }}
+            />
           }
-        />
-        <DropdownMenuContent align="end" sideOffset={6} className="w-56">
-          <DropdownMenuItem
-            render={
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/settings"
-                params={{ orgSlug, slug }}
-              />
-            }
-          >
-            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            {m.project_detail_tab_settings()}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <ConfirmButton.MenuItem
-            variant="destructive"
-            className="cursor-pointer"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.sprints_delete_button()}
-          </ConfirmButton.MenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConfirmButton.Popover anchor={trigger} className="w-72">
-        <ConfirmButton.Action
-          layout="stacked"
-          prompt={m.sprints_delete_confirm_title()}
-          description={m.sprints_delete_confirm_description()}
-          label={m.common_delete_confirm_button()}
-          waiting={deleting}
-          error={deleteFailed ? m.sprints_delete_error_fallback() : null}
+        >
+          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+          {m.project_detail_tab_settings()}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuConfirmItem
+          icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+          label={m.sprints_delete_button()}
+          confirmLabel={m.sprints_delete_confirm_title()}
+          busyLabel={m.common_deleting_button()}
+          describeError={describeCause}
           onConfirm={onDelete}
         />
-      </ConfirmButton.Popover>
-    </ConfirmButton.Root>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

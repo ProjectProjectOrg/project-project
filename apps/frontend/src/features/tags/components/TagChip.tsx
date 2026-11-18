@@ -1,7 +1,7 @@
-import { X } from "lucide-react"
+import { Badge } from "@pp/ui/badge"
+import { X } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -9,7 +9,6 @@ type Props = {
   color: string | null
   onRemove?: () => void
   size?: "xs" | "sm"
-  intensity?: "soft" | "strong"
   className?: string
   pulse?: boolean
 }
@@ -21,22 +20,18 @@ export function TagChip({
   color,
   onRemove,
   size = "sm",
-  intensity = "soft",
   className,
   pulse
 }: Props) {
   const hex = color ?? NEUTRAL
-  const bgAlpha = intensity === "strong" ? "33" : "1a"
   return (
     <Badge
       data-slot="tag-chip"
       tone={null}
       size={size}
       className={cn(pulse && "animate-pulse", className)}
-      style={{
-        backgroundColor: `${hex}${bgAlpha}`,
-        color: hex
-      }}
+      // The tag's own hue goes through the badge's clean-colour recipe.
+      style={{ "--badge-tone": hex }}
     >
       {name}
       {onRemove ? (
@@ -44,7 +39,7 @@ export function TagChip({
           type="button"
           aria-label={m.tags_remove_aria_label({ name })}
           onClick={onRemove}
-          className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10"
+          className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
         >
           <X className="size-3" />
         </button>

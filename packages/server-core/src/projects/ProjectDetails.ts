@@ -351,6 +351,8 @@ const make = Effect.gen(function* () {
           name: indexRow.name,
           icon: makeProjectIcon(indexRow.icon),
           color: makeProjectColor(indexRow.color),
+          tone: indexRow.tone,
+          colors: indexRow.colors.map((color) => makeProjectColor(color)),
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,

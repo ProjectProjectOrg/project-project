@@ -1,25 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { LinkPreview } from "@pp/shared"
+import type {
+  LinkFavicon,
+  LinkPreviewView
+} from "@pp/ui/editor/links/link-favicon"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useEffect, useMemo, useState } from "react"
 
 import { linkPreview, linkPreviewRequest } from "../atoms/linkPreviews"
-
-export type LinkFavicon = Readonly<
-  | { kind: "pending" }
-  | {
-      kind: "image"
-      src: string
-      cached: boolean
-      rendering: LinkPreview["faviconRendering"]
-    }
-  | { kind: "fallback"; cached: boolean }
->
-
-export type LinkPreviewView = Readonly<{
-  title: string | null
-  favicon: LinkFavicon
-}>
 
 const PENDING: LinkFavicon = { kind: "pending" }
 
@@ -91,24 +79,5 @@ export const useLinkPreview = (url: string): LinkPreviewView => {
       faviconUrl,
       preview?.faviconRendering ?? "original"
     )
-  }
-}
-
-export const paintLinkFavicon = (
-  element: HTMLElement,
-  favicon: LinkFavicon,
-  animate = favicon.kind !== "pending" && !favicon.cached
-): void => {
-  element.dataset["linkFavicon"] = favicon.kind
-  element.dataset["linkFaviconRendering"] =
-    favicon.kind === "image" ? favicon.rendering : "original"
-  element.dataset["linkFaviconAnimate"] = String(animate)
-  if (favicon.kind === "image") {
-    element.style.setProperty(
-      "--link-favicon",
-      `url(${JSON.stringify(favicon.src)})`
-    )
-  } else {
-    element.style.removeProperty("--link-favicon")
   }
 }

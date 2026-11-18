@@ -1,0 +1,212 @@
+export const meta = {
+  title: "Sidebar",
+  group: "Primitives",
+  description:
+    "The app's chrome on the left: a 56px rail of places (Dashboard, one tile per project, New project) and a panel beside it with the project's header, its rows and the Pinned shelf.",
+  sources: [
+    {
+      kind: "own",
+      name: "Sidebar",
+      note: "our own; the hover glide is Fluid's useFluidHover, the bar is one element on a CSS transition"
+    }
+  ]
+}
+
+## Overview
+
+The full sidebar, live. Pick a project tile and the bar slides to it while the panel moves the same way. Open tickets from the page and the outlined row under Pinned follows you; press its pin to keep it, hover a pinned row to unpin it. Settings is a sub-page: it slides in from the side and its back link returns.
+
+<Demo name="overview" title="Rail and panel" className="p-4" />
+
+Every state of the rail items and rows. Hover, pressed and focus are pinned with `data-force`.
+
+<Demo name="states" title="All states" />
+
+## Usage
+
+The rail and the panel are separate parts, so the app lays them out side by side. Every string is a prop: pass Paraglide messages.
+
+```tsx
+import { LayoutDashboard, ListChecks, Pin } from "@pp/ui/icons"
+import {
+  SidebarPanel,
+  SidebarPanelBody,
+  SidebarPanelHeader,
+  SidebarRail,
+  SidebarRailItem,
+  SidebarRailSeparator,
+  SidebarRow,
+  SidebarRowAction,
+  SidebarSection
+} from "@pp/ui/sidebar"
+
+<aside className="flex">
+  <SidebarRail label={m.chrome_sidebar_rail_label()} bottom={<AccountItem />}>
+    <SidebarRailItem
+      label={m.chrome_sidebar_dashboard()}
+      active={onDashboard}
+      render={<Link to="/orgs/$orgSlug" params={{ orgSlug }} />}
+    >
+      <LayoutDashboard />
+    </SidebarRailItem>
+    <SidebarRailSeparator />
+    {projects.map((project) => (
+      <SidebarRailItem
+        key={project.slug}
+        label={project.name}
+        tone={project.color}
+        active={project.slug === slug}
+        render={<Link to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug: project.slug }} />}
+      >
+        <ProjectIcon project={project} />
+      </SidebarRailItem>
+    ))}
+  </SidebarRail>
+  <SidebarPanel
+    panelKey={scopeKey}
+    transition={transition}
+    header={<SidebarPanelHeader title={project.name} subtitle={sprintLine} />}
+  >
+    <SidebarPanelBody label={project.name}>
+      <SidebarRow
+        icon={<ListChecks />}
+        label={m.project_detail_tab_backlog()}
+        active={page === "backlog"}
+        render={<Link to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }} />}
+      />
+      <SidebarSection label={m.chrome_sidebar_pinned()} count={pins.length}>
+        <SidebarRowGroup>
+          {rows.map((row) => (
+            <SidebarRow
+              key={row.key} // the same key while live and once pinned
+              label={row.title}
+              live={!row.pinned}
+              highlight={row.key === justPinned}
+              action={
+                <SidebarRowAction
+                  label={row.pinned ? m.chrome_sidebar_unpin() : m.chrome_sidebar_pin()}
+                  onClick={() => toggle(row)}
+                >
+                  {row.pinned ? <PinOff /> : <Pin />}
+                </SidebarRowAction>
+              }
+            />
+          ))}
+        </SidebarRowGroup>
+      </SidebarSection>
+    </SidebarPanelBody>
+  </SidebarPanel>
+</aside>
+```
+
+| Component              | Prop        | Type                                                   | Default    |
+| ---------------------- | ----------- | ------------------------------------------------------ | ---------- |
+| `SidebarRail`          | `label`     | `string`, the nav's accessible name                    | required   |
+| `SidebarRail`          | `top`, `bottom` | `ReactNode`, fixed slots above and below the scroll middle |     |
+| `SidebarRailItem`      | `label`     | `string`, its accessible name and tooltip              | required   |
+| `SidebarRailItem`      | `tooltip`   | `ReactNode`, when the tooltip says more (a shortcut)   | `label`    |
+| `SidebarRailItem`      | `active`    | `boolean`, draws the bar and marks `aria-current`      | `false`    |
+| `SidebarRailItem`      | `tone`      | `string`, a project colour: makes it a tinted tile     |            |
+| `SidebarRailItem`      | `render`    | the element to render (a router `Link`), like Base UI's | `<button>` |
+| `SidebarPanel`         | `panelKey`  | `string`, what the panel shows (a scope, a sub-page); a new key animates the old content out and the new in | required |
+| `SidebarPanel`         | `transition` | `"up" \| "down" \| "forward" \| "back" \| "none"`  | `"none"`   |
+| `SidebarBack`          | `label`     | `string`, where it goes back to                        | required   |
+| `SidebarBack`          | `render`    | the element to render (a router `Link`)                | `<button>` |
+| `SidebarPanel`         | `header`    | `ReactNode`, the panel's `SidebarPanelHeader`, moving with the content |            |
+| `SidebarPanelHeader`   | `title`, `subtitle` | `string`, truncated                     | `title` required |
+| `SidebarPanelHeader`   | `subtitleIcon` | `ReactNode`, an icon before the subtitle (the sprint's state) | |
+| `SidebarPanelHeader`   | `trailing`  | `ReactNode`, beside the title (a switcher chevron)     |            |
+| `SidebarPanelBody`     | `label`     | `string`; with one it renders a `nav`                  |            |
+| `SidebarSection`       | `label`     | `string`, the caption                                  | required   |
+| `SidebarSection`       | `icon`, `count` | `ReactNode`, `number` (hidden at 0)                |            |
+| `SidebarRow`           | `label`     | `string`                                               | required   |
+| `SidebarRow`           | `icon`, `meta` | `ReactNode`                                         |            |
+| `SidebarRow`           | `active`    | `boolean`, the current page                            | `false`    |
+| `SidebarRow`           | `live`      | `boolean`, the outlined row for a page you haven't pinned | `false` |
+| `SidebarRow`           | `highlight` | `boolean`, flashes once each time it turns on          | `false`    |
+| `SidebarRow`           | `submenu`   | `boolean`, the row opens a sub-page: a trailing chevron that nudges 2px on hover | `false` |
+| `SidebarRow`           | `action`    | `ReactNode`, usually a `SidebarRowAction`              |            |
+| `SidebarRow`           | `render`    | the element to render (a router `Link`)                | `<button>` |
+| `SidebarRowAction`     | `label`     | `string`, its accessible name and tooltip              | required   |
+
+`SidebarRowGroup` takes keyed rows as `children`, plus `onReorder?: (keys) => void` to make them sortable (called once, on drop, with every key in the new order) and `isSortable?: (key) => boolean` for rows that stay put (the live row). `SidebarRailSeparator`, `SidebarSubRows` and `SidebarNote` take only `children` and `className`. Other props on `SidebarRailItem`, `SidebarRow` and `SidebarRowAction` go to the element they render.
+
+## Rules
+
+### The rail's bar runs on the compositor
+
+The active item's bar is one element for the whole rail, moved with a CSS transition on `translate` (220ms, standard curve). The browser runs that on the compositor, so the bar keeps sliding while a project switch keeps the main thread busy rendering the new page; a JS-driven shared layout froze for 130–300ms there. It also starts on pointerdown, before the click navigates, which gives it a head start; a press that doesn't navigate puts it back.
+
+### The rail
+
+56px wide, on `--rail`, one step darker than the panel's `--background`, so the two columns read apart. 19px on top, which centres the top item (the logo) on the panel header's title, 36px down, the line the page's breadcrumbs sit on too; 12px at the bottom; items 6px apart. An item is a 34px squircle at half its height (17px, `--button-corner`), so a project tile and an icon button share one shape. Icons placed directly in an item are 18px; anything else (the logo, at 22px) keeps its own size. The middle scrolls with no visible scrollbar; the top and bottom slots stay put. Put the items that can be active in the middle, because the bar can only travel inside the scroll area.
+
+### The bar
+
+The active item gets a 3px foreground bar on the rail's left edge, 20px tall, rounded on its inner side. It is the only active mark for a project tile (a ring around a tinted tile read as a second colour); an icon item also keeps the accent fill. When the active item changes, the bar slides to the new one: it is one motion shared layout (`layoutId`), scoped to its rail with a `LayoutGroup`, so two rails never trade bars. It moves over 220ms on `--ease-standard` (`transitions.layout`). Reduced motion moves it at once.
+
+### Project tiles
+
+A tile is `ProjectIcon`, the same component the app's rail uses (through its `ProjectIconTile`): a 34px tile with a backdrop generated from the project's id and colour, the lit edge, and the emoji or uploaded icon on top. The item takes the tile's own squircle radius (`projectIconRadius(34)`, `corner-squircle`), so its hover and active ring follow the tile. Tiles that aren't active sit at 60% opacity and 55% saturation, so the active project stands out without a second marker; hover, focus and active bring a tile to full strength.
+
+### Tooltips
+
+Every rail item shows its label as an ink tooltip on the right, through `@pp/ui`'s one tooltip host. The rail is a `TooltipGroup`, so moving down the rail glides one tooltip from item to item.
+
+### Rows
+
+32px tall, 10px in, 10px between icon and label, 1px apart, corners at half the height. Hover is one `bg-hover` highlight per panel that glides between rows (`useFluidHover` + `FluidHoverHighlight`), the same as the app's nav; a row outside a `SidebarPanelBody` gets its own hover fill. The current page has the accent fill and semibold text. The fill is a `::before` layer that fades its opacity, because Chrome can paint a background-colour transition's start colour for one frame as it ends.
+
+### Row actions
+
+A row's `action` sits over its trailing edge, where the meta is. It appears when the row is hovered or has keyboard focus inside it, and the meta fades out under it; a 24px cell is kept for it, so the label never runs under the button. The action is its own button beside the row's link, never inside it.
+
+### Live rows
+
+A live row is the page you are on but haven't pinned. It is outlined with the segmented hairline (`--segment-line`) and has no fill, even when it is the current page, so it reads as temporary. Its action is always visible.
+
+### Pinning motion
+
+Pinned rows live in a `SidebarRowGroup`: a row grows in from 0 height over 220ms, shrinks out over 160ms, and the rows around it glide to their new places (a motion `layout` on position). Nothing pops. Pinning a live row keeps it mounted under the same key: its outline fades out, and the accent fill flashes out over 420ms (`highlight`). Unpinning the page you are on turns the row back into the live row at the top, gliding there. Reduced motion keeps only the fades.
+
+### Reordering
+
+Pinned rows sort by dragging with motion's `Reorder` (pointer events, not native drag and drop: the browser would own the cursor and add a copy badge). The dragged row follows the pointer on the accent fill and the others glide out of its way; the whole page shows the closed hand while you drag. The new order is committed once, on release, and the click that ends a drag never opens the row. Mouse and pen drag; a finger scrolls. The live row can't be dragged and keeps its place at the head. Alt+Up and Alt+Down move the focused row by one, for the keyboard.
+
+### Panel motion
+
+Switching projects on the rail (`up`, `down`) doesn't move the panel: the rows swap in one frame, because the bar already shows where you went and motion there only made it feel slow. The header swaps at once too; the page's breadcrumbs carry the animated change (they roll the project's name). Pass the header as `header`: it's drawn above the content and moves with it as one piece. Only sub-pages move, since the direction says something: `forward` (into settings) and `back` (out of it) run one state at a time. The old content leaves over 70ms (ease-in, so it fades evenly) as it slides 16px, then the new one arrives over 120ms on `--ease-standard` from the side it came from. Both blur as they go (4px), the same blur as the page header's swaps. Reduced motion only fades.
+
+### The page stays put
+
+Only the sidebar animates. The page beside it swaps at once on a project switch and into or out of settings; its breadcrumbs carry the change, rolling the crumbs that changed.
+
+### Sub-pages
+
+A row that opens a sub-page says so with `submenu`: a muted 14px chevron on its trailing edge, which nudges 2px right on hover. Rows that navigate to a page never get one. A sub-page (settings) replaces the panel's content, not the rail: the rail keeps its active project. It opens with a `SidebarBack` button naming where it returns to, then its own header and rows. Leave it with `transition="back"`.
+
+### Header
+
+The panel header is the title and a caption line (the sprint, or the org), nothing above it: no strip, no colour wash. Project colour lives in the rail tile and banners live on the page. Breadcrumbs sit inside the page container, not above it. `SidebarBack`, as the first thing in a panel, sits on the same 36px line as the logo and the breadcrumbs.
+
+### Sub-tickets nest under their parent
+
+A ticket in the Pinned shelf sits under its parent ticket (or epic) when the parent is in the shelf too, as a sub-row. It doesn't matter which of the two is pinned and which is live: pin a parent and open one of its sub-tickets, and the sub-ticket shows up under it; pin a sub-ticket and open its parent, and the pinned sub-ticket shows under the parent's live row. A parent and its sub-rows drag as one; the sub-rows keep their own order. A sub-ticket whose parent isn't in the shelf stays at the top level.
+
+### Sub-rows
+
+Rows under a parent (Current under Sprints) sit 18px in beside a 2px `--border` guide line, like a tree.
+
+## Examples
+
+### Rail
+
+Pick an item: the bar slides between Dashboard and the tiles. Move down the rail for the gliding tooltip.
+
+<Demo name="rail" title="Rail" />
+
+### Rows and the Pinned shelf
+
+The project rows with the Pinned shelf. Pin Sprint 25 to see it land with a flash; unpin a sprint from its row.
+
+<Demo name="rows" title="Rows" />

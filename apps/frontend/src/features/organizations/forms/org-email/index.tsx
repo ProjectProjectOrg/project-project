@@ -6,6 +6,10 @@ import {
   Unauthorized,
   type OrgEmailStatus
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
@@ -16,19 +20,19 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsInput } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import {
   disconnectOrgEmail,
   emailRequest,
   saveOrgEmail,
   testOrgEmail
 } from "@/features/organizations/atoms/email"
-import { errorMessage, emailFailureMessage } from "@/lib/errorMessage"
+import {
+  errorMessage,
+  emailFailureMessage,
+  describeCause
+} from "@/lib/errorMessage"
 import { useAppForm } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -301,6 +305,8 @@ export function OrgEmailForm({
                 </ConfirmButton.Trigger>
                 <ConfirmButton.Confirm>
                   <ConfirmButton.Action
+                    cancelLabel={m.common_cancel_button()}
+                    describeError={describeCause}
                     prompt={m.org_email_disconnect_confirm()}
                     label={m.org_email_disconnect()}
                     onConfirm={async () => {

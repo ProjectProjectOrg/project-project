@@ -1,10 +1,10 @@
+import { Button } from "@pp/ui/button"
+import { CropWindow } from "@pp/ui/crop-window"
+import { transitions } from "@pp/ui/lib/springs"
+import { Slider } from "@pp/ui/slider"
 import { motion, useReducedMotion } from "motion/react"
 
-import { Button } from "@/components/ui/button"
-import { CropWindow } from "@/components/ui/crop-window"
-import { Slider } from "@/components/ui/slider"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import type { BannerForm } from "./index"

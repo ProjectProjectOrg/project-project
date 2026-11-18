@@ -5,7 +5,7 @@ import {
   Info,
   ListTodo,
   Timer
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 import type {
   Command,

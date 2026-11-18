@@ -103,7 +103,10 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.archive({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: () => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      Keys.pins(req.params.orgSlug)
+    ]
   })
 )
 
@@ -138,7 +141,10 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
     predict: (ticket, _input: void) => ({ ...ticket, archivedAt: null }),
     call: (client) => client.tickets.unarchive({ params: req.params }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: () => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      Keys.pins(req.params.orgSlug)
+    ]
   })
 )
 
@@ -148,7 +154,10 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
       yield* Api.use((client) =>
         client.tickets.delete({ params: req.params, query })
       )
-      yield* Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
+      yield* Reactivity.invalidate([
+        ...Keys.ticketsChanged(scopeOf(req)),
+        Keys.pins(req.params.orgSlug)
+      ])
     })
   )
 )
@@ -164,7 +173,8 @@ export const moveTicket = Atom.family((req: TicketRequest) =>
         Keys.sprintMembership(scopeOf(req)),
         ...Keys.ticketsChanged(
           projectScope(req.params.orgSlug, result.projectSlug)
-        )
+        ),
+        Keys.pins(req.params.orgSlug)
       ])
       return result
     })

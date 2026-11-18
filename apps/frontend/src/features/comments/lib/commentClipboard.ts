@@ -4,7 +4,7 @@ import type { TicketLocation } from "@/features/tickets/lib/ticketClipboard"
 
 export const commentAuthorName = (author: CommentAuthor): string =>
   author.kind === "user"
-    ? (author.user.name ?? author.user.email)
+    ? author.user.name || author.user.email
     : author.displayName
 
 export const commentUrl = (

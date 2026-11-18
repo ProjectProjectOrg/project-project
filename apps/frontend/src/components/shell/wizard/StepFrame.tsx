@@ -1,6 +1,6 @@
+import { Button } from "@pp/ui/button"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 export function StepFrame({

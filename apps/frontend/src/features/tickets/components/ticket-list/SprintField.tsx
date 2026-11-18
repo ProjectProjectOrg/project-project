@@ -1,13 +1,15 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Hitbox } from "@pp/ui/hitbox"
+import { Plus } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
 import { use, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Hitbox } from "@/components/ui/hitbox"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
@@ -22,7 +24,6 @@ import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useSelectionActions } from "./TicketSelection"
@@ -164,19 +165,26 @@ export function SprintSelect({
       trigger={
         <Button
           type="button"
-          variant={current ? "chip" : "chip-muted"}
+          variant="ghost"
+          tone={current ? "strong" : "muted"}
           aria-label={
             current
               ? m.tickets_sprint_chip_aria({ name: current.name })
               : m.tickets_assign_sprint_chip()
           }
         >
-          {current ? (
-            <SprintStateIcon sprint={current} size="xs" />
-          ) : (
-            <Plus className="size-3.5" strokeWidth={1.75} />
-          )}
-          <span className="max-w-[14ch] truncate">{label}</span>
+          <TextSwap
+            className="max-w-[14ch] gap-1.5"
+            icon={
+              current ? (
+                <SprintStateIcon sprint={current} size="xs" />
+              ) : (
+                <Plus className="size-3.5" strokeWidth={1.75} />
+              )
+            }
+          >
+            {label}
+          </TextSwap>
         </Button>
       }
     />
@@ -222,7 +230,7 @@ export function SprintBadgeTrigger({
         onOpenChange={setCreating}
         tickets={[ticketId]}
         trigger={
-          <Button type="button" variant="chip-muted" className={className}>
+          <Button type="button" variant="ghost" className={className}>
             <Plus className="size-3.5" strokeWidth={1.75} />
             <span>{m.sprints_new_button()}</span>
           </Button>
@@ -246,7 +254,8 @@ export function SprintBadgeTrigger({
         trigger={
           <Button
             type="button"
-            variant={current ? "chip" : "chip-muted"}
+            variant="ghost"
+            tone={current ? "strong" : "muted"}
             onClick={(e) => e.stopPropagation()}
             aria-label={
               failed
@@ -257,12 +266,18 @@ export function SprintBadgeTrigger({
             }
             className={cn(failed && "text-destructive", className)}
           >
-            {current ? (
-              <SprintStateIcon sprint={current} size="xs" />
-            ) : (
-              <Plus className="size-3.5" strokeWidth={1.75} />
-            )}
-            <span className="max-w-[14ch] truncate">{label}</span>
+            <TextSwap
+              className="max-w-[14ch] gap-1.5"
+              icon={
+                current ? (
+                  <SprintStateIcon sprint={current} size="xs" />
+                ) : (
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                )
+              }
+            >
+              {label}
+            </TextSwap>
           </Button>
         }
       />

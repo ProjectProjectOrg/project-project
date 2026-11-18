@@ -1,13 +1,21 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+import { FolderKanban } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderKanban } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
 import { PageContainer, PageHeader } from "@/components/shell/Page"
-import { Button } from "@/components/ui/button"
 import { ActiveImports } from "@/features/jira/components/ActiveImports"
 import {
   projectsFor,
@@ -16,7 +24,6 @@ import {
 import { ProjectRow } from "@/features/projects/components/ProjectRow"
 import { CreateProjectRow } from "@/features/projects/forms/create-project"
 import { useOrgActor } from "@/hooks/useActor"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/")
@@ -157,16 +164,18 @@ function ListMessage({ children }: { children: React.ReactNode }) {
 
 function EmptyProjects({ canCreate }: Readonly<{ canCreate: boolean }>) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-10 text-center">
-      <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <FolderKanban className="size-5" strokeWidth={1.75} />
-      </div>
-      <div className="text-body font-semibold">{m.projects_list_empty()}</div>
-      <p className="max-w-xs text-caption text-muted-foreground">
-        {canCreate
-          ? m.projects_list_empty_body()
-          : m.projects_list_empty_body_invited()}
-      </p>
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FolderKanban strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.projects_list_empty()}</EmptyTitle>
+        <EmptyDescription>
+          {canCreate
+            ? m.projects_list_empty_body()
+            : m.projects_list_empty_body_invited()}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }

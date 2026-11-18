@@ -1,9 +1,8 @@
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
-
 import {
   PDF_SPREAD_PAGES,
   pdfSpreadScale
-} from "@/features/editor/lexical/pdfSpreadLayout"
+} from "@pp/ui/editor/attachments/pdf-spread-layout"
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 
 export const renderPdfSpread = async (
   url: string

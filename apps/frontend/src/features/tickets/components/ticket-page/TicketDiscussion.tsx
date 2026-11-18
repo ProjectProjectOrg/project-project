@@ -1,15 +1,15 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ChevronRight, Plus } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { useHotkey } from "@tanstack/react-hotkeys"
-import { ChevronRight, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { AddChildTicketButton } from "./AddChildTicketButton"
@@ -80,12 +80,12 @@ function ChildrenSection({
         <h2>
           <Button
             type="button"
-            variant="chip-muted"
+            variant="ghost"
             aria-expanded={expanded}
             onClick={() =>
               empty ? setAdding((current) => !current) : setOpen(!open)
             }
-            className="h-7 gap-1.5 px-2 text-[15px]/5"
+            className="h-7 gap-1.5 px-2 text-[15px]/5 motion-safe:active:scale-100"
           >
             {empty && (
               <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />

@@ -9,12 +9,13 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import { chipClassName } from "@pp/ui/chip"
+import { Inbox, CalendarRange } from "@pp/ui/icons"
 import { useLocation } from "@tanstack/react-router"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Inbox } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -53,11 +54,7 @@ import { m } from "@/paraglide/messages"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
-import {
-  CreatingSectionsProvider,
-  SectionList,
-  TicketPagination
-} from "./SectionList"
+import { SectionList, TicketPagination } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
@@ -146,33 +143,29 @@ export function SprintSections(props: Props) {
             query: viewQuery(active.query)
           })}
         >
-          <CreatingSectionsProvider>
-            {backlogSprintSections(groups, active.query.groupId).map(
-              (sprint) => {
-                const id = sprintSectionKey(sprint?.id ?? null)
-                const section = active.value.sections.find(
-                  (entry) => entry.key === id
-                )
-                return (
-                  <SprintSection
-                    key={id}
-                    {...props}
-                    persistKey={persistKey}
-                    query={active.query}
-                    snapshotReq={active.req}
-                    sprint={sprint}
-                    page={section?.page ?? EMPTY_PAGE}
-                    count={section?.count ?? 0}
-                    estimates={section?.estimates ?? null}
-                    waiting={waiting}
-                    activePreviewId={preview.activePreviewId}
-                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                    onPreviewOpenChange={preview.onPreviewOpenChange}
-                  />
-                )
-              }
-            )}
-          </CreatingSectionsProvider>
+          {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
+            const id = sprintSectionKey(sprint?.id ?? null)
+            const section = active.value.sections.find(
+              (entry) => entry.key === id
+            )
+            return (
+              <SprintSection
+                key={id}
+                {...props}
+                persistKey={persistKey}
+                query={active.query}
+                snapshotReq={active.req}
+                sprint={sprint}
+                page={section?.page ?? EMPTY_PAGE}
+                count={section?.count ?? 0}
+                estimates={section?.estimates ?? null}
+                waiting={waiting}
+                activePreviewId={preview.activePreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+              />
+            )
+          })}
         </TicketViewSourceContext>
       </div>
     ) : (
@@ -286,8 +279,16 @@ function SprintSection({
             />
           ),
           detail: sprint ? (
-            <span className="flex items-center gap-3.5">
-              {dates && <span>{dates}</span>}
+            <>
+              {dates && (
+                <span className={chipClassName()}>
+                  <CalendarRange
+                    className="size-3 shrink-0"
+                    strokeWidth={1.75}
+                  />
+                  {dates}
+                </span>
+              )}
               {estimates && (
                 <SprintProgress
                   sprint={sprint}
@@ -308,7 +309,7 @@ function SprintSection({
                   }
                 />
               )}
-            </span>
+            </>
           ) : undefined
         }}
         canCreate={state !== "completed"}

@@ -1,11 +1,11 @@
 import { isEpic } from "@pp/shared"
-import { Flag, ListPlus } from "lucide-react"
+import { Flag, ListPlus } from "@pp/ui/icons"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import {
-  createTicketDialog,
+  newTicketRequest,
   type RelatedKind
-} from "@/features/tickets/atoms/createTicketDialog"
+} from "@/features/tickets/atoms/createTicket"
 import {
   ticketRequest,
   unmarkTicket
@@ -55,12 +55,12 @@ export function TicketCreateRelatedPage({
       onSelect={(item) => {
         const kind = RELATED_KINDS.find((candidate) => candidate === item.value)
         if (kind === undefined) return
-        env.close()
-        env.registry.set(createTicketDialog, {
+        env.registry.set(newTicketRequest, {
           orgSlug: ticket.orgSlug,
           projectSlug: ticket.slug,
           related: { kind, ticketId: ticket.ticketId }
         })
+        env.open("createTicket")
       }}
     />
   )

@@ -1,12 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
+import { CommandMenuShortcut } from "@pp/ui/command-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { CommandMenuShortcut } from "@/components/ui/command-menu"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { keyLabels } from "@/lib/keyLabels"
 
 export function TicketContextChip({
   ticket
@@ -18,7 +19,7 @@ export function TicketContextChip({
   return (
     <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover pl-2 text-body">
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {ticket.ticketId}
         </span>
         {title !== null && (
@@ -28,6 +29,7 @@ export function TicketContextChip({
         )}
       </span>
       <CommandMenuShortcut
+        keyLabels={keyLabels()}
         keys="Backspace"
         className="ml-0 self-stretch *:h-full *:rounded-none *:px-1.5"
       />

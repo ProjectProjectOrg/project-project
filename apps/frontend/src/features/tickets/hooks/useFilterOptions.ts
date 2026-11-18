@@ -1,7 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketFilter } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
-import * as Result from "effect/reactivity/AsyncResult"
+import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import {
   Archive,
   Flag,
@@ -12,10 +11,12 @@ import {
   Timer,
   UserMinus,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import * as DateTime from "effect/DateTime"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   useProject,
   useProjectRoute
@@ -39,7 +40,6 @@ import {
 } from "@/features/tickets/lib/filterChoices"
 import { filterableSprints } from "@/features/tickets/lib/ticketFilters"
 import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 export type FilterOption = Readonly<{

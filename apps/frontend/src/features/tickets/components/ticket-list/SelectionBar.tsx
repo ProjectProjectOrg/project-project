@@ -1,12 +1,14 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Freeze } from "@pp/ui/freeze"
+import { Command, X } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Command, X } from "lucide-react"
 import { motion, useIsPresent } from "motion/react"
 import { use } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Freeze } from "@/components/ui/freeze"
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import {
   openCommandMenu,
@@ -21,8 +23,6 @@ import {
   projectOfKey,
   suggestedStatus
 } from "@/features/tickets/lib/ticketSelection"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { type SelectionStore, updateSelected } from "./selectionStore"
@@ -51,7 +51,7 @@ export function SelectionBar({
         <SelectionFailureNotice store={store} />
         <Button
           type="button"
-          variant="quiet"
+          variant="ghost"
           size="square-8"
           onClick={onClear}
           aria-label={m.tickets_selection_clear_aria_label()}

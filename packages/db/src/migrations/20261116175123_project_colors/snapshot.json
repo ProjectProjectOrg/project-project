@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e5cbd2e3-377d-4c71-b648-1d200c66b876",
+  "prevIds": [
+    "9968e2b5-2bab-4f06-9145-253ac8be4880"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_index",
+        "colors"
+      ],
+      "writes": [
+        "s|col|public.project_index.colors",
+        "n|col|public.project_index.colors",
+        "e|col|public.project_index.colors"
+      ],
+      "reads": [
+        "n|tbl|public.project_index",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_index",
+        "name": "colors",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

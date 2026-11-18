@@ -1,13 +1,14 @@
-import type { Hotkey } from "@tanstack/react-hotkeys"
-import { motion, useReducedMotion } from "motion/react"
-
 import {
   CommandMenuFooter,
   CommandMenuFooterHint,
   CommandMenuShortcut,
   useHighlightedItem
-} from "@/components/ui/command-menu"
-import { springs } from "@/lib/springs"
+} from "@pp/ui/command-menu"
+import { spring } from "@pp/ui/lib/springs"
+import type { Hotkey } from "@tanstack/react-hotkeys"
+import { motion, useReducedMotion } from "motion/react"
+
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import type { CommandFrameItem } from "./CommandFrame"
@@ -15,7 +16,11 @@ import type { CommandFrameItem } from "./CommandFrame"
 function KeyFirst({ keys, label }: Readonly<{ keys: Hotkey; label: string }>) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
-      <CommandMenuShortcut keys={keys} className="ml-0" />
+      <CommandMenuShortcut
+        keyLabels={keyLabels()}
+        keys={keys}
+        className="ml-0"
+      />
       <span>{label}</span>
     </span>
   )
@@ -38,7 +43,7 @@ export function SearchFooter({
       <motion.div
         initial={reduceMotion ? false : { y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={springs.moderate}
+        transition={spring.moderate}
         className="flex min-w-0 flex-1 items-center gap-4"
       >
         {shown !== null && (
@@ -53,12 +58,14 @@ export function SearchFooter({
           )}
           {peekOpen ? (
             <CommandMenuFooterHint
+              keyLabels={keyLabels()}
               label={m.chrome_command_menu_close_peek()}
               keys="ArrowLeft"
             />
           ) : (
             shown?.peekable === true && (
               <CommandMenuFooterHint
+                keyLabels={keyLabels()}
                 label={m.chrome_command_menu_peek()}
                 keys="ArrowRight"
               />

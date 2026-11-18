@@ -1,0 +1,126 @@
+export const meta = {
+  title: "Tooltip",
+  group: "Primitives",
+  description:
+    "A short text label shown on hover or keyboard focus, mostly for icon-only buttons. Used in the editor's formatting toolbar and block gutter, sprint chips, attachment rows and the subscribe toggle.",
+  sources: [
+    {
+      kind: "own",
+      name: "Tooltip",
+      note: "our own; replaced Base UI's tooltip (see Why our own)"
+    }
+  ]
+}
+
+## Overview
+
+On top, a live toolbar sharing one tooltip: hover a button, wait 400ms, then move along the row by pointer or Tab and the tooltip glides to the next button while its label blurs over. Below, every state, shown on hover; switch on "Show every state" to pin them all.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-[36rem] place-items-start"
+/>
+
+## Usage
+
+The app mounts one `TooltipHost` at its root (`RootComponent.tsx`); the gallery mounts it through `TooltipProvider`. Every trigger feeds that one host, so there is only ever one tooltip on screen.
+
+A row of icon buttons gives each trigger its label with `TooltipGroupTrigger`, and sets the side once with `TooltipGroup`:
+
+```tsx
+import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
+
+export function FormattingToolbar() {
+  return (
+    <TooltipGroup sideOffset={10}>
+      <TooltipGroupTrigger
+        tooltip={m.editor_format_bold()}
+        render={
+          <Button
+            variant="toolbar"
+            size="icon-sm"
+            aria-label={m.editor_format_bold()}
+          />
+        }
+      >
+        <Bold />
+      </TooltipGroupTrigger>
+    </TooltipGroup>
+  )
+}
+```
+
+A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. `TooltipContent` renders nothing in place; it tells the host what to show.
+
+```tsx
+<Tooltip>
+  <TooltipTrigger
+    render={<Button variant="ghost" size="icon-sm" aria-label={label} />}
+  >
+    <Download />
+  </TooltipTrigger>
+  <TooltipContent>{label}</TooltipContent>
+</Tooltip>
+```
+
+| Component             | Prop         | Type                                          | Default    |
+| --------------------- | ------------ | --------------------------------------------- | ---------- |
+| `Tooltip`             | `open`       | `boolean`, pins it open in place (docs only)  |            |
+| `TooltipTrigger`      | `render`     | the element to render, like Base UI's         | `<button>` |
+| `TooltipTrigger`      | `disabled`   | `boolean`, turns the tooltip off              | `false`    |
+| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"`      | the container's (`HoverSide`), else `"top"` |
+| `TooltipContent`      | `align`      | `"start" \| "center" \| "end"`                | `"center"` |
+| `TooltipContent`      | `sideOffset` | `number`                                      | `6`        |
+| `TooltipContent`      | `className`  | e.g. `max-w-64`, which lets a hint wrap       |            |
+| `TooltipGroup`        | `side`, `align`, `sideOffset` | placement for the triggers inside |            |
+| `HoverSide`           | `side`       | the side for every tooltip and hover card inside |            |
+| `TooltipGroupTrigger` | `tooltip`    | `ReactNode`, what it shows                    | required   |
+
+## Rules
+
+### One side per container
+
+Every hover in a container opens on the same side: in a row, a section header or a board card, tooltips and hover cards all open below (they wrap themselves in `<HoverSide side="bottom">`). Going from a tooltip above to a card below made the box jump across its trigger; on one side it glides. A tooltip or card that sets its own `side` keeps it, so set one only where its container doesn't; `TooltipGroup` sets the side for everything inside it too.
+
+### Why our own
+
+We started on Base UI's tooltip and replaced it. Base UI's tooltip adds no ARIA of its own: no `role`, no `aria-describedby`; the trigger's `aria-label` does that work either way. What it gives is behaviour: open on focus, Escape, a hover delay, edge flipping. Two things we needed didn't fit:
+
+- **Only one tooltip at a time.** Every Base UI tooltip decides on its own, so hovering one button while another had keyboard focus showed two. Ours has a single host for the whole app: the latest hover or keyboard focus wins, and when a hover ends, the focused trigger's tooltip comes back.
+- **A glide with a blur between labels.** To move one tooltip between triggers we used Base UI's shared handle and `Viewport`, but the viewport turns transitions off on the new label while it measures the new size, so the blur never played. Ours measures the next label off screen first, then animates position, size and label together.
+
+### What it handles
+
+- **Opening.** Hover opens after 400ms, so passing over a button doesn't flash one. While a tooltip shows, or for 400ms after one closes, the next opens at once. Keyboard focus opens it straight away, but only on `:focus-visible`, so clicking a button doesn't. Touch never opens one.
+- **Closing.** Leaving the trigger closes it after 100ms, long enough to cross onto the tooltip or the next button. Clicking the trigger, Escape and resizing close it; after a click or Escape it stays closed until the pointer leaves or focus moves on.
+- **Scrolling.** The tooltip is `position: fixed`, so a scroll would leave it floating where its trigger was. Any scroll closes a hover tooltip at once, with no fade, and hovering opens nothing until scrolling has been quiet for 200ms: content sliding under a still pointer fires hover events, which would otherwise reopen a tooltip on whatever passes and drag it along. A keyboard-focused tooltip stays and moves with its trigger.
+- **Staying open on hover.** The pointer can move onto the tooltip without it closing (WCAG 1.4.13).
+- **Placement.** It sits on its side of the trigger, flips to the other side when it doesn't fit, and stays 8px inside the window.
+- **Screen readers.** The tooltip has `role="tooltip"`. When it says more than the trigger's `aria-label` (a hint, not just the label), the trigger gets `aria-describedby` pointing at it. Icon buttons still need their own `aria-label`.
+
+### Raised, in the theme's own colours
+
+Light in light mode, dark in dark mode (`--tooltip`): white in light, a lifted grey (0.29) in dark, so it stands above the dark page instead of sinking into it. A 9% hairline and a top light (`--tooltip-edge`) give it its edge over white cards and popovers, where a plain card-coloured box would disappear. The inverted ink label it replaced had too much contrast for something you see on every hover. No shadow, squircle corners at about half its height.
+
+### Motion
+
+Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ease-standard` it read as a pop. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
+
+### Shortcuts
+
+A keyboard shortcut sits on the right in a `Kbd`, coloured from the tooltip's text like any key.
+
+## Examples
+
+### Formatting toolbar
+
+The toolbar that appears over a text selection in a ticket description: text formats, link, then block types. One tooltip glides along the whole row, by pointer or by Tab.
+
+<Demo name="formatting-toolbar" title="Formatting toolbar" className="min-h-56" />
+
+### Subscribe
+
+The ticket page's Subscribe toggle. Its label blurs between Subscribe and Subscribed. The button says what you'll do; the tooltip says who already gets updates. Because it says more than the button's label, the button is described by it (`aria-describedby`).
+
+<Demo name="subscribe" title="Subscribe" className="min-h-40" />

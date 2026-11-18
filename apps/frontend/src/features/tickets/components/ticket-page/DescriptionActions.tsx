@@ -1,21 +1,20 @@
-import { Check, Pencil } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import type { SaveStatus } from "@pp/ui/editor/save-queue"
+import { Check, Pencil } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { KbdShortcut } from "@/components/ui/kbd"
-import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { appHotkeys } from "@/lib/appHotkeys"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
 const fadeOut = { opacity: 0 }
 const SAVED_LINGER_S = 1.2
-const labelBlur = { opacity: 0, filter: "blur(6px)" }
-const labelMorph = { duration: 0.22, ease: [0.4, 0, 0.2, 1] } as const
 const slotOpen = { width: 14, marginRight: 0, opacity: 1 }
 const slotClosed = { width: 0, marginRight: -6, opacity: 0 }
 
@@ -57,7 +56,7 @@ export function DescriptionActions({
               onClick={onDone}
               title={status === "failed" ? m.editor_save_failed() : undefined}
               className={cn(
-                "rounded-full pr-1.5 pl-3",
+                "rounded-full pl-3",
                 status === "failed"
                   ? "bg-destructive-light text-destructive hover:bg-destructive-light"
                   : "bg-surface-2 bg-[image:linear-gradient(var(--tint),var(--tint))] hover:bg-surface-2 hover:bg-[image:linear-gradient(var(--tint-hover),var(--tint-hover))]"
@@ -69,7 +68,7 @@ export function DescriptionActions({
                   ? m.tickets_description_not_saved()
                   : m.tickets_description_done()}
               </MorphLabel>
-              <KbdShortcut keys="Escape" variant="pill" aria-hidden />
+              <KbdShortcut keys="Escape" keyLabels={keyLabels()} aria-hidden />
               <span aria-live="polite" className="sr-only">
                 {statusLabel[status]()}
               </span>
@@ -82,13 +81,13 @@ export function DescriptionActions({
                 appHotkeys["tickets.edit-description"].defaultHotkey
               }
               onClick={onEdit}
-              className="rounded-full bg-region pr-1.5 pl-3 hover:bg-region hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
+              className="rounded-full bg-page pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}
               <KbdShortcut
                 keys={appHotkeys["tickets.edit-description"].defaultHotkey}
-                variant="raised"
+                keyLabels={keyLabels()}
                 aria-hidden
               />
             </Button>
@@ -143,32 +142,7 @@ function SaveDot({ status }: Readonly<{ status: SaveStatus }>) {
   )
 }
 
+// The status text beside the description's actions rolls through TextSwap.
 function MorphLabel({ children }: Readonly<{ children: string }>) {
-  const reduce = useReducedMotion() ?? false
-  const hidden = reduce ? fadeOut : labelBlur
-  const [width, setWidth] = useState<number>()
-  return (
-    <motion.span
-      initial={false}
-      animate={{ width: width ?? "auto" }}
-      transition={labelMorph}
-      className="relative inline-flex"
-    >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={children}
-          ref={(el: HTMLSpanElement | null) => {
-            if (el) setWidth(el.offsetWidth)
-          }}
-          initial={hidden}
-          animate={morphTo}
-          exit={hidden}
-          transition={labelMorph}
-          className="whitespace-nowrap"
-        >
-          {children}
-        </motion.span>
-      </AnimatePresence>
-    </motion.span>
-  )
+  return <TextSwap>{children}</TextSwap>
 }

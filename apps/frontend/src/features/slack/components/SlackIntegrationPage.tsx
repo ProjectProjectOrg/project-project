@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { getRouteApi, Link } from "@tanstack/react-router"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -8,7 +9,6 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { Button } from "@/components/ui/button"
 import {
   IntegrationDetail,
   IntegrationStatus

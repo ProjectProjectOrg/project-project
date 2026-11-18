@@ -1,0 +1,64 @@
+export const meta = {
+  title: "Typography",
+  group: "Design system",
+  order: 3,
+  description:
+    "One sans for everything, Allo with crisp terminals, on a tight six-step scale; Geist Mono only for code. Hierarchy comes from size and weight, never from colour, capitals or boxes.",
+  sources: [
+    { kind: "own", name: "theme.css", note: "the scale and the faces" },
+    { kind: "own", name: "Allo", note: "OFL, by Josh Puckett", href: "https://allo.joshpuckett.me" }
+  ]
+}
+
+## Overview
+
+The scale with its live sizes, and the two faces.
+
+<Demo name="overview" title="Type" />
+
+## Usage
+
+```tsx
+<h1 className="text-display font-semibold">…</h1>
+<h2 className="text-title font-semibold">…</h2>
+<p className="text-body">…</p>
+<span className="text-caption text-muted-foreground">…</span>
+<span className="tabular-nums">ATL-12</span>
+```
+
+| Role | Size / line | Compact | For |
+| --- | --- | --- | --- |
+| `display` | 28 / 34 | 24 / 30 | Page titles |
+| `title` | 16 / 22 | 15 / 20 | Section headings |
+| `subtitle` | 14 / 20 | 13 / 18 | Sub-sections, card titles |
+| `body` | 13 / 20 | 12 / 18 | Running text, rows, controls |
+| `caption` | 12 / 16 | 11 / 14 | Meta, hints, chips |
+| `micro` | 11 / 14 | 10 / 12 | Counts, keys |
+
+Compact sizes (`prose-compact`, `*-compact` tokens) are for dense places: comments, previews, popovers.
+
+## Rules
+
+### One face
+
+Allo carries every surface (headings, buttons, labels, body, data) at roundness 0: its terminals are crisp, which keeps small UI text sharp, while its shapes stay friendly at heading sizes. One face means hierarchy has to come from size and weight, which keeps it honest: if a heading needs a different font to stand out, it's too close to the text around it.
+
+### A tight scale
+
+Body is 13px, and the working sizes sit 1–2px apart (micro 11, caption 12, body 13, subtitle 14, title 16), with one real jump to the page title (display 28). The app is dense on purpose (lists, boards, tickets): small steps keep rows quiet, and the single big step makes a page's title unmistakable. Line heights are even pixels, so rows stack on a 2px grid.
+
+### Weight, not capitals
+
+Three weights: 400 for text, 550 for headings and anything selected, 700 only for emphasis inside text. Labels, headings, column heads and chips are sentence case, never uppercase or letter-spaced: all-caps section labels are the look this app is designed against, and sentence case reads faster. Acronyms (PR, ID, URL) keep their capitals.
+
+### One face outside code
+
+Ticket keys, branches, hashes and slugs are Allo with tabular figures, so keys of one length still line up in a column. Geist Mono appears only in code: code blocks, inline code and a `<code>` value meant to be pasted. Two faces side by side in a row read as noise.
+
+### Muted is for secondary, not for small
+
+Secondary text is `--muted-foreground` at the same size, not smaller grey text. Captions and micro text keep 4.5:1 like body text ([Colour](/foundations/colour)).
+
+### Prose
+
+Long-form Markdown (`.prose-md`) puts body text at 80% ink (`--prose-body`), so headings, bold and code carry the hierarchy at full ink; headings get 8px below and 20–24px above, so a heading belongs to the text under it.

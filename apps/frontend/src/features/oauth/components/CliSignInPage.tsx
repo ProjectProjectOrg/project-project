@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import { getRouteApi } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { me } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { OauthShell } from "@/features/oauth/components/OauthShell"
 import { m } from "@/paraglide/messages"
 

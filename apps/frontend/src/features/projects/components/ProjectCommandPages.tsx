@@ -1,13 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { CreateProjectInput } from "@pp/shared"
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { FolderKanban, FolderPlus } from "@pp/ui/icons"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { FolderKanban, FolderPlus } from "lucide-react"
 import { useState } from "react"
 
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import {
@@ -51,7 +51,10 @@ export function SwitchProjectPage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          <CommandMenuCheck checked={context.projectSlug === item.value} />
+          <CommandMenuCheck
+            checked={context.projectSlug === item.value}
+            label={m.chrome_command_menu_selected()}
+          />
         </CommandMenuItem>
       )}
     />
@@ -118,7 +121,7 @@ export function CreateProjectPage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          <span className="shrink-0 font-mono text-caption text-muted-foreground">
+          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
             {key}
           </span>
         </CommandMenuItem>

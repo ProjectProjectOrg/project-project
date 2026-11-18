@@ -5,12 +5,13 @@ import {
   type TypeDefinition,
   type UpdateTypeInput
 } from "@pp/shared"
+import { LibraryContext } from "@pp/ui/editor/blocks/block-chrome"
+import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { useCallback, useState, type ReactNode } from "react"
+import { useCallback, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -26,7 +27,6 @@ import { useLibraryPermissions } from "../hooks/useLibraryPermissions"
 import { saveTypeTask, useLibrarySave } from "../hooks/useLibrarySave"
 import { entryView, type EntryView } from "../lib/entryStanding"
 import { typeDraftOf } from "../lib/libraryModel"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
   AsideGroup,
   CommitInput,
@@ -35,7 +35,7 @@ import {
   NullablePriorityField,
   TemplateTagsField
 } from "./DefinitionAside"
-import { DeleteTypeDialog } from "./DeleteTypeDialog"
+import { DeleteTypePopover } from "./DeleteTypePopover"
 import {
   DeleteEntryConfirm,
   DeleteEntryTrigger,
@@ -307,25 +307,15 @@ function DeleteProjectType({
   library,
   type
 }: Readonly<{ scope: ProjectScope; library: Library; type: TypeDefinition }>) {
-  const [open, setOpen] = useState(false)
   const openList = useOpenList()
   return (
-    <>
-      <DeleteEntryTrigger
-        label={m.templates_types_delete()}
-        onClick={() => setOpen(true)}
-      />
-      {open ? (
-        <DeleteTypeDialog
-          req={scope.req}
-          library={library}
-          type={type}
-          open={open}
-          onOpenChange={setOpen}
-          onDeleted={() => openList(scope, "type")}
-        />
-      ) : null}
-    </>
+    <DeleteTypePopover
+      req={scope.req}
+      library={library}
+      type={type}
+      trigger={<DeleteEntryTrigger label={m.templates_types_delete()} />}
+      onDeleted={() => openList(scope, "type")}
+    />
   )
 }
 

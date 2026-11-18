@@ -1,0 +1,117 @@
+export const meta = {
+  title: "Board column",
+  group: "Primitives",
+  description:
+    "A board column: a status's tickets as cards in a well washed with the status's colour, under a header with the status, its count and a grip. Columns fold to a narrow strip and reorder by their grips.",
+  sources: [
+    {
+      kind: "own",
+      name: "BoardColumn",
+      note: "Ported from the app's sprint board; polished as the toned well (direction C)"
+    },
+    {
+      kind: "own",
+      name: "NumberFlow",
+      note: "the count",
+      href: "https://number-flow.barvian.me"
+    }
+  ]
+}
+
+## Overview
+
+Drag a column by its grip, drag a card onto another column (or the folded one) to see the drop ring and the counts roll, and fold or unfold a column from its header.
+
+<Demo name="overview" title="A board" />
+
+## Usage
+
+The dashboard uses the plain column:
+
+```tsx
+import { BoardColumn, BoardColumnTitle, boardCardSlotClass } from "@pp/ui/board-column"
+import { StatusGlyph } from "@pp/ui/status-glyph"
+
+<BoardColumn
+  title={<BoardColumnTitle icon={<StatusGlyph icon={icon} color={color} />} label={label} />}
+  tone={color}
+  count={count}
+  scrollLabel={m.common_scroll_area_label()}
+>
+  {cards.map((card) => (
+    <div key={card.id} className={boardCardSlotClass}>
+      <BoardCard … />
+    </div>
+  ))}
+</BoardColumn>
+```
+
+The sprint board builds its columns from the parts and drags them with `@pp/ui/board-drag`, the same code the overview above runs:
+
+```tsx
+import { BoardColumns, BoardColumnFrame, useBoardCardDrop, useBoardColumnDrop } from "@pp/ui/board-drag"
+
+useBoardCardDrop(canDrag, (card, target) => move(card, target))
+
+<BoardColumns values={order} reordering={reorderMode} onReorder={setDragOrder}>
+  {order.map((status) => (
+    <Column key={status} … />  // inside: const over = useBoardColumnDrop(element, status, canDrag)
+  ))}
+</BoardColumns>
+
+<BoardColumnFrame ref={setElement} value={status} tone={color} collapsed={collapsed} over={over}
+  onReorderStart={reorder.start} onReorderEnd={reorder.save}>
+  {({ startReorder }) => (
+    <>
+      <BoardColumnHeader … onReorderStart={startReorder} onReorderKey={reorder.move} reorderLabel={…} />
+      <BoardCardList …>{cards}</BoardCardList>
+    </>
+  )}
+</BoardColumnFrame>
+```
+
+Each card uses `useBoardCardDrag({ slot, card, id, status, enabled })`; each column's list uses `useBoardDropGap`, `boardDropOffset`, `BoardDropGap` and `BoardCardMotion` to open a gap where the card will land, and `useBoardEdgeScroll` to scroll near its ends. `useBoardAutoScroll` scrolls the board sideways.
+
+| Part | Props | What it does |
+| --- | --- | --- |
+| `BoardColumn` | `title`, `tone`, `count`, `scrollLabel` | The plain column the dashboard uses |
+| `boardColumnTone` | a CSS colour (token or `#rrggbb`), or null for grey | Sets `--column-tone` for the wash, the count chip and the drop ring |
+| `BoardColumnHeader` | `title`, `count`, `onCollapse`, `collapseLabel`, `onReorderStart`, `onReorderKey`, `reorderLabel`, plus div props | The open column's header: fold button, then the grip when `onReorderStart` is given |
+| `BoardCollapsedColumnHeader` | `icon`, `label`, `count`, `expandLabel`, `onExpand`, plus button props | The folded strip: icon, name running down, count; a click unfolds |
+| `BoardColumnTitle` | `icon`, `label` | The status's icon and name |
+| `BoardColumnCount` | `value` | The count in its tinted chip, rolling when it changes by one |
+| `BoardCardList` | `scrollLabel`, `viewportProps` | The scrolling list with a 6px edge fade |
+| `BoardColumns` (board-drag) | `values`, `onReorder`, `reordering` | The row of columns: a horizontal Reorder group that keeps its width while a column is out of the flow |
+| `BoardColumnFrame` (board-drag) | `value`, `tone`, `collapsed`, `over`, `onReorderStart`, `onReorderEnd`, render prop `{ startReorder }` | One column: its well, width easing between open and folded, the drop ring and the lift while dragged |
+| `useBoardCardDrag`, `useBoardColumnDrop`, `useBoardCardDrop` (board-drag) | | Card drag (whole card, clone preview, top or bottom half as the drop), the column as a drop target, and the drop itself |
+| `useBoardDropGap`, `boardDropOffset`, `BoardDropGap`, `BoardCardMotion` (board-drag) | | The gap a dragged card opens and the cards sliding around it over 180ms |
+
+## Rules
+
+### The count rolls only for one card
+
+A card moving in or out changes a column's count by one, and the number rolls to show it. A bigger change (a filter, a reload) swaps the number at once, because a long spin reads as noise.
+
+### Folding keeps the status findable
+
+A folded column keeps its icon, its name (running down the strip) and its count, so a folded "QA" still says how many tickets wait there. The whole strip is the unfold button, and it lights up when a card is dragged over it, so it still takes drops.
+
+### A toned well, not a bordered box
+
+The column is a well: no border (controls and surfaces stay flat), the page sunk one step (`--surface-1`), and the status's colour washing in from the top over 72px at a low chroma. The wash says which status a column is from across the board without colouring every card. The corners are 22px squircles: the cards' 14px plus the 8px they sit in from the well's edge, so the curves run parallel.
+
+### The count sits by the name, in the tone
+
+The count follows the status's name in a small chip tinted with the same colour, so name and number read as one label. Its text is clamped dark in light and light in dark, so it holds 4.5:1 whatever colour a project picks for a status.
+
+### A drop rings the column
+
+While a card is dragged over a column, open or folded, the well takes a 1.5px ring in its own tone (`data-over`). The ring sits inside the well, so nothing moves.
+
+### One drag, everywhere
+
+All of the board's drag lives in `@pp/ui/board-drag`: Pragmatic drag and drop for cards (the native drag, so it works across scrolling columns and into folded ones) and Motion's Reorder for columns. The app's sprint and backlog boards and this page run the same code, so a card's gap, its slide and a column's lift look and time the same everywhere. The card's `ItemLink` carries the drag too: Chromium often won't start a drag from a press on a non-draggable link inside a draggable card, so the link is a drag source of its own and stays a real link.
+
+### The grip is always there
+
+People who may reorder the board's columns get a grip at the end of every header: press and drag it to move the column, and the new order saves when you let go. Its arrow keys move the column one place left or right. There is no separate reorder mode. Everyone else sees only the fold button, which shows on hover and on focus, before the grip.

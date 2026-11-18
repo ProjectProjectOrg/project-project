@@ -1,13 +1,13 @@
-import { Link } from "@tanstack/react-router"
+import { Button } from "@pp/ui/button"
 import {
   CalendarRange,
   ListChecks,
   Settings,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { Link } from "@tanstack/react-router"
 import type { ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { m } from "@/paraglide/messages"
@@ -44,9 +44,14 @@ function GoToRow({
   icon: Icon,
   label,
   link
-}: Readonly<{ icon: LucideIcon; label: string; link: ReactElement }>) {
+}: Readonly<{ icon: IconType; label: string; link: ReactElement }>) {
   return (
-    <Button variant="sidebar-link" size="sm" className="w-full" render={link}>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="w-full justify-start gap-2 px-1.5"
+      render={link}
+    >
       <span className="flex w-5 shrink-0">
         <Icon className="size-3.5" strokeWidth={1.75} />
       </span>

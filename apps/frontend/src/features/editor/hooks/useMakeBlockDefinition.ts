@@ -1,12 +1,12 @@
 import { RegistryContext } from "@effect/atom-react"
 import { restoreDefinitionHints, type BlockDefinition } from "@pp/shared"
+import type { EditorBlocks } from "@pp/ui/editor/blocks/editor-blocks"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type * as Registry from "effect/reactivity/AtomRegistry"
 import { useCallback, useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import type { EditorBlocks } from "@/features/editor/lexical/blocks/editorBlocks"
 import {
   projectLibraryRequest,
   updateOrgBlockFromProject,

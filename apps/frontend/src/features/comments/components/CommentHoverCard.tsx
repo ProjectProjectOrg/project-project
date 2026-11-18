@@ -1,11 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import { stripMentionLinks, type Comment, type TicketId } from "@pp/shared"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { PopoverContent } from "@/components/ui/popover"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { TicketPreviewBody } from "@/features/tickets/components/TicketHoverCard"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { m } from "@/paraglide/messages"
@@ -18,15 +17,13 @@ type PreviewProps = Readonly<{
   scope: Scope
 }>
 
-export function CommentHoverCard(props: PreviewProps) {
-  return (
-    <PopoverContent className="w-80" align="start">
-      <CommentPreviewBody {...props} />
-    </PopoverContent>
-  )
-}
-
-function CommentPreviewBody({ ticketId, commentId, scope }: PreviewProps) {
+// What a comment mention's hover card shows: the comment, or the
+// ticket's preview while the comments load or when it's gone.
+export function CommentPreviewBody({
+  ticketId,
+  commentId,
+  scope
+}: PreviewProps) {
   const result = useAtomValue(
     comments(commentsRequest(scope.orgSlug, scope.slug, ticketId))
   )

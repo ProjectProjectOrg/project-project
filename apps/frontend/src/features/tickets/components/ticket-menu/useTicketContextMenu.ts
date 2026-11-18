@@ -1,6 +1,8 @@
+import {
+  forwardThroughMenuBackdrop,
+  isMenuBackdrop
+} from "@pp/ui/lib/menuBackdrop"
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
-
-import { forwardThroughMenuBackdrop, isMenuBackdrop } from "@/lib/menuBackdrop"
 
 export type Anchor = Readonly<{ getBoundingClientRect: () => DOMRect }>
 

@@ -173,6 +173,8 @@ const make = Effect.gen(function* () {
           name: projectIndex.name,
           icon: projectIndex.icon,
           color: projectIndex.color,
+          tone: projectIndex.tone,
+          colors: projectIndex.colors,
           createdBy: projectIndex.createdBy,
           createdAt: projectIndex.createdAt
         }
@@ -216,6 +218,8 @@ const make = Effect.gen(function* () {
           name: r.name,
           icon: makeProjectIcon(r.icon),
           color: makeProjectColor(r.color),
+          tone: r.tone,
+          colors: r.colors.map((color) => makeProjectColor(color)),
           createdBy: r.createdBy,
           createdAt: r.createdAt
         }))
@@ -401,6 +405,8 @@ const make = Effect.gen(function* () {
           name: row.name,
           icon: makeProjectIcon(row.icon),
           color: makeProjectColor(row.color),
+          tone: row.tone,
+          colors: row.colors.map((color) => makeProjectColor(color)),
           createdBy: row.createdBy,
           createdAt: row.createdAt,
           banner: null,
@@ -442,6 +448,8 @@ const make = Effect.gen(function* () {
           name: indexRow.name,
           icon: makeProjectIcon(indexRow.icon),
           color: makeProjectColor(indexRow.color),
+          tone: indexRow.tone,
+          colors: indexRow.colors.map((color) => makeProjectColor(color)),
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
@@ -525,6 +533,10 @@ const make = Effect.gen(function* () {
         const nextBody = input.body ?? file.body
         const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
         const nextColor = input.color ?? makeProjectColor(indexRow.color)
+        const nextTone = input.tone ?? indexRow.tone
+        const nextColors =
+          input.colors ??
+          indexRow.colors.map((color) => makeProjectColor(color))
         const nextEstimation = input.estimation ?? file.estimation
         const nextLinks = links ?? file.links
 
@@ -540,6 +552,8 @@ const make = Effect.gen(function* () {
         if (input.color !== undefined && input.color !== indexRow.color) {
           dbPatch.color = nextColor
         }
+        if (nextTone !== indexRow.tone) dbPatch.tone = nextTone
+        if (input.colors !== undefined) dbPatch.colors = nextColors
         if (nextEstimation !== file.estimation) {
           dbPatch.estimation = nextEstimation
         }
@@ -574,6 +588,8 @@ const make = Effect.gen(function* () {
           name: nextName,
           icon: nextIcon,
           color: nextColor,
+          tone: nextTone,
+          colors: nextColors,
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
@@ -632,6 +648,8 @@ const make = Effect.gen(function* () {
           name: indexRow.name,
           icon: makeProjectIcon(indexRow.icon),
           color: makeProjectColor(indexRow.color),
+          tone: indexRow.tone,
+          colors: indexRow.colors.map((color) => makeProjectColor(color)),
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,

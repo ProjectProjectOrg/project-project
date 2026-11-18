@@ -1,10 +1,10 @@
 import type { WorkTypeOption } from "@pp/shared"
-import { Clock3, Play, Square } from "lucide-react"
+import { Button } from "@pp/ui/button"
+import { Clock3, Play, Square } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
-import { Button } from "@/components/ui/button"
 import { WorkTypeSelect } from "@/features/everhour/components/WorkTypeSelect"
-import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
 export interface TimeControlsProps {

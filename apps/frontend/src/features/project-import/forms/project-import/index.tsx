@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectImport } from "@pp/shared"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { useState } from "react"
 
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   cancelProjectImport,
   projectImportRequest,
@@ -17,6 +17,7 @@ import {
 } from "@/features/project-import/components/ProjectImportShell"
 import { ProjectImportTerminalStep } from "@/features/project-import/components/ProjectImportTerminalStep"
 import { projectImportErrorMessage } from "@/features/project-import/lib/presentation"
+import { describeCause } from "@/lib/errorMessage"
 import { useAppForm, validateAfterSubmit } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -194,6 +195,8 @@ function CancelImportButton({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm>
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           prompt={m.project_import_cancel_prompt()}
           label={m.project_import_action_cancel_confirm()}
           waiting={cancelState.waiting}
