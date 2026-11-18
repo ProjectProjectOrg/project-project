@@ -7,23 +7,27 @@ export const meta = {
     {
       kind: "base-ui",
       name: "Menu",
-      href: "https://base-ui.com/react/components/menu"
+      href: "https://base-ui.com/react/components/menu",
     },
     {
       kind: "shadcn",
       name: "dropdown-menu",
       note: "starting point, restyled",
-      href: "https://ui.shadcn.com/docs/components/dropdown-menu"
+      href: "https://ui.shadcn.com/docs/components/dropdown-menu",
     },
-    { kind: "own", name: "MenuHighlight", note: "sliding highlight" }
-  ]
-}
+    { kind: "own", name: "MenuHighlight", note: "sliding highlight" },
+  ],
+};
 
 ## Overview
 
 Every kind of row and state in one menu: the highlight resting on the first item, plain items with icons and shortcuts, a disabled item, checkbox and radio choices, a submenu, a destructive action, and confirm items: live, armed, busy and failed. The busy one holds the menu open, as it would while a delete runs. Hover, press or use the arrow keys to move the highlight.
 
-<Demo name="overview" title="All states" className="min-h-[52rem] place-items-start justify-items-center" />
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-[52rem] place-items-start justify-items-center"
+/>
 
 ## Usage
 
@@ -32,8 +36,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@pp/ui/dropdown-menu"
+  DropdownMenuTrigger,
+} from "@pp/ui/dropdown-menu";
 
 <DropdownMenu>
   <DropdownMenuTrigger render={<Button variant="secondary" />}>
@@ -53,7 +57,7 @@ import {
       </DropdownMenuCheckboxItem>
     ))}
   </DropdownMenuContent>
-</DropdownMenu>
+</DropdownMenu>;
 ```
 
 A row's children are its marker (an icon, dot or avatar), its label and an optional count with `data-menu-meta`. The tick slot is added for you.
@@ -73,42 +77,42 @@ Any menu action that can't be undone or affects other people (delete, remove, di
 />
 ```
 
-| Prop             | Type                                                    | Default         |
-| ---------------- | ------------------------------------------------------- | --------------- |
-| `label`          | `string`, the action                                    |                 |
-| `confirmLabel`   | `string`, the question the armed item asks              |                 |
-| `busyLabel`      | `string`, the verb in progress                          |                 |
-| `describeError`  | `(cause: Cause<E>) => string`                           |                 |
-| `onConfirm`      | `() => Promise<Outcome> \| Outcome`                     |                 |
-| `icon`           | `ReactNode`                                             |                 |
-| `tone`           | `"destructive" \| "neutral"` (transfer ownership)       | `"destructive"` |
-| `quiet`          | `boolean`, plain until armed (a list of targets)        | `false`         |
-| `timeout`        | seconds, or `false`, for the countdown and the error     | `4`             |
-| `closeOnConfirm` | `boolean`                                               | `true`          |
-| `disabled`       | `boolean`                                               | `false`         |
+| Prop             | Type                                                 | Default         |
+| ---------------- | ---------------------------------------------------- | --------------- |
+| `label`          | `string`, the action                                 |                 |
+| `confirmLabel`   | `string`, the question the armed item asks           |                 |
+| `busyLabel`      | `string`, the verb in progress                       |                 |
+| `describeError`  | `(cause: Cause<E>) => string`                        |                 |
+| `onConfirm`      | `() => Promise<Outcome> \| Outcome`                  |                 |
+| `icon`           | `ReactNode`                                          |                 |
+| `tone`           | `"destructive" \| "neutral"` (transfer ownership)    | `"destructive"` |
+| `quiet`          | `boolean`, plain until armed (a list of targets)     | `false`         |
+| `timeout`        | seconds, or `false`, for the countdown and the error | `4`             |
+| `closeOnConfirm` | `boolean`                                            | `true`          |
+| `disabled`       | `boolean`                                            | `false`         |
 
 `Outcome` is nothing or `true` (done), `false` (quietly back to armed), or an Effect `Exit`: a failure shows `describeError(cause)`. Return the mutation's `Exit` (`useAtomSet(…, { mode: "promiseExit" })`), so failures show in the item.
 
 #### States
 
-| State     | Label                    | Icon            | Fill                                   | Menu                                  | Leaves when                                   |
-| --------- | ------------------------ | --------------- | -------------------------------------- | ------------------------------------- | --------------------------------------------- |
-| Idle      | `label`                  | `icon`          | none (highlight on hover)              | normal                                | first click arms it                           |
-| Armed     | rolls to `confirmLabel`  | `icon`          | countdown, drawn even without hover    | stays open                            | second click, or 4s pass (back to idle)       |
-| Busy      | rolls to `busyLabel`     | logo loader     | none                                   | held open: no Escape, outside click   | `onConfirm` settles                           |
-| Done      |                          |                 |                                        | closes (`closeOnConfirm`)             |                                               |
-| Failed    | rolls to the error       | alert           | none (an unseen timer runs)            | stays open                            | a click retries; 4s pass (back to idle)       |
+| State  | Label                   | Icon        | Fill                                | Menu                                | Leaves when                             |
+| ------ | ----------------------- | ----------- | ----------------------------------- | ----------------------------------- | --------------------------------------- |
+| Idle   | `label`                 | `icon`      | none (highlight on hover)           | normal                              | first click arms it                     |
+| Armed  | rolls to `confirmLabel` | `icon`      | countdown, drawn even without hover | stays open                          | second click, or 4s pass (back to idle) |
+| Busy   | rolls to `busyLabel`    | logo loader | none                                | held open: no Escape, outside click | `onConfirm` settles                     |
+| Done   |                         |             |                                     | closes (`closeOnConfirm`)           |                                         |
+| Failed | rolls to the error      | alert       | none (an unseen timer runs)         | stays open                          | a click retries; 4s pass (back to idle) |
 
 Every label change rolls through TextSwap and every icon change crossfades, so the row never jumps. Pointer over the item or keyboard focus on it holds both timers, so keyboard and screen reader users never run out of time; the new label is announced politely, and the error as an alert.
 
 #### Wording
 
-| Label          | Write                                      | Example                      | Not                 |
-| -------------- | ------------------------------------------ | ---------------------------- | ------------------- |
-| `label`        | the verb and the thing                     | Delete sprint                | Delete…             |
-| `confirmLabel` | a question naming what goes                | Delete this sprint?          | Are you sure?       |
-| `busyLabel`    | the verb in progress, with an ellipsis      | Deleting…                    | Loading…, Please wait |
-| error          | what failed, from `describeError`          | Couldn't delete the sprint.  | Error, Something went wrong |
+| Label          | Write                                  | Example                     | Not                         |
+| -------------- | -------------------------------------- | --------------------------- | --------------------------- |
+| `label`        | the verb and the thing                 | Delete sprint               | Delete…                     |
+| `confirmLabel` | a question naming what goes            | Delete this sprint?         | Are you sure?               |
+| `busyLabel`    | the verb in progress, with an ellipsis | Deleting…                   | Loading…, Please wait       |
+| error          | what failed, from `describeError`      | Couldn't delete the sprint. | Error, Something went wrong |
 
 #### Checklist
 
@@ -130,9 +134,9 @@ A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a check
 
 A checked row gets a leading mark and a full-colour, semibold label. Unchecked rows are ordinary rows: icons and avatars in full colour, labels and keys in the muted text colour, which meets WCAG AA contrast (6.9:1 on the dark menu surface, 6.0:1 on the light one). Fading is kept for disabled rows, so "not chosen" never reads as "not available". Screen readers hear the state from `aria-checked`.
 
-### Every choice row keeps the mark's slot
+### Radio rows keep the mark's slot
 
-Checkbox and radio rows all reserve the 16px leading slot, checked or not, so labels never shift. Ticking fades the slot in and draws the tick; unticking rewinds it.
+Radio rows reserve the 16px leading slot, chosen or not, so picking another option never shifts the labels. A checkbox row has no slot until it is ticked: ticking opens the slot and draws the tick, and unticking rewinds it.
 
 ### Radio rows match checkbox rows
 
@@ -176,28 +180,48 @@ The error rolls in and the icon turns into an alert, because the label is alread
 
 The more-actions menu on a ticket row, opened from its three-dot button. Properties open as submenus with radio rows, the assignee submenu filters as you type, and destructive actions sit last, after a separator.
 
-<Demo name="ticket-actions" title="Ticket actions" className="min-h-[30rem] place-items-start" />
+<Demo
+  name="ticket-actions"
+  title="Ticket actions"
+  className="min-h-[30rem] place-items-start"
+/>
 
 ### Status picker
 
 The status chip on a ticket. Each status is a radio row with its own icon: the current one gets the dot and the semibold label; every status keeps its icon colour, so each stays recognisable. A plain link row after the separator leads to the workflow settings.
 
-<Demo name="status-picker" title="Status picker" className="min-h-96 place-items-start" />
+<Demo
+  name="status-picker"
+  title="Status picker"
+  className="min-h-96 place-items-start"
+/>
 
 ### User menu
 
 The avatar menu in the sidebar. A header with the signed-in account sits above the items, and signing out is the destructive last row.
 
-<Demo name="user-menu" title="User menu" className="min-h-96 place-items-start" />
+<Demo
+  name="user-menu"
+  title="User menu"
+  className="min-h-96 place-items-start"
+/>
 
 ### Multi-select pickers
 
 The tag picker and board column picker as the app uses them: a marker, a label and a count per row, with the selection reading at a glance.
 
-<Demo name="checkbox-items" title="Checkbox items" className="min-h-96 place-items-start" />
+<Demo
+  name="checkbox-items"
+  title="Checkbox items"
+  className="min-h-96 place-items-start"
+/>
 
 ### Confirm item
 
 The sprint page's actions menu. "Delete sprint" arms on the first click and deletes on the second, then the menu closes. It fails every other time here, to show the error.
 
-<Demo name="confirm-item" title="Delete from a menu" className="min-h-80 place-items-start" />
+<Demo
+  name="confirm-item"
+  title="Delete from a menu"
+  className="min-h-80 place-items-start"
+/>

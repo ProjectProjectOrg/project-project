@@ -1,130 +1,122 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useLayoutEffect, useRef, useState } from "react";
 
-import { spring } from "../lib/springs"
-import { cn } from "../lib/utils"
+import { spring } from "../lib/springs";
+import { cn } from "../lib/utils";
 
-export type HighlightTone = "default" | "destructive"
+export type HighlightTone = "default" | "destructive";
 
 export type HighlightRect = Readonly<{
-  top: number
-  left: number
-  width: number
-  height: number
-  tone: HighlightTone
-}>
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  tone: HighlightTone;
+}>;
 
 type HighlightState = Readonly<{
-  rect: HighlightRect | null
-  session: number
-}>
+  rect: HighlightRect | null;
+  session: number;
+}>;
 
-const HIGHLIGHTED = "[data-highlighted]:not(input)"
+const HIGHLIGHTED = "[data-highlighted]:not(input)";
 const OPEN_SUBMENU_TRIGGER =
-  "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
+  "[data-slot=dropdown-menu-sub-trigger][data-popup-open]";
 const MENU_ROW =
-  "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
-const CHOICE_ROW = "[role=menuitemradio], [role=option]"
+  "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])";
+const CHOICE_ROW = "[role=menuitemradio], [role=option]";
 const CHOSEN_ROW =
-  "[role=menuitemradio][data-checked]:not([data-disabled]), [role=option][data-selected]:not([data-disabled])"
-const RESTING = "data-menu-resting"
-const NO_HIGHLIGHT = "[data-menu-no-highlight]"
-const HIGHLIGHT_INSET = 1
+  "[role=menuitemradio][data-checked]:not([data-disabled]), [role=option][data-selected]:not([data-disabled])";
+const RESTING = "data-menu-resting";
+const NO_HIGHLIGHT = "[data-menu-no-highlight]";
+const HIGHLIGHT_INSET = 1;
 
-type Point = Readonly<{ x: number; y: number }>
+type Point = Readonly<{ x: number; y: number }>;
 
 const toneOf = (element: HTMLElement): HighlightTone =>
-  element.dataset.variant === "destructive" ? "destructive" : "default"
+  element.dataset.variant === "destructive" ? "destructive" : "default";
 
 const firstOwned = (
   container: HTMLElement,
-  selector: string
+  selector: string,
 ): HTMLElement | undefined =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
-    (candidate) => candidate.closest("[data-menu-highlight-host]") === container
-  )
+    (candidate) =>
+      candidate.closest("[data-menu-highlight-host]") === container,
+  );
 
-// A picker (a menu that opens on its choices: a status picker, a priority
-// submenu, a select) has a chosen row to start on. An action menu with a few
-// choices further down starts at its top like any other menu.
 export const chosenRow = (container: HTMLElement) =>
   firstOwned(container, MENU_ROW)?.matches(CHOICE_ROW)
     ? firstOwned(container, CHOSEN_ROW)
-    : undefined
+    : undefined;
 
 const contains = (element: HTMLElement, pointer: Point): boolean => {
-  const box = element.getBoundingClientRect()
+  const box = element.getBoundingClientRect();
   return (
     pointer.x >= box.left &&
     pointer.x <= box.right &&
     pointer.y >= box.top &&
     pointer.y <= box.bottom
-  )
-}
+  );
+};
 
 const ownedAt = (
   container: HTMLElement,
   selector: string,
-  pointer: Point
+  pointer: Point,
 ): HTMLElement | undefined =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
     (row) =>
       row.closest("[data-menu-highlight-host]") === container &&
-      contains(row, pointer)
-  )
+      contains(row, pointer),
+  );
 
 // Base UI ignores the pointer on a menu while one of its submenus is open,
 // and marks no row as highlighted until the pointer moves again after the
 // submenu closes. The row under the pointer bridges that handoff, so the
 // highlight slides on instead of fading out and in.
-// A picker with no highlighted row shows the highlight on its chosen row (a
-// checked radio, a selected option), so it opens on what is picked now. With `restOnFirst`, a menu
-// without one rests on its first row, so a submenu opened by hover shows
-// what its rows offer.
 // While the pointer crosses a gap between rows (a separator, the padding) the
 // highlight keeps its last spot (`"hold"`) instead of fading out or jumping to
 // rest, so it slides straight on to the next row. Over a non-item row marked
 // `data-menu-no-highlight` (an inline control such as a theme switcher) the
 // highlight clears instead of holding on the row the pointer came from.
-// Resting is only where a menu opens: once the pointer has moved the
-// highlight, leaving the menu holds it where the pointer left it instead of
-// sending it back to the resting row.
 const measureHighlight = (
   container: HTMLElement,
   selector: string,
   pointer: Point | null,
   restOnFirst: boolean,
-  shown: boolean
+  shown: boolean,
 ): HighlightRect | null | "hold" => {
-  if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
+  if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer))
+    return null;
   const active =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
       ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
         (pointer === null ? undefined : ownedAt(container, MENU_ROW, pointer)))
-      : undefined)
+      : undefined);
   if (active === undefined && pointer !== null && contains(container, pointer))
-    return "hold"
+    return "hold";
   const resting =
     active === undefined
       ? (chosenRow(container) ??
         (restOnFirst ? firstOwned(container, MENU_ROW) : undefined))
-      : undefined
-  if (resting !== undefined && shown && pointer !== null) return "hold"
+      : undefined;
+  if (resting !== undefined && shown && pointer !== null) return "hold";
   for (const row of container.querySelectorAll(`[${RESTING}]`)) {
-    if (row !== resting) row.removeAttribute(RESTING)
+    if (row !== resting) row.removeAttribute(RESTING);
   }
-  resting?.setAttribute(RESTING, "")
-  const element = active ?? resting
-  if (element === undefined) return null
+  resting?.setAttribute(RESTING, "");
+  const element = active ?? resting;
+  if (element === undefined) return null;
   return {
     top: element.offsetTop + HIGHLIGHT_INSET,
     left: element.offsetLeft,
     width: element.offsetWidth,
     height: element.offsetHeight - HIGHLIGHT_INSET * 2,
-    tone: toneOf(element)
-  }
-}
+    tone: toneOf(element),
+  };
+};
 
 const sameRect = (a: HighlightRect | null, b: HighlightRect | null): boolean =>
   a === b ||
@@ -134,71 +126,73 @@ const sameRect = (a: HighlightRect | null, b: HighlightRect | null): boolean =>
     a.left === b.left &&
     a.width === b.width &&
     a.height === b.height &&
-    a.tone === b.tone)
+    a.tone === b.tone);
 
 export const nextHighlight = (
   previous: HighlightState,
-  rect: HighlightRect | null
+  rect: HighlightRect | null,
 ): HighlightState => {
-  if (sameRect(previous.rect, rect)) return previous
-  const fresh = previous.rect === null && rect !== null
-  return { rect, session: fresh ? previous.session + 1 : previous.session }
-}
+  if (sameRect(previous.rect, rect)) return previous;
+  const fresh = previous.rect === null && rect !== null;
+  return { rect, session: fresh ? previous.session + 1 : previous.session };
+};
 
 function observeHighlight(
   container: HTMLElement,
-  measure: (pointer: Point | null) => void
+  measure: (pointer: Point | null) => void,
 ) {
-  container.setAttribute("data-menu-highlight-host", "")
-  let pointer: Point | null = null
-  let frame = 0
+  container.setAttribute("data-menu-highlight-host", "");
+  let pointer: Point | null = null;
+  let frame = 0;
   const remeasure = () => {
-    if (frame !== 0) return
+    if (frame !== 0) return;
     frame = requestAnimationFrame(() => {
-      frame = 0
-      measure(pointer)
-    })
-  }
+      frame = 0;
+      measure(pointer);
+    });
+  };
   const track = (event: PointerEvent) => {
-    pointer = { x: event.clientX, y: event.clientY }
-    remeasure()
-  }
+    pointer = { x: event.clientX, y: event.clientY };
+    remeasure();
+  };
   document.addEventListener("pointermove", track, {
     capture: true,
-    passive: true
-  })
-  measure(pointer)
-  const mutations = new MutationObserver(remeasure)
+    passive: true,
+  });
+  measure(pointer);
+  const mutations = new MutationObserver(remeasure);
   mutations.observe(container, {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ["data-highlighted", "data-popup-open"]
-  })
+    attributeFilter: ["data-highlighted", "data-popup-open"],
+  });
   const resizes =
-    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(remeasure)
-  resizes?.observe(container)
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(remeasure);
+  resizes?.observe(container);
   return () => {
-    cancelAnimationFrame(frame)
-    document.removeEventListener("pointermove", track, { capture: true })
-    mutations.disconnect()
-    resizes?.disconnect()
-    container.removeAttribute("data-menu-highlight-host")
-  }
+    cancelAnimationFrame(frame);
+    document.removeEventListener("pointermove", track, { capture: true });
+    mutations.disconnect();
+    resizes?.disconnect();
+    container.removeAttribute("data-menu-highlight-host");
+  };
 }
 
 function useHighlightRect(
   anchorRef: React.RefObject<HTMLElement | null>,
   selector: string,
-  restOnFirst: boolean
+  restOnFirst: boolean,
 ): HighlightState {
   const [state, setState] = useState<HighlightState>({
     rect: null,
-    session: 0
-  })
+    session: 0,
+  });
 
   useLayoutEffect(() => {
-    const container = anchorRef.current?.parentElement
+    const container = anchorRef.current?.parentElement;
     return container
       ? observeHighlight(container, (pointer) =>
           setState((previous) => {
@@ -207,15 +201,15 @@ function useHighlightRect(
               selector,
               pointer,
               restOnFirst,
-              previous.rect !== null
-            )
-            return rect === "hold" ? previous : nextHighlight(previous, rect)
-          })
+              previous.rect !== null,
+            );
+            return rect === "hold" ? previous : nextHighlight(previous, rect);
+          }),
         )
-      : undefined
-  }, [anchorRef, selector, restOnFirst])
+      : undefined;
+  }, [anchorRef, selector, restOnFirst]);
 
-  return state
+  return state;
 }
 
 // Fills live in theme.css ([data-slot=menu-highlight]): hover and press
@@ -224,11 +218,11 @@ function useHighlightRect(
 export function MenuHighlight({
   selector = HIGHLIGHTED,
   restOnFirst = false,
-  className
+  className,
 }: Readonly<{ selector?: string; restOnFirst?: boolean; className?: string }>) {
-  const anchorRef = useRef<HTMLSpanElement>(null)
-  const { rect, session } = useHighlightRect(anchorRef, selector, restOnFirst)
-  const reduceMotion = useReducedMotion() ?? false
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const { rect, session } = useHighlightRect(anchorRef, selector, restOnFirst);
+  const reduceMotion = useReducedMotion() ?? false;
 
   return (
     <span ref={anchorRef} aria-hidden data-menu-chrome className="contents">
@@ -240,30 +234,30 @@ export function MenuHighlight({
             data-tone={rect.tone}
             className={cn(
               "pointer-events-none absolute top-0 left-0 block rounded-md [corner-shape:var(--button-corner)]",
-              className
+              className,
             )}
             initial={{
               opacity: 1,
               x: rect.left,
               y: rect.top,
               width: rect.width,
-              height: rect.height
+              height: rect.height,
             }}
             animate={{
               opacity: 1,
               x: rect.left,
               y: rect.top,
               width: rect.width,
-              height: rect.height
+              height: rect.height,
             }}
             exit={{
               opacity: 0,
-              transition: { duration: restOnFirst ? 0 : 0.15 }
+              transition: { duration: restOnFirst ? 0 : 0.15 },
             }}
             transition={reduceMotion ? { duration: 0 } : spring.fast}
           />
         )}
       </AnimatePresence>
     </span>
-  )
+  );
 }
