@@ -1,0 +1,82 @@
+export const meta = {
+  title: "Slider",
+  group: "Primitives",
+  description:
+    "Picks a number by dragging: the zoom when cropping a project icon or banner, and how much background to remove from an icon.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Slider",
+      note: "role, keyboard, dragging and the label; the look is ours",
+      href: "https://base-ui.com/react/components/slider"
+    }
+  ]
+}
+
+## Overview
+
+On top a live slider: hover it, drag it, or Tab to it and use the arrow keys. Below, its states, with hover, dragging and focus pinned.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { Slider } from "@pp/ui/slider"
+
+<Slider
+  label={m.project_icon_crop_zoom()}
+  min={1}
+  max={4}
+  step={0.05}
+  value={crop.zoom}
+  onChange={(zoom) => form.setFieldValue("crop.zoom", zoom)}
+  formatValue={(value) => `${value.toFixed(2)}×`}
+  endLabels={[m.project_icon_crop_zoom_min(), m.project_icon_crop_zoom_max()]}
+/>
+```
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `label` | `string`, shown above and naming the slider | required |
+| `value`, `onChange` | `number`, `(value: number) => void` | required |
+| `min`, `max`, `step` | `number` | `0`, `100`, `1` |
+| `formatValue` | `(value: number) => string`, inside the field and for screen readers | `String` |
+| `endLabels` | `[string, string]`, what the two ends mean | |
+| `disabled` | `boolean` | `false` |
+
+## Rules
+
+### The field is the control
+
+A 28px field, like an input, with the fill growing from its left edge to the thumb's centre. The thumb's centre travels the field's full width, so at the minimum and maximum it sits on the field's edge, half over it, and the field is empty or full. The field stays aligned with the label and end labels; only the thumb reaches past it. The value sits inside on the right in the text colour, so it holds 4.5:1 on the empty field and on the fill (`--slider-fill`). The label sits above in the muted text colour, and the end labels in caption under it.
+
+### The Switch's thumb
+
+At rest the thumb is a 6×16 squircle bar. On hover it springs into the Switch's 16px thumb, and while it's dragged it stretches 4px wider, on the Switch's curve and timings. Disabled, it stays a bar.
+
+### The value makes way
+
+When the thumb reaches the value, the value springs to the thumb's other side, 8px clear of it, so it's never under the thumb and never hidden. It doesn't roll through `TextSwap` like other changed values: while dragging it changes every frame, so it updates in place with tabular figures.
+
+### Keyboard and screen readers
+
+It's Base UI's slider: Tab focuses it (the ring goes around the whole field), the arrow keys move a step, Page Up and Down ten, Home and End to the ends. The label names it, and `formatValue` gives the value's text ("1.60×").
+
+## Examples
+
+### Cropping a project icon
+
+<Demo name="icon-crop" title="Icon crop" />
+
+### Cropping a project banner
+
+The same zoom under a 3:1 strip.
+
+<Demo name="banner-crop" title="Banner crop" />
+
+### Removing an icon's background
+
+The icon's last step: picking the cutout shows how much background to remove, from gentle to aggressive.
+
+<Demo name="background-removal" title="Background removal" />

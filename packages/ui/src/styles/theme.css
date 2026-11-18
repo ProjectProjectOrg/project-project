@@ -180,6 +180,9 @@
      edge, over a translucent fill so it reads on hovered rows and washes. */
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 14%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
+  /* The slider's field edge and its fill. */
+  --slider-line: oklch(0 0 0 / 8%);
+  --slider-fill: oklch(0.93 0 0);
   /* Tooltips sit on the theme, not against it: white with a hairline and a
      top light here, a lifted grey in dark. No shadow, like every popup. */
   --tooltip: oklch(1 0 0);
@@ -331,6 +334,8 @@
   --chip-label-hover: oklch(1 0 0 / 9%);
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 4%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
+  --slider-line: oklch(1 0 0 / 9%);
+  --slider-fill: oklch(0.3 0 0);
   --tooltip: oklch(0.29 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(1 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 7%);
@@ -727,6 +732,57 @@
 @media (prefers-reduced-motion: reduce) {
   .pp-switch-thumb {
     transition-duration: 0ms, 0ms, 0ms, 0ms, 0ms, 150ms;
+  }
+}
+
+/* Slider thumb: the Switch's thumb. A 6x16 squircle bar at rest, the
+   Switch's 16px thumb on hover, 4px wider while dragged, on the Switch's
+   spring. Base UI places it (left and the centring translate), so only its
+   size and look are set here. The value beside it springs on the same curve
+   when it makes way. */
+.slider-thumb {
+  --slider-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+  corner-shape: var(--button-corner);
+  background-color: var(--foreground);
+  transition:
+    width 240ms var(--slider-spring),
+    height 240ms var(--slider-spring),
+    border-radius 240ms var(--slider-spring);
+}
+.slider-thumb[data-hovered],
+.slider-thumb:has(:focus-visible),
+[data-force~="hover"] .slider-thumb,
+[data-force~="focus"] .slider-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+}
+.slider-thumb[data-pressing],
+[data-force~="active"] .slider-thumb {
+  width: 20px;
+  height: 16px;
+  border-radius: 8px;
+}
+[data-disabled] .slider-thumb {
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+}
+.slider-value {
+  transition: translate 280ms cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+/* The gallery pins focus with data-force; the field takes the ring. */
+[data-force~="focus"] [data-slot="slider-field"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slider-thumb,
+  .slider-value {
+    transition-duration: 0ms;
   }
 }
 

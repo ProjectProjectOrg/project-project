@@ -445,7 +445,7 @@ It never appears on functional controls.
 
 ### Named Rules
 
-**The Press Scale Rule.** Every clickable button — primary, tertiary, ghost, chip, icon, sidebar link — scales to 97% on `:active` with a 100–150ms transform transition. The press needs to _land_. The only exception is when another animation already conveys the press (an inline-form trigger that morphs).
+**The Press Scale Rule.** Every clickable button — primary, tertiary, ghost, chip, icon, sidebar link — scales to 97% on `:active` with a 100–150ms transform transition. The press needs to _land_. The only exception is when another animation already conveys the press.
 
 **The Hover Asymmetry Rule.** Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes are **instant on enter** and **ease out at ~150ms on exit**. Implemented as a single global rule in `styles.css`. Hover-affected elements must declare a `transition-colors` / `transition-opacity` class — without it, both directions snap.
 

@@ -10,8 +10,7 @@ import {
 } from "@pp/ui/context-menu"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
-import { CircleCheck } from "@pp/ui/icons"
-import { InlineForm, useInlineForm } from "@pp/ui/inline-form"
+import { CircleCheck, X } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { useLocation } from "@tanstack/react-router"
@@ -146,15 +145,17 @@ export function CommentRow({
       <ContextMenuTrigger
         render={<div ref={card} id={comment.id} className="scroll-mt-6" />}
       >
-        <InlineForm.Root<Mode>
-          actions={["edit"]}
-          mode={mode}
-          onModeChange={setMode}
-          fade={false}
-          variant="ghost"
+        <div
+          data-mode={mode === "edit" ? "active" : "idle"}
           className="ticket-comment"
         >
-          <InlineForm.Idle block>
+          {mode === "edit" ? (
+            <EditForm
+              comment={comment}
+              ticketId={ticketId}
+              onClose={() => setMode("idle")}
+            />
+          ) : (
             <CommentBubble
               mark={<AuthorMark author={comment.author} />}
               author={commentAuthorName(comment.author)}
@@ -188,11 +189,8 @@ export function CommentRow({
               <Markdown>{comment.body}</Markdown>
               <CreatedTickets tickets={comment.tickets} />
             </CommentBubble>
-          </InlineForm.Idle>
-          <InlineForm.Form action="edit">
-            <EditForm comment={comment} ticketId={ticketId} />
-          </InlineForm.Form>
-        </InlineForm.Root>
+          )}
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <CommentMenuItems {...menu} />
@@ -267,13 +265,16 @@ function ResolvedLabel({
   )
 }
 
+// The comment's edit in place: the editor in its bubble, Cancel and Save.
+// Escape cancels too, unless a save is running.
 function EditForm({
   comment,
-
-  ticketId
+  ticketId,
+  onClose
 }: {
   comment: Comment
   ticketId: TicketId
+  onClose: () => void
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState(comment.body)
@@ -285,14 +286,28 @@ function EditForm({
     }),
     { mode: "promiseExit" }
   )
-  const { close, busy, setBusy } = useInlineForm()
+  const [busy, setBusy] = useState(false)
+  // Escape anywhere in the form cancels, unless a save is running (or
+  // something inside, like a menu, already used the key).
+  const form = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const element = form.current
+    if (!element) return undefined
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || busy || event.defaultPrevented) return
+      event.preventDefault()
+      onClose()
+    }
+    element.addEventListener("keydown", onKeyDown)
+    return () => element.removeEventListener("keydown", onKeyDown)
+  }, [busy, onClose])
 
   const save = async () => {
     if (!body.trim() || busy) return
     setBusy(true)
     setError(null)
     const exit = await edit({ body })
-    if (Exit.isSuccess(exit)) return close()
+    if (Exit.isSuccess(exit)) return onClose()
     setError(
       mutationErrorText(
         AsyncResult.fromExit(exit),
@@ -304,28 +319,41 @@ function EditForm({
   }
 
   return (
-    <CommentBubble
-      mark={<AuthorMark author={comment.author} />}
-      author={commentAuthorName(comment.author)}
-      meta={<span>{m.comments_editing_marker()}</span>}
-      editActions={
-        <>
-          <InlineForm.Cancel>{m.common_cancel_button()}</InlineForm.Cancel>
-          <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
-            {m.comments_save_button()}
-          </Button>
-        </>
-      }
-      footer={
-        error && <p className="mt-1 pl-3 text-body text-destructive">{error}</p>
-      }
-    >
-      <LexicalEditor
-        markdown={body}
-        onDraftChange={setBody}
-        autoFocus
-        compact
-      />
-    </CommentBubble>
+    <div ref={form}>
+      <CommentBubble
+        mark={<AuthorMark author={comment.author} />}
+        author={commentAuthorName(comment.author)}
+        meta={<span>{m.comments_editing_marker()}</span>}
+        editActions={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              leadingIcon={X}
+              disabled={busy}
+              onClick={onClose}
+            >
+              {m.common_cancel_button()}
+            </Button>
+            <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
+              {m.comments_save_button()}
+            </Button>
+          </>
+        }
+        footer={
+          error && (
+            <p className="mt-1 pl-3 text-body text-destructive">{error}</p>
+          )
+        }
+      >
+        <LexicalEditor
+          markdown={body}
+          onDraftChange={setBody}
+          autoFocus
+          compact
+        />
+      </CommentBubble>
+    </div>
   )
 }

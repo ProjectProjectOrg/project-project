@@ -5,37 +5,14 @@ import { Slider, type SliderProps } from "./slider"
 
 const single = (
   <Slider
+    label="Zoom"
     value={20}
     onChange={(value) => expectTypeOf(value).toEqualTypeOf<number>()}
   />
 )
 
-const range = (
-  <Slider
-    range
-    value={[20, 80]}
-    thumbLabels={["Start", "End"]}
-    onChange={(value) =>
-      expectTypeOf(value).toEqualTypeOf<readonly [number, number]>()
-    }
-  />
-)
-
 expectTypeOf(single).toExtend<ReactElement>()
-expectTypeOf(range).toExtend<ReactElement>()
+// A label is required: it names the slider for everyone.
 expectTypeOf<
-  Readonly<{
-    value: readonly [number, number]
-    onChange: (value: readonly [number, number]) => void
-  }>
->().not.toExtend<SliderProps>()
-expectTypeOf<
-  Readonly<{ range: true; value: number; onChange: (value: number) => void }>
->().not.toExtend<SliderProps>()
-expectTypeOf<
-  Readonly<{
-    range: true
-    value: readonly [number, number]
-    onChange: (value: number) => void
-  }>
+  Readonly<{ value: number; onChange: (value: number) => void }>
 >().not.toExtend<SliderProps>()
