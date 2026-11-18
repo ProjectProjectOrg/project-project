@@ -1,5 +1,6 @@
 import { RegistryContext } from "@effect/atom-react"
-import { Ticket, TicketStatus } from "@pp/shared"
+import { TicketId, TicketStatus } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import { act, cleanup, renderHook } from "@testing-library/react"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -16,26 +17,7 @@ import {
 
 import { useTicketMutation } from "./useTicketMutation"
 
-const row = Schema.decodeSync(Ticket)({
-  id: "T-3",
-  title: "Hovered",
-  status: "todo",
-  type: null,
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch" },
-  assignees: [],
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z"
-})
+const row = makeTicket({ id: TicketId.make("T-3") })
 
 const ticket = { orgSlug: "acme", slug: "app", ticketId: row.id }
 const done = Schema.decodeSync(TicketStatus)("done")

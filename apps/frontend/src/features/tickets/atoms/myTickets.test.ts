@@ -1,5 +1,4 @@
 import {
-  TicketRank,
   OrgTicketPage,
   OrgTicketRow,
   Project,
@@ -8,10 +7,10 @@ import {
   RecentTicketActivity,
   RecentTicketRow,
   Ticket,
-  TicketDetail,
   TicketId,
   TicketUpdateResult
 } from "@pp/shared"
+import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -48,26 +47,12 @@ const projectJson = (slug: string, key: string) => ({
   createdAt: "2026-01-01T00:00:00.000Z"
 })
 
-const ticketJson = (id: string, status: string) => ({
-  id,
-  title: id,
-  status,
-  type: "feat" as const,
-  priority: "med" as const,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch" as const, baseBranch: "main" },
-  assignees: ["user-1"],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-02T00:00:00.000Z"
-})
+const ticketOf = (id: string, status: string) =>
+  makeTicket({
+    id: TicketId.make(id),
+    status: Ticket.fields.status.make(status),
+    assignees: ["user-1"]
+  })
 
 const statusJson = (slug: string, label: string, orderKey: string) => ({
   slug,
@@ -83,7 +68,7 @@ const statusJson = (slug: string, label: string, orderKey: string) => ({
 const decodeProjects = Schema.decodeSync(Schema.Array(Project))
 const decodeStatuses = Schema.decodeSync(Schema.Array(ProjectStatus))
 const decodeRow = Schema.decodeSync(OrgTicketRow)
-const decodeDetail = Schema.decodeSync(TicketDetail)
+const encodeTicket = Schema.encodeSync(Ticket)
 const webTicketId = Schema.decodeSync(TicketId)("WEB-1")
 
 const projects = decodeProjects([
@@ -117,7 +102,7 @@ const statusesBySlug = new Map([
 const row = (projectSlug: string, id: string, status: string) =>
   decodeRow({
     projectSlug,
-    ticket: ticketJson(id, status)
+    ticket: encodeTicket(ticketOf(id, status))
   })
 
 const encodeProjects = Schema.encodeSync(Schema.Array(Project))
@@ -193,12 +178,7 @@ const serve = (
     calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
     if (init?.method === "PATCH" && patch) return patch(url)
     if (init?.method === "PATCH") {
-      const ticket = decodeDetail({
-        ...ticketJson("WEB-1", "in_progress"),
-        creator: null,
-        updater: null,
-        body: ""
-      })
+      const ticket = makeTicketDetail(ticketOf("WEB-1", "in_progress"))
       return Promise.resolve(
         Response.json(encodeUpdate({ ticket, orderKey: null }))
       )
@@ -460,12 +440,7 @@ describe("updateMyTicket", () => {
       finish(
         Response.json(
           encodeUpdate({
-            ticket: decodeDetail({
-              ...ticketJson("WEB-1", "in_progress"),
-              creator: null,
-              updater: null,
-              body: ""
-            }),
+            ticket: makeTicketDetail(ticketOf("WEB-1", "in_progress")),
             orderKey: null
           })
         )

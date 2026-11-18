@@ -1,6 +1,9 @@
 import { it } from "@effect/vitest"
+import { TicketId, TicketListPage } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
+import * as Schema from "effect/Schema"
 import { expect, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
@@ -15,34 +18,20 @@ it.effect("deduplicates identical ticket mention searches", () =>
     (registry) => {
       const fetch = vi.fn(() =>
         Promise.resolve(
-          Response.json({
-            items: [
-              {
-                orderKey: "a0",
-                ticket: {
-                  id: "WEB-1",
-                  title: "Native atom search",
-                  status: "todo",
-                  type: "feat",
-                  priority: "med",
-                  rank: "a0",
-                  tags: [],
-                  branch: null,
-                  pr: null,
-                  prState: null,
-                  lastTransitionedPr: null,
-                  parent: null,
-                  gitState: { tag: "no_branch" },
-                  assignees: [],
-                  archivedAt: null,
-                  createdBy: "user-1",
-                  createdAt: "2026-01-01T00:00:00.000Z",
-                  updatedAt: "2026-01-01T00:00:00.000Z"
+          Response.json(
+            Schema.encodeSync(TicketListPage)({
+              items: [
+                {
+                  orderKey: "a0",
+                  ticket: makeTicket({
+                    id: TicketId.make("WEB-1"),
+                    title: "Native atom search"
+                  })
                 }
-              }
-            ],
-            nextCursor: "next"
-          })
+              ],
+              nextCursor: "next"
+            })
+          )
         )
       )
       fetchStub.set(fetch)

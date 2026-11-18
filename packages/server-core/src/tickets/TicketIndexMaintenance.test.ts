@@ -1,17 +1,11 @@
 import { it } from "@effect/vitest"
-import {
-  GroupId,
-  TagName,
-  TicketId,
-  TicketStatus,
-  TypeKey,
-  TicketRank
-} from "@pp/shared"
+import { GroupId, TagName, TypeKey } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
+import { makeTicketDocument, ticketId, ticketStatus } from "./testing"
 import type * as TicketDocs from "./TicketDocs"
 import {
   commentIndexRowsFor,
@@ -24,8 +18,6 @@ import {
 } from "./TicketIndexMaintenance"
 import type { TicketProject } from "./ticketProject"
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
-const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
@@ -35,34 +27,6 @@ const project: TicketProject = {
   projectId: "project-1",
   slug: "demo"
 }
-
-const doc = (
-  id: string,
-  updatedAt: string,
-  overrides: Partial<TicketDocs.TicketDocument> = {}
-) =>
-  ({
-    id: ticketId(id),
-    title: `Ticket ${id}`,
-    status: ticketStatus("todo"),
-    type: TypeKey.make("feat"),
-    priority: "med",
-    rank: TicketRank.make("a0"),
-    tags: [],
-    branch: null,
-    pr: null,
-    prState: null,
-    lastTransitionedPr: null,
-    assignees: [],
-    archivedAt: null,
-    createdBy: "user-1",
-    createdAt: at("2026-05-01T00:00:00.000Z"),
-    updatedBy: "user-1",
-    updatedAt: at(updatedAt),
-    body: "",
-    commentsRegion: "",
-    ...overrides
-  }) satisfies TicketDocs.TicketDocument
 
 describe("ticketIndexRowsFor", () => {
   it.effect(
@@ -74,7 +38,7 @@ describe("ticketIndexRowsFor", () => {
         const createdAt = at("2026-05-01T01:02:03.000Z")
         const updatedAt = at("2026-05-02T04:05:06.000Z")
         const archivedAt = at("2026-05-03T07:08:09.000Z")
-        const document = doc("T-27", updatedAt.toISOString(), {
+        const document = makeTicketDocument("T-27", {
           title: "Ship pure index builders",
           status: ticketStatus("in_progress"),
           type: TypeKey.make("chore"),
@@ -145,7 +109,7 @@ describe("commentIndexRowsFor", () => {
     "preserves parsed comment ids, attribution, origins, and dates",
     () =>
       Effect.sync(() => {
-        const document = doc("T-28", "2026-05-06T00:00:00.000Z", {
+        const document = makeTicketDocument("T-28", {
           commentsRegion: `<!-- comments:start -->
 <!-- comment:legacy-comment -->
 ---
@@ -385,7 +349,11 @@ describe("makeTicketIndexReconciler", () => {
   it.effect("does not rebuild a project that has not drifted", () =>
     Effect.gen(function* () {
       const { deps, writes } = makeHarness({
-        documents: [doc("T-1", "2026-05-02T00:00:00.000Z")],
+        documents: [
+          makeTicketDocument("T-1", {
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          })
+        ],
         indexed: [
           {
             ticketId: "T-1",
@@ -407,8 +375,10 @@ describe("makeTicketIndexReconciler", () => {
   it.effect("rebuilds from the documents when the index drifted", () =>
     Effect.gen(function* () {
       const documents = [
-        doc("T-1", "2026-05-05T00:00:00.000Z"),
-        doc("T-2", "2026-05-03T00:00:00.000Z")
+        makeTicketDocument("T-1", {
+          updatedAt: at("2026-05-05T00:00:00.000Z")
+        }),
+        makeTicketDocument("T-2", { updatedAt: at("2026-05-03T00:00:00.000Z") })
       ]
       const { deps, writes } = makeHarness({
         documents,
@@ -445,7 +415,9 @@ describe("makeTicketIndexReconciler", () => {
 
   it.effect("force rebuilds even when the project has not drifted", () =>
     Effect.gen(function* () {
-      const documents = [doc("T-1", "2026-05-02T00:00:00.000Z")]
+      const documents = [
+        makeTicketDocument("T-1", { updatedAt: at("2026-05-02T00:00:00.000Z") })
+      ]
       const { deps, writes } = makeHarness({
         documents,
         indexed: [
@@ -475,7 +447,9 @@ describe("makeTicketIndexReconciler", () => {
         projectId: "project-2",
         slug: "beta"
       }
-      const documents = [doc("T-1", "2026-05-02T00:00:00.000Z")]
+      const documents = [
+        makeTicketDocument("T-1", { updatedAt: at("2026-05-02T00:00:00.000Z") })
+      ]
       const writes: Array<string> = []
       const deps: TicketIndexReconcilerDeps = {
         listProjects: Effect.succeed([project, projectB]),

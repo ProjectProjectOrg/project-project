@@ -21,6 +21,7 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import { makeTicketDocument } from "@pp/server-core/tickets/testing"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as Users from "@pp/server-core/users/Users"
 import {
@@ -29,14 +30,10 @@ import {
   CurrentUser,
   OrgScope,
   ProjectScope,
-  TicketId,
-  TicketStatus,
-  TypeKey,
-  TicketRank
+  TicketStatus
 } from "@pp/shared"
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster"
 import * as ConfigProvider from "effect/ConfigProvider"
-import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -74,7 +71,6 @@ const secretsKey = process.env.USER_SECRET_ENCRYPTION_KEY
 const decodeBody = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown))
 )
-const decodeTicketId = Schema.decodeSync(TicketId)
 const decodeStatus = Schema.decodeSync(TicketStatus)
 
 describe.skipIf(!databaseUrl)("Slack integration", () => {
@@ -335,27 +331,13 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         })
       )
     )
-    const document: TicketDocs.TicketDocument = {
-      id: decodeTicketId("T-1"),
+    const document = makeTicketDocument("T-1", {
       title: "Fix <!channel>",
-      status: decodeStatus("todo"),
-      type: TypeKey.make("bug"),
-      priority: "med",
-      rank: TicketRank.make("a0"),
-      tags: [],
       assignees: [userId],
-      branch: null,
-      pr: null,
-      prState: null,
-      lastTransitionedPr: null,
-      archivedAt: null,
       createdBy: userId,
       updatedBy: userId,
-      createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-10-19T00:00:00Z")),
-      updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-10-19T00:00:00Z")),
-      body: "Private description must not be published",
-      commentsRegion: ""
-    }
+      body: "Private description must not be published"
+    })
     const create = () =>
       Effect.provide(
         Effect.flatMap(TicketDocs.TicketDocs, (docs) =>

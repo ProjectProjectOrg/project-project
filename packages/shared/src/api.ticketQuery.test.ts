@@ -30,7 +30,7 @@ import {
   TicketOrderKeyQuery
 } from "./filters/Ticket"
 import { RequestValidation } from "./http/RequestValidation"
-import { TicketDetail } from "./tickets/Ticket"
+import { makeTicketDetail } from "./tickets/testing"
 
 const decodeTicketListQuery = Schema.decodeEffect(TicketListQuery)
 
@@ -42,29 +42,7 @@ const api = HttpApi.make("TicketQueryTest").add(
     endpoints.update
   )
 )
-const ticket = Schema.decodeSync(TicketDetail)({
-  id: "T-1",
-  title: "Test",
-  status: "todo",
-  type: "chore",
-  priority: "med",
-  rank: "a0",
-  tags: [],
-  assignees: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  parent: null,
-  archivedAt: null,
-  createdBy: "user-1",
-  creator: null,
-  updater: null,
-  body: "",
-  createdAt: "2026-09-15T10:00:00.000Z",
-  updatedAt: "2026-09-15T10:11:12.345Z"
-})
+const ticket = makeTicketDetail()
 const user = Schema.decodeSync(User)({
   id: "user-1",
   email: "test@example.com",
