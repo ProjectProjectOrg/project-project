@@ -53,13 +53,13 @@ const syncedBody = (snapshot: string) =>
 
 const withBlocks = (
   edit: (blocks: Library["blocks"]) => Library["blocks"]
-): Library => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
+) => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
 
 const WITHOUT_DOD = withBlocks((blocks) =>
   blocks.filter((block) => block.key !== DOD)
 )
 
-function makeEditor(): LexicalEditor {
+function makeEditor() {
   return createEditor({
     namespace: "synced-blocks-test",
     nodes: [
@@ -95,7 +95,7 @@ const exported = (
   transformers: Array<Transformer> = MARKDOWN_TRANSFORMERS
 ) => editor.getEditorState().read(() => $convertToMarkdownString(transformers))
 
-const syncedKey = (editor: LexicalEditor): NodeKey | null =>
+const syncedKey = (editor: LexicalEditor) =>
   editor
     .getEditorState()
     .read(

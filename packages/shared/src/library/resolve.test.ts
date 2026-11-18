@@ -31,16 +31,15 @@ const blockDraft = Schema.decodeUnknownSync(BlockDraft)
 const typeDraft = Schema.decodeUnknownSync(TypeDraft)
 const isLibrary = Schema.is(Library)
 
-const layer = (overrides: Partial<Layer>): Layer => ({
+const layer = (overrides: Partial<Layer>) => ({
   ...EMPTY_LAYER,
   ...overrides
 })
 
-const withoutBuiltins = (layers: LibraryLayers, canEdit: boolean): Library =>
+const withoutBuiltins = (layers: LibraryLayers, canEdit: boolean) =>
   resolveLibrary(layers, canEdit, EMPTY_LAYER)
 
-const resolveBase = (layers: LibraryLayers): Library =>
-  resolveLibrary(layers, false)
+const resolveBase = (layers: LibraryLayers) => resolveLibrary(layers, false)
 
 const adoptedAll = withoutBuiltins(
   {

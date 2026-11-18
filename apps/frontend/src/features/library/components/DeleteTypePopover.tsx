@@ -51,21 +51,19 @@ type Tagged = Readonly<{ _tag: string }>
 const isMoveFailure = (error: Tagged): error is TicketMoveFailed =>
   Predicate.isTagged(error, "TicketMoveFailed")
 
-const usedText = (count: number, name: string, project: string): string => {
+const usedText = (count: number, name: string, project: string) => {
   if (count === 0) return m.templates_types_delete_unused({ project })
   if (count === 1) return m.templates_types_delete_used_one({ name, project })
   return m.templates_types_delete_used({ count, name, project })
 }
 
-const deleteFailureText =
-  (name: string) =>
-  (error: Tagged): string => {
-    if (!isMoveFailure(error)) return errorMessage(error)
-    const reason = errorMessage(error.error)
-    return error.moved === 0
-      ? m.templates_types_delete_failed({ name, reason })
-      : m.templates_types_delete_stopped({ name, moved: error.moved, reason })
-  }
+const deleteFailureText = (name: string) => (error: Tagged) => {
+  if (!isMoveFailure(error)) return errorMessage(error)
+  const reason = errorMessage(error.error)
+  return error.moved === 0
+    ? m.templates_types_delete_failed({ name, reason })
+    : m.templates_types_delete_stopped({ name, moved: error.moved, reason })
+}
 
 // Deleting a type, from its Delete button: the popover says how many tickets
 // use it and where they move, then deletes and moves them.

@@ -5,7 +5,7 @@ export function annotateProjectTelemetry<A, E, R>(
   orgSlug: string,
   attributes: Record<string, unknown>,
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> {
+) {
   const annotations = { module: "Projects", operation, orgSlug, ...attributes }
   return Effect.annotateCurrentSpan(annotations).pipe(
     Effect.andThen(effect),

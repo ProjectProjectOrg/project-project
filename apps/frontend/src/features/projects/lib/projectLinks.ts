@@ -6,15 +6,15 @@ export type ProjectLinkKind = "figma" | "paper" | "github" | "local" | "web"
 const LOCAL_HOST =
   /^(localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[::1\]|[^/:]+\.(local|test))(?=[:/]|$)/i
 
-export const isLocalAddress = (address: string): boolean =>
+export const isLocalAddress = (address: string) =>
   LOCAL_HOST.test(address.replace(/^[a-z][a-z\d+.-]*:\/\//i, ""))
 
-export const linkHost = (url: string): string => URL.parse(url)?.host ?? url
+export const linkHost = (url: string) => URL.parse(url)?.host ?? url
 
-export const displayUrl = (url: string): string =>
+export const displayUrl = (url: string) =>
   url.replace(/^https?:\/\//i, "").replace(/\/$/, "")
 
-export const linkKind = (url: string): ProjectLinkKind => {
+export const linkKind = (url: string) => {
   if (parseFigmaUrl(url) !== null) return "figma"
   if (isPaperDesignUrl(url)) return "paper"
   if (/^https?:\/\/(www\.)?github\.com\//i.test(url)) return "github"

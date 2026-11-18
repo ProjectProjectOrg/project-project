@@ -116,9 +116,8 @@ const make = Effect.gen(function* () {
     const scope = yield* ProjectScope
     const origin = yield* oldOrigin(scope.projectId)
     const found = (yield* descriptions()).flatMap(({ id, body }) =>
-      referenceCandidates(body, origin).map(
-        (candidate): ReferenceToFix =>
-          Object.assign({ ticketId: id }, candidate)
+      referenceCandidates(body, origin).map((candidate) =>
+        Object.assign({ ticketId: id }, candidate)
       )
     )
     const ticketTargets = [

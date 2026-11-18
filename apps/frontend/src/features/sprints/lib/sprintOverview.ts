@@ -14,10 +14,7 @@ export type SprintOverview = Readonly<{
   completed: ReadonlyArray<Group>
 }>
 
-export const sprintOverview = (
-  sprints: ReadonlyArray<Group>,
-  now: Date
-): SprintOverview => {
+export const sprintOverview = (sprints: ReadonlyArray<Group>, now: Date) => {
   const byState = (state: ReturnType<typeof sprintState>) =>
     sprints.filter((sprint) => sprintState(sprint, now) === state)
   return {
@@ -33,7 +30,7 @@ export const sprintOverview = (
     completed: byState("completed").toSorted(
       (a, b) => timeOr(b.completedAt, 0) - timeOr(a.completedAt, 0)
     )
-  }
+  } satisfies SprintOverview
 }
 
 export type PhaseCounts = Readonly<Record<StatusPhase | "total", number>>
@@ -41,8 +38,8 @@ export type PhaseCounts = Readonly<Record<StatusPhase | "total", number>>
 export const countPhases = (
   tickets: ReadonlyArray<Pick<Ticket, "status">>,
   phaseOf: StatusPhaseOf
-): PhaseCounts => {
+) => {
   const counts = { unstarted: 0, started: 0, finished: 0 }
   for (const ticket of tickets) counts[phaseOf(ticket.status)] += 1
-  return { ...counts, total: tickets.length }
+  return { ...counts, total: tickets.length } satisfies PhaseCounts
 }

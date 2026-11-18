@@ -20,7 +20,6 @@ import {
   childTickets,
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
-import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
@@ -28,9 +27,9 @@ const keepFocus = (e: React.MouseEvent) => e.preventDefault()
 
 const ROW_STAGGER = 0.025
 
-const idleEpicTicketsAtom = Atom.make(
-  Result.initial<ReadonlyArray<TicketRow>>()
-)
+const idleEpicTicketsAtom: Atom.Atom<
+  Atom.Type<ReturnType<typeof childTickets>>
+> = Atom.make(Result.initial())
 
 export function useEpicPicker(inSprint: ReadonlySet<TicketId>) {
   const { orgSlug, slug } = useProjectRoute()

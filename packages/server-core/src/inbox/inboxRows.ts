@@ -122,14 +122,15 @@ const upsert = (
         })
         .pipe(Effect.asVoid)
 
-const directEntry = (
-  event: InboxEventEncoded,
-  at: string
-): InboxDirect | null =>
+const directEntry = (event: InboxEventEncoded, at: string) =>
   event.kind === "assigned"
-    ? { reason: "assigned", at, commentId: null }
+    ? ({ reason: "assigned", at, commentId: null } satisfies InboxDirect)
     : event.kind === "mentioned"
-      ? { reason: "mentioned", at, commentId: event.commentId }
+      ? ({
+          reason: "mentioned",
+          at,
+          commentId: event.commentId
+        } satisfies InboxDirect)
       : null
 
 const isStillBlocked = (

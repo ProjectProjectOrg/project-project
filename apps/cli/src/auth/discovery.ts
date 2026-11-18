@@ -42,7 +42,7 @@ export const signInPagesFrom = (
   origin: string,
   signedIn: string | undefined,
   failed: string | undefined
-): Option.Option<SignInPages> =>
+) =>
   Option.zipWith(
     sameOrigin(origin, signedIn),
     sameOrigin(origin, failed),

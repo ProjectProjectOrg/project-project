@@ -310,7 +310,7 @@ void main() {
 }
 `
 
-function resolveCssVar(value: string): string {
+function resolveCssVar(value: string) {
   if (!value.startsWith("var(")) return value
   if (typeof window === "undefined") return value
   const match = value.match(/var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\s*\)/)
@@ -322,19 +322,26 @@ function resolveCssVar(value: string): string {
   return match[2]?.trim() || value
 }
 
-function parseColor(value: string): [number, number, number, number] {
-  if (typeof document === "undefined") return [0, 0, 0, 1]
+type Rgba = [number, number, number, number]
+
+function parseColor(value: string) {
+  if (typeof document === "undefined") return [0, 0, 0, 1] satisfies Rgba
   const ctx = document
     .createElement("canvas")
     .getContext("2d", { willReadFrequently: true })
-  if (!ctx) return [0, 0, 0, 1]
+  if (!ctx) return [0, 0, 0, 1] satisfies Rgba
   ctx.fillStyle = resolveCssVar(value)
   ctx.fillRect(0, 0, 1, 1)
   const data = ctx.getImageData(0, 0, 1, 1).data
-  return [data[0] / 255, data[1] / 255, data[2] / 255, data[3] / 255]
+  return [
+    data[0] / 255,
+    data[1] / 255,
+    data[2] / 255,
+    data[3] / 255
+  ] satisfies Rgba
 }
 
-function useThemeRevision(): number {
+function useThemeRevision() {
   const [rev, setRev] = useState(0)
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -349,11 +356,7 @@ function useThemeRevision(): number {
   return rev
 }
 
-function compileShader(
-  gl: WebGL2RenderingContext,
-  type: number,
-  src: string
-): WebGLShader {
+function compileShader(gl: WebGL2RenderingContext, type: number, src: string) {
   const shader = gl.createShader(type)
   if (!shader) throw new Error("createShader failed")
   gl.shaderSource(shader, src)
@@ -366,7 +369,7 @@ function compileShader(
   return shader
 }
 
-function createProgram(gl: WebGL2RenderingContext): WebGLProgram {
+function createProgram(gl: WebGL2RenderingContext) {
   const program = gl.createProgram()
   if (!program) throw new Error("createProgram failed")
   const vs = compileShader(gl, gl.VERTEX_SHADER, VERT_SRC)
@@ -414,8 +417,8 @@ function DitherCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const requestRenderRef = useRef<(() => void) | null>(null)
   const parsedColorsRef = useRef<{
-    front: [number, number, number, number]
-    back: [number, number, number, number]
+    front: Rgba
+    back: Rgba
   }>({
     front: [0, 0, 0, 1],
     back: [0, 0, 0, 1]
@@ -618,9 +621,7 @@ function DitherCanvas({
       gl.uniform1f(uniforms.u_pixelRatio, dpr)
       requestRender()
     }
-    const findClickEmitter = (
-      zones: ReadonlyArray<TimeWarpZone>
-    ): TimeWarpZone | null => {
+    const findClickEmitter = (zones: ReadonlyArray<TimeWarpZone>) => {
       for (const zone of zones) {
         if (zone.anchor.type === "click") return zone
       }

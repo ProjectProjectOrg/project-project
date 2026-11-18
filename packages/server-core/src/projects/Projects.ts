@@ -60,13 +60,14 @@ const MAX_SLUG_ATTEMPTS = 100
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
-const defaultSetup = (): ProjectSetup => ({
-  workflowReviewedAt: null,
-  invitePeopleDismissedAt: null,
-  connectGithubDismissedAt: null
-})
+const defaultSetup = () =>
+  ({
+    workflowReviewedAt: null,
+    invitePeopleDismissedAt: null,
+    connectGithubDismissedAt: null
+  }) satisfies ProjectSetup
 
-function slugify(name: string): string {
+function slugify(name: string) {
   return name
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
@@ -130,10 +131,7 @@ const make = Effect.gen(function* () {
     writeFrontmatter: syncFrontmatter
   } = yield* ProjectDetails.ProjectDetails
 
-  const findFreeSlug = (
-    organizationId: string,
-    base: string
-  ): Effect.Effect<string> =>
+  const findFreeSlug = (organizationId: string, base: string) =>
     Effect.gen(function* () {
       const safeBase = base.length > 0 ? base : "project"
       for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {

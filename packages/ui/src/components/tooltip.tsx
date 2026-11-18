@@ -267,7 +267,7 @@ function place(
   trigger: DOMRect,
   size: Readonly<{ width: number; height: number }>,
   placement: Placement
-): Rect & { side: Side } {
+) {
   const { sideOffset, align } = placement
   const vw = window.innerWidth
   const vh = window.innerHeight

@@ -21,11 +21,7 @@ type ProjectUse = "as-is" | "changed" | "hidden"
 const entriesOf = (library: Library, kind: LibraryKind) =>
   kind === "type" ? library.types : library.blocks
 
-const useIn = (
-  library: Library,
-  kind: LibraryKind,
-  key: string
-): ProjectUse => {
+const useIn = (library: Library, kind: LibraryKind, key: string) => {
   const entry = entriesOf(library, kind).find((item) => item.key === key)
   if (entry === undefined || entry.origin !== "project") return "as-is"
   return entry.hidden ? "hidden" : "changed"
@@ -35,7 +31,7 @@ export const entryUsage = (
   libraries: ReadonlyArray<ProjectLibrary>,
   kind: LibraryKind,
   key: string
-): EntryUsage => {
+) => {
   const projectsWith = (use: ProjectUse) =>
     libraries.flatMap(({ library, project }) =>
       useIn(library, kind, key) === use ? [project] : []

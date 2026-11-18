@@ -48,7 +48,8 @@ const isAttachmentId = Schema.is(AttachmentId)
 const convertedText = (
   markdown: string,
   references: JiraConvertedText["references"]
-): JiraConvertedText => ({ markdown, references, warnings: [], adf: {} })
+) =>
+  ({ markdown, references, warnings: [], adf: {} }) satisfies JiraConvertedText
 
 const makeIssue = (
   id: string,
@@ -77,139 +78,140 @@ const makeIssue = (
   raw: {}
 })
 
-const manifest = (): JiraMigrationManifest => ({
-  version: 1,
-  migrationId: "migration-1",
-  source: {
-    cloudId: "cloud-1",
-    siteUrl: "https://example.atlassian.net",
-    projectId: "10000",
-    projectKey: "APP",
-    projectName: "Application",
-    productType: "software",
-    scannedAt: "2026-09-14T12:00:00Z"
-  },
-  identities: [
-    {
-      accountId: "account-linked",
-      displayName: "Linked User",
-      emailAddress: null,
-      active: true,
-      accountType: "atlassian",
-      raw: {}
+const manifest = () =>
+  ({
+    version: 1,
+    migrationId: "migration-1",
+    source: {
+      cloudId: "cloud-1",
+      siteUrl: "https://example.atlassian.net",
+      projectId: "10000",
+      projectKey: "APP",
+      projectName: "Application",
+      productType: "software",
+      scannedAt: "2026-09-14T12:00:00Z"
     },
-    {
-      accountId: "account-unlinked",
-      displayName: "Former User",
-      emailAddress: null,
-      active: false,
-      accountType: "atlassian",
-      raw: {}
-    }
-  ],
-  statuses: [{ id: "status-1", name: "Done", categoryKey: "done", raw: {} }],
-  issueTypes: [{ id: "type-1", name: "Sub-task", subtask: true, raw: {} }],
-  priorities: [{ id: "priority-1", name: "High", raw: {} }],
-  components: [
-    { id: "component-1", name: "API", description: "Backend", raw: {} }
-  ],
-  issues: [
-    makeIssue(
-      "issue-1",
-      "APP-1",
-      1,
-      convertedText("\uE000i\uE001 and \uE000e\uE001", [
-        {
-          kind: "jira-issue",
-          sourceId: "APP-4",
-          placeholder: "\uE000i\uE001",
-          originalUrl: "https://example.atlassian.net/browse/APP-4",
-          fallbackText: "APP-4"
-        },
-        {
-          kind: "jira-issue",
-          sourceId: "EXT-9",
-          placeholder: "\uE000e\uE001",
-          originalUrl: "https://example.atlassian.net/browse/EXT-9",
-          fallbackText: "EXT-9"
-        }
-      ]),
-      ["sprint-done", "sprint-active", "sprint-future"]
-    ),
-    makeIssue("issue-4", "APP-4", 4, null, [
-      "sprint-done",
-      "sprint-active",
-      "sprint-future"
-    ])
-  ],
-  comments: [
-    {
-      id: "comment-1",
-      issueId: "issue-1",
-      authorAccountId: "account-unlinked",
-      authorDisplayName: "Former User",
-      body: convertedText("Comment", []),
-      createdAt: "2026-09-01T11:00:00Z",
-      updatedAt: null,
-      restricted: false,
-      raw: {}
-    }
-  ],
-  attachments: [
-    {
-      id: "attachment-1",
-      issueId: "issue-1",
-      filename: "diagram.png",
-      mimeType: "image/png",
-      byteSize: 100,
-      downloadUrl: "https://example.atlassian.net/diagram.png",
-      jiraUrl: null,
-      downloadAllowed: true,
-      raw: {}
-    }
-  ],
-  groups: [
-    {
-      id: "sprint-done",
-      kind: "sprint",
-      name: "Done",
-      description: null,
-      state: "completed",
-      issueIds: ["issue-1", "issue-4"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: "2026-08-01T00:00:00Z",
-      raw: {}
-    },
-    {
-      id: "sprint-active",
-      kind: "sprint",
-      name: "Active",
-      description: null,
-      state: "active",
-      issueIds: ["issue-1", "issue-4"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      raw: {}
-    },
-    {
-      id: "sprint-future",
-      kind: "sprint",
-      name: "Future",
-      description: null,
-      state: "future",
-      issueIds: ["issue-1", "issue-4"],
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      raw: {}
-    }
-  ],
-  restrictions: [],
-  coverage: [],
-  rawPages: []
-})
+    identities: [
+      {
+        accountId: "account-linked",
+        displayName: "Linked User",
+        emailAddress: null,
+        active: true,
+        accountType: "atlassian",
+        raw: {}
+      },
+      {
+        accountId: "account-unlinked",
+        displayName: "Former User",
+        emailAddress: null,
+        active: false,
+        accountType: "atlassian",
+        raw: {}
+      }
+    ],
+    statuses: [{ id: "status-1", name: "Done", categoryKey: "done", raw: {} }],
+    issueTypes: [{ id: "type-1", name: "Sub-task", subtask: true, raw: {} }],
+    priorities: [{ id: "priority-1", name: "High", raw: {} }],
+    components: [
+      { id: "component-1", name: "API", description: "Backend", raw: {} }
+    ],
+    issues: [
+      makeIssue(
+        "issue-1",
+        "APP-1",
+        1,
+        convertedText("\uE000i\uE001 and \uE000e\uE001", [
+          {
+            kind: "jira-issue",
+            sourceId: "APP-4",
+            placeholder: "\uE000i\uE001",
+            originalUrl: "https://example.atlassian.net/browse/APP-4",
+            fallbackText: "APP-4"
+          },
+          {
+            kind: "jira-issue",
+            sourceId: "EXT-9",
+            placeholder: "\uE000e\uE001",
+            originalUrl: "https://example.atlassian.net/browse/EXT-9",
+            fallbackText: "EXT-9"
+          }
+        ]),
+        ["sprint-done", "sprint-active", "sprint-future"]
+      ),
+      makeIssue("issue-4", "APP-4", 4, null, [
+        "sprint-done",
+        "sprint-active",
+        "sprint-future"
+      ])
+    ],
+    comments: [
+      {
+        id: "comment-1",
+        issueId: "issue-1",
+        authorAccountId: "account-unlinked",
+        authorDisplayName: "Former User",
+        body: convertedText("Comment", []),
+        createdAt: "2026-09-01T11:00:00Z",
+        updatedAt: null,
+        restricted: false,
+        raw: {}
+      }
+    ],
+    attachments: [
+      {
+        id: "attachment-1",
+        issueId: "issue-1",
+        filename: "diagram.png",
+        mimeType: "image/png",
+        byteSize: 100,
+        downloadUrl: "https://example.atlassian.net/diagram.png",
+        jiraUrl: null,
+        downloadAllowed: true,
+        raw: {}
+      }
+    ],
+    groups: [
+      {
+        id: "sprint-done",
+        kind: "sprint",
+        name: "Done",
+        description: null,
+        state: "completed",
+        issueIds: ["issue-1", "issue-4"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: "2026-08-01T00:00:00Z",
+        raw: {}
+      },
+      {
+        id: "sprint-active",
+        kind: "sprint",
+        name: "Active",
+        description: null,
+        state: "active",
+        issueIds: ["issue-1", "issue-4"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        raw: {}
+      },
+      {
+        id: "sprint-future",
+        kind: "sprint",
+        name: "Future",
+        description: null,
+        state: "future",
+        issueIds: ["issue-1", "issue-4"],
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        raw: {}
+      }
+    ],
+    restrictions: [],
+    coverage: [],
+    rawPages: []
+  }) satisfies JiraMigrationManifest
 
 const mappings = () =>
   decodeJiraMigrationMappingsSync({

@@ -145,7 +145,7 @@ function estimateTrigger(
   ticket: EstimateTicket,
   mode: EstimationMode,
   className: string | undefined
-): ReactElement {
+) {
   const active = activeEstimate(ticket.estimate, mode)
   const stale = isStaleEstimate(ticket.estimate, mode) ? ticket.estimate : null
   const label =
@@ -180,7 +180,7 @@ function compactEstimateTrigger(
   mode: EstimationMode,
   unit: EstimateUnit,
   className: string | undefined
-): ReactElement {
+) {
   const active = activeEstimate(ticket.estimate, mode)
   const label =
     active !== null ? formatEstimate(active) : m.tickets_estimate_empty()
@@ -229,10 +229,7 @@ const INPUT_COPY: Readonly<
   }
 }
 
-const parseTypedEstimate = (
-  unit: TypedUnit,
-  draft: string
-): Estimate | null => {
+const parseTypedEstimate = (unit: TypedUnit, draft: string) => {
   if (unit === "time") {
     const minutes = parseEstimateMinutes(draft)
     return minutes === null ? null : { unit, minutes }
@@ -241,7 +238,7 @@ const parseTypedEstimate = (
   return value === null ? null : { unit, value }
 }
 
-const draftFor = (unit: TypedUnit, estimate: Estimate | null): string =>
+const draftFor = (unit: TypedUnit, estimate: Estimate | null) =>
   estimate === null || estimate.unit !== unit
     ? ""
     : estimate.unit === "points"

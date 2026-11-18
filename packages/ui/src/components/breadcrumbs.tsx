@@ -127,10 +127,7 @@ const keyOf = (element: ReactElement, index: number) =>
 // Live crumbs in the caller's order, each leaving crumb right in front of the
 // crumb it preceded. So a crumb that replaces another (Dashboard for
 // Projects) grows in front of the ones that are leaving, never behind them.
-function arrange(
-  live: ReadonlyArray<Entry>,
-  leaving: ReadonlyArray<Entry>
-): ReadonlyArray<Entry & { leaving: boolean }> {
+function arrange(live: ReadonlyArray<Entry>, leaving: ReadonlyArray<Entry>) {
   const out: Array<Entry & { leaving: boolean }> = []
   for (const entry of live) out.push({ ...entry, leaving: false })
   for (const entry of leaving) {

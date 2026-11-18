@@ -28,7 +28,7 @@ export const matchesTicketFilter = (
   filter: TicketFilter | undefined,
   viewerId?: UserId,
   estimation: EstimationMode = "off"
-): boolean => {
+) => {
   if (!filter) return true
 
   if (filter.status !== undefined) {
@@ -119,7 +119,7 @@ export const matchesTicketQuery = (
   query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: UserId | undefined,
   estimation: EstimationMode
-): boolean => {
+) => {
   const showArchived = query.archived === true
   if ((ticket.archivedAt !== null) !== showArchived) return false
 

@@ -28,10 +28,10 @@ const categoryLabels = new Map<string, () => string>(
   })
 )
 
-const isGenericPermission = (detail: string | null): boolean =>
+const isGenericPermission = (detail: string | null) =>
   detail === null || detail === "jira-permissions"
 
-const reasonText = (detail: string | null): string => {
+const reasonText = (detail: string | null) => {
   if (isGenericPermission(detail)) return m.jira_import_warning_permission()
   switch (detail) {
     case "permission_denied":
@@ -53,12 +53,11 @@ export type JiraVisibility =
   | Readonly<{ kind: "account" }>
   | Readonly<{ kind: "limited"; rows: ReadonlyArray<JiraVisibilityRow> }>
 
-export function jiraVisibility(
-  warnings: ReadonlyArray<VisibilityWarning>
-): JiraVisibility {
-  if (warnings.length === 0) return { kind: "complete" }
+export function jiraVisibility(warnings: ReadonlyArray<VisibilityWarning>) {
+  if (warnings.length === 0)
+    return { kind: "complete" } satisfies JiraVisibility
   if (warnings.every((warning) => isGenericPermission(warning.detail)))
-    return { kind: "account" }
+    return { kind: "account" } satisfies JiraVisibility
   const known = new Map<string, JiraVisibilityRow>()
   const other = new Set<string>()
   for (const warning of warnings) {
@@ -87,5 +86,5 @@ export function jiraVisibility(
                   : m.jira_import_warning_partial()
             }
           ]
-  }
+  } satisfies JiraVisibility
 }

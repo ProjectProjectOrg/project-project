@@ -66,10 +66,7 @@ type MenuContext = Readonly<{
     Partial<Pick<EditorBlocks, "mode">>
 }>
 
-function $syncedModel(
-  node: SyncedBlockNode,
-  lookup: BlockLookup
-): Pick<BlockMenuModel, "kind" | "subtitle" | "content"> {
+function $syncedModel(node: SyncedBlockNode, lookup: BlockLookup) {
   const mode = node.getMode()
   const view = syncedView(lookup, node.getBlockType(), node.getSnapshot(), mode)
   return {
@@ -79,13 +76,10 @@ function $syncedModel(
         ? syncedChipLabel(mode, view.definition.origin)
         : null,
     content: view.content
-  }
+  } satisfies Pick<BlockMenuModel, "kind" | "subtitle" | "content">
 }
 
-export function $blockMenuModel(
-  node: TopLevelBlockNode,
-  context: MenuContext
-): BlockMenuModel {
+export function $blockMenuModel(node: TopLevelBlockNode, context: MenuContext) {
   const blockType = node.getBlockType()
   const chrome = blockChrome(blockType, context.lookup)
   const base = {
@@ -104,7 +98,7 @@ export function $blockMenuModel(
       definition: "none",
       definitionTarget: null,
       resetsTo: null
-    }
+    } satisfies BlockMenuModel
   const content = $blockMarkdown(node, context.transformers)
   const definition = context.lookup(blockType)
   const state: BlockDefinitionState =
@@ -131,5 +125,5 @@ export function $blockMenuModel(
         : context.blocks.mode === "template"
           ? "reference"
           : "definition"
-  }
+  } satisfies BlockMenuModel
 }

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 
 import { nextActiveOrgSlug } from "./orgReflow"
 
-const org = (slug: string): Org => ({ slug, name: slug, role: "owner" })
+const org = (slug: string) =>
+  ({ slug, name: slug, role: "owner" }) satisfies Org
 
 describe("nextActiveOrgSlug", () => {
   it("returns the first remaining org after removing the deleted one", () => {

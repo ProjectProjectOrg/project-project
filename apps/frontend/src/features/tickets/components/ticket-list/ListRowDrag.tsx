@@ -75,7 +75,7 @@ const isRowDropData = Schema.is(RowDropData)
 
 type DragPayload = ElementDragType["payload"]["data"]
 
-const draggedRows = (data: DragPayload): ReadonlyArray<DraggedRow> | null =>
+const draggedRows = (data: DragPayload) =>
   isRowDragData(data)
     ? data.rows.map(({ ticketType, ...row }) => ({ ...row, type: ticketType }))
     : null
@@ -281,7 +281,7 @@ export function DraggableRow({
   useEffect(() => {
     const element = ref.current
     if (!element || section === undefined || pending) return undefined
-    const gapAt = (clientY: number): RowGap => {
+    const gapAt = (clientY: number) => {
       const rect = element.getBoundingClientRect()
       return clientY < rect.top + rect.height / 2 ? id : (nextId ?? "end")
     }

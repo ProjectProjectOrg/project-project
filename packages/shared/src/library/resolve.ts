@@ -13,7 +13,6 @@ import type {
   BlockDraft,
   Library,
   LibraryOrigin,
-  TypeDefinition,
   TypeDraft
 } from "./Library"
 
@@ -80,25 +79,21 @@ const SYNCED_OPENER = /<block[^>]*\ssync/
 
 const TASK_LINE = /^(\s*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])\](.*)$/
 
-const definitionIn = <A extends Keyed>(
-  view: LayerView<A>,
-  key: string
-): A | undefined =>
+const definitionIn = <A extends Keyed>(view: LayerView<A>, key: string) =>
   view.definitions.find((definition) => definition.key === key)
 
-const decides = (view: LayerView<Keyed>, key: string): boolean =>
+const decides = (view: LayerView<Keyed>, key: string) =>
   view.hidden.includes(key) || definitionIn(view, key) !== undefined
 
 const visibleDefinitionIn = <A extends Keyed>(
   view: LayerView<A>,
   key: string
-): A | undefined =>
-  view.hidden.includes(key) ? undefined : definitionIn(view, key)
+) => (view.hidden.includes(key) ? undefined : definitionIn(view, key))
 
 const resolveKey = <A extends Keyed>(
   key: string,
   stack: ReadonlyArray<LayerView<A>>
-): Resolved<A> | null => {
+) => {
   const index = stack.findIndex((view) => decides(view, key))
   if (index === -1) return null
   const deciding = stack[index]
@@ -106,13 +101,23 @@ const resolveKey = <A extends Keyed>(
   const shadows = below.find((view) => decides(view, key))?.origin ?? null
   const own = visibleDefinitionIn(deciding, key)
   if (own !== undefined)
-    return { ...own, origin: deciding.origin, shadows, hidden: false }
+    return {
+      ...own,
+      origin: deciding.origin,
+      shadows,
+      hidden: false
+    } satisfies Resolved<A>
   const hiddenContent = below
     .map((view) => visibleDefinitionIn(view, key))
     .find((definition) => definition !== undefined)
   return hiddenContent === undefined
     ? null
-    : { ...hiddenContent, origin: deciding.origin, shadows, hidden: true }
+    : ({
+        ...hiddenContent,
+        origin: deciding.origin,
+        shadows,
+        hidden: true
+      } satisfies Resolved<A>)
 }
 
 const byNameThenKey = (
@@ -122,7 +127,7 @@ const byNameThenKey = (
 
 const resolveEntries = <A extends Keyed & Readonly<{ name: string }>>(
   stack: ReadonlyArray<LayerView<A>>
-): ReadonlyArray<Resolved<A>> => {
+) => {
   const keys = new Set(
     stack.flatMap((view) => [
       ...view.definitions.map((definition) => definition.key),
@@ -134,20 +139,18 @@ const resolveEntries = <A extends Keyed & Readonly<{ name: string }>>(
     .toSorted(byNameThenKey)
 }
 
-const layerStack = (
-  layers: LibraryLayers,
-  base: Layer
-): ReadonlyArray<readonly [LibraryOrigin, Layer]> => [
-  ...(layers.project === null ? [] : [["project", layers.project] as const]),
-  ["org", layers.org],
-  ["builtin", base]
-]
+const layerStack = (layers: LibraryLayers, base: Layer) =>
+  [
+    ...(layers.project === null ? [] : [["project", layers.project] as const]),
+    ["org", layers.org],
+    ["builtin", base]
+  ] satisfies ReadonlyArray<readonly [LibraryOrigin, Layer]>
 
 export const resolveLibrary = (
   layers: LibraryLayers,
   canEdit: boolean,
   base: Layer = BASE_LAYER
-): Library => {
+) => {
   const stack = layerStack(layers, base)
   return {
     blocks: resolveEntries(
@@ -165,84 +168,79 @@ export const resolveLibrary = (
       }))
     ),
     canEdit
-  }
+  } satisfies Library
 }
 
-export const blockLookupFor = (library: Library): BlockLookup => {
+export const blockLookupFor = (library: Library) => {
   const visible = new Map<string, BlockDefinition>(
     library.blocks.flatMap((block) =>
       block.hidden ? [] : [[block.key, block] as const]
     )
   )
-  return (key) => visible.get(key)
+  return ((key) => visible.get(key)) satisfies BlockLookup
 }
 
-const visibleDefinition = (
-  lookup: BlockLookup,
-  key: string
-): BlockDefinition | undefined => {
+const visibleDefinition = (lookup: BlockLookup, key: string) => {
   const definition = lookup(key)
   return definition === undefined || definition.hidden ? undefined : definition
 }
 
-const blockSegment = (
-  type: string,
-  content: string,
-  sync: boolean
-): BlockSegment =>
+const blockSegment = (type: string, content: string, sync: boolean) =>
   sync
-    ? { kind: "block", type, content, sync: true }
-    : { kind: "block", type, content }
+    ? ({ kind: "block", type, content, sync: true } satisfies BlockSegment)
+    : ({ kind: "block", type, content } satisfies BlockSegment)
 
-const isBlank = (text: string): boolean => text.trim() === ""
+const isBlank = (text: string) => text.trim() === ""
 
 const expandSegment = (
   segment: TicketBlockSegment,
   lookup: BlockLookup,
   keepHints: boolean
-): ReadonlyArray<TicketBlockSegment> => {
+) => {
   const clean = (text: string) => (keepHints ? text : stripHints(text))
   if (segment.kind === "markdown") {
     const text = clean(segment.text).trim()
-    return text === "" ? [] : [{ kind: "markdown", text }]
+    return text === ""
+      ? null
+      : ({ kind: "markdown", text } satisfies TicketBlockSegment)
   }
   if (!isBlank(segment.content))
-    return [blockSegment(segment.type, clean(segment.content), false)]
+    return blockSegment(segment.type, clean(segment.content), false)
   const definition = visibleDefinition(lookup, segment.type)
   return definition === undefined
-    ? []
-    : [blockSegment(segment.type, clean(definition.content), definition.sync)]
+    ? null
+    : blockSegment(segment.type, clean(definition.content), definition.sync)
 }
 
 export const expandType = (
   type: Readonly<{ body: string }>,
   lookup: BlockLookup
-): string =>
+) =>
   serializeTicketBlocks(
-    parseTicketBlocks(type.body).flatMap((segment) =>
-      expandSegment(segment, lookup, false)
+    parseTicketBlocks(type.body).flatMap(
+      (segment) => expandSegment(segment, lookup, false) ?? []
     )
   )
 
 export const expandTypeKeepingHints = (
   type: Readonly<{ body: string }>,
   lookup: BlockLookup
-): string =>
+) =>
   serializeTicketBlocks(
-    parseTicketBlocks(type.body).flatMap((segment) =>
-      expandSegment(segment, lookup, true)
+    parseTicketBlocks(type.body).flatMap(
+      (segment) => expandSegment(segment, lookup, true) ?? []
     )
   )
 
 const isBlockSegment = (segment: TicketBlockSegment): segment is BlockSegment =>
   segment.kind === "block"
 
-const blockTypesIn = (markdown: string): ReadonlyArray<string> =>
+const blockTypesIn = (markdown: string) =>
   parseTicketBlocks(markdown)
     .filter(isBlockSegment)
     .map((segment) => segment.type)
 
-export const mergeTypeInto = (body: string, expanded: string): TypeMerge => {
+export const mergeTypeInto = (body: string, expanded: string) => {
   if (isBlank(body)) return { body: expanded, added: blockTypesIn(expanded) }
   const present = new Set(blockTypesIn(body))
   const missing = parseTicketBlocks(expanded)
@@ -255,9 +253,7 @@ export const mergeTypeInto = (body: string, expanded: string): TypeMerge => {
   }
 }
 
-const withCodeFlags = (
-  markdown: string
-): ReadonlyArray<readonly [string, boolean]> => {
+const withCodeFlags = (markdown: string) => {
   let fence: string | null = null
   return normalizeLineEndings(markdown)
     .split("\n")
@@ -271,15 +267,15 @@ const withCodeFlags = (
 const mapOutsideFences = (
   markdown: string,
   transform: (line: string) => string
-): string =>
+) =>
   withCodeFlags(markdown)
     .map(([line, insideCode]) => (insideCode ? line : transform(line)))
     .join("\n")
 
-const taskItemKey = (text: string): string =>
+const taskItemKey = (text: string) =>
   text.replace(/\s+/g, " ").trim().toLowerCase()
 
-const ticksBySnapshotItem = (snapshot: string): Map<string, Array<boolean>> => {
+const ticksBySnapshotItem = (snapshot: string) => {
   const ticks = new Map<string, Array<boolean>>()
   for (const [line, insideCode] of withCodeFlags(snapshot)) {
     const task = insideCode ? null : TASK_LINE.exec(line)
@@ -293,7 +289,7 @@ const ticksBySnapshotItem = (snapshot: string): Map<string, Array<boolean>> => {
 export const mergeChecklistTicks = (
   definitionContent: string,
   snapshot: string
-): string => {
+) => {
   const ticks = ticksBySnapshotItem(snapshot)
   return mapOutsideFences(stripHints(definitionContent), (line) => {
     const task = TASK_LINE.exec(line)
@@ -307,10 +303,7 @@ const isSyncedSegment = (
   segment: TicketBlockSegment
 ): segment is BlockSegment => segment.kind === "block" && segment.sync === true
 
-const resolveSyncedSegment = (
-  segment: BlockSegment,
-  lookup: BlockLookup
-): BlockSegment => {
+const resolveSyncedSegment = (segment: BlockSegment, lookup: BlockLookup) => {
   const definition = visibleDefinition(lookup, segment.type)
   return definition?.sync === true
     ? blockSegment(
@@ -321,10 +314,7 @@ const resolveSyncedSegment = (
     : blockSegment(segment.type, segment.content, false)
 }
 
-export const resolveSyncedBlocks = (
-  body: string,
-  lookup: BlockLookup
-): string => {
+export const resolveSyncedBlocks = (body: string, lookup: BlockLookup) => {
   if (!SYNCED_OPENER.test(body)) return body
   const segments = parseTicketBlocks(body)
   if (!segments.some(isSyncedSegment)) return body
@@ -335,20 +325,20 @@ export const resolveSyncedBlocks = (
   )
 }
 
-const comparableMarkdown = (markdown: string): string =>
+const comparableMarkdown = (markdown: string) =>
   markdown.replace(/\s+/g, " ").trim()
 
 export const blockMatchesDefinition = (
   content: string,
   definition: BlockDefinition
-): boolean =>
+) =>
   comparableMarkdown(content) ===
   comparableMarkdown(stripHints(definition.content))
 
 const typeSegmentFromTicket = (
   segment: TicketBlockSegment,
   lookup: BlockLookup
-): TicketBlockSegment => {
+) => {
   if (segment.kind === "markdown") return segment
   const definition = visibleDefinition(lookup, segment.type)
   const isReference =
@@ -358,13 +348,10 @@ const typeSegmentFromTicket = (
   return blockSegment(segment.type, isReference ? "" : segment.content, false)
 }
 
-const isCustomization = (segment: TicketBlockSegment): boolean =>
+const isCustomization = (segment: TicketBlockSegment) =>
   segment.kind === "block" && !isBlank(segment.content)
 
-export const typeBodyFromTicket = (
-  body: string,
-  lookup: BlockLookup
-): TicketAsType => {
+export const typeBodyFromTicket = (body: string, lookup: BlockLookup) => {
   const segments = parseTicketBlocks(body).map((segment) =>
     typeSegmentFromTicket(segment, lookup)
   )
@@ -378,23 +365,20 @@ export const isPristineTypeBody = (
   body: string,
   type: Readonly<{ body: string }>,
   lookup: BlockLookup
-): boolean =>
-  comparableMarkdown(body) === comparableMarkdown(expandType(type, lookup))
+) => comparableMarkdown(body) === comparableMarkdown(expandType(type, lookup))
 
-export const typeFor = (library: Library, key: string): TypeDefinition | null =>
+export const typeFor = (library: Library, key: string) =>
   library.types.find((type) => type.key === key && !type.hidden) ?? null
 
-const keysOf = (entries: ReadonlyArray<Keyed>): ReadonlySet<string> =>
+const keysOf = (entries: ReadonlyArray<Keyed>) =>
   new Set(entries.map((entry) => entry.key))
 
-export const galleryTypesFor = (library: Library): ReadonlyArray<TypeDraft> => {
+export const galleryTypesFor = (library: Library) => {
   const present = keysOf(library.types)
   return GALLERY_TYPES.filter((draft) => !present.has(draft.key))
 }
 
-export const galleryBlocksFor = (
-  library: Library
-): ReadonlyArray<BlockDraft> => {
+export const galleryBlocksFor = (library: Library) => {
   const present = keysOf(library.blocks)
   return GALLERY_BLOCKS.filter((draft) => !present.has(draft.key))
 }
@@ -402,7 +386,7 @@ export const galleryBlocksFor = (
 export const galleryBlocksToAdopt = (
   library: Library,
   type: Readonly<{ body: string }>
-): ReadonlyArray<BlockDraft> => {
+) => {
   const referenced = new Set(
     parseTicketBlocks(type.body).flatMap((segment) =>
       segment.kind === "block" ? [segment.type] : []

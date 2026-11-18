@@ -16,46 +16,55 @@ import type { MentionPage, SearchableMentionProvider } from "./searchable"
 
 const NO_PAGE: MentionPage = { items: [], nextCursor: null }
 
-const toCandidate = (ticket: Ticket): MentionCandidate =>
+const toCandidate = (ticket: Ticket) =>
   isEpic(ticket.parent)
-    ? { id: ticket.id, label: ticket.title, secondary: ticket.parent.title }
-    : { id: ticket.id, label: ticket.title }
+    ? ({
+        id: ticket.id,
+        label: ticket.title,
+        secondary: ticket.parent.title
+      } satisfies MentionCandidate)
+    : ({ id: ticket.id, label: ticket.title } satisfies MentionCandidate)
 
 export const ticketProvider = (
   scope: Readonly<{
     orgSlug: string
     slug: string
   }>
-): SearchableMentionProvider => ({
-  type: "ticket",
-  search: (query, cursor) => {
-    if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)
-    return Effect.gen(function* () {
-      const page = yield* Atom.getResult(
-        ticketPage(ticketPageRequest(scope.orgSlug, scope.slug, query, cursor))
-      )
-      return {
-        items: page.items.map((row) => toCandidate(row.ticket)),
-        nextCursor: page.nextCursor
-      }
-    }).pipe(Effect.mapError(() => new MentionSearchFailed()))
-  },
-  heading: () => m.tickets_mention_tickets_heading(),
-  failed: () => m.tickets_mention_tickets_failed(),
-  renderRow: (candidate) => (
-    <div className="flex min-w-0 items-baseline gap-2">
-      <span className="min-w-(--row-key-width) shrink-0 whitespace-nowrap tabular-nums">
-        {candidate.id}
-      </span>
-      <span className="truncate text-muted-foreground">
-        {candidate.secondary && (
-          <>
-            <span className="text-muted-foreground">{candidate.secondary}</span>
-            <EpicSeparator />
-          </>
-        )}
-        {candidate.label}
-      </span>
-    </div>
-  )
-})
+) =>
+  ({
+    type: "ticket",
+    search: (query, cursor) => {
+      if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)
+      return Effect.gen(function* () {
+        const page = yield* Atom.getResult(
+          ticketPage(
+            ticketPageRequest(scope.orgSlug, scope.slug, query, cursor)
+          )
+        )
+        return {
+          items: page.items.map((row) => toCandidate(row.ticket)),
+          nextCursor: page.nextCursor
+        }
+      }).pipe(Effect.mapError(() => new MentionSearchFailed()))
+    },
+    heading: () => m.tickets_mention_tickets_heading(),
+    failed: () => m.tickets_mention_tickets_failed(),
+    renderRow: (candidate) => (
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="min-w-(--row-key-width) shrink-0 whitespace-nowrap tabular-nums">
+          {candidate.id}
+        </span>
+        <span className="truncate text-muted-foreground">
+          {candidate.secondary && (
+            <>
+              <span className="text-muted-foreground">
+                {candidate.secondary}
+              </span>
+              <EpicSeparator />
+            </>
+          )}
+          {candidate.label}
+        </span>
+      </div>
+    )
+  }) satisfies SearchableMentionProvider

@@ -40,7 +40,10 @@ interface DbState {
 
 const makeState = (
   myOrgRows?: ReadonlyArray<{ slug: string; name: string; role: string }>
-): DbState => ({ myOrgRows, capture: {} })
+) => {
+  const capture: Capture = {}
+  return { myOrgRows, capture } satisfies DbState
+}
 
 const decodeTimestamp = Schema.decodeUnknownSync(Schema.String)
 

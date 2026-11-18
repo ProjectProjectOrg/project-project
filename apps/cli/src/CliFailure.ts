@@ -56,7 +56,7 @@ const isKnownError = (
 ): error is ToolError["_tag"] | "CatalogMismatch" =>
   Object.hasOwn(exitCodeByError, error)
 
-export const exitCodeForError = (error: string): ExitCode =>
+export const exitCodeForError = (error: string) =>
   isKnownError(error) ? exitCodeByError[error] : ExitCode.failure
 
 export const notSignedIn = (message: string) =>

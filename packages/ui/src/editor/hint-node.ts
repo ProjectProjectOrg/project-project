@@ -8,34 +8,34 @@ import {
 } from "lexical"
 
 export class HintNode extends TextNode {
-  static getType(): string {
+  static getType() {
     return "block-hint"
   }
 
-  static clone(node: HintNode): HintNode {
+  static clone(node: HintNode) {
     return new HintNode(node.__text, node.__key)
   }
 
-  static importJSON(serialized: SerializedTextNode): HintNode {
+  static importJSON(serialized: SerializedTextNode) {
     return $createHintNode(serialized.text).updateFromJSON(serialized)
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(config: EditorConfig) {
     const element = super.createDOM(config)
     element.classList.add("lexical-hint")
     return element
   }
 
-  canInsertTextBefore(): boolean {
+  canInsertTextBefore() {
     return false
   }
 
-  canInsertTextAfter(): boolean {
+  canInsertTextAfter() {
     return false
   }
 }
 
-export function $createHintNode(text: string): HintNode {
+export function $createHintNode(text: string) {
   return $applyNodeReplacement(new HintNode(text))
 }
 

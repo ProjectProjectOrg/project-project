@@ -42,7 +42,7 @@ const labels = new Map<string, () => string>(
   })
 )
 
-export const jiraImportPhaseLabel = (phase: string): string =>
+export const jiraImportPhaseLabel = (phase: string) =>
   (labels.get(phase) ?? m.jira_import_phase_working)()
 
 export type JiraPhaseStep = Readonly<{
@@ -57,7 +57,7 @@ export type JiraPhaseProgress = Readonly<{
   total: number | null
 }>
 
-const familyPrefix = (sequence: ReadonlyArray<string>): string | null => {
+const familyPrefix = (sequence: ReadonlyArray<string>) => {
   const last = sequence.at(-1)
   const separator = last?.indexOf("_") ?? -1
   return last === undefined || separator <= 0
@@ -65,7 +65,7 @@ const familyPrefix = (sequence: ReadonlyArray<string>): string | null => {
     : last.slice(0, separator + 1)
 }
 
-const positionOf = (sequence: ReadonlyArray<string>, phase: string): number => {
+const positionOf = (sequence: ReadonlyArray<string>, phase: string) => {
   const index = sequence.indexOf(phase)
   if (index !== -1) return index
   const prefix = familyPrefix(sequence)
@@ -77,20 +77,27 @@ const isWaiting = (phase: string) => phase.startsWith("queued_")
 export function jiraPhaseSteps(
   sequence: ReadonlyArray<string>,
   progress: JiraPhaseProgress
-): ReadonlyArray<JiraPhaseStep> {
+) {
   const position = positionOf(sequence, progress.phase)
   if (position === -1)
-    return [{ phase: progress.phase, state: "current", measured: true }]
+    return [
+      { phase: progress.phase, state: "current", measured: true }
+    ] satisfies ReadonlyArray<JiraPhaseStep>
   const complete =
     progress.total !== null &&
     progress.total > 0 &&
     progress.done >= progress.total
   const active = complete ? position + 1 : position
-  return sequence.flatMap((phase, index): ReadonlyArray<JiraPhaseStep> => {
+  return sequence.flatMap((phase, index) => {
     if (index === 0 && isWaiting(phase) && position > 0) return []
-    if (index < active) return [{ phase, state: "done", measured: false }]
-    if (index === active)
-      return [{ phase, state: "current", measured: !complete }]
-    return [{ phase, state: "pending", measured: false }]
+    const state =
+      index < active ? "done" : index === active ? "current" : "pending"
+    return [
+      {
+        phase,
+        state,
+        measured: index === active && !complete
+      } satisfies JiraPhaseStep
+    ]
   })
 }

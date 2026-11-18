@@ -44,11 +44,11 @@ export class PaperNode extends DecoratorNode<ReactElement> {
   __url: string
   __label: string
 
-  static getType(): string {
+  static getType() {
     return "paper"
   }
 
-  static clone(node: PaperNode): PaperNode {
+  static clone(node: PaperNode) {
     return new PaperNode({ url: node.__url, label: node.__label }, node.__key)
   }
 
@@ -58,7 +58,7 @@ export class PaperNode extends DecoratorNode<ReactElement> {
     this.__label = payload.label
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const span = document.createElement("span")
     span.setAttribute("data-paper-design", "true")
     span.style.display = "inline-block"
@@ -67,31 +67,31 @@ export class PaperNode extends DecoratorNode<ReactElement> {
     return span
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): boolean {
+  isInline() {
     return true
   }
 
-  getTextContent(): string {
+  getTextContent() {
     return this.__url
   }
 
-  getUrl(): string {
+  getUrl() {
     return this.getLatest().__url
   }
 
-  getLabel(): string {
+  getLabel() {
     return this.getLatest().__label
   }
 
-  setLabel(label: string): void {
+  setLabel(label: string) {
     this.getWritable().__label = label
   }
 
-  exportJSON(): SerializedPaperNode {
+  exportJSON() {
     return {
       ...super.exportJSON(),
       type: "paper",
@@ -101,14 +101,14 @@ export class PaperNode extends DecoratorNode<ReactElement> {
     }
   }
 
-  static importJSON(serialized: SerializedPaperNode): PaperNode {
+  static importJSON(serialized: SerializedPaperNode) {
     return $createPaperNode({
       url: serialized.url,
       label: serialized.label
     })
   }
 
-  decorate(): ReactElement {
+  decorate() {
     return (
       <PaperSelectable
         nodeKey={this.getKey()}
@@ -224,7 +224,7 @@ function PaperSelectable({
   )
 }
 
-export function $createPaperNode(payload: PaperPayload): PaperNode {
+export function $createPaperNode(payload: PaperPayload) {
   return $applyNodeReplacement(new PaperNode(payload))
 }
 

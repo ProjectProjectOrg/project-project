@@ -30,10 +30,7 @@ export type JiraImportDraftSave = Readonly<{
   dismiss: () => void
 }>
 
-export function useJiraImportDraft(
-  orgSlug: string,
-  migrationId: string
-): JiraImportDraftSave {
+export function useJiraImportDraft(orgSlug: string, migrationId: string) {
   const mutation = configureJiraMigration(
     jiraMigrationRequest(orgSlug, migrationId)
   )
@@ -52,21 +49,23 @@ export function useJiraImportDraft(
     saving: state.waiting,
     failure: mutationFailure(
       state,
-      (error): JiraDraftFailure => ({
-        message: isRevisionConflict(error)
-          ? m.jira_import_error_changed_elsewhere()
-          : errorMessage(error),
-        remedy: isRevisionConflict(error)
-          ? "reload"
-          : isJiraReconnectError(error)
-            ? "reconnect"
-            : null
-      }),
-      (): JiraDraftFailure => ({
-        message: m.jira_import_error_unexpected(),
-        remedy: null
-      })
+      (error) =>
+        ({
+          message: isRevisionConflict(error)
+            ? m.jira_import_error_changed_elsewhere()
+            : errorMessage(error),
+          remedy: isRevisionConflict(error)
+            ? "reload"
+            : isJiraReconnectError(error)
+              ? "reconnect"
+              : null
+        }) satisfies JiraDraftFailure,
+      () =>
+        ({
+          message: m.jira_import_error_unexpected(),
+          remedy: null
+        }) satisfies JiraDraftFailure
     ),
     dismiss
-  }
+  } satisfies JiraImportDraftSave
 }

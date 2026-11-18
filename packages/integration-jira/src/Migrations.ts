@@ -317,7 +317,7 @@ export const jiraDestinationConflicts = (
     >
     tickets: ReadonlyArray<Readonly<{ projectId: string; ticketId: string }>>
   }>
-): ReadonlyArray<JiraMigrationDestinationConflict> => {
+) => {
   const otherProjects = input.projects.filter(
     ({ id }) => id !== input.currentProjectId
   )

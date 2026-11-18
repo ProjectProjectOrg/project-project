@@ -8,7 +8,6 @@ import {
   $applyNodeReplacement,
   DecoratorNode,
   type DOMConversionMap,
-  type DOMConversionOutput,
   type DOMExportOutput,
   type LexicalNode,
   type NodeKey,
@@ -33,11 +32,11 @@ export class MentionNode extends DecoratorNode<ReactElement> {
   __mentionId: string
   __mentionLabel: string
 
-  static getType(): string {
+  static getType() {
     return "mention"
   }
 
-  static clone(node: MentionNode): MentionNode {
+  static clone(node: MentionNode) {
     return new MentionNode(
       node.__mentionType,
       node.__mentionId,
@@ -53,7 +52,7 @@ export class MentionNode extends DecoratorNode<ReactElement> {
     this.__mentionLabel = label
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const span = document.createElement("span")
     span.setAttribute("data-mention-type", this.__mentionType)
     span.setAttribute("data-mention-id", this.__mentionId)
@@ -61,19 +60,19 @@ export class MentionNode extends DecoratorNode<ReactElement> {
     return span
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): boolean {
+  isInline() {
     return true
   }
 
-  isKeyboardSelectable(): boolean {
+  isKeyboardSelectable() {
     return false
   }
 
-  getTextContent(): string {
+  getTextContent() {
     return this.__mentionType === "ticket"
       ? parseTicketMentionId(this.__mentionId).ticketId
       : this.__mentionType === "user"
@@ -81,21 +80,21 @@ export class MentionNode extends DecoratorNode<ReactElement> {
         : this.__mentionLabel
   }
 
-  exportDOM(): DOMExportOutput {
+  exportDOM() {
     const a = document.createElement("a")
     a.href = formatMentionHref(this.__mentionType, this.__mentionId)
     a.textContent = this.__mentionLabel
-    return { element: a }
+    return { element: a } satisfies DOMExportOutput
   }
 
-  static importDOM(): DOMConversionMap | null {
+  static importDOM() {
     return {
       a: (node: HTMLElement) => {
         const href = node.getAttribute("href")
         const parsed = href ? parseMentionHref(href) : null
         if (!parsed) return null
         return {
-          conversion: (el): DOMConversionOutput => ({
+          conversion: (el) => ({
             node: $createMentionNode(
               parsed.type,
               parsed.id,
@@ -105,10 +104,10 @@ export class MentionNode extends DecoratorNode<ReactElement> {
           priority: 1
         }
       }
-    }
+    } satisfies DOMConversionMap
   }
 
-  exportJSON(): SerializedMentionNode {
+  exportJSON() {
     return {
       ...super.exportJSON(),
       type: "mention",
@@ -116,10 +115,10 @@ export class MentionNode extends DecoratorNode<ReactElement> {
       mentionType: this.__mentionType,
       mentionId: this.__mentionId,
       mentionLabel: this.__mentionLabel
-    }
+    } satisfies SerializedMentionNode
   }
 
-  static importJSON(serialized: SerializedMentionNode): MentionNode {
+  static importJSON(serialized: SerializedMentionNode) {
     return $createMentionNode(
       serialized.mentionType,
       serialized.mentionId,
@@ -127,7 +126,7 @@ export class MentionNode extends DecoratorNode<ReactElement> {
     )
   }
 
-  decorate(): ReactElement {
+  decorate() {
     return (
       <MentionChip
         type={this.__mentionType}
@@ -142,7 +141,7 @@ export function $createMentionNode(
   type: MentionType,
   id: string,
   label: string
-): MentionNode {
+) {
   return $applyNodeReplacement(new MentionNode(type, id, label))
 }
 

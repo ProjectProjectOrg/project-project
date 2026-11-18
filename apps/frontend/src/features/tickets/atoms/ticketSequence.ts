@@ -14,11 +14,12 @@ export const ticketSequenceRequest = (
   slug: string,
   id: TicketId,
   from: TicketListSource | undefined
-): TicketSequenceRequest => ({
-  _view: "ticketSequence",
-  params: { orgSlug, slug, id },
-  from
-})
+) =>
+  ({
+    _view: "ticketSequence",
+    params: { orgSlug, slug, id },
+    from
+  }) satisfies TicketSequenceRequest
 
 export const ticketSequence = Atom.family((req: TicketSequenceRequest) =>
   query("tickets", "sequence", {

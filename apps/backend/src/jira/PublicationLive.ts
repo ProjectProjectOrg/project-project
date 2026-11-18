@@ -337,9 +337,7 @@ const PER_ATTACHMENT_INVALID_REASONS = new Set(["attachment-size-mismatch"])
 
 const isJiraMigrationWorkflowFailure = Schema.is(JiraMigrationWorkflowFailure)
 
-export const classifyMaterializationError = (
-  error: unknown
-): JiraMigrationWorkflowFailureValue => {
+export const classifyMaterializationError = (error: unknown) => {
   if (isJiraMigrationWorkflowFailure(error)) return error
   const detail = errorDetail(error)
   const make = (
@@ -553,7 +551,7 @@ export const makeJiraMaterializationDependencies = (
 export const jiraMigrationResult = (
   plan: JiraPublicationPlanV1,
   checkpoint: MigrationProjection.JiraMigrationCheckpoint
-): JiraMigrationResult => {
+) => {
   const identities =
     checkpoint.acceptedConfiguration?.configuration.identities ?? []
   const createdStatuses = new Set(
@@ -588,7 +586,7 @@ export const jiraMigrationResult = (
     ).length,
     statusesCreated: createdStatuses.size,
     findings: [...(checkpoint.findings ?? []), ...(plan.findings ?? [])]
-  }
+  } satisfies JiraMigrationResult
 }
 const isHiddenProjectInvalid = (
   error: unknown
@@ -659,9 +657,7 @@ export type JiraAtomicPublicationInput = Readonly<{
   }>
 }>
 
-const publishedIndexes = (
-  plan: JiraPublicationPlanV1
-): HiddenProject.PublishedIndexes => {
+const publishedIndexes = (plan: JiraPublicationPlanV1) => {
   const project = plan.indexes.project
   return {
     project,
@@ -739,7 +735,7 @@ const publishedIndexes = (
       },
       committedAt: toDate(planned.committedAt)
     }))
-  }
+  } satisfies HiddenProject.PublishedIndexes
 }
 
 export const publishJiraMigrationAtomically = Effect.fn(

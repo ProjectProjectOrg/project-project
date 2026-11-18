@@ -14,7 +14,7 @@ const DOD = "definition-of-done"
 
 const withBlocks = (
   edit: (blocks: Library["blocks"]) => Library["blocks"]
-): Library => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
+) => ({ ...BUILTIN_LIBRARY, blocks: edit(BUILTIN_LIBRARY.blocks) })
 
 const SNAPSHOT = [
   "## Definition of done",

@@ -43,7 +43,7 @@ const PRIVATE_HOST_SUFFIX = /\.(localhost|local|internal|lan|home|corp)$/i
 
 const UNAVAILABLE: PageMetadata = { title: null, faviconUrl: null }
 
-export const previewTarget = (raw: string, base?: URL): URL | null => {
+export const previewTarget = (raw: string, base?: URL) => {
   let url: URL
   try {
     url = new URL(raw.trim(), base)
@@ -57,7 +57,7 @@ export const previewTarget = (raw: string, base?: URL): URL | null => {
   return url
 }
 
-const isPublicHost = (url: URL): Effect.Effect<boolean> => {
+const isPublicHost = (url: URL) => {
   const host = url.hostname.replace(/^\[|\]$/g, "")
   if (isIP(host) !== 0) return Effect.succeed(isPublicAddress(host))
   if (!host.includes(".") || PRIVATE_HOST_SUFFIX.test(host)) {
@@ -75,7 +75,7 @@ const isPublicHost = (url: URL): Effect.Effect<boolean> => {
   )
 }
 
-const decoderFor = (contentType: string): TextDecoder => {
+const decoderFor = (contentType: string) => {
   const label = /charset=["']?([^;"'\s]+)/i.exec(contentType)?.[1] ?? "utf-8"
   try {
     const decoder: unknown = Reflect.construct(TextDecoder, [label])
@@ -116,7 +116,7 @@ const discardBody = (response: Response) =>
     () => response.body?.cancel().catch(() => undefined) ?? Promise.resolve()
   )
 
-const isHtml = (response: Response): boolean =>
+const isHtml = (response: Response) =>
   /\b(text\/html|application\/xhtml\+xml)\b/i.test(
     response.headers.get("content-type") ?? ""
   )
@@ -196,9 +196,7 @@ const readIcon = (response: Response) =>
   })
 
 const resolveFaviconRendering = Effect.fnUntraced(
-  function* (
-    src: string | null
-  ): Effect.fn.Return<LinkPreview["faviconRendering"], unknown> {
+  function* (src: string | null) {
     const target = src === null ? null : previewTarget(src)
     if (target === null) return "original"
     const result = yield* fetchPublicResponse(target, "image/*")
@@ -213,10 +211,10 @@ const resolveFaviconRendering = Effect.fnUntraced(
       : yield* Effect.promise(() => faviconRendering(bytes))
   },
   Effect.timeout(FETCH_TIMEOUT),
-  Effect.orElseSucceed((): LinkPreview["faviconRendering"] => "original")
+  Effect.orElseSucceed(() => "original" as const)
 )
 
-const resolvePageMetadata = (target: URL): Effect.Effect<PageMetadata> =>
+const resolvePageMetadata = (target: URL) =>
   fetchPageMetadata(target).pipe(
     Effect.timeout(FETCH_TIMEOUT),
     Effect.orElseSucceed(() => ({
@@ -254,12 +252,14 @@ const make = Effect.gen(function* () {
       })
       .pipe(Effect.ignore)
 
-  const get = Effect.fn("LinkPreviews.get")(function* (
-    raw: string
-  ): Effect.fn.Return<LinkPreview> {
+  const get = Effect.fn("LinkPreviews.get")(function* (raw: string) {
     const target = previewTarget(raw)
     if (target === null)
-      return { url: raw, ...UNAVAILABLE, faviconRendering: "original" }
+      return {
+        url: raw,
+        ...UNAVAILABLE,
+        faviconRendering: "original"
+      } satisfies LinkPreview
     const url = target.href
     const now = yield* DateTime.nowAsDate
     const row = yield* cached(url)
@@ -288,7 +288,7 @@ const make = Effect.gen(function* () {
           title: row.title,
           faviconUrl: row.faviconUrl,
           faviconRendering: rendering
-        }
+        } satisfies LinkPreview
       }
     }
     const metadata = yield* resolvePageMetadata(target)
@@ -299,7 +299,11 @@ const make = Effect.gen(function* () {
       faviconRendering: rendering,
       fetchedAt: now
     })
-    return { url, ...metadata, faviconRendering: rendering }
+    return {
+      url,
+      ...metadata,
+      faviconRendering: rendering
+    } satisfies LinkPreview
   })
 
   return LinkPreviews.of({ get })

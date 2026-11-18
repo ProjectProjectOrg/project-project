@@ -85,9 +85,7 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
 
 const ticketIdOf = (id: string) => makeTicketDocument(id).id
 
-const unassign = (
-  layer: Layer.Layer<TicketRewrites.TicketRewrites>
-): Effect.Effect<void, never, never> =>
+const unassign = (layer: Layer.Layer<TicketRewrites.TicketRewrites>) =>
   Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
     rewrites.unassignUserFromActiveTickets("org", "p", removed)
   ).pipe(

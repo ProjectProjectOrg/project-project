@@ -32,27 +32,19 @@ describe("appAuth", () => {
           .mockReturnValue(timeout.signal)
         let signal: AbortSignal | undefined
         const fetchMock = Object.assign(
-          vi.fn(
-            (
-              _input: string | URL | Request,
-              init?: RequestInit
-            ): Promise<Response> => {
-              signal = init?.signal ?? undefined
-              return new Promise<Response>((_resolve, reject) => {
-                signal?.addEventListener(
-                  "abort",
-                  () =>
-                    reject(
-                      new DOMException(
-                        "The operation was aborted",
-                        "AbortError"
-                      )
-                    ),
-                  { once: true }
-                )
-              })
-            }
-          ),
+          vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+            signal = init?.signal ?? undefined
+            return new Promise<Response>((_resolve, reject) => {
+              signal?.addEventListener(
+                "abort",
+                () =>
+                  reject(
+                    new DOMException("The operation was aborted", "AbortError")
+                  ),
+                { once: true }
+              )
+            })
+          }),
           { preconnect: vi.fn() }
         )
         vi.stubGlobal("fetch", fetchMock)
@@ -101,15 +93,10 @@ describe("appAuth", () => {
     const caller = new AbortController()
     let signal: AbortSignal | undefined
     const fetchMock = Object.assign(
-      vi.fn(
-        (
-          _input: string | URL | Request,
-          init?: RequestInit
-        ): Promise<Response> => {
-          signal = init?.signal ?? undefined
-          return Promise.resolve(new Response())
-        }
-      ),
+      vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+        signal = init?.signal ?? undefined
+        return Promise.resolve(new Response())
+      }),
       { preconnect: vi.fn() }
     )
     vi.stubGlobal("fetch", fetchMock)

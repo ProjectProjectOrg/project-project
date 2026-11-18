@@ -71,7 +71,7 @@ type Draft = Omit<FilterOption, "key" | "chosen">
 export function useFilterOptions(
   dimensions: ReadonlyArray<FilterDimension>,
   filter: TicketFilter
-): ReadonlyArray<FilterOption> {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
   const viewerId = useAtomValue(currentUserId)
@@ -88,7 +88,7 @@ export function useFilterOptions(
       )
     : []
 
-  const drafts = (dimension: FilterDimension): ReadonlyArray<Draft> => {
+  const drafts = (dimension: FilterDimension) => {
     switch (dimension) {
       case "blocked":
         return [
@@ -97,7 +97,7 @@ export function useFilterOptions(
             label: m.tickets_filters_blocked_only(),
             icon: OctagonMinus
           }
-        ]
+        ] satisfies ReadonlyArray<Draft>
       case "flagged":
         return [
           {
@@ -105,7 +105,7 @@ export function useFilterOptions(
             label: m.tickets_filters_flagged_only(),
             icon: Flag
           }
-        ]
+        ] satisfies ReadonlyArray<Draft>
       case "archived":
         return [
           {
@@ -113,7 +113,7 @@ export function useFilterOptions(
             label: m.tickets_filters_archived_show(),
             icon: Archive
           }
-        ]
+        ] satisfies ReadonlyArray<Draft>
       case "type":
         return typeOptions(types).map((option) => ({
           choice: { dimension, value: option.value },
@@ -122,7 +122,7 @@ export function useFilterOptions(
             option.type === null
               ? NoTypeIcon
               : blockIconComponent(option.type.icon)
-        }))
+        })) satisfies ReadonlyArray<Draft>
       case "assignee":
         return [
           ...(viewerId
@@ -144,7 +144,7 @@ export function useFilterOptions(
             label: member.name,
             icon: UserRound
           }))
-        ]
+        ] satisfies ReadonlyArray<Draft>
       case "sprint":
         return [
           {
@@ -157,19 +157,19 @@ export function useFilterOptions(
             label: sprint.name,
             icon: Timer
           }))
-        ]
+        ] satisfies ReadonlyArray<Draft>
       case "estimate":
         return estimateFilterValues(project.estimation).map((value) => ({
           choice: { dimension, value },
           label: estimateFilterLabel(value),
           icon: Gauge
-        }))
+        })) satisfies ReadonlyArray<Draft>
       case "tags":
         return tags.map((tag) => ({
           choice: { dimension, value: tag.name },
           label: tag.name,
           icon: Tag
-        }))
+        })) satisfies ReadonlyArray<Draft>
     }
   }
 

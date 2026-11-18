@@ -158,7 +158,7 @@ export function buildJiraStatusCreateOptions(
       "id" | "name" | "categoryKey"
     >
   >
-): ReadonlyArray<JiraStatusCreateCandidate> {
+) {
   const candidates = statuses
     .toSorted((a, b) => compareStrings(a.id, b.id))
     .map((status) => {
@@ -234,7 +234,7 @@ export function buildJiraStatusCreateOptions(
 export function buildDefaultTicketIdMappings(
   manifest: JiraMappingSource,
   destinationKey: CreatableProjectKey
-): ReadonlyArray<TicketIdMapping> {
+) {
   return manifest.issues
     .map(({ id, issueNumber }) => ({
       sourceIssueId: id,
@@ -248,12 +248,12 @@ export function buildDefaultTicketIdMappings(
 export const jiraDestinationTicketId = (
   destinationKey: CreatableProjectKey,
   issueNumber: number
-): TicketId => decodeTicketIdSync(`${destinationKey}-${issueNumber}`)
+) => decodeTicketIdSync(`${destinationKey}-${issueNumber}`)
 
 export function normalizeJiraTag(
   sourceValue: string,
   sourceKind: JiraTagSourceKind
-): string | null {
+) {
   const normalized = sourceValue
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
@@ -267,9 +267,7 @@ export function normalizeJiraTag(
   return truncated.length === 0 ? null : `${prefix}${truncated}`
 }
 
-export function buildTagCandidates(
-  manifest: JiraMappingSource
-): ReadonlyArray<JiraTagCandidate> {
+export function buildTagCandidates(manifest: JiraMappingSource) {
   const labels = new Set(manifest.issues.flatMap(({ labels }) => labels))
   const candidates: Array<JiraTagCandidate> = []
   for (const component of manifest.components) {
@@ -283,9 +281,7 @@ export function buildTagCandidates(
   )
 }
 
-export function findTagCollisions(
-  candidates: ReadonlyArray<JiraTagCandidate>
-): ReadonlyArray<JiraTagCollision> {
+export function findTagCollisions(candidates: ReadonlyArray<JiraTagCandidate>) {
   const groups = groupBy(
     candidates.filter((candidate) => candidate.destinationTag !== null),
     (candidate) => candidate.destinationTag ?? "",
@@ -302,9 +298,7 @@ export function findTagCollisions(
     )
 }
 
-export function buildOpenSprintConflicts(
-  manifest: JiraMappingSource
-): ReadonlyArray<OpenSprintConflict> {
+export function buildOpenSprintConflicts(manifest: JiraMappingSource) {
   const openMemberships = groupBy(
     manifest.groups
       .filter(
@@ -333,7 +327,7 @@ function makeTagCandidate(
   sourceKind: JiraTagSourceKind,
   sourceKey: string,
   sourceValue: string
-): JiraTagCandidate {
+) {
   const destinationTag = normalizeJiraTag(sourceValue, sourceKind)
   return {
     sourceId: `${sourceKind}:${sourceKey}`,
@@ -341,22 +335,23 @@ function makeTagCandidate(
     sourceValue,
     destinationTag,
     changed: destinationTag !== sourceValue
-  }
+  } satisfies JiraTagCandidate
 }
 
-function statusStyle(
-  categoryKey: string | null
-): Pick<JiraStatusCreateOption, "icon"> {
+function statusStyle(categoryKey: string | null) {
   if (categoryKey === "indeterminate") {
-    return { icon: "CircleDot" }
+    return { icon: "CircleDot" } satisfies Pick<JiraStatusCreateOption, "icon">
   }
   if (categoryKey === "done") {
-    return { icon: "CircleCheck" }
+    return { icon: "CircleCheck" } satisfies Pick<
+      JiraStatusCreateOption,
+      "icon"
+    >
   }
-  return { icon: "CircleDashed" }
+  return { icon: "CircleDashed" } satisfies Pick<JiraStatusCreateOption, "icon">
 }
 
-function hashedStatusSlug(baseSlug: string, sourceStatusId: string): string {
+function hashedStatusSlug(baseSlug: string, sourceStatusId: string) {
   const hash = createHash("sha256")
     .update(sourceStatusId)
     .digest("hex")
@@ -365,7 +360,7 @@ function hashedStatusSlug(baseSlug: string, sourceStatusId: string): string {
   return `${prefix}_${hash}`
 }
 
-function compareStrings(left: string, right: string): number {
+function compareStrings(left: string, right: string) {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
@@ -382,7 +377,7 @@ export function jiraRestrictionPolicy(
 export function jiraConfigurationToMappings(
   manifest: JiraMappingSource,
   configuration: JiraMigrationConfiguration
-): JiraMigrationMappings {
+) {
   const restrictionResolution =
     jiraRestrictionPolicy(configuration) === "include"
       ? ("include_acknowledged" as const)
@@ -477,13 +472,13 @@ export function jiraConfigurationToMappings(
         sourceKind: source.kind,
         sourceValue: source.value
       }))
-  }
+  } satisfies JiraMigrationMappings
 }
 
 export function resolveTagDestinations(
   manifest: JiraMappingSource,
   mappings: JiraMigrationMappings
-): ReadonlyMap<string, string | null> {
+) {
   const overrides = new Map(
     (mappings.tagOverrides ?? []).map((override) => [
       `${override.sourceKind}:${override.sourceValue}`,
@@ -506,7 +501,7 @@ export function resolveTagDestinations(
 
 export const skippedTagKeys = (
   mappings: Pick<JiraMigrationMappings, "skippedTags">
-): ReadonlySet<string> =>
+) =>
   new Set(
     (mappings.skippedTags ?? []).map(
       ({ sourceKind, sourceValue }) => `${sourceKind}:${sourceValue}`
@@ -527,9 +522,7 @@ export type JiraMappingSource = Pick<
   | "coverage"
 >
 
-export function jiraV2MappingSource(
-  manifest: JiraMigrationManifestV2
-): JiraMappingSource {
+export function jiraV2MappingSource(manifest: JiraMigrationManifestV2) {
   const sprintIds = groupBy(
     manifest.sprints.flatMap((sprint) =>
       sprint.issueIds.map((issueId) => ({ issueId, sprintId: sprint.id }))
@@ -594,5 +587,5 @@ export function jiraV2MappingSource(
     })),
     attachments: manifest.attachments.map((value) => ({ ...value, raw: null })),
     coverage: manifest.coverage
-  }
+  } satisfies JiraMappingSource
 }

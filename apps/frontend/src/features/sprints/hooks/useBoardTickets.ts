@@ -28,7 +28,7 @@ export function useBoardTickets(
   slug: string,
   tickets: ReadonlyArray<Ticket>,
   query: TicketListQuery
-): BoardTickets {
+) {
   const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
   const viewerId = useAtomValue(currentUserId)

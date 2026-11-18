@@ -2,7 +2,7 @@ import { Suspense, use, useLayoutEffect, useRef, type ReactNode } from "react"
 
 const never = new Promise<never>(() => {})
 
-function Suspend(): null {
+function Suspend() {
   use(never)
   return null
 }

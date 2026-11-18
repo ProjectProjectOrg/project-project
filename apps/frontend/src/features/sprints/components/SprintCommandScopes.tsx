@@ -64,16 +64,17 @@ export const goTo = (
   icon: Command["icon"],
   to: string,
   group: Command["group"] = "navigation"
-): Command => ({
-  id,
-  group,
-  label,
-  icon,
-  run: (_context, env) => {
-    env.navigate(to)
-    env.close()
-  }
-})
+) =>
+  ({
+    id,
+    group,
+    label,
+    icon,
+    run: (_context, env) => {
+      env.navigate(to)
+      env.close()
+    }
+  }) satisfies Command
 
 const VIEWS = [
   { view: "list", label: m.sprints_command_view_list, icon: Rows3 },
@@ -83,23 +84,22 @@ const VIEWS = [
 export const viewCommands = (
   current: ProjectView,
   show: (view: "list" | "board") => void
-): ReadonlyArray<Command> =>
-  VIEWS.flatMap(
-    ({ view, label, icon }): ReadonlyArray<Command> =>
-      view === current
-        ? []
-        : [
-            {
-              id: `view.${view}`,
-              group: "view",
-              label,
-              icon,
-              run: (_context, env) => {
-                show(view)
-                env.close()
-              }
+) =>
+  VIEWS.flatMap(({ view, label, icon }) =>
+    view === current
+      ? []
+      : [
+          {
+            id: `view.${view}`,
+            group: "view",
+            label,
+            icon,
+            run: (_context, env) => {
+              show(view)
+              env.close()
             }
-          ]
+          } satisfies Command
+        ]
   )
 
 const lifecycleCommands = (
@@ -107,7 +107,7 @@ const lifecycleCommands = (
   canPlan: boolean,
   update: (patch: UpdateGroupInput) => void,
   completeEmpty: (() => void) | null
-): ReadonlyArray<Command> => {
+) => {
   if (!canPlan) return []
   const state = sprintState(sprint)
   const commands: Array<Command> = []
@@ -186,7 +186,7 @@ export function useSprintActions({
   slug,
   sprint,
   canPlan
-}: SprintContext): ReadonlyArray<Command> {
+}: SprintContext) {
   const update = useAtomSet(
     updateSprint({ req: sprintListRequest(orgSlug, slug), groupId: sprint.id })
   )

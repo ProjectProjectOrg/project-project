@@ -10,14 +10,12 @@ export type CreateProjectValues = Readonly<{
   key: string | null
 }>
 
-export const effectiveProjectKey = (values: CreateProjectValues): string =>
+export const effectiveProjectKey = (values: CreateProjectValues) =>
   values.key ?? deriveKey(values.name.trim())
 
 const decodeCreateProjectInput = Schema.decodeSync(CreateProjectInput)
 
-export const toCreateProjectInput = (
-  values: CreateProjectValues
-): CreateProjectInput =>
+export const toCreateProjectInput = (values: CreateProjectValues) =>
   decodeCreateProjectInput({
     name: values.name.trim(),
     key: effectiveProjectKey(values)

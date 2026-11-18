@@ -25,11 +25,10 @@ export const WEEKDAYS = [
   "saturday"
 ] as const
 
-export const localToday = (now: DateTime.DateTime): DateTime.Zoned =>
+export const localToday = (now: DateTime.DateTime) =>
   DateTime.startOf(DateTime.setZone(now, DateTime.zoneMakeLocal()), "day")
 
-const dayOf = (date: Date): DateTime.Zoned =>
-  localToday(DateTime.makeUnsafe(date))
+const dayOf = (date: Date) => localToday(DateTime.makeUnsafe(date))
 
 export type ParseOptions = Readonly<{
   // Days before today read as nothing unless this is on. Off, a bare
@@ -49,15 +48,14 @@ const read = (text: string, reference: DateTime.Zoned, allowPast: boolean) =>
   })
 
 const notBefore =
-  (today: DateTime.Zoned, allowPast: boolean) =>
-  (day: DateTime.Zoned): boolean =>
+  (today: DateTime.Zoned, allowPast: boolean) => (day: DateTime.Zoned) =>
     allowPast || !DateTime.isLessThan(day, today)
 
 export const parseDayAt = (
   input: string,
   now: DateTime.DateTime,
   { allowPast = false }: ParseOptions = {}
-): Option.Option<DateTime.Zoned> => {
+) => {
   const today = localToday(now)
   return Option.fromNullishOr(read(input.trim(), today, allowPast)[0]).pipe(
     Option.map((result) => dayOf(result.start.date())),
@@ -70,7 +68,7 @@ const CONNECTOR = /\s+(?:until|till|through|to|-|–)\s+/iu
 const FOR_LENGTH = /^for\s+/iu
 const DAY_MS = 86_400_000
 
-const daysBetween = (from: DateTime.Zoned, to: DateTime.Zoned): number =>
+const daysBetween = (from: DateTime.Zoned, to: DateTime.Zoned) =>
   Math.round(
     (DateTime.toEpochMillis(to) - DateTime.toEpochMillis(from)) / DAY_MS
   )
@@ -79,7 +77,7 @@ export const parseRangeAt = (
   input: string,
   now: DateTime.DateTime,
   { allowPast = false }: ParseOptions = {}
-): Option.Option<DayRange> => {
+) => {
   const today = localToday(now)
   const text = input.trim()
   const [first, second] = read(text, today, allowPast)
@@ -115,14 +113,8 @@ export const parseRangeAt = (
   return Option.some({ from, to: Option.none() })
 }
 
-export const parseDay = (
-  input: string,
-  options?: ParseOptions
-): Effect.Effect<Option.Option<DateTime.Zoned>> =>
+export const parseDay = (input: string, options?: ParseOptions) =>
   Effect.map(DateTime.now, (now) => parseDayAt(input, now, options))
 
-export const parseRange = (
-  input: string,
-  options?: ParseOptions
-): Effect.Effect<Option.Option<DayRange>> =>
+export const parseRange = (input: string, options?: ParseOptions) =>
   Effect.map(DateTime.now, (now) => parseRangeAt(input, now, options))

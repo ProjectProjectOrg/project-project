@@ -18,4 +18,4 @@ export const MentionScopeProvider = ({
   children: ReactNode
 }) => <Ctx.Provider value={scope}>{children}</Ctx.Provider>
 
-export const useMentionScope = (): MentionScope | null => useContext(Ctx)
+export const useMentionScope = () => useContext(Ctx)

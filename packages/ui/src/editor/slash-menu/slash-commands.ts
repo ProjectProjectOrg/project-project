@@ -33,7 +33,7 @@ const blockMarkdown = (
   definition: BlockDefinition,
   detach: boolean,
   mode: EditorBlocksMode
-): string => {
+) => {
   if (mode === "template" && !detach)
     return formatTicketBlock(definition.key, "")
   return formatTicketBlock(definition.key, stripHints(definition.content), {

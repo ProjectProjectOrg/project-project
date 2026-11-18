@@ -16,8 +16,8 @@ export type IntegrationCommandEntry = Readonly<{
 
 export function integrationCommands(
   entries: ReadonlyArray<IntegrationCommandEntry>
-): ReadonlyArray<Command> {
-  return entries.flatMap((entry): ReadonlyArray<Command> => {
+) {
+  return entries.flatMap((entry) => {
     if (!entry.allowed) return []
     const state = entry.state
     const repair =
@@ -60,7 +60,7 @@ export function integrationCommands(
           env.navigate(entry.to)
           env.close()
         }
-      }
+      } satisfies Command
     ]
   })
 }

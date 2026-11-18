@@ -128,12 +128,12 @@ type PinNode = Readonly<{ pin: PinRef; children: ReadonlyArray<PinNode> }>
 
 // As the app nests its pins: a ticket goes under its parent's row when that
 // row is in the list too, pinned or live.
-const nestPins = (pins: ReadonlyArray<PinRef>): ReadonlyArray<PinNode> => {
+const nestPins = (pins: ReadonlyArray<PinRef>) => {
   const here = (id: string | undefined) =>
     pins.find((pin) => pin.kind === "ticket" && pin.id === id)
   const parentOf = (pin: PinRef) =>
     pin.kind === "ticket" ? here(PARENTS.get(pin.id)) : undefined
-  const node = (pin: PinRef): PinNode => ({
+  const node: (pin: PinRef) => PinNode = (pin) => ({
     pin,
     children: pins.filter((child) => parentOf(child) === pin).map(node)
   })
@@ -367,11 +367,7 @@ const RAIL_ORDER = ["dash", ...PROJECTS.map((p) => p.slug)]
 
 // Rail switches move the panel up or down with the bar; settings is a
 // sub-page, so it slides in from the side and back out the way it came.
-function panelTransition(
-  state: State,
-  route: Route,
-  scope: string
-): SidebarPanelTransition {
+function panelTransition(state: State, route: Route, scope: string) {
   if (scope !== state.scope)
     return RAIL_ORDER.indexOf(scope) > RAIL_ORDER.indexOf(state.scope)
       ? "up"

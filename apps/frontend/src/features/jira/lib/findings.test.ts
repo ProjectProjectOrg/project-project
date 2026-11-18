@@ -3,14 +3,15 @@ import { describe, expect, it } from "vitest"
 
 import { groupJiraFindings } from "./findings"
 
-const finding = (kind: string, subject: string): JiraMigrationFinding => ({
-  kind,
-  subject,
-  sourceId: null,
-  ticketId: null,
-  jiraUrl: null,
-  consequence: `${kind} happened`
-})
+const finding = (kind: string, subject: string) =>
+  ({
+    kind,
+    subject,
+    sourceId: null,
+    ticketId: null,
+    jiraUrl: null,
+    consequence: `${kind} happened`
+  }) satisfies JiraMigrationFinding
 
 describe("groupJiraFindings", () => {
   it("groups by kind, needs-attention first and unknown kinds last", () => {

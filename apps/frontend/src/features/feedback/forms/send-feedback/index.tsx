@@ -33,10 +33,11 @@ import { m } from "@/paraglide/messages"
 
 import { sendFeedbackFormOpts } from "./opts"
 
-const kindItems = (): ReadonlyArray<SegmentedItem<FeedbackKind>> => [
-  { key: "bug", label: m.feedback_kind_bug() },
-  { key: "feature", label: m.feedback_kind_feature() }
-]
+const kindItems = () =>
+  [
+    { key: "bug", label: m.feedback_kind_bug() },
+    { key: "feature", label: m.feedback_kind_feature() }
+  ] satisfies ReadonlyArray<SegmentedItem<FeedbackKind>>
 
 const swap: Variants = {
   shown: (delay = 0) => ({

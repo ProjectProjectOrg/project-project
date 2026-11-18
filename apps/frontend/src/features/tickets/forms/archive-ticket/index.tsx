@@ -16,11 +16,12 @@ export type ArchiveTicket = Pick<Ticket, "id" | "title">
 
 type ArchivePreset = Readonly<{ label: string; icon: IconComponent }>
 
-const presets = (): ReadonlyArray<ArchivePreset> => [
-  { label: m.tickets_archive_preset_duplicate(), icon: Copy },
-  { label: m.tickets_archive_preset_wont_do(), icon: Ban },
-  { label: m.tickets_archive_preset_obsolete(), icon: Clock }
-]
+const presets = () =>
+  [
+    { label: m.tickets_archive_preset_duplicate(), icon: Copy },
+    { label: m.tickets_archive_preset_wont_do(), icon: Ban },
+    { label: m.tickets_archive_preset_obsolete(), icon: Clock }
+  ] satisfies ReadonlyArray<ArchivePreset>
 
 export function ArchiveForm({
   ticket,

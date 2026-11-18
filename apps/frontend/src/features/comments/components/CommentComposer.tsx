@@ -11,7 +11,7 @@ import { m } from "@/paraglide/messages"
 
 const SETTLE_FRAMES = 30
 
-const scrollParent = (element: HTMLElement): HTMLElement | null => {
+const scrollParent = (element: HTMLElement) => {
   for (let node = element.parentElement; node; node = node.parentElement) {
     if (/auto|scroll/.test(getComputedStyle(node).overflowY)) return node
   }

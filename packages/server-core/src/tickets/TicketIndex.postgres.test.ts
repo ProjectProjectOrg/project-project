@@ -63,7 +63,7 @@ const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
 
-const unexpected = (method: string): Effect.Effect<never> =>
+const unexpected = (method: string) =>
   Effect.die(new Error(`unexpected ${method} call`))
 
 const FakeTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
@@ -109,7 +109,7 @@ const rebuiltDocument: TicketDocs.TicketDocument = {
 const indexedDocument = (
   id: string,
   overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument => ({
+) => ({
   ...rebuiltDocument,
   id: ticketId(id),
   title: id,

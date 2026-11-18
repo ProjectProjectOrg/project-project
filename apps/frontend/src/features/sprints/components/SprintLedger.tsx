@@ -33,10 +33,10 @@ import { PhaseBar } from "./SprintProgress"
 const ROW_GRID =
   "grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_10rem_9rem_5.5rem_5.5rem]"
 
-const sprintDates = (sprint: Group): string =>
+const sprintDates = (sprint: Group) =>
   formatSprintDates(sprintDateDraft(sprint)) ?? m.sprints_not_scheduled()
 
-const lengthLabel = (sprint: Group): string | null => {
+const lengthLabel = (sprint: Group) => {
   const days = sprintLengthDays(sprint)
   return days === null ? null : sprintLengthAdjective(days)
 }

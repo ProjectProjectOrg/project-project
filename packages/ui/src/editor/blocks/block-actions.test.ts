@@ -46,8 +46,7 @@ import {
   $removeBlock,
   $resetBlock,
   $topLevelBlocks,
-  $unwrapBlock,
-  type TopLevelBlockNode
+  $unwrapBlock
 } from "./block-commands"
 import {
   registerBlockKeyboard,
@@ -80,7 +79,7 @@ const BODY = [
   block("notes", "## Notes\n\nSome notes.")
 ].join("\n\n")
 
-function editorWith(markdown: string): LexicalEditor {
+function editorWith(markdown: string) {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "block-actions-test",
@@ -116,17 +115,17 @@ const markdown = (editor: LexicalEditor) =>
     .getEditorState()
     .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
 
-const describeNode = (node: LexicalNode): string =>
+const describeNode = (node: LexicalNode) =>
   $isTicketBlockNode(node) || $isSyncedBlockNode(node)
     ? `block:${node.getBlockType()}`
     : node.getTextContent().trim() === ""
       ? "blank"
       : `text:${node.getTextContent()}`
 
-const outline = (editor: LexicalEditor): ReadonlyArray<string> =>
+const outline = (editor: LexicalEditor) =>
   editor.getEditorState().read(() => $getRoot().getChildren().map(describeNode))
 
-const $blockOf = (key: string): TopLevelBlockNode => {
+const $blockOf = (key: string) => {
   const node = $topLevelBlocks().find(
     (candidate) => candidate.getBlockType() === key
   )

@@ -192,7 +192,7 @@ type MovedTicket = Readonly<{ id: TicketId; previous: GroupId | undefined }>
 
 type MoveOptions = Readonly<{ cause?: ActivityCause; from?: GroupId }>
 
-function nextIdFrom(ids: ReadonlyArray<GroupId>): GroupId {
+function nextIdFrom(ids: ReadonlyArray<GroupId>) {
   let max = 0
   for (const id of ids) {
     const n = Number(id.slice(2))
@@ -201,7 +201,7 @@ function nextIdFrom(ids: ReadonlyArray<GroupId>): GroupId {
   return makeGroupId(`G-${max + 1}`)
 }
 
-function pickColor(used: ReadonlyArray<string>): GroupColor {
+function pickColor(used: ReadonlyArray<string>) {
   for (const c of TAG_DEFAULT_PALETTE)
     if (!used.includes(c)) return makeGroupColor(c)
   return makeGroupColor(
@@ -209,14 +209,12 @@ function pickColor(used: ReadonlyArray<string>): GroupColor {
   )
 }
 
-function documentToGroup(document: GroupDocs.GroupDocument): Group {
+function documentToGroup(document: GroupDocs.GroupDocument) {
   const { body: _body, snapshot: _snapshot, ...group } = document
   return group
 }
 
-const sprintFilesOf = (
-  documents: ReadonlyArray<GroupDocs.GroupDocument>
-): SprintFiles =>
+const sprintFilesOf = (documents: ReadonlyArray<GroupDocs.GroupDocument>) =>
   new Map(
     documents.flatMap((document) =>
       document.kind === "sprint" ? [[document.id, document] as const] : []
@@ -225,7 +223,7 @@ const sprintFilesOf = (
 
 const requireGroupPolicy = (
   allowed: (scope: ProjectScope["Service"]) => boolean
-): Effect.Effect<void, Forbidden, ProjectScope> =>
+) =>
   Effect.flatMap(ProjectScope, (scope) =>
     allowed(scope) ? Effect.void : Effect.fail(new Forbidden())
   )
@@ -244,23 +242,16 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
-    keyedLock.withLock(KeyedLock.LockKey.groupFiles(orgSlug, slug), effect)
+  ) => keyedLock.withLock(KeyedLock.LockKey.groupFiles(orgSlug, slug), effect)
 
   const lockedInScope = <A, E, R>(
     body: (scope: ProjectScope["Service"]) => Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R | ProjectScope> =>
+  ) =>
     Effect.flatMap(ProjectScope, (scope) =>
       withGroupFilesLock(scope.orgSlug, scope.slug, body(scope))
     )
 
-  const readAll = (
-    orgSlug: string,
-    slug: string
-  ): Effect.Effect<
-    ReadonlyArray<GroupDocs.GroupDocument>,
-    Markdown.MarkdownError
-  > =>
+  const readAll = (orgSlug: string, slug: string) =>
     groupDocs.listIds(orgSlug, slug).pipe(
       Effect.flatMap((ids) =>
         Effect.forEach(
@@ -279,7 +270,7 @@ const make = Effect.gen(function* () {
   const withSprintTickets = (
     project: TicketProject,
     documents: ReadonlyArray<GroupDocs.GroupDocument>
-  ): Effect.Effect<ReadonlyArray<GroupDocs.GroupDocument>> =>
+  ) =>
     Effect.gen(function* () {
       const sprintIds = documents.flatMap((document) =>
         document.kind === "sprint" ? [document.id] : []
@@ -306,10 +297,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     ticketIds: ReadonlyArray<string>
-  ): Effect.Effect<
-    ReadonlyArray<TicketDocs.TicketDocument>,
-    NotFound | Markdown.MarkdownError
-  > =>
+  ) =>
     Effect.forEach(
       ticketIds,
       (id) =>
@@ -328,11 +316,7 @@ const make = Effect.gen(function* () {
     ticketIds: ReadonlyArray<TicketId>,
     sprint: GroupId | undefined,
     options: MoveOptions = {}
-  ): Effect.Effect<
-    ReadonlyArray<MovedTicket>,
-    NotFound | Markdown.MarkdownError,
-    ActivityActor
-  > => {
+  ) => {
     const moved: Array<MovedTicket> = []
     const move = (
       id: TicketId,
@@ -389,7 +373,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     ticketIds: ReadonlyArray<string>
-  ): Effect.Effect<void, NotFound | Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       if (ticketIds.length === 0) return
       const existing = yield* ticketDocs.listIds(orgSlug, slug)
@@ -401,10 +385,7 @@ const make = Effect.gen(function* () {
       }
     })
 
-  const validateInterval = (
-    startsAt: Date | null,
-    endsAt: Date | null
-  ): Effect.Effect<void, Validation> =>
+  const validateInterval = (startsAt: Date | null, endsAt: Date | null) =>
     startsAt !== null && endsAt !== null && endsAt < startsAt
       ? Effect.fail(new Validation({ reason: "invalid_interval" }))
       : Effect.void
@@ -413,7 +394,7 @@ const make = Effect.gen(function* () {
     completedAt: Date | null,
     startsAt: Date | null,
     now: Date
-  ): Effect.Effect<void, Validation> => {
+  ) => {
     if (completedAt === null) return Effect.void
     if (completedAt > now) {
       return Effect.fail(new Validation({ reason: "completed_in_future" }))
@@ -444,7 +425,7 @@ const make = Effect.gen(function* () {
     group: Group,
     filter: GroupFilter | undefined,
     now: Date
-  ): boolean => {
+  ) => {
     if (!filter) return true
     if (filter.kind !== undefined) {
       if (filter.kind.length === 0) return false
@@ -460,11 +441,7 @@ const make = Effect.gen(function* () {
 
   const loadFilteredGroups = (
     predicate: (group: Group, now: Date) => boolean
-  ): Effect.Effect<
-    ReadonlyArray<Group>,
-    NotFound | Markdown.MarkdownError,
-    ProjectScope
-  > =>
+  ) =>
     Effect.gen(function* () {
       const scope = yield* ProjectScope
       const docs = yield* readAll(scope.orgSlug, scope.slug)
@@ -527,7 +504,7 @@ const make = Effect.gen(function* () {
   const detailOf = (
     project: TicketProject,
     document: GroupDocs.GroupDocument
-  ): Effect.Effect<GroupDetail> =>
+  ) =>
     withSprintTickets(project, [document]).pipe(
       Effect.map(([filled]) => filled ?? document)
     )
@@ -540,9 +517,7 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const rejectEpics = (
-    tickets: ReadonlyArray<TicketDocs.TicketDocument>
-  ): Effect.Effect<void, Validation> =>
+  const rejectEpics = (tickets: ReadonlyArray<TicketDocs.TicketDocument>) =>
     tickets.some((ticket) => isEpic(ticket))
       ? Effect.fail(new Validation({ reason: "epic_in_sprint" }))
       : Effect.void
@@ -639,8 +614,11 @@ const make = Effect.gen(function* () {
 
   const snapshotOf = (
     members: ReadonlyArray<TicketIndex.TicketIndexSprintTicket>
-  ): ReadonlyArray<SprintSnapshotTicket> =>
-    members.map(({ id, status, estimate }) => ({ id, status, estimate }))
+  ) =>
+    members.map(
+      ({ id, status, estimate }) =>
+        ({ id, status, estimate }) satisfies SprintSnapshotTicket
+    )
 
   const update = Effect.fn("Groups.update")(function* (
     id: string,
@@ -691,11 +669,7 @@ const make = Effect.gen(function* () {
     scope: ProjectScope["Service"],
     sprint: GroupDocs.GroupDocument,
     requested: (current: ReadonlyArray<TicketId>) => ReadonlyArray<TicketId>
-  ): Effect.Effect<
-    UpdateGroupTicketsOutput,
-    Forbidden | NotFound | Validation | Markdown.MarkdownError,
-    ProjectScope | ActivityActor
-  > =>
+  ) =>
     Effect.gen(function* () {
       const { orgSlug, slug } = scope
       const current = (yield* sprintMembers(scope, sprint.id)).map(
@@ -755,11 +729,7 @@ const make = Effect.gen(function* () {
     slug: string,
     current: GroupDocs.GroupDocument,
     nextTickets: ReadonlyArray<TicketId>
-  ): Effect.Effect<
-    UpdateGroupTicketsOutput,
-    Forbidden | Markdown.MarkdownError,
-    ProjectScope | ActivityActor
-  > =>
+  ) =>
     Effect.gen(function* () {
       if (
         GroupPolicy.ticketActions(current.tickets, nextTickets).length === 0
@@ -1004,11 +974,7 @@ const make = Effect.gen(function* () {
   const assignable = (
     sprints: SprintFiles,
     sprintIds: ReadonlyArray<GroupId>
-  ): Effect.Effect<
-    void,
-    Forbidden | NotFound | SprintCompletedImmutable,
-    ProjectScope
-  > =>
+  ) =>
     Effect.gen(function* () {
       yield* requireGroupAction("sprint", "add_ticket")
       for (const sprintId of sprintIds) {
@@ -1035,7 +1001,7 @@ const make = Effect.gen(function* () {
 
   const withSprints = <A, E, R>(
     use: (sprints: SprintFiles) => Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | Markdown.MarkdownError, R | ProjectScope> =>
+  ) =>
     lockedInScope(({ orgSlug, slug }) =>
       readAll(orgSlug, slug).pipe(
         Effect.flatMap((all) => use(sprintFilesOf(all)))

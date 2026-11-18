@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect"
 
 import { BackendRuntimeLive } from "../src/runtime"
 
-const argValue = (name: string): string | undefined => {
+const argValue = (name: string) => {
   const prefix = `${name}=`
   const match = process.argv.find((arg) => arg.startsWith(prefix))
   if (match) return match.slice(prefix.length)

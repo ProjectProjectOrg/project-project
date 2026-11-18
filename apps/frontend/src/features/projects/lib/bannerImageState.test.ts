@@ -10,9 +10,7 @@ import {
 
 type Photo = Readonly<{ id: string }>
 
-const run = (
-  ...events: ReadonlyArray<BannerImageEvent<Photo>>
-): BannerImageState<Photo> =>
+const run = (...events: ReadonlyArray<BannerImageEvent<Photo>>) =>
   events.reduce<BannerImageState<Photo>>(
     bannerImageReducer,
     initialBannerImageState

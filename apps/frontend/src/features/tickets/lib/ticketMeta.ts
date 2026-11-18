@@ -47,7 +47,7 @@ const BASELINE_LABELS: Record<string, () => string> = {
 export function statusLabelFor(
   status: string,
   statuses: ReadonlyArray<ProjectStatus>
-): string {
+) {
   const row = statuses.find((s) => s.slug === status)
   if (row) return row.label
   const baseline = BASELINE_LABELS[status]
@@ -58,7 +58,7 @@ export function statusLabelFor(
 export function statusMetaFor(
   status: string,
   statuses: ReadonlyArray<ProjectStatus>
-): StatusMeta {
+) {
   const row = statuses.find((s) => s.slug === status)
   if (row) {
     return {

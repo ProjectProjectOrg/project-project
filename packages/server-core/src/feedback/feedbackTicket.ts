@@ -19,27 +19,27 @@ export type FeedbackTicketAttachments = Readonly<{
 
 const NO_ATTACHMENTS: FeedbackTicketAttachments = { stored: [], notStored: [] }
 
-export const singleLine = (text: string, max: number): string =>
+export const singleLine = (text: string, max: number) =>
   text
     .replace(/[\r\n]+/gu, " ")
     .trim()
     .slice(0, max)
 
-export const singleLineFilename = (name: string): string =>
+export const singleLineFilename = (name: string) =>
   singleLine(name, 255) || "file"
 
-export const feedbackTicketType = (report: FeedbackReport): TypeKey =>
+export const feedbackTicketType = (report: FeedbackReport) =>
   TypeKey.make(report.kind === "bug" ? "bug" : "feat")
 
 const longestBacktickRun = (text: string) =>
   Math.max(0, ...Array.from(text.matchAll(/`+/gu), ([run]) => run.length))
 
-export const fenced = (text: string): string => {
+export const fenced = (text: string) => {
   const fence = "`".repeat(Math.max(3, longestBacktickRun(text) + 1))
   return `${fence}text\n${text}\n${fence}`
 }
 
-export const inlineCode = (raw: string): string => {
+export const inlineCode = (raw: string) => {
   const text = stripMentionLinks(raw)
   const ticks = "`".repeat(longestBacktickRun(text) + 1)
   const padded = text.startsWith("`") || text.endsWith("`") ? ` ${text} ` : text
@@ -54,7 +54,7 @@ const formatBytes = (bytes: number) =>
 const detailLines = (
   report: FeedbackReport,
   notStored: ReadonlyArray<FeedbackAttachmentFile>
-): ReadonlyArray<string> => [
+) => [
   `- **Reported by:** ${inlineCode(report.reporter.name)} ${inlineCode(report.reporter.email)}`,
   `- **Instance:** ${inlineCode(report.instance.url)}${report.instance.version === null ? "" : ` ${inlineCode(report.instance.version)}`}`,
   `- **Page:** ${inlineCode(report.context.route)}`,
@@ -74,9 +74,7 @@ const detailLines = (
       ])
 ]
 
-const attachmentLines = (
-  stored: ReadonlyArray<StoredFeedbackAttachment>
-): ReadonlyArray<string> =>
+const attachmentLines = (stored: ReadonlyArray<StoredFeedbackAttachment>) =>
   stored.length === 0
     ? []
     : [
@@ -98,7 +96,7 @@ export const feedbackTicketBody = (
     verbatim: boolean
     attachments?: FeedbackTicketAttachments
   }>
-): string => {
+) => {
   const { stored, notStored } = options.attachments ?? NO_ATTACHMENTS
   const description = stripMentionLinks(report.description).trim()
   const shown =
@@ -118,7 +116,7 @@ export const feedbackTicketBody = (
 export const unstoredFiles = (
   manifest: ReadonlyArray<FeedbackAttachmentFile>,
   storedNames: ReadonlyArray<string>
-): ReadonlyArray<FeedbackAttachmentFile> => {
+) => {
   const remaining = [...storedNames]
   return manifest.filter((file) => {
     const index = remaining.indexOf(file.filename)
@@ -132,7 +130,7 @@ export const clientIp = (
   forwardedFor: string | undefined,
   remoteAddress: string | undefined,
   trustedProxyHops: number
-): string | undefined => {
+) => {
   const hops = (forwardedFor ?? "")
     .split(",")
     .map((entry) => entry.trim())

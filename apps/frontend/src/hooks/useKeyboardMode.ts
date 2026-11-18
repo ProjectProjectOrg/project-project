@@ -9,7 +9,7 @@ import {
 export function useKeyboardMode(
   root: RefObject<HTMLElement | null>,
   onMouseMove: (event: PointerEvent, wasNavigating: boolean) => void
-): () => void {
+) {
   const latest = useRef(onMouseMove)
   useLayoutEffect(() => {
     latest.current = onMouseMove

@@ -27,10 +27,11 @@ export type TagsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({
-  _view: "tags",
-  params: { orgSlug, slug }
-})
+export const tagsRequest = (orgSlug: string, slug: string) =>
+  ({
+    _view: "tags",
+    params: { orgSlug, slug }
+  }) satisfies TagsRequest
 
 const scopeOf = (req: TagsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -83,11 +84,11 @@ export type TagEditorValue = Readonly<{
   applied: ReadonlyArray<AppliedTag>
 }>
 
-export const tagEditorRequest = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): TagEditorRequest => ({ _view: "tagEditor", params: { orgSlug, slug, id } })
+export const tagEditorRequest = (orgSlug: string, slug: string, id: TicketId) =>
+  ({
+    _view: "tagEditor",
+    params: { orgSlug, slug, id }
+  }) satisfies TagEditorRequest
 
 const tagsRequestOf = (req: TagEditorRequest) =>
   tagsRequest(req.params.orgSlug, req.params.slug)
@@ -102,10 +103,13 @@ const tagEditorQuery = (req: TagEditorRequest) => {
     (get) =>
       AsyncResult.map(
         AsyncResult.all([get(tags), get(ticket)] as const),
-        ([tags, ticket]): TagEditorValue => ({
-          tags,
-          applied: ticket.tags.map((name) => ({ key: name, name }))
-        })
+        ([tags, ticket]) => {
+          const value: TagEditorValue = {
+            tags,
+            applied: ticket.tags.map((name) => ({ key: name, name }))
+          }
+          return value
+        }
       ),
     (refresh) => {
       refresh(tags)
@@ -122,7 +126,7 @@ const updateEditorValue = (
   value: TagEditorValue,
   name: TagName,
   patch: UpdateTagInput
-): TagEditorValue => {
+) => {
   const nextName = patch.name
   return {
     tags: value.tags.map((tag) =>
@@ -140,33 +144,26 @@ const updateEditorValue = (
   }
 }
 
-const deleteEditorTag = (
-  value: TagEditorValue,
-  name: TagName
-): TagEditorValue => ({
+const deleteEditorTag = (value: TagEditorValue, name: TagName) => ({
   tags: value.tags.filter((tag) => tag.name !== name),
   applied: value.applied.filter((tag) => tag.name !== name)
 })
 
-const syntheticTag = (input: CreateTagInput): Tag => ({
-  name: input.name,
-  color: input.color ?? makeTagColor("#7c3aed"),
-  createdBy: "",
-  createdAt: DateTime.toDate(DateTime.nowUnsafe())
-})
+const syntheticTag = (input: CreateTagInput) =>
+  ({
+    name: input.name,
+    color: input.color ?? makeTagColor("#7c3aed"),
+    createdBy: "",
+    createdAt: DateTime.toDate(DateTime.nowUnsafe())
+  }) satisfies Tag
 
-const createEditorTag = (
-  value: TagEditorValue,
-  input: CreateTagInput
-): TagEditorValue => ({
-  ...value,
-  tags: [...value.tags, syntheticTag(input)]
-})
+const createEditorTag = (value: TagEditorValue, input: CreateTagInput) =>
+  ({
+    ...value,
+    tags: [...value.tags, syntheticTag(input)]
+  }) satisfies TagEditorValue
 
-const applyEditorTags = (
-  value: TagEditorValue,
-  edit: ListEdit<TagName>
-): TagEditorValue => ({
+const applyEditorTags = (value: TagEditorValue, edit: ListEdit<TagName>) => ({
   ...value,
   applied: applyListEdit(
     value.applied.map((tag) => tag.name),
@@ -186,7 +183,7 @@ const confirmEditorUpdate = (
   name: TagName,
   requestedName: TagName | undefined,
   updated: Tag
-): TagEditorValue => ({
+) => ({
   tags: value.tags.map((tag) =>
     tag.name === name || tag.name === requestedName ? updated : tag
   ),

@@ -49,7 +49,7 @@ export const response = (
   json: Schema.Json,
   status = 200,
   headers: Record<string, string> = {}
-): Transport.JiraTransportResponse => ({
+) => ({
   status,
   headers,
   json: Effect.succeed(json),
@@ -57,7 +57,7 @@ export const response = (
 })
 export const scanFixtureResponse = (
   request: Transport.JiraTransportRequest
-): Transport.JiraTransportResponse => {
+) => {
   const url = new URL(request.url)
   const path = url.pathname
   const offset = Number(url.searchParams.get("startAt") ?? 0)

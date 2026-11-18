@@ -7,7 +7,7 @@ import type { RefObject } from "react"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 
-export function useFeedbackEnabled(orgSlug: string): boolean {
+export function useFeedbackEnabled(orgSlug: string) {
   const status = useAtomValue(feedbackStatus(orgSlug))
   return AsyncResult.isSuccess(status) && status.value.enabled
 }

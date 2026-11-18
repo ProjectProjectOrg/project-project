@@ -24,11 +24,7 @@ const DEEP_SHIFTS: ReadonlyArray<number> = [60, 90, 120, 240, 270]
 const INK_LIGHT = { L: 0.3, C: 0.1 }
 const INK_DARK = { L: 0.97, C: 0.025 }
 
-export const ditherPalette = (
-  next: Random,
-  base: Oklch,
-  tone: PaletteTone
-): DitherPalette => {
+export const ditherPalette = (next: Random, base: Oklch, tone: PaletteTone) => {
   // Drawn for every tone, so a seed's pattern doesn't change with its tone.
   const accentHue = (base.h + pick(next, ACCENT_SHIFTS)) % 360
   const deepPick = (accentHue + pick(next, DEEP_SHIFTS)) % 360
@@ -56,9 +52,7 @@ export const ditherPalette = (
 // The palette from picked colours (a project's Multicolour picks): the
 // first is the base, the second the middle steps, the third the deep step;
 // with fewer, the earlier ones fill in. Same translucent steps as above.
-export const pickedPalette = (
-  picks: ReadonlyArray<Oklch>
-): ReadonlyArray<string> => {
+export const pickedPalette = (picks: ReadonlyArray<Oklch>) => {
   const [base, accent = base, deep = accent] = picks
   const step = (color: Oklch, opacity: number) => oklchCss(color, opacity)
   return [
@@ -72,7 +66,7 @@ export const pickedPalette = (
 
 // A colour as the palette's base: a wheel colour (what projects and members
 // get) exactly as the wheel defines it, any other hex converted.
-export const paletteBase = (hex: string): Oklch => {
+export const paletteBase = (hex: string) => {
   const swatch = STORED_COLORS.find(
     (ring) => ring.hex.toLowerCase() === hex.toLowerCase()
   )

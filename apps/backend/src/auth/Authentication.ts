@@ -37,7 +37,6 @@ import {
   ActivityActor,
   Authentication,
   CurrentUser,
-  type EditorPreference,
   Unauthorized
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -47,9 +46,7 @@ import * as Layer from "effect/Layer"
 import { toWebHeaders } from "../http/toWebHeaders"
 import { isClientRefusal } from "../organizations/Handlers"
 
-export function normalizeEditorPreference(
-  value: string | null | undefined
-): EditorPreference {
+export function normalizeEditorPreference(value: string | null | undefined) {
   switch (value) {
     case "github_dev":
     case "vscode":
@@ -57,7 +54,7 @@ export function normalizeEditorPreference(
       return value
     case "github":
     default:
-      return "github"
+      return "github" as const
   }
 }
 

@@ -30,18 +30,15 @@ const HIGHLIGHT_INSET = 1
 
 type Point = Readonly<{ x: number; y: number }>
 
-const toneOf = (element: HTMLElement): HighlightTone =>
+const toneOf = (element: HTMLElement) =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
 
-const firstOwned = (
-  container: HTMLElement,
-  selector: string
-): HTMLElement | undefined =>
+const firstOwned = (container: HTMLElement, selector: string) =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
     (candidate) => candidate.closest("[data-menu-highlight-host]") === container
   )
 
-const contains = (element: HTMLElement, pointer: Point): boolean => {
+const contains = (element: HTMLElement, pointer: Point) => {
   const box = element.getBoundingClientRect()
   return (
     pointer.x >= box.left &&
@@ -51,11 +48,7 @@ const contains = (element: HTMLElement, pointer: Point): boolean => {
   )
 }
 
-const ownedAt = (
-  container: HTMLElement,
-  selector: string,
-  pointer: Point
-): HTMLElement | undefined =>
+const ownedAt = (container: HTMLElement, selector: string, pointer: Point) =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
     (row) =>
       row.closest("[data-menu-highlight-host]") === container &&
@@ -78,7 +71,7 @@ const measureHighlight = (
   selector: string,
   pointer: Point | null,
   restOnFirst: boolean
-): HighlightRect | null | "hold" => {
+) => {
   if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
   const active =
     firstOwned(container, selector) ??
@@ -104,10 +97,10 @@ const measureHighlight = (
     width: element.offsetWidth,
     height: element.offsetHeight - HIGHLIGHT_INSET * 2,
     tone: toneOf(element)
-  }
+  } satisfies HighlightRect
 }
 
-const sameRect = (a: HighlightRect | null, b: HighlightRect | null): boolean =>
+const sameRect = (a: HighlightRect | null, b: HighlightRect | null) =>
   a === b ||
   (a !== null &&
     b !== null &&
@@ -120,7 +113,7 @@ const sameRect = (a: HighlightRect | null, b: HighlightRect | null): boolean =>
 export const nextHighlight = (
   previous: HighlightState,
   rect: HighlightRect | null
-): HighlightState => {
+) => {
   if (sameRect(previous.rect, rect)) return previous
   const fresh = previous.rect === null && rect !== null
   return { rect, session: fresh ? previous.session + 1 : previous.session }
@@ -172,7 +165,7 @@ function useHighlightRect(
   anchorRef: React.RefObject<HTMLElement | null>,
   selector: string,
   restOnFirst: boolean
-): HighlightState {
+) {
   const [state, setState] = useState<HighlightState>({
     rect: null,
     session: 0

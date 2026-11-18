@@ -9,9 +9,7 @@ const GAP = 10
 const EXPONENT = 2 / 2 ** 1.5
 const STEPS = 10
 
-const quarter = (
-  turn: (c: number, s: number) => RailPoint
-): ReadonlyArray<RailPoint> =>
+const quarter = (turn: (c: number, s: number) => RailPoint) =>
   Array.from({ length: STEPS }, (_, i) => {
     const theta = ((i + 1) / STEPS) * (Math.PI / 2)
     return turn(Math.cos(theta) ** EXPONENT, Math.sin(theta) ** EXPONENT)
@@ -20,11 +18,7 @@ const quarter = (
 // From (x0, top) over to x1: a corner turning across, a short straight and a
 // corner turning down again. A partial indent (a fold half open) gets a
 // smaller radius, so the bend never overshoots.
-export const railBend = (
-  x0: number,
-  x1: number,
-  top: number
-): ReadonlyArray<RailPoint> => {
+export const railBend = (x0: number, x1: number, top: number) => {
   const dir = Math.sign(x1 - x0)
   const r = Math.min(RADIUS, Math.abs(x1 - x0) / 2)
   return [
@@ -40,7 +34,7 @@ export const railBend = (
 // The rail through the marks, top to bottom: straight down within a column,
 // and where the column changes, one bend. Going in, the bend ends just above
 // the first indented mark; coming out, it starts just below the last one.
-export const railPath = (points: ReadonlyArray<RailPoint>): string =>
+export const railPath = (points: ReadonlyArray<RailPoint>) =>
   points
     .map((p, i) => {
       if (i === 0) return `M ${p.x} ${p.y}`
@@ -66,7 +60,7 @@ export const railPath = (points: ReadonlyArray<RailPoint>): string =>
 // padding) eases in the same way. Closed, it sits on the mark before it, so
 // the rail is exactly what it was without it; open, it's where it belongs.
 // Nothing jumps when a fold mounts or unmounts.
-export const railPoints = (root: HTMLElement): ReadonlyArray<RailPoint> => {
+export const railPoints = (root: HTMLElement) => {
   const box = root.getBoundingClientRect()
   const points: Array<RailPoint> = []
   for (const node of root.querySelectorAll<HTMLElement>("[data-rail-node]")) {

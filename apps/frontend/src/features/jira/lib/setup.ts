@@ -24,7 +24,7 @@ export const jiraSetupSections = [
 
 export type JiraSetupSection = (typeof jiraSetupSections)[number]
 
-export const jiraSetupSectionId = (section: JiraSetupSection): string =>
+export const jiraSetupSectionId = (section: JiraSetupSection) =>
   `jira-setup-section-${section}`
 
 export type JiraSetupCounts = Readonly<{
@@ -53,35 +53,33 @@ export type JiraSetupCounts = Readonly<{
   destination: Readonly<{ attention: number }>
 }>
 
-export const personNeedsAttention = (choice: PeopleChoice): boolean =>
+export const personNeedsAttention = (choice: PeopleChoice) =>
   choice.projectProjectUserId === undefined || isPendingInvite(choice)
 
-export const statusNeedsAttention = (choice: StatusChoice): boolean =>
+export const statusNeedsAttention = (choice: StatusChoice) =>
   choice.projectStatusSlug === undefined
 
 export const tagNeedsAttention = (
   choice: TagChoice,
   requirement: JiraMigrationRequirements["tags"][number] | undefined
-): boolean => {
+) => {
   if (choice.skipped === true) return false
   if (choice.destinationTagName !== "")
     return !isValidTagName(choice.destinationTagName)
   return (requirement?.suggestedDestinationTagName ?? null) === null
 }
 
-export const sprintNeedsAttention = (choice: SprintChoice): boolean =>
+export const sprintNeedsAttention = (choice: SprintChoice) =>
   choice.jiraSprintId === undefined
 
-const count = <A>(
-  items: ReadonlyArray<A>,
-  predicate: (item: A) => boolean
-): number => items.reduce((total, item) => total + (predicate(item) ? 1 : 0), 0)
+const count = <A>(items: ReadonlyArray<A>, predicate: (item: A) => boolean) =>
+  items.reduce((total, item) => total + (predicate(item) ? 1 : 0), 0)
 
 export function jiraSetupCounts(
   setup: JiraImportSetup,
   requirements: JiraMigrationRequirements,
   destinationConflicts: number
-): JiraSetupCounts {
+) {
   const destination = destinationIssues(setup.destination)
   return {
     people: {
@@ -154,13 +152,13 @@ export function jiraSetupCounts(
         (destination.key ? 1 : 0) +
         destinationConflicts
     }
-  }
+  } satisfies JiraSetupCounts
 }
 
 export const sectionAttention = (
   counts: JiraSetupCounts,
   section: JiraSetupSection
-): number => counts[section].attention
+) => counts[section].attention
 
 const sectionRowCount: Readonly<
   Record<JiraSetupSection, (requirements: JiraMigrationRequirements) => number>
@@ -174,9 +172,7 @@ const sectionRowCount: Readonly<
   destination: () => 1
 }
 
-export const visibleSetupSections = (
-  requirements: JiraMigrationRequirements
-): ReadonlyArray<JiraSetupSection> =>
+export const visibleSetupSections = (requirements: JiraMigrationRequirements) =>
   jiraSetupSections.filter(
     (section) => sectionRowCount[section](requirements) > 0
   )
@@ -184,13 +180,12 @@ export const visibleSetupSections = (
 export const firstSectionNeedingAttention = (
   counts: JiraSetupCounts,
   sections: ReadonlyArray<JiraSetupSection>
-): JiraSetupSection | undefined =>
-  sections.find((section) => sectionAttention(counts, section) > 0)
+) => sections.find((section) => sectionAttention(counts, section) > 0)
 
 export const setupNeedsAttention = (
   counts: JiraSetupCounts,
   sections: ReadonlyArray<JiraSetupSection>
-): boolean => firstSectionNeedingAttention(counts, sections) !== undefined
+) => firstSectionNeedingAttention(counts, sections) !== undefined
 
 export type RowFilter = Readonly<{
   query: string
@@ -202,7 +197,7 @@ export function filterRowIndexes(
   filter: RowFilter,
   text: (index: number) => ReadonlyArray<string | null | undefined>,
   needsAttention: (index: number) => boolean
-): ReadonlyArray<number> {
+) {
   const words = filter.query.trim().toLowerCase().split(/\s+/u).filter(Boolean)
   const indexes: Array<number> = []
   for (let index = 0; index < count; index++) {
@@ -224,7 +219,7 @@ export function filterRowIndexes(
 export const linkAllSuggested = (
   identities: ReadonlyArray<PeopleChoice>,
   requirements: JiraMigrationRequirements
-): ReadonlyArray<PeopleChoice> =>
+) =>
   identities.map((choice, index) => {
     const suggestion =
       requirements.identities[index]?.suggestedProjectProjectUserId
@@ -237,13 +232,13 @@ export const linkAllSuggested = (
     return {
       jiraAccountId: choice.jiraAccountId,
       projectProjectUserId: suggestion
-    }
+    } satisfies PeopleChoice
   })
 
 export const inviteEveryoneWithEmail = (
   identities: ReadonlyArray<PeopleChoice>,
   requirements: JiraMigrationRequirements
-): ReadonlyArray<PeopleChoice> =>
+) =>
   identities.map((choice, index) => {
     const email = requirements.identities[index]?.email ?? null
     if (
@@ -257,15 +252,16 @@ export const inviteEveryoneWithEmail = (
       jiraAccountId: choice.jiraAccountId,
       projectProjectUserId: null,
       inviteEmail: email
-    }
+    } satisfies PeopleChoice
   })
 
-export const leaveRestUnlinked = (
-  identities: ReadonlyArray<PeopleChoice>
-): ReadonlyArray<PeopleChoice> =>
+export const leaveRestUnlinked = (identities: ReadonlyArray<PeopleChoice>) =>
   identities.map((choice) =>
     personNeedsAttention(choice)
-      ? { jiraAccountId: choice.jiraAccountId, projectProjectUserId: null }
+      ? ({
+          jiraAccountId: choice.jiraAccountId,
+          projectProjectUserId: null
+        } satisfies PeopleChoice)
       : choice
   )
 
@@ -284,7 +280,7 @@ const jiraStatusToKeep = (
 export const keepJiraStatuses = (
   statuses: ReadonlyArray<StatusChoice>,
   requirements: JiraMigrationRequirements
-): ReadonlyArray<StatusChoice> =>
+) =>
   statuses.map((choice, index) => {
     const option = jiraStatusToKeep(
       choice,
@@ -293,17 +289,17 @@ export const keepJiraStatuses = (
     )
     return option === null
       ? choice
-      : {
+      : ({
           jiraStatusId: choice.jiraStatusId,
           projectStatusSlug: option.slug,
           createStatus: true
-        }
+        } satisfies StatusChoice)
   })
 
 export const jiraStatusesToKeep = (
   statuses: ReadonlyArray<StatusChoice>,
   requirements: JiraMigrationRequirements
-): number =>
+) =>
   count(
     statuses.map((choice, index) =>
       jiraStatusToKeep(choice, requirements.statuses[index], requirements)
@@ -314,31 +310,35 @@ export const jiraStatusesToKeep = (
 export const keepAllTagNames = (
   tags: ReadonlyArray<TagChoice>,
   requirements: JiraMigrationRequirements
-): ReadonlyArray<TagChoice> =>
+) =>
   tags.map((choice, index) => {
     const destinationTagName =
       requirements.tags[index]?.suggestedDestinationTagName ?? ""
     return choice.skipped === true
-      ? { source: choice.source, destinationTagName, skipped: true }
-      : { source: choice.source, destinationTagName }
+      ? ({
+          source: choice.source,
+          destinationTagName,
+          skipped: true
+        } satisfies TagChoice)
+      : ({ source: choice.source, destinationTagName } satisfies TagChoice)
   })
 
-export const setTagSkipped = (
-  choice: TagChoice,
-  skipped: boolean
-): TagChoice =>
+export const setTagSkipped = (choice: TagChoice, skipped: boolean) =>
   skipped
-    ? {
+    ? ({
         source: choice.source,
         destinationTagName: choice.destinationTagName,
         skipped: true
-      }
-    : { source: choice.source, destinationTagName: choice.destinationTagName }
+      } satisfies TagChoice)
+    : ({
+        source: choice.source,
+        destinationTagName: choice.destinationTagName
+      } satisfies TagChoice)
 
 export const rareLabelIndexes = (
   tags: ReadonlyArray<TagChoice>,
   requirements: JiraMigrationRequirements
-): ReadonlyArray<number> =>
+) =>
   tags.flatMap((choice, index) => {
     const usage = requirements.tags[index]?.issueCount
     return choice.skipped !== true &&
@@ -352,7 +352,7 @@ export const rareLabelIndexes = (
 export const skipTags = (
   tags: ReadonlyArray<TagChoice>,
   indexes: ReadonlyArray<number>
-): ReadonlyArray<TagChoice> =>
+) =>
   tags.map((choice, index) =>
     indexes.includes(index) ? setTagSkipped(choice, true) : choice
   )
@@ -360,14 +360,14 @@ export const skipTags = (
 export const byImpact = (
   indexes: ReadonlyArray<number>,
   impact: (index: number) => number | undefined
-): ReadonlyArray<number> =>
-  indexes.toSorted((a, b) => (impact(b) ?? 0) - (impact(a) ?? 0))
+) => indexes.toSorted((a, b) => (impact(b) ?? 0) - (impact(a) ?? 0))
 
-export const moveAllToBacklog = (
-  choices: ReadonlyArray<SprintChoice>
-): ReadonlyArray<SprintChoice> =>
+export const moveAllToBacklog = (choices: ReadonlyArray<SprintChoice>) =>
   choices.map((choice) =>
     sprintNeedsAttention(choice)
-      ? { jiraIssueId: choice.jiraIssueId, jiraSprintId: null }
+      ? ({
+          jiraIssueId: choice.jiraIssueId,
+          jiraSprintId: null
+        } satisfies SprintChoice)
       : choice
   )

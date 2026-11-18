@@ -11,10 +11,7 @@ const closingTicketIdPattern =
 
 const decodeTicketId = Schema.decodeUnknownExit(TicketId)
 
-const ticketIdsMatching = (
-  pattern: RegExp,
-  text: string
-): ReadonlySet<TicketId> => {
+const ticketIdsMatching = (pattern: RegExp, text: string) => {
   const ids = new Set<TicketId>()
   for (const match of text.matchAll(pattern)) {
     const token = match[1]
@@ -25,13 +22,13 @@ const ticketIdsMatching = (
   return ids
 }
 
-export const ticketIdsInText = (text: string): ReadonlySet<TicketId> =>
+export const ticketIdsInText = (text: string) =>
   ticketIdsMatching(ticketIdPattern, text)
 
-export const closingTicketIdsInText = (text: string): ReadonlySet<TicketId> =>
+export const closingTicketIdsInText = (text: string) =>
   ticketIdsMatching(closingTicketIdPattern, text)
 
-export const branchMentionsTicketId = (branch: string): boolean =>
+export const branchMentionsTicketId = (branch: string) =>
   ticketIdsInText(branch).size > 0
 
 export type ProjectKeys = Readonly<{
@@ -39,7 +36,7 @@ export type ProjectKeys = Readonly<{
   former: ReadonlyArray<string>
 }>
 
-export const resolveTicketId = (keys: ProjectKeys, id: TicketId): TicketId => {
+export const resolveTicketId = (keys: ProjectKeys, id: TicketId) => {
   const dash = id.lastIndexOf("-")
   if (!keys.former.includes(id.slice(0, dash))) return id
   const resolved = decodeTicketId(`${keys.current}${id.slice(dash)}`)

@@ -37,10 +37,7 @@ type Copy = Readonly<{
   body: string | null
 }>
 
-export const noticeText = (
-  notice: EntryNotice,
-  kind: LibraryKind
-): string | null => {
+export const noticeText = (notice: EntryNotice, kind: LibraryKind) => {
   if (notice === null) return null
   if (notice === "org-admins")
     return kind === "type"
@@ -51,11 +48,7 @@ export const noticeText = (
     : m.templates_sections_notice_project_managers()
 }
 
-const upstreamNotice = ({
-  scope,
-  kind,
-  view
-}: ScopeBoxProps): string | null => {
+const upstreamNotice = ({ scope, kind, view }: ScopeBoxProps) => {
   if (scope.layer === "project" && view.standing === "shared")
     return view.notice === "org-admins"
       ? m.templates_types_notice_all_projects()
@@ -63,7 +56,7 @@ const upstreamNotice = ({
   return noticeText(view.notice, kind)
 }
 
-const sharedBody = (view: EntryView, project: string): string => {
+const sharedBody = (view: EntryView, project: string) => {
   if (view.canEditUpstream) return m.templates_types_shared_body({ project })
   return view.canFork
     ? m.templates_types_shared_body_fork_only({ project })
@@ -73,7 +66,7 @@ const sharedBody = (view: EntryView, project: string): string => {
 const copyFor = (
   { scope, kind, entry, view }: ScopeBoxProps,
   project: string
-): Copy => {
+) => {
   const name = entry.name
   const quiet = "mt-0.5 size-4 shrink-0 text-muted-foreground"
   const changed = "mt-0.5 size-4 shrink-0 text-state-warning"
@@ -85,14 +78,14 @@ const copyFor = (
         kind === "type"
           ? m.templates_types_hidden_body({ project })
           : m.templates_sections_hidden_body({ project })
-    }
+    } satisfies Copy
   if (scope.layer === "project") {
     if (view.standing === "shared")
       return {
         icon: <Lock aria-hidden className={quiet} />,
         title: m.templates_types_shared_title({ name, project }),
         body: sharedBody(view, project)
-      }
+      } satisfies Copy
     if (view.standing === "changed")
       return {
         icon: <Folder aria-hidden className={changed} />,
@@ -101,12 +94,12 @@ const copyFor = (
           kind === "type"
             ? m.templates_types_changed_body({ name, project })
             : m.templates_sections_changed_body({ project })
-      }
+      } satisfies Copy
     return {
       icon: <Folder aria-hidden className={quiet} />,
       title: null,
       body: null
-    }
+    } satisfies Copy
   }
   if (view.standing === "shared")
     return {
@@ -115,7 +108,7 @@ const copyFor = (
       body: view.canFork
         ? m.templates_types_builtin_body()
         : m.templates_types_builtin_body_read_only()
-    }
+    } satisfies Copy
   if (view.standing === "changed")
     return {
       icon: <Building2 aria-hidden className={changed} />,
@@ -124,12 +117,12 @@ const copyFor = (
         kind === "type"
           ? m.templates_types_org_changed_body({ name })
           : m.templates_sections_org_changed_body()
-    }
+    } satisfies Copy
   return {
     icon: <Building2 aria-hidden className={quiet} />,
     title: null,
     body: null
-  }
+  } satisfies Copy
 }
 
 export function ScopeBox(props: ScopeBoxProps) {

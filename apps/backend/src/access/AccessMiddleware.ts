@@ -23,7 +23,7 @@ import * as Option from "effect/Option"
 const requirementOf = <I, S>(
   endpoint: HttpApiEndpoint.Top,
   key: Context.Key<I, S>
-): Effect.Effect<S> =>
+) =>
   Option.match(Context.getOption(endpoint.annotations, key), {
     onNone: () =>
       Effect.die(

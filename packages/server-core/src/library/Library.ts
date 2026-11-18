@@ -177,10 +177,10 @@ const BLOCK_TAG = /<\/?block\b/
 
 const MENTION_LINK = /\[([^\]]*)\]\((mention:[^)]+)\)/g
 
-const replaceByKey = <A extends Keyed>(
-  items: ReadonlyArray<A>,
-  next: A
-): ReadonlyArray<A> => [...items.filter((item) => item.key !== next.key), next]
+const replaceByKey = <A extends Keyed>(items: ReadonlyArray<A>, next: A) => [
+  ...items.filter((item) => item.key !== next.key),
+  next
+]
 
 const blockOps: KindOps<BlockDraft, BlockDefinition> = {
   kind: "blocks",
@@ -212,13 +212,10 @@ const typeOps: KindOps<TypeDraft, TypeDefinition> = {
   allowsBlocks: true
 }
 
-const patched = <A>(next: A | undefined, current: A): A =>
+const patched = <A>(next: A | undefined, current: A) =>
   next === undefined ? current : next
 
-const patchBlock = (
-  draft: BlockDraft,
-  patch: UpdateBlockInput
-): BlockDraft => ({
+const patchBlock = (draft: BlockDraft, patch: UpdateBlockInput) => ({
   key: draft.key,
   name: patched(patch.name, draft.name),
   icon: patched(patch.icon, draft.icon),
@@ -228,7 +225,7 @@ const patchBlock = (
   content: patched(patch.content, draft.content)
 })
 
-const patchType = (draft: TypeDraft, patch: UpdateTypeInput): TypeDraft => ({
+const patchType = (draft: TypeDraft, patch: UpdateTypeInput) => ({
   key: draft.key,
   name: patched(patch.name, draft.name),
   icon: patched(patch.icon, draft.icon),
@@ -243,25 +240,18 @@ const hasFileAt = <Draft extends Keyed>(
   ops: KindOps<Draft, Keyed>,
   layer: LibraryLayer,
   key: string
-): boolean =>
+) =>
   ops.hidden(layer).includes(key) ||
   ops.definitions(layer).some((definition) => definition.key === key)
 
-const ownLayer = (layers: LibraryLayers): LibraryLayer =>
-  layers.project ?? layers.org
+const ownLayer = (layers: LibraryLayers) => layers.project ?? layers.org
 
-const withOwnLayer = (
-  layers: LibraryLayers,
-  layer: LibraryLayer
-): LibraryLayers =>
+const withOwnLayer = (layers: LibraryLayers, layer: LibraryLayer) =>
   layers.project === null
     ? { ...layers, org: layer }
     : { ...layers, project: layer }
 
-const contentIssue = (
-  content: string,
-  allowsBlocks: boolean
-): Validation | null => {
+const contentIssue = (content: string, allowsBlocks: boolean) => {
   if (extractAttachmentRefs(content).length > 0)
     return new Validation({ reason: "attachments_not_allowed" })
   if (!allowsBlocks && BLOCK_TAG.test(content))
@@ -272,7 +262,7 @@ const contentIssue = (
     : new Validation({ reason: `invalid_blocks:${issue.code}:${issue.line}` })
 }
 
-const plainMention = (label: string, href: string): string => {
+const plainMention = (label: string, href: string) => {
   const parsed = parseMentionHref(href)
   if (parsed?.type === "ticket") return parsed.id
   const name = label.trim().replace(/^@/, "")
@@ -292,8 +282,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
-    keyedLock.withLock(KeyedLock.LockKey.libraryLayer(orgSlug, slug), effect)
+  ) => keyedLock.withLock(KeyedLock.LockKey.libraryLayer(orgSlug, slug), effect)
 
   const orgLayer: Effect.Effect<LayerTarget, never, OrgScope> = Effect.map(
     OrgScope,
@@ -306,10 +295,7 @@ const make = Effect.gen(function* () {
     ProjectScope
   > = Effect.map(ProjectScope, ({ orgSlug, slug }) => ({ orgSlug, slug }))
 
-  const layersFor = (
-    orgSlug: string,
-    slug: string | null
-  ): Effect.Effect<LibraryLayers, Markdown.MarkdownError> =>
+  const layersFor = (orgSlug: string, slug: string | null) =>
     Effect.all(
       {
         org: docs.readLayer(orgSlug, null),
@@ -319,10 +305,7 @@ const make = Effect.gen(function* () {
       { concurrency: 2 }
     )
 
-  const projectMemberIds = (
-    orgSlug: string,
-    slug: string
-  ): Effect.Effect<ReadonlySet<string>> =>
+  const projectMemberIds = (orgSlug: string, slug: string) =>
     db.query.projectMember
       .findMany({
         columns: { userId: true },
@@ -333,10 +316,7 @@ const make = Effect.gen(function* () {
         Effect.orDie
       )
 
-  const orgMemberIds = (
-    orgSlug: string,
-    userIds: ReadonlyArray<string>
-  ): Effect.Effect<ReadonlySet<string>> =>
+  const orgMemberIds = (orgSlug: string, userIds: ReadonlyArray<string>) =>
     db.query.member
       .findMany({
         columns: { userId: true },
@@ -354,7 +334,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     userIds: ReadonlyArray<string>
-  ): Effect.Effect<ReadonlySet<string>> =>
+  ) =>
     userIds.length === 0
       ? Effect.succeed(new Set<string>())
       : slug === null
@@ -365,7 +345,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     needed: boolean
-  ): Effect.Effect<ReadonlySet<string>, Markdown.MarkdownError> =>
+  ) =>
     slug === null || !needed
       ? Effect.succeed(new Set<string>())
       : ticketDocs
@@ -406,10 +386,7 @@ const make = Effect.gen(function* () {
     slug: string | null,
     content: string,
     allowsBlocks: boolean
-  ): Effect.fn.Return<
-    void,
-    Validation | MentionInvalid | Markdown.MarkdownError
-  > {
+  ) {
     const issue = contentIssue(content, allowsBlocks)
     if (issue !== null) return yield* issue
     if (!content.includes("](mention:")) return
@@ -423,7 +400,7 @@ const make = Effect.gen(function* () {
       users,
       tickets
     }: Readonly<{ users: ReadonlySet<string>; tickets: ReadonlySet<string> }>
-  ): string =>
+  ) =>
     body.replace(MENTION_LINK, (link, label: string, href: string) => {
       const parsed = parseMentionHref(href)
       const known =
@@ -439,22 +416,18 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     body: string
-  ): Effect.fn.Return<string, Markdown.MarkdownError> {
+  ) {
     if (!body.includes("](mention:")) return body
     return withKnownMentions(body, yield* mentionLookups(orgSlug, slug, body))
   })
 
-  const isSyncedWithMention = (segment: TicketBlockSegment): boolean =>
+  const isSyncedWithMention = (segment: TicketBlockSegment) =>
     segment.kind === "block" &&
     segment.sync === true &&
     segment.content.includes("](mention:")
 
   const sanitizeSyncedMentions = Effect.fn("Library.sanitizeSyncedMentions")(
-    function* (
-      orgSlug: string,
-      slug: string,
-      body: string
-    ): Effect.fn.Return<string, Markdown.MarkdownError> {
+    function* (orgSlug: string, slug: string, body: string) {
       const segments = parseTicketBlocks(body)
       const synced = segments.filter(isSyncedWithMention)
       if (synced.length === 0) return body
@@ -495,7 +468,7 @@ const make = Effect.gen(function* () {
     slug: string | null,
     layers: LibraryLayers,
     key: string
-  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
+  ) =>
     hasFileAt(ops, ownLayer(layers), key)
       ? Effect.succeed(true)
       : docs.hasFile(orgSlug, slug, ops.kind, key)
@@ -504,7 +477,7 @@ const make = Effect.gen(function* () {
     ops: KindOps<Draft, Definition>,
     layers: LibraryLayers,
     key: string
-  ): Effect.Effect<Definition> => {
+  ) => {
     const entry = ops
       .entries(resolveLibrary(layers, true))
       .find((definition) => definition.key === key)
@@ -526,10 +499,7 @@ const make = Effect.gen(function* () {
     slug: string | null,
     layers: LibraryLayers,
     draft: Draft
-  ): Effect.Effect<
-    Definition,
-    Validation | MentionInvalid | Markdown.MarkdownError
-  > =>
+  ) =>
     Effect.gen(function* () {
       yield* validateContent(
         orgSlug,
@@ -555,10 +525,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     draft: Draft
-  ): Effect.Effect<
-    Definition,
-    Conflict | Validation | MentionInvalid | Markdown.MarkdownError
-  > =>
+  ) =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key: draft.key })
       return yield* withLayerLock(
@@ -585,10 +552,7 @@ const make = Effect.gen(function* () {
     slug: string | null,
     key: string,
     input: Patch
-  ): Effect.Effect<
-    Definition,
-    NotFound | Validation | MentionInvalid | Markdown.MarkdownError
-  > =>
+  ) =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
       if (!ops.isKey(key)) return yield* new NotFound()
@@ -618,7 +582,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     key: string
-  ): Effect.Effect<void, NotFound | Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
       if (!ops.isKey(key)) return yield* new NotFound()
@@ -638,7 +602,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     key: string
-  ): Effect.Effect<void, NotFound | Conflict | Markdown.MarkdownError> =>
+  ) =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
       if (!ops.isKey(key)) return yield* new NotFound()
@@ -684,10 +648,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     key: TypeKey
-  ): Effect.fn.Return<
-    TypeExpansion,
-    NotFound | Validation | Markdown.MarkdownError
-  > {
+  ) {
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     const definition = typeFor(library, key)
     if (definition === null)
@@ -715,7 +676,7 @@ const make = Effect.gen(function* () {
   const typeKeys = Effect.fn("Library.typeKeys")(function* (
     orgSlug: string,
     slug: string
-  ): Effect.fn.Return<ReadonlySet<string>, Markdown.MarkdownError> {
+  ) {
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     return new Set(
       library.types.flatMap((type) => (type.hidden ? [] : [type.key]))
@@ -725,10 +686,10 @@ const make = Effect.gen(function* () {
   const untouchedBodyCheck = Effect.fn("Library.untouchedBodyCheck")(function* (
     orgSlug: string,
     slug: string
-  ): Effect.fn.Return<(body: string) => boolean, Markdown.MarkdownError> {
+  ) {
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     const lookup = blockLookupFor(library)
-    return (body) => {
+    return (body: string) => {
       if (body.trim() === "") return true
       const comparable = stripHints(body)
       return library.types.some((type) =>
@@ -741,7 +702,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     body: string
-  ): Effect.fn.Return<string, Markdown.MarkdownError> {
+  ) {
     if (!SYNCED_OPENER.test(body)) return body
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     return yield* sanitizeSyncedMentions(

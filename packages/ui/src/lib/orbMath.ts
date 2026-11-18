@@ -4,7 +4,7 @@ export type Random = () => number
 
 export type Noise = (p: Vec) => number
 
-export const random = (seed: number): Random => {
+export const random = (seed: number) => {
   let state = seed | 0
   return () => {
     state = (state + 0x6d2b79f5) | 0
@@ -14,7 +14,7 @@ export const random = (seed: number): Random => {
   }
 }
 
-export const pick = <A>(next: Random, list: ReadonlyArray<A>): A =>
+export const pick = <A>(next: Random, list: ReadonlyArray<A>) =>
   list[Math.floor(next() * list.length)]
 
 export const between = (next: Random, low: number, high: number) =>
@@ -33,34 +33,29 @@ export const smoothstep = (low: number, high: number, value: number) => {
 
 export const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
-export const scale = (a: Vec, amount: number): Vec => [
-  a[0] * amount,
-  a[1] * amount,
-  a[2] * amount
-]
+export const scale = (a: Vec, amount: number) =>
+  [a[0] * amount, a[1] * amount, a[2] * amount] satisfies Vec
 
-export const add = (a: Vec, b: Vec): Vec => [
-  a[0] + b[0],
-  a[1] + b[1],
-  a[2] + b[2]
-]
+export const add = (a: Vec, b: Vec) =>
+  [a[0] + b[0], a[1] + b[1], a[2] + b[2]] satisfies Vec
 
-export const cross = (a: Vec, b: Vec): Vec => [
-  a[1] * b[2] - a[2] * b[1],
-  a[2] * b[0] - a[0] * b[2],
-  a[0] * b[1] - a[1] * b[0]
-]
+export const cross = (a: Vec, b: Vec) =>
+  [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ] satisfies Vec
 
-export const normalize = (a: Vec): Vec => scale(a, 1 / (Math.hypot(...a) || 1))
+export const normalize = (a: Vec) => scale(a, 1 / (Math.hypot(...a) || 1))
 
-export const onSphere = (next: Random): Vec => {
+export const onSphere = (next: Random) => {
   const z = next() * 2 - 1
   const angle = next() * Math.PI * 2
   const radius = Math.sqrt(1 - z * z)
-  return [Math.cos(angle) * radius, Math.sin(angle) * radius, z]
+  return [Math.cos(angle) * radius, Math.sin(angle) * radius, z] satisfies Vec
 }
 
-export const facing = (next: Random, spread: number): Vec =>
+export const facing = (next: Random, spread: number) =>
   normalize([(next() - 0.5) * spread, (next() - 0.5) * spread, 1])
 
 const lattice = (seed: number, x: number, y: number, z: number) => {
@@ -78,9 +73,8 @@ const ease = (t: number) => t * t * (3 - 2 * t)
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
-export const valueNoise =
-  (seed: number): Noise =>
-  ([x, y, z]) => {
+export const valueNoise = (seed: number) =>
+  (([x, y, z]) => {
     const xi = Math.floor(x)
     const yi = Math.floor(y)
     const zi = Math.floor(z)
@@ -102,11 +96,10 @@ export const valueNoise =
       ),
       zf
     )
-  }
+  }) satisfies Noise
 
-export const fbm =
-  (noise: Noise, octaves: number): Noise =>
-  (p) => {
+export const fbm = (noise: Noise, octaves: number) =>
+  ((p) => {
     let total = 0
     let weight = 0
     for (let octave = 0; octave < octaves; octave++) {
@@ -115,7 +108,7 @@ export const fbm =
       weight += amplitude
     }
     return total / weight
-  }
+  }) satisfies Noise
 
 export const sharpen = (value: number, amount: number) =>
   Math.sign(value) * Math.abs(value) ** amount

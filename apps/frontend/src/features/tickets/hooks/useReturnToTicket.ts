@@ -8,7 +8,7 @@ import { lastViewedTicket } from "@/features/tickets/atoms/lastViewedTicket"
 export function useRememberViewedTicket(
   ticketId: TicketId,
   from: TicketListSource | undefined
-): void {
+) {
   const registry = use(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()
   useEffect(() => {
@@ -17,9 +17,7 @@ export function useRememberViewedTicket(
   }, [registry, orgSlug, slug, ticketId, from])
 }
 
-export function useReturnToTicket(
-  focus: (ticketId: TicketId) => boolean
-): () => void {
+export function useReturnToTicket(focus: (ticketId: TicketId) => boolean) {
   const registry = use(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()
   const latestFocus = useRef(focus)

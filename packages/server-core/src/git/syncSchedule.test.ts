@@ -5,14 +5,15 @@ import { nextSyncAt, type SyncTiming } from "./syncSchedule"
 
 const now = isoDate("2026-04-01T12:00:00Z")
 
-const timing = (overrides: Partial<SyncTiming>): SyncTiming => ({
-  now,
-  load: "open_pull_requests",
-  lastActivityAt: now,
-  failures: 0,
-  retryAt: null,
-  ...overrides
-})
+const timing = (overrides: Partial<SyncTiming>) =>
+  ({
+    now,
+    load: "open_pull_requests",
+    lastActivityAt: now,
+    failures: 0,
+    retryAt: null,
+    ...overrides
+  }) satisfies SyncTiming
 
 const minutesFromNow = (date: Date) => (date.getTime() - now.getTime()) / 60_000
 

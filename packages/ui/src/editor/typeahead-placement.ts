@@ -24,7 +24,7 @@ export const placeTypeahead = ({
   menuWidth,
   menuHeight,
   viewport
-}: TypeaheadPlacementInput): TypeaheadPlacement => {
+}: TypeaheadPlacementInput) => {
   const bottomEdge = viewport.top + viewport.height - EDGE_GAP
   const above = anchorTop - lineHeight - menuHeight - FLIP_GAP
   const flips = anchorTop + menuHeight > bottomEdge && above >= viewport.top

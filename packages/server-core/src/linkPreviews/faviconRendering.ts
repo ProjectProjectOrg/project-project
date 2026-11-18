@@ -1,9 +1,6 @@
-import type { LinkPreview } from "@pp/shared"
 import sharp from "sharp"
 
-export async function faviconRendering(
-  bytes: Uint8Array
-): Promise<LinkPreview["faviconRendering"]> {
+export async function faviconRendering(bytes: Uint8Array) {
   try {
     const { data, info } = await sharp(bytes, { limitInputPixels: 1024 * 1024 })
       .resize({

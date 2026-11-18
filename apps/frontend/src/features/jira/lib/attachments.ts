@@ -10,7 +10,7 @@ export type JiraAttachmentSkip =
 
 export const attachmentSkip = (
   attachment: Pick<Attachment, "byteSize" | "forcedSkipReason">
-): JiraAttachmentSkip | null => {
+) => {
   if (attachment.forcedSkipReason === null) return null
   return attachment.forcedSkipReason === "too_large" &&
     attachment.byteSize === 0
@@ -25,7 +25,7 @@ export type JiraAttachmentSkipCount = Readonly<{
 
 export function attachmentSkipCounts(
   attachments: ReadonlyArray<Pick<Attachment, "byteSize" | "forcedSkipReason">>
-): ReadonlyArray<JiraAttachmentSkipCount> {
+) {
   const counts = new Map<JiraAttachmentSkip, number>()
   for (const attachment of attachments) {
     const skip = attachmentSkip(attachment)

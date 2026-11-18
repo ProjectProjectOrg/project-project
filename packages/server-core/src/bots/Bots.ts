@@ -61,7 +61,7 @@ const make = Effect.gen(function* () {
     bot: Bot,
     orgSlug: string,
     slug: string
-  ): Effect.fn.Return<ProjectScope["Service"], NotFound> {
+  ) {
     const userId = yield* ensure(bot)
     const [row] = yield* db
       .select({
@@ -92,7 +92,7 @@ const make = Effect.gen(function* () {
       slug,
       role: bot.role,
       permissions: permissions.value
-    }
+    } satisfies ProjectScope["Service"]
   })
 
   return Bots.of({ ensure, projectScope })

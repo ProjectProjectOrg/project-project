@@ -76,7 +76,7 @@ export type Toolbar = SelectionAnchor &
     block: BasicBlockKind | null
   }>
 
-export function $blockOf(selection: RangeSelection): BasicBlockKind | null {
+export function $blockOf(selection: RangeSelection) {
   const anchor = selection.anchor.getNode()
   const list = $getNearestNodeOfType(anchor, ListNode)
   if ($isListNode(list)) return LIST_KINDS[list.getListType()]
@@ -99,18 +99,21 @@ export function $blockOf(selection: RangeSelection): BasicBlockKind | null {
 
 export type ToolbarState = Omit<Toolbar, keyof SelectionAnchor>
 
-export const selectionAnchor = (range: Range): SelectionAnchor => {
+export const selectionAnchor = (range: Range) => {
   const lines = [...range.getClientRects()].filter((line) => line.width > 0)
   const [first] = lines
   const multiline =
     first !== undefined &&
     lines.some((line) => line.top > first.top + first.height / 2)
   return multiline
-    ? { rect: first, align: "start" }
-    : { rect: range.getBoundingClientRect(), align: "center" }
+    ? ({ rect: first, align: "start" } satisfies SelectionAnchor)
+    : ({
+        rect: range.getBoundingClientRect(),
+        align: "center"
+      } satisfies SelectionAnchor)
 }
 
-export function readState(editor: LexicalEditor): ToolbarState | null {
+export function readState(editor: LexicalEditor) {
   return editor.getEditorState().read(() => {
     const selection = $getSelection()
     if (!$isRangeSelection(selection) || selection.isCollapsed()) return null
@@ -124,14 +127,11 @@ export function readState(editor: LexicalEditor): ToolbarState | null {
       ),
       link: $isLinkNode(parent),
       block: $blockOf(selection)
-    }
+    } satisfies ToolbarState
   })
 }
 
-export function readToolbar(
-  editor: LexicalEditor,
-  focused: Toolbar | null
-): Toolbar | null {
+export function readToolbar(editor: LexicalEditor, focused: Toolbar | null) {
   if (focused !== null) {
     const state = readState(editor)
     return state === null ? focused : { ...focused, ...state }

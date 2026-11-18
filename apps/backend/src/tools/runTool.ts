@@ -10,13 +10,11 @@ import { toolFailureOf } from "./errorText"
 import { withToolCaller } from "./ToolCaller"
 import type { ToolServices } from "./toolDependencies"
 
-export const asToolFailure = <A, E, R>(
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, ToolFailure, R> =>
+export const asToolFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.catch(effect, (error) => {
     const failure = toolFailureOf(error)
     return failure === undefined ? Effect.die(error) : Effect.fail(failure)
-  })
+  }) satisfies Effect.Effect<A, ToolFailure, R>
 
 export const toolRunner = Effect.gen(function* () {
   const services = yield* Effect.context<ToolServices>()

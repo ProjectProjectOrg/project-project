@@ -29,7 +29,7 @@ export type JiraScanCountLine = Readonly<{
 
 export function jiraScanCountLine(
   counts: Readonly<Record<string, number>> | undefined
-): JiraScanCountLine {
+) {
   const entries = Object.entries(counts ?? {}).flatMap(([kind, count]) => {
     const label = kindLabels.get(kind)
     return label === undefined ? [] : [{ kind, count, label: label({ count }) }]

@@ -20,21 +20,20 @@ export type EstimatedTicket = Readonly<{
   estimate: Estimate | null
 }>
 
-export const estimationUnit = (mode: EstimationMode): EstimateUnit | null =>
+export const estimationUnit = (mode: EstimationMode) =>
   mode === "off" ? null : mode
 
 export const activeEstimate = (
   estimate: Estimate | null,
   mode: EstimationMode
-): Estimate | null =>
-  estimate !== null && estimate.unit === mode ? estimate : null
+) => (estimate !== null && estimate.unit === mode ? estimate : null)
 
 export const isStaleEstimate = (
   estimate: Estimate | null,
   mode: EstimationMode
-): boolean => estimate !== null && estimate.unit !== mode
+) => estimate !== null && estimate.unit !== mode
 
-export const estimateRank = (estimate: Estimate): number =>
+export const estimateRank = (estimate: Estimate) =>
   Match.value(estimate).pipe(
     Match.discriminatorsExhaustive("unit")({
       time: (estimate) => estimate.minutes,
@@ -43,12 +42,12 @@ export const estimateRank = (estimate: Estimate): number =>
     })
   )
 
-export const estimateToken = (estimate: Estimate): string | number =>
+export const estimateToken = (estimate: Estimate) =>
   estimate.unit === "time" ? `${estimate.minutes}m` : estimate.value
 
 const decodeEstimate = Schema.decodeUnknownOption(Estimate)
 
-export const parseEstimateToken = (token: unknown): Estimate | null => {
+export const parseEstimateToken = (token: unknown) => {
   const raw = Predicate.isNumber(token) ? String(token) : token
   if (!Predicate.isString(raw)) return null
   const trimmed = raw.trim()
@@ -65,7 +64,7 @@ export const matchesEstimateFilter = (
   estimate: Estimate | null,
   values: ReadonlyArray<EstimateFilterValue>,
   mode: EstimationMode
-): boolean => {
+) => {
   const active = activeEstimate(estimate, mode)
   return values.some((value) => {
     switch (value) {
@@ -81,19 +80,20 @@ export const matchesEstimateFilter = (
   })
 }
 
-const emptySizes = (): Record<EstimateSize, number> => ({
-  XS: 0,
-  S: 0,
-  M: 0,
-  L: 0,
-  XL: 0
-})
+const emptySizes = () =>
+  ({
+    XS: 0,
+    S: 0,
+    M: 0,
+    L: 0,
+    XL: 0
+  }) satisfies Record<EstimateSize, number>
 
 export const summarizeEstimates = (
   tickets: ReadonlyArray<EstimatedTicket>,
   unit: EstimateUnit,
   phaseOf: StatusPhaseOf
-): EstimateSummary => {
+) => {
   const active = tickets.map((ticket) => ({
     phase: phaseOf(ticket.status),
     estimate: activeEstimate(ticket.estimate, unit)
@@ -104,7 +104,7 @@ export const summarizeEstimates = (
     for (const { estimate } of active) {
       if (estimate?.unit === "tshirt") sizes[estimate.value] += 1
     }
-    return { unit, sizes, unestimated }
+    return { unit, sizes, unestimated } satisfies EstimateSummary
   }
   let committed = 0
   let started = 0
@@ -116,5 +116,11 @@ export const summarizeEstimates = (
     if (ticket.phase === "started") started += amount
     if (ticket.phase === "finished") done += amount
   }
-  return { unit, committed, started, done, unestimated }
+  return {
+    unit,
+    committed,
+    started,
+    done,
+    unestimated
+  } satisfies EstimateSummary
 }

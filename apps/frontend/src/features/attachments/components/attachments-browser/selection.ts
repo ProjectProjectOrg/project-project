@@ -22,17 +22,12 @@ export const isDeletable = isAttachmentDeletable
 export const hasThumbnail = (row: {
   readonly status: AttachmentStatus
   readonly contentType: string
-}): boolean =>
-  row.status !== "pending" && isRasterImageContentType(row.contentType)
+}) => row.status !== "pending" && isRasterImageContentType(row.contentType)
 
-export const deletableIds = (
-  rows: ReadonlyArray<SelectableRow>
-): ReadonlyArray<string> => rows.filter(isDeletable).map((row) => row.id)
+export const deletableIds = (rows: ReadonlyArray<SelectableRow>) =>
+  rows.filter(isDeletable).map((row) => row.id)
 
-export const toggleSelection = (
-  selected: ReadonlySet<string>,
-  id: string
-): ReadonlySet<string> => {
+export const toggleSelection = (selected: ReadonlySet<string>, id: string) => {
   const next = new Set(selected)
   if (!next.delete(id)) next.add(id)
   return next
@@ -41,7 +36,7 @@ export const toggleSelection = (
 export const prunedSelection = (
   selected: ReadonlySet<string>,
   rows: ReadonlyArray<SelectableRow>
-): ReadonlySet<string> => {
+) => {
   const allowed = new Set(deletableIds(rows))
   return new Set([...selected].filter((id) => allowed.has(id)))
 }
@@ -49,7 +44,7 @@ export const prunedSelection = (
 export const allDeletableSelected = (
   selected: ReadonlySet<string>,
   rows: ReadonlyArray<SelectableRow>
-): boolean => {
+) => {
   const ids = deletableIds(rows)
   return ids.length > 0 && ids.every((id) => selected.has(id))
 }

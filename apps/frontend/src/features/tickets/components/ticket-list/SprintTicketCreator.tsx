@@ -156,17 +156,19 @@ export function SprintTicketCreator({
     const found = results.items.filter(
       (t) => addable(t) && !recentIds.has(t.id)
     )
-    const existing = (ticket: Ticket): Item => ({
-      kind: "existing",
-      ticket,
-      added: added.has(ticket.id),
-      otherSprintName: memberOfOtherSprint.get(ticket.id) ?? null
-    })
-    const row = (ticket: Ticket, group: string): CommandMenuItemData => ({
-      value: ticket.id,
-      label: `${ticket.id} ${ticket.title}`,
-      group
-    })
+    const existing = (ticket: Ticket) =>
+      ({
+        kind: "existing",
+        ticket,
+        added: added.has(ticket.id),
+        otherSprintName: memberOfOtherSprint.get(ticket.id) ?? null
+      }) satisfies Item
+    const row = (ticket: Ticket, group: string) =>
+      ({
+        value: ticket.id,
+        label: `${ticket.id} ${ticket.title}`,
+        group
+      }) satisfies CommandMenuItemData
     const exactTitle = [...shownRecent, ...found].some(
       (t) => t.title.toLowerCase() === lowered
     )
@@ -504,19 +506,27 @@ function CommandMenuKeys({
   return null
 }
 
-const noteFor = (
-  results: PagedSearchResults<Ticket>,
-  hasRows: boolean
-): Readonly<{ text: string; tone: "muted" | "error" }> | null => {
+type MenuNoteContent = Readonly<{ text: string; tone: "muted" | "error" }>
+
+const noteFor = (results: PagedSearchResults<Ticket>, hasRows: boolean) => {
   if (results.status === "failed") {
-    return { text: m.tickets_mention_tickets_failed(), tone: "error" }
+    return {
+      text: m.tickets_mention_tickets_failed(),
+      tone: "error"
+    } satisfies MenuNoteContent
   }
   if (hasRows) return null
   if (results.status === "loading" || results.status === "searching") {
-    return { text: m.tickets_mention_tickets_loading(), tone: "muted" }
+    return {
+      text: m.tickets_mention_tickets_loading(),
+      tone: "muted"
+    } satisfies MenuNoteContent
   }
   if (results.status === "ready") {
-    return { text: m.tickets_mention_tickets_empty(), tone: "muted" }
+    return {
+      text: m.tickets_mention_tickets_empty(),
+      tone: "muted"
+    } satisfies MenuNoteContent
   }
   return null
 }

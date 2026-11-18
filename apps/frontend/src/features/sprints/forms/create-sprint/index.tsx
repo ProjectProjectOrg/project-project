@@ -165,7 +165,7 @@ export function CreateSprintForm({
             quickPicks={[
               {
                 label: m.sprints_start_today(),
-                value: { from: undefined, ...defaultSprintRange() }
+                value: defaultSprintRange()
               }
             ]}
             disabled={{ before: today }}

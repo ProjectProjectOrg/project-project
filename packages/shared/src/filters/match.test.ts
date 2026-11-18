@@ -21,7 +21,7 @@ const s = Schema.decodeUnknownSync(StatusSlug)
 const userId = Schema.decodeUnknownSync(UserId)
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
-const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
+const baseTicket = (overrides: Partial<Ticket> = {}) => ({
   id: decodeTicketId("T-1"),
   title: "Test",
   status: s("todo"),

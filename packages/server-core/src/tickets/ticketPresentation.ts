@@ -31,30 +31,35 @@ export type GitView = Readonly<{
 export const repositoryOf = (
   view: GitView,
   repoId: string | null | undefined
-): ProjectGithub.ProjectGithubIntegration | null =>
-  ProjectGithub.integrationForRepo(view.integrations, repoId)
+) => ProjectGithub.integrationForRepo(view.integrations, repoId)
 
-const withoutGit = <T extends Ticket>(ticket: T): T => ({
+const withoutGit = (ticket: Ticket) => ({
   ...ticket,
   repoId: null,
   branch: null,
   pr: null,
   prState: null,
   lastTransitionedPr: null,
-  gitState: { tag: "no_branch" }
+  gitState: { tag: "no_branch" } satisfies Ticket["gitState"]
 })
 
-export const presentTicket = <T extends Ticket>(view: GitView, ticket: T): T =>
+export const presentTicket = (view: GitView, ticket: Ticket) =>
   view.visible ? ticket : withoutGit(ticket)
+
+type GitState = Ticket["gitState"]
 
 export function pendingGitState(
   document: Pick<TicketDocs.TicketDocument, "branch" | "pr" | "prState"> &
     Readonly<{ prBase?: string | null | undefined }>,
   github: ProjectGithub.ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
-): Ticket["gitState"] {
+) {
   const defaultBase = github?.defaultBaseBranch ?? "main"
-  if (!document.branch) return { tag: "no_branch", baseBranch: defaultBase }
+  if (!document.branch)
+    return {
+      tag: "no_branch",
+      baseBranch: defaultBase
+    } satisfies GitState
   if (document.pr !== null) {
     const baseBranch = document.prBase ?? defaultBase
     const url = github
@@ -69,7 +74,7 @@ export function pendingGitState(
         url,
         title: "",
         mergedAt: null
-      }
+      } satisfies GitState
     }
     if (document.prState === "closed") {
       return {
@@ -79,7 +84,7 @@ export function pendingGitState(
         number: document.pr,
         url,
         title: ""
-      }
+      } satisfies GitState
     }
     return {
       tag: "pr_pending",
@@ -87,16 +92,19 @@ export function pendingGitState(
       baseBranch,
       number: document.pr,
       url
-    }
+    } satisfies GitState
   }
   if (branchDeletedAt !== null) {
-    return { tag: "stale_branch", name: document.branch }
+    return {
+      tag: "stale_branch",
+      name: document.branch
+    } satisfies GitState
   }
   return {
     tag: "branch_pending",
     name: document.branch,
     baseBranch: defaultBase
-  }
+  } satisfies GitState
 }
 
 function documentToTicket(
@@ -104,7 +112,7 @@ function documentToTicket(
   view: GitView,
   parent: TicketParent | null,
   branchDeletedAt: Date | null
-): Ticket {
+) {
   const {
     body: _body,
     commentsRegion: _commentsRegion,
@@ -122,13 +130,13 @@ function documentToTicket(
       repositoryOf(view, repo),
       branchDeletedAt
     )
-  })
+  } satisfies Ticket)
 }
 
 export function indexEntryToTicket(
   entry: TicketIndex.TicketIndexEntry,
   view: GitView
-): Ticket {
+) {
   const { branchDeletedAt: _branchDeletedAt, ...ticket } = entry
   return presentTicket(view, {
     ...ticket,
@@ -137,16 +145,17 @@ export function indexEntryToTicket(
       repositoryOf(view, entry.repoId),
       entry.branchDeletedAt
     )
-  })
+  } satisfies Ticket)
 }
 
-export function parentOfEntry(
-  entry: TicketIndex.TicketIndexEntry | undefined
-): Readonly<{
+type Hierarchy = Readonly<{
   parent: TicketParent | null
   parentState: TicketParentState | null
-}> {
-  if (entry === undefined) return { parent: null, parentState: null }
+}>
+
+export function parentOfEntry(entry: TicketIndex.TicketIndexEntry | undefined) {
+  if (entry === undefined)
+    return { parent: null, parentState: null } satisfies Hierarchy
   return {
     parent: { id: entry.id, title: entry.title, type: entry.type },
     parentState: {
@@ -154,7 +163,7 @@ export function parentOfEntry(
       subTicketCount: entry.subTicketCount,
       subTicketDoneCount: entry.subTicketDoneCount
     }
-  }
+  } satisfies Hierarchy
 }
 
 export function documentToDetail(
@@ -165,7 +174,7 @@ export function documentToDetail(
   hierarchy: ReturnType<typeof parentOfEntry>,
   branchDeletedAt: Date | null = null,
   relations: TicketRelations = EMPTY_TICKET_RELATIONS
-): TicketDetail {
+) {
   return {
     ...documentToTicket(document, view, hierarchy.parent, branchDeletedAt),
     parentState: hierarchy.parentState,
@@ -181,12 +190,12 @@ export function documentToDetail(
     creator,
     updater,
     body: document.body
-  }
+  } satisfies TicketDetail
 }
 
 export const requirePolicy = (
   allowed: (scope: ProjectScope["Service"]) => boolean
-): Effect.Effect<void, Forbidden, ProjectScope> =>
+) =>
   Effect.flatMap(ProjectScope, (scope) =>
     allowed(scope) ? Effect.void : Effect.fail(new Forbidden())
   )

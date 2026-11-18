@@ -36,7 +36,7 @@ import {
   parseMarkdownFile
 } from "@pp/server-core/markdown/fileContent"
 
-async function dirExists(p: string): Promise<boolean> {
+async function dirExists(p: string) {
   try {
     const s = await fs.stat(p)
     return s.isDirectory()
@@ -45,7 +45,7 @@ async function dirExists(p: string): Promise<boolean> {
   }
 }
 
-async function fileExists(p: string): Promise<boolean> {
+async function fileExists(p: string) {
   try {
     const s = await fs.stat(p)
     return s.isFile()
@@ -184,7 +184,7 @@ async function main() {
   process.exit(0)
 }
 
-async function pruneEmptyDirs(dir: string, stopAt: string): Promise<void> {
+async function pruneEmptyDirs(dir: string, stopAt: string) {
   if (path.resolve(dir) === path.resolve(stopAt)) return
   let entries: import("node:fs").Dirent[]
   try {

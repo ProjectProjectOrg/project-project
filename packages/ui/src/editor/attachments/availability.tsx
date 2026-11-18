@@ -6,7 +6,7 @@ const AttachmentMissingContext = createContext<ReadonlySet<string> | null>(null)
 export const attachmentResolves = (
   missing: ReadonlySet<string> | null,
   url: string
-): boolean => {
+) => {
   if (missing === null) return true
   const ref = parseAttachmentUrl(url)
   return ref === null ? true : !missing.has(ref.id)
@@ -30,5 +30,5 @@ export function AttachmentAvailabilityProvider({
   )
 }
 
-export const useAttachmentResolves = (url: string): boolean =>
+export const useAttachmentResolves = (url: string) =>
   attachmentResolves(use(AttachmentMissingContext), url)

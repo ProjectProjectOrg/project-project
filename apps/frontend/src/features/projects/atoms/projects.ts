@@ -34,7 +34,7 @@ export type ProjectsRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export const projectsRequest = (orgSlug: string): ProjectsRequest => ({
+export const projectsRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 
@@ -42,10 +42,7 @@ export type ProjectRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const projectRequest = (
-  orgSlug: string,
-  slug: string
-): ProjectRequest => ({
+export const projectRequest = (orgSlug: string, slug: string) => ({
   params: { orgSlug, slug }
 })
 
@@ -137,9 +134,11 @@ export const projectActor = Atom.family((req: ProjectRequest) =>
 )
 
 export const projectEstimation = Atom.family((req: ProjectRequest) =>
-  Atom.make((get): EstimationMode => {
+  Atom.make((get) => {
     const detail = get(project(req))
-    return AsyncResult.isSuccess(detail) ? detail.value.estimation : "off"
+    return AsyncResult.isSuccess(detail)
+      ? detail.value.estimation
+      : ("off" satisfies EstimationMode)
   })
 )
 
@@ -209,7 +208,7 @@ const replaceMember = (
   value: ProjectDetail,
   id: string,
   input: UpdateMemberInput
-): ProjectDetail => ({
+) => ({
   ...value,
   members: value.members.map((member) =>
     member.id === id ? { ...member, ...input } : member
@@ -220,14 +219,13 @@ const confirmField = <Value>(
   current: Value,
   optimistic: Value | undefined,
   confirmed: Value
-): Value =>
-  optimistic !== undefined && current === optimistic ? confirmed : current
+) => (optimistic !== undefined && current === optimistic ? confirmed : current)
 
 const confirmProjectUpdate = (
   current: ProjectDetail,
   confirmed: ProjectDetail,
   input: UpdateProjectInput
-): ProjectDetail => ({
+) => ({
   ...current,
   banner: confirmField(current.banner, input.banner, confirmed.banner),
   iconImage: confirmField(
@@ -250,7 +248,7 @@ const confirmSetupUpdate = (
   current: ProjectDetail,
   confirmed: ProjectDetail,
   input: UpdateProjectSetupInput
-): ProjectDetail => ({
+) => ({
   ...current,
   setup: {
     ...current.setup,
@@ -275,7 +273,7 @@ const confirmSetupUpdate = (
 const withCallerGrants = (
   current: ProjectDetail,
   confirmed: ProjectDetail
-): ProjectDetail => ({
+) => ({
   ...current,
   permissions: confirmed.permissions,
   pendingMembers: canCallProject(
@@ -292,7 +290,7 @@ const confirmAddedMember = (
   current: ProjectDetail,
   confirmed: ProjectDetail,
   email: string
-): ProjectDetail => {
+) => {
   const member = confirmed.members.find((item) => sameEmail(item.email, email))
   const pendingMember = confirmed.pendingMembers.find((item) =>
     sameEmail(item.email, email)
@@ -367,7 +365,7 @@ export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
   })
 )
 
-const withoutMember = (value: ProjectDetail, id: string): ProjectDetail => ({
+const withoutMember = (value: ProjectDetail, id: string) => ({
   ...value,
   members: value.members.filter((member) => member.id !== id)
 })
@@ -400,10 +398,7 @@ export const forgetProject = Atom.family((req: ProjectRequest) =>
   )
 )
 
-const withoutPendingMember = (
-  value: ProjectDetail,
-  id: string
-): ProjectDetail => ({
+const withoutPendingMember = (value: ProjectDetail, id: string) => ({
   ...value,
   pendingMembers: value.pendingMembers.filter(
     (member) => member.invitationId !== id

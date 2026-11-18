@@ -7,17 +7,16 @@ export type TicketSelection = Readonly<{
 
 export const emptySelection: TicketSelection = { keys: new Set(), anchor: null }
 
-export const selectionKey = (slug: string, ticketId: TicketId): string =>
+export const selectionKey = (slug: string, ticketId: TicketId) =>
   `${slug}/${ticketId}`
 
-export const projectOfKey = (key: string): string =>
-  key.slice(0, key.lastIndexOf("/"))
+export const projectOfKey = (key: string) => key.slice(0, key.lastIndexOf("/"))
 
 export const toggleSelection = (
   selection: TicketSelection,
   key: string,
   range?: ReadonlyArray<string>
-): TicketSelection => {
+) => {
   const project = projectOfKey(key)
   if ([...selection.keys].some((each) => projectOfKey(each) !== project)) {
     return { keys: new Set([key]), anchor: key }
@@ -46,7 +45,7 @@ export const selectAll = (
   selection: TicketSelection,
   order: ReadonlyArray<string>,
   pointed: string | null
-): TicketSelection => {
+) => {
   const [selected] = selection.keys
   const from = selected ?? pointed ?? order[0]
   if (from === undefined) return selection
@@ -62,7 +61,7 @@ export const selectAll = (
 export const suggestedStatus = (
   current: ReadonlyArray<TicketStatus>,
   order: ReadonlyArray<TicketStatus>
-): TicketStatus | null => {
+) => {
   const counts = new Map<TicketStatus, number>()
   for (const status of current)
     counts.set(status, (counts.get(status) ?? 0) + 1)

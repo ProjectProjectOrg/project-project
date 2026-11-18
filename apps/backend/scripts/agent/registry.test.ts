@@ -93,7 +93,7 @@ test("app processes receive isolated credentials without inherited integration s
       },
       "54321"
     )
-    expect(env.SLACK_CLIENT_SECRET).toBeUndefined()
+    expect(env).not.toHaveProperty("SLACK_CLIENT_SECRET")
     expect(new URL(env.DATABASE_URL).pathname).toBe(
       "/pp_agent_0123456789abcdef01234567"
     )

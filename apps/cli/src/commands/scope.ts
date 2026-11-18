@@ -253,7 +253,7 @@ export const statusCommand = Command.make("status", {}, () =>
     const flags = yield* root
     const server = yield* currentServer
     const serverSource = Option.match(yield* serverChoice, {
-      onNone: (): Source => "default",
+      onNone: () => "default" as const,
       onSome: (choice) => choice.source
     })
     const org = yield* settled(resolveOrg(server))

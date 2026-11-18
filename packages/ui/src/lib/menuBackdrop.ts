@@ -1,9 +1,7 @@
-export const isMenuBackdrop = (target: EventTarget | null): boolean =>
+export const isMenuBackdrop = (target: EventTarget | null) =>
   target instanceof Element && target.hasAttribute("data-base-ui-inert")
 
-export const forwardThroughMenuBackdrop = (
-  event: globalThis.MouseEvent
-): boolean => {
+export const forwardThroughMenuBackdrop = (event: globalThis.MouseEvent) => {
   const below = document
     .elementsFromPoint(event.clientX, event.clientY)
     .find((element) => !isMenuBackdrop(element))

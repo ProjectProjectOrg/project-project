@@ -212,7 +212,7 @@ export function useBoardCardDrag({
   status: string
   enabled: boolean
   ordered?: boolean
-}>): boolean {
+}>) {
   const [dragging, setDragging] = useState(false)
   useEffect(() => {
     const element = slot.current
@@ -221,11 +221,12 @@ export function useBoardCardDrag({
     const source = (element: HTMLElement) =>
       draggable({
         element,
-        getInitialData: (): BoardCardDragData => ({
-          type: "card",
-          id,
-          status
-        }),
+        getInitialData: () =>
+          ({
+            type: "card",
+            id,
+            status
+          }) satisfies BoardCardDragData,
         onGenerateDragPreview: ({ location, nativeSetDragImage }) => {
           setCustomNativeDragPreview({
             nativeSetDragImage,
@@ -257,11 +258,11 @@ export function useBoardCardDrag({
     const stopDrop = dropTargetForElements({
       element:
         element.closest<HTMLElement>(`[${boardSlotAttribute}]`) ?? element,
-      getData: ({ input, element: target }): BoardCardDropData => {
+      getData: ({ input, element: target }) => {
         const rect = target.getBoundingClientRect()
         const edge =
           input.clientY < rect.top + rect.height / 2 ? "top" : "bottom"
-        return { type: "card", id, status, edge }
+        return { type: "card", id, status, edge } satisfies BoardCardDropData
       }
     })
     return () => {
@@ -278,13 +279,13 @@ export function useBoardColumnDrop(
   element: HTMLElement | null,
   status: string,
   enabled: boolean
-): boolean {
+) {
   const [over, setOver] = useState(false)
   useEffect(() => {
     if (!enabled || !element) return undefined
     const stopDrop = dropTargetForElements({
       element,
-      getData: (): BoardColumnDropData => ({ type: "column", status })
+      getData: () => ({ type: "column", status }) satisfies BoardColumnDropData
     })
     const update = ({
       location

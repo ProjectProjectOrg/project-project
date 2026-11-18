@@ -51,7 +51,7 @@ export const noticeFor = (
   origin: string,
   release: Option.Option<string>,
   build: string
-): Option.Option<Notice> =>
+) =>
   Option.flatMap(release, (tag) =>
     tag.replace(/^v/, "") === build
       ? Option.none()
@@ -71,7 +71,7 @@ const releaseFor = (origin: string) =>
     )
     const checks: UpdateChecks = yield* fs.readFileString(file).pipe(
       Effect.flatMap(decodeChecks),
-      Effect.orElseSucceed((): UpdateChecks => ({}))
+      Effect.orElseSucceed(() => ({}))
     )
     const now = yield* Clock.currentTimeMillis
     const cached = checks[origin]

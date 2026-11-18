@@ -2,7 +2,7 @@ import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
 import { useId, useState, type FormEvent } from "react"
 
-const parseMinutes = (text: string): number | null => {
+const parseMinutes = (text: string) => {
   const match = text
     .trim()
     .toLowerCase()

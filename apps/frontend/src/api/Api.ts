@@ -35,13 +35,7 @@ const decodeImport = Schema.decodeUnknownEffect(ProjectImport)
 const decodeUploadError = Schema.decodeUnknownEffect(UploadError)
 
 export const uploadProjectArchive = Effect.fn("Api.uploadProjectArchive")(
-  function* ({
-    orgSlug,
-    file
-  }: Readonly<{ orgSlug: string; file: File }>): Effect.fn.Return<
-    ProjectImport,
-    typeof UploadError.Type
-  > {
+  function* ({ orgSlug, file }: Readonly<{ orgSlug: string; file: File }>) {
     if (file.size > PROJECT_IMPORT_MAX_BYTES) {
       return yield* new Validation({ reason: "archive_too_large" })
     }

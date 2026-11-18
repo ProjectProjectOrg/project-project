@@ -40,7 +40,7 @@ function useLivePrediction(
   orgSlug: string,
   slug: string,
   viewing: PinTarget | null
-): PinPrediction | null {
+) {
   const ticket = useAtomValue(
     viewing?.kind === "ticket"
       ? ticketDetail(ticketRequest(orgSlug, slug, viewing.ref))
@@ -49,7 +49,7 @@ function useLivePrediction(
   const sprints = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
   if (viewing?.kind === "ticket")
     return Result.isSuccess(ticket)
-      ? {
+      ? ({
           ticket: {
             id: ticket.value.id,
             title: ticket.value.title,
@@ -57,13 +57,13 @@ function useLivePrediction(
             archivedAt: ticket.value.archivedAt,
             parent: ticket.value.parent?.id ?? null
           }
-        }
+        } satisfies PinPrediction)
       : null
   if (viewing?.kind === "sprint" && Result.isSuccess(sprints)) {
     const sprint = sprints.value.find((each) => each.id === viewing.ref)
     return sprint === undefined
       ? null
-      : {
+      : ({
           sprint: {
             id: sprint.id,
             name: sprint.name,
@@ -71,7 +71,7 @@ function useLivePrediction(
             endsAt: sprint.endsAt,
             completedAt: sprint.completedAt
           }
-        }
+        } satisfies PinPrediction)
   }
   return null
 }

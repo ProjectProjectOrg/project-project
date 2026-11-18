@@ -27,7 +27,7 @@ const convertedText = (markdown: string) => ({
   adf: {}
 })
 
-const manifest = (): JiraMigrationManifest => ({
+const manifest: JiraMigrationManifest = {
   version: 1,
   migrationId: "migration-1",
   source: {
@@ -158,7 +158,7 @@ const manifest = (): JiraMigrationManifest => ({
     { kind: "worklogs", cursor: null, records: [{ id: "worklog-1" }] },
     { kind: "issues", cursor: null, records: [] }
   ]
-})
+}
 
 const mappings = () =>
   decodeJiraMigrationMappingsSync({
@@ -204,8 +204,8 @@ const preflight: JiraPreflightResult = {
   ]
 }
 
-const outcome = (): JiraMigrationOutcomeInput => {
-  const source = manifest()
+const outcome = () => {
+  const source = manifest
   const decisions = mappings()
   const planned = createJiraPublicationPlan(source, decisions, preflight, {
     "attachment-1": "/api/orgs/acme/attachments/A1"
@@ -222,7 +222,7 @@ const outcome = (): JiraMigrationOutcomeInput => {
     copiedAttachmentIds: ["attachment-1"],
     userLabelsById: { "user-1": "ada" },
     completedAt: "2026-09-16T09:00:00Z"
-  }
+  } satisfies JiraMigrationOutcomeInput
 }
 
 describe("buildJiraMigrationReportMarkdown", () => {

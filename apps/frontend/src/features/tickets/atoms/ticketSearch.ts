@@ -27,7 +27,7 @@ export const searchRequest = (
   orgSlug: string,
   slug: string,
   options: TicketSearchOptions
-): SearchRequest => ({
+) => ({
   params: { orgSlug, slug },
   query: options
 })

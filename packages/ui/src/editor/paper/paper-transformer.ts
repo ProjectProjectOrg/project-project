@@ -10,13 +10,12 @@ const PAPER_MARKDOWN_RE =
 const formatPaperMarkdown = (input: {
   readonly label: string
   readonly url: string
-}): string => {
+}) => {
   const label = input.label.replace(/([[\]\\])/g, "\\$1")
   return `[${label}](${input.url})`
 }
 
-const unescapePaperLabel = (label: string): string =>
-  label.replace(/\\(.)/g, "$1")
+const unescapePaperLabel = (label: string) => label.replace(/\\(.)/g, "$1")
 
 export const PAPER_TRANSFORMER: TextMatchTransformer = {
   dependencies: [PaperNode],

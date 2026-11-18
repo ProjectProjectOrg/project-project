@@ -252,7 +252,7 @@ export type IconProps = Omit<React.SVGProps<SVGSVGElement>, "ref"> & {
 
 export type IconType = React.ComponentType<IconProps>
 
-export function icon(svg: IconSvgElement, name: string): IconType {
+export function icon(svg: IconSvgElement, name: string) {
   function AppIcon(props: IconProps) {
     return (
       <HugeiconsIcon
@@ -739,7 +739,7 @@ export const Zap = icon(FlashIcon, "Zap")
 // Priority as signal bars: one, two or three of three lit, in the priority's
 // colour, the unlit ones at a quarter. Filled shapes, so drawn directly
 // rather than through the stroke set; `strokeWidth` is accepted and ignored.
-function priorityBars(lit: 1 | 2 | 3, name: string): IconType {
+function priorityBars(lit: 1 | 2 | 3, name: string) {
   function PriorityBars({
     size = 24,
     strokeWidth: _strokeWidth,

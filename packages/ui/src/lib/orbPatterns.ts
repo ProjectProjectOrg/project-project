@@ -33,10 +33,11 @@ const frame = (pole: Vec) => {
   }
 }
 
-const warped = (next: Random, seed: number, strength: number): Surface => {
+const warped = (next: Random, seed: number, strength: number) => {
   const noise = fbm(valueNoise(seed), 3)
   const frequency = between(next, 1.2, 2.6)
-  return (p) => (noise(scale(p, frequency)) - 0.5) * strength
+  return ((p) =>
+    (noise(scale(p, frequency)) - 0.5) * strength) satisfies Surface
 }
 
 const sites = (next: Random, count: number) =>
@@ -257,11 +258,7 @@ export const PATTERNS: Readonly<Record<Pattern, Build>> = {
 
 // A seeded pick of one pattern (never `except`), built at once so the
 // random stream stays in the same order for every caller.
-export const pickPattern = (
-  next: Random,
-  seed: number,
-  except?: Pattern
-): Readonly<{ name: Pattern; surface: Surface }> => {
+export const pickPattern = (next: Random, seed: number, except?: Pattern) => {
   const name = pick(
     next,
     except === undefined
@@ -272,4 +269,4 @@ export const pickPattern = (
 }
 
 // The fine, cloudy texture laid over every pattern, centred on 0.5.
-export const mottle = (seed: number): Surface => fbm(valueNoise(seed + 13), 3)
+export const mottle = (seed: number) => fbm(valueNoise(seed + 13), 3)

@@ -29,7 +29,7 @@ export const SPRINT_STATE_META: Record<
   completed: { icon: Trophy, className: "text-state-success" }
 }
 
-export const sprintStateLabel = (state: SprintStateName): string =>
+export const sprintStateLabel = (state: SprintStateName) =>
   Match.value(state).pipe(
     Match.when("planned", () => m.sprints_planned_label()),
     Match.when("active", () => m.sprints_active_label()),
@@ -72,10 +72,7 @@ export function SprintStateIcon({
   )
 }
 
-const sprintHintText = (
-  state: SprintStateName,
-  status: string | null
-): string =>
+const sprintHintText = (state: SprintStateName, status: string | null) =>
   status === null
     ? sprintStateLabel(state)
     : state === "completed"
@@ -117,7 +114,7 @@ export function SprintChip({
   )
 }
 
-export const countdownLabel = (countdown: SprintCountdown): string =>
+export const countdownLabel = (countdown: SprintCountdown) =>
   Match.value(countdown).pipe(
     Match.discriminatorsExhaustive("kind")({
       noEnd: () => m.sprints_no_end_date(),
@@ -133,10 +130,7 @@ export const shortDateFormatter = () =>
     day: "numeric"
   })
 
-export const sprintStatusText = (
-  sprint: SprintTiming,
-  now: Date
-): string | null =>
+export const sprintStatusText = (sprint: SprintTiming, now: Date) =>
   Match.value(sprintState(sprint, now)).pipe(
     Match.when("planned", () =>
       sprint.startsAt === null

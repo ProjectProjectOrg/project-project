@@ -19,10 +19,8 @@ import {
 
 // A row's parent in front of its title (its epic, or the ticket it's a
 // sub-ticket of): a link, as its title or, when the row is tight, as its key.
-export function parentCrumbs(
-  ticket: SampleTicket
-): ReadonlyArray<ListRowCrumb> {
-  return [ticket.parent].flatMap((parent) =>
+export function parentCrumbs(ticket: SampleTicket) {
+  return [ticket.parent].flatMap<ListRowCrumb>((parent) =>
     parent === undefined
       ? []
       : [

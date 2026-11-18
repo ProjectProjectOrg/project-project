@@ -16,7 +16,7 @@ type ValueChange = Extract<
 const isValueChange = (change: TicketActivityChange): change is ValueChange =>
   "from" in change && "to" in change
 
-const actorKey = (actor: StoredActor): string => {
+const actorKey = (actor: StoredActor) => {
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "imported")
     return `imported:${actor.source}:${actor.sourceId}`
@@ -24,7 +24,7 @@ const actorKey = (actor: StoredActor): string => {
   return `user:${actor.userId}`
 }
 
-const windowFor = (change: TicketActivityChange): number | null => {
+const windowFor = (change: TicketActivityChange) => {
   if (change.kind === "description_edited") return DESCRIPTION_EDIT_WINDOW_MS
   if (isValueChange(change)) return VALUE_CHANGE_WINDOW_MS
   return null
@@ -33,7 +33,7 @@ const windowFor = (change: TicketActivityChange): number | null => {
 const startingFrom = (
   newer: TicketActivityChange,
   older: TicketActivityChange
-): TicketActivityChange => {
+) => {
   if (newer.kind === "title_changed" && older.kind === "title_changed") {
     return { ...newer, from: older.from }
   }
@@ -61,7 +61,7 @@ const startingFrom = (
   return newer
 }
 
-const isNoOp = (change: TicketActivityChange): boolean => {
+const isNoOp = (change: TicketActivityChange) => {
   if (change.kind === "estimate_changed") {
     return sameEstimate(change.from, change.to)
   }
@@ -78,7 +78,7 @@ type Run = {
 
 export const coalesceActivity = (
   newestFirst: ReadonlyArray<TicketActivity.StoredTicketActivity>
-): ReadonlyArray<TicketActivity.StoredTicketActivity> => {
+) => {
   const output: Array<Run> = []
   const openRuns = new Map<string, Run>()
   const latestKeyOfKind = new Map<string, string>()

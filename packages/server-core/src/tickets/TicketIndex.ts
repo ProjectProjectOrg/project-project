@@ -444,7 +444,7 @@ const touchedEventOf = (
   row:
     | (ActorColumns & Readonly<{ occurredAt: Date | null; change: unknown }>)
     | null
-): TicketIndexTouchedEvent | null =>
+) =>
   row === null || row.occurredAt === null
     ? null
     : {
@@ -456,7 +456,7 @@ const touchedEventOf = (
 const estimateFromIndex = (
   unit: (typeof ticketIndex.$inferSelect)["estimateUnit"],
   value: number | null
-): Estimate | null => {
+) => {
   if (unit === null || value === null) return null
   const candidate = Match.value(unit).pipe(
     Match.when("time", (unit) => ({ unit, minutes: value })),
@@ -472,7 +472,7 @@ const estimateFromIndex = (
 export const ticketIndexRowFor = (
   project: TicketProject,
   document: TicketDocs.TicketDocument
-): typeof ticketIndex.$inferInsert => ({
+) => ({
   organizationId: project.organizationId,
   projectId: project.projectId,
   ticketId: document.id,
@@ -510,7 +510,7 @@ const flagFromIndex = (
     typeof ticketIndex.$inferSelect,
     "flagReason" | "flaggedBy" | "flaggedAt"
   >
-): TicketFlag | null => {
+) => {
   if (row.flaggedBy === null || row.flaggedAt === null) return null
   return row.flagReason === null
     ? { by: row.flaggedBy, at: row.flaggedAt }
@@ -520,7 +520,7 @@ const flagFromIndex = (
 export const ticketBranchRowsFor = (
   project: TicketProject,
   document: TicketDocs.TicketDocument
-): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
+) =>
   (document.stack ?? []).map((layer, position) => ({
     projectId: project.projectId,
     ticketId: document.id,
@@ -536,7 +536,7 @@ export const ticketBranchRowsFor = (
 export const ticketRelationRowsFor = (
   project: TicketProject,
   document: TicketDocs.TicketDocument
-): ReadonlyArray<typeof ticketRelationIndex.$inferInsert> => {
+) => {
   const edges = [
     ...(document.blockedBy ?? []).map((to) => ({
       to,
@@ -591,10 +591,10 @@ const ticketEstimateSortExpression = drizzleSql<string>`case
   else '000000'
 end`
 
-const activeEstimateSizeCondition = (rank: number): SQL =>
+const activeEstimateSizeCondition = (rank: number) =>
   drizzleSql`(${activeEstimateCondition} and ${ticketIndex.estimateUnit} = 'tshirt' and ${ticketIndex.estimateValue} = ${rank})`
 
-const estimateFilterCondition = (value: EstimateFilterValue): SQL => {
+const estimateFilterCondition = (value: EstimateFilterValue) => {
   switch (value) {
     case "none":
       return drizzleSql`${ticketIndex.estimateUnit} is distinct from ${projectEstimationExpression}`
@@ -607,18 +607,18 @@ const estimateFilterCondition = (value: EstimateFilterValue): SQL => {
   }
 }
 
-export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
+export const ticketSortExpression = (sort: TicketSort) => {
   switch (sort.key) {
     case "manual":
-      return drizzleSql`${ticketIndex.rank} collate "C"`
+      return drizzleSql<string>`${ticketIndex.rank} collate "C"`
     case "id":
       return ticketIdSortExpression
     case "created":
-      return drizzleSql`${ticketIndex.createdAt}`
+      return drizzleSql<Date>`${ticketIndex.createdAt}`
     case "updated":
-      return drizzleSql`${ticketIndex.updatedAt}`
+      return drizzleSql<Date>`${ticketIndex.updatedAt}`
     case "title":
-      return drizzleSql`lower(${ticketIndex.title}) collate "C"`
+      return drizzleSql<string>`lower(${ticketIndex.title}) collate "C"`
     case "priority":
       return ticketPrioritySortExpression
     case "estimate":
@@ -629,16 +629,13 @@ export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
 
 export const TICKET_ORDER_KEY_SEPARATOR = "\u0000"
 
-const sortValueText = (sortValue: string | Date): string =>
+const sortValueText = (sortValue: string | Date) =>
   sortValue instanceof Date ? sortValue.toISOString() : sortValue
 
-const toOrderKey = (sortValue: string, ticketId: string): string =>
+const toOrderKey = (sortValue: string, ticketId: string) =>
   `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
 
-const cursorSortValue = (
-  sort: TicketSort,
-  value: string
-): string | Date | undefined => {
+const cursorSortValue = (sort: TicketSort, value: string) => {
   if (sort.key !== "created" && sort.key !== "updated") return value
   const date = DateTime.make(value)
   return Option.isSome(date) ? DateTime.toDate(date.value) : undefined
@@ -647,7 +644,7 @@ const cursorSortValue = (
 export const ticketCursorCondition = (
   query: TicketListQuery,
   expression: SQL<string | Date>
-): SQL | undefined => {
+) => {
   const cursor = tryDecodeCursor(query.cursor)
   if (!cursor) return undefined
   const value = cursorSortValue(query.sort, cursor.sort)
@@ -669,7 +666,7 @@ export const ticketCursorCondition = (
 
 const UPDATED_DESC: TicketSort = { key: "updated", dir: "desc" }
 
-const columnOf = (table: SQL, column: AnyPgColumn): SQL =>
+const columnOf = (table: SQL, column: AnyPgColumn) =>
   drizzleSql`${table}.${drizzleSql.identifier(column.name)}`
 
 const parentRow = drizzleSql`${ticketIndex}`
@@ -680,7 +677,7 @@ const isChildRow = drizzleSql`${columnOf(childRow, ticketIndex.projectId)} = ${c
 
 const finishedStatus = (
   row: SQL
-): SQL => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
+) => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
   select 1 from ${projectStatus} s
   join ${projectStatus} anchor
     on anchor.project_id = s.project_id and anchor.slug = 'done'
@@ -701,7 +698,7 @@ const epicSection = drizzleSql`coalesce((
     and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
 ), ${EPIC_SECTION_NONE}::text)`
 
-const epicSectionCondition = (epics: ReadonlyArray<ParentFilter>): SQL =>
+const epicSectionCondition = (epics: ReadonlyArray<ParentFilter>) =>
   drizzleSql`${epicSection} = any(${drizzleSql.param([...epics])}::text[])`
 
 const ticketParentSection = drizzleSql`coalesce((
@@ -712,9 +709,7 @@ const ticketParentSection = drizzleSql`coalesce((
     and ${columnOf(parentTicketRow, ticketIndex.type)} is distinct from 'epic'
 ), ${EPIC_SECTION_NONE}::text)`
 
-const ticketParentSectionCondition = (
-  parents: ReadonlyArray<ParentFilter>
-): SQL =>
+const ticketParentSectionCondition = (parents: ReadonlyArray<ParentFilter>) =>
   drizzleSql`${ticketParentSection} = any(${drizzleSql.param([...parents])}::text[])`
 
 const childTicketCount = (condition: SQL) =>
@@ -833,7 +828,7 @@ type EntryRow = TicketIndexRow &
 
 const notEpic = drizzleSql`${ticketIndex.type} is distinct from ${EPIC_TYPE}`
 
-const typeCondition = (types: ReadonlyArray<TypeFilter>): SQL => {
+const typeCondition = (types: ReadonlyArray<TypeFilter>) => {
   const keys = types.flatMap((type) => (type === NO_TYPE_FILTER ? [] : [type]))
   const conditions: Array<SQL> = []
   if (types.includes(NO_TYPE_FILTER)) conditions.push(isNull(ticketIndex.type))
@@ -841,9 +836,7 @@ const typeCondition = (types: ReadonlyArray<TypeFilter>): SQL => {
   return or(...conditions) ?? drizzleSql`false`
 }
 
-const attachableConditions = (
-  attachable: TicketIndexAttachable | undefined
-): ReadonlyArray<SQL> =>
+const attachableConditions = (attachable: TicketIndexAttachable | undefined) =>
   attachable === undefined
     ? []
     : [
@@ -860,15 +853,15 @@ const attachableConditions = (
           : [])
       ]
 
-const escapedLikePattern = (value: string): string =>
+const escapedLikePattern = (value: string) =>
   `%${value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`
 
-const statusCondition = (status: ReadonlyArray<string>): SQL =>
+const statusCondition = (status: ReadonlyArray<string>) =>
   status.length === 0
     ? drizzleSql`false`
     : inArray(ticketIndex.status, [...status])
 
-const parentCondition = (parents: ReadonlyArray<ParentFilter>): SQL => {
+const parentCondition = (parents: ReadonlyArray<ParentFilter>) => {
   const parentIds = parents.filter((parent) => parent !== "none")
   const conditions: Array<SQL> = []
   if (parents.includes("none")) conditions.push(isNull(ticketIndex.parent))
@@ -878,13 +871,13 @@ const parentCondition = (parents: ReadonlyArray<ParentFilter>): SQL => {
   return or(...conditions) ?? drizzleSql`false`
 }
 
-const ticketIdsCondition = (ticketIds: ReadonlyArray<string>): SQL =>
+const ticketIdsCondition = (ticketIds: ReadonlyArray<string>) =>
   drizzleSql`${ticketIndex.ticketId} = any(${drizzleSql.param([...ticketIds])}::text[])`
 
 const membersCondition = (
   members: TicketIndexMembers,
   row: SQL = parentRow
-): SQL => {
+) => {
   const sprintId = columnOf(row, ticketIndex.sprintId)
   const parts = [
     ...(members.sprints.length === 0
@@ -911,7 +904,7 @@ const membersCondition = (
 const sectionConditions = (
   section: TicketSection | undefined,
   sectionMembers: TicketIndexMembers | undefined
-): ReadonlyArray<SQL> => [
+) => [
   ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
   ...(section?.parent === undefined
     ? []
@@ -932,18 +925,18 @@ interface TicketWhereOptions {
 
 type NestWithin = (row: SQL) => SQL
 
-const nestKey = (within: NestWithin, row: SQL): SQL =>
+const nestKey = (within: NestWithin, row: SQL) =>
   drizzleSql`coalesce((${within(row)})::text, '')`
 
 const pageNestWithin = (
   section: TicketSection | undefined,
   sectionMembers: TicketIndexMembers | undefined
-): NestWithin | undefined => {
+) => {
   if (section?.status !== undefined) {
-    return (row) => columnOf(row, ticketIndex.status)
+    return ((row) => columnOf(row, ticketIndex.status)) satisfies NestWithin
   }
   if (section?.groupId !== undefined && sectionMembers !== undefined) {
-    return (row) => membersCondition(sectionMembers, row)
+    return ((row) => membersCondition(sectionMembers, row)) satisfies NestWithin
   }
   return undefined
 }
@@ -959,7 +952,7 @@ const ticketWhereConditions = (
   project: TicketProject,
   query: TicketFilter & Pick<TicketListQuery, "q">,
   options: TicketWhereOptions
-): ReadonlyArray<SQL> => {
+) => {
   const filter = query
   const conditions: Array<SQL> = [
     eq(ticketIndex.projectId, project.projectId),
@@ -1121,7 +1114,7 @@ const make = Effect.gen(function* () {
     return row ?? (yield* new NotFound())
   })
 
-  const toEntry = (row: EntryRow): TicketIndexEntry => ({
+  const toEntry = (row: EntryRow) => ({
     id: makeTicketId(row.ticketId),
     title: row.title,
     status: TicketStatus.make(row.status),
@@ -1244,7 +1237,7 @@ const make = Effect.gen(function* () {
   const sectionExpression = (
     sections: TicketIndexSectionsOptions["sections"],
     row: SQL = parentRow
-  ): SQL => {
+  ) => {
     if (sections === "status") return columnOf(row, ticketIndex.status)
     if (sections === "parent") return epicSection
     if (sections === "ticketParent") return ticketParentSection
@@ -1530,7 +1523,7 @@ const make = Effect.gen(function* () {
   const orgEntriesOf = <Row extends EntryRow>(
     projects: ReadonlyArray<TicketProject>,
     rows: ReadonlyArray<Row>
-  ): ReadonlyArray<TicketIndexOrgEntry & Readonly<{ row: Row }>> => {
+  ) => {
     const byId = new Map(projects.map((p) => [p.projectId, p]))
     return rows.flatMap((row) => {
       const project = byId.get(row.projectId)
@@ -1550,7 +1543,7 @@ const make = Effect.gen(function* () {
     projects: ReadonlyArray<TicketProject>,
     conditions: ReadonlyArray<SQL | undefined>,
     limit: number
-  ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> => {
+  ) => {
     if (projects.length === 0) return Effect.succeed([])
     return db
       .select(entryColumns)
@@ -2375,16 +2368,17 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie)
     return relationsFromRows(
       rows.map(
-        (row): RelationRow => ({
-          direction: row.from === ticketId ? "out" : "in",
-          kind: row.kind,
-          other: {
-            id: makeTicketId(row.ticketId),
-            title: row.title,
-            status: TicketStatus.make(row.status),
-            archivedAt: row.archivedAt
-          }
-        })
+        (row) =>
+          ({
+            direction: row.from === ticketId ? "out" : "in",
+            kind: row.kind,
+            other: {
+              id: makeTicketId(row.ticketId),
+              title: row.title,
+              status: TicketStatus.make(row.status),
+              archivedAt: row.archivedAt
+            }
+          }) satisfies RelationRow
       )
     )
   })
@@ -2401,13 +2395,11 @@ const make = Effect.gen(function* () {
       .from(ticketRelationIndex)
       .where(eq(ticketRelationIndex.projectId, project.projectId))
       .pipe(Effect.orDie)
-    return rows.map(
-      (row): RelationEdge => ({
-        from: makeTicketId(row.from),
-        to: makeTicketId(row.to),
-        kind: row.kind
-      })
-    )
+    return rows.map((row) => ({
+      from: makeTicketId(row.from),
+      to: makeTicketId(row.to),
+      kind: row.kind
+    }))
   })
 
   return TicketIndex.of({

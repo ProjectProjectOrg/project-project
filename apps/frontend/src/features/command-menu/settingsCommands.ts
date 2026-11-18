@@ -14,42 +14,45 @@ const go =
 
 export const settingsCommands: ReadonlyArray<Command> = [
   ...PROJECT_SETTINGS_SECTIONS.map(
-    (section): Command => ({
-      id: `settings.project.${section.key}`,
-      group: "navigation",
-      parent: m.chrome_command_menu_settings_parent_project,
-      label: () => section.label,
-      icon: section.icon,
-      listed: "search",
-      when: ({ projectSlug }) => projectSlug !== null,
-      run: go(
-        (orgSlug, projectSlug) =>
-          `/orgs/${orgSlug}/projects/${projectSlug ?? ""}/settings/${section.key}`
-      )
-    })
+    (section) =>
+      ({
+        id: `settings.project.${section.key}`,
+        group: "navigation",
+        parent: m.chrome_command_menu_settings_parent_project,
+        label: () => section.label,
+        icon: section.icon,
+        listed: "search",
+        when: ({ projectSlug }) => projectSlug !== null,
+        run: go(
+          (orgSlug, projectSlug) =>
+            `/orgs/${orgSlug}/projects/${projectSlug ?? ""}/settings/${section.key}`
+        )
+      }) satisfies Command
   ),
   ...ORG_SETTINGS_SECTIONS.map(
-    (section): Command => ({
-      id: `settings.org.${section.key}`,
-      group: "navigation",
-      parent: m.chrome_command_menu_settings_parent_org,
-      label: () => section.label,
-      icon: section.icon,
-      listed: "search",
-      when: ({ canSeeOrgMembers }) =>
-        section.key !== "members" || canSeeOrgMembers,
-      run: go((orgSlug) => section.to.replace("$orgSlug", orgSlug))
-    })
+    (section) =>
+      ({
+        id: `settings.org.${section.key}`,
+        group: "navigation",
+        parent: m.chrome_command_menu_settings_parent_org,
+        label: () => section.label,
+        icon: section.icon,
+        listed: "search",
+        when: ({ canSeeOrgMembers }) =>
+          section.key !== "members" || canSeeOrgMembers,
+        run: go((orgSlug) => section.to.replace("$orgSlug", orgSlug))
+      }) satisfies Command
   ),
   ...PROFILE_SECTIONS.map(
-    (section): Command => ({
-      id: `settings.profile.${section.to}`,
-      group: "navigation",
-      parent: m.chrome_command_menu_settings_group_profile,
-      label: () => section.label,
-      icon: section.icon,
-      listed: "search",
-      run: go(() => section.to)
-    })
+    (section) =>
+      ({
+        id: `settings.profile.${section.to}`,
+        group: "navigation",
+        parent: m.chrome_command_menu_settings_group_profile,
+        label: () => section.label,
+        icon: section.icon,
+        listed: "search",
+        run: go(() => section.to)
+      }) satisfies Command
   )
 ]

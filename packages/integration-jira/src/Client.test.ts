@@ -467,7 +467,7 @@ const response = (
   status: number,
   body: Schema.Json = {},
   headers: Record<string, string> = {}
-): Transport.JiraTransportResponse => ({
+) => ({
   status,
   headers,
   json: Effect.succeed(body),
@@ -568,7 +568,7 @@ const pageCases = [
 const requestPage = (
   client: Client.JiraClient["Service"],
   fixture: (typeof pageCases)[number]
-): Effect.Effect<unknown, Client.JiraCallError> => {
+) => {
   switch (fixture.method) {
     case "searchIssuesPage":
       return client.searchIssuesPage(fixture.input)
@@ -1393,7 +1393,9 @@ const recordSpans = () => {
     }
   })
   type Node = Readonly<{ name: string; children: ReadonlyArray<Node> }>
-  const childrenOf = (parent: Tracer.NativeSpan | undefined): Array<Node> =>
+  const childrenOf: (parent: Tracer.NativeSpan | undefined) => Array<Node> = (
+    parent
+  ) =>
     spans
       .filter((span) =>
         parent === undefined

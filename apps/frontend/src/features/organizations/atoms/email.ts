@@ -8,7 +8,7 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type EmailRequest = Readonly<{ params: Readonly<{ orgSlug: string }> }>
-export const emailRequest = (orgSlug: string): EmailRequest => ({
+export const emailRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 const emailQuery = (req: EmailRequest) =>

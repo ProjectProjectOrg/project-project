@@ -34,7 +34,7 @@ const datesLabel = (range: DateDraft) => {
   return `${formatDay(range.from)} – ${formatDay(range.to)}`
 }
 
-const twoWeeksFromToday = (): DateDraft => {
+const twoWeeksFromToday = () => {
   const now = DateTime.nowUnsafe()
   return {
     from: DateTime.toDate(now),
@@ -124,7 +124,7 @@ export default function NewSprint() {
                   quickPicks={[
                     {
                       label: "Start today",
-                      value: { from: undefined, ...twoWeeksFromToday() }
+                      value: twoWeeksFromToday()
                     }
                   ]}
                   disabled={{ before: today }}

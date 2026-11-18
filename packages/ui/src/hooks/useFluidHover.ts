@@ -58,7 +58,7 @@ const pickNearest = ({
   rects,
   container,
   isDisabled
-}: PickNearestInput): number | null => {
+}: PickNearestInput) => {
   const bounds = container.getBoundingClientRect()
   const scaleX =
     container.offsetWidth > 0 ? bounds.width / container.offsetWidth : 1
@@ -109,19 +109,19 @@ const ACTIVATOR_SELECTOR =
 const GAP_CONTROL_SELECTOR =
   "input, textarea, select, button, a, summary, [contenteditable], [role='textbox'], [role='searchbox'], [role='button']"
 
-const resolveActivator = (element: HTMLElement): HTMLElement =>
+const resolveActivator = (element: HTMLElement) =>
   element.matches(ACTIVATOR_SELECTOR) || element.hasAttribute("tabindex")
     ? element
     : (element.querySelector<HTMLElement>(ACTIVATOR_SELECTOR) ?? element)
 
 const measurementAttempts = 3
 
-const hasLayoutBox = (element: HTMLElement): boolean =>
+const hasLayoutBox = (element: HTMLElement) =>
   element.offsetParent !== null ||
   element.offsetWidth > 0 ||
   element.offsetHeight > 0
 
-const rectWithin = (element: HTMLElement, container: HTMLElement): ItemRect => {
+const rectWithin = (element: HTMLElement, container: HTMLElement) => {
   let top = element.offsetTop
   let left = element.offsetLeft
   let ancestor = element.offsetParent
@@ -145,7 +145,7 @@ const rectWithin = (element: HTMLElement, container: HTMLElement): ItemRect => {
 const sameRects = (
   prev: ReadonlyArray<ItemRect | undefined>,
   next: ReadonlyArray<ItemRect | undefined>
-): boolean => {
+) => {
   if (prev.length !== next.length) return false
   for (let i = 0; i < next.length; i++) {
     const p = prev[i]
@@ -167,7 +167,7 @@ const sameRects = (
 export function useFluidHover<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
   { axis = "y", isItemDisabled, reach = Infinity }: UseFluidHoverOptions = {}
-): UseFluidHoverReturn {
+) {
   const itemsRef = useRef(new Map<number, HTMLElement>())
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const activeIndexRef = useRef<number | null>(null)

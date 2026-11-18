@@ -4,7 +4,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { me } from "@/features/auth/atoms/auth"
 import { useProjectActor } from "@/hooks/useActor"
 
-export function useCanManageGithub(orgSlug: string): boolean {
+export function useCanManageGithub(orgSlug: string) {
   const viewer = useAtomValue(me())
   return (
     useProjectActor().call("projects", "connectGithub") &&

@@ -26,10 +26,7 @@ export type ValueFilterDimension = Extract<
   Readonly<{ value: unknown }>
 >["dimension"]
 
-export const isChosen = (
-  filter: TicketFilter,
-  choice: FilterChoice
-): boolean => {
+export const isChosen = (filter: TicketFilter, choice: FilterChoice) => {
   switch (choice.dimension) {
     case "blocked":
       return filter.blocked === true
@@ -50,10 +47,7 @@ export const isChosen = (
   }
 }
 
-export const toggleChoice = (
-  filter: TicketFilter,
-  choice: FilterChoice
-): Partial<TicketFilter> => {
+export const toggleChoice = (filter: TicketFilter, choice: FilterChoice) => {
   switch (choice.dimension) {
     case "blocked":
       return { blocked: filter.blocked === true ? undefined : true }

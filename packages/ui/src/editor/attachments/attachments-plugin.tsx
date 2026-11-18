@@ -20,14 +20,7 @@ import {
   DROP_COMMAND,
   PASTE_COMMAND
 } from "lexical"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useMountedRef } from "../../hooks/useMountedRef"
 import { m } from "../messages"
@@ -46,7 +39,7 @@ export function AttachmentsPlugin({
   orgSlug,
   slug,
   ticketId
-}: AttachmentsPluginProps): JSX.Element | null {
+}: AttachmentsPluginProps) {
   const [editor] = useLexicalComposerContext()
   const upload = useEditorServices().useUploadAttachment(
     useMemo(() => ({ orgSlug, slug, ticketId }), [orgSlug, slug, ticketId])

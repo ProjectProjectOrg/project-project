@@ -56,7 +56,7 @@ const daysBetween = (from: DateTime.DateTime, to: DateTime.DateTime) =>
     (DateTime.toEpochMillis(to) - DateTime.toEpochMillis(from)) / DAY_MS
   )
 
-export const summarize = (input: OverviewInput): Overview => {
+export const summarize = (input: OverviewInput) => {
   const phaseOf = (slug: string) => statusPhaseOf(input.statuses, slug)
   const countBy = (slug: string) =>
     input.tickets.filter((ticket) => ticket.status === slug).length
@@ -247,7 +247,7 @@ export const drawOverview = (
   who: Readonly<{ server: string; user: string }>,
   terminal: Terminal,
   progress = 1
-): ReadonlyArray<string> => {
+) => {
   const grow = easeOut(
     Math.min(1, Math.max(0, (progress - LOGO_SHARE) / (1 - LOGO_SHARE)))
   )

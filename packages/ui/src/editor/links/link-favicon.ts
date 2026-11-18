@@ -27,7 +27,7 @@ export const paintLinkFavicon = (
   element: HTMLElement,
   favicon: LinkFavicon,
   animate = favicon.kind !== "pending" && !favicon.cached
-): void => {
+) => {
   element.dataset["linkFavicon"] = favicon.kind
   element.dataset["linkFaviconRendering"] =
     favicon.kind === "image" ? favicon.rendering : "original"

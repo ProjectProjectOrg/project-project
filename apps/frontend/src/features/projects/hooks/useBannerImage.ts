@@ -39,7 +39,7 @@ export function useBannerImage(
     measured: boolean
     editing: boolean
   }>
-): BannerImage {
+) {
   const { identity, measured, editing } = options
   const [state, dispatch] = useReducer(
     bannerImageReducer<HTMLImageElement>,
@@ -139,9 +139,7 @@ export function useBannerImage(
 const placeholderSizes = new Map<string, BannerImageSize>()
 const PLACEHOLDER_LIMIT = 24
 
-export function usePlaceholderSize(
-  placeholder: string | null
-): BannerImageSize | null {
+export function usePlaceholderSize(placeholder: string | null) {
   const [loaded, setLoaded] = useState<Readonly<{
     src: string
     size: BannerImageSize

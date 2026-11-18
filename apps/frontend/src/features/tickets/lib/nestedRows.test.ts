@@ -15,7 +15,7 @@ const ticketId = Schema.decodeSync(TicketId)
 const todo = Schema.decodeSync(TicketStatus)("todo")
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 
-const ticket = (id: string, fields: Partial<Ticket> = {}): Ticket => ({
+const ticket = (id: string, fields: Partial<Ticket> = {}) => ({
   id: ticketId(id),
   title: id,
   status: todo,

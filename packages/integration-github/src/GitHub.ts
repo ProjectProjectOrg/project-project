@@ -148,7 +148,7 @@ export function githubRepoMatchesQuery(
     description?: string | null
   }>,
   query: string
-): boolean {
+) {
   const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return true
   const owner = repo.owner?.login ?? ""
@@ -165,7 +165,7 @@ const installationAccount = (
       | Readonly<{ id: number; slug: string }>
       | null
   }>
-): GitHubInstallationAccount | null => {
+) => {
   const account = installation.account
   if (!account) return null
   return {
@@ -176,7 +176,7 @@ const installationAccount = (
       "type" in account && account.type === "Organization"
         ? "Organization"
         : "User"
-  }
+  } satisfies GitHubInstallationAccount
 }
 
 const make = Effect.gen(function* () {
@@ -189,7 +189,7 @@ const make = Effect.gen(function* () {
     attributes: GitHubRequest.GitHubRequestAttributes,
     fn: (signal: AbortSignal) => Promise<A>,
     narrowErr: (cause: unknown, now: number) => EOut
-  ): Effect.Effect<A, EOut | RateLimited> =>
+  ) =>
     GitHubRequest.githubRequest(attributes, fn, narrowErr).pipe(
       Effect.provideService(GitHubRequest.GitHubRequestState, requestState)
     )
@@ -212,7 +212,7 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const appToken = (appId: string): Effect.Effect<string, GitHubError> =>
+  const appToken = (appId: string) =>
     Effect.gen(function* () {
       const auth = yield* apps.auth(appId)
       const result = yield* Effect.tryPromise({

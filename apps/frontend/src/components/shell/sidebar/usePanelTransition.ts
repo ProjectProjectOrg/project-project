@@ -11,7 +11,7 @@ export function usePanelTransition(
   key: string,
   order: ReadonlyArray<string>,
   initial: PanelTransition = "none"
-): PanelTransition {
+) {
   const [state, setState] = useState<
     Readonly<{ key: string; transition: PanelTransition }>
   >({ key, transition: initial })

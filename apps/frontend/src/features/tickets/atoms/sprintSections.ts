@@ -6,9 +6,7 @@ import {
   summarizeEstimates,
   type EstimateSummary,
   type EstimationMode,
-  type GroupId,
   type StatusPhaseOf,
-  type GroupIdFilter,
   type SprintSectionKey,
   type Ticket,
   type TicketCounts,
@@ -75,14 +73,15 @@ export const sprintSectionsRequest = (
   orgSlug: string,
   slug: string,
   query: QueryWithView
-): SprintSectionsRequest => ({
-  _view: "sprintSections",
-  params: { orgSlug, slug },
-  query: {
-    ...viewQuery(query),
-    cursor: undefined
-  }
-})
+) =>
+  ({
+    _view: "sprintSections",
+    params: { orgSlug, slug },
+    query: {
+      ...viewQuery(query),
+      cursor: undefined
+    }
+  }) satisfies SprintSectionsRequest
 
 const scopeOf = (req: SprintSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -105,7 +104,7 @@ export type SprintSectionsValue = Readonly<{
   }>
 }>
 
-const groupIdFilter = (key: SprintSectionKey): GroupIdFilter =>
+const groupIdFilter = (key: SprintSectionKey) =>
   key === SPRINT_SECTION_UNSCHEDULED ? "ungrouped" : key
 
 const snapshotQuery = (req: SprintSectionsRequest) =>
@@ -162,14 +161,15 @@ const viewerOf = (get: Atom.AtomContext, req: SprintSectionsRequest) => {
   }
 }
 
-const emptySprintSections = (
-  viewer: SprintSectionsValue["viewer"]
-): SprintSectionsValue => ({
-  total: 0,
-  counts: { total: 0, byStatus: {} },
-  sections: [],
-  viewer
-})
+const emptySprintSections = (viewer: SprintSectionsValue["viewer"]) => {
+  const empty: SprintSectionsValue = {
+    total: 0,
+    counts: { total: 0, byStatus: {} },
+    sections: [],
+    viewer
+  }
+  return empty
+}
 
 const sprintSectionsView = (req: SprintSectionsRequest) =>
   Atom.readable(
@@ -265,7 +265,7 @@ const shiftEstimates = (
   removed: Ticket | null,
   added: Ticket | null,
   phaseOf: StatusPhaseOf
-): EstimateSummary | null => {
+) => {
   if (summary === null) return null
   const minus = summarizeEstimates(
     removed ? [removed] : [],
@@ -309,7 +309,7 @@ const moveSprintRow = (
   to: SprintSectionKey,
   dir: TicketSort["dir"],
   phaseOf: StatusPhaseOf
-): ReadonlyArray<SprintSectionValue> => {
+) => {
   if (from === to || !sections.some((section) => section.key === to)) {
     return sections
   }
@@ -348,7 +348,7 @@ const patchRow = (
   patch: TicketEdit,
   query: TicketListQuery,
   now: Date
-): SprintSectionsValue => {
+) => {
   let patched: TicketRow | undefined
   let from: TicketStatus | undefined
   let fromSection: SprintSectionKey | undefined
@@ -432,7 +432,7 @@ const replaceRow = (
   ticket: Ticket,
   orderKey: string | null,
   sort: TicketSort
-): SprintSectionsValue => ({
+) => ({
   ...value,
   sections: value.sections.map((section) => {
     if (orderKey === null) {
@@ -518,7 +518,7 @@ export const bulkMoveSprintSectionsTickets = Atom.family(
     })
 )
 
-const assignedSprintId = (key: SprintSectionKey): GroupId | undefined =>
+const assignedSprintId = (key: SprintSectionKey) =>
   key === SPRINT_SECTION_UNSCHEDULED ? undefined : key
 
 const insertCreated = (
@@ -526,7 +526,7 @@ const insertCreated = (
   key: SprintSectionKey,
   value: SprintSectionsValue,
   input: QuickCreateInput
-): SprintSectionsValue => {
+) => {
   const existing = value.sections.find((section) => section.key === key)
   const page = existing?.page ?? { items: [], nextCursor: null }
   const status = input.payload.status ?? TicketStatus.make("todo")
@@ -583,7 +583,7 @@ const confirmCreated = (
   value: SprintSectionsValue,
   created: Ticket,
   input: QuickCreateInput
-): SprintSectionsValue => ({
+) => ({
   ...value,
   sections: value.sections.map((section) =>
     section.key !== key

@@ -14,9 +14,9 @@ export const allowMentionUrls = (url: string) => {
   return defaultUrlTransform(url)
 }
 
-export const attachmentLabel = (children: ReactNode): string =>
+export const attachmentLabel: (children: ReactNode) => string = (children) =>
   Children.toArray(children)
-    .map((child): string => {
+    .map((child) => {
       if (typeof child === "string" || typeof child === "number")
         return String(child)
       if (isValidElement<{ children?: ReactNode }>(child))
@@ -25,21 +25,21 @@ export const attachmentLabel = (children: ReactNode): string =>
     })
     .join("")
 
-export const containsImage = (children: ReactNode): boolean =>
+export const containsImage: (children: ReactNode) => boolean = (children) =>
   Children.toArray(children).some(
     (child) =>
       isValidElement<{ src?: string; children?: ReactNode }>(child) &&
       (child.props.src !== undefined || containsImage(child.props.children))
   )
 
-export const plainText = (children: ReactNode): string | null => {
+export const plainText = (children: ReactNode) => {
   const parts = Children.toArray(children)
   return parts.every((part) => typeof part === "string") ? parts.join("") : null
 }
 
 export const LINK_REFERENCE_DEFINITION = /^ {0,3}\[[^\]]+\]:[ \t]*\S/
 
-export const linkReferenceDefinitions = (markdown: string): string => {
+export const linkReferenceDefinitions = (markdown: string) => {
   let fence: string | null = null
   const definitions: Array<string> = []
   for (const line of normalizeLineEndings(markdown).split("\n")) {
@@ -54,7 +54,7 @@ export const linkReferenceDefinitions = (markdown: string): string => {
 export const EMPTY_TASK_ITEM =
   /^(\s*(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\])[ \t]*$/
 
-export const withEmptyTaskItems = (markdown: string): string => {
+export const withEmptyTaskItems = (markdown: string) => {
   let fence: string | null = null
   return normalizeLineEndings(markdown)
     .split("\n")
@@ -66,7 +66,7 @@ export const withEmptyTaskItems = (markdown: string): string => {
     .join("\n")
 }
 
-export const taskLineOf = (element: Element): number | null => {
+export const taskLineOf = (element: Element) => {
   const line = element
     .closest("li[data-task-line]")
     ?.getAttribute("data-task-line")

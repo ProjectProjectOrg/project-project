@@ -30,7 +30,7 @@ const status = Schema.decodeUnknownSync(TicketStatus)
 const userId = Schema.decodeUnknownSync(UserId)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
-const unexpected = (method: string): Effect.Effect<never> =>
+const unexpected = (method: string) =>
   Effect.die(new Error(`unexpected ${method} call`))
 
 const ticket: TicketDocs.TicketDocument = {
@@ -63,7 +63,7 @@ const stored = (
   actor: TicketActivity.StoredTicketActivity["actor"] = ActivityActor.user(
     "wouter"
   )
-): TicketActivity.StoredTicketActivity => ({
+) => ({
   id: `activity-${seq}`,
   seq,
   occurredAt: at(iso),

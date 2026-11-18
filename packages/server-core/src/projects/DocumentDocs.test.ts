@@ -37,7 +37,7 @@ const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const tagName = Schema.decodeUnknownSync(TagName)
 const groupColor = Schema.decodeUnknownSync(GroupColor)
 
-function unexpectedMarkdownCall(method: string): Effect.Effect<never> {
+function unexpectedMarkdownCall(method: string) {
   return Effect.die(new Error(`unexpected Markdown.${method} call`))
 }
 

@@ -22,10 +22,11 @@ export type PinsRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export const pinsRequest = (orgSlug: string): PinsRequest => ({
-  _view: "pins",
-  params: { orgSlug }
-})
+export const pinsRequest = (orgSlug: string) =>
+  ({
+    _view: "pins",
+    params: { orgSlug }
+  }) satisfies PinsRequest
 
 const pinsQuery = (req: PinsRequest) =>
   query("sidebarPins", "list", {

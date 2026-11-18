@@ -1,4 +1,4 @@
-export const isPaperDesignUrl = (value: string): boolean => {
+export const isPaperDesignUrl = (value: string) => {
   let url: URL
   try {
     url = new URL(value)

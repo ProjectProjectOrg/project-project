@@ -23,24 +23,24 @@ export const ESTIMATE_UNIT_ICON: Readonly<Record<EstimateUnit, IconType>> = {
   time: Hourglass
 }
 
-export const formatEstimateValue = (estimate: Estimate): string =>
+export const formatEstimateValue = (estimate: Estimate) =>
   estimate.unit === "time"
     ? formatWorkDuration(estimate.minutes * 60)
     : String(estimate.value)
 
-export const formatEstimate = (estimate: Estimate): string =>
+export const formatEstimate = (estimate: Estimate) =>
   estimate.unit === "points"
     ? m.tickets_estimate_points({ count: estimate.value })
     : formatEstimateValue(estimate)
 
-export const parseEstimateMinutes = (input: string): number | null => {
+export const parseEstimateMinutes = (input: string) => {
   const seconds = parseDurationToSeconds(input)
   if (seconds === null) return null
   const minutes = Math.round(seconds / 60)
   return minutes >= 1 && minutes <= ESTIMATE_MAX_MINUTES ? minutes : null
 }
 
-export const parseEstimatePoints = (input: string): number | null => {
+export const parseEstimatePoints = (input: string) => {
   const trimmed = input.trim()
   if (!/^[1-9][0-9]*$/.test(trimmed)) return null
   const value = Number(trimmed)
@@ -54,9 +54,7 @@ const SIZE_FILTERS: ReadonlyArray<EstimateFilterValue> = [
 ]
 const PRESENCE_FILTERS: ReadonlyArray<EstimateFilterValue> = ["none", "any"]
 
-export const estimateFilterValues = (
-  mode: EstimationMode
-): ReadonlyArray<EstimateFilterValue> =>
+export const estimateFilterValues = (mode: EstimationMode) =>
   Match.value(mode).pipe(
     Match.when("off", () => NO_ESTIMATE_FILTERS),
     Match.when("tshirt", () => SIZE_FILTERS),
@@ -66,7 +64,7 @@ export const estimateFilterValues = (
 export const normalizeEstimateFilter = (
   mode: EstimationMode,
   values: ReadonlyArray<EstimateFilterValue> | undefined
-): ReadonlyArray<EstimateFilterValue> | undefined => {
+) => {
   const supported = estimateFilterValues(mode)
   const normalized = values?.filter((value) => supported.includes(value))
   return normalized?.length ? normalized : undefined
@@ -75,10 +73,9 @@ export const normalizeEstimateFilter = (
 export const normalizeEstimateSort = (
   mode: EstimationMode,
   sort: TicketSort
-): TicketSort =>
-  mode === "off" && sort.key === "estimate" ? DEFAULT_TICKET_SORT : sort
+) => (mode === "off" && sort.key === "estimate" ? DEFAULT_TICKET_SORT : sort)
 
-export const estimateFilterLabel = (value: EstimateFilterValue): string => {
+export const estimateFilterLabel = (value: EstimateFilterValue) => {
   switch (value) {
     case "none":
       return m.tickets_filters_estimate_none()
@@ -94,12 +91,12 @@ export const estimateFilterLabel = (value: EstimateFilterValue): string => {
 export const formatEstimateAmount = (
   unit: EstimateTotals["unit"],
   amount: number
-): string =>
+) =>
   unit === "points"
     ? m.tickets_estimate_total_points({ total: amount })
     : formatWorkDuration(amount * 60)
 
-export const formatEstimateProgress = (totals: EstimateTotals): string => {
+export const formatEstimateProgress = (totals: EstimateTotals) => {
   if (totals.unit === "points") {
     return m.tickets_estimate_progress_points({
       done: totals.done,
@@ -112,7 +109,7 @@ export const formatEstimateProgress = (totals: EstimateTotals): string => {
   })
 }
 
-export const isEmptyEstimateSummary = (summary: EstimateSummary): boolean =>
+export const isEmptyEstimateSummary = (summary: EstimateSummary) =>
   summary.unestimated === 0 &&
   (summary.unit === "tshirt"
     ? ESTIMATE_SIZES.every((size) => summary.sizes[size] === 0)

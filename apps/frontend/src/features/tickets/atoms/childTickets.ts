@@ -43,7 +43,7 @@ export const childTicketsRequest = (
   orgSlug: string,
   slug: string,
   parent: TicketId
-): ChildTicketsRequest => ({ params: { orgSlug, slug }, parent })
+) => ({ params: { orgSlug, slug }, parent })
 
 const scopeOf = (req: ChildTicketsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -72,8 +72,7 @@ const childTicketsView = (req: ChildTicketsRequest) =>
       const created = get(createdKeys(scopeOf(req)))
       return AsyncResult.map(
         allPages(get, (cursor) => childTicketsPage(req, cursor)),
-        (rows): ReadonlyArray<TicketRow> =>
-          withCreatedKeys(rows.map(toRow), created)
+        (rows) => withCreatedKeys(rows.map(toRow), created)
       )
     },
     (refresh) => refresh(childTicketsPage(req, undefined))
@@ -92,7 +91,7 @@ export const expandedChildrenRequest = (
   orgSlug: string,
   slug: string,
   parents: ReadonlySet<TicketId>
-): ExpandedChildrenRequest => ({
+) => ({
   params: { orgSlug, slug },
   parents: [...parents].toSorted()
 })
@@ -234,12 +233,13 @@ export const bulkUpdateChildTickets = Atom.family((req: ChildTicketsRequest) =>
   })
 )
 
-const attachedRow = (ticket: Ticket): TicketRow => ({
-  ticket,
-  key: ticket.id,
-  orderKey: localOrderKey(ticket, CHILD_TICKET_SORT),
-  pending: false
-})
+const attachedRow = (ticket: Ticket) =>
+  ({
+    ticket,
+    key: ticket.id,
+    orderKey: localOrderKey(ticket, CHILD_TICKET_SORT),
+    pending: false
+  }) satisfies TicketRow
 
 type AttachInput = Readonly<{ ticket: Ticket; parent: TicketParent }>
 
@@ -269,7 +269,7 @@ export const attachToParent = (
   req: ChildTicketsRequest,
   parent: TicketParent,
   ticket: Ticket
-): void => {
+) => {
   void fireMutation(registry, attachChildTicket({ req, id: ticket.id }), {
     ticket,
     parent

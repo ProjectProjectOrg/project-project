@@ -13,10 +13,10 @@ type TypeSource = Readonly<{
   body: string
 }>
 
-const customized = (key: string, content: string): string =>
+const customized = (key: string, content: string) =>
   formatTicketBlock(key, content)
 
-const body = (...parts: ReadonlyArray<string>): string => parts.join("\n\n")
+const body = (...parts: ReadonlyArray<string>) => parts.join("\n\n")
 
 const BLOCK_SOURCES: ReadonlyArray<BlockSource> = [
   {

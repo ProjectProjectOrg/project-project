@@ -10,20 +10,19 @@ export type TicketLocation = Readonly<{
 export const ticketUrl = (
   { orgSlug, slug }: TicketLocation,
   id: TicketDetail["id"]
-): string =>
-  `${window.location.origin}/orgs/${orgSlug}/projects/${slug}/tickets/${id}`
+) => `${window.location.origin}/orgs/${orgSlug}/projects/${slug}/tickets/${id}`
 
 const withBody = (head: string, body: string) =>
   body.trim() === "" ? head : `${head}\n\n${body.trim()}`
 
-export const ticketMarkdown = (ticket: Copied, url: string): string =>
+export const ticketMarkdown = (ticket: Copied, url: string) =>
   withBody(`# [${ticket.id}](${url}) ${ticket.title}`, ticket.body)
 
 export const ticketPrompt = (
   ticket: Copied,
   url: string,
   { orgSlug, slug }: TicketLocation
-): string =>
+) =>
   [
     withBody(
       `Work on ticket ${ticket.id}: ${ticket.title}\n${url}`,

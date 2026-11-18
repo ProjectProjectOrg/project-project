@@ -24,7 +24,7 @@ type Browsing = Readonly<{
   savedWhenLanded: Array<number>
 }>
 
-const browsing = (answer: Browsing["answer"]): Browsing => ({
+const browsing = (answer: Browsing["answer"]) => ({
   answer,
   landed: [],
   saved: [],

@@ -42,11 +42,10 @@ export const boardCollapsedColumnClass =
 
 // The status's colour for the wash, the count and the drop ring; any CSS
 // colour (a token or a picked #rrggbb). Without one the column is grey.
-export const boardColumnTone = (
-  tone: string | null | undefined
-): CSSProperties & Record<"--column-tone", string> => ({
-  "--column-tone": tone ?? "var(--muted-foreground)"
-})
+export const boardColumnTone = (tone: string | null | undefined) =>
+  ({
+    "--column-tone": tone ?? "var(--muted-foreground)"
+  }) satisfies CSSProperties
 
 export const boardColumnHeaderClass =
   "relative flex h-11 shrink-0 items-center gap-1.5 pr-2 pl-2.5 select-none"

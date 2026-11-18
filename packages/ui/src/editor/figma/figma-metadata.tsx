@@ -1,4 +1,4 @@
-import { figmaRefKey, type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
+import { figmaRefKey, type FigmaRef } from "@pp/shared"
 import { useState } from "react"
 
 import { useVisibleInterval } from "../../hooks/useVisibleInterval"
@@ -9,7 +9,7 @@ const MAX_REFRESHES = 15
 export const useFigmaMetadata = (
   ref: FigmaRef | null,
   target: TicketTarget
-): FigmaLinkMetadata | null => {
+) => {
   const { links, refresh } = useEditorServices().useFigmaLinks(target)
   const refKey = ref === null ? null : figmaRefKey(ref)
   const metadata =

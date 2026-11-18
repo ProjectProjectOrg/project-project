@@ -38,14 +38,11 @@ export type TicketDesignLink =
 const DESIGN_LINK_RE =
   /\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s)<>"']+)/gi
 
-const unescapeLabel = (label: string): string => label.replace(/\\(.)/g, "$1")
+const unescapeLabel = (label: string) => label.replace(/\\(.)/g, "$1")
 
-const trimBareUrl = (url: string): string =>
-  url.replace(/[.,;:!?}\]_*~]+$/g, "")
+const trimBareUrl = (url: string) => url.replace(/[.,;:!?}\]_*~]+$/g, "")
 
-export function extractTicketDesignLinks(
-  markdown: string
-): ReadonlyArray<TicketDesignLink> {
+export function extractTicketDesignLinks(markdown: string) {
   const seen = new Set<string>()
   const links: Array<TicketDesignLink> = []
 

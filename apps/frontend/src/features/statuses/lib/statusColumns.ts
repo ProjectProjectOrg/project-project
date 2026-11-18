@@ -43,19 +43,17 @@ const BASELINE_ANCHORS: ReadonlyMap<string, number> = new Map<
 const isBaseline = (slug: string): slug is BaselineStatusSlug =>
   (BASELINE_STATUS_SLUGS as ReadonlyArray<string>).includes(slug)
 
-export const normalizeStatusLabel = (label: string): string =>
+export const normalizeStatusLabel = (label: string) =>
   label
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "")
 
-const memberId = (projectSlug: string, status: StatusSlug): string =>
+const memberId = (projectSlug: string, status: StatusSlug) =>
   `${projectSlug}\u0000${status}`
 
-const baselineAliases = (
-  projects: ReadonlyArray<ProjectStatuses>
-): ReadonlyMap<string, BaselineStatusSlug> => {
+const baselineAliases = (projects: ReadonlyArray<ProjectStatuses>) => {
   const aliases = new Map<string, BaselineStatusSlug>()
   for (const slug of BASELINE_STATUS_SLUGS) {
     aliases.set(normalizeStatusLabel(slug), slug)
@@ -74,7 +72,7 @@ const baselineAliases = (
 const columnKeyOf = (
   status: ProjectStatus,
   aliases: ReadonlyMap<string, BaselineStatusSlug>
-): string => {
+) => {
   if (isBaseline(status.slug)) return status.slug
   const label = normalizeStatusLabel(status.label)
   const baseline =
@@ -83,9 +81,7 @@ const columnKeyOf = (
   return label.length > 0 ? `label:${label}` : `slug:${status.slug}`
 }
 
-const positionsIn = (
-  statuses: ReadonlyArray<ProjectStatus>
-): ReadonlyArray<readonly [ProjectStatus, number]> => {
+const positionsIn = (statuses: ReadonlyArray<ProjectStatus>) => {
   const ordered = [...statuses].toSorted(compareByOrderKey)
   const anchors = ordered.flatMap((status, index) => {
     const value = BASELINE_ANCHORS.get(status.slug)
@@ -98,17 +94,18 @@ const positionsIn = (
     const after = anchors.find((anchor) => anchor.index > index)
     if (before && after) {
       const share = (index - before.index) / (after.index - before.index)
-      return [status, before.value + (after.value - before.value) * share]
+      return [
+        status,
+        before.value + (after.value - before.value) * share
+      ] as const
     }
-    if (before) return [status, before.value + (index - before.index)]
-    if (after) return [status, after.value - (after.index - index)]
-    return [status, index]
+    if (before) return [status, before.value + (index - before.index)] as const
+    if (after) return [status, after.value - (after.index - index)] as const
+    return [status, index] as const
   })
 }
 
-const mostCommonLabel = (
-  members: ReadonlyArray<StatusColumnMember>
-): StatusColumnMember => {
+const mostCommonLabel = (members: ReadonlyArray<StatusColumnMember>) => {
   const counts = new Map<string, number>()
   for (const { status } of members) {
     counts.set(status.label, (counts.get(status.label) ?? 0) + 1)
@@ -122,7 +119,7 @@ const mostCommonLabel = (
 
 export const mergeStatusColumns = (
   projects: ReadonlyArray<ProjectStatuses>
-): StatusColumns => {
+) => {
   const aliases = baselineAliases(projects)
   const groups = new Map<
     string,
@@ -138,7 +135,7 @@ export const mergeStatusColumns = (
       groups.set(key, group)
     }
   }
-  const columns = [...groups].map(([key, group]): StatusColumn => {
+  const columns = [...groups].map(([key, group]) => {
     const members = group.map(({ member }) => member)
     const representative = mostCommonLabel(members)
     return {
@@ -163,7 +160,7 @@ export const mergeStatusColumns = (
     ),
     columnKeyFor: (projectSlug, status) =>
       keyById.get(memberId(projectSlug, status))
-  }
+  } satisfies StatusColumns
 }
 
 export type PlacedColumn<T> = StatusColumn &
@@ -173,7 +170,7 @@ export const placeInColumns = <T>(
   merged: StatusColumns,
   items: ReadonlyArray<T>,
   locate: (item: T) => readonly [projectSlug: string, status: StatusSlug]
-): ReadonlyArray<PlacedColumn<T>> => {
+) => {
   const byKey = new Map<string, Array<T>>()
   for (const item of items) {
     const key = merged.columnKeyFor(...locate(item))

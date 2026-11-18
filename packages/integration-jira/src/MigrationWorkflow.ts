@@ -186,13 +186,7 @@ type DurableUnit<A, E, R> = Readonly<{
   run: (operationTry: number) => Effect.Effect<A, E, R>
 }>
 
-const runDurableUnit = <A, E, R>(
-  unit: DurableUnit<A, E, R>
-): Effect.Effect<
-  A,
-  E,
-  R | WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
-> =>
+const runDurableUnit = <A, E, R>(unit: DurableUnit<A, E, R>) =>
   Effect.gen(function* () {
     let operationTry = 0
     let automaticRetries = 0
@@ -263,18 +257,24 @@ const classifyImportFailure = (
     retryable: boolean
     transient?: boolean | undefined
   }>
-): UnitDecision =>
+) =>
   failure.retryAfterMillis !== undefined
-    ? { _tag: "RateLimited", retryAfterMillis: failure.retryAfterMillis }
+    ? ({
+        _tag: "RateLimited",
+        retryAfterMillis: failure.retryAfterMillis
+      } satisfies UnitDecision)
     : !failure.retryable
-      ? { _tag: "Fatal" }
+      ? ({ _tag: "Fatal" } satisfies UnitDecision)
       : failure.transient === true
-        ? { _tag: "Transient" }
-        : { _tag: "AwaitUser" }
+        ? ({ _tag: "Transient" } satisfies UnitDecision)
+        : ({ _tag: "AwaitUser" } satisfies UnitDecision)
 
-const classifyScanFailure = (failure: JiraScanPageError): UnitDecision =>
+const classifyScanFailure = (failure: JiraScanPageError) =>
   Predicate.isTagged(failure, "JiraRateLimited")
-    ? { _tag: "RateLimited", retryAfterMillis: failure.retryAfterMillis }
+    ? ({
+        _tag: "RateLimited",
+        retryAfterMillis: failure.retryAfterMillis
+      } satisfies UnitDecision)
     : Predicate.isTagged(failure, "JiraTransientFailure")
       ? classifyImportFailure({
           retryable: true,
@@ -357,7 +357,7 @@ export const withJiraRemoteWriteIntent = <A, E, R>(
   projection: MigrationProjection.JiraMigrationProjection["Service"],
   fence: MigrationProjection.AttemptFence,
   run: Effect.Effect<A, E, R>
-): Effect.Effect<A, E | JiraMigrationWorkflowFailureValue, R> =>
+) =>
   Effect.gen(function* () {
     const accepted = yield* projection.beginRemoteWrites(fence).pipe(
       Effect.mapError(() => ({
@@ -428,10 +428,8 @@ export const makeProjectionMigrationActivities = <R>(
   scan: MigrationActivities<R>["scan"],
   materialize: MigrationActivities<R>["materialize"],
   publish: MigrationActivities<R>["publish"]
-): MigrationActivities<R | WorkflowEngine.WorkflowEngine> => {
-  const fenceForActivity = (
-    input: Parameters<typeof scan>[0]
-  ): MigrationProjection.AttemptFence =>
+) => {
+  const fenceForActivity = (input: Parameters<typeof scan>[0]) =>
     JiraMigrationWorkflowCommand.match(input.payload.command, {
       Create: () => ({
         migrationId: input.executionId,
@@ -444,7 +442,7 @@ export const makeProjectionMigrationActivities = <R>(
         workflowAttempt: command.workflowAttempt
       })
     })
-  return {
+  const activities: MigrationActivities<R | WorkflowEngine.WorkflowEngine> = {
     start: ({ payload, executionId }) =>
       Effect.gen(function* () {
         if (JiraMigrationWorkflowCommand.guards.Create(payload.command)) {
@@ -497,9 +495,10 @@ export const makeProjectionMigrationActivities = <R>(
         )
       )
   }
+  return activities
 }
 
-const persistedScanFailure = (failure: JiraScanPageError): JiraScanFailure =>
+const persistedScanFailure = (failure: JiraScanPageError) =>
   Match.value(failure).pipe(
     Match.tag("JiraTransientFailure", (failure) =>
       scanFailure(`jira_${failure.reason}`, true)
@@ -732,7 +731,7 @@ export const makeProjectionScanDependencies = (
     "client" | "artifacts" | "identityOptions"
   >,
   fence: MigrationProjection.AttemptFence
-): ScanSnapshotDependencies => {
+) => {
   const writeLock = Semaphore.makeUnsafe(1)
   return {
     ...dependencies,
@@ -810,5 +809,5 @@ export const makeProjectionScanDependencies = (
     recordFailure: projection.recordScanFailure,
     resume: projection.resumeScan,
     configured: (fence, result) => projection.completeScan(fence, result)
-  }
+  } satisfies ScanSnapshotDependencies
 }

@@ -56,9 +56,7 @@ const WebhookTimeRecord = Schema.fromJsonString(
 )
 const decodeWebhookTimeRecord = Schema.decodeOption(WebhookTimeRecord)
 
-export const parseTimeRecord = (
-  body: string
-): Client.EverhourTimeRecord | null => {
+export const parseTimeRecord = (body: string) => {
   const decoded = decodeWebhookTimeRecord(body)
   if (Option.isNone(decoded)) return null
   return Client.toTimeRecord(decoded.value)

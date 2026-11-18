@@ -10,10 +10,11 @@ import { entryUsage, type ProjectLibrary } from "./orgUsage"
 
 const bug = BUILTIN_TYPES.find((type) => type.key === "bug")!
 
-const projectLibrary = (slug: string, layer: Layer): ProjectLibrary => ({
-  project: { slug, name: slug.toUpperCase() },
-  library: resolveLibrary({ org: EMPTY_LAYER, project: layer }, true)
-})
+const projectLibrary = (slug: string, layer: Layer) =>
+  ({
+    project: { slug, name: slug.toUpperCase() },
+    library: resolveLibrary({ org: EMPTY_LAYER, project: layer }, true)
+  }) satisfies ProjectLibrary
 
 const libraries = [
   projectLibrary("api", EMPTY_LAYER),

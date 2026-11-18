@@ -35,7 +35,7 @@ const validParent = (
   lookups: HierarchyLookups,
   childId: TicketId | null,
   parentId: TicketId
-): Effect.Effect<HierarchyNode, Validation> =>
+) =>
   Effect.gen(function* () {
     const parent = yield* lookups.find(parentId)
     if (
@@ -56,7 +56,7 @@ const validParent = (
 export const validateHierarchy = (
   lookups: HierarchyLookups,
   change: HierarchyChange
-): Effect.Effect<void, Validation> =>
+) =>
   Effect.gen(function* () {
     if (change.parent !== undefined && isEpic(change)) {
       return yield* new Validation({ reason: "epic_with_parent" })

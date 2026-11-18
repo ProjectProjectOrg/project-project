@@ -21,9 +21,7 @@ export type ReferenceGroup = Readonly<{
 const groupKey = (item: Pick<ReferenceToFix, "kind" | "target">) =>
   `${item.kind}\u0000${item.target}`
 
-export const groupReferences = (
-  items: ReadonlyArray<ReferenceToFix>
-): ReadonlyArray<ReferenceGroup> => {
+export const groupReferences = (items: ReadonlyArray<ReferenceToFix>) => {
   const groups = new Map<
     string,
     { first: ReferenceToFix; tickets: Map<string, Array<string>> }
@@ -50,7 +48,7 @@ export const groupReferences = (
 export const withoutFixed = (
   references: ReferencesToFix,
   input: FixReferenceInput
-): ReferencesToFix => ({
+) => ({
   items: references.items.filter(
     (item) =>
       groupKey(item) !== groupKey(input) ||

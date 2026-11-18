@@ -23,7 +23,7 @@ export type OrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
 }>
 
-export const orgRequest = (orgSlug: string): OrgRequest => ({
+export const orgRequest = (orgSlug: string) => ({
   params: { orgSlug }
 })
 
@@ -78,7 +78,7 @@ export const renameOrg = Atom.family((req: OrgRequest) =>
   })
 )
 
-const softDeleted = (org: OrgDetail): OrgDetail => {
+const softDeleted = (org: OrgDetail) => {
   const now = DateTime.nowUnsafe()
   return {
     ...org,
@@ -143,7 +143,7 @@ const withMemberRole = (
   value: OrgMembers,
   userId: string,
   member: OrgMember
-): OrgMembers => ({
+) => ({
   ...value,
   members: value.members.map((existing) =>
     existing.userId === userId ? member : existing
@@ -170,7 +170,7 @@ export const updateMemberRole = Atom.family(({ req, userId }: MemberKey) =>
   })
 )
 
-const withoutMember = (value: OrgMembers, userId: string): OrgMembers => ({
+const withoutMember = (value: OrgMembers, userId: string) => ({
   ...value,
   members: value.members.filter((member) => member.userId !== userId)
 })
@@ -189,10 +189,7 @@ export const removeMember = Atom.family(({ req, userId }: MemberKey) =>
   })
 )
 
-const withoutInvitation = (
-  value: OrgMembers,
-  invitationId: string
-): OrgMembers => ({
+const withoutInvitation = (value: OrgMembers, invitationId: string) => ({
   ...value,
   invitations: value.invitations.filter(
     (invitation) => invitation.id !== invitationId
@@ -219,7 +216,7 @@ const withOwnershipTransferred = (
   value: OrgMembers,
   toUserId: string,
   callerUserId: string
-): OrgMembers => ({
+) => ({
   ...value,
   members: value.members.map((member) => {
     if (member.userId === toUserId) return { ...member, role: "owner" as const }

@@ -56,7 +56,7 @@ const options = DEFAULT_WORK_TYPES.map((workType) => ({
 }))
 const defaultWorkTypesResultAtom = Atom.make(Result.success(options))
 
-const elapsedSeconds = (startedAt: Date): number =>
+const elapsedSeconds = (startedAt: Date) =>
   Math.max(
     0,
     Math.floor(
@@ -65,9 +65,9 @@ const elapsedSeconds = (startedAt: Date): number =>
     )
   )
 
-const padClockPart = (value: number): string => `${value}`.padStart(2, "0")
+const padClockPart = (value: number) => `${value}`.padStart(2, "0")
 
-export const formatClock = (seconds: number): string => {
+export const formatClock = (seconds: number) => {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = seconds % 60
@@ -81,13 +81,13 @@ export const timerEntryMotion = (reduceMotion: boolean) =>
     ? { initial: false as const, animate: { opacity: 1 } }
     : { initial: { opacity: 0, y: -2 }, animate: { opacity: 1, y: 0 } }
 
-export const startSecondInterval = (update: () => void): (() => void) => {
+export const startSecondInterval = (update: () => void) => {
   update()
   const interval = window.setInterval(update, 1000)
   return () => window.clearInterval(interval)
 }
 
-function useElapsed(startedAt: Date | null): number {
+function useElapsed(startedAt: Date | null) {
   const [seconds, setSeconds] = useState(() =>
     startedAt ? elapsedSeconds(startedAt) : 0
   )
@@ -102,16 +102,7 @@ function useElapsed(startedAt: Date | null): number {
   return seconds
 }
 
-type ProjectRouteContext = {
-  slug: string
-  groupId: GroupId | null
-  ticketId: TicketId | null
-}
-
-function routeContext(
-  pathname: string,
-  orgSlug: string
-): ProjectRouteContext | null {
+function routeContext(pathname: string, orgSlug: string) {
   const prefix = `/orgs/${orgSlug}/projects/`
   if (!pathname.startsWith(prefix)) return null
   const parts = pathname.slice(prefix.length).split("/").filter(Boolean)
@@ -149,7 +140,7 @@ function defaultSprint(
   routeGroupId: GroupId | null,
   timer: ActiveTimer | null,
   slug: string
-): Group | null {
+) {
   if (routeGroupId) {
     const routeSprint = sprints.find((s) => s.id === routeGroupId)
     if (routeSprint) return routeSprint
@@ -167,7 +158,7 @@ function defaultSprint(
   )
 }
 
-function timerLabel(timer: ActiveTimer): string {
+function timerLabel(timer: ActiveTimer) {
   return timer.ticketId !== null
     ? `${timer.ticketId} · ${timer.workTypeLabel}`
     : timer.workTypeLabel

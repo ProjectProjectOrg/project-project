@@ -83,63 +83,64 @@ const withoutKey = (
         hiddenTypes: layer.hiddenTypes.filter((hidden) => hidden !== key)
       }
 
-const fakeLibraryDocs = (world: World): LibraryDocs.LibraryDocs["Service"] => ({
-  readLayer: (orgSlug, projectSlug) =>
-    Effect.sync(() => {
-      world.reads.push(scopeKey(orgSlug, projectSlug))
-      return world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
-    }),
-  writeBlock: (orgSlug, projectSlug, draft) =>
-    Effect.sync(() =>
-      updateLayer(world, orgSlug, projectSlug, (layer) => {
-        const rest = withoutKey(layer, "blocks", draft.key)
-        return { ...rest, blocks: [...rest.blocks, draft] }
+const fakeLibraryDocs = (world: World) =>
+  ({
+    readLayer: (orgSlug, projectSlug) =>
+      Effect.sync(() => {
+        world.reads.push(scopeKey(orgSlug, projectSlug))
+        return world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
+      }),
+    writeBlock: (orgSlug, projectSlug, draft) =>
+      Effect.sync(() =>
+        updateLayer(world, orgSlug, projectSlug, (layer) => {
+          const rest = withoutKey(layer, "blocks", draft.key)
+          return { ...rest, blocks: [...rest.blocks, draft] }
+        })
+      ),
+    writeType: (orgSlug, projectSlug, draft) =>
+      Effect.sync(() =>
+        updateLayer(world, orgSlug, projectSlug, (layer) => {
+          const rest = withoutKey(layer, "types", draft.key)
+          return { ...rest, types: [...rest.types, draft] }
+        })
+      ),
+    writeTombstone: (orgSlug, projectSlug, kind, key) =>
+      Effect.sync(() =>
+        updateLayer(world, orgSlug, projectSlug, (layer) => {
+          const rest = withoutKey(layer, kind, key)
+          return kind === "blocks"
+            ? { ...rest, hiddenBlocks: [...rest.hiddenBlocks, key] }
+            : { ...rest, hiddenTypes: [...rest.hiddenTypes, key] }
+        })
+      ),
+    hasFile: (orgSlug, projectSlug, kind, key) =>
+      Effect.sync(() => {
+        const layer =
+          world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
+        const [definitions, hidden] =
+          kind === "blocks"
+            ? [layer.blocks, layer.hiddenBlocks]
+            : [layer.types, layer.hiddenTypes]
+        return (
+          world.unreadable.has(`${scopeKey(orgSlug, projectSlug)}/${key}`) ||
+          hidden.includes(key) ||
+          definitions.some((definition) => definition.key === key)
+        )
+      }),
+    remove: (orgSlug, projectSlug, kind, key) =>
+      Effect.sync(() => {
+        const layer =
+          world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
+        const next = withoutKey(layer, kind, key)
+        const removed =
+          next.blocks.length + next.hiddenBlocks.length !==
+            layer.blocks.length + layer.hiddenBlocks.length ||
+          next.types.length + next.hiddenTypes.length !==
+            layer.types.length + layer.hiddenTypes.length
+        world.layers.set(scopeKey(orgSlug, projectSlug), next)
+        return removed
       })
-    ),
-  writeType: (orgSlug, projectSlug, draft) =>
-    Effect.sync(() =>
-      updateLayer(world, orgSlug, projectSlug, (layer) => {
-        const rest = withoutKey(layer, "types", draft.key)
-        return { ...rest, types: [...rest.types, draft] }
-      })
-    ),
-  writeTombstone: (orgSlug, projectSlug, kind, key) =>
-    Effect.sync(() =>
-      updateLayer(world, orgSlug, projectSlug, (layer) => {
-        const rest = withoutKey(layer, kind, key)
-        return kind === "blocks"
-          ? { ...rest, hiddenBlocks: [...rest.hiddenBlocks, key] }
-          : { ...rest, hiddenTypes: [...rest.hiddenTypes, key] }
-      })
-    ),
-  hasFile: (orgSlug, projectSlug, kind, key) =>
-    Effect.sync(() => {
-      const layer =
-        world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
-      const [definitions, hidden] =
-        kind === "blocks"
-          ? [layer.blocks, layer.hiddenBlocks]
-          : [layer.types, layer.hiddenTypes]
-      return (
-        world.unreadable.has(`${scopeKey(orgSlug, projectSlug)}/${key}`) ||
-        hidden.includes(key) ||
-        definitions.some((definition) => definition.key === key)
-      )
-    }),
-  remove: (orgSlug, projectSlug, kind, key) =>
-    Effect.sync(() => {
-      const layer =
-        world.layers.get(scopeKey(orgSlug, projectSlug)) ?? EMPTY_LAYER
-      const next = withoutKey(layer, kind, key)
-      const removed =
-        next.blocks.length + next.hiddenBlocks.length !==
-          layer.blocks.length + layer.hiddenBlocks.length ||
-        next.types.length + next.hiddenTypes.length !==
-          layer.types.length + layer.hiddenTypes.length
-      world.layers.set(scopeKey(orgSlug, projectSlug), next)
-      return removed
-    })
-})
+  }) satisfies LibraryDocs.LibraryDocs["Service"]
 
 const fakeDb = databaseLayer(({ sql, params }) =>
   Effect.sync(() => {
@@ -156,11 +157,10 @@ const fakeDb = databaseLayer(({ sql, params }) =>
   })
 )
 
-const makeWorld = (): World => ({
-  layers: new Map(),
-  unreadable: new Set(),
-  reads: []
-})
+const makeWorld = () => {
+  const world: World = { layers: new Map(), unreadable: new Set(), reads: [] }
+  return world
+}
 
 const makeLayer = (world: World) =>
   Library.layer.pipe(
@@ -200,9 +200,7 @@ const run = <A, E>(
 const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
 const decodeTypeDraft = Schema.decodeUnknownSync(TypeDraft)
 
-const blockInput = (
-  overrides: Readonly<Record<string, unknown>> = {}
-): BlockDraft =>
+const blockInput = (overrides: Readonly<Record<string, unknown>> = {}) =>
   decodeBlockDraft({
     key: "background",
     name: "Background",
@@ -214,9 +212,7 @@ const blockInput = (
     ...overrides
   })
 
-const typeInput = (
-  overrides: Readonly<Record<string, unknown>> = {}
-): TypeDraft =>
+const typeInput = (overrides: Readonly<Record<string, unknown>> = {}) =>
   decodeTypeDraft({
     key: "incident",
     name: "Incident",

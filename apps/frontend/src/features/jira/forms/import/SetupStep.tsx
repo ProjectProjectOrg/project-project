@@ -45,9 +45,7 @@ import { SprintsSection } from "./SprintsSection"
 import { StatusesSection } from "./StatusesSection"
 import { TagsSection } from "./TagsSection"
 
-const typeOptionsOf = (
-  types: ReadonlyArray<TypeDefinition>
-): ReadonlyArray<EnumOption<string>> => [
+const typeOptionsOf = (types: ReadonlyArray<TypeDefinition>) => [
   ...types.map((type) => ({
     value: type.key,
     label: () => type.name,
@@ -56,10 +54,10 @@ const typeOptionsOf = (
   { value: NO_TYPE_FILTER, label: m.jira_import_type_none, icon: NoTypeIcon }
 ]
 
-const typeOptionOf = (type: string | null | undefined): string | undefined =>
+const typeOptionOf = (type: string | null | undefined) =>
   type === null ? NO_TYPE_FILTER : type
 
-const typeOfOption = (value: string): string | null =>
+const typeOfOption = (value: string) =>
   value === NO_TYPE_FILTER ? null : value
 
 const priorityOptions: ReadonlyArray<EnumOption<TicketPriority>> = [

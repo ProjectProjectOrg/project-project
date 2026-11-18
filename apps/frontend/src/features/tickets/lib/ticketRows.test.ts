@@ -13,15 +13,16 @@ import {
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
 const todo = TicketStatus.make("todo")
 
-const input = (clientId: string): QuickCreateInput => ({
-  payload: { title: clientId },
-  prediction: {
-    clientId,
-    createdBy: "user-1",
-    projectPrefix: "T",
-    estimation: "off"
-  }
-})
+const input = (clientId: string) =>
+  ({
+    payload: { title: clientId },
+    prediction: {
+      clientId,
+      createdBy: "user-1",
+      projectPrefix: "T",
+      estimation: "off"
+    }
+  }) satisfies QuickCreateInput
 
 describe("placeholderRow", () => {
   it("gives stacked creations in one section distinct placeholder ids", () => {

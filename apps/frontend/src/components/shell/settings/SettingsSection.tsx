@@ -78,7 +78,7 @@ type SettingsRowIds = Readonly<{
 
 const SettingsRowContext = createContext<SettingsRowIds | null>(null)
 
-export function useSettingsRow(): SettingsRowIds {
+export function useSettingsRow() {
   const ids = use(SettingsRowContext)
   if (!ids) throw new Error("useSettingsRow must be used inside SettingsRow")
   return ids

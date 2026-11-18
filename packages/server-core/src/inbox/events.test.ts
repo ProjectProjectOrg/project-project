@@ -32,12 +32,13 @@ const base: InboxInput = {
   touched: false
 }
 
-const statusTo = (to: string): InboxInput["changes"] => [
-  {
-    ticketId: ticketId("T-1"),
-    change: { kind: "status_changed", from: status("todo"), to: status(to) }
-  }
-]
+const statusTo = (to: string) =>
+  [
+    {
+      ticketId: ticketId("T-1"),
+      change: { kind: "status_changed", from: status("todo"), to: status(to) }
+    }
+  ] satisfies InboxInput["changes"]
 
 const source: SubscriptionSource = {
   id: ticketId("T-1"),
@@ -47,18 +48,15 @@ const source: SubscriptionSource = {
   commentsRegion: ""
 }
 
-const comment = (
-  id: string,
-  origin: CommentBlock["origin"],
-  body: string
-): CommentBlock => ({
-  id,
-  author: { kind: "user", userId: "carl" },
-  origin,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
-  editedAt: null,
-  body
-})
+const comment = (id: string, origin: CommentBlock["origin"], body: string) =>
+  ({
+    id,
+    author: { kind: "user", userId: "carl" },
+    origin,
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-13T10:00:00Z")),
+    editedAt: null,
+    body
+  }) satisfies CommentBlock
 
 describe("stageInbox", () => {
   it("assigns the added people directly and resolves the removed ones", () => {

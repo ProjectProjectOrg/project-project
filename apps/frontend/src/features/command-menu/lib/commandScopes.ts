@@ -2,7 +2,6 @@ import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
 import {
   openCommandMenu,
-  type CommandMenuState,
   type PointedTicket,
   type SelectedTicket,
   type SprintContext,
@@ -30,14 +29,10 @@ export type CommandScope = Readonly<{
   commands?: ReadonlyArray<Command>
 }>
 
-export const scopeTicket = (
-  scopes: ReadonlyArray<CommandScope>
-): TicketContext | null =>
+export const scopeTicket = (scopes: ReadonlyArray<CommandScope>) =>
   scopes.findLast((scope) => scope.ticket !== undefined)?.ticket ?? null
 
-export const scopeSelection = (
-  scopes: ReadonlyArray<CommandScope>
-): ScopedSelection | null => {
+export const scopeSelection = (scopes: ReadonlyArray<CommandScope>) => {
   for (const scope of scopes.toReversed()) {
     const picked = scope.selection?.()
     if (picked !== undefined && picked !== null) return picked
@@ -53,18 +48,13 @@ export const scopeSelectionClear = (scopes: ReadonlyArray<CommandScope>) =>
   scopes.findLast((scope) => scope.clearSelection !== undefined)
     ?.clearSelection ?? null
 
-export const scopeSprint = (
-  scopes: ReadonlyArray<CommandScope>
-): SprintContext | null =>
+export const scopeSprint = (scopes: ReadonlyArray<CommandScope>) =>
   scopes.findLast((scope) => scope.sprint !== undefined)?.sprint ?? null
 
-export const scopeCommands = (
-  scopes: ReadonlyArray<CommandScope>
-): ReadonlyArray<Command> => scopes.flatMap((scope) => scope.commands ?? [])
+export const scopeCommands = (scopes: ReadonlyArray<CommandScope>) =>
+  scopes.flatMap((scope) => scope.commands ?? [])
 
-export const scopeView = (
-  scopes: ReadonlyArray<CommandScope>
-): ViewContext | null =>
+export const scopeView = (scopes: ReadonlyArray<CommandScope>) =>
   scopes.findLast((scope) => scope.view !== undefined)?.view ?? null
 
 export type CommandTarget = Readonly<{
@@ -76,7 +66,7 @@ export const commandTarget = (
   orgSlug: string,
   scopes: ReadonlyArray<CommandScope>,
   pointed: PointedTicket | null
-): CommandTarget => {
+) => {
   const selection = scopeSelection(scopes)
   const [first] = selection?.tickets ?? []
   if (selection !== null && first !== undefined) {
@@ -100,7 +90,7 @@ export const openFromScopes = (
   orgSlug: string,
   scopes: ReadonlyArray<CommandScope>,
   pointed: PointedTicket | null
-): CommandMenuState => {
+) => {
   const target = commandTarget(orgSlug, scopes, pointed)
   return openCommandMenu(target.ticket, "root", target.selection, pointed)
 }

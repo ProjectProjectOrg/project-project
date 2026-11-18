@@ -18,16 +18,13 @@ import {
   SyncedBlockNode
 } from "./synced-block-node"
 import { syncedView } from "./synced-content"
-import {
-  $createTicketBlockNode,
-  type TicketBlockNode
-} from "./ticket-block-node"
+import { $createTicketBlockNode } from "./ticket-block-node"
 
 export function $detachSyncedBlock(
   node: SyncedBlockNode,
   content: string,
   transformers: ReadonlyArray<Transformer>
-): TicketBlockNode {
+) {
   const block = $createTicketBlockNode(node.getBlockType())
   node.replace(block)
   $convertFromMarkdownString(content, [...transformers], block)
@@ -38,7 +35,7 @@ export function $detachSyncedBlock(
 function $copyRemovedSource(
   node: SyncedBlockNode,
   transformers: ReadonlyArray<Transformer>
-): TicketBlockNode {
+) {
   const selection = $getSelection()
   const kept =
     selection === null ||
@@ -55,7 +52,7 @@ export function registerSyncedBlocks(
   lookup: BlockLookup,
   transformers: ReadonlyArray<Transformer>,
   onSourceRemoved: (key: NodeKey) => void
-): () => void {
+) {
   return mergeRegister(
     editor.registerNodeTransform(SyncedBlockNode, (node) => {
       const view = syncedView(

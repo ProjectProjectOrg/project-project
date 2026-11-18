@@ -49,7 +49,7 @@ const decodeNonEmptyStringOption = Schema.decodeUnknownOption(
 )
 const decodeBooleanOption = Schema.decodeUnknownOption(Schema.Boolean)
 
-export const recoverJiraUser = (value: unknown): JiraUser | null =>
+export const recoverJiraUser = (value: unknown) =>
   decodeStrictUserOption(value).pipe(
     Option.orElse(() =>
       decodeUserIdentityOption(value).pipe(
@@ -343,7 +343,7 @@ const recoveredRecord = <
         const checked = check(record)
         const previous = decodeWarningsOption(
           record.normalizationWarnings
-        ).pipe(Option.getOrElse((): ReadonlyArray<string> => []))
+        ).pipe(Option.getOrElse(() => []))
         const warnings = Result.isFailure(checked)
           ? formatIssue(checked.failure.issue).issues.map(
               (failure) =>
@@ -530,7 +530,7 @@ export const JiraChangelog = recoveredRecord(
       ...(author === null ? {} : { author }),
       created: timestamp(record.created),
       items: decodeChangelogItemsOption(record.items).pipe(
-        Option.getOrElse((): ReadonlyArray<Schema.Json> => []),
+        Option.getOrElse(() => []),
         (items) =>
           items.flatMap((item) =>
             Option.toArray(decodeRecordOption(item)).map((fields) => {

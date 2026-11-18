@@ -14,7 +14,7 @@ const DURATION_PATTERN = new RegExp(
   String.raw`^(?:${amount}\s*w)?\s*(?:${amount}\s*d)?\s*(?:${amount}\s*h)?\s*(?:${amount}\s*m)?$`
 )
 
-export const parseDurationToSeconds = (input: string): number | null => {
+export const parseDurationToSeconds = (input: string) => {
   const trimmed = input.trim().toLowerCase()
   if (trimmed.length === 0) return null
   if (/^\d+(\.\d+)?$/.test(trimmed)) {
@@ -38,7 +38,7 @@ export const parseDurationToSeconds = (input: string): number | null => {
   return total > 0 ? Math.round(total) : null
 }
 
-export const formatDuration = (seconds: number): string => {
+export const formatDuration = (seconds: number) => {
   const total = Math.max(0, Math.round(seconds / 60))
   const hours = Math.floor(total / 60)
   const minutes = total % 60
@@ -65,7 +65,7 @@ const workParts = (seconds: number) => {
   }
 }
 
-export const formatWorkDuration = (seconds: number): string => {
+export const formatWorkDuration = (seconds: number) => {
   const { weeks, days, hours, minutes } = workParts(seconds)
   if (weeks + days + hours + minutes === 0)
     return m.time_duration_minutes({ minutes: 0 })
@@ -77,7 +77,7 @@ export const formatWorkDuration = (seconds: number): string => {
   ].join(" ")
 }
 
-export const formatWorkDurationLong = (seconds: number): string => {
+export const formatWorkDurationLong = (seconds: number) => {
   const { weeks, days, hours, minutes } = workParts(seconds)
   return new Intl.ListFormat(getLocale(), {
     style: "long",

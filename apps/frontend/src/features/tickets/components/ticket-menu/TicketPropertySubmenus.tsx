@@ -59,7 +59,7 @@ import { useOpenTicketPage } from "./useOpenTicketPage"
 const viewerFirst = (
   members: ReadonlyArray<Member>,
   viewerId: string | null | undefined
-): ReadonlyArray<Member> => {
+) => {
   const viewer = members.find((member) => member.id === viewerId)
   return viewer === undefined
     ? members

@@ -105,7 +105,7 @@ export class TicketActivity extends Context.Service<
 
 const ABSENT = "absent"
 
-const documentHash = (content: string | null): string =>
+const documentHash = (content: string | null) =>
   content === null ? ABSENT : contentHash(content)
 
 const encodeEvent = Schema.encodeSync(ProjectEvent)
@@ -254,7 +254,7 @@ const make = Effect.gen(function* () {
       ? markdown.readTicketFileRaw(orgSlug, slug, id)
       : markdown.readGroupFileRaw(orgSlug, slug, id)
     ).pipe(
-      Effect.map((file): string | null => file.content),
+      Effect.map((file) => file.content),
       Effect.catchTag("NotFound", () => Effect.succeed(null))
     )
 
@@ -306,7 +306,7 @@ const make = Effect.gen(function* () {
     write: Effect.Effect<A, E, R>,
     requested: ReadonlyArray<ProjectEvent> = [],
     effects: RecordEffects = {}
-  ): Effect.fn.Return<A, E, R | ActivityActor> {
+  ) {
     const projectId = yield* projectIdOf(orgSlug, slug)
     if (projectId === null) return yield* write
     const [, subscriptions] = yield* Effect.all(
@@ -547,16 +547,14 @@ const make = Effect.gen(function* () {
       .pipe(
         Effect.orDie,
         Effect.map((rows) =>
-          rows.map(
-            (row): StoredTicketActivity => ({
-              id: row.id,
-              seq: row.seq,
-              occurredAt: row.occurredAt,
-              actor: actorOf(row),
-              cause: row.cause,
-              change: decodeChange(row.change)
-            })
-          )
+          rows.map((row) => ({
+            id: row.id,
+            seq: row.seq,
+            occurredAt: row.occurredAt,
+            actor: actorOf(row),
+            cause: row.cause,
+            change: decodeChange(row.change)
+          }))
         )
       )
   })

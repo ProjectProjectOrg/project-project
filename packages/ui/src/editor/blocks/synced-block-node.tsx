@@ -72,11 +72,11 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
   __snapshot: string
   __mode: SyncedBlockMode
 
-  static getType(): string {
+  static getType() {
     return "synced-block"
   }
 
-  static clone(node: SyncedBlockNode): SyncedBlockNode {
+  static clone(node: SyncedBlockNode) {
     return new SyncedBlockNode(
       node.__blockType,
       node.__snapshot,
@@ -85,7 +85,7 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
     )
   }
 
-  static importJSON(serialized: SerializedSyncedBlockNode): SyncedBlockNode {
+  static importJSON(serialized: SerializedSyncedBlockNode) {
     return $createSyncedBlockNode(
       serialized.blockType,
       serialized.snapshot,
@@ -105,7 +105,7 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
     this.__mode = mode
   }
 
-  exportJSON(): SerializedSyncedBlockNode {
+  exportJSON() {
     return {
       ...super.exportJSON(),
       blockType: this.__blockType,
@@ -114,29 +114,29 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
     }
   }
 
-  getBlockType(): string {
+  getBlockType() {
     return this.getLatest().__blockType
   }
 
-  getSnapshot(): string {
+  getSnapshot() {
     return this.getLatest().__snapshot
   }
 
-  getMode(): SyncedBlockMode {
+  getMode() {
     return this.getLatest().__mode
   }
 
-  setSnapshot(snapshot: string): this {
+  setSnapshot(snapshot: string) {
     const writable = this.getWritable()
     writable.__snapshot = snapshot
     return writable
   }
 
-  getTextContent(): string {
+  getTextContent() {
     return this.getLatest().__snapshot
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const element = document.createElement("div")
     element.className = "ticket-block group/reveal whitespace-normal"
     element.dataset.blockType = this.__blockType
@@ -144,15 +144,15 @@ export class SyncedBlockNode extends DecoratorNode<ReactElement> {
     return element
   }
 
-  updateDOM(): false {
+  updateDOM() {
     return false
   }
 
-  isInline(): false {
+  isInline() {
     return false
   }
 
-  decorate(): ReactElement {
+  decorate() {
     return (
       <SyncedBlockView
         nodeKey={this.__key}
@@ -168,7 +168,7 @@ export function $createSyncedBlockNode(
   blockType: string,
   snapshot: string,
   mode: SyncedBlockMode = "synced"
-): SyncedBlockNode {
+) {
   return $applyNodeReplacement(new SyncedBlockNode(blockType, snapshot, mode))
 }
 
@@ -329,7 +329,7 @@ function SyncedActions({
   )
 }
 
-export function $liftNestedSyncedBlock(node: SyncedBlockNode): void {
+export function $liftNestedSyncedBlock(node: SyncedBlockNode) {
   const outermost = node.getParents().findLast((parent) => !$isRootNode(parent))
   if (outermost !== undefined) outermost.insertAfter(node)
 }

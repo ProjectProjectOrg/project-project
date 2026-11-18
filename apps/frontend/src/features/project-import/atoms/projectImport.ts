@@ -15,17 +15,15 @@ export type ProjectImportRequest = Readonly<{
   params: Readonly<{ orgSlug: string; importId: string }>
 }>
 
-export const projectImportOrgRequest = (
-  orgSlug: string
-): ProjectImportOrgRequest => ({ params: { orgSlug } })
-
-export const projectImportRequest = (
-  orgSlug: string,
-  importId: string
-): ProjectImportRequest => ({
-  _view: "projectImport",
-  params: { orgSlug, importId }
+export const projectImportOrgRequest = (orgSlug: string) => ({
+  params: { orgSlug }
 })
+
+export const projectImportRequest = (orgSlug: string, importId: string) =>
+  ({
+    _view: "projectImport",
+    params: { orgSlug, importId }
+  }) satisfies ProjectImportRequest
 
 const projectImportQuery = (req: ProjectImportRequest) =>
   query("projectImports", "get", {

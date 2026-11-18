@@ -61,7 +61,7 @@ import * as TicketQueries from "./TicketQueries"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 
-function unexpected(method: string): Effect.Effect<never> {
+function unexpected(method: string) {
   return Effect.die(new Error(`unexpected ${method} call`))
 }
 
@@ -116,25 +116,26 @@ const FakeGitHub = Layer.succeed(GitHub.GitHub, {
 
 const decodeUserId = Schema.decodeUnknownSync(UserId)
 
-const fakeUser = (id: string): User => ({
-  id: decodeUserId(id),
-  email: `${id}@example.com`,
-  name: id,
-  username: null,
-  image: null,
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  activeOrgSlug: null,
-  personalGithub: { connected: false },
-  editorPreference: "github",
-  personalEverhour: {
-    connected: false,
-    everhourUserId: null,
-    name: null,
-    email: null,
-    lastVerifiedAt: null,
-    lastCheckError: null
-  }
-})
+const fakeUser = (id: string) =>
+  ({
+    id: decodeUserId(id),
+    email: `${id}@example.com`,
+    name: id,
+    username: null,
+    image: null,
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+    activeOrgSlug: null,
+    personalGithub: { connected: false },
+    editorPreference: "github",
+    personalEverhour: {
+      connected: false,
+      everhourUserId: null,
+      name: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    }
+  }) satisfies User
 
 const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),

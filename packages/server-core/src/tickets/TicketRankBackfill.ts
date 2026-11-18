@@ -13,10 +13,10 @@ import { ranksBetween } from "./ranks"
 import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
 import type { TicketProject } from "./ticketProject"
 
-const rankOf = (data: Record<string, unknown>): string | null =>
+const rankOf = (data: Record<string, unknown>) =>
   typeof data.rank === "string" && data.rank !== "" ? data.rank : null
 
-const timeOf = (value: unknown): number =>
+const timeOf = (value: unknown) =>
   value instanceof Date
     ? value.getTime()
     : typeof value === "string"

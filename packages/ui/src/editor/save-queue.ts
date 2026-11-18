@@ -20,7 +20,7 @@ export function createCoalescedSaveQueue<A>(options: {
   let inflight = false
   let unmounted = false
 
-  const flush = (notify = true): Promise<void> | undefined => {
+  const flush = (notify = true) => {
     if (inflight || pending === null) return undefined
     const next = pending
     pending = null

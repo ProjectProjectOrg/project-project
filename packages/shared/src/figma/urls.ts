@@ -21,12 +21,12 @@ const SEGMENT_KINDS: Record<string, FigmaKind> = {
   file: "design"
 }
 
-const isFigmaHost = (host: string): boolean => {
+const isFigmaHost = (host: string) => {
   const lower = host.toLowerCase()
   return lower === "figma.com" || lower === "www.figma.com"
 }
 
-const toUrl = (url: string): URL | null => {
+const toUrl = (url: string) => {
   try {
     return new URL(url)
   } catch {
@@ -34,13 +34,13 @@ const toUrl = (url: string): URL | null => {
   }
 }
 
-const normaliseNodeId = (raw: string | null): string | null => {
+const normaliseNodeId = (raw: string | null) => {
   if (raw === null) return null
   const value = raw.replace(/-/g, ":").trim()
   return value.length === 0 ? null : value
 }
 
-export const parseFigmaUrl = (url: string): FigmaRef | null => {
+export const parseFigmaUrl = (url: string) => {
   const parsed = toUrl(url)
   if (parsed === null) return null
   const proto = parsed.protocol.toLowerCase()
@@ -70,16 +70,18 @@ export const parseFigmaUrl = (url: string): FigmaRef | null => {
   }
 }
 
-export const figmaViewParams = (url: string): { density: FigmaDensity } => {
+export const figmaViewParams = (url: string) => {
   const parsed = toUrl(url)
   const density = parsed?.searchParams.get(DENSITY_PARAM)
-  return { density: density === "compact" ? "compact" : "rich" }
+  return {
+    density: density === "compact" ? "compact" : "rich"
+  } satisfies { density: FigmaDensity }
 }
 
 export const withFigmaParams = (
   url: string,
   params: { readonly density?: FigmaDensity }
-): string => {
+) => {
   const parsed = toUrl(url)
   if (parsed === null) return url
   if (params.density === "compact") {
@@ -90,14 +92,14 @@ export const withFigmaParams = (
   return parsed.toString()
 }
 
-export const figmaSrc = (url: string): string => {
+export const figmaSrc = (url: string) => {
   const parsed = toUrl(url)
   if (parsed === null) return url
   parsed.searchParams.delete(DENSITY_PARAM)
   return parsed.toString()
 }
 
-export const figmaEmbedUrl = (ref: FigmaRef, url: string): string => {
+export const figmaEmbedUrl = (ref: FigmaRef, url: string) => {
   const embed = new URL(
     `https://embed.figma.com/${ref.kind}/${ref.fileKey}/${encodeURIComponent(
       ref.slug.length === 0 ? "file" : ref.slug
@@ -111,16 +113,16 @@ export const figmaEmbedUrl = (ref: FigmaRef, url: string): string => {
   return embed.toString()
 }
 
-export const figmaRefKey = (ref: FigmaRef): string =>
+export const figmaRefKey = (ref: FigmaRef) =>
   `${ref.fileKey}/${ref.nodeId ?? ""}`
 
 const FIGMA_URL_CANDIDATE_RE =
   /https?:\/\/(?:www\.)?figma\.com\/(?:design|board|slides|proto|file)\/[^\s)<>"']+/gi
 
-const trimFigmaCandidate = (candidate: string): string =>
+const trimFigmaCandidate = (candidate: string) =>
   candidate.replace(/[.,;:!?}\]_*~]+$/g, "")
 
-export const extractFigmaRefs = (markdown: string): ReadonlyArray<FigmaRef> => {
+export const extractFigmaRefs = (markdown: string) => {
   const seen = new Set<string>()
   const out: Array<FigmaRef> = []
   for (const match of markdown.matchAll(FIGMA_URL_CANDIDATE_RE)) {

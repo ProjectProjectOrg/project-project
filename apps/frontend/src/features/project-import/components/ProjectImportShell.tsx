@@ -29,9 +29,8 @@ const stageForStatus = {
   succeeded: "finish"
 } as const satisfies Record<ProjectImportStatus, ProjectImportStage>
 
-export const projectImportStageForStatus = (
-  status: ProjectImportStatus
-): ProjectImportStage => stageForStatus[status]
+export const projectImportStageForStatus = (status: ProjectImportStatus) =>
+  stageForStatus[status]
 
 export function ProjectImportShell<Navigable extends ProjectImportStage>({
   orgSlug,

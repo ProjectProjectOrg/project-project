@@ -28,7 +28,7 @@ import { ulid } from "ulid"
 import * as S3Storage from "./S3Storage"
 import * as SecretCrypto from "./SecretCrypto"
 
-export const maskAccessKeyId = (value: string): string => {
+export const maskAccessKeyId = (value: string) => {
   if (value.length <= 4) return "*".repeat(value.length)
   return `${"*".repeat(value.length - 4)}${value.slice(-4)}`
 }
@@ -112,35 +112,33 @@ const make = Effect.gen(function* () {
         Effect.map((rows) => rows[0] ?? null)
       )
 
-  const getStatus = Effect.fn("OrgStorage.getStatus")(
-    function* (): Effect.fn.Return<OrgStorageStatus, never, OrgScope> {
-      const scope = yield* OrgScope
-      const row = yield* activeOrBrokenS3Row(scope.organizationId)
-      if (!row) return notConnectedStatus
-      const status = row.status === "active" ? "active" : "broken"
-      if (!scope.permissions.can({ storage: ["manage"] })) {
-        return {
-          ...notConnectedStatus,
-          status,
-          connectedAt: row.connectedAt,
-          lastCheckedAt: row.lastCheckedAt
-        }
-      }
+  const getStatus = Effect.fn("OrgStorage.getStatus")(function* () {
+    const scope = yield* OrgScope
+    const row = yield* activeOrBrokenS3Row(scope.organizationId)
+    if (!row) return notConnectedStatus
+    const status = row.status === "active" ? "active" : "broken"
+    if (!scope.permissions.can({ storage: ["manage"] })) {
       return {
+        ...notConnectedStatus,
         status,
-        endpoint: row.endpoint,
-        bucket: row.bucket,
-        region: row.region,
-        keyPrefix: row.keyPrefix,
-        accessKeyIdMasked:
-          row.accessKeyId == null ? null : maskAccessKeyId(row.accessKeyId),
-        forcePathStyle: row.forcePathStyle ?? true,
         connectedAt: row.connectedAt,
-        lastCheckedAt: row.lastCheckedAt,
-        lastCheckError: row.lastCheckError
-      }
+        lastCheckedAt: row.lastCheckedAt
+      } satisfies OrgStorageStatus
     }
-  )
+    return {
+      status,
+      endpoint: row.endpoint,
+      bucket: row.bucket,
+      region: row.region,
+      keyPrefix: row.keyPrefix,
+      accessKeyIdMasked:
+        row.accessKeyId == null ? null : maskAccessKeyId(row.accessKeyId),
+      forcePathStyle: row.forcePathStyle ?? true,
+      connectedAt: row.connectedAt,
+      lastCheckedAt: row.lastCheckedAt,
+      lastCheckError: row.lastCheckError
+    } satisfies OrgStorageStatus
+  })
 
   const connectionCheckKey = (keyPrefix: string | null) => {
     const prefix = (keyPrefix ?? "").replace(/^\/+|\/+$/g, "")

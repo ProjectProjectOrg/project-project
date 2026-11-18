@@ -66,10 +66,10 @@ const prismPlugin = [
   Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]
 >[number]
 
-const linkedAttachmentContent = (
+const linkedAttachmentContent: (
   children: ReactNode,
   morphId: string
-): ReactNode =>
+) => ReactNode = (children, morphId) =>
   Children.map(children, (child, index) => {
     if (
       !isValidElement<{ src?: string; alt?: string; children?: ReactNode }>(

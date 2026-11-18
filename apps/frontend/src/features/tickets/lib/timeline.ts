@@ -45,32 +45,34 @@ export const timelineEvents = <C>({
   activity: ReadonlyArray<TicketActivityEntry>
   comments: ReadonlyArray<TimelineComment<C>>
   hasOlder: boolean
-}>): ReadonlyArray<TimelineEvent<C>> => {
+}>) => {
   const floor = hasOlder ? activity.at(-1)?.occurredAt.getTime() : undefined
   const events: ReadonlyArray<TimelineEvent<C>> = [
     ...activity.toReversed().map(
-      (entry): TimelineEvent<C> => ({
-        kind: "activity",
-        at: entry.occurredAt,
-        entry
-      })
+      (entry) =>
+        ({
+          kind: "activity",
+          at: entry.occurredAt,
+          entry
+        }) satisfies TimelineEvent<C>
     ),
     ...comments
       .filter(
         (comment) => floor === undefined || comment.lastAt.getTime() >= floor
       )
       .map(
-        (comment): TimelineEvent<C> => ({
-          kind: "comment",
-          at: comment.at,
-          comment
-        })
+        (comment) =>
+          ({
+            kind: "comment",
+            at: comment.at,
+            comment
+          }) satisfies TimelineEvent<C>
       )
   ]
   return events.toSorted((a, b) => a.at.getTime() - b.at.getTime())
 }
 
-const itemLines = (item: ActivityItem): ReadonlyArray<TimelineLine> =>
+const itemLines = (item: ActivityItem) =>
   activityLines(item).map((line, index) => ({
     key: `${item.key}:${index}`,
     actor: item.kind === "entry" ? item.entry.actor : item.actor,
@@ -81,7 +83,7 @@ const itemLines = (item: ActivityItem): ReadonlyArray<TimelineLine> =>
 export const timelineRows = <C>(
   events: ReadonlyArray<TimelineEvent<C>>,
   order: TimelineOrder
-): ReadonlyArray<TimelineRow<C>> => {
+) => {
   const rows: Array<TimelineRow<C>> = []
   let run: Array<TicketActivityEntry> = []
   const flush = () => {

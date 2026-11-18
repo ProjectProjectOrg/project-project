@@ -15,7 +15,7 @@ const HTML_COMMENT_OPEN = /^ {0,3}<!--/
 
 const HTML_COMMENT = "<!--"
 
-const trimBlankLines = (lines: ReadonlyArray<string>): string => {
+const trimBlankLines = (lines: ReadonlyArray<string>) => {
   let start = 0
   let end = lines.length
   while (start < end && lines[start].trim() === "") start++
@@ -29,7 +29,7 @@ export const formatTicketBlock = (
   type: string,
   content: string,
   options?: TicketBlockFormatOptions
-): string => {
+) => {
   const opener =
     options?.sync === true
       ? `<block type="${type}" sync>`
@@ -40,7 +40,7 @@ export const formatTicketBlock = (
     : `${opener}\n\n${body}\n\n</block>`
 }
 
-const closesFence = (line: string, fence: string): boolean => {
+const closesFence = (line: string, fence: string) => {
   const match = FENCE_OPEN.exec(line)
   return (
     match !== null &&
@@ -50,15 +50,12 @@ const closesFence = (line: string, fence: string): boolean => {
   )
 }
 
-const opensHtmlComment = (line: string): boolean => {
+const opensHtmlComment = (line: string) => {
   const match = HTML_COMMENT_OPEN.exec(line)
   return match !== null && !line.includes("-->", match[0].length - 2)
 }
 
-export const advanceFence = (
-  line: string,
-  fence: string | null
-): string | null => {
+export const advanceFence = (line: string, fence: string | null) => {
   if (fence === HTML_COMMENT) return line.includes("-->") ? null : fence
   if (fence !== null) return closesFence(line, fence) ? null : fence
   if (opensHtmlComment(line)) return HTML_COMMENT
@@ -69,7 +66,7 @@ export const advanceFence = (
 export const isInsideFenceOrComment = (
   lines: ReadonlyArray<string>,
   index: number
-): boolean => {
+) => {
   let fence: string | null = null
   for (let i = 0; i < index; i++) fence = advanceFence(lines[i], fence)
   return fence !== null
@@ -78,7 +75,7 @@ export const isInsideFenceOrComment = (
 export const findTicketBlockEnd = (
   lines: ReadonlyArray<string>,
   openIndex: number
-): number | null => {
+) => {
   let fence: string | null = null
   for (let i = openIndex + 1; i < lines.length; i++) {
     const line = lines[i]
@@ -91,12 +88,10 @@ export const findTicketBlockEnd = (
   return null
 }
 
-export const normalizeLineEndings = (text: string): string =>
+export const normalizeLineEndings = (text: string) =>
   text.includes("\r") ? text.replace(/\r\n?/g, "\n") : text
 
-export const parseTicketBlocks = (
-  markdown: string
-): ReadonlyArray<TicketBlockSegment> => {
+export const parseTicketBlocks = (markdown: string) => {
   const lines = normalizeLineEndings(markdown).split("\n")
   const segments: Array<TicketBlockSegment> = []
   let pending: Array<string> = []
@@ -132,7 +127,7 @@ export const parseTicketBlocks = (
 
 export const serializeTicketBlocks = (
   segments: ReadonlyArray<TicketBlockSegment>
-): string =>
+) =>
   segments
     .map((segment) =>
       segment.kind === "markdown"
@@ -143,7 +138,7 @@ export const serializeTicketBlocks = (
     )
     .join("\n\n")
 
-export const flattenTicketBlocks = (markdown: string): string =>
+export const flattenTicketBlocks = (markdown: string) =>
   parseTicketBlocks(markdown)
     .map((segment) =>
       segment.kind === "markdown" ? segment.text : segment.content
@@ -168,7 +163,7 @@ const LOOKS_LIKE_BLOCK_OPEN = /^ {0,3}<block\b/
 
 const QUOTED_TYPE_ATTRIBUTE = /^ {0,3}<block\s+type="([^"]*)"/
 
-const classifyBadOpener = (line: string): BlockIssueCode => {
+const classifyBadOpener = (line: string) => {
   const quoted = QUOTED_TYPE_ATTRIBUTE.exec(line)
   return quoted !== null && !TICKET_BLOCK_TYPE_PATTERN.test(quoted[1])
     ? "invalid_type"
@@ -179,15 +174,13 @@ const issueAt = (
   lines: ReadonlyArray<string>,
   index: number,
   code: BlockIssueCode
-): BlockIssue => ({
+) => ({
   line: index + 1,
   code,
   source: lines[index].trim()
 })
 
-export const validateTicketBlocks = (
-  markdown: string
-): ReadonlyArray<BlockIssue> => {
+export const validateTicketBlocks = (markdown: string) => {
   const lines = markdown.split("\n")
   const issues: Array<BlockIssue> = []
   const openers: Array<number> = []
@@ -222,5 +215,5 @@ const BLOCK_ISSUE_MESSAGES: Readonly<Record<BlockIssueCode, string>> = {
     "has an invalid type; use lowercase kebab-case such as acceptance-criteria"
 }
 
-export const formatBlockIssue = (issue: BlockIssue): string =>
+export const formatBlockIssue = (issue: BlockIssue) =>
   `line ${issue.line}: ${issue.source} ${BLOCK_ISSUE_MESSAGES[issue.code]}`

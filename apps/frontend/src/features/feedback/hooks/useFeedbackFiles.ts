@@ -41,12 +41,23 @@ export function useFeedbackFiles(orgSlug: string) {
     exit: Exit.Exit<Readonly<{ id: string }>, unknown>
   ) =>
     setDrafts((current) =>
-      current.map((draft): FeedbackFileDraft => {
+      current.map((draft) => {
         if (draft.key !== key) return draft
         const { file, previewUrl } = draft
         return Exit.isSuccess(exit)
-          ? { key, file, previewUrl, state: "ready", id: exit.value.id }
-          : { key, file, previewUrl, state: "failed" }
+          ? ({
+              key,
+              file,
+              previewUrl,
+              state: "ready",
+              id: exit.value.id
+            } satisfies FeedbackFileDraft)
+          : ({
+              key,
+              file,
+              previewUrl,
+              state: "failed"
+            } satisfies FeedbackFileDraft)
       })
     )
 
@@ -55,12 +66,13 @@ export function useFeedbackFiles(orgSlug: string) {
     const { accepted, rejection } = acceptFiles(drafts.length, files)
     setRejection(rejection)
     const added = accepted.map(
-      (file): FeedbackFileDraft => ({
-        key: String(nextKey.current++),
-        file,
-        previewUrl: URL.createObjectURL(file),
-        state: "uploading"
-      })
+      (file) =>
+        ({
+          key: String(nextKey.current++),
+          file,
+          previewUrl: URL.createObjectURL(file),
+          state: "uploading"
+        }) satisfies FeedbackFileDraft
     )
     setDrafts((current) => [...current, ...added])
     for (const draft of added) {

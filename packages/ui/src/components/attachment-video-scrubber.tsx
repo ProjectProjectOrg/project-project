@@ -11,7 +11,7 @@ import { cn } from "../lib/utils"
 const BAR =
   "absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-[height] duration-150 ease-standard group-hover/reveal:h-[5px] group-data-[dragging=true]/reveal:h-[5px]"
 
-const fractionAt = (event: PointerEvent<HTMLSpanElement>): number => {
+const fractionAt = (event: PointerEvent<HTMLSpanElement>) => {
   const rect = event.currentTarget.getBoundingClientRect()
   if (rect.width === 0) return 0
   return Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1)

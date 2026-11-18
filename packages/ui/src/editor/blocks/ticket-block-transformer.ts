@@ -22,7 +22,7 @@ import {
   TicketBlockNode
 } from "./ticket-block-node"
 
-const trimBlankLines = (content: string): string =>
+const trimBlankLines = (content: string) =>
   content.replace(/^(?:[ \t]*\n)+/, "").replace(/(?:\n[ \t]*)+$/, "")
 
 export type TicketBlockTransformerOptions = Readonly<{
@@ -32,7 +32,7 @@ export type TicketBlockTransformerOptions = Readonly<{
 export function createTicketBlockTransformer(
   transformers: ReadonlyArray<Transformer>,
   options?: TicketBlockTransformerOptions
-): MultilineElementTransformer {
+) {
   return {
     type: "multiline-element",
     dependencies: [TicketBlockNode, SyncedBlockNode],
@@ -77,5 +77,5 @@ export function createTicketBlockTransformer(
           )
         : null
     }
-  }
+  } satisfies MultilineElementTransformer
 }

@@ -60,19 +60,20 @@ const isUnchanged = (status: ProjectStatus, draft: StatusEditorValues) =>
   draft.color === status.color &&
   draft.description.trim() === (status.description ?? "")
 
-const updatePatch = (
-  draft: StatusEditorValues,
-  baseline: boolean
-): UpdateStatusInput => {
+const updatePatch = (draft: StatusEditorValues, baseline: boolean) => {
   const trimmed = draft.description.trim()
   const description = trimmed.length > 0 ? trimmed : null
-  if (baseline) return { color: StatusColor.make(draft.color), description }
+  if (baseline)
+    return {
+      color: StatusColor.make(draft.color),
+      description
+    } satisfies UpdateStatusInput
   return {
     label: StatusLabel.make(draft.label.trim()),
     icon: draft.icon,
     color: StatusColor.make(draft.color),
     description
-  }
+  } satisfies UpdateStatusInput
 }
 
 export function StatusRow({

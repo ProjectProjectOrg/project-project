@@ -57,7 +57,7 @@ export const jiraFinding = (
   sourceId: string | null = null,
   ticketId: string | null = null,
   jiraUrl: string | null = null
-): JiraMigrationFinding => ({
+) => ({
   kind,
   subject,
   sourceId,
@@ -148,9 +148,7 @@ const attachmentSkipReason = (
             ? `its type (${attachment.mimeType}) cannot be stored in ProjectProject`
             : "you chose to skip it"
 
-export function buildJiraFindings(
-  input: JiraFindingsInput
-): ReadonlyArray<JiraMigrationFinding> {
+export function buildJiraFindings(input: JiraFindingsInput) {
   const { manifest } = input
   const issues = new Map(manifest.issues.map((issue) => [issue.id, issue]))
   const keyOf = (issueId: string) => issues.get(issueId)?.key ?? issueId

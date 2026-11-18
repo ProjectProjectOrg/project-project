@@ -8,7 +8,7 @@ export type SprintFiles = ReadonlyMap<
 export const openSprintOf = (
   sprints: SprintFiles,
   sprint: GroupId | undefined
-): GroupId | null =>
+) =>
   sprint !== undefined && sprints.get(sprint)?.completedAt === null
     ? sprint
     : null

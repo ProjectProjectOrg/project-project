@@ -17,7 +17,7 @@ export function useTicketGit(
   slug: string,
   ticket: Pick<Ticket, "id" | "gitState"> &
     Readonly<{ stack?: ReadonlyArray<StackLayerState> | undefined }>
-): TicketGit {
+) {
   const states = useAtomValue(projectGitStates(projectRequest(orgSlug, slug)))
   const value = Option.getOrUndefined(Result.value(states))
   return {

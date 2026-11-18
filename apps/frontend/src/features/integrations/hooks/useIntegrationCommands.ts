@@ -10,10 +10,7 @@ import {
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { me } from "@/features/auth/atoms/auth"
-import type {
-  Command,
-  CommandContext
-} from "@/features/command-menu/lib/commands"
+import type { CommandContext } from "@/features/command-menu/lib/commands"
 import {
   integrationCommands,
   type IntegrationCommandEntry
@@ -28,9 +25,7 @@ import {
   useStorageState
 } from "./useOrgIntegrations"
 
-export function useIntegrationCommands(
-  context: CommandContext
-): ReadonlyArray<Command> {
+export function useIntegrationCommands(context: CommandContext) {
   const { orgSlug, projectSlug } = context
   const viewer = useAtomValue(me())
   const actor = useOrgActor(orgSlug)

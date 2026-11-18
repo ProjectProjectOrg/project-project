@@ -17,7 +17,7 @@ export const fixtureVersion = 1
 export const fixtureEmail = "agent@example.test"
 export const fixturePath = "/orgs/agent/projects/verification"
 
-export async function seedIdentity(url: string): Promise<void> {
+export async function seedIdentity(url: string) {
   const pool = new Pool({ connectionString: url })
   const db = drizzle({ client: pool })
   try {
@@ -49,10 +49,7 @@ export async function seedIdentity(url: string): Promise<void> {
   }
 }
 
-export async function seedContent(
-  origin: string,
-  login: string
-): Promise<void> {
+export async function seedContent(origin: string, login: string) {
   const verification = new URL(login)
   const response = await fetch(
     `${origin}${verification.pathname}${verification.search}`,

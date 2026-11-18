@@ -22,15 +22,14 @@ export type SidebarScope =
 const SETTINGS_PATH =
   /^\/(?:profile|orgs\/[^/]+\/settings|orgs\/[^/]+\/projects\/[^/]+\/settings)(?:\/|$)/
 
-export const isSettingsPath = (pathname: string): boolean =>
-  SETTINGS_PATH.test(pathname)
+export const isSettingsPath = (pathname: string) => SETTINGS_PATH.test(pathname)
 
 const PROJECT_SECTIONS = ["sprints", "about", "settings"] as const
 
 const decodeTicketId = Schema.decodeUnknownOption(TicketId)
 const decodeGroupId = Schema.decodeUnknownOption(GroupId)
 
-const viewingIn = (section: string, sub: string): PinTarget | null => {
+const viewingIn = (section: string, sub: string) => {
   if (section === "tickets")
     return Option.match(decodeTicketId(sub), {
       onNone: () => null,
@@ -48,18 +47,22 @@ export function sidebarScope(
   pathname: string,
   orgSlug: string | null,
   fromSprint: string | undefined
-): SidebarScope {
-  if (orgSlug === null) return { kind: "none" }
+) {
+  if (orgSlug === null) return { kind: "none" } satisfies SidebarScope
   const orgPrefix = `/orgs/${orgSlug}`
   if (pathname !== orgPrefix && !pathname.startsWith(`${orgPrefix}/`))
-    return { kind: "none" }
+    return { kind: "none" } satisfies SidebarScope
   const [area = "", slug = "", section = "", sub = ""] = pathname
     .slice(orgPrefix.length + 1)
     .split("/")
-  if (area === "settings") return { kind: "none" }
+  if (area === "settings") return { kind: "none" } satisfies SidebarScope
   if (area !== "projects")
-    return { kind: "dashboard", page: area === "" ? "overview" : null }
-  if (slug === "") return { kind: "dashboard", page: "projects" }
+    return {
+      kind: "dashboard",
+      page: area === "" ? "overview" : null
+    } satisfies SidebarScope
+  if (slug === "")
+    return { kind: "dashboard", page: "projects" } satisfies SidebarScope
   const viewing = viewingIn(section, sub)
   if (section === "tickets" && fromSprint !== undefined)
     return {
@@ -67,14 +70,14 @@ export function sidebarScope(
       slug,
       route: { page: "sprints", sub: fromSprint },
       viewing
-    }
+    } satisfies SidebarScope
   const page = PROJECT_SECTIONS.find((key) => key === section) ?? "backlog"
   return {
     kind: "project",
     slug,
     route: { page, sub: sub || null },
     viewing
-  }
+  } satisfies SidebarScope
 }
 
 export const PROJECT_PAGE_PATHS = {
@@ -95,7 +98,7 @@ export function projectNavActive(
   route: ProjectRoute,
   activeSprintId: string | null,
   viewingPinned: boolean
-): ProjectNavActive {
+) {
   if (viewingPinned) return null
   if (route.page === "sprints") {
     const onCurrent =
@@ -122,7 +125,7 @@ export function panelTransition(
   from: string,
   to: string,
   order: ReadonlyArray<string>
-): PanelTransition {
+) {
   if (from === to) return "none"
   if (to === SETTINGS_PANEL) return "forward"
   if (from === SETTINGS_PANEL) return "back"

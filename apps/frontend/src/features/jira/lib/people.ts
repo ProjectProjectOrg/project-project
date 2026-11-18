@@ -20,7 +20,7 @@ const normalizedInvite = (email: string) => {
 
 export const inviteValue = (email: string) => `${INVITE_PREFIX}${email}`
 
-export function peopleSelectValue(choice: PeopleChoice): string | null {
+export function peopleSelectValue(choice: PeopleChoice) {
   if (choice.projectProjectUserId === undefined) return null
   if (choice.projectProjectUserId !== null) return choice.projectProjectUserId
   if (choice.inviteEmail === undefined) return UNLINKED_VALUE
@@ -28,10 +28,7 @@ export function peopleSelectValue(choice: PeopleChoice): string | null {
   return email === null ? NEW_INVITE_VALUE : inviteValue(email)
 }
 
-export function applyPeopleSelection(
-  choice: PeopleChoice,
-  value: string
-): PeopleChoice {
+export function applyPeopleSelection(choice: PeopleChoice, value: string) {
   const { inviteEmail: _inviteEmail, ...rest } = choice
   if (value === UNLINKED_VALUE) return { ...rest, projectProjectUserId: null }
   if (value === NEW_INVITE_VALUE)
@@ -45,9 +42,7 @@ export function applyPeopleSelection(
   return { ...rest, projectProjectUserId: value }
 }
 
-export function invitedEmails(
-  choices: ReadonlyArray<PeopleChoice>
-): ReadonlyArray<string> {
+export function invitedEmails(choices: ReadonlyArray<PeopleChoice>) {
   return [
     ...new Set(
       choices.flatMap((choice) => {
@@ -61,16 +56,14 @@ export function invitedEmails(
 
 type Identity = JiraMigrationRequirements["identities"][number]
 
-export const personActivity = (
-  identity: Identity | undefined
-): number | undefined =>
+export const personActivity = (identity: Identity | undefined) =>
   identity === undefined
     ? undefined
     : (identity.assignedIssueCount ?? 0) +
       (identity.reportedIssueCount ?? 0) +
       (identity.commentCount ?? 0)
 
-export const hasActivity = (requirements: JiraMigrationRequirements): boolean =>
+export const hasActivity = (requirements: JiraMigrationRequirements) =>
   requirements.identities.some(
     (identity) =>
       identity.assignedIssueCount !== undefined ||
@@ -81,7 +74,7 @@ export const hasActivity = (requirements: JiraMigrationRequirements): boolean =>
 export const changedCount = (
   before: ReadonlyArray<PeopleChoice>,
   after: ReadonlyArray<PeopleChoice>
-): number =>
+) =>
   after.reduce(
     (total, choice, index) =>
       total +

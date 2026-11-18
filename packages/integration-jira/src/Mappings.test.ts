@@ -27,31 +27,32 @@ const decodeCreatableProjectKeySync = Schema.decodeSync(CreatableProjectKey)
 
 const isJiraMigrationMappings = Schema.is(JiraMigrationMappings)
 
-const emptyManifest = (): JiraMigrationManifest => ({
-  version: 1,
-  migrationId: "migration-1",
-  source: {
-    cloudId: "cloud-1",
-    siteUrl: "https://example.atlassian.net",
-    projectId: "10000",
-    projectKey: "APP",
-    projectName: "Application",
-    productType: "software",
-    scannedAt: "2026-09-14T12:00:00Z"
-  },
-  identities: [],
-  statuses: [],
-  issueTypes: [],
-  priorities: [],
-  components: [],
-  issues: [],
-  comments: [],
-  attachments: [],
-  groups: [],
-  restrictions: [],
-  coverage: [],
-  rawPages: []
-})
+const emptyManifest = () =>
+  ({
+    version: 1,
+    migrationId: "migration-1",
+    source: {
+      cloudId: "cloud-1",
+      siteUrl: "https://example.atlassian.net",
+      projectId: "10000",
+      projectKey: "APP",
+      projectName: "Application",
+      productType: "software",
+      scannedAt: "2026-09-14T12:00:00Z"
+    },
+    identities: [],
+    statuses: [],
+    issueTypes: [],
+    priorities: [],
+    components: [],
+    issues: [],
+    comments: [],
+    attachments: [],
+    groups: [],
+    restrictions: [],
+    coverage: [],
+    rawPages: []
+  }) satisfies JiraMigrationManifest
 
 describe("JiraMigrationMappings", () => {
   it("models explicit decisions using only existing destination statuses", () => {
@@ -544,33 +545,32 @@ describe("created status colours", () => {
 })
 
 describe("jiraConfigurationToMappings priority gaps", () => {
-  const withUnprioritised = (
-    priorityId: string | null
-  ): JiraMigrationManifest => ({
-    ...emptyManifest(),
-    issues: [
-      {
-        id: "10001",
-        key: "APP-1",
-        issueNumber: 1,
-        summary: "First",
-        description: null,
-        statusId: "1",
-        issueTypeId: "10",
-        priorityId,
-        assigneeAccountId: null,
-        labels: [],
-        componentIds: [],
-        groupIds: [],
-        parentIssueId: null,
-        attachmentIds: [],
-        restricted: false,
-        createdAt: "2026-09-01T10:00:00Z",
-        updatedAt: "2026-09-01T10:00:00Z",
-        raw: {}
-      }
-    ]
-  })
+  const withUnprioritised = (priorityId: string | null) =>
+    ({
+      ...emptyManifest(),
+      issues: [
+        {
+          id: "10001",
+          key: "APP-1",
+          issueNumber: 1,
+          summary: "First",
+          description: null,
+          statusId: "1",
+          issueTypeId: "10",
+          priorityId,
+          assigneeAccountId: null,
+          labels: [],
+          componentIds: [],
+          groupIds: [],
+          parentIssueId: null,
+          attachmentIds: [],
+          restricted: false,
+          createdAt: "2026-09-01T10:00:00Z",
+          updatedAt: "2026-09-01T10:00:00Z",
+          raw: {}
+        }
+      ]
+    }) satisfies JiraMigrationManifest
 
   const configuration = {
     destination: { name: "Application", slug: "application", key: "APP" },

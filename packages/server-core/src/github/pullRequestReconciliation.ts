@@ -107,7 +107,7 @@ export const reconcilePullRequestChange = (
       "branch" | "base" | "mergedAt"
     >
   >
-): GitHubPullRequestWebhookChange => {
+) => {
   const mergedPrsByBranch = new Map<
     string,
     ReadonlyArray<

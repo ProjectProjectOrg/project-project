@@ -94,10 +94,7 @@ const library: LibraryValue = {
   canEdit: true
 }
 
-const failFor = <A>(
-  key: string,
-  value: A
-): Effect.Effect<A, NotFound | Markdown.MarkdownError> =>
+const failFor = <A>(key: string, value: A) =>
   Match.value(key).pipe(
     Match.when("missing", () => Effect.fail(new NotFound())),
     Match.when("broken", () =>

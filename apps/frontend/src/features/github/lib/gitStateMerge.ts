@@ -3,7 +3,7 @@ import type { GitStatesResponse, StackLayerState } from "@pp/shared"
 export const mergeStackPrDetails = (
   previous: ReadonlyArray<StackLayerState> | undefined,
   next: ReadonlyArray<StackLayerState>
-): ReadonlyArray<StackLayerState> =>
+) =>
   next.map((layer) => {
     const prior = previous?.find(
       (candidate) => candidate.branch === layer.branch
@@ -31,7 +31,7 @@ export const mergeStaleGitStateDetails = (
   previous: GitStatesResponse | undefined,
   next: GitStatesResponse,
   repoChanged: boolean
-): GitStatesResponse => {
+) => {
   if (repoChanged || !previous || next.repoStatus === "not_connected") {
     return next
   }

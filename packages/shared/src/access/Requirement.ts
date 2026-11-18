@@ -7,4 +7,4 @@ export type Requirement<S extends Statement.Resources> =
 export const permits = <S extends Statement.Resources>(
   permissions: Statement.Role<S>,
   requirement: Requirement<S>
-): boolean => requirement === "membership" || permissions.can(requirement)
+) => requirement === "membership" || permissions.can(requirement)

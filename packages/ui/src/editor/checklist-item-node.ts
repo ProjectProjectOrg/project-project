@@ -4,7 +4,6 @@ import {
   defineExtension,
   setDOMUnmanaged,
   type EditorConfig,
-  type ElementDOMSlot,
   type LexicalEditor
 } from "lexical"
 
@@ -25,7 +24,7 @@ import {
 
 const SVG = "http://www.w3.org/2000/svg"
 
-function createBox(): HTMLSpanElement {
+function createBox() {
   const box = document.createElement("span")
   box.dataset.slot = "checkbox"
   box.className = checkboxClass()
@@ -46,7 +45,7 @@ function createBox(): HTMLSpanElement {
   return box
 }
 
-const boxOf = (dom: HTMLElement): HTMLElement | null =>
+const boxOf = (dom: HTMLElement) =>
   dom.lastElementChild instanceof HTMLElement &&
   dom.lastElementChild.dataset.slot === "checkbox"
     ? dom.lastElementChild
@@ -69,7 +68,7 @@ export class ChecklistItemNode extends ListItemNode {
     return this.config("pp-listitem", { extends: ListItemNode })
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(config: EditorConfig) {
     const dom = super.createDOM(config)
     dom.append(createBox())
     syncBox(dom)
@@ -82,7 +81,7 @@ export class ChecklistItemNode extends ListItemNode {
     return replace
   }
 
-  getDOMSlot(dom: HTMLElement): ElementDOMSlot {
+  getDOMSlot(dom: HTMLElement) {
     const slot = super.getDOMSlot(dom)
     const box = boxOf(dom)
     return box === null ? slot : slot.withBefore(box)

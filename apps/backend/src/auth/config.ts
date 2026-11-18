@@ -33,7 +33,7 @@ import { isSignInProviderConfigured } from "./signInProviders"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
-function roleList(role: string): ReadonlyArray<string> {
+function roleList(role: string) {
   return role.split(",").map((r) => r.trim())
 }
 
@@ -41,7 +41,7 @@ export function lastOrgOwnerBlocked(input: {
   nextRole: string | null
   targetRole: string | null
   otherOwnerCount: number
-}): boolean {
+}) {
   if (input.nextRole !== null && roleList(input.nextRole).includes("owner")) {
     return false
   }
@@ -54,9 +54,7 @@ export function lastOrgOwnerBlocked(input: {
   return input.otherOwnerCount === 0
 }
 
-export function lastProjectPmError(
-  projectSlugs: ReadonlyArray<string>
-): APIError | undefined {
+export function lastProjectPmError(projectSlugs: ReadonlyArray<string>) {
   if (projectSlugs.length === 0) return undefined
   return new APIError(409, {
     code: "LAST_PROJECT_PM_BLOCKED",
@@ -138,7 +136,7 @@ export async function assertNotLastProjectPm(
   if (blocked) throw blocked
 }
 
-const constraintOf = (error: unknown): string | undefined => {
+const constraintOf: (error: unknown) => string | undefined = (error) => {
   if (typeof error !== "object" || error === null) return undefined
   if ("constraint" in error && typeof error.constraint === "string") {
     return error.constraint

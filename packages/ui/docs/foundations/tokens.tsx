@@ -12,18 +12,18 @@ let canvas: CanvasRenderingContext2D | null = null
 
 // Paints a CSS colour over `base` on a 1px canvas and reads the pixel, so
 // translucent tokens (the overlays) resolve to what they look like there.
-export const toRgb = (color: string, base = "#00000000"): Rgb => {
+export const toRgb = (color: string, base = "#00000000") => {
   canvas ??= document.createElement("canvas").getContext("2d", {
     willReadFrequently: true
   })
-  if (canvas === null) return [0, 0, 0]
+  if (canvas === null) return [0, 0, 0] satisfies Rgb
   canvas.clearRect(0, 0, 1, 1)
   canvas.fillStyle = base
   canvas.fillRect(0, 0, 1, 1)
   canvas.fillStyle = color
   canvas.fillRect(0, 0, 1, 1)
   const [r = 0, g = 0, b = 0] = canvas.getImageData(0, 0, 1, 1).data
-  return [r, g, b]
+  return [r, g, b] satisfies Rgb
 }
 
 const channel = (value: number) => {
@@ -34,7 +34,7 @@ const channel = (value: number) => {
 const luminance = ([r, g, b]: Rgb) =>
   0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
 
-export const contrast = (a: Rgb, b: Rgb): number => {
+export const contrast = (a: Rgb, b: Rgb) => {
   const [hi = 0, lo = 0] = [luminance(a), luminance(b)].toSorted(
     (x, y) => y - x
   )
@@ -43,7 +43,7 @@ export const contrast = (a: Rgb, b: Rgb): number => {
 
 // A token's resolved colour, read off a probe element inside `scope` (so a
 // demo's own theme applies).
-export const tokenColor = (scope: HTMLElement, token: string): string => {
+export const tokenColor = (scope: HTMLElement, token: string) => {
   const probe = document.createElement("span")
   probe.style.color = `var(${token})`
   scope.append(probe)
@@ -53,7 +53,7 @@ export const tokenColor = (scope: HTMLElement, token: string): string => {
 }
 
 // Bumps when the page's theme changes, so readings refresh.
-export function useThemeVersion(): number {
+export function useThemeVersion() {
   const [version, setVersion] = useState(0)
   useEffect(() => {
     const observer = new MutationObserver(() => setVersion((v) => v + 1))
@@ -70,7 +70,7 @@ export function useThemeVersion(): number {
 export function useTokenReading<T>(
   scope: RefObject<HTMLElement | null>,
   read: (scope: HTMLElement) => T
-): T | null {
+) {
   const version = useThemeVersion()
   const [value, setValue] = useState<T | null>(null)
   useEffect(() => {

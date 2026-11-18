@@ -32,7 +32,7 @@ export function useBlockAnnouncer(lookup: BlockLookup) {
   const { announcement, announce } = useAnnouncer()
 
   const nameOf = useCallback(
-    (node: LexicalNode | null): string | null =>
+    (node: LexicalNode | null) =>
       $isTopLevelBlockNode(node)
         ? blockChrome(node.getBlockType(), lookup).name
         : null,

@@ -1,9 +1,4 @@
-import {
-  BranchListResponse,
-  GitHubError,
-  RateLimited,
-  RepoGone
-} from "@pp/shared"
+import { type BranchListResponse, GitHubError, RepoGone } from "@pp/shared"
 import {
   branchMentionsTicketId,
   closingTicketIdsInText,
@@ -271,9 +266,9 @@ type BranchExistsResponse = Readonly<{
   }> | null
 }>
 
-const mapChecks = (s: string | null | undefined): ChecksStatus => {
-  if (!s) return "none"
-  if (s === "SUCCESS") return "passing"
+const mapChecks = (s: string | null | undefined) => {
+  if (!s) return "none" satisfies ChecksStatus
+  if (s === "SUCCESS") return "passing" satisfies ChecksStatus
   if (
     s === "FAILURE" ||
     s === "ERROR" ||
@@ -282,7 +277,7 @@ const mapChecks = (s: string | null | undefined): ChecksStatus => {
     s === "STARTUP_FAILURE" ||
     s === "CANCELLED"
   )
-    return "failing"
+    return "failing" satisfies ChecksStatus
   if (
     s === "PENDING" ||
     s === "EXPECTED" ||
@@ -291,45 +286,43 @@ const mapChecks = (s: string | null | undefined): ChecksStatus => {
     s === "WAITING" ||
     s === "REQUESTED"
   )
-    return "pending"
-  return "neutral"
+    return "pending" satisfies ChecksStatus
+  return "neutral" satisfies ChecksStatus
 }
 
 const isBranchRef = Schema.is(Schema.Struct({ name: Schema.String }))
 
 const isSameRepositoryPullRequest = (
   pr: Pick<PullRequestNode, "headRepository" | "baseRepository">
-): boolean =>
+) =>
   pr.headRepository?.id !== undefined &&
   pr.headRepository.id === pr.baseRepository?.id
 
-const pullRequestTextMentionsTicketId = (pr: RawPullRequestText): boolean =>
+const pullRequestTextMentionsTicketId = (pr: RawPullRequestText) =>
   ticketIdsInText(pr.title).size > 0 || closingTicketIdsInText(pr.body).size > 0
 
-const rawPullRequest = (pr: PullRequestNode): RawBranchEntry => ({
-  headRefName: pr.headRefName,
-  baseRefName: pr.baseRefName,
-  state: Match.value(pr.state).pipe(
-    Match.withReturnType<RawBranchEntry["state"]>(),
-    Match.when("MERGED", () => "merged"),
-    Match.when("CLOSED", () => "closed"),
-    Match.orElse(() => "open")
-  ),
-  draft: pr.isDraft,
-  number: pr.number,
-  url: pr.url,
-  title: pr.title,
-  mergedAt: pr.mergedAt,
-  checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
-})
+const rawPullRequest = (pr: PullRequestNode) =>
+  ({
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    state: Match.value(pr.state).pipe(
+      Match.withReturnType<RawBranchEntry["state"]>(),
+      Match.when("MERGED", () => "merged"),
+      Match.when("CLOSED", () => "closed"),
+      Match.orElse(() => "open")
+    ),
+    draft: pr.isDraft,
+    number: pr.number,
+    url: pr.url,
+    title: pr.title,
+    mergedAt: pr.mergedAt,
+    checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
+  }) satisfies RawBranchEntry
 
 export const buildProjectStateBatchQuery = (
   branches: ReadonlyArray<string>,
   cursors: ReadonlyMap<string, string> = new Map()
-): Readonly<{
-  query: string
-  variables: Record<string, string | null>
-}> => {
+) => {
   const variableDefinitions = branches.flatMap((branch, index) => [
     `$ref${index}: String!`,
     `$headRefName${index}: String!`,
@@ -419,9 +412,7 @@ const branchChunks = (branches: ReadonlyArray<string>) => {
   return chunks.length > 0 ? chunks : [[]]
 }
 
-const branchListFromResponse = (
-  data: ListBranchesResponse
-): BranchListResponse | null => {
+const branchListFromResponse = (data: ListBranchesResponse) => {
   if (!data.repository) return null
   return {
     items: data.repository.refs.nodes.map((n) => ({
@@ -432,7 +423,7 @@ const branchListFromResponse = (
       ? data.repository.refs.pageInfo.endCursor
       : null,
     totalCount: data.repository.refs.totalCount
-  }
+  } satisfies BranchListResponse
 }
 
 export const fetchProjectStatesWithToken = (
@@ -443,11 +434,7 @@ export const fetchProjectStatesWithToken = (
   tokenSource: "user" | "installation",
   branchQuery?: string,
   scopeKey?: string
-): Effect.Effect<
-  RawProjectStates,
-  RepoGone | RateLimited | GitHubError,
-  GitHubRequest.GitHubRequestState
-> =>
+) =>
   Effect.gen(function* () {
     const fetchedAt = yield* DateTime.nowAsDate
     const gql = graphqlFor(token)
@@ -699,11 +686,15 @@ export const fetchProjectStatesWithToken = (
         const latestPr =
           pullRequests.find((pr) => pr.state === "OPEN") ?? pullRequests[0]
         if (latestPr) prByBranch.set(branch, rawPullRequest(latestPr))
-        const mergedPrs = pullRequests.flatMap(
-          (pr): ReadonlyArray<RawMergedPullRequest> =>
-            pr.state === "MERGED"
-              ? [{ ...rawPullRequest(pr), state: "merged" }]
-              : []
+        const mergedPrs = pullRequests.flatMap((pr) =>
+          pr.state === "MERGED"
+            ? [
+                {
+                  ...rawPullRequest(pr),
+                  state: "merged"
+                } satisfies RawMergedPullRequest
+              ]
+            : []
         )
         if (mergedPrs.length > 0) mergedPrsByBranch.set(branch, mergedPrs)
       }
@@ -715,7 +706,7 @@ export const fetchProjectStatesWithToken = (
       mergedPrsByBranch,
       fetchedAt,
       openPullRequestText
-    }
+    } satisfies RawProjectStates
   })
 
 export const listBranchesWithToken = (
@@ -727,11 +718,7 @@ export const listBranchesWithToken = (
   after: string | undefined,
   tokenSource: "user" | "installation",
   scopeKey?: string
-): Effect.Effect<
-  BranchListResponse,
-  RepoGone | RateLimited | GitHubError,
-  GitHubRequest.GitHubRequestState
-> =>
+) =>
   Effect.gen(function* () {
     const gql = graphqlFor(token)
     const data = yield* GitHubRequest.githubRequest(
@@ -768,11 +755,7 @@ export const branchExistsWithToken = (
   branch: string,
   tokenSource: "user" | "installation",
   scopeKey?: string
-): Effect.Effect<
-  boolean,
-  RepoGone | RateLimited | GitHubError,
-  GitHubRequest.GitHubRequestState
-> =>
+) =>
   Effect.gen(function* () {
     const gql = graphqlFor(token)
     const data = yield* GitHubRequest.githubRequest(

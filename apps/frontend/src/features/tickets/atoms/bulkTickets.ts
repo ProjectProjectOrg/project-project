@@ -14,9 +14,7 @@ import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 
 export type BulkTicketsRequest = Readonly<{ orgSlug: string; slug: string }>
 
-export const bulkBatches = (
-  tickets: ReadonlyArray<TicketId>
-): ReadonlyArray<ReadonlyArray<TicketId>> =>
+export const bulkBatches = (tickets: ReadonlyArray<TicketId>) =>
   Array.from({ length: Math.ceil(tickets.length / BULK_TICKETS_MAX) }, (_, i) =>
     tickets.slice(i * BULK_TICKETS_MAX, (i + 1) * BULK_TICKETS_MAX)
   )
@@ -25,7 +23,7 @@ export const bulkChangedKeys = (
   req: BulkTicketsRequest,
   tickets: ReadonlyArray<TicketId>,
   sprintChanged: boolean
-): ReadonlyArray<ReactivityKey> => {
+) => {
   const scope = projectScope(req.orgSlug, req.slug)
   return [
     ...Keys.ticketsChanged(scope),
@@ -33,7 +31,7 @@ export const bulkChangedKeys = (
     ...(sprintChanged ? [Keys.sprints(scope)] : []),
     ...tickets.map((id) => Keys.ticket(scope, id)),
     Keys.pins(req.orgSlug)
-  ]
+  ] satisfies ReadonlyArray<ReactivityKey>
 }
 
 export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>

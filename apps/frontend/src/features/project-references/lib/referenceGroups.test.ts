@@ -5,13 +5,14 @@ import { groupReferences, withoutFixed } from "./referenceGroups"
 
 const reference = (
   overrides: Partial<ReferenceToFix> & Pick<ReferenceToFix, "ticketId">
-): ReferenceToFix => ({
-  kind: "user",
-  target: "u-old",
-  label: "@jan",
-  snippet: "ask @jan",
-  ...overrides
-})
+) =>
+  ({
+    kind: "user",
+    target: "u-old",
+    label: "@jan",
+    snippet: "ask @jan",
+    ...overrides
+  }) satisfies ReferenceToFix
 
 describe("groupReferences", () => {
   it("groups occurrences by kind and target, then by ticket, in first-seen order, showing a repeated snippet once", () => {

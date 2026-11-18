@@ -83,7 +83,7 @@ export function SprintProgress({
   )
 }
 
-function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
+function sprintEstimate(sprint: Group, summary: EstimateSummary) {
   if (summary.unit === "tshirt") {
     const sizes = ESTIMATE_SIZES.filter((size) => summary.sizes[size] > 0)
     if (sizes.length === 0) return null

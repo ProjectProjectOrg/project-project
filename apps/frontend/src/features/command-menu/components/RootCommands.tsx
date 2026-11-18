@@ -50,10 +50,7 @@ export const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
   account: m.chrome_command_menu_group_account
 }
 
-export const commandItem = (
-  command: Command,
-  context: CommandContext
-): CommandFrameItem => ({
+export const commandItem = (command: Command, context: CommandContext) => ({
   value: command.id,
   label: command.label(context),
   icon: command.icon,

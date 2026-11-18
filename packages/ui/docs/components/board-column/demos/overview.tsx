@@ -255,7 +255,7 @@ const placeCard = (
   columns: ReadonlyArray<Column>,
   id: string,
   target: BoardDropData
-): ReadonlyArray<Column> => {
+) => {
   const ticket = columns
     .flatMap((column) => column.tickets)
     .find((entry) => entry.id === id)

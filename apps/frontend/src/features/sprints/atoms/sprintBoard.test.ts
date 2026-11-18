@@ -33,32 +33,29 @@ const ticketBId = Schema.decodeSync(TicketId)("T-2")
 const todo = Schema.decodeSync(TicketStatus)("todo")
 const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
 
-const makeTicket = (
-  id: TicketId,
-  status: TicketStatus,
-  rank: string
-): Ticket => ({
-  id,
-  title: `Ticket ${id}`,
-  status,
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make(rank),
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-})
+const makeTicket = (id: TicketId, status: TicketStatus, rank: string) =>
+  ({
+    id,
+    title: `Ticket ${id}`,
+    status,
+    type: TypeKey.make("chore"),
+    priority: "med",
+    estimate: null,
+    flag: null,
+    tags: [],
+    branch: null,
+    pr: null,
+    prState: null,
+    rank: TicketRank.make(rank),
+    lastTransitionedPr: null,
+    parent: null,
+    gitState: { tag: "no_branch", baseBranch: "main" },
+    assignees: [],
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+    updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
+  }) satisfies Ticket
 
 const ticketA = makeTicket(ticketAId, todo, "a0")
 const ticketB = makeTicket(ticketBId, todo, "a1")
@@ -81,15 +78,16 @@ const encodeGroup = Schema.encodeSync(GroupDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
 const encodeTicketUpdate = (ticket: TicketDetail) =>
   encodeTicketUpdateResultSync({ ticket, orderKey: null })
-const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
-const asTicketDetail = (t: Ticket): TicketDetail => ({
-  ...t,
-  parentState: null,
-  relations: EMPTY_TICKET_RELATIONS,
-  creator: null,
-  updater: null,
-  body: ""
-})
+const asGroupDetail = (g: Group) => ({ ...g, body: "" }) satisfies GroupDetail
+const asTicketDetail = (t: Ticket) =>
+  ({
+    ...t,
+    parentState: null,
+    relations: EMPTY_TICKET_RELATIONS,
+    creator: null,
+    updater: null,
+    body: ""
+  }) satisfies TicketDetail
 
 const req = boardRequest("acme", "web", groupId)
 
@@ -104,7 +102,7 @@ const routeByPath = (
     ]
   >,
   init?: RequestInit
-): Promise<Response> => {
+) => {
   const url = new URL(input instanceof Request ? input.url : String(input))
   const method =
     init?.method ?? (input instanceof Request ? input.method : "GET")

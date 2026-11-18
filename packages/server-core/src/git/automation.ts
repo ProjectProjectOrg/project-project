@@ -1,7 +1,6 @@
 import type {
   GitAutomationEvent,
   GitAutomationRules,
-  StatusSlug,
   TicketBranchEntry,
   TicketStatus
 } from "@pp/shared"
@@ -36,36 +35,33 @@ type PullRequestStanding = Readonly<{
   landed: boolean
 }>
 
-const pullRequestStandings = (
-  ticket: TicketGitFields
-): ReadonlyArray<PullRequestStanding> => [
-  ...(ticket.pr === null || ticket.prState === null
-    ? []
-    : [
-        {
-          state: ticket.prState,
-          draft: ticket.prDraft ?? false,
-          landed:
-            ticket.prState === "merged" &&
-            ticket.lastTransitionedPr === ticket.pr
-        }
-      ]),
-  ...(ticket.stack ?? []).flatMap((layer) =>
-    layer.pr === undefined || layer.prState === undefined
+const pullRequestStandings = (ticket: TicketGitFields) =>
+  [
+    ...(ticket.pr === null || ticket.prState === null
       ? []
       : [
           {
-            state: layer.prState,
-            draft: layer.prDraft ?? false,
-            landed: layer.prState === "merged" && (layer.landed ?? false)
+            state: ticket.prState,
+            draft: ticket.prDraft ?? false,
+            landed:
+              ticket.prState === "merged" &&
+              ticket.lastTransitionedPr === ticket.pr
           }
-        ]
-  )
-]
+        ]),
+    ...(ticket.stack ?? []).flatMap((layer) =>
+      layer.pr === undefined || layer.prState === undefined
+        ? []
+        : [
+            {
+              state: layer.prState,
+              draft: layer.prDraft ?? false,
+              landed: layer.prState === "merged" && (layer.landed ?? false)
+            }
+          ]
+    )
+  ] satisfies ReadonlyArray<PullRequestStanding>
 
-export const ticketPullRequestState = (
-  ticket: TicketGitFields
-): TicketPullRequestState => {
+export const ticketPullRequestState = (ticket: TicketGitFields) => {
   const standings = pullRequestStandings(ticket)
   if (standings.length === 0) return null
   const live = standings.filter((standing) => standing.state !== "closed")
@@ -89,7 +85,7 @@ const pullRequestEvents: Readonly<
 export const gitAutomationEvent = (
   before: TicketGitFields,
   after: TicketGitFields
-): GitAutomationEvent | null => {
+) => {
   const from = ticketPullRequestState(before)
   const to = ticketPullRequestState(after)
   if (to !== null && from !== to) return pullRequestEvents[to]
@@ -102,7 +98,7 @@ export const planGitAutomation = (
   status: TicketStatus,
   event: GitAutomationEvent,
   config: GitAutomationConfig
-): StatusSlug | null => {
+) => {
   const target = config.rules[event]
   if (target === null || target === status) return null
   if (config.forwardOnly) {

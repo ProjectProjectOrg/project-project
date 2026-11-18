@@ -132,8 +132,8 @@ export class ServerStore extends Context.Service<
         Effect.orElseSucceed(() => false)
       )
 
-      const lock = (attempt: number): Effect.Effect<void, CliFailure> =>
-        Effect.gen(function* () {
+      const lock = Effect.gen(function* () {
+        for (let attempt = 0; ; attempt++) {
           const acquired = yield* fs.makeDirectory(lockPath).pipe(
             Effect.as(true),
             Effect.orElseSucceed(() => false)
@@ -150,8 +150,8 @@ export class ServerStore extends Context.Service<
           } else {
             yield* Effect.sleep(LOCK_RETRY)
           }
-          return yield* lock(attempt + 1)
-        })
+        }
+      })
 
       const ownerPath = `${lockPath}/owner`
 
@@ -159,7 +159,7 @@ export class ServerStore extends Context.Service<
         yield* fs
           .makeDirectory(directory, { recursive: true, mode: 0o700 })
           .pipe(Effect.mapError(failure))
-        yield* lock(0)
+        yield* lock
         const owner = yield* crypto.randomUUIDv4().pipe(Effect.orDie)
         yield* fs.writeFileString(ownerPath, owner).pipe(Effect.ignore)
         return owner

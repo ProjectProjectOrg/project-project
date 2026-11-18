@@ -118,17 +118,18 @@ export const relationCommands: ReadonlyArray<Command> = [
     page: "ticketMarkAs"
   },
   ...MARK_KINDS.map(
-    ({ kind, icon, command }): Command => ({
-      id: `ticket.mark.${kind}`,
-      group: "ticketRelations",
-      listed: "search",
-      label: command,
-      icon,
-      keywords: ["relation", "link"],
-      tool: kind === "duplicateOf" ? "archive_ticket" : "mark_ticket",
-      when: editable,
-      page: `mark:${kind}`
-    })
+    ({ kind, icon, command }) =>
+      ({
+        id: `ticket.mark.${kind}`,
+        group: "ticketRelations",
+        listed: "search",
+        label: command,
+        icon,
+        keywords: ["relation", "link"],
+        tool: kind === "duplicateOf" ? "archive_ticket" : "mark_ticket",
+        when: editable,
+        page: `mark:${kind}`
+      }) satisfies Command
   ),
   {
     id: "ticket.unmark",

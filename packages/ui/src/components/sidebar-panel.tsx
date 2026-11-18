@@ -47,7 +47,7 @@ const shiftX = (
   sign: 1 | -1
 ) => (reduce ? 0 : PANEL_SHIFT[transition] * sign)
 
-function panelVariants(reduce: boolean): Variants {
+function panelVariants(reduce: boolean) {
   return {
     enter: (t: SidebarPanelTransition) =>
       moves(t)
@@ -77,7 +77,7 @@ function panelVariants(reduce: boolean): Variants {
             transition: { duration: 0.07, ease: [0.4, 0, 1, 1] as const }
           }
         : { opacity: 0, transition: { duration: 0 } }
-  }
+  } satisfies Variants
 }
 
 function SidebarPanel({

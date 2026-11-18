@@ -89,7 +89,7 @@ export function TicketListContent({
   )
 }
 
-function useShownOnce(visible: boolean): boolean {
+function useShownOnce(visible: boolean) {
   const [shown, setShown] = useState(visible)
   if (visible && !shown) setShown(true)
   return shown || visible

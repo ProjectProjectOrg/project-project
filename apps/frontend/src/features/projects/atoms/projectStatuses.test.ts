@@ -25,7 +25,7 @@ const req = statusesRequest("acme", "web")
 const todo = Schema.decodeSync(StatusSlug)("todo")
 const done = Schema.decodeSync(StatusSlug)("done")
 
-const makeStatus = (slug: StatusSlug, orderKey: string): ProjectStatus =>
+const makeStatus = (slug: StatusSlug, orderKey: string) =>
   decodeProjectStatusSync({
     slug,
     label: slug,

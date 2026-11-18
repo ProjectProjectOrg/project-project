@@ -28,11 +28,11 @@ export type TicketTextMatch =
 const SNIPPET_LENGTH = 120
 const SNIPPET_LEAD = 40
 
-export const searchWords = (query: string): ReadonlyArray<string> => [
+export const searchWords = (query: string) => [
   ...new Set(query.trim().toLowerCase().split(/\s+/).filter(Boolean))
 ]
 
-const plainProse = (text: string): string => {
+const plainProse = (text: string) => {
   if (!/\[|\*\*|__/.test(text)) return text
   return text
     .replace(/\[([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
@@ -40,7 +40,7 @@ const plainProse = (text: string): string => {
     .replace(/(\*\*|__)/g, "")
 }
 
-const plainLine = (line: string): string => {
+const plainLine = (line: string) => {
   const text = line.replace(
     /^\s*(#{1,6}\s+|>\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/,
     ""
@@ -55,13 +55,13 @@ const plainLine = (line: string): string => {
     .trim()
 }
 
-const linkKey = (url: string): string =>
+const linkKey = (url: string) =>
   url
     .toLowerCase()
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "")
 
-const linkTargets = (line: string): ReadonlyArray<string> =>
+const linkTargets = (line: string) =>
   [...line.matchAll(/\]\((?!mention:)([^)\s]+)[^)]*\)/g)].map(([, target]) =>
     linkKey(target ?? "")
   )
@@ -69,7 +69,7 @@ const linkTargets = (line: string): ReadonlyArray<string> =>
 const linkedCount = (
   links: ReadonlyArray<string>,
   words: ReadonlyArray<string>
-): number =>
+) =>
   words.filter((word) => {
     const key = word.includes("://") ? linkKey(word) : ""
     return key !== "" && links.some((link) => link.startsWith(key))
@@ -82,7 +82,7 @@ const isNoise = (line: string) =>
 
 const WORD_CHAR = /[\p{L}\p{N}]/u
 
-const wordStartIndex = (lower: string, word: string): number => {
+const wordStartIndex = (lower: string, word: string) => {
   let at = lower.indexOf(word)
   while (at > 0 && WORD_CHAR.test(lower[at - 1] ?? "")) {
     at = lower.indexOf(word, at + 1)
@@ -90,24 +90,21 @@ const wordStartIndex = (lower: string, word: string): number => {
   return at
 }
 
-const rangesIn = (
-  text: string,
-  words: ReadonlyArray<string>
-): ReadonlyArray<TextRange> => {
+const rangesIn = (text: string, words: ReadonlyArray<string>) => {
   const lower = text.toLowerCase()
   return words
-    .flatMap((word): ReadonlyArray<TextRange> => {
+    .flatMap((word) => {
       const at = wordStartIndex(lower, word)
-      return at === -1 ? [] : [[at, at + word.length]]
+      return at === -1
+        ? []
+        : ([[at, at + word.length]] satisfies ReadonlyArray<TextRange>)
     })
     .toSorted((a, b) => a[0] - b[0])
 }
 
-const clip = (
-  text: string,
-  ranges: ReadonlyArray<TextRange>
-): TicketTextSnippet => {
-  if (text.length <= SNIPPET_LENGTH) return { text, ranges }
+const clip = (text: string, ranges: ReadonlyArray<TextRange>) => {
+  if (text.length <= SNIPPET_LENGTH)
+    return { text, ranges } satisfies TicketTextSnippet
   const first = ranges[0]?.[0] ?? 0
   const start = Math.max(
     0,
@@ -118,11 +115,12 @@ const clip = (
   const shift = lead.length - start
   return {
     text: `${lead}${text.slice(start, end)}${end < text.length ? "…" : ""}`,
-    ranges: ranges.flatMap(
-      ([from, to]): ReadonlyArray<TextRange> =>
-        from >= start && to <= end ? [[from + shift, to + shift]] : []
+    ranges: ranges.flatMap(([from, to]) =>
+      from >= start && to <= end
+        ? ([[from + shift, to + shift]] satisfies ReadonlyArray<TextRange>)
+        : []
     )
-  }
+  } satisfies TicketTextSnippet
 }
 
 type Line = Readonly<{
@@ -136,7 +134,7 @@ const visibleLines = (
   text: string,
   author: CommentBlockAuthor | null,
   searchLinks: boolean
-): ReadonlyArray<Line> => {
+) => {
   const lines: Array<Line> = []
   let fenced = false
   for (const raw of text.split("\n")) {
@@ -169,10 +167,7 @@ type Candidate = Readonly<{
   weight: number
 }>
 
-const bestLine = (
-  lines: ReadonlyArray<Line>,
-  words: ReadonlyArray<string>
-): Candidate | null =>
+const bestLine = (lines: ReadonlyArray<Line>, words: ReadonlyArray<string>) =>
   lines.reduce<Candidate | null>((best, line) => {
     const ranges = rangesIn(line.text, words)
     const linked = linkedCount(line.links, words)
@@ -186,10 +181,11 @@ const bestLine = (
 export const matchTicketText = (
   source: TicketTextSource,
   words: ReadonlyArray<string>
-): TicketTextMatch | null => {
+) => {
   if (words.length === 0) return null
   const inTitle = rangesIn(source.title, words).length
-  if (inTitle === words.length) return { where: "title", score: 300 }
+  if (inTitle === words.length)
+    return { where: "title", score: 300 } satisfies TicketTextMatch
 
   const lower = `${source.title}\n${source.body}`.toLowerCase()
   let missing = words.filter(
@@ -227,11 +223,15 @@ export const matchTicketText = (
   const score = best.ranges.length * 10 + inTitle
   const snippet = clip(best.line.text, best.ranges)
   return best.line.author === null
-    ? { where: "description", score: 200 + score, snippet }
-    : {
+    ? ({
+        where: "description",
+        score: 200 + score,
+        snippet
+      } satisfies TicketTextMatch)
+    : ({
         where: "comment",
         score: 100 + score,
         author: best.line.author,
         snippet
-      }
+      } satisfies TicketTextMatch)
 }

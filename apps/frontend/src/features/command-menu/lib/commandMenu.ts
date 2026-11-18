@@ -25,7 +25,7 @@ export type PointedTicket = TicketContext &
 export const pointedAt = (
   pointed: PointedTicket | null,
   ticket: TicketContext | null
-): PointedTicket | null =>
+) =>
   pointed !== null &&
   ticket !== null &&
   pointed.ticketId === ticket.ticketId &&
@@ -163,16 +163,18 @@ export const openCommandMenu = (
   page: CommandPage = "root",
   selection: ReadonlyArray<SelectedTicket> = [],
   pointed: PointedTicket | null = null
-): CommandMenuState => ({
-  ...CLOSED_COMMAND_MENU,
-  open: true,
-  row: pointedAt(pointed, ticket),
-  ticket,
-  selection: selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
-  pages: [page]
-})
+) =>
+  ({
+    ...CLOSED_COMMAND_MENU,
+    open: true,
+    row: pointedAt(pointed, ticket),
+    ticket,
+    selection:
+      selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
+    pages: [page]
+  }) satisfies CommandMenuState
 
-const deselect = <F extends Frame>(frame: F, ticketId: TicketId): F => {
+const deselect = <F extends Frame>(frame: F, ticketId: TicketId) => {
   const selection = frame.selection.filter((each) => each.id !== ticketId)
   const [first] = selection
   if (first === undefined) return { ...frame, selection }
@@ -189,53 +191,54 @@ const deselect = <F extends Frame>(frame: F, ticketId: TicketId): F => {
 export const deselectFromCommandMenu = (
   state: CommandMenuState,
   ticketId: TicketId
-): CommandMenuState => ({
-  ...deselect(state, ticketId),
-  trail: state.trail.map((step) => deselect(step, ticketId))
-})
+) =>
+  ({
+    ...deselect(state, ticketId),
+    trail: state.trail.map((step) => deselect(step, ticketId))
+  }) satisfies CommandMenuState
 
-const deeper = (
-  state: CommandMenuState,
-  from: ReturnPoint | null
-): CommandMenuState => ({
-  ...state,
-  trail: [
-    ...state.trail,
-    {
-      ticket: state.ticket,
-      selection: state.selection,
-      pages: state.pages,
-      from
-    }
-  ],
-  search: "",
-  focus: null
-})
+const deeper = (state: CommandMenuState, from: ReturnPoint | null) =>
+  ({
+    ...state,
+    trail: [
+      ...state.trail,
+      {
+        ticket: state.ticket,
+        selection: state.selection,
+        pages: state.pages,
+        from
+      }
+    ],
+    search: "",
+    focus: null
+  }) satisfies CommandMenuState
 
 export const actOnTicket = (
   state: CommandMenuState,
   ticket: TicketContext,
   from: ReturnPoint
-): CommandMenuState => ({
-  ...deeper(state, from),
-  ticket,
-  selection: [],
-  pages: ["root"]
-})
+) =>
+  ({
+    ...deeper(state, from),
+    ticket,
+    selection: [],
+    pages: ["root"]
+  }) satisfies CommandMenuState
 
 export const pushCommandPage = (
   state: CommandMenuState,
   page: CommandPage,
   from: ReturnPoint | null = null
-): CommandMenuState => ({
-  ...deeper(state, from),
-  pages: [...state.pages, page]
-})
+) =>
+  ({
+    ...deeper(state, from),
+    pages: [...state.pages, page]
+  }) satisfies CommandMenuState
 
-export const currentCommandPage = (state: CommandMenuState): CommandPage =>
+export const currentCommandPage = (state: CommandMenuState) =>
   state.pages.at(-1) ?? "root"
 
-const stepBack = (state: CommandMenuState): Step | null => {
+const stepBack = (state: CommandMenuState) => {
   const last = state.trail.at(-1)
   if (last !== undefined) return last
   if (state.pages[0] !== "root") {
@@ -244,14 +247,19 @@ const stepBack = (state: CommandMenuState): Step | null => {
       selection: state.selection,
       pages: ["root"],
       from: null
-    }
+    } satisfies Step
   }
   return state.ticket === null
     ? null
-    : { ticket: null, selection: [], pages: ["root"], from: null }
+    : ({
+        ticket: null,
+        selection: [],
+        pages: ["root"],
+        from: null
+      } satisfies Step)
 }
 
-export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
+export const backCommandMenu = (state: CommandMenuState) => {
   const step = stepBack(state)
   if (step === null) return state
   return {
@@ -262,5 +270,5 @@ export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
     trail: state.trail.slice(0, -1),
     search: step.from?.search ?? "",
     focus: step.from?.value ?? null
-  }
+  } satisfies CommandMenuState
 }

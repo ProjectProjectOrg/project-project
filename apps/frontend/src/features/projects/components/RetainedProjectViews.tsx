@@ -25,7 +25,7 @@ import { ProjectTicketLayout } from "../../tickets/components/ticket-list/Projec
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 
-const forView = (query: TicketListQuery, view: string): TicketListQuery => {
+const forView = (query: TicketListQuery, view: string) => {
   if (view !== "board" || query.status === undefined) return query
   const { status: _status, ...rest } = query
   return rest

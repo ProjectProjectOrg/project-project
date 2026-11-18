@@ -36,44 +36,44 @@ import * as PullRequestSnapshots from "./PullRequestSnapshots"
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
-const baseDocument = (
-  overrides: Partial<TicketDocs.TicketDocument> = {}
-): TicketDocs.TicketDocument => ({
-  id: ticketId("T-1"),
-  title: "first",
-  status: ticketStatus("in_progress"),
-  type: TypeKey.make("feat"),
-  priority: "med",
-  rank: TicketRank.make("a0"),
-  tags: [],
-  branch: "feat/T-1",
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
-  updatedBy: "user-1",
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
-  body: "",
-  commentsRegion: "",
-  ...overrides
-})
+const baseDocument = (overrides: Partial<TicketDocs.TicketDocument> = {}) =>
+  ({
+    id: ticketId("T-1"),
+    title: "first",
+    status: ticketStatus("in_progress"),
+    type: TypeKey.make("feat"),
+    priority: "med",
+    rank: TicketRank.make("a0"),
+    tags: [],
+    branch: "feat/T-1",
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    assignees: [],
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
+    updatedBy: "user-1",
+    updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")),
+    body: "",
+    commentsRegion: "",
+    ...overrides
+  }) satisfies TicketDocs.TicketDocument
 
 const baseMatch = (
   overrides: Partial<GitHubTicketEvents.PullRequestWebhookMatch> = {}
-): GitHubTicketEvents.PullRequestWebhookMatch => ({
-  orgSlug: "org",
-  organizationId: "org-1",
-  projectId: "project-1",
-  slug: "p",
-  ticketId: "T-1",
-  branch: "feat/T-1",
-  repoId: "456",
-  isDefault: true,
-  ...overrides
-})
+) =>
+  ({
+    orgSlug: "org",
+    organizationId: "org-1",
+    projectId: "project-1",
+    slug: "p",
+    ticketId: "T-1",
+    branch: "feat/T-1",
+    repoId: "456",
+    isDefault: true,
+    ...overrides
+  }) satisfies GitHubTicketEvents.PullRequestWebhookMatch
 
 const makeFakeDocs = (initial: ReadonlyArray<TicketDocs.TicketDocument>) => {
   const documents = new Map(initial.map((doc) => [doc.id as string, doc]))

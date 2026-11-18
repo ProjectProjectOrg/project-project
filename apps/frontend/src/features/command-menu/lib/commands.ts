@@ -111,7 +111,7 @@ const appliesToSelection = (command: Command, context: CommandContext) =>
 export const visibleCommands = <C extends Command>(
   commands: ReadonlyArray<C>,
   context: CommandContext
-): ReadonlyArray<C> =>
+) =>
   COMMAND_GROUPS.flatMap((group) =>
     commands.filter(
       (command) =>
@@ -125,7 +125,7 @@ export const runCommand = (
   command: Command,
   context: CommandContext,
   env: CommandEnv
-): void => {
+) => {
   if (command.when?.(context) === false) return
   if ("page" in command) env.open(command.page)
   else command.run(context, env)

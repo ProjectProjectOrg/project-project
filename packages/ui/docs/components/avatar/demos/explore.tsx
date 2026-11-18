@@ -55,11 +55,13 @@ const LAST = [
 ] as const
 
 // A new name, never the one already showing.
-const randomName = (current: string): string => {
-  const next = Effect.runSync(
-    Effect.all([Random.choice(FIRST), Random.choice(LAST)])
-  ).join(" ")
-  return next === current ? randomName(current) : next
+const randomName = (current: string) => {
+  let next = current
+  while (next === current)
+    next = Effect.runSync(
+      Effect.all([Random.choice(FIRST), Random.choice(LAST)])
+    ).join(" ")
+  return next
 }
 
 function Format({

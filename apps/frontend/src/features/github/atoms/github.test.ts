@@ -35,7 +35,7 @@ vi.mock("@/services/AuthClient", () => ({
 
 const fetchStub = stubFetch()
 
-const pathOf = (input: RequestInfo | URL): string =>
+const pathOf = (input: RequestInfo | URL) =>
   new URL(
     input instanceof Request ? input.url : String(input),
     "http://localhost"

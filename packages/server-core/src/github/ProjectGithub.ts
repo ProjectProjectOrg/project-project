@@ -53,7 +53,7 @@ export type ProjectGithubIntegration = Readonly<{
 export const integrationForRepo = (
   integrations: ReadonlyArray<ProjectGithubIntegration>,
   repoId: string | null | undefined
-): ProjectGithubIntegration | null =>
+) =>
   (repoId == null
     ? integrations.find((integration) => integration.isDefault)
     : integrations.find((integration) => integration.repoId === repoId)) ?? null

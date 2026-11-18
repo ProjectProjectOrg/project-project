@@ -42,7 +42,7 @@ const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
-function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
+function unexpectedTicketDocsCall(method: string) {
   return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
 }
 
@@ -51,7 +51,7 @@ const defaultTicketStatus = ticketStatus("todo")
 function makeTicketDocument(
   id: string,
   status: TicketStatus = defaultTicketStatus
-): TicketDocs.TicketDocument {
+) {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
@@ -73,7 +73,7 @@ function makeTicketDocument(
     updatedAt: now,
     body: "",
     commentsRegion: ""
-  }
+  } satisfies TicketDocs.TicketDocument
 }
 
 function makeFakeDocs(initial?: {
@@ -905,7 +905,7 @@ it.effect("complete fails for non-admin members", () =>
 function makeSprintDoc(
   id: string,
   overrides: Partial<GroupDocs.GroupDocument> = {}
-): GroupDocs.GroupDocument {
+) {
   const now = isoDate("2026-05-01T00:00:00.000Z")
   return {
     id: groupId(id),
@@ -921,7 +921,7 @@ function makeSprintDoc(
     updatedAt: now,
     body: "",
     ...overrides
-  }
+  } satisfies GroupDocs.GroupDocument
 }
 
 it.effect("listPaged filters by kind", () =>

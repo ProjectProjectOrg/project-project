@@ -29,9 +29,7 @@ import * as Layer from "effect/Layer"
 import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 
-const stackEntryFromRow = (
-  row: typeof ticketBranch.$inferSelect
-): TicketBranchEntry =>
+const stackEntryFromRow = (row: typeof ticketBranch.$inferSelect) =>
   Object.assign(
     { branch: row.branch },
     row.base === null ? {} : { base: row.base },
@@ -43,7 +41,7 @@ const stackEntryFromRow = (
 
 export type BranchRepository = Readonly<{ repoId: string; isDefault: boolean }>
 
-const inRepository = (repository: BranchRepository): SQL | undefined =>
+const inRepository = (repository: BranchRepository) =>
   repository.isDefault
     ? or(eq(ticketIndex.repoId, repository.repoId), isNull(ticketIndex.repoId))
     : eq(ticketIndex.repoId, repository.repoId)

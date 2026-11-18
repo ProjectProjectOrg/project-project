@@ -45,7 +45,7 @@ const encodeEvent = Schema.encodeSync(InboxEvent)
 export const inboxNotices = (
   before: SubscriptionSource | null,
   after: SubscriptionSource
-): ReadonlyArray<InboxNotice> => [
+) => [
   ...(before === null
     ? after.assignees.map((userId) => ({ kind: "assigned" as const, userId }))
     : []),
@@ -74,7 +74,7 @@ export const inboxNotices = (
     ])
 ]
 
-export const stageInbox = (input: InboxInput): StagedInbox | null => {
+export const stageInbox = (input: InboxInput) => {
   const own = input.changes.filter((entry) => entry.ticketId === input.ticketId)
   const causes = [
     input.cause,
@@ -191,5 +191,5 @@ export const stageInbox = (input: InboxInput): StagedInbox | null => {
     subscribers,
     resolve,
     unblockWith: unblocks ? [...(input.finished ?? [])] : null
-  }
+  } satisfies StagedInbox
 }

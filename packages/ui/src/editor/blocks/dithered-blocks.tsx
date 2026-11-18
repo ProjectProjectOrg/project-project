@@ -24,7 +24,7 @@ type Tile = Readonly<{ x: number; y: number; color: string }>
 
 const lit = (x: number, y: number, level: number) => BAYER[y % 4][x % 4] < level
 
-const shelfTiles = (shelf: Shelf): ReadonlyArray<Tile> =>
+const shelfTiles = (shelf: Shelf) =>
   [shelf.row, shelf.row + 1].flatMap((y) => [
     ...[0, 1].flatMap((x) =>
       lit(x, y, shelf.icon) ? [{ x, y, color: FG }] : []

@@ -109,7 +109,7 @@ export const attachmentsForDescription = (input: {
   readonly slug: string
   readonly ticketId: TicketId
   readonly storageActive: boolean
-}): AttachmentsTarget => ({
+}) => ({
   orgSlug: input.orgSlug,
   slug: input.slug,
   ticketId: input.ticketId,

@@ -13,7 +13,7 @@ import {
   type BootstrapOrgStore
 } from "../src/bootstrap/org"
 
-function id(): string {
+function id() {
   return crypto.randomUUID()
 }
 
@@ -198,7 +198,7 @@ const main = Effect.gen(function* () {
   )
 })
 
-function state(created: boolean): string {
+function state(created: boolean) {
   return created ? "created" : "existing"
 }
 

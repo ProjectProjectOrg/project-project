@@ -39,7 +39,7 @@ export type JiraMigrationArtifactError =
   | StorageNotConnected
   | JiraArtifactError
 
-export const artifactKey = (coordinates: JiraArtifactCoordinates): string =>
+export const artifactKey = (coordinates: JiraArtifactCoordinates) =>
   `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`
 
 export class JiraMigrationArtifacts extends Context.Service<

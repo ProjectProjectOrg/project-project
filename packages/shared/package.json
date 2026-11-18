@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "bun run --bun vitest run",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix"

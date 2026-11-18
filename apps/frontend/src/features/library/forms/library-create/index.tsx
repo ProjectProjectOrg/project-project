@@ -73,9 +73,9 @@ export function LibraryCreateForm({
   const keyId = useId()
   const [failure, setFailure] = useState<string | null>(null)
   const initialLayer = layers[0] ?? scope.layer
-  const targetOf = (layer: LibraryLayer): LibraryScope =>
+  const targetOf = (layer: LibraryLayer) =>
     layer === scope.layer ? scope : orgScope(scope.req.params.orgSlug)
-  const libraryOf = (layer: LibraryLayer): Library =>
+  const libraryOf = (layer: LibraryLayer) =>
     layer === "org" && scope.layer === "project"
       ? (orgLibrary ?? library)
       : library
@@ -260,7 +260,7 @@ export function LibraryCreateForm({
   )
 }
 
-const submitLabel = (kind: LibraryKind, adds: boolean): string => {
+const submitLabel = (kind: LibraryKind, adds: boolean) => {
   if (adds) return m.templates_new_create_and_add()
   return kind === "type"
     ? m.templates_new_create_type()
@@ -277,7 +277,7 @@ type CreateRequest = Readonly<{
 const createEntry = async (
   registry: AtomRegistry,
   { kind, target, library, value }: CreateRequest
-): Promise<string | null> => {
+) => {
   const key = effectiveLibraryKey(value)
   const name = value.name.trim()
   if (kind === "section") {

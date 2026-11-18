@@ -13,12 +13,10 @@ const sectionTitles: Readonly<Record<JiraSetupSection, () => string>> = {
   destination: m.jira_import_destination_title
 }
 
-export const jiraSectionTitle = (section: JiraSetupSection): string =>
+export const jiraSectionTitle = (section: JiraSetupSection) =>
   sectionTitles[section]()
 
-export const statusesSummary = (
-  statuses: JiraSetupCounts["statuses"]
-): string => {
+export const statusesSummary = (statuses: JiraSetupCounts["statuses"]) => {
   const summary = m.jira_import_statuses_summary({
     total: statuses.total,
     targets: statuses.targets
@@ -31,7 +29,7 @@ export const statusesSummary = (
     : summary
 }
 
-const tagsSummary = (tags: JiraSetupCounts["tags"]): string => {
+const tagsSummary = (tags: JiraSetupCounts["tags"]) => {
   if (tags.skipped > 0)
     return m.jira_import_tags_summary_skipped({
       total: tags.total - tags.skipped,
@@ -49,7 +47,7 @@ export function jiraSectionSummary(
   section: JiraSetupSection,
   counts: JiraSetupCounts,
   setup: JiraImportSetup
-): string {
+) {
   switch (section) {
     case "people":
       return m.jira_import_people_summary({
@@ -77,9 +75,7 @@ export function jiraSectionSummary(
   }
 }
 
-export const jiraCategoryLabel = (
-  categoryKey: string | null
-): string | null => {
+export const jiraCategoryLabel = (categoryKey: string | null) => {
   switch (categoryKey) {
     case "new":
       return m.jira_import_category_todo()

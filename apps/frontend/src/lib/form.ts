@@ -7,7 +7,7 @@ import type { ReadonlyAtom } from "@tanstack/store"
 
 export const useFormValues = <TValues>(form: {
   readonly atom: ReadonlyAtom<{ readonly values: TValues }>
-}): TValues => useSelector(form.atom, (state) => state.values)
+}) => useSelector(form.atom, (state) => state.values)
 
 const afterFirstSubmit = ({
   groupApi,

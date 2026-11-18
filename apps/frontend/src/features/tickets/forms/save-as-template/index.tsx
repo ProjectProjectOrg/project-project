@@ -35,12 +35,10 @@ export type SaveAsTemplateProps = Readonly<{
   body: string
 }>
 
-const scopeFor = (
-  layer: LibraryLayer,
-  orgSlug: string,
-  slug: string
-): LibraryScope =>
-  layer === "org" ? orgScope(orgSlug) : projectScope(orgSlug, slug)
+const scopeFor = (layer: LibraryLayer, orgSlug: string, slug: string) =>
+  (layer === "org"
+    ? orgScope(orgSlug)
+    : projectScope(orgSlug, slug)) satisfies LibraryScope
 
 export function SaveAsTemplateForm({
   ticket,

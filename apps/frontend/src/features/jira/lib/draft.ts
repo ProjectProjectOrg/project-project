@@ -97,9 +97,9 @@ const isProjectKey = Schema.is(CreatableProjectKey)
 const isConfiguration = Schema.is(JiraMigrationConfiguration)
 const isTypeKey = Schema.is(TypeKey)
 
-export const isValidTagName = (name: string): boolean => isTagName(name)
+export const isValidTagName = (name: string) => isTagName(name)
 
-export const isPendingInvite = (choice: PeopleChoice): boolean =>
+export const isPendingInvite = (choice: PeopleChoice) =>
   choice.inviteEmail !== undefined && !isEmailAddress(choice.inviteEmail.trim())
 
 export type DestinationIssues = Readonly<{
@@ -108,20 +108,19 @@ export type DestinationIssues = Readonly<{
   key: boolean
 }>
 
-export const destinationIssues = (
-  destination: DestinationChoice
-): DestinationIssues => ({
-  name: destination.name.trim().length === 0,
-  slug: !isSlug(destination.slug),
-  key: !isProjectKey(destination.key)
-})
+export const destinationIssues = (destination: DestinationChoice) =>
+  ({
+    name: destination.name.trim().length === 0,
+    slug: !isSlug(destination.slug),
+    key: !isProjectKey(destination.key)
+  }) satisfies DestinationIssues
 
 const normalized = (value: string) => value.trim().toLowerCase()
 
 export const sameNameStatus = (
   jiraName: string,
   options: JiraMigrationRequirements["statusOptions"]
-): JiraMigrationRequirements["statusOptions"][number] | undefined => {
+) => {
   const name = normalized(jiraName)
   return options.find(
     (option) =>
@@ -134,7 +133,7 @@ export const sameNameStatus = (
 const matchStatus = (
   status: JiraMigrationRequirements["statuses"][number],
   options: JiraMigrationRequirements["statusOptions"]
-): string | undefined => {
+) => {
   const byName = sameNameStatus(status.name, options)
   if (byName !== undefined) return byName.slug
   return status.suggestedProjectStatusSlug !== null &&
@@ -146,7 +145,7 @@ const matchStatus = (
 const suggestedPerson = (
   identity: JiraMigrationRequirements["identities"][number],
   options: JiraMigrationRequirements["identityOptions"]
-): string | null =>
+) =>
   identity.suggestedProjectProjectUserId !== null &&
   options.some((option) => option.id === identity.suggestedProjectProjectUserId)
     ? identity.suggestedProjectProjectUserId
@@ -159,7 +158,7 @@ const slugPart = (value: string, allowed: RegExp, length: number) =>
     .replace(/^[^a-z0-9]+/u, "")
     .slice(0, length)
 
-export const fallbackTagName = (source: TagChoice["source"]): string => {
+export const fallbackTagName = (source: TagChoice["source"]) => {
   if (source.kind === "component") {
     const part = slugPart(source.value, /[^a-z0-9-]+/gu, 21)
     return `component:${part === "" ? "tag" : part}`
@@ -171,9 +170,7 @@ export const fallbackTagName = (source: TagChoice["source"]): string => {
 const sourceKey = (source: TagChoice["source"]) =>
   `${source.kind}:${source.value}`
 
-export const hasRestrictedContent = (
-  requirements: JiraMigrationRequirements
-): boolean =>
+export const hasRestrictedContent = (requirements: JiraMigrationRequirements) =>
   requirements.restrictedContent.issueCount > 0 ||
   requirements.restrictedContent.commentCount > 0 ||
   requirements.restrictedContent.worklogCount > 0
@@ -182,7 +179,7 @@ export function buildJiraImportDraft(
   requirements: JiraMigrationRequirements,
   configuration: JiraMigrationConfigurationType | null,
   types: ReadonlyArray<TypeDefinition>
-): JiraImportDraft {
+) {
   const identities = new Map(
     configuration?.identities.map((item) => [item.jiraAccountId, item])
   )
@@ -307,12 +304,10 @@ export function buildJiraImportDraft(
         ])
       ]
     }
-  }
+  } satisfies JiraImportDraft
 }
 
-export function toJiraImportConfiguration(
-  draft: JiraImportDraft
-): JiraMigrationConfigurationType | null {
+export function toJiraImportConfiguration(draft: JiraImportDraft) {
   const { setup, review } = draft
   const issues = destinationIssues(setup.destination)
   if (issues.name || issues.slug || issues.key) return null
@@ -377,7 +372,7 @@ export function toJiraImportConfiguration(
             }
           ]
     ),
-    tags: setup.tags.flatMap((item): ReadonlyArray<TagChoice> => {
+    tags: setup.tags.flatMap<TagChoice>((item) => {
       if (item.skipped === true)
         return [
           {
@@ -407,7 +402,7 @@ const sameConfiguration = Schema.toEquivalence(JiraMigrationConfiguration)
 export const configurationBehind = (
   draft: JiraImportDraft,
   saved: JiraMigrationConfigurationType | null
-): boolean => {
+) => {
   const current = toJiraImportConfiguration(draft)
   return (
     current !== null && (saved === null || !sameConfiguration(current, saved))

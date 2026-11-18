@@ -5,13 +5,13 @@ type AuthedRouteRedirect =
 export function authedRouteRedirect(
   pathname: string,
   activeOrgSlug: string | null
-): AuthedRouteRedirect | null {
-  if (!activeOrgSlug) return { to: "/welcome" }
+) {
+  if (!activeOrgSlug) return { to: "/welcome" } satisfies AuthedRouteRedirect
 
   if (pathname !== "/") return null
 
   return {
     to: "/orgs/$orgSlug",
     params: { orgSlug: activeOrgSlug }
-  }
+  } satisfies AuthedRouteRedirect
 }

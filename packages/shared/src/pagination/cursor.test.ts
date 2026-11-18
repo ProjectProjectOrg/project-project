@@ -31,7 +31,7 @@ describe("cursor helpers", () => {
 interface Row {
   readonly id: string
 }
-const row = (n: number): Row => ({ id: `T-${n}` })
+const row = (n: number) => ({ id: `T-${n}` })
 const opts = (cursor?: ReturnType<typeof decodeCursor>) => ({
   cursor,
   limit: 3,

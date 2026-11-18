@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest"
 import { startingType, startingTypes, typeStart } from "./creatorType"
 
 const BUILTIN = resolveLibrary({ org: EMPTY_LAYER, project: null }, false)
-const builtin = (key: string): TypeDefinition => {
+const builtin = (key: string) => {
   const found = BUILTIN.types.find((type) => type.key === key)
   if (found === undefined) throw new Error(`no ${key}`)
   return found
@@ -23,10 +23,11 @@ const spike: TypeDefinition = {
   name: "Spike",
   body: formatTicketBlock("context", "")
 }
-const library = (...types: ReadonlyArray<TypeDefinition>): Library => ({
-  ...BUILTIN,
-  types: [...BUILTIN.types, ...types]
-})
+const library = (...types: ReadonlyArray<TypeDefinition>) =>
+  ({
+    ...BUILTIN,
+    types: [...BUILTIN.types, ...types]
+  }) satisfies Library
 
 describe("startingType", () => {
   it("starts on the remembered type when the project still offers it", () => {

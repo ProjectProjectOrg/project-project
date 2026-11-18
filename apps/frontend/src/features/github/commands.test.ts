@@ -84,7 +84,7 @@ const detail = Schema.decodeUnknownSync(TicketDetail)({
 const contextFor = (
   orgRole: Org.OrgRoleName,
   projectRole: Project.ProjectRoleName | null
-): CommandContext => {
+) => {
   const role = Option.getOrElse(
     Effective.roleOnProject(orgRole, projectRole),
     () => Project.projectStatement.role({})
@@ -112,10 +112,10 @@ const contextFor = (
     project,
     tickets: ticketPermissions(actor),
     canManageProject: actor.call("projects", "update")
-  }
+  } satisfies CommandContext
 }
 
-const environment = (): CommandEnv => ({
+const environment = () => ({
   registry: AtomRegistry.make(),
   execute: vi.fn<(atom: unknown, value: unknown) => void>(),
   navigate: vi.fn<CommandEnv["navigate"]>(),

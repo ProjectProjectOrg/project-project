@@ -56,7 +56,7 @@ type Measured = Readonly<{
   drop: ReadonlyArray<number>
 }>
 
-function measureSlot(trail: HTMLElement, slot: HTMLElement): Measured {
+function measureSlot(trail: HTMLElement, slot: HTMLElement) {
   const style = getComputedStyle(slot)
   const contentRight =
     slot.getBoundingClientRect().right -

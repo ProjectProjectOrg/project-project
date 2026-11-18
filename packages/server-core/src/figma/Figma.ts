@@ -24,15 +24,13 @@ export type FigmaCallError =
   | FigmaFileNotFound
   | FigmaError
 
-export const figmaAuthHeader = (
-  credential: FigmaCredential
-): Record<string, string> =>
+export const figmaAuthHeader = (credential: FigmaCredential) =>
   FigmaCredential.$match(credential, {
     Bearer: ({ token }) => ({ Authorization: `Bearer ${token}` }),
     FigmaToken: ({ token }) => ({ "X-Figma-Token": token })
   })
 
-export const figmaImageScale = (scale: number): number =>
+export const figmaImageScale = (scale: number) =>
   Math.min(4, Math.max(0.01, Number.isFinite(scale) ? scale : 1))
 
 export interface FigmaFileSummary {
@@ -165,10 +163,10 @@ const decodeUnknownDevResourceMutationResponse = Schema.decodeUnknownEffect(
   DevResourceMutationResponse
 )
 
-const errorMessage = (payload: typeof ErrorPayload.Type): string =>
+const errorMessage = (payload: typeof ErrorPayload.Type) =>
   payload.message ?? payload.err ?? payload.error ?? "Figma error"
 
-const parseRetryAfterSeconds = (response: Response): number => {
+const parseRetryAfterSeconds = (response: Response) => {
   const header = response.headers.get("Retry-After")
   const parsed = header === null ? Number.NaN : Number(header)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 60
@@ -178,7 +176,7 @@ const errorForStatus = (
   response: Response,
   fileKey: string | null,
   message: string
-): FigmaCallError => {
+) => {
   if (response.status === 401 || response.status === 403) {
     return new FigmaAuthInvalid()
   }
@@ -230,7 +228,7 @@ const request = <A>(
   body: Schema.Json | undefined,
   fileKey: string | null,
   decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
-): Effect.Effect<A, FigmaCallError> =>
+) =>
   send(credential, method, path, body).pipe(
     Effect.flatMap(({ response, payload }) =>
       response.ok
@@ -252,7 +250,7 @@ const request = <A>(
     )
   )
 
-const fetchBytes = (url: string): Effect.Effect<Uint8Array, FigmaCallError> =>
+const fetchBytes = (url: string) =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
     const response = yield* Effect.tryPromise({
@@ -271,10 +269,7 @@ const fetchBytes = (url: string): Effect.Effect<Uint8Array, FigmaCallError> =>
     return new Uint8Array(buffer)
   })
 
-const fetchFile = (
-  credential: FigmaCredential,
-  fileKey: string
-): Effect.Effect<FigmaFileSummary, FigmaCallError> =>
+const fetchFile = (credential: FigmaCredential, fileKey: string) =>
   request(
     credential,
     "GET",
@@ -289,7 +284,7 @@ const findExistingDevResourceId = (
   fileKey: string,
   nodeId: string,
   url: string
-): Effect.Effect<string | null> =>
+) =>
   request(
     credential,
     "GET",
@@ -309,7 +304,7 @@ const findExistingDevResourceId = (
 
 const make = Effect.gen(function* () {
   const fetch = yield* Effect.service(Fetch)
-  const withFetch = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  const withFetch = <A, E>(effect: Effect.Effect<A, E>) =>
     effect.pipe(Effect.provideService(Fetch, fetch))
 
   const getMe = Effect.fn("Figma.getMe")(function* (

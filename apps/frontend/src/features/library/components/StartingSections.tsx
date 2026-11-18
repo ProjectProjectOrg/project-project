@@ -56,7 +56,7 @@ type RowView = Readonly<{
   sectionKey: string | null
 }>
 
-const rowView = (row: StartingRow, lookup: BlockLookup): RowView => {
+const rowView = (row: StartingRow, lookup: BlockLookup) => {
   if (row.kind === "text")
     return {
       name: m.templates_types_custom_text(),

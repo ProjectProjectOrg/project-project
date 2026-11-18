@@ -70,18 +70,17 @@ const ticket = {
 const encode = Schema.encodeSync(Ticket)
 const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
-const asDetail = (t: Ticket): TicketDetail => ({
-  ...t,
-  parentState: null,
-  relations: EMPTY_TICKET_RELATIONS,
-  creator: null,
-  updater: null,
-  body: "Before"
-})
-const asUpdateResult = (
-  t: Ticket,
-  key: string | null = null
-): TicketUpdateResult => ({ ticket: asDetail(t), orderKey: key })
+const asDetail = (t: Ticket) =>
+  ({
+    ...t,
+    parentState: null,
+    relations: EMPTY_TICKET_RELATIONS,
+    creator: null,
+    updater: null,
+    body: "Before"
+  }) satisfies TicketDetail
+const asUpdateResult = (t: Ticket, key: string | null = null) =>
+  ({ ticket: asDetail(t), orderKey: key }) satisfies TicketUpdateResult
 const req = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
 
 const orderKey = (sortValue: string, id: string) => `${sortValue}\u0000${id}`
@@ -1361,11 +1360,12 @@ describe("encodeTicketListQuery", () => {
 
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
-const withTicket = (id: string, fields: Partial<Ticket>): Ticket => ({
-  ...ticket,
-  id: decodeTicketIdSync(id),
-  ...fields
-})
+const withTicket = (id: string, fields: Partial<Ticket>) =>
+  ({
+    ...ticket,
+    id: decodeTicketIdSync(id),
+    ...fields
+  }) satisfies Ticket
 
 const todoStatus = Schema.decodeSync(TicketStatus)("todo")
 const inProgressStatus = Schema.decodeSync(TicketStatus)("in_progress")
@@ -1376,7 +1376,7 @@ const orderAfterRoundTrip = async (
   query: TicketListQuery,
   items: ReadonlyArray<ServedRow>,
   movedId: TicketId
-): Promise<ReadonlyArray<string>> => {
+) => {
   const pending: Array<(r: Response) => void> = []
   fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
     if (init?.method === "PATCH") {
@@ -1441,13 +1441,13 @@ const orderAfterRoundTrip = async (
   }
 }
 
-const createdRow = (t: Ticket): ServedRow => [t, createdKey(t)]
+const createdRow = (t: Ticket) => [t, createdKey(t)] satisfies ServedRow
 
-const updatedRow = (t: Ticket): ServedRow => [t, updatedKey(t)]
+const updatedRow = (t: Ticket) => [t, updatedKey(t)] satisfies ServedRow
 
-const titleRow = (t: Ticket): ServedRow => [t, titleKey(t)]
+const titleRow = (t: Ticket) => [t, titleKey(t)] satisfies ServedRow
 
-const idRow = (t: Ticket): ServedRow => [t, idKey(t)]
+const idRow = (t: Ticket) => [t, idKey(t)] satisfies ServedRow
 
 describe("backlog status round trip keeps the section's sort order", () => {
   it("returns the oldest row to the bottom under `created desc`", async () => {
@@ -1643,7 +1643,7 @@ const PRIORITY_SORT_VALUE = { high: "03", med: "02", low: "01" } as const
 const priorityKey = (t: Ticket) =>
   orderKey(PRIORITY_SORT_VALUE[t.priority], t.id)
 
-const priorityRow = (t: Ticket): ServedRow => [t, priorityKey(t)]
+const priorityRow = (t: Ticket) => [t, priorityKey(t)] satisfies ServedRow
 
 const pointsKey = (t: Ticket) =>
   orderKey(
@@ -1654,7 +1654,7 @@ const pointsKey = (t: Ticket) =>
     t.id
   )
 
-const pointsRow = (t: Ticket): ServedRow => [t, pointsKey(t)]
+const pointsRow = (t: Ticket) => [t, pointsKey(t)] satisfies ServedRow
 
 type EditOutcome = Readonly<{
   optimistic: ReadonlyArray<string>
@@ -1668,7 +1668,7 @@ const orderAfterFieldEdit = async (
   editedId: TicketId,
   patch: TicketEdit,
   response: (edited: Ticket) => TicketUpdateResult
-): Promise<EditOutcome> => {
+) => {
   let sectionsServed = 0
   let finish = (_r: Response) => {}
   let patchUrl: URL | undefined
@@ -1729,7 +1729,7 @@ const orderAfterFieldEdit = async (
       optimistic,
       settled: after.value.sections.todo.items.map((row) => row.ticket.id),
       patchUrl: patchUrl!
-    }
+    } satisfies EditOutcome
   } finally {
     registry.dispose()
   }

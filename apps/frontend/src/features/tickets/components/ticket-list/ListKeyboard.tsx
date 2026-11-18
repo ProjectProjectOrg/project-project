@@ -134,7 +134,7 @@ export function ListKeyboardProvider({
   )
 }
 
-export function useIgnoreListHover(): () => void {
+export function useIgnoreListHover() {
   return use(ListKeyboardContext)?.ignoreHoverUntilMouseMoves ?? noop
 }
 
@@ -144,7 +144,7 @@ export function useListKeyboardSection(
   ref: RefObject<HTMLElement | null>,
   ticketIds: ReadonlyArray<TicketId>,
   reveal: (ticketId: TicketId) => void
-): void {
+) {
   const context = use(ListKeyboardContext)
   useLayoutEffect(() => {
     const element = ref.current

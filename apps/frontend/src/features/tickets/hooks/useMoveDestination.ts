@@ -43,7 +43,7 @@ export function useMoveDestination(
   sourceSlug: string,
   ticket: TicketDetail,
   destination: string
-): MoveDestination {
+) {
   const source = useAtomValue(
     projectDetail(projectRequest(orgSlug, sourceSlug))
   )
@@ -64,7 +64,7 @@ export function useMoveDestination(
     Result.isFailure(projectResult) ||
     Result.isFailure(libraryResult)
   ) {
-    return { state: "failed" }
+    return { state: "failed" } satisfies MoveDestination
   }
   if (
     !Result.isSuccess(statusesResult) ||
@@ -72,7 +72,7 @@ export function useMoveDestination(
     !Result.isSuccess(projectResult) ||
     !Result.isSuccess(libraryResult)
   ) {
-    return { state: "loading" }
+    return { state: "loading" } satisfies MoveDestination
   }
   const statuses = statusesResult.value.toSorted(compareByOrderKey)
   const slugs = statuses.map((status) => status.slug)
@@ -101,5 +101,5 @@ export function useMoveDestination(
       },
       Result.isSuccess(source) ? source.value.members : NO_MEMBERS
     )
-  }
+  } satisfies MoveDestination
 }

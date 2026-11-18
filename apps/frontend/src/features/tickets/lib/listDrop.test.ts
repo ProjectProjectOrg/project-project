@@ -24,26 +24,29 @@ const ticketId = Schema.decodeSync(TicketId)
 const groupId = Schema.decodeSync(GroupId)
 const status = Schema.decodeSync(TicketStatus)
 
-const row = (fields: Partial<DraggedRow> = {}): DraggedRow => ({
-  id: ticketId("T-1"),
-  type: TypeKey.make("feat"),
-  subTicketCount: 0,
-  rank: TicketRank.make("a0"),
-  section: "todo",
-  ...fields
-})
+const row = (fields: Partial<DraggedRow> = {}) =>
+  ({
+    id: ticketId("T-1"),
+    type: TypeKey.make("feat"),
+    subTicketCount: 0,
+    rank: TicketRank.make("a0"),
+    section: "todo",
+    ...fields
+  }) satisfies DraggedRow
 
-const sprint = (id: string, completed = false): ListDropTarget => ({
-  grouping: "sprint",
-  key: groupId(id),
-  completed
-})
+const sprint = (id: string, completed = false) =>
+  ({
+    grouping: "sprint",
+    key: groupId(id),
+    completed
+  }) satisfies ListDropTarget
 
-const under = (id: string, type: "epic" | "feat"): ListDropTarget => ({
-  grouping: "parent",
-  key: ticketId(id),
-  parent: { id: ticketId(id), title: id, type: TypeKey.make(type) }
-})
+const under = (id: string, type: "epic" | "feat") =>
+  ({
+    grouping: "parent",
+    key: ticketId(id),
+    parent: { id: ticketId(id), title: id, type: TypeKey.make(type) }
+  }) satisfies ListDropTarget
 
 describe("sectionEdit", () => {
   it("changes no field when the row stays in its own section", () => {

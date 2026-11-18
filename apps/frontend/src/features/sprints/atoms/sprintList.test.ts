@@ -73,33 +73,34 @@ const otherSprint: Group = {
   tickets: []
 }
 
-const makeTicket = (id: TicketId): Ticket => ({
-  id,
-  title: `Ticket ${id}`,
-  status: decodeTicketStatusSync("todo"),
-  type: TypeKey.make("chore"),
-  priority: "med",
-  estimate: null,
-  flag: null,
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  rank: TicketRank.make("a0"),
-  lastTransitionedPr: null,
-  parent: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
-})
+const makeTicket = (id: TicketId) =>
+  ({
+    id,
+    title: `Ticket ${id}`,
+    status: decodeTicketStatusSync("todo"),
+    type: TypeKey.make("chore"),
+    priority: "med",
+    estimate: null,
+    flag: null,
+    tags: [],
+    branch: null,
+    pr: null,
+    prState: null,
+    rank: TicketRank.make("a0"),
+    lastTransitionedPr: null,
+    parent: null,
+    gitState: { tag: "no_branch", baseBranch: "main" },
+    assignees: [],
+    archivedAt: null,
+    createdBy: "user-1",
+    createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+    updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
+  }) satisfies Ticket
 
 const encodeGroup = Schema.encodeSync(Group)
 const encodeGroupDetail = Schema.encodeSync(GroupDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
-const asDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
+const asDetail = (g: Group) => ({ ...g, body: "" }) satisfies GroupDetail
 
 const req = sprintListRequest("acme", "web")
 

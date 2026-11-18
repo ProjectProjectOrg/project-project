@@ -13,15 +13,12 @@ export type OrgActor = Readonly<{
   call: CanCall
 }>
 
-const makeProjectActor = (
-  permissions: ProjectPermissions,
-  userId: string
-): ProjectActor => {
+const makeProjectActor = (permissions: ProjectPermissions, userId: string) => {
   const role = Project.projectStatement.role(permissions)
   return { userId, permissions: role, call: canCallProject(role) }
 }
 
-const makeOrgActor = (permissions: OrgPermissions): OrgActor => {
+const makeOrgActor = (permissions: OrgPermissions) => {
   const role = Org.orgStatement.role(permissions)
   return { permissions: role, call: canCallOrg(role) }
 }

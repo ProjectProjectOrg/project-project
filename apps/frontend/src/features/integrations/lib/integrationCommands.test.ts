@@ -140,7 +140,7 @@ describe("integration commands", () => {
     expect(command).toBeDefined()
     if (command === undefined) throw new Error("Expected a searchable command")
     const searchable = {
-      label: command.label(context),
+      label: command.label(),
       keywords: command.keywords
     }
     for (const query of [

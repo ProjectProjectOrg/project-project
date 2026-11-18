@@ -27,19 +27,20 @@ const streamRest = <E, R>(
   fetch: (cursor: string) => Effect.Effect<Page, E, R>,
   sink: PagerSink,
   pageText: (page: Page) => string,
-  cursor: string | null,
-  count: number
-): Effect.Effect<number, E, R> =>
-  cursor === null
-    ? Effect.succeed(count)
-    : Effect.gen(function* () {
-        const page = yield* fetch(cursor)
-        const open = yield* sink.write(pageText(page))
-        const total = count + page.items.length
-        return open
-          ? yield* streamRest(fetch, sink, pageText, page.nextCursor, total)
-          : -1
-      })
+  first: Page
+) =>
+  Effect.gen(function* () {
+    let cursor = first.nextCursor
+    let total = first.items.length
+    while (cursor !== null) {
+      const page = yield* fetch(cursor)
+      const open = yield* sink.write(pageText(page))
+      if (!open) return -1
+      total += page.items.length
+      cursor = page.nextCursor
+    }
+    return total
+  })
 
 export const pagedList = <E, R>(
   fetch: (cursor: string | undefined) => Effect.Effect<Page, E, R>,
@@ -63,13 +64,7 @@ export const pagedList = <E, R>(
           `${format === "table" && layout !== undefined ? `${layout.header}\n` : ""}${pageText(first)}`
         )
         if (!open) return undefined
-        const total = yield* streamRest(
-          fetch,
-          sink,
-          pageText,
-          first.nextCursor,
-          first.items.length
-        )
+        const total = yield* streamRest(fetch, sink, pageText, first)
         if (total >= 0) yield* sink.write(`\n${countText(total, noun)}\n`)
         return undefined
       })

@@ -50,7 +50,7 @@ export function useTicketStepping(
   urlId: TicketId,
   from: TicketPageSource | undefined,
   sprint: GroupId | undefined
-): TicketStepping {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const registry = use(RegistryContext)

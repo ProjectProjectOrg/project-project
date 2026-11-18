@@ -153,7 +153,7 @@ type TicketGitOnDisk = Readonly<
 >
 type TicketGit = Readonly<Schema.Struct.Type<typeof TicketGitValue>>
 
-const branchEntryOnDisk = (entry: TicketBranchEntry): TicketBranchEntry =>
+const branchEntryOnDisk = (entry: TicketBranchEntry) =>
   Object.assign(
     { branch: entry.branch },
     entry.base === undefined ? {} : { base: entry.base },
@@ -163,7 +163,7 @@ const branchEntryOnDisk = (entry: TicketBranchEntry): TicketBranchEntry =>
     entry.landed ? { landed: true as const } : {}
   )
 
-const gitFromDisk = (input: TicketGitOnDisk): TicketGit => {
+const gitFromDisk = (input: TicketGitOnDisk) => {
   const [own, ...stack] = input.branches ?? []
   const flags = Object.assign(
     {},
@@ -200,7 +200,7 @@ const gitFromDisk = (input: TicketGitOnDisk): TicketGit => {
   )
 }
 
-const gitToDisk = (input: TicketGit): TicketGitOnDisk => {
+const gitToDisk = (input: TicketGit) => {
   const own: ReadonlyArray<TicketBranchEntry> =
     input.branch === null
       ? []
@@ -233,11 +233,9 @@ const gitToDisk = (input: TicketGit): TicketGitOnDisk => {
 
 type DecodedEstimate = Readonly<{ estimate?: Estimate }>
 
-const decodedEstimate = (
-  token: number | string | undefined
-): DecodedEstimate => {
+const decodedEstimate = (token: number | string | undefined) => {
   const estimate = token === undefined ? null : parseEstimateToken(token)
-  return estimate === null ? {} : { estimate }
+  return (estimate === null ? {} : { estimate }) satisfies DecodedEstimate
 }
 
 export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
@@ -320,7 +318,7 @@ export interface TicketDocument extends TicketFrontmatter {
 
 const encodeTicketFrontmatter = Schema.encodeSync(TicketFrontmatter)
 
-export const ticketFileContent = (document: TicketDocument): string =>
+export const ticketFileContent = (document: TicketDocument) =>
   markdownFileContent(
     encodeTicketFrontmatter(document),
     ticketFileBody(document.body, document.commentsRegion)
@@ -410,7 +408,7 @@ function toDocument(
   frontmatter: TicketFrontmatter,
   body: string,
   commentsRegion: string
-): TicketDocument {
+) {
   return {
     ...frontmatter,
     body,
@@ -424,7 +422,7 @@ const annotateTicketDoc = <A, E, R>(
   slug: string,
   attributes: Record<string, unknown>,
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => {
+) => {
   const annotations = {
     module: "TicketDocs",
     operation,
@@ -449,27 +447,26 @@ const make = Effect.gen(function* () {
     slug: string,
     id: string,
     effect: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E, R> =>
+  ) =>
     keyedLock.withLock(KeyedLock.LockKey.ticketWrite(orgSlug, slug, id), effect)
 
-  const sprintRef = (
-    orgSlug: string,
-    slug: string,
-    id: GroupId | undefined
-  ): Effect.Effect<SprintRef | null> =>
+  const sprintRef = (orgSlug: string, slug: string, id: GroupId | undefined) =>
     id === undefined
       ? Effect.succeed(null)
       : markdown.readGroupFile(orgSlug, slug, id).pipe(
-          Effect.map((file) => ({
-            id,
-            name: decodeSprintName(file.data).pipe(
-              Option.match({
-                onNone: () => id,
-                onSome: ({ name }) => name
-              })
-            )
-          })),
-          Effect.orElseSucceed(() => ({ id, name: id }))
+          Effect.map(
+            (file) =>
+              ({
+                id,
+                name: decodeSprintName(file.data).pipe(
+                  Option.match({
+                    onNone: () => id,
+                    onSome: ({ name }) => name
+                  })
+                )
+              }) satisfies SprintRef
+          ),
+          Effect.orElseSucceed(() => ({ id, name: id }) satisfies SprintRef)
         )
 
   const listIds = Effect.fn("TicketDocs.listIds")(function* (

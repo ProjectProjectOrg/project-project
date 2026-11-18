@@ -43,7 +43,7 @@ export const projectTile = (
   tone: PaletteTone = "mono",
   // Multicolour's picked colours; none means seeded ones.
   picks: ReadonlyArray<string> = []
-): ProjectTile => {
+) => {
   const next = random(hashId(`${seed}:tile`))
   const noiseSeed = hashId(`${seed}:noise`)
   const { name: patternName, surface: pattern } = pickPattern(next, noiseSeed)
@@ -105,7 +105,7 @@ export const projectTileUrl = (
   size: number,
   tone: PaletteTone = "mono",
   picks: ReadonlyArray<string> = []
-): string | undefined =>
+) =>
   ditheredUrl(
     `tile:${seed}:${colourKey(color, tone, picks)}`,
     () => projectTile(seed, color, tone, picks),

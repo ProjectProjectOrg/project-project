@@ -12,24 +12,24 @@ export const defaultBranchName = (
   type: string | null,
   id: string,
   title: string
-): string =>
+) =>
   (template ?? "{type}/{id}-{slug}")
     .replace("{type}", type ?? "other")
     .replace("{id}", id)
     .replace("{slug}", slugify(title))
 
-export const sanitizeBranchName = (raw: string): string =>
+export const sanitizeBranchName = (raw: string) =>
   raw.trim().replace(/\s+/g, "-")
 
-const escapeRegExp = (value: string): string =>
+const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-export const mentionsTicket = (branch: string, ticketId: string): boolean =>
+export const mentionsTicket = (branch: string, ticketId: string) =>
   new RegExp(`(^|[^a-z0-9])${escapeRegExp(ticketId)}($|[^0-9])`, "i").test(
     branch
   )
 
-export const withoutTicketId = (branch: string, ticketId: string): string => {
+export const withoutTicketId = (branch: string, ticketId: string) => {
   const id = escapeRegExp(ticketId)
   const stripped = branch.replace(
     new RegExp(`(?<=^|[/_-])${id}[/_-]|[/_-]${id}$`, "i"),
@@ -38,10 +38,11 @@ export const withoutTicketId = (branch: string, ticketId: string): string => {
   return stripped === "" ? branch : stripped
 }
 
-const toEntry = (branch: BranchListItem): BranchPickerEntry => ({
-  kind: "branch",
-  branch
-})
+const toEntry = (branch: BranchListItem) =>
+  ({
+    kind: "branch",
+    branch
+  }) satisfies BranchPickerEntry
 
 export const branchPickerEntries = ({
   query,
@@ -57,7 +58,7 @@ export const branchPickerEntries = ({
   canCreate: boolean
   ticketId: string
   defaultBase: string
-}>): ReadonlyArray<BranchPickerEntry> => {
+}>) => {
   const ticketBranches = items.filter((branch) =>
     mentionsTicket(branch.name, ticketId)
   )
@@ -90,8 +91,8 @@ export const baseBranchOrder = ({
   items: ReadonlyArray<BranchListItem>
   ticketId: string
   defaultBase: string
-}>): ReadonlyArray<BranchListItem> => {
-  const rank = (branch: BranchListItem): number =>
+}>) => {
+  const rank = (branch: BranchListItem) =>
     branch.name === defaultBase
       ? 0
       : branch.isProtected
@@ -113,7 +114,7 @@ export const branchSearchView = ({
   term: string
   exact: BranchListView | null
   base: BranchListView | null
-}>): BranchListView | null => {
+}>) => {
   if (exact !== null) return exact
   if (base === null) return null
   if (term === "") return base

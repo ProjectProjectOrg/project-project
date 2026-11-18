@@ -1,4 +1,4 @@
-export const previewableUrl = (href: string | undefined): string | null => {
+export const previewableUrl = (href: string | undefined) => {
   if (href === undefined) return null
   let url: URL
   try {
@@ -11,7 +11,7 @@ export const previewableUrl = (href: string | undefined): string | null => {
   return url.href
 }
 
-const comparable = (value: string): string =>
+const comparable = (value: string) =>
   value
     .trim()
     .replace(/^https?:\/\//i, "")
@@ -19,5 +19,5 @@ const comparable = (value: string): string =>
     .replace(/\/+$/, "")
     .toLowerCase()
 
-export const isBareUrlLabel = (label: string, href: string): boolean =>
+export const isBareUrlLabel = (label: string, href: string) =>
   comparable(label) === comparable(href)

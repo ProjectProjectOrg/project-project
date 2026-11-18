@@ -18,7 +18,7 @@ const status = (
   label: string,
   orderKey: string,
   color = "#123456"
-): ProjectStatus =>
+) =>
   decodeProjectStatusSync({
     slug: statusSlug,
     label,
@@ -39,7 +39,7 @@ const baseline = (overrides: Readonly<Record<string, string>> = {}) => [
 const project = (
   projectSlug: string,
   statuses: ReadonlyArray<ProjectStatus>
-): ProjectStatuses => ({ projectSlug, statuses })
+) => ({ projectSlug, statuses })
 
 const keys = (projects: ReadonlyArray<ProjectStatuses>) =>
   mergeStatusColumns(projects).columns.map((column) => column.key)

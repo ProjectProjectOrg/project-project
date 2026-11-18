@@ -7,17 +7,16 @@ import {
   type JiraImportScreenInput
 } from "./stages"
 
-const input = (
-  overrides: Partial<JiraImportScreenInput>
-): JiraImportScreenInput => ({
-  status: "needs_configuration",
-  hasScan: true,
-  canConfigure: true,
-  step: undefined,
-  reconfigure: false,
-  landing: "setup",
-  ...overrides
-})
+const input = (overrides: Partial<JiraImportScreenInput>) =>
+  ({
+    status: "needs_configuration",
+    hasScan: true,
+    canConfigure: true,
+    step: undefined,
+    reconfigure: false,
+    landing: "setup",
+    ...overrides
+  }) satisfies JiraImportScreenInput
 
 describe("jiraImportScreen", () => {
   it("follows the URL step while the import is being set up", () => {

@@ -49,26 +49,25 @@ export interface FigmaReferencePlan {
 export const planFigmaReferences = (input: {
   readonly existing: ReadonlySet<string>
   readonly referenced: ReadonlySet<string>
-}): FigmaReferencePlan => ({
+}) => ({
   added: [...input.referenced].filter((key) => !input.existing.has(key)),
   removed: [...input.existing].filter((key) => !input.referenced.has(key))
 })
 
 export const DEV_RESOURCE_NAME_MAX = 100
 
-export const devResourceName = (ticketId: string, title: string): string => {
+export const devResourceName = (ticketId: string, title: string) => {
   const prefix = `${ticketId} · `
   const room = DEV_RESOURCE_NAME_MAX - prefix.length
   return `${prefix}${title.slice(0, room)}`
 }
 
-export const shouldBacklink = (ref: {
-  readonly nodeId: string | null
-}): boolean => ref.nodeId !== null
+export const shouldBacklink = (ref: { readonly nodeId: string | null }) =>
+  ref.nodeId !== null
 
 export const FIGMA_THUMBNAIL_URL_PREFIX = "/api/figma-thumbnails"
 
-export const figmaThumbnailUrl = (orgSlug: string, linkId: string): string =>
+export const figmaThumbnailUrl = (orgSlug: string, linkId: string) =>
   `${FIGMA_THUMBNAIL_URL_PREFIX}/${orgSlug}/${linkId}`
 
 export interface FigmaThumbnailRef {
@@ -84,9 +83,7 @@ const decodeFigmaThumbnailRef = Schema.decodeUnknownOption(
   FigmaThumbnailRefSchema
 )
 
-export const parseFigmaThumbnailUrl = (
-  path: string
-): FigmaThumbnailRef | null => {
+export const parseFigmaThumbnailUrl = (path: string) => {
   if (!path.startsWith(`${FIGMA_THUMBNAIL_URL_PREFIX}/`)) return null
   const rest = path.slice(FIGMA_THUMBNAIL_URL_PREFIX.length + 1)
   const parts = rest.split("/")
@@ -160,7 +157,7 @@ export const needsFigmaMetadata = (
     readonly lastCheckStatus: "ok" | "error" | null
   },
   now: Date
-): boolean => {
+) => {
   if (row.fetchedAt === null || row.lastCheckStatus !== "ok") return true
   return now.getTime() - row.fetchedAt.getTime() >= METADATA_TTL_MS
 }
@@ -171,7 +168,7 @@ export const figmaThumbnailKey = (input: {
   readonly projectSlug: string
   readonly fileKey: string
   readonly nodeId: string | null
-}): string => {
+}) => {
   const prefix = (input.keyPrefix ?? "").replace(/^\/+|\/+$/g, "")
   const node =
     input.nodeId === null
@@ -181,7 +178,7 @@ export const figmaThumbnailKey = (input: {
   return prefix === "" ? tail : `${prefix}/${tail}`
 }
 
-export const figmaCheckReason = (error: Figma.FigmaCallError): string =>
+export const figmaCheckReason = (error: Figma.FigmaCallError) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
       FigmaAuthInvalid: () => "figma_auth_invalid",
@@ -198,7 +195,7 @@ export const figmaLinkMetadata = (input: {
   readonly fileName: string | null
   readonly lastModified: Date | null
   readonly thumbnailUrl: string | null
-}): FigmaLinkMetadata => ({
+}) => ({
   fileKey: input.fileKey,
   nodeId: input.nodeId,
   name: input.name ?? input.fileName ?? input.fileKey,

@@ -59,7 +59,7 @@ export class Tags extends Context.Service<
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-function pickColor(used: ReadonlyArray<string>): TagColor {
+function pickColor(used: ReadonlyArray<string>) {
   for (const c of TAG_DEFAULT_PALETTE)
     if (!used.includes(c)) return makeTagColor(c)
   return makeTagColor(
@@ -80,14 +80,12 @@ const make = Effect.gen(function* () {
         }
       })
       .pipe(Effect.orDie)
-    return rows.map(
-      (r): Tag => ({
-        name: makeTagName(r.name),
-        color: makeTagColor(r.color),
-        createdBy: r.createdBy,
-        createdAt: r.createdAt
-      })
-    )
+    return rows.map((r) => ({
+      name: makeTagName(r.name),
+      color: makeTagColor(r.color),
+      createdBy: r.createdBy,
+      createdAt: r.createdAt
+    }))
   })
 
   const listPaged = Effect.fn("Tags.listPaged")(function* (

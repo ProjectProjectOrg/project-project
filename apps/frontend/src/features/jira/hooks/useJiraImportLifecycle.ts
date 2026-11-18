@@ -24,16 +24,14 @@ export type JiraImportLifecycle = Readonly<{
   error: string | null
 }>
 
-const jiraActionError = (
-  result: Parameters<typeof mutationErrorText>[0]
-): string | null =>
+const jiraActionError = (result: Parameters<typeof mutationErrorText>[0]) =>
   mutationErrorText(result, errorMessage, m.jira_import_error_unexpected)
 
 export function useJiraImportLifecycle(
   orgSlug: string,
   detail: Pick<JiraMigrationDetail, "id" | "revision">,
   onStarted?: () => void
-): JiraImportLifecycle {
+) {
   const req = jiraMigrationRequest(orgSlug, detail.id)
   const discardKey = { req: jiraOrgRequest(orgSlug), migrationId: detail.id }
   const navigate = useNavigate()

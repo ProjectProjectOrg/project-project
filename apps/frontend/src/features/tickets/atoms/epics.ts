@@ -11,7 +11,7 @@ export type EpicsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
-export const epicsRequest = (orgSlug: string, slug: string): EpicsRequest => ({
+export const epicsRequest = (orgSlug: string, slug: string) => ({
   params: { orgSlug, slug }
 })
 

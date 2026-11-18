@@ -19,7 +19,7 @@ function Labelled({
   )
 }
 
-const shapeStyle = (shape: string): CSSProperties =>
+const shapeStyle = (shape: string) =>
   ({ cornerShape: shape, borderRadius: 28 }) as CSSProperties
 
 // The same 28px radius in three corner shapes, outlined so the curve shows.

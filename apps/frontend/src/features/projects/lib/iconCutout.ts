@@ -86,10 +86,7 @@ const cornerPatches = (image: RgbaImage) => {
 
 export const CUTOUT_MIN_EDGE = CORNER_PATCH * 2
 
-export const analyzeCutout = (
-  image: RgbaImage,
-  params: CutoutParams
-): CutoutResult => {
+export const analyzeCutout = (image: RgbaImage, params: CutoutParams) => {
   const { data, width, height } = image
 
   if (width < CUTOUT_MIN_EDGE || height < CUTOUT_MIN_EDGE) {
@@ -234,7 +231,7 @@ export const featherAlpha = (
   width: number,
   height: number,
   radius: number
-): Uint8ClampedArray => {
+) => {
   if (radius <= 0) return alpha
   const span = Math.round(radius)
   const horizontal = new Float32Array(alpha.length)
@@ -266,7 +263,7 @@ export const featherAlpha = (
   return output
 }
 
-export const hasAlpha = (image: RgbaImage): boolean => {
+export const hasAlpha = (image: RgbaImage) => {
   const { data } = image
   for (let i = 3; i < data.length; i += 4) if (data[i] < 250) return true
   return false

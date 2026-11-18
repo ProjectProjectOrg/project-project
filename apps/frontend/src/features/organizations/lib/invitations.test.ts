@@ -34,7 +34,7 @@ describe("pickActiveInvitation", () => {
   })
 })
 
-function invitation(overrides: Partial<UserInvitation> = {}): UserInvitation {
+function invitation(overrides: Partial<UserInvitation> = {}) {
   return {
     id: "invitation",
     orgSlug: slug("acme"),
@@ -44,5 +44,5 @@ function invitation(overrides: Partial<UserInvitation> = {}): UserInvitation {
     expiresAt: isoDate("2026-05-18T12:00:00Z"),
     createdAt: isoDate("2026-05-17T12:00:00Z"),
     ...overrides
-  }
+  } satisfies UserInvitation
 }

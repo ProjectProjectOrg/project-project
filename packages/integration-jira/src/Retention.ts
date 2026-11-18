@@ -28,14 +28,18 @@ export const selectExpiredJiraMigrations = Effect.gen(function* () {
     )
     .orderBy(jiraMigration.retainedUntil)
     .limit(100)
-  return rows.flatMap(
-    (row): ReadonlyArray<Migrations.JiraMigrationCleanupCommand> => {
-      const fence = MigrationProjection.fenceFor(row)
-      return fence === null
-        ? []
-        : [{ ...fence, expectedRevision: row.revision, mode: "expire" }]
-    }
-  )
+  return rows.flatMap((row) => {
+    const fence = MigrationProjection.fenceFor(row)
+    return fence === null
+      ? []
+      : [
+          {
+            ...fence,
+            expectedRevision: row.revision,
+            mode: "expire"
+          } satisfies Migrations.JiraMigrationCleanupCommand
+        ]
+  })
 })
 
 export const selectPendingPostSuccessCleanup = Effect.gen(function* () {
@@ -54,14 +58,18 @@ export const selectPendingPostSuccessCleanup = Effect.gen(function* () {
     )
     .orderBy(jiraMigration.finishedAt)
     .limit(100)
-  return rows.flatMap(
-    (row): ReadonlyArray<Migrations.JiraMigrationCleanupCommand> => {
-      const fence = MigrationProjection.fenceFor(row)
-      return fence === null
-        ? []
-        : [{ ...fence, expectedRevision: row.revision, mode: "post_success" }]
-    }
-  )
+  return rows.flatMap((row) => {
+    const fence = MigrationProjection.fenceFor(row)
+    return fence === null
+      ? []
+      : [
+          {
+            ...fence,
+            expectedRevision: row.revision,
+            mode: "post_success"
+          } satisfies Migrations.JiraMigrationCleanupCommand
+        ]
+  })
 })
 
 export const runJiraMigrationRetention = (

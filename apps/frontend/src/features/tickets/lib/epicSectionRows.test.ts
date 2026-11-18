@@ -51,32 +51,29 @@ const ticket = {
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
 } satisfies Ticket
 
-const section = (
-  key: EpicSectionKey,
-  tickets: ReadonlyArray<Ticket>
-): EpicSectionValue => ({
-  key,
-  parent: null,
-  count: tickets.length,
-  page: {
-    items: tickets.map((t) => ({
-      ticket: t,
-      key: t.id,
-      orderKey: null,
-      pending: false
-    })),
-    nextCursor: null
-  }
-})
+const section = (key: EpicSectionKey, tickets: ReadonlyArray<Ticket>) =>
+  ({
+    key,
+    parent: null,
+    count: tickets.length,
+    page: {
+      items: tickets.map((t) => ({
+        ticket: t,
+        key: t.id,
+        orderKey: null,
+        pending: false
+      })),
+      nextCursor: null
+    }
+  }) satisfies EpicSectionValue
 
-const grouped = (
-  sections: ReadonlyArray<EpicSectionValue>
-): EpicSectionsValue => ({
-  total: sections.reduce((sum, s) => sum + s.count, 0),
-  counts: { total: 1, byStatus: { [ticket.status]: 1 } },
-  sections,
-  viewer: { id: undefined, estimation: "off" }
-})
+const grouped = (sections: ReadonlyArray<EpicSectionValue>) =>
+  ({
+    total: sections.reduce((sum, s) => sum + s.count, 0),
+    counts: { total: 1, byStatus: { [ticket.status]: 1 } },
+    sections,
+    viewer: { id: undefined, estimation: "off" }
+  }) satisfies EpicSectionsValue
 
 const idsBySection = (value: EpicSectionsValue) =>
   value.sections.map((s) => ({

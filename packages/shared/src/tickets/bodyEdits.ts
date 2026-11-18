@@ -69,33 +69,40 @@ type BlockSpan = Readonly<{
   sync: boolean
 }>
 
-const trimBlankLines = (text: string): string =>
+const trimBlankLines = (text: string) =>
   text.replace(/^(?:[ \t]*\n)+|(?:\n[ \t]*)+$/g, "")
 
-const countOccurrences = (text: string, search: string): number =>
+const countOccurrences = (text: string, search: string) =>
   text.split(search).length - 1
 
-const replaceText = (
-  body: string,
-  edit: typeof ReplaceTextEdit.Type
-): EditOutcome => {
+const replaceText = (body: string, edit: typeof ReplaceTextEdit.Type) => {
   const oldText = normalizeLineEndings(edit.oldText)
   const newText = normalizeLineEndings(edit.newText)
   const count = countOccurrences(body, oldText)
-  if (count === 0) return { ok: false, failure: { code: "no_match" } }
+  if (count === 0)
+    return { ok: false, failure: { code: "no_match" } } satisfies EditOutcome
   if (count > 1 && edit.replaceAll !== true) {
-    return { ok: false, failure: { code: "multiple_matches", count } }
+    return {
+      ok: false,
+      failure: { code: "multiple_matches", count }
+    } satisfies EditOutcome
   }
-  return { ok: true, body: body.split(oldText).join(newText) }
+  return {
+    ok: true,
+    body: body.split(oldText).join(newText)
+  } satisfies EditOutcome
 }
 
-const append = (body: string, edit: typeof AppendEdit.Type): EditOutcome => {
+const append = (body: string, edit: typeof AppendEdit.Type) => {
   const head = body.trimEnd()
   const text = trimBlankLines(normalizeLineEndings(edit.text))
-  return { ok: true, body: head === "" ? text : `${head}\n\n${text}` }
+  return {
+    ok: true,
+    body: head === "" ? text : `${head}\n\n${text}`
+  } satisfies EditOutcome
 }
 
-const blockSpans = (lines: ReadonlyArray<string>): ReadonlyArray<BlockSpan> => {
+const blockSpans = (lines: ReadonlyArray<string>) => {
   const spans: Array<BlockSpan> = []
   let fence: string | null = null
   for (let i = 0; i < lines.length; i++) {
@@ -111,23 +118,27 @@ const blockSpans = (lines: ReadonlyArray<string>): ReadonlyArray<BlockSpan> => {
   return spans
 }
 
-const replaceBlock = (
-  body: string,
-  edit: typeof ReplaceBlockEdit.Type
-): EditOutcome => {
+const replaceBlock = (body: string, edit: typeof ReplaceBlockEdit.Type) => {
   const lines = body.split("\n")
   const matches = blockSpans(lines).filter((span) => span.type === edit.type)
   if (matches.length === 0) {
-    return { ok: false, failure: { code: "block_not_found" } }
+    return {
+      ok: false,
+      failure: { code: "block_not_found" }
+    } satisfies EditOutcome
   }
   if (matches.length > 1) {
     return {
       ok: false,
       failure: { code: "block_ambiguous", count: matches.length }
-    }
+    } satisfies EditOutcome
   }
   const [span] = matches
-  if (span.sync) return { ok: false, failure: { code: "block_synced" } }
+  if (span.sync)
+    return {
+      ok: false,
+      failure: { code: "block_synced" }
+    } satisfies EditOutcome
   const content = trimBlankLines(normalizeLineEndings(edit.content))
   const inner = content === "" ? [""] : ["", ...content.split("\n"), ""]
   return {
@@ -137,10 +148,10 @@ const replaceBlock = (
       ...inner,
       ...lines.slice(span.end)
     ].join("\n")
-  }
+  } satisfies EditOutcome
 }
 
-const applyEdit = (body: string, edit: TicketBodyEdit): EditOutcome => {
+const applyEdit = (body: string, edit: TicketBodyEdit) => {
   switch (edit.kind) {
     case "replace":
       return replaceText(body, edit)
@@ -154,28 +165,31 @@ const applyEdit = (body: string, edit: TicketBodyEdit): EditOutcome => {
 export const applyTicketBodyEdits = (
   body: string,
   edits: ReadonlyArray<TicketBodyEdit>
-): TicketBodyEditsResult => {
+) => {
   let current = normalizeLineEndings(body)
   const checkMarkup = validateTicketBlocks(current).length === 0
   for (const [index, edit] of edits.entries()) {
     const outcome = applyEdit(current, edit)
-    if (!outcome.ok) return { ok: false, index, failure: outcome.failure }
+    if (!outcome.ok)
+      return {
+        ok: false,
+        index,
+        failure: outcome.failure
+      } satisfies TicketBodyEditsResult
     const [issue] = checkMarkup ? validateTicketBlocks(outcome.body) : []
     if (issue !== undefined) {
       return {
         ok: false,
         index,
         failure: { code: "block_markup", issue: formatBlockIssue(issue) }
-      }
+      } satisfies TicketBodyEditsResult
     }
     current = outcome.body
   }
-  return { ok: true, body: current }
+  return { ok: true, body: current } satisfies TicketBodyEditsResult
 }
 
-export const formatTicketBodyEditFailure = (
-  failure: TicketBodyEditFailure
-): string => {
+export const formatTicketBodyEditFailure = (failure: TicketBodyEditFailure) => {
   switch (failure.code) {
     case "no_match":
       return "no_match"

@@ -210,7 +210,7 @@ function personItems(
   options: JiraMigrationRequirements["identityOptions"],
   invitees: ReadonlyArray<string>,
   canInvite: boolean
-): ReadonlyArray<SelectOption<string>> {
+) {
   return [
     { value: UNLINKED_VALUE, label: m.jira_import_people_unlinked() },
     ...(canInvite

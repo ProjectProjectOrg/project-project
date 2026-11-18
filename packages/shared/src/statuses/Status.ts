@@ -37,7 +37,7 @@ export const STATUS_PHASES = ["unstarted", "started", "finished"] as const
 export const StatusPhase = Schema.Literals(STATUS_PHASES)
 export type StatusPhase = typeof StatusPhase.Type
 
-export const baselineStatusDescription = (slug: string): string | null =>
+export const baselineStatusDescription = (slug: string) =>
   BASELINE_STATUS_SEED.find((baseline) => baseline.slug === slug)
     ?.description ?? null
 

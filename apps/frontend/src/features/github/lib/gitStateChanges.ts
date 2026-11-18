@@ -3,10 +3,10 @@ import type { GitState, GitStatesResponse, StackLayerState } from "@pp/shared"
 export const shouldInvalidateTicketsForGitStates = (
   states: Pick<GitStatesResponse, "transitioned"> &
     Partial<Pick<GitStatesResponse, "changedTicketIds">>
-): boolean =>
+) =>
   states.transitioned.length > 0 || (states.changedTicketIds?.length ?? 0) > 0
 
-const gitStateIdentity = (state: GitState): string => {
+const gitStateIdentity = (state: GitState) => {
   switch (state.tag) {
     case "branch_no_pr":
     case "branch_pending":
@@ -23,7 +23,7 @@ const gitStateIdentity = (state: GitState): string => {
   }
 }
 
-const stackIdentity = (stack: ReadonlyArray<StackLayerState> = []): string =>
+const stackIdentity = (stack: ReadonlyArray<StackLayerState> = []) =>
   JSON.stringify(
     stack.map((layer) => [
       layer.branch,
@@ -39,7 +39,7 @@ const stackIdentity = (stack: ReadonlyArray<StackLayerState> = []): string =>
 export const changedGitStateTicketIds = (
   previous: GitStatesResponse | undefined,
   next: GitStatesResponse
-): ReadonlyArray<string> => {
+) => {
   if (!previous) return []
   const ticketIds = new Set([
     ...Object.keys(previous.states),

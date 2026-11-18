@@ -129,7 +129,7 @@ export function AboutLinks({
   )
 }
 
-const isTruncated = (root: HTMLElement | null): boolean =>
+const isTruncated = (root: HTMLElement | null) =>
   root !== null &&
   [...root.querySelectorAll<HTMLElement>("[data-truncate]")].some(
     (element) => element.scrollWidth > element.clientWidth

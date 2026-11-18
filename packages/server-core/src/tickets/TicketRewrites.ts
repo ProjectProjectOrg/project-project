@@ -82,7 +82,7 @@ const make = Effect.gen(function* () {
       existing: TicketDocs.TicketDocument
     ) => Effect.Effect<TicketDocs.TicketDocument> | null,
     activity: TicketDocs.TicketActivityOptions
-  ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
+  ) =>
     ticketDocumentLock.withTicketDocumentLock(
       orgSlug,
       slug,
@@ -116,7 +116,7 @@ const make = Effect.gen(function* () {
     id: string,
     oldName: string,
     newName: string | null
-  ): Effect.fn.Return<boolean, TicketReadError, ActivityActor> {
+  ) {
     return yield* rewrite(
       orgSlug,
       slug,
@@ -143,7 +143,7 @@ const make = Effect.gen(function* () {
     id: string,
     newStatus: string,
     reason: "renamed" | "removed"
-  ): Effect.fn.Return<boolean, TicketReadError, ActivityActor> {
+  ) {
     return yield* rewrite(
       orgSlug,
       slug,

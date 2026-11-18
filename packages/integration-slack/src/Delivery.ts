@@ -62,10 +62,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
       .pipe(Effect.orDie)
   })
   const deliver = Effect.fn("Slack.deliver")(
-    function* (
-      id: string,
-      attempt: number
-    ): Effect.fn.Return<typeof DeliveryOutcome.Type> {
+    function* (id: string, attempt: number) {
       const [row] = yield* db
         .select({
           payload: slackNotification.payload,
@@ -122,7 +119,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
         .pipe(Effect.orDie)
       if (!row) {
         yield* finish(id, "connection_changed")
-        return { kind: "done" }
+        return { kind: "done" } satisfies typeof DeliveryOutcome.Type
       }
       const event = yield* decodeSlackNotification(row.payload).pipe(
         Effect.orDie
@@ -132,7 +129,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
         !row.events.some((kind) => kind === event.kind)
       ) {
         yield* finish(id, "event_disabled")
-        return { kind: "done" }
+        return { kind: "done" } satisfies typeof DeliveryOutcome.Type
       }
       const status =
         "status" in event

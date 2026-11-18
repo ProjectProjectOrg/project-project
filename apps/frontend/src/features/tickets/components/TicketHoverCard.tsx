@@ -67,7 +67,7 @@ const LazyMarkdown = lazy(() =>
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
-export const previewOverflows = (body: string): boolean => {
+export const previewOverflows = (body: string) => {
   const text = flattenTicketBlocks(body)
   return text.split("\n").length > 6 || text.length > 320
 }

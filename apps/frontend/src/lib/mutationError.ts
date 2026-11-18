@@ -32,7 +32,7 @@ export const mutationFailure = <E, T>(
   result: AsyncResult.AsyncResult<unknown, E>,
   describe: (error: E) => T,
   defect: () => T
-): T | null =>
+) =>
   AsyncResult.isFailure(result)
     ? AsyncResult.matchWithError(result, {
         onInitial: () => null,
@@ -46,20 +46,18 @@ export const mutationErrorText = <E>(
   result: AsyncResult.AsyncResult<unknown, E>,
   describe: (error: E) => string = errorMessage,
   defect: () => string = m.error_unknown
-): string | null => mutationFailure(result, describe, defect)
+) => mutationFailure(result, describe, defect)
 
 type Tagged = Readonly<{ _tag: string }>
 
-export const isUnknownTemplate = (error: Tagged): boolean =>
+export const isUnknownTemplate = (error: Tagged) =>
   isValidationDetail(error) && error.reason.startsWith("unknown_type")
 
-export const failedOnUnknownTemplate = (
-  exit: Exit.Exit<unknown, Tagged>
-): boolean =>
+export const failedOnUnknownTemplate = (exit: Exit.Exit<unknown, Tagged>) =>
   Exit.isFailure(exit) &&
   Option.exists(Cause.findErrorOption(exit.cause), isUnknownTemplate)
 
-export const ticketCreateErrorMessage = (error: Tagged): string =>
+export const ticketCreateErrorMessage = (error: Tagged) =>
   Predicate.isTagged(error, "MentionInvalid") || isUnknownTemplate(error)
     ? errorMessage(error)
     : m.tickets_create_error_fallback()
@@ -77,7 +75,7 @@ const isExpectedSlackError = Schema.is(
   ])
 )
 
-export const slackActionErrorMessage = (error: Tagged): string =>
+export const slackActionErrorMessage = (error: Tagged) =>
   isExpectedSlackError(error) ? errorMessage(error) : m.slack_error_generic()
 
 export type OrgActionError = Readonly<{
@@ -96,8 +94,8 @@ type OrgMutationFailure = Atom.Failure<
   >
 >
 
-export const orgActionError = (error: OrgMutationFailure): OrgActionError =>
-  Match.value(error).pipe(
+export const orgActionError = (error: OrgMutationFailure) => {
+  const failure: OrgActionError = Match.value(error).pipe(
     Match.tag("LastProjectPmBlocked", ({ projectSlugs }) => ({
       message: m.org_members_last_project_pm_blocked(),
       projectSlugs
@@ -119,7 +117,10 @@ export const orgActionError = (error: OrgMutationFailure): OrgActionError =>
     })),
     Match.orElse(() => orgActionDefect())
   )
+  return failure
+}
 
-export const orgActionDefect = (): OrgActionError => ({
-  message: m.org_members_action_error()
-})
+export const orgActionDefect = () =>
+  ({
+    message: m.org_members_action_error()
+  }) satisfies OrgActionError

@@ -121,19 +121,20 @@ const installation = (
   id: string,
   appId: string | null,
   status: "active" | "broken" = "active"
-): GithubOrgIntegrationStatus["installations"][number] => ({
-  id,
-  appId,
-  status,
-  accountLogin: id,
-  accountType: "Organization",
-  projectAccess: "all",
-  projectSlugs: [],
-  lastCheckedAt: null,
-  lastCheckError: null
-})
+) =>
+  ({
+    id,
+    appId,
+    status,
+    accountLogin: id,
+    accountType: "Organization",
+    projectAccess: "all",
+    projectSlugs: [],
+    lastCheckedAt: null,
+    lastCheckError: null
+  }) satisfies GithubOrgIntegrationStatus["installations"][number]
 
-const githubApp = (id: string): GithubOrgIntegrationStatus["apps"][number] => ({
+const githubApp = (id: string) => ({
   id,
   githubAppId: id,
   name: id,

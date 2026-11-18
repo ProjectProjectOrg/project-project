@@ -26,7 +26,7 @@ const frontmatterUserIds = (content: string) =>
     ]
   })
 
-export const markdownUserIds = (content: string): ReadonlyArray<string> => [
+export const markdownUserIds = (content: string) => [
   ...frontmatterUserIds(content),
   ...extractMentionLinks(content).flatMap((link) =>
     link.parsed?.type === "user" ? [link.parsed.id] : []

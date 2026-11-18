@@ -26,7 +26,7 @@ type RawRequestFailure = Readonly<{
   cause: unknown
 }>
 
-const cooldownKey = (attributes: GitHubRequestAttributes): string =>
+const cooldownKey = (attributes: GitHubRequestAttributes) =>
   `${attributes.tokenSource}:${
     attributes.scopeKey ??
     attributes.installationId ??
@@ -48,7 +48,7 @@ export class GitHubRequestState extends Context.Service<
   }>
 >()("@pp/integration-github/request/GitHubRequestState") {}
 
-export const make = (): GitHubRequestState["Service"] => {
+export const make = () => {
   const cooldowns = new Map<string, number>()
 
   const pausedUntil = (key: string, nowMillis: number) =>
@@ -90,9 +90,7 @@ const telemetryAttributeKeys = [
   "branches"
 ] as const
 
-const telemetryAttributes = (
-  attributes: GitHubRequestAttributes
-): Record<string, unknown> =>
+const telemetryAttributes = (attributes: GitHubRequestAttributes) =>
   Object.fromEntries(
     telemetryAttributeKeys.flatMap((key) =>
       key in attributes ? [[key, attributes[key]]] : []
@@ -103,7 +101,7 @@ export const githubRequest = <A, EOut extends TaggedFailure>(
   attributes: GitHubRequestAttributes,
   fn: (signal: AbortSignal) => Promise<A>,
   narrowErr: (cause: unknown, now: number) => EOut
-): Effect.Effect<A, EOut | RateLimited, GitHubRequestState> => {
+) => {
   const safeAttributes = telemetryAttributes(attributes)
   const key = cooldownKey(attributes)
   return Effect.gen(function* () {
@@ -119,7 +117,7 @@ export const githubRequest = <A, EOut extends TaggedFailure>(
     const result = yield* Effect.timeoutOption(
       Effect.tryPromise({
         try: fn,
-        catch: (cause): RawRequestFailure => ({ cause })
+        catch: (cause) => ({ cause }) satisfies RawRequestFailure
       }).pipe(
         Effect.tapError((failure) =>
           state.rememberRateLimit(key, mapHttpError(failure.cause, now))

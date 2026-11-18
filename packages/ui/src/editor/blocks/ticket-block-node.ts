@@ -15,15 +15,15 @@ export type SerializedTicketBlockNode = Spread<
 export class TicketBlockNode extends ElementNode {
   __blockType: string
 
-  static getType(): string {
+  static getType() {
     return "ticket-block"
   }
 
-  static clone(node: TicketBlockNode): TicketBlockNode {
+  static clone(node: TicketBlockNode) {
     return new TicketBlockNode(node.__blockType, node.__key)
   }
 
-  static importJSON(serialized: SerializedTicketBlockNode): TicketBlockNode {
+  static importJSON(serialized: SerializedTicketBlockNode) {
     return $createTicketBlockNode(serialized.blockType).updateFromJSON(
       serialized
     )
@@ -34,39 +34,39 @@ export class TicketBlockNode extends ElementNode {
     this.__blockType = blockType
   }
 
-  exportJSON(): SerializedTicketBlockNode {
+  exportJSON() {
     return { ...super.exportJSON(), blockType: this.__blockType }
   }
 
-  getBlockType(): string {
+  getBlockType() {
     return this.getLatest().__blockType
   }
 
-  createDOM(): HTMLElement {
+  createDOM() {
     const element = document.createElement("div")
     element.className = "ticket-block"
     element.dataset.blockType = this.__blockType
     return element
   }
 
-  updateDOM(previous: TicketBlockNode): boolean {
+  updateDOM(previous: TicketBlockNode) {
     return previous.__blockType !== this.__blockType
   }
 
-  isShadowRoot(): boolean {
+  isShadowRoot() {
     return true
   }
 
-  canBeEmpty(): boolean {
+  canBeEmpty() {
     return false
   }
 
-  canIndent(): boolean {
+  canIndent() {
     return false
   }
 }
 
-export function $createTicketBlockNode(blockType: string): TicketBlockNode {
+export function $createTicketBlockNode(blockType: string) {
   return $applyNodeReplacement(new TicketBlockNode(blockType))
 }
 

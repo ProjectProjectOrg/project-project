@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "bun --cwd \"$PWD/../..\" --env-file=\"$PWD/../../.env\" --watch \"$PWD/src/main.ts\"",
     "start": "bun --cwd ../.. --env-file=.env \"$PWD/src/main.ts\"",
-    "typecheck": "tsc --noEmit && bun run typecheck:scripts",
-    "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "effect-tsgo tsrs --noEmit && bun run typecheck:scripts",
+    "typecheck:scripts": "effect-tsgo tsrs --noEmit -p tsconfig.scripts.json",
     "test": "bun run --bun vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "lint": "oxlint .",

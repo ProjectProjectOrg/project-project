@@ -77,29 +77,28 @@ const decodeTagName = Schema.decodeUnknownOption(TagName)
 const sameEstimate = (a: Estimate | null, b: Estimate) =>
   a !== null && formatEstimate(a) === formatEstimate(b) && a.unit === b.unit
 
-const estimateOptions = (
-  mode: "points" | "tshirt" | "time",
-  query: string
-): ReadonlyArray<Estimate> => {
+const estimateOptions = (mode: "points" | "tshirt" | "time", query: string) => {
   if (mode === "tshirt") {
-    return ESTIMATE_SIZES.map((value) => ({ unit: "tshirt", value }))
+    return ESTIMATE_SIZES.map(
+      (value) => ({ unit: "tshirt", value }) satisfies Estimate
+    )
   }
   if (mode === "points") {
     const typed = parseEstimatePoints(query)
     const presets = POINT_PRESETS.map(
-      (value): Estimate => ({ unit: "points", value })
+      (value) => ({ unit: "points", value }) satisfies Estimate
     )
     return typed === null || POINT_PRESETS.some((value) => value === typed)
       ? presets
-      : [{ unit: "points", value: typed }, ...presets]
+      : [{ unit: "points", value: typed } satisfies Estimate, ...presets]
   }
   const typed = parseEstimateMinutes(query)
   const presets = MINUTE_PRESETS.map(
-    (minutes): Estimate => ({ unit: "time", minutes })
+    (minutes) => ({ unit: "time", minutes }) satisfies Estimate
   )
   return typed === null || MINUTE_PRESETS.some((value) => value === typed)
     ? presets
-    : [{ unit: "time", minutes: typed }, ...presets]
+    : [{ unit: "time", minutes: typed } satisfies Estimate, ...presets]
 }
 
 export function TicketEstimatePage({
@@ -382,7 +381,7 @@ export function TicketParentPage({
   )
 }
 
-const failureOf = <A, E>(exit: Exit.Exit<A, E>): string | null =>
+const failureOf = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isFailure(exit) ? errorMessage(Cause.squash(exit.cause)) : null
 
 export function TicketArchivePage({

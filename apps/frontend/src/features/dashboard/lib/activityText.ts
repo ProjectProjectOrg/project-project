@@ -23,7 +23,7 @@ const isViewer = (actor: TicketActivityActor, viewerId: string | undefined) =>
   (actor.kind === "user" || actor.kind === "agent") &&
   actor.user.id === viewerId
 
-const actorName = (actor: TicketActivityActor): string => {
+const actorName = (actor: TicketActivityActor) => {
   if (actor.kind === "system") return SYSTEM_NAMES[actor.source]()
   if (actor.kind === "imported") return actor.displayName
   const name = actor.user.name || actor.user.email
@@ -36,7 +36,7 @@ export const activityText = (
   activity: RecentTicketActivity,
   viewerId: string | undefined,
   statuses: ReadonlyArray<ProjectStatus>
-): string => {
+) => {
   switch (activity.tag) {
     case "commented":
       return m.org_dashboard_activity_commented({

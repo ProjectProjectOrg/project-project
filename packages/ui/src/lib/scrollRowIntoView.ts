@@ -8,7 +8,7 @@ export const rowScrollTarget = (
   viewport: HTMLElement,
   row: HTMLElement,
   margin: ScrollMargin
-): number | null => {
+) => {
   const viewportTop = viewport.getBoundingClientRect().top
   const rowRect = row.getBoundingClientRect()
   const top = rowRect.top - viewportTop + viewport.scrollTop - margin.top
@@ -30,7 +30,7 @@ export const rowScrollTarget = (
 
 const positions = new WeakMap<HTMLElement, MotionValue<number>>()
 
-const positionOf = (viewport: HTMLElement): MotionValue<number> => {
+const positionOf = (viewport: HTMLElement) => {
   const existing = positions.get(viewport)
   if (existing !== undefined) return existing
   const position = motionValue(viewport.scrollTop)
@@ -45,7 +45,7 @@ export const scrollViewportTo = (
   viewport: HTMLElement,
   target: number,
   instant: boolean
-): (() => void) | null => {
+) => {
   const position = positionOf(viewport)
   if (!position.isAnimating()) position.jump(viewport.scrollTop)
   if (target === position.get()) return null

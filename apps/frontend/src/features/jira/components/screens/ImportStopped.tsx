@@ -1,7 +1,6 @@
 import type { JiraMigrationDetail } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Link } from "@tanstack/react-router"
-import type { ReactNode } from "react"
 
 import type { JiraImportLifecycle } from "@/features/jira/hooks/useJiraImportLifecycle"
 import { jiraConnectHref } from "@/features/jira/lib/connect"
@@ -147,7 +146,7 @@ export function ImportStopped({
     leave_out_files: onLeaveOutFiles,
     scan_again: () => void lifecycle.rescan()
   }
-  const renderAction = (action: JiraFailureAction): ReactNode => {
+  const renderAction = (action: JiraFailureAction) => {
     const primary = action === actions[0]
     const variant = primary ? "primary" : "tertiary"
     const label = actionLabels[action]()

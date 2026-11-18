@@ -16,11 +16,11 @@ export type SprintRequest = Readonly<{
   }>
 }>
 
-export const sprintRequest = (
-  orgSlug: string,
-  slug: string,
-  id: GroupId
-): SprintRequest => ({ _view: "sprintDetail", params: { orgSlug, slug, id } })
+export const sprintRequest = (orgSlug: string, slug: string, id: GroupId) =>
+  ({
+    _view: "sprintDetail",
+    params: { orgSlug, slug, id }
+  }) satisfies SprintRequest
 
 const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)

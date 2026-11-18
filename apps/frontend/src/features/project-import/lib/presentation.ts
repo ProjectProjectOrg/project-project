@@ -14,9 +14,7 @@ const INTEGRATION_LABELS = {
   slack: m.project_import_integration_slack
 } satisfies Record<Integration, () => string>
 
-export const integrationList = (
-  integrations: ReadonlyArray<Integration>
-): string =>
+export const integrationList = (integrations: ReadonlyArray<Integration>) =>
   new Intl.ListFormat(getLocale(), { type: "conjunction" }).format(
     integrations.map((integration) => INTEGRATION_LABELS[integration]())
   )
@@ -55,15 +53,13 @@ const isKnownReason = (
 ): reason is keyof typeof REASON_MESSAGES =>
   Object.hasOwn(REASON_MESSAGES, reason)
 
-const reasonMessage = (reason: string): string | undefined =>
+const reasonMessage = (reason: string) =>
   isKnownReason(reason) ? REASON_MESSAGES[reason]() : undefined
 
-export const projectImportErrorMessage = (
-  error: Readonly<{ _tag: string }>
-): string =>
+export const projectImportErrorMessage = (error: Readonly<{ _tag: string }>) =>
   (isReasonError(error) ? reasonMessage(error.reason) : undefined) ??
   errorMessage(error)
 
-export const importFailureMessage = (reason: string | null): string =>
+export const importFailureMessage = (reason: string | null) =>
   (reason === null ? undefined : reasonMessage(reason)) ??
   m.project_import_failed_description()

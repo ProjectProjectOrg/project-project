@@ -13,7 +13,7 @@ const NO_PROJECTS: ReadonlyArray<Project> = []
 const noOrg: Atom.Atom<Result.AsyncResult<ReadonlyArray<Project>, unknown>> =
   Atom.make(Result.success(NO_PROJECTS))
 
-export function useOrgProjects(orgSlug: string | null): ReadonlyArray<Project> {
+export function useOrgProjects(orgSlug: string | null) {
   const result = useAtomValue(
     orgSlug === null ? noOrg : projectsFor(projectsRequest(orgSlug))
   )

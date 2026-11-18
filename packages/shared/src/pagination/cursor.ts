@@ -2,7 +2,7 @@ import { decodeCursor, encodeCursor, type CursorPayload } from "./Pagination"
 
 export const CURSOR_NUMERIC_WIDTH = 10
 
-export const padNumericIdSort = (id: string): string | undefined => {
+export const padNumericIdSort = (id: string) => {
   const dash = id.lastIndexOf("-")
   if (dash < 0) return undefined
   const tail = id.slice(dash + 1)
@@ -10,9 +10,7 @@ export const padNumericIdSort = (id: string): string | undefined => {
   return tail.padStart(CURSOR_NUMERIC_WIDTH, "0")
 }
 
-export const tryDecodeCursor = (
-  cursor: string | undefined
-): CursorPayload | undefined => {
+export const tryDecodeCursor = (cursor: string | undefined) => {
   if (!cursor) return undefined
   try {
     return decodeCursor(cursor)
@@ -32,7 +30,7 @@ export interface PaginateSortedOptions<A> {
 export const paginateSorted = <A>(
   sorted: ReadonlyArray<A>,
   opts: PaginateSortedOptions<A>
-): { items: ReadonlyArray<A>; nextCursor: string | null } => {
+) => {
   const dir = opts.dir ?? "asc"
   const startIdx =
     opts.cursor === undefined

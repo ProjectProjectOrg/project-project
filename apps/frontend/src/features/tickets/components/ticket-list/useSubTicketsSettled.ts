@@ -18,7 +18,7 @@ export function useSubTicketsSettled(
   snapshot: BacklogValue | null,
   statuses: ReadonlyArray<TicketStatus> | undefined,
   board: boolean
-): boolean {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const [expandedByDefault] = useSubTicketsExpanded()
   const tickets =
@@ -43,7 +43,7 @@ export function useSubTicketsSettled(
 // doesn't send the board back to its loading state.
 export function useBoardSubTicketsSettled(
   tickets: ReadonlyArray<Ticket> | null
-): boolean {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const [expandedByDefault] = useSubTicketsExpanded()
   const settled = useAtomValue(

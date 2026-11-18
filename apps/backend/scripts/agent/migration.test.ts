@@ -19,7 +19,8 @@ import {
   AgentRegistry,
   command,
   decodeEnvironment,
-  createEnvironmentId
+  createEnvironmentId,
+  type Environment
 } from "./registry"
 import { childEnvironment } from "./runtime"
 
@@ -30,12 +31,12 @@ async function fixture(
   verify: (
     input: Readonly<{
       registry: AgentRegistry
-      before: Awaited<ReturnType<typeof migrationHistory>>
-      after: Awaited<ReturnType<typeof migrationHistory>>
+      before: Environment["migrations"]
+      after: Environment["migrations"]
       failure: string
     }>
   ) => Promise<void>
-): Promise<void> {
+) {
   const root = await realpath(
     await mkdtemp(path.join(os.tmpdir(), "pp-agent-migration-"))
   )

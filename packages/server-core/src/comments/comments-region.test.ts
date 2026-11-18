@@ -14,33 +14,34 @@ import {
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 
-const sample = (): ReadonlyArray<CommentBlock> => [
-  {
-    id: "c_a",
-    author: { kind: "user", userId: "github_42" },
-    origin: "native",
-    createdAt: isoDate("2026-05-07T10:00:00.000Z"),
-    editedAt: isoDate("2026-05-07T10:04:00.000Z"),
-    resolvedBy: "github_88",
-    resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
-    body: "Looks good. cc [Wouter](mention:user/github_88)."
-  },
-  {
-    id: "c_b",
-    author: {
-      kind: "imported",
-      displayName: "Former Jira User",
-      source: "jira",
-      sourceId: "jira-account-88"
+const sample = () =>
+  [
+    {
+      id: "c_a",
+      author: { kind: "user", userId: "github_42" },
+      origin: "native",
+      createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+      editedAt: isoDate("2026-05-07T10:04:00.000Z"),
+      resolvedBy: "github_88",
+      resolvedAt: isoDate("2026-05-07T11:00:00.000Z"),
+      body: "Looks good. cc [Wouter](mention:user/github_88)."
     },
-    origin: "jira",
-    createdAt: isoDate("2026-05-07T10:06:00.000Z"),
-    editedAt: null,
-    replyTo: "c_a",
-    tickets: ["[T-23](mention:ticket/T-23)"],
-    body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
-  }
-]
+    {
+      id: "c_b",
+      author: {
+        kind: "imported",
+        displayName: "Former Jira User",
+        source: "jira",
+        sourceId: "jira-account-88"
+      },
+      origin: "jira",
+      createdAt: isoDate("2026-05-07T10:06:00.000Z"),
+      editedAt: null,
+      replyTo: "c_a",
+      tickets: ["[T-23](mention:ticket/T-23)"],
+      body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
+    }
+  ] satisfies ReadonlyArray<CommentBlock>
 
 describe("splitDescriptionAndCommentsRegion", () => {
   it("returns full body and empty region when no markers", () => {

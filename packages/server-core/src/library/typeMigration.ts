@@ -66,7 +66,7 @@ const FRONTMATTER = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/
 
 const LEGACY_TYPE_LINE = /^type:[ \t]*(?:other|"other"|'other')[ \t]*(?=\r?$)/m
 
-export const withoutLegacyTicketType = (content: string): string | null => {
+export const withoutLegacyTicketType = (content: string) => {
   const match = FRONTMATTER.exec(content)
   if (match === null) return null
   const [whole, open, frontmatter, close] = match
@@ -82,9 +82,7 @@ export const EMPTY_LEGACY_LAYER: LegacyLayer = {
   defaults: {}
 }
 
-export const legacyDefaultsFrom = (
-  data: Record<string, unknown>
-): LegacyDefaults => {
+export const legacyDefaultsFrom = (data: Record<string, unknown>) => {
   const raw = data[LEGACY_DEFAULTS_KEY]
   if (!Predicate.isObject(raw)) return {}
   return Object.fromEntries(
@@ -99,9 +97,7 @@ export const legacyDefaultsFrom = (
   )
 }
 
-export const withoutLegacyDefaults = (
-  data: Record<string, unknown>
-): Record<string, unknown> => {
+export const withoutLegacyDefaults = (data: Record<string, unknown>) => {
   const { [LEGACY_DEFAULTS_KEY]: _defaults, ...rest } = data
   return rest
 }
@@ -109,7 +105,7 @@ export const withoutLegacyDefaults = (
 export const legacyLayerFrom = (
   files: ReadonlyArray<Markdown.LibraryFile>,
   defaults: LegacyDefaults
-): LegacyLayer => {
+) => {
   const classified = files.map((file) => {
     const parsed = parseLibraryFile(file)
     if (Option.isNone(parsed)) return { file, hidden: false, template: null }
@@ -140,20 +136,19 @@ export const legacyLayerFrom = (
   }
 }
 
-export const isEmptyLegacyLayer = (layer: LegacyLayer): boolean =>
+export const isEmptyLegacyLayer = (layer: LegacyLayer) =>
   layer.templates.length === 0 &&
   layer.hidden.length === 0 &&
   layer.unreadable.length === 0
 
 const byKey = <A extends Readonly<{ key: string }>>(
   entries: ReadonlyArray<A>
-): ReadonlyArray<A> =>
-  entries.toSorted((a, b) => a.key.localeCompare(b.key, "en"))
+) => entries.toSorted((a, b) => a.key.localeCompare(b.key, "en"))
 
-const needsRename = (key: string): boolean =>
+const needsRename = (key: string) =>
   isBuiltinTypeKey(key) || isReservedTypeKey(key)
 
-const firstFree = (key: string, taken: ReadonlySet<string>): string => {
+const firstFree = (key: string, taken: ReadonlySet<string>) => {
   const candidates = Array.from(
     { length: taken.size + 1 },
     (_, index) => `${key}-${index + 2}`
@@ -164,7 +159,7 @@ const firstFree = (key: string, taken: ReadonlySet<string>): string => {
 const ownKeysFor = (
   layer: LegacyLayer,
   inherited: ReadonlyMap<string, string>
-): ReadonlyMap<string, string> => {
+) => {
   const keys = [
     ...layer.templates.map((template) => template.key),
     ...layer.unreadable.map((file) => file.key)
@@ -191,7 +186,7 @@ const effectiveDefaults = (
   own: LegacyDefaults,
   fallback: LegacyDefaults,
   active: ReadonlySet<string>
-): LegacyDefaults =>
+) =>
   Object.fromEntries(
     TICKET_TYPES.map((type) => {
       const key = type in own ? (own[type] ?? null) : (fallback[type] ?? null)
@@ -199,17 +194,14 @@ const effectiveDefaults = (
     })
   )
 
-const typesDefaultingTo = (
-  defaults: LegacyDefaults,
-  key: string
-): ReadonlyArray<LegacyTicketType> =>
+const typesDefaultingTo = (defaults: LegacyDefaults, key: string) =>
   TICKET_TYPES.filter((type) => defaults[type] === key)
 
 const asTypeDefinition = (
   template: LegacyTemplate,
   typeKey: string,
   from: "org" | "project"
-): ReadonlyArray<MigrationStep> => {
+) => {
   const builtin = builtinType(typeKey)
   return builtin === undefined
     ? []
@@ -235,7 +227,7 @@ const asOwnType = (
   template: LegacyTemplate,
   ownKey: string,
   from: "org" | "project"
-): MigrationStep =>
+) =>
   Step.type({
     template: template.key,
     from,
@@ -252,7 +244,7 @@ const planTemplate = (
   defaults: LegacyDefaults,
   ownKey: string,
   from: "org" | "project"
-): TemplatePlan => {
+) => {
   const types = typesDefaultingTo(defaults, template.key)
   const definitions = types.flatMap((type) =>
     asTypeDefinition(template, type, from)
@@ -267,21 +259,16 @@ const planTemplate = (
   }
 }
 
-export const stepKey = (step: MigrationStep): string =>
+export const stepKey = (step: MigrationStep) =>
   Match.value(step).pipe(
     Match.tag("type", (typed) => typed.draft.key),
     Match.orElse((other) => other.key)
   )
 
-const targetsOf = (
-  plans: ReadonlyArray<TemplatePlan>
-): ReadonlyMap<string, ReadonlyArray<string>> =>
+const targetsOf = (plans: ReadonlyArray<TemplatePlan>) =>
   new Map(plans.map((plan) => [plan.template, plan.steps.map(stepKey)]))
 
-const rawSteps = (
-  layer: LegacyLayer,
-  ownKeys: ReadonlyMap<string, string>
-): ReadonlyArray<TemplatePlan> =>
+const rawSteps = (layer: LegacyLayer, ownKeys: ReadonlyMap<string, string>) =>
   byKey(layer.unreadable).map((file) => ({
     template: file.key,
     steps: [
@@ -293,13 +280,13 @@ const rawSteps = (
     ]
   }))
 
-const templateKeys = (layer: LegacyLayer): ReadonlySet<string> =>
+const templateKeys = (layer: LegacyLayer) =>
   new Set(layer.templates.map((template) => template.key))
 
-const orgDefaults = (org: LegacyLayer): LegacyDefaults =>
+const orgDefaults = (org: LegacyLayer) =>
   effectiveDefaults(org.defaults, {}, templateKeys(org))
 
-export const planOrgLayer = (org: LegacyLayer): LayerPlan => {
+export const planOrgLayer = (org: LegacyLayer) => {
   const ownKeys = ownKeysFor(org, new Map())
   const defaults = orgDefaults(org)
   const plans = [
@@ -314,17 +301,17 @@ export const planOrgLayer = (org: LegacyLayer): LayerPlan => {
     ...rawSteps(org, ownKeys)
   ]
   return {
-    steps: plans.flatMap((plan) => plan.steps),
+    steps: plans.flatMap<MigrationStep>((plan) => plan.steps),
     targets: targetsOf(plans),
     ownKeys
-  }
+  } satisfies LayerPlan
 }
 
 export const planProjectLayer = (
   project: LegacyLayer,
   org: LegacyLayer,
   orgPlan: LayerPlan
-): LayerPlan => {
+) => {
   const ownKeys = ownKeysFor(project, orgPlan.ownKeys)
   const own = templateKeys(project)
   const inherited = org.templates.filter(
@@ -353,7 +340,10 @@ export const planProjectLayer = (
       .filter((type) => inheritedDefaults[type] !== template.key)
       .flatMap((type) => asTypeDefinition(template, type, "org"))
   )
-  const definitions = [...ownPlans.flatMap((plan) => plan.steps), ...repointed]
+  const definitions = [
+    ...ownPlans.flatMap<MigrationStep>((plan) => plan.steps),
+    ...repointed
+  ]
   const defined = new Set(definitions.map(stepKey))
   const tombstones = project.hidden
     .toSorted()
@@ -369,5 +359,5 @@ export const planProjectLayer = (
     steps: [...definitions, ...tombstones],
     targets: targetsOf(ownPlans),
     ownKeys
-  }
+  } satisfies LayerPlan
 }
