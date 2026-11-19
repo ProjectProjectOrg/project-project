@@ -1,9 +1,16 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
+import { Db, DbLive, PgLive } from "@pp/db"
+import { organization, projectIndex, ticketIndex } from "@pp/db/schema"
 import { resolveLibrary } from "@pp/shared"
+import { eq, sql } from "drizzle-orm"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as DateTime from "effect/DateTime"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as HttpRouter from "effect/http/HttpRouter"
+import * as HttpServerResponse from "effect/http/HttpServerResponse"
 import * as Layer from "effect/Layer"
 import * as Logger from "effect/Logger"
 import * as Path from "effect/Path"
@@ -12,11 +19,10 @@ import { describe, expect } from "vitest"
 
 import { parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
-import * as TicketIndex from "../tickets/TicketIndex"
-import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
+import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as LibraryDocs from "./LibraryDocs"
 import * as LibraryMigration from "./LibraryMigration"
-import { migrateLibraryOnBoot } from "./LibraryMigrationLive"
+import { LibraryMigrationLive } from "./LibraryMigrationLive"
 
 type LogLine = Readonly<{
   message: unknown
@@ -52,7 +58,30 @@ const TestLayer = Layer.unwrap(
       Layer.provideMerge(captureLogs)
     )
   })
-).pipe(Layer.provideMerge(BunServices.layer))
+).pipe(
+  Layer.provideMerge(BunServices.layer),
+  Layer.provide(TicketDocumentLock.layer)
+)
+
+const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+if (databaseUrl) {
+  const url = new URL(databaseUrl)
+  if (
+    !["127.0.0.1", "localhost"].includes(url.hostname) ||
+    !url.pathname.startsWith("/projectproject_effect_v4_")
+  ) {
+    throw new Error("Test requires an isolated local database")
+  }
+}
+
+const DatabaseLayer = DbLive.pipe(
+  Layer.provide(PgLive),
+  Layer.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({ DATABASE_URL: databaseUrl })
+    )
+  )
+)
 
 const storagePath = (...rest: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -457,9 +486,51 @@ describe("LibraryMigration (real fs)", () => {
 const ticketFile = (id: string, type: string, body = "Body\n") =>
   `---\nid: ${id}\ntitle:   'Kept   as written'\nstatus: todo\ntype: ${type}\npriority: med\ncreatedBy: user-1\ncreatedAt: 2026-09-09T00:00:00.000Z\nupdatedAt: 2026-09-09T00:00:00.000Z\n---\n\n${body}`
 
+const ticketOrg = "library-migration-test"
+
+const seedTicketProjects = Effect.gen(function* () {
+  const db = yield* Db
+  const createdAt = yield* DateTime.nowAsDate
+  yield* Effect.acquireRelease(
+    db.insert(organization).values({
+      id: ticketOrg,
+      name: "Acme",
+      slug: ticketOrg,
+      createdAt
+    }),
+    () =>
+      db
+        .delete(organization)
+        .where(eq(organization.id, ticketOrg))
+        .pipe(Effect.orDie)
+  )
+  const slugs = ["api", "docs", "web"]
+  yield* db.insert(projectIndex).values(
+    slugs.map((slug) => ({
+      organizationId: ticketOrg,
+      slug,
+      key: slug.toUpperCase(),
+      name: slug,
+      icon: "folder",
+      color: "blue",
+      createdBy: "user-1"
+    }))
+  )
+  yield* Effect.forEach(
+    slugs,
+    (slug) => write(PROJECT_MD(""), ticketOrg, "projects", slug, "project.md"),
+    { discard: true }
+  )
+})
+
+const TicketMigrationLayer = Layer.effectDiscard(seedTicketProjects).pipe(
+  Layer.provideMerge(DatabaseLayer),
+  Layer.provideMerge(TestLayer)
+)
+
 const seedTickets = Effect.gen(function* () {
   const ticket = (project: string, id: string, content: string) =>
-    write(content, "acme", "projects", project, "tickets", `${id}.md`)
+    write(content, ticketOrg, "projects", project, "tickets", `${id}.md`)
   yield* ticket("web", "WEB-1", ticketFile("WEB-1", "other", "type: other\n"))
   yield* ticket("web", "WEB-2", ticketFile("WEB-2", "bug"))
   yield* ticket("web", "WEB-3", ticketFile("WEB-3", "null"))
@@ -474,7 +545,7 @@ const migrateTickets = Effect.flatMap(
   (migration) => migration.migrateTicketTypes()
 )
 
-describe("LibraryMigration ticket types (real fs)", () => {
+describe.skipIf(!databaseUrl)("ticket type migration", () => {
   it.effect("rewrites tickets of type other to no type and nothing else", () =>
     Effect.gen(function* () {
       yield* seedTickets
@@ -484,16 +555,24 @@ describe("LibraryMigration ticket types (real fs)", () => {
 
       expect(summary).toEqual({
         migrated: [
-          { orgSlug: "acme", projectSlug: "api", rewritten: 1 },
-          { orgSlug: "acme", projectSlug: "web", rewritten: 2 }
+          {
+            orgSlug: ticketOrg,
+            projectSlug: "api",
+            rewritten: 1
+          },
+          {
+            orgSlug: ticketOrg,
+            projectSlug: "web",
+            rewritten: 2
+          }
         ],
         failed: []
       })
       const after = yield* snapshot
       const rewritten = new Set([
-        "acme/projects/api/tickets/API-2.md",
-        "acme/projects/web/tickets/WEB-1.md",
-        "acme/projects/web/tickets/WEB-4.md"
+        `${ticketOrg}/projects/api/tickets/API-2.md`,
+        `${ticketOrg}/projects/web/tickets/WEB-1.md`,
+        `${ticketOrg}/projects/web/tickets/WEB-4.md`
       ])
       for (const [file, content] of Object.entries(before)) {
         expect(after[file]).toBe(
@@ -506,7 +585,7 @@ describe("LibraryMigration ticket types (real fs)", () => {
         )
       }
       expect(Object.keys(after)).toEqual(Object.keys(before))
-      expect(after["acme/projects/web/tickets/WEB-1.md"]).toContain(
+      expect(after[`${ticketOrg}/projects/web/tickets/WEB-1.md`]).toContain(
         "\n\ntype: other\n"
       )
       expect(
@@ -520,62 +599,123 @@ describe("LibraryMigration ticket types (real fs)", () => {
         ["api", 1],
         ["web", 2]
       ])
-    }).pipe(Effect.provide(TestLayer))
-  )
-
-  it.effect("changes nothing when it runs again", () =>
-    Effect.gen(function* () {
-      yield* seedTickets
-      yield* migrateTickets
-      const migrated = yield* snapshot
-
-      expect(yield* migrateTickets).toEqual({ migrated: [], failed: [] })
-      expect(yield* snapshot).toEqual(migrated)
-    }).pipe(Effect.provide(TestLayer))
+    }).pipe(Effect.provide(TicketMigrationLayer))
   )
 
   it.effect(
-    "rebuilds the ticket index of each rewritten project on boot",
-    () => {
-      const rebuilt: Array<readonly [string, boolean | undefined]> = []
-      return Effect.gen(function* () {
+    "skips the next scan even for projects that needed no rewrites",
+    () =>
+      Effect.gen(function* () {
         yield* seedTickets
+        expect((yield* migrateTickets).failed).toEqual([])
+        const fs = yield* FileSystem.FileSystem
+        const dir = yield* storagePath(ticketOrg, "projects", "docs", "tickets")
+        yield* fs.rename(dir, `${dir}.original`)
+        yield* fs.writeFileString(dir, "")
 
-        yield* migrateLibraryOnBoot
+        expect(yield* migrateTickets).toEqual({ migrated: [], failed: [] })
+      }).pipe(Effect.provide(TicketMigrationLayer))
+  )
 
-        expect(rebuilt).toEqual([
-          ["api", true],
-          ["web", true]
-        ])
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            TestLayer,
-            Layer.mock(TicketIndex.TicketIndex, {
-              projectFor: (orgSlug, slug) =>
-                Effect.succeed({
-                  orgSlug,
-                  organizationId: "org-1",
-                  projectId: `project-${slug}`,
-                  slug
-                })
-            }),
-            Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {
-              reconcileProject: (indexed, options) =>
-                Effect.sync(() => {
-                  rebuilt.push([indexed.slug, options?.force])
-                  return {
-                    project: indexed,
-                    drift: { missing: [], orphaned: [], stale: [] },
-                    rebuilt: true,
-                    indexed: 0,
-                    skipped: 0
-                  }
-                })
-            })
-          )
+  it.effect("leaves a failed ticket scan pending and retries it", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const dir = yield* storagePath(ticketOrg, "projects", "web", "tickets")
+      yield* fs.makeDirectory(dir, { recursive: true })
+      yield* fs.makeDirectory(`${dir}/WEB-1.md`)
+
+      expect((yield* migrateTickets).failed).toEqual([
+        { orgSlug: ticketOrg, projectSlug: "web" }
+      ])
+      const db = yield* Db
+      expect(
+        yield* db.query.projectIndex.findFirst({
+          columns: { ticketTypesMigrated: true },
+          where: { organizationId: ticketOrg, slug: "web" }
+        })
+      ).toEqual({ ticketTypesMigrated: false })
+
+      yield* fs.rename(`${dir}/WEB-1.md`, `${dir}/unreadable`)
+      yield* fs.writeFileString(`${dir}/WEB-1.md`, ticketFile("WEB-1", "other"))
+      expect(yield* migrateTickets).toEqual({
+        migrated: [
+          {
+            orgSlug: ticketOrg,
+            projectSlug: "web",
+            rewritten: 1
+          }
+        ],
+        failed: []
+      })
+    }).pipe(Effect.provide(TicketMigrationLayer))
+  )
+
+  it.effect(
+    "repairs legacy index types after the files have been rewritten",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Db
+        yield* db.execute(sql`
+        insert into ticket_index (
+          organization_id, project_id, ticket_id, title, status, type,
+          priority, rank, created_by, created_at, updated_at
         )
+        select organization_id, id, 'WEB-1', 'Ticket', 'todo', 'other',
+          'med', 'a0', 'user-1', now(), now()
+        from project_index where organization_id = ${ticketOrg} and slug = 'web'
+      `)
+        yield* write(
+          ticketFile("WEB-1", "null"),
+          ticketOrg,
+          "projects",
+          "web",
+          "tickets",
+          "WEB-1.md"
+        )
+
+        expect(yield* migrateTickets).toEqual({ migrated: [], failed: [] })
+        expect(
+          yield* db
+            .select({ type: ticketIndex.type })
+            .from(ticketIndex)
+            .where(eq(ticketIndex.organizationId, ticketOrg))
+        ).toEqual([{ type: null }])
+      }).pipe(Effect.provide(TicketMigrationLayer))
+  )
+
+  it.effect("serves requests while the boot ticket scan is blocked", () =>
+    Effect.gen(function* () {
+      const scanStarted = yield* Deferred.make<void>()
+      const scanRelease = yield* Deferred.make<void>()
+      const migration = Layer.succeed(LibraryMigration.LibraryMigration, {
+        migrateTemplates: () => Effect.succeed({ migrated: [], failed: [] }),
+        migrateTicketTypes: () =>
+          Deferred.succeed(scanStarted, undefined).pipe(
+            Effect.andThen(Deferred.await(scanRelease)),
+            Effect.as({ migrated: [], failed: [] })
+          )
+      })
+      const app = HttpRouter.add(
+        "GET",
+        "/",
+        Effect.succeed(HttpServerResponse.text("ready"))
+      ).pipe(
+        Layer.provide(LibraryMigrationLive),
+        Layer.provide(Layer.mergeAll(migration, DatabaseLayer))
       )
-    }
+      const { handler } = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          HttpRouter.toWebHandler(app, { disableLogger: true })
+        ),
+        ({ dispose }) => Effect.promise(dispose)
+      )
+      const response = yield* Effect.promise(() =>
+        handler(new Request("http://localhost/"))
+      ).pipe(Effect.timeout("2 seconds"))
+
+      expect(yield* Effect.promise(() => response.text())).toBe("ready")
+      yield* Deferred.await(scanStarted).pipe(Effect.timeout("2 seconds"))
+      yield* Deferred.succeed(scanRelease, undefined)
+    })
   )
 })
