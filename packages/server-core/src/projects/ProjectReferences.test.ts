@@ -278,6 +278,26 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
   )
 
   it.live(
+    "lists references tracked in a project that was never imported, as after a move",
+    () =>
+      Effect.gen(function* () {
+        const { reads, layer } = yield* fixture(
+          "native",
+          [["PP-1", "Ask [Robert](mention:user/old-bob)."]],
+          [{ ticketId: "PP-1", kind: "user", target: "old-bob" }]
+        )
+        yield* Effect.gen(function* () {
+          const references = yield* ProjectReferences.ProjectReferences
+          const { items } = yield* references.list()
+          expect(items.map(({ ticketId, label }) => [ticketId, label])).toEqual(
+            [["PP-1", "Robert"]]
+          )
+          expect(reads).toEqual(["PP-1"])
+        }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(dbLayer))
+  )
+
+  it.live(
     "records that an earlier import was scanned even when it has no findings",
     () =>
       Effect.gen(function* () {

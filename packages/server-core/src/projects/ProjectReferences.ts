@@ -127,8 +127,7 @@ const make = Effect.gen(function* () {
       .orderBy(desc(projectImport.updatedAt))
       .limit(1)
       .pipe(Effect.orDie)
-    if (!imported) return { items: [] }
-    if (!imported.referencesScanned)
+    if (imported !== undefined && !imported.referencesScanned)
       yield* backfill(scope, imported.id).pipe(
         backfillSlot.withPermitsIfAvailable(1),
         Effect.catchCause((cause) =>

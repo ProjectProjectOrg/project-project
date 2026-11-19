@@ -1545,6 +1545,18 @@ const make = Effect.gen(function* () {
                       )
                     )
                   yield* db
+                    .update(schema.projectImportReference)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(
+                          schema.projectImportReference.projectId,
+                          source.projectId
+                        ),
+                        eq(schema.projectImportReference.ticketId, from)
+                      )
+                    )
+                  yield* db
                     .delete(schema.attachmentReference)
                     .where(
                       and(
