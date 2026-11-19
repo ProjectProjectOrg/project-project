@@ -41,3 +41,28 @@ it("keeps the first key of a sequence lit until the next key", () => {
   ])
   press("keyup", "b", "KeyB")
 })
+
+it("leaves Backspace unlit while it deletes text, and lights it on an empty field", () => {
+  document.body.innerHTML =
+    '<input value="ab" /><kbd data-key="backspace"></kbd>'
+  installKeyCapHighlight()
+  const input = document.querySelector("input")
+  const cap = document.querySelector("kbd")
+  const press = (type: string) =>
+    input?.dispatchEvent(
+      new KeyboardEvent(type, {
+        key: "Backspace",
+        code: "Backspace",
+        bubbles: true
+      })
+    )
+
+  press("keydown")
+  expect(cap?.hasAttribute("data-pressed")).toBe(false)
+  press("keyup")
+
+  if (input) input.value = ""
+  press("keydown")
+  expect(cap?.hasAttribute("data-pressed")).toBe(true)
+  press("keyup")
+})
