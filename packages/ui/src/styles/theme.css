@@ -233,6 +233,11 @@
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
+  /* A selection bar field with a suggestion: the flag's warm tone, as a
+     fill under the field. */
+  --suggested-fill: oklch(from var(--state-warning) 0.8 calc(c * 0.9) h / 0.22);
+  /* What a guide lays over everything but its spotlight, under a blur. */
+  --guide-scrim: oklch(0.2 0 0 / 0.14);
   --avatar-edge: oklch(0.145 0 0 / 0.1);
   --segment-line: oklch(0 0 0 / 5%);
   --kbd-glow: oklch(1 0 0 / 70%);
@@ -390,6 +395,10 @@
      below the popup fill instead of melting into it. */
   --field-hover-popup: rgb(255 255 255 / 0.04);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
+  --suggested-fill: oklch(
+    from var(--state-warning) 0.72 calc(c * 2.2) h / 0.14
+  );
+  --guide-scrim: oklch(0 0 0 / 0.4);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
   --kbd-glow: oklch(1 0 0 / 9%);

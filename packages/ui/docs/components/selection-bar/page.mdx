@@ -2,19 +2,19 @@ export const meta = {
   title: "Selection bar",
   group: "Patterns",
   description:
-    "The bar that rises while tickets are selected: how many, a suggested next step, Actions (⌘K with the selection), select all and a way out; after a change, what happened and Undo or Retry. Fields can also read and change single properties through staging menus.",
+    "While tickets are selected, the rows are the toolbar: a selected row's status, priority, assignee, sprint and labels change every selected ticket. The bar that rises under them says how many, suggests the next step (N), opens Actions (⌘K) for the rest, and after a change says what happened, with Undo or Retry.",
   sources: [{ kind: "own", name: "SelectionBar" }]
 }
 
 ## Overview
 
-Select rows to bring the bar up. This overview shows every part at once, including property fields: each opens a menu that says how many of the selection have each value; pick, then Apply. "Select all 12" widens the selection to the whole list. Turn on "Fail requests" to see a change fail. The app composes a smaller bar (see In the app below).
+The four In progress tickets start selected. Change one of their statuses, priorities, assignees, sprints or labels, and the change goes to all four; hover one first to see it light on every selected row. Press S, A, P, ⇧S or T over a selected row to open the same menu, N to take the suggestion. "Show the guide" plays the guide that teaches it (see Guide).
 
-<Demo name="overview" title="A selection" className="min-h-96" />
+<Demo name="overview" title="The rows are the toolbar" className="min-h-[36rem]" />
 
 ## Usage
 
-The app's bar: a suggested next step when there is an obvious one (every selected ticket in one status: move them to the next), and Actions, which opens ⌘K with the selection. ⌘K's pages stage a change for every selected ticket, list what it will do, and apply it at once.
+The bar carries only what isn't a row's property: the suggestion and Actions.
 
 ```tsx
 import {
@@ -37,6 +37,8 @@ import {
         name={m.tickets_selection_suggested()}
         icon={<StatusIcon status={next} />}
         value={m.tickets_selection_move_to({ status: next.label })}
+        aria-keyshortcuts="N"
+        shortcut={<KbdShortcut size="sm" keys="N" keyLabels={keyLabels()} />}
         onClick={() => edit({ status: next.slug })}
       />
       <SelectionBarSeparator />
@@ -51,8 +53,6 @@ import {
 </SelectionBar>
 ```
 
-A field can also read and change one property: render it as the trigger of a `SelectionBarPickMenu` (one value) or `SelectionBarToggleMenu` (labels, people) from `@pp/ui/selection-bar-menu`, and give it a `SelectionBarStack` of what the selection holds. The overview shows that composition.
-
 | Part | Prop | Type |
 | --- | --- | --- |
 | `SelectionBar` | `label` | `string`: names the toolbar ("Actions for 3 selected tickets") |
@@ -62,9 +62,11 @@ A field can also read and change one property: render it as the trigger of a `Se
 | | `result` | `{ tone: "pending" \| "success" \| "error", message, actions }`: what the last change is doing or did, shown in the bar's place |
 | `SelectionBarField` | `name` | `string`: the field's name, for its label ("Status: 2 statuses") |
 | | `icon` | `ReactNode`: a `SelectionBarStack`, or an action's icon |
-| | `value` | `string`: the shared value, or how many there are; leave it out for an icon-only action |
+| | `foldIcon` | `ReactNode`: the icon a field without one folds to (the app's named properties) |
+| | `value` | `string`: the shared value, or how many there are; the name again for a field that's only a menu ("Status"); leave it out for an icon-only action |
+| | `suggestion` | `string`: what its menu suggests ("Suggested: In review"); lights the field, said on hover and to screen readers |
 | | `mixed` | `boolean`: the selection holds several values; the text is muted |
-| | `shortcut` | `ReactNode`: keys that do the same (`KbdShortcut`), after the value; hidden while folded |
+| | `shortcut` | `ReactNode`: keys that do the same (`KbdShortcut`), after the value; they stay when the field folds |
 | | `render` | render it as something else; menus render it as their trigger |
 | `SelectionBarStack` | `children` | the icons of every value the selection holds, side by side, each keyed by its value |
 | | `max` | `number`: how many show before "+N" (4) |
@@ -72,26 +74,33 @@ A field can also read and change one property: render it as the trigger of a `Se
 | | `total`, `applyLabel`, `onApply` | how many are selected, "Apply to 3 tickets", and the one value to set |
 | | `search` | `{ placeholder, empty }`: a search over long lists (labels, people) |
 | `SelectionBarToggleMenu` | same as the pick menu | `onApply` gets `{ add, remove }` |
+| `SelectionBarPickMenu` | `suggested` | `{ value, label }`: staged whenever it opens, its row marked; the menu starts on Apply |
+| `SelectionBarToggleMenu` | `suggested` | `{ add, label }`: values staged on whenever it opens |
 | both menus | `extra` | `ReactNode`: rows after the options (an "Assign to me" row) |
+| | `open`, `onOpenChange` | open it from outside too: the property's key, pressed while the bar is up |
 | `SelectionBarSeparator` | | a hairline between groups |
 
 ## Rules
 
-### It suggests, ⌘K does the rest
+### The rows are the toolbar
 
-The bar offers at most one step: the obvious next one, when there is one (every selected ticket in the same status: move them to the next status in the project's order). Everything else is Actions, which opens ⌘K with the selection, where a page stages the change, lists what it will do ("3  Todo → Done"), and applies it at once (Enter or ⌘Enter). One place to change many tickets, with a preview, instead of a menu per property in a narrow bar.
+With several tickets selected, a selected row's own status, priority, assignee, sprint and labels change every selected ticket. Chip, then value: two clicks, in the same spot where you change one ticket, so it's one habit for one ticket or fifty, and you never leave the list. A pick applies at once (Undo is in the bar); labels toggle one at a time, a label on some of the selection showing a dash. Selected rows show every slot, empty ones too, so you can see where each property goes.
 
-### Fields read like properties
+### Hover shows what will change
 
-Each field shows what every selected ticket shares ("In progress", "Unassigned"), or, muted, how many values the selection holds ("2 statuses"). You see what you're about to change before you change it, and the muted text tells a mixed field from a shared one at a glance.
+Hovering (or focusing) a selected row's property lights the same property on every selected row, before you click. Its menu then says it again in its heading ("Status · 4 tickets") and counts each value across the selection.
 
-### A mixed field shows what it holds
+### One suggestion, one press
 
-The icon says which values, not just how many: a mixed status shows each status's icon in the project's order, priorities their bars, assignees an avatar stack (and a blank for "unassigned"), labels their dots. Icons sit side by side, never overlapping, up to four, then "+2". Sprints have no icon of their own, so the text names them instead, collapsing what they share: "Sprint 24, 25", plus "none" when some tickets aren't in one.
+When the selection has an obvious next step (every ticket in one status: the next status), the bar suggests it: "Suggested · Move to In review", applied with a click or N. The row's status menu marks the same value with a dot and opens on it, so Enter takes it there too.
 
-### A property field stages, Apply commits
+### ⌘K for the rest
 
-When a bar carries property fields (the overview), a field's menu lists every value with how many of the selection have it. A pick is staged, not applied: the menu stays open and the value says what it will become ("2 → 11"), while the values it takes from dim. Labels and assignees are checkbox rows with a third state: on all, on none, or mixed (a dash). Apply commits everything staged to every selected ticket; Escape, or closing the menu any other way, drops it.
+Actions opens ⌘K with the selection, for everything that isn't on a row (estimate, type, archive): the keyboard way in, without leaving the list for the common changes.
+
+### Taught once, by a guide
+
+Nothing on a row says it now changes them all, so the first time someone selects several tickets, a Guide spotlights a selected row and says so. The app remembers it was seen.
 
 ### The result takes the bar's place
 
@@ -103,11 +112,7 @@ While a change is out, the bar says so ("Updating 3 tickets…"). Once it lands,
 
 ### It never jumps
 
-The bar is as wide as its content, and everything in it animates its own size on one curve (the morph, 260ms). A value that joins or leaves the selection grows or shrinks its icon in place: a status, a label's dot, a person in the avatar stack. Values roll to their new text, and "Select all" folds away. So the bar's edge glides with them. Give every icon in a `SelectionBarStack` a key (its value), and render the stack even for one value, so a change only adds or removes icons.
-
-### When the fields don't fit, they fold to icons
-
-The fields keep to one row. When they'd run past the list's edge, fields with an icon fold to it (a field without one, like Actions, keeps its text), and each says what it is in a tooltip ("Status: 2 statuses"), as it already does to screen readers; once there's room again, they unfold. "3 selected" and "Select all" stay as text, and a field's shortcut keys hide while it's folded. Too narrow even for the icons, the bar wraps onto a second row, after the values have folded away.
+The bar is as wide as its content, and everything in it animates its own size on one curve (the morph, 260ms): the count rolls to its new number, "Select all" folds away, and a field's value (where it shows one) rolls to its new text. So the bar's edge glides with them.
 
 ### It never covers the rows
 
@@ -115,13 +120,13 @@ It floats: the tooltip's raised surface plus a soft drop shadow, the one popup-l
 
 ### Keyboard and screen readers
 
-It's a toolbar named by `label`: Tab reaches it once and the arrow keys (and Home and End) move between its buttons. The count is announced as it changes, and the bar never takes focus when it appears, so you can keep selecting (X toggles a row, ⌘A selects all, Escape clears). Each field's label reads as name and value: "Status: 2 statuses". In a menu, the arrow keys reach Apply and Enter presses it.
+It's a toolbar named by `label`: Tab reaches it once and the arrow keys (and Home and End) move between its buttons. The count is announced as it changes, and the bar never takes focus when it appears, so you can keep selecting (X toggles a row, ⌘A selects all, Escape clears). Over a selected row, S, A, P, ⇧S and T open its property menus; N takes the suggestion and ⌘K opens Actions. Each row control names its property and says its key (`aria-keyshortcuts`).
 
 ## Examples
 
 ### In the app
 
-<Demo name="in-the-app" title="A suggested next step and Actions" />
+<Demo name="in-the-app" title="The bar on its own" />
 
 ### After a change
 

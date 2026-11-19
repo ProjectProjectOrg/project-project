@@ -1,5 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { BulkTicketPatch } from "@pp/shared"
+import { Guide } from "@pp/ui/guide"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
@@ -20,6 +21,7 @@ import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
 import type { BulkTicketUpdateAtom } from "@/features/tickets/atoms/ticketRows"
+import { lightRowFields } from "@/features/tickets/lib/selectionKeys"
 import {
   toBulkPatch,
   type TicketEdit
@@ -32,6 +34,7 @@ import {
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { m } from "@/paraglide/messages"
 
 import { SelectionBar } from "./SelectionBar"
 import {
@@ -55,13 +58,22 @@ export function TicketSelectionProvider({
     setStore(createSelectionStore())
   }
   const registry = use(RegistryContext)
-  const selecting = useAtomValue(store.count) > 0
+  const count = useAtomValue(store.count)
+  const selecting = count > 0
   const scope = useMemo(
     () => selectionScope(registry, store),
     [registry, store]
   )
   useCommandScope(scope)
   const root = useRef<HTMLDivElement>(null)
+  // Hovering a selected row's field lights it on every selected row.
+  useEffect(() => {
+    const list = root.current
+    return list === null ? undefined : lightRowFields(list)
+  }, [])
+  // The first time several are selected, a guide says the rows change them
+  // all (once per person; this browser remembers it for now).
+  const [guideSeen, setGuideSeen] = useState(readGuideSeen)
 
   const rowKeyFor = (target: EventTarget | null) => {
     const list = root.current
@@ -122,9 +134,39 @@ export function TicketSelectionProvider({
             />
           )}
         </AnimatePresence>
+        <Guide
+          open={count > 1 && !guideSeen}
+          onClose={() => {
+            setGuideSeen(true)
+            writeGuideSeen()
+          }}
+          target={() => root.current?.querySelector("[data-row-selected]")}
+          title={m.tickets_guide_bulk_title({ count })}
+          doneLabel={m.tickets_guide_done()}
+        >
+          {m.tickets_guide_bulk_body()}
+        </Guide>
       </div>
     </SelectionContext>
   )
+}
+
+const GUIDE_SEEN_KEY = "pp.guide.bulk-edit"
+
+const readGuideSeen = () => {
+  try {
+    return window.localStorage.getItem(GUIDE_SEEN_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
+const writeGuideSeen = () => {
+  try {
+    window.localStorage.setItem(GUIDE_SEEN_KEY, "1")
+  } catch {
+    // Private windows may refuse; then it shows once per visit.
+  }
 }
 
 const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>

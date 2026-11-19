@@ -456,6 +456,12 @@
   "tickets_selection_actions": "Actions",
   "tickets_selection_suggested": "Suggested",
   "tickets_selection_move_to": "Move to {status}",
+  "tickets_selection_next_hotkey": "Take the suggested next step for the selection",
+  "tickets_guide_bulk_title": "Edit all {count} tickets at once",
+  "tickets_guide_bulk_body": "Change the status, priority, assignee, sprint or labels on any selected row, and every selected ticket gets the same change. Hover a field first to see which tickets it will change.",
+  "tickets_guide_done": "Got it",
+  "tickets_row_add_label": "Label",
+  "tickets_row_add_sprint": "Sprint",
   "tickets_selection_updated": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

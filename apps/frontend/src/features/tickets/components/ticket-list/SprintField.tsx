@@ -3,7 +3,7 @@ import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { chipClassName } from "@pp/ui/chip"
-import { Plus } from "@pp/ui/icons"
+import { Plus, Zap } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -32,12 +32,16 @@ export function SprintField({
   ticketId,
   membership,
   variant = "default",
-  onRequestNewSprint
+  onRequestNewSprint,
+  placeholder
 }: {
   ticketId: TicketId
   membership: Group | null
   variant?: "default" | "responsive"
   onRequestNewSprint?: () => void
+  // Not in a sprint: an empty chip that adds it to one ("Sprint"), for a
+  // selected row, which shows every field.
+  placeholder?: string
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
@@ -53,7 +57,7 @@ export function SprintField({
   const registry = use(RegistryContext)
   const selection = useSelectionActions(selectionKey(slug, ticketId))
 
-  if (!membership) return null
+  if (!membership && placeholder === undefined) return null
 
   const sprints = Result.isSuccess(list) ? list.value : []
   const sprintOf = (id: TicketId) =>
@@ -66,7 +70,7 @@ export function SprintField({
   const [sharedSprint = null] = selectedSprints
   const selectedId =
     selection.count === 1
-      ? membership.id
+      ? (membership?.id ?? null)
       : selectedSprints.size === 1
         ? sharedSprint
         : undefined
@@ -89,11 +93,16 @@ export function SprintField({
             tickets: selection.selectedIds()
           })
         }}
-        onClear={() => {
-          if (!selection.patchBulk({ sprint: null })) {
-            void removeTickets({ groupId: membership.id })
-          }
-        }}
+        // Removing is offered only when one of them is in a sprint.
+        onClear={
+          membership || [...selectedSprints].some((id) => id !== null)
+            ? () => {
+                if (!selection.patchBulk({ sprint: null }) && membership) {
+                  void removeTickets({ groupId: membership.id })
+                }
+              }
+            : undefined
+        }
         onRequestNewSprint={onRequestNewSprint}
         trigger={
           <button
@@ -102,24 +111,31 @@ export function SprintField({
             aria-label={
               failed
                 ? m.tickets_sprint_assign_error_fallback()
-                : m.tickets_sprint_chip_aria({ name: membership.name })
+                : membership
+                  ? m.tickets_sprint_chip_aria({ name: membership.name })
+                  : placeholder
             }
             className={chipClassName({
               interaction: "press",
               className: cn(
                 "max-w-[14ch] gap-1",
-                failed && "text-destructive hover:text-destructive"
+                failed && "text-destructive hover:text-destructive",
+                !membership && "text-muted-foreground"
               )
             })}
           >
-            <SprintStateIcon sprint={membership} size="xs" />
+            {membership ? (
+              <SprintStateIcon sprint={membership} size="xs" />
+            ) : (
+              <Zap className="size-3 shrink-0" strokeWidth={1.75} />
+            )}
             <span
               className={cn(
                 "truncate",
                 variant === "responsive" && "hidden sm:inline"
               )}
             >
-              {membership.name}
+              {membership?.name ?? placeholder}
             </span>
           </button>
         }

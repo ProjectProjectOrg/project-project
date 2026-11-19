@@ -5,6 +5,7 @@ import {
   SelectionBarField,
   SelectionBarSeparator
 } from "@pp/ui/selection-bar"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useEffect } from "react"
@@ -26,6 +27,7 @@ import {
   type TicketEdit
 } from "@/features/tickets/lib/ticketPatch"
 import { projectOfKey, selectAll } from "@/features/tickets/lib/ticketSelection"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
@@ -34,8 +36,9 @@ import { applySelected, type SelectionStore } from "./selectionStore"
 /*
  * The bar that rises while tickets are selected (@pp/ui/selection-bar): a
  * suggested next step when there is an obvious one (every ticket in the
- * same status: move them to the next), and Actions, which opens ⌘K with
- * the selection for everything else.
+ * same status: move them to the next; N takes it), and Actions, which opens
+ * ⌘K with the selection. Everything else is a selected row's own fields,
+ * which change every selected ticket (Row).
  */
 
 export function SelectionBar({
@@ -190,6 +193,15 @@ function Fields({
       ? null
       : statusMetaFor(next, statuses.value)
 
+  // N takes the suggestion, from anywhere in the list.
+  useHotkey(
+    appHotkeys["tickets.selection-next"],
+    (event) => {
+      if (event.repeat || next === undefined) return
+      edit({ status: next })
+    },
+    { enabled: next !== undefined }
+  )
   return (
     <>
       {next !== undefined && meta !== null && (
@@ -204,6 +216,10 @@ function Fields({
               />
             }
             value={m.tickets_selection_move_to({ status: meta.label })}
+            aria-keyshortcuts="N"
+            shortcut={
+              <KbdShortcut size="sm" keys="N" keyLabels={keyLabels()} />
+            }
             onClick={() => edit({ status: next })}
           />
           <SelectionBarSeparator />

@@ -56,11 +56,19 @@ type MenuShellProps = Readonly<{
   search?: Readonly<{ placeholder: string; empty: string }>
   // Below the options: a search's "Create …" row.
   extra?: React.ReactNode
+  // Open it from outside too (the field's key, pressed anywhere in the
+  // list); leave it out and the field alone opens it.
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  // Where it opens from, when not its field (a field the bar has no room
+  // for opens from the bar's overflow menu).
+  anchor?: React.ComponentProps<typeof DropdownMenuContent>["anchor"]
 }>
 
 // How many of the selection have a value: "3", or once a change to it is
 // staged, "2 → 11". A value the staged pick takes away from dims instead of
-// counting down, so only the change you made reads loudly.
+// counting down, so only the change you made reads loudly. It follows the
+// name, so the row's own key (1, 2, 3 in a pick menu) keeps the far end.
 function Count({
   now,
   next,
@@ -68,21 +76,29 @@ function Count({
 }: Readonly<{ now: number; next: number; dim?: boolean }>) {
   const changed = !dim && now !== next
   return (
-    <>
-      <span aria-hidden className="flex-1" />
-      <span
-        data-menu-meta
-        className={cn(
-          "shrink-0 pl-3 text-caption whitespace-nowrap tabular-nums transition-[color,opacity] duration-150",
-          changed ? "text-foreground" : "text-muted-foreground",
-          dim && "opacity-40"
-        )}
-      >
-        <TextSwap speed="fast">
-          {changed ? `${now} → ${next}` : String(now)}
-        </TextSwap>
-      </span>
-    </>
+    <span
+      data-menu-meta
+      className={cn(
+        "shrink-0 text-caption whitespace-nowrap tabular-nums transition-[color,opacity] duration-150",
+        changed ? "text-foreground" : "text-muted-foreground",
+        dim && "opacity-40"
+      )}
+    >
+      <TextSwap speed="fast">
+        {changed ? `${now} → ${next}` : String(now)}
+      </TextSwap>
+    </span>
+  )
+}
+
+// The mark on the row a field suggests: the field's own warm dot, so the
+// two read as one; screen readers hear its label ("Suggested").
+function SuggestedNote({ label }: Readonly<{ label: string }>) {
+  return (
+    <span className="flex shrink-0 items-center">
+      <span aria-hidden className="size-1.5 rounded-full bg-state-warning" />
+      <span className="sr-only">{label}</span>
+    </span>
   )
 }
 
@@ -106,10 +122,35 @@ function OptionName({
 function ApplyItem({
   label,
   disabled,
+  start,
   onApply
-}: Readonly<{ label: string; disabled: boolean; onApply: () => void }>) {
+}: Readonly<{
+  label: string
+  disabled: boolean
+  // The menu opens on it (a suggestion is staged), so Enter applies it.
+  start: boolean
+  onApply: () => void
+}>) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  React.useLayoutEffect(() => {
+    if (!start) return undefined
+    let live = true
+    // As the menu opens (it mounts then), after the menu's own start (its
+    // first or checked row, two microtasks in), so this one wins.
+    queueMicrotask(() =>
+      queueMicrotask(() =>
+        queueMicrotask(() => {
+          if (live) ref.current?.focus()
+        })
+      )
+    )
+    return () => {
+      live = false
+    }
+  }, [start])
   return (
     <MenuPrimitive.Item
+      ref={ref}
       data-slot="selection-bar-apply"
       disabled={disabled}
       onClick={onApply}
@@ -130,22 +171,36 @@ function MenuShell({
   search,
   extra,
   staged,
+  startOnApply = false,
   onApply,
+  open,
   onOpenChange,
+  onReset,
+  anchor,
   children
 }: MenuShellProps &
   Readonly<{
     staged: boolean
+    startOnApply?: boolean
     onApply: () => void
-    onOpenChange: (open: boolean) => void
+    // Drops what's staged; runs on every open and close.
+    onReset: () => void
     children: React.ReactNode
   }>) {
   return (
-    <DropdownMenu filterable={search !== undefined} onOpenChange={onOpenChange}>
+    <DropdownMenu
+      filterable={search !== undefined}
+      open={open}
+      onOpenChange={(next) => {
+        onReset()
+        onOpenChange?.(next)
+      }}
+    >
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent
         align="start"
         sideOffset={8}
+        anchor={anchor}
         className={cn("w-64", className)}
       >
         {search === undefined ? (
@@ -164,7 +219,12 @@ function MenuShell({
         )}
         {extra}
         <DropdownMenuSeparator />
-        <ApplyItem label={applyLabel} disabled={!staged} onApply={onApply} />
+        <ApplyItem
+          label={applyLabel}
+          disabled={!staged}
+          start={startOnApply}
+          onApply={onApply}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -175,15 +235,20 @@ function MenuShell({
 export function SelectionBarPickMenu<V extends string>({
   options,
   total,
+  suggested,
   onApply,
   ...shell
 }: MenuShellProps &
   Readonly<{
     options: ReadonlyArray<SelectionBarMenuOption<V>>
+    // The value it suggests for the selection, staged whenever it opens,
+    // and its row's note ("Suggested").
+    suggested?: Readonly<{ value: V; label: string }>
     onApply: (value: V) => void
   }>) {
   const shared = options.find((option) => option.count === total)?.value
-  const [staged, setStaged] = React.useState<V | null>(null)
+  const start = suggested?.value ?? null
+  const [staged, setStaged] = React.useState<V | null>(start)
   const change = staged !== null && staged !== shared ? staged : null
   return (
     <MenuShell
@@ -193,7 +258,8 @@ export function SelectionBarPickMenu<V extends string>({
       onApply={() => {
         if (change !== null) onApply(change)
       }}
-      onOpenChange={() => setStaged(null)}
+      startOnApply={start !== null}
+      onReset={() => setStaged(start)}
     >
       <DropdownMenuRadioGroup
         value={staged ?? shared ?? null}
@@ -210,6 +276,9 @@ export function SelectionBarPickMenu<V extends string>({
                 next={option.value === change ? total : option.count}
                 dim={change !== null && option.value !== change}
               />
+              {suggested?.value === option.value && (
+                <SuggestedNote label={suggested.label} />
+              )}
             </>
           )
         }))}
@@ -230,16 +299,20 @@ const stateOf = (count: number, total: number) =>
 export function SelectionBarToggleMenu<V extends string>({
   options,
   total,
+  suggested,
   onApply,
   ...shell
 }: MenuShellProps &
   Readonly<{
     options: ReadonlyArray<SelectionBarMenuOption<V>>
+    // The values it suggests adding (assign to me), staged whenever it
+    // opens, and their rows' note ("Suggested").
+    suggested?: Readonly<{ add: ReadonlyArray<V>; label: string }>
     onApply: (change: Readonly<{ add: Array<V>; remove: Array<V> }>) => void
   }>) {
-  const [staged, setStaged] = React.useState<ReadonlyMap<V, Toggle>>(
-    () => new Map()
-  )
+  const start = () =>
+    new Map<V, Toggle>((suggested?.add ?? []).map((value) => [value, "on"]))
+  const [staged, setStaged] = React.useState<ReadonlyMap<V, Toggle>>(start)
   const cycle = (option: SelectionBarMenuOption<V>) =>
     setStaged((current) => {
       const start = stateOf(option.count, total)
@@ -269,7 +342,7 @@ export function SelectionBarToggleMenu<V extends string>({
           )
         })
       }
-      onOpenChange={() => setStaged(new Map())}
+      onReset={() => setStaged(start())}
     >
       {options.map((option) => {
         const to = staged.get(option.value)
@@ -288,6 +361,9 @@ export function SelectionBarToggleMenu<V extends string>({
               now={option.count}
               next={to === undefined ? option.count : to === "on" ? total : 0}
             />
+            {suggested?.add.includes(option.value) === true && (
+              <SuggestedNote label={suggested.label} />
+            )}
           </DropdownMenuCheckboxItem>
         )
       })}

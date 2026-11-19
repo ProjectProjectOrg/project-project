@@ -80,6 +80,10 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "I",
     meta: { name: m.tickets_command_assign_me(), group: ticket }
   },
+  "tickets.selection-next": {
+    hotkey: "N",
+    meta: { name: m.tickets_selection_next_hotkey(), group: ticket }
+  },
   "tickets.priority": {
     hotkey: "P",
     meta: { name: m.tickets_command_set_priority(), group: ticket }
