@@ -1,10 +1,11 @@
-import type { TicketTextHit } from "@pp/shared"
+import type { TicketStatus, TicketTextHit } from "@pp/shared"
 
 import type { CommandFrameItem } from "@/features/command-menu/components/CommandFrame"
 
 export type TicketTarget = Readonly<{
   id: string
   title: string
+  status: TicketStatus
   projectSlug: string
   match?: TicketTextHit["match"]
   score?: number

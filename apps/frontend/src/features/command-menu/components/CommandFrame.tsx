@@ -41,6 +41,9 @@ export type CommandFrameItem = CommandMenuItemData &
     keywords?: ReadonlyArray<string>
     parent?: ReadonlyArray<string>
     prefix?: string
+    // Drawn in the icon's place when the row's icon isn't a plain glyph (a
+    // ticket's status, in its project's colour).
+    leading?: ReactNode
     aside?: ReactNode
     searchOnly?: boolean
     prefiltered?: boolean
