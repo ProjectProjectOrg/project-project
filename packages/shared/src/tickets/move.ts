@@ -1,6 +1,8 @@
 import * as Schema from "effect/Schema"
 
 import {
+  formatTicketMentionId,
+  parseTicketMentionId,
   rewriteTicketMentions,
   type TicketMentionTarget
 } from "../comments/mentions"
@@ -155,6 +157,17 @@ export const rewriteMentionsInMovedTicket = (
   rewriteTicketMentions(text, (target) =>
     relativeTo(
       afterMove(target, context, context.fromProject),
+      context.toProject
+    )
+  )
+
+export const movedTicketMentionTarget = (
+  target: string,
+  context: MoveMentionContext
+) =>
+  formatTicketMentionId(
+    relativeTo(
+      afterMove(parseTicketMentionId(target), context, context.fromProject),
       context.toProject
     )
   )

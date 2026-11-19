@@ -43,6 +43,7 @@ import {
   Forbidden,
   formatMovedFrom,
   planTicketMove,
+  movedTicketMentionTarget,
   rewriteMentionsInMovedTicket,
   rewriteMentionsOfMovedTickets,
   Slug,
@@ -1517,7 +1518,8 @@ const make = Effect.gen(function* () {
   const rehomeTicketRows = (
     source: TicketProject,
     destination: TicketProject,
-    moved: ReadonlyArray<MovedTicket>
+    moved: ReadonlyArray<MovedTicket>,
+    mentions: MoveMentionContext
   ) =>
     db
       .transaction(() =>
@@ -1544,9 +1546,13 @@ const make = Effect.gen(function* () {
                         eq(schema.attachmentIndex.ticketId, from)
                       )
                     )
-                  yield* db
-                    .update(schema.projectImportReference)
-                    .set(target)
+                  const tracked = yield* db
+                    .select({
+                      id: schema.projectImportReference.id,
+                      kind: schema.projectImportReference.kind,
+                      target: schema.projectImportReference.target
+                    })
+                    .from(schema.projectImportReference)
                     .where(
                       and(
                         eq(
@@ -1556,6 +1562,17 @@ const make = Effect.gen(function* () {
                         eq(schema.projectImportReference.ticketId, from)
                       )
                     )
+                  for (const row of tracked)
+                    yield* db
+                      .update(schema.projectImportReference)
+                      .set({
+                        ...target,
+                        target:
+                          row.kind === "ticket"
+                            ? movedTicketMentionTarget(row.target, mentions)
+                            : row.target
+                      })
+                      .where(eq(schema.projectImportReference.id, row.id))
                   yield* db
                     .delete(schema.attachmentReference)
                     .where(
@@ -1906,7 +1923,9 @@ const make = Effect.gen(function* () {
             (sourceId) => groups.removeTicketFromAllGroups(source, sourceId),
             { discard: true }
           ).pipe(
-            Effect.andThen(rehomeTicketRows(source, destination, moved)),
+            Effect.andThen(
+              rehomeTicketRows(source, destination, moved, mentions)
+            ),
             Effect.onError(() =>
               Effect.forEach(
                 created,
