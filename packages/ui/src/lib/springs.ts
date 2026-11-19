@@ -3,6 +3,7 @@ const standardEase = [0.22, 1, 0.36, 1] as const
 export const standardEaseCss = `cubic-bezier(${standardEase.join(", ")})`
 
 export const transitions = {
+  snap: { duration: 0.04, ease: standardEase },
   fade: { duration: 0.15, ease: standardEase },
   layout: { duration: 0.22, ease: standardEase },
   morph: { duration: 0.26, ease: standardEase },
@@ -10,16 +11,9 @@ export const transitions = {
   presence: { duration: 0.18, ease: standardEase }
 } as const
 
-// The one set of springs: snap, fast, moderate and slow, each with the
-// duration of its exit animation. Snap is for a highlight that follows the
-// pointer through menu rows, where anything slower trails behind it.
+// The one set of springs: fast, moderate and slow, each with the
+// duration of its exit animation.
 export const spring = {
-  snap: {
-    type: "spring" as const,
-    duration: 0.05,
-    bounce: 0,
-    exit: { duration: 0.05 }
-  },
   fast: {
     type: "spring" as const,
     duration: 0.08,

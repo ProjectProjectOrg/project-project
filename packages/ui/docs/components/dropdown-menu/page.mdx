@@ -156,7 +156,7 @@ A row's label is weight 450, a hair above body text, so short labels hold up on 
 
 ### Submenus open at once and fade out
 
-A submenu opens the moment the pointer reaches its row (`delay={0}`), and a closing one fades out over 80ms. Base UI keeps a popup mounted until its exit transition ends, so moving from one submenu row to the next never shows a frame without a submenu: the next one is already open while the last one fades. Escape and keyboard closes skip the fade (`data-instant`). The highlight glides between rows on `spring.snap` (50ms) so it never trails the pointer.
+A submenu opens once the pointer rests on its row for Base UI's default 100ms, so sweeping down a menu doesn't mount every submenu it passes. A closing one fades out over 80ms. Escape and keyboard closes skip the fade (`data-instant`). The highlight glides between rows on `transitions.snap` (40ms) so it never trails the pointer.
 
 ### A pick closes the menu as it was
 
