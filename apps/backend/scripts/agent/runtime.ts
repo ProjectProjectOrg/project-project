@@ -168,7 +168,7 @@ export async function runServers(
   await rm(stopper, { force: true })
   const port = await freePort()
   const backend = Bun.spawn(
-    [process.execPath, "--no-env-file", "apps/backend/src/main.ts"],
+    [process.execPath, "--no-env-file", "--watch", "apps/backend/src/main.ts"],
     {
       cwd: environment.worktree,
       env: { ...env, PORT: String(port), HOST: "127.0.0.1" },
