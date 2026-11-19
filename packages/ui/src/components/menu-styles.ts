@@ -5,9 +5,11 @@ import { createContext, use } from "react"
 // cards. --tooltip fill with the --tooltip-edge hairline and top light, no
 // border or drop shadow, so everything that floats reads as one family.
 // 19px squircle corners. It's a surface (theme.css), so fields and the
-// menu highlight inside step from the popup's fill.
+// menu highlight inside step from the popup's fill. The edge is drawn on a
+// layer above the content: as the popup's own inset shadow, a tinted child
+// (the composer's tray, cmd+k's list) would paint over it.
 export const popupSurfaceClass =
-  "z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+  "relative z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
 
 // Whether content sits inside a popup. Every popup provides it, and a popup
 // opened from inside one takes the raised fill (--tooltip-raised).
