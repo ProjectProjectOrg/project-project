@@ -47,22 +47,19 @@ export const chosenRow = (container: HTMLElement) =>
     ? firstOwned(container, CHOSEN_ROW)
     : undefined
 
-const contains = (element: HTMLElement, pointer: Point) => {
-  const box = element.getBoundingClientRect()
-  return (
-    pointer.x >= box.left &&
-    pointer.x <= box.right &&
-    pointer.y >= box.top &&
-    pointer.y <= box.bottom
-  )
-}
+const ownerOf = (element: Element) =>
+  element.closest("[data-menu-highlight-host]")
 
-const ownedAt = (container: HTMLElement, selector: string, pointer: Point) =>
-  Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
-    (row) =>
-      row.closest("[data-menu-highlight-host]") === container &&
-      contains(row, pointer)
-  )
+// The row under the pointer, from one hit test instead of measuring every
+// row. A submenu over the point hides this menu's rows, as it does on screen.
+const ownedAt = (
+  container: HTMLElement,
+  selector: string,
+  hit: Element | null
+) => {
+  const row = hit?.closest<HTMLElement>(selector)
+  return row && ownerOf(row) === container ? row : undefined
+}
 
 // Base UI ignores the pointer on a menu while one of its submenus is open,
 // and marks no row as highlighted until the pointer moves again after the
@@ -80,14 +77,16 @@ const measureHighlight = (
   restOnFirst: boolean,
   shown: boolean
 ) => {
-  if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
+  const hit =
+    pointer === null ? null : document.elementFromPoint(pointer.x, pointer.y)
+  if (ownedAt(container, NO_HIGHLIGHT, hit)) return null
   const active =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
       ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
-        (pointer === null ? undefined : ownedAt(container, MENU_ROW, pointer)))
+        ownedAt(container, MENU_ROW, hit))
       : undefined)
-  if (active === undefined && pointer !== null && contains(container, pointer))
+  if (active === undefined && hit !== null && ownerOf(hit) === container)
     return "hold" as const
   const resting =
     active === undefined
@@ -155,13 +154,9 @@ function observeHighlight(
     passive: true
   })
   measure(pointer)
-  // A row change is measured in the same frame Base UI marks it; only the
-  // pointer, which moves many times a frame, waits for the next one.
-  const mutations = new MutationObserver(() => {
-    cancelAnimationFrame(frame)
-    frame = 0
-    measure(pointer)
-  })
+  // Row changes come in bursts (Base UI marks rows and opens submenus in
+  // several steps), so they're measured once, in the frame they paint in.
+  const mutations = new MutationObserver(remeasure)
   mutations.observe(container, {
     subtree: true,
     childList: true,
@@ -196,24 +191,24 @@ function useHighlightRect(
     const container = anchorRef.current?.parentElement
     if (!container) return undefined
     let lit: HTMLElement | undefined
-    const stop = observeHighlight(container, (pointer) =>
-      setState((previous) => {
-        const next = measureHighlight(
-          container,
-          selector,
-          pointer,
-          restOnFirst,
-          previous.rect !== null
-        )
-        if (next === "hold") {
-          lit?.setAttribute(HELD, "")
-          return previous
-        }
-        lit?.removeAttribute(HELD)
-        lit = next?.element
-        return nextHighlight(previous, next?.rect ?? null)
-      })
-    )
+    // Measured outside setState: React runs updaters during render, where
+    // every layout read is a forced one.
+    const stop = observeHighlight(container, (pointer) => {
+      const next = measureHighlight(
+        container,
+        selector,
+        pointer,
+        restOnFirst,
+        lit !== undefined
+      )
+      if (next === "hold") {
+        lit?.setAttribute(HELD, "")
+        return
+      }
+      lit?.removeAttribute(HELD)
+      lit = next?.element
+      setState((previous) => nextHighlight(previous, next?.rect ?? null))
+    })
     return () => {
       stop()
       lit?.removeAttribute(HELD)
