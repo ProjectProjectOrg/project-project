@@ -45,7 +45,6 @@
   "sprints_command_complete": "Complete sprint",
   "sprints_command_copy_link": "Copy sprint link",
   "sprints_command_create": "Create sprint…",
-  "sprints_command_create_named": "Create sprint “{name}”",
   "sprints_command_create_ticket": "Create ticket in {name}…",
   "sprints_command_delete": "Delete sprint",
   "sprints_command_edit_goal": "Edit sprint goal",
