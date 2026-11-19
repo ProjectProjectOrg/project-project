@@ -34,7 +34,7 @@ const fieldTintClass =
 const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1 ${bareFieldStateClass}`
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
-  default: `border border-(--segment-line) bg-field focus-ring aria-invalid:border-destructive ${fieldTintClass}`,
+  default: `border border-(--field-line) bg-field focus-ring aria-invalid:border-destructive ${fieldTintClass}`,
   bare: bareFieldClass
 }
 
