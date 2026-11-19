@@ -18,6 +18,7 @@ import {
   type TicketPriority,
   type TicketParent,
   type TypeKey,
+  LEGACY_NO_TYPE,
   NO_TYPE_FILTER,
   ESTIMATE_SIZES,
   EPIC_SECTION_NONE,
@@ -836,7 +837,10 @@ const notEpic = drizzleSql`${ticketIndex.type} is distinct from ${EPIC_TYPE}`
 const typeCondition = (types: ReadonlyArray<TypeFilter>) => {
   const keys = types.flatMap((type) => (type === NO_TYPE_FILTER ? [] : [type]))
   const conditions: Array<SQL> = []
-  if (types.includes(NO_TYPE_FILTER)) conditions.push(isNull(ticketIndex.type))
+  if (types.includes(NO_TYPE_FILTER))
+    conditions.push(
+      drizzleSql`(${ticketIndex.type} is null or ${ticketIndex.type} = ${LEGACY_NO_TYPE})`
+    )
   if (keys.length > 0) conditions.push(inArray(ticketIndex.type, keys))
   return or(...conditions) ?? drizzleSql`false`
 }
@@ -1123,7 +1127,7 @@ const make = Effect.gen(function* () {
     id: makeTicketId(row.ticketId),
     title: row.title,
     status: TicketStatus.make(row.status),
-    type: row.type,
+    type: row.type === LEGACY_NO_TYPE ? null : row.type,
     priority: row.priority,
     rank: TicketRank.make(row.rank),
     estimate: estimateFromIndex(row.estimateUnit, row.estimateValue),
@@ -1147,7 +1151,7 @@ const make = Effect.gen(function* () {
         : {
             id: makeTicketId(row.parent),
             title: row.parentTitle,
-            type: row.parentType
+            type: row.parentType === LEGACY_NO_TYPE ? null : row.parentType
           },
     subTicketCount: row.subTicketCount,
     subTicketDoneCount: row.subTicketDoneCount,

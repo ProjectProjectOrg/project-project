@@ -134,6 +134,9 @@ export const projectIndex = pgTable(
       .notNull()
       .default("off"),
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
+    ticketTypesMigrated: boolean("ticket_types_migrated")
+      .notNull()
+      .default(false),
     gitAutomationForwardOnly: boolean("git_automation_forward_only")
       .notNull()
       .default(true),

@@ -1,0 +1,48 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "02829340-d9aa-48f8-b838-45aac84208e0",
+  "prevIds": [
+    "bc9da250-0175-4eb2-9449-0d0b5e4fd584",
+    "e5cbd2e3-377d-4c71-b648-1d200c66b876"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_index",
+        "ticket_types_migrated"
+      ],
+      "writes": [
+        "s|col|public.project_index.ticket_types_migrated",
+        "n|col|public.project_index.ticket_types_migrated",
+        "e|col|public.project_index.ticket_types_migrated"
+      ],
+      "reads": [
+        "n|tbl|public.project_index",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_index",
+        "name": "ticket_types_migrated",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

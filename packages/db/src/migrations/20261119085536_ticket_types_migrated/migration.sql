@@ -1,0 +1,1 @@
+ALTER TABLE "project_index" ADD COLUMN "ticket_types_migrated" boolean DEFAULT false NOT NULL;
