@@ -369,14 +369,14 @@ function Button({
     <LeadingIcon
       size={iconSize}
       strokeWidth={1.5}
-      className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+      className="shrink-0 transition-[stroke-width] duration-80 group-hover:stroke-[2]"
     />
   )
   const trailingIconNode = TrailingIcon && (
     <TrailingIcon
       size={iconSize}
       strokeWidth={1.5}
-      className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+      className="shrink-0 transition-[stroke-width] duration-80 group-hover:stroke-[2]"
     />
   )
 

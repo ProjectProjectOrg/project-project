@@ -323,7 +323,6 @@ export function CommandFrame({
           )}
         >
           <CommandMenuList
-            className="min-h-0 flex-1"
             renderItem={(item) => {
               if (renderItem) return renderItem(item, numbers.get(item.value))
               const decoration = decorations.get(item.value)
@@ -373,12 +372,16 @@ function CommandFrameEmpty({
   action
 }: CommandEmpty) {
   return (
-    <Empty intensity="subtle" animated={false} className="m-1.5 min-h-56">
+    <Empty
+      intensity="subtle"
+      animated={false}
+      className="m-1.5 min-h-56 flex-1"
+    >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon strokeWidth={1.75} />
         </EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyTitle className="line-clamp-2">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       {action !== undefined && (
@@ -389,8 +392,9 @@ function CommandFrameEmpty({
             size="sm"
             leadingIcon={action.icon}
             onClick={action.run}
+            className="max-w-full"
           >
-            {action.label}
+            <span className="truncate">{action.label}</span>
           </Button>
         </EmptyContent>
       )}
