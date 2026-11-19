@@ -34,16 +34,25 @@ const clear = () => {
   pressedByCode.clear()
 }
 
-// A character typed into a text field is text, not a shortcut.
-export const typesText = (event: KeyboardEvent) =>
-  event.key.length === 1 &&
-  !event.metaKey &&
-  !event.ctrlKey &&
-  !event.altKey &&
-  event.target instanceof HTMLElement &&
-  (event.target.isContentEditable ||
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLTextAreaElement)
+const fieldText = (target: EventTarget | null) => {
+  if (target instanceof HTMLInputElement) return target.value
+  if (target instanceof HTMLTextAreaElement) return target.value
+  if (target instanceof HTMLElement && target.isContentEditable)
+    return target.textContent ?? ""
+  return null
+}
+
+// A character typed into a text field is text, not a shortcut, and so is
+// deleting from one that has text (Backspace on an empty field is a
+// shortcut: cmd+k's ticket chip).
+export const typesText = (event: KeyboardEvent) => {
+  const text = fieldText(event.target)
+  if (text === null) return false
+  if (event.key === "Backspace" || event.key === "Delete") return text !== ""
+  return (
+    event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey
+  )
+}
 
 const onKeyDown = (event: KeyboardEvent) => {
   if (event.repeat || typesText(event)) return
