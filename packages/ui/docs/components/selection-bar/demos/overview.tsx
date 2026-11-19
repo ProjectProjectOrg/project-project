@@ -1,450 +1,230 @@
-import { Flag, MoreHorizontal, Tag, User, Zap } from "@pp/ui/icons"
-import { ListHoverScope, listGridClassName } from "@pp/ui/list-row"
-import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
+import { Button } from "@pp/ui/button"
+import { Checkbox } from "@pp/ui/checkbox"
+import { Guide } from "@pp/ui/guide"
+import { ItemLink } from "@pp/ui/item-link"
+import { KbdShortcut } from "@pp/ui/kbd"
+import {
+  ListHoverScope,
+  ListRow,
+  ListRowTitle,
+  listGridClassName
+} from "@pp/ui/list-row"
 import {
   SelectionBar,
   SelectionBarField,
-  SelectionBarSeparator,
-  SelectionBarStack
+  SelectionBarSeparator
 } from "@pp/ui/selection-bar"
-import {
-  SelectionBarPickMenu,
-  SelectionBarToggleMenu
-} from "@pp/ui/selection-bar-menu"
-import { Switch } from "@pp/ui/switch"
+import { TicketKey } from "@pp/ui/ticket-key"
 import { AnimatePresence } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 
-import { Row } from "../../list-row/demos/parts/row"
+import { STATUS } from "../../list-row/demos/parts/tickets"
+import type { DemoTicket } from "./parts/backlog"
 import {
-  PRIORITY,
-  STATUS,
-  type Status
-} from "../../list-row/demos/parts/tickets"
-import {
-  countOf,
-  PEOPLE,
-  plural,
-  PRIORITIES,
-  SPRINTS,
-  sprintSummary,
-  STATUSES,
-  TAGS,
-  TICKETS,
-  type DemoTicket
-} from "./parts/backlog"
+  FIELD_KEYS,
+  KEY_LABELS,
+  SUGGESTION_KEYS,
+  useBarKeys,
+  type Field
+} from "./parts/keys"
+import { useListLab, useRowMenus, type ListLab } from "./parts/row-menus"
 
-type Outcome =
-  | Readonly<{
-      tone: "success"
-      count: number
-      before: ReadonlyArray<DemoTicket>
-    }>
-  | Readonly<{ tone: "error"; count: number; retry: () => void }>
-  | Readonly<{ tone: "pending"; count: number }>
+type Opened = Readonly<{ row: string; field: Field }> | null
 
-// How long the demo's requests take, so the pending state shows.
-const LATENCY_MS = 700
-
-// The backlog's rows (the List row page's own), and the bar that rises
-// with the selection. Each field opens a menu that says how many of the
-// selection have each value; picks are staged until Apply. In a narrow
-// window the fields fold to their icons, and wrap when even those don't fit.
-// Turn on "Fail requests" to see a change fail, and Retry or Cancel it.
+// The rows are the toolbar. With tickets selected (the four In progress
+// start selected), a selected row's status, priority, assignee, sprint or
+// labels change every selected ticket: chip, then value, right where you'd
+// change one. Hovering a property lights it on every selected row, and its
+// menu says how many tickets it changes. The keys (S, A, P, ⇧S, T) open the
+// menu on the row under the pointer. The bar says how many, suggests the
+// next step (N), and opens Actions (⌘K) for the rest. "Show the guide"
+// plays the guide that teaches it.
 export default function Overview() {
-  const [rows, setRows] = useState<ReadonlyArray<DemoTicket>>(TICKETS)
-  const [picked, setPicked] = useState<ReadonlySet<string>>(
-    () => new Set(TICKETS.slice(1, 4).map((row) => row.id))
-  )
-  // What the last Apply did: it landed (Undo for six seconds), or, with
-  // "Fail requests" on, it failed (Retry, Cancel).
-  const [outcome, setOutcome] = useState<Outcome | null>(null)
-  const [fail, setFail] = useState(false)
-  // Read at the moment a request goes out, so a Retry after switching it
-  // off goes through.
-  const failing = useRef(false)
-  useEffect(() => {
-    if (outcome?.tone !== "success") return undefined
-    const timer = window.setTimeout(() => setOutcome(null), 6000)
-    return () => window.clearTimeout(timer)
-  }, [outcome])
-
-  const selected = rows.filter((row) => picked.has(row.id))
-  const total = selected.length
-  // A new selection is a new question: the last result makes way for it.
-  const toggle = (id: string) => (on: boolean) => {
-    setOutcome(null)
-    setPicked((current) => {
-      const next = new Set(current)
-      if (on) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }
-  // The bar says it's working at once; the request answers a moment later.
-  const edit = (change: (row: DemoTicket) => DemoTicket) => {
-    setOutcome({ tone: "pending", count: total })
-    window.setTimeout(() => {
-      if (failing.current) {
-        setOutcome({
-          tone: "error",
-          // Some of them went through on a real failure; say how many didn't.
-          count: Math.max(1, Math.ceil(total / 2)),
-          retry: () => edit(change)
-        })
-        return
-      }
-      setOutcome({ tone: "success", count: total, before: rows })
-      setRows((current) =>
-        current.map((row) => (picked.has(row.id) ? change(row) : row))
-      )
-    }, LATENCY_MS)
-  }
-  const applyLabel = `Apply to ${plural(total, "ticket", "tickets")}`
-
-  const statuses = countOf(selected, (row) => row.status)
-  const priorities = countOf(selected, (row) => row.priority)
-  const assignees = countOf(selected, (row) => row.assignee?.id ?? "none")
-  const sprints = countOf(selected, (row) => row.sprint ?? "none")
-  const tagCounts = new Map<string, number>()
-  for (const tag of selected.flatMap((row) => row.tags ?? []))
-    tagCounts.set(tag.name, (tagCounts.get(tag.name) ?? 0) + 1)
-  const sharedStatus = STATUSES.find((status) => statuses.get(status) === total)
-  const sharedPriority = PRIORITIES.find(
-    (priority) => priorities.get(priority) === total
-  )
-  const people = PEOPLE.filter((person) => assignees.has(person.id))
-  const sharedPerson = assignees.size === 1 ? (people[0] ?? null) : undefined
-  const named = SPRINTS.filter((sprint) => sprints.has(sprint))
-  const heldTags = TAGS.filter((tag) => tagCounts.has(tag.name))
-  const sameTags = heldTags.every((tag) => tagCounts.get(tag.name) === total)
-
+  const lab = useListLab()
+  const [opened, setOpened] = useState<Opened>(null)
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [lit, setLit] = useState<Field | null>(null)
+  const [guide, setGuide] = useState(false)
+  const list = useRef<HTMLDivElement>(null)
+  const count = lab.selected.length
+  const shown =
+    lit ?? (opened !== null && lab.picked.has(opened.row) ? opened.field : null)
+  useBarKeys((keys) => {
+    if (count === 0) return false
+    if (keys === SUGGESTION_KEYS && lab.nextStatus !== undefined) {
+      lab.applyNext()
+      return true
+    }
+    const field = FIELD_KEYS[keys]
+    if (field === undefined) return false
+    const row =
+      hovered !== null && lab.picked.has(hovered)
+        ? hovered
+        : lab.selected[0]?.id
+    if (row === undefined) return false
+    setOpened({ row, field })
+    return true
+  })
+  const next = lab.nextStatus
   return (
     <div
       className="w-full rounded-xl bg-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
-      <div className="mb-3 flex items-center gap-2 px-1 text-caption text-muted-foreground">
-        <Switch
-          aria-label="Fail requests"
-          checked={fail}
-          onCheckedChange={(next) => {
-            failing.current = next
-            setFail(next)
-          }}
-        />
-        <span aria-hidden>Fail requests</span>
+      <div className="mb-2 flex px-1">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={count < 2}
+          onClick={() => setGuide(true)}
+        >
+          Show the guide
+        </Button>
       </div>
-      <ListHoverScope className={listGridClassName}>
-        {rows.map((row) => (
-          <Row
-            key={row.id}
-            ticket={row}
-            selected={picked.has(row.id)}
-            onSelect={toggle(row.id)}
-          />
-        ))}
-      </ListHoverScope>
+      <div ref={list}>
+        <ListHoverScope className={listGridClassName}>
+          {lab.rows.map((row) => (
+            <MenuRow
+              key={row.id}
+              row={row}
+              lab={lab}
+              open={opened?.row === row.id ? opened.field : null}
+              setOpen={(field) =>
+                setOpened(field === null ? null : { row: row.id, field })
+              }
+              onHover={() => setHovered(row.id)}
+              lit={shown}
+              onLight={setLit}
+            />
+          ))}
+        </ListHoverScope>
+      </div>
       <AnimatePresence>
-        {total > 0 && (
+        {count > 0 && (
           <SelectionBar
-            label={`Actions for ${total} selected tickets`}
-            count={`${total} selected`}
+            label={`Actions for ${count} selected tickets`}
+            count={`${count} selected`}
             clearLabel="Clear selection"
-            onClear={() => setPicked(new Set())}
+            onClear={lab.clear}
             selectAll={
-              total < rows.length
+              count < lab.rows.length
                 ? {
-                    label: `Select all ${rows.length}`,
-                    onSelect: () =>
-                      setPicked(new Set(rows.map((row) => row.id)))
+                    label: `Select all ${lab.rows.length}`,
+                    onSelect: lab.selectAll
                   }
                 : undefined
             }
-            result={
-              outcome?.tone === "pending"
-                ? {
-                    tone: "pending",
-                    message: `Updating ${plural(outcome.count, "ticket", "tickets")}…`,
-                    actions: []
-                  }
-                : outcome?.tone === "success"
-                  ? {
-                      tone: "success",
-                      message: `Updated ${plural(outcome.count, "ticket", "tickets")}`,
-                      actions: [
-                        {
-                          label: "Undo",
-                          onClick: () => {
-                            setRows(outcome.before)
-                            setOutcome(null)
-                          }
-                        }
-                      ]
-                    }
-                  : outcome?.tone === "error"
-                    ? {
-                        tone: "error",
-                        message: `Couldn't update ${plural(outcome.count, "ticket", "tickets")}`,
-                        actions: [
-                          { label: "Retry", onClick: outcome.retry },
-                          { label: "Cancel", onClick: () => setOutcome(null) }
-                        ]
-                      }
-                    : undefined
-            }
+            result={lab.result}
           >
-            <SelectionBarPickMenu
-              total={total}
-              applyLabel={applyLabel}
-              options={STATUSES.map((status) => ({
-                value: status,
-                textValue: STATUS[status].label,
-                count: statuses.get(status) ?? 0,
-                icon: <StatusIcon status={status} />
-              }))}
-              onApply={(status) => edit((row) => ({ ...row, status }))}
-              trigger={
+            {next !== undefined && (
+              <>
                 <SelectionBarField
-                  name="Status"
-                  icon={
-                    <SelectionBarStack>
-                      {STATUSES.filter((status) => statuses.has(status)).map(
-                        (status) => {
-                          const meta = STATUS[status]
-                          return (
-                            <meta.icon
-                              key={status}
-                              className={meta.className}
-                            />
-                          )
-                        }
-                      )}
-                    </SelectionBarStack>
+                  name="Suggested"
+                  icon={<StatusIcon status={next} />}
+                  value={`Move to ${STATUS[next].label}`}
+                  aria-keyshortcuts={SUGGESTION_KEYS}
+                  shortcut={
+                    <KbdShortcut
+                      size="sm"
+                      keys={SUGGESTION_KEYS}
+                      keyLabels={KEY_LABELS}
+                    />
                   }
-                  value={
-                    sharedStatus
-                      ? STATUS[sharedStatus].label
-                      : plural(statuses.size, "status", "statuses")
-                  }
-                  mixed={sharedStatus === undefined}
+                  onClick={lab.applyNext}
                 />
+                <SelectionBarSeparator />
+              </>
+            )}
+            <SelectionBarField
+              name="Actions"
+              value="Actions"
+              aria-keyshortcuts="Meta+K"
+              shortcut={
+                <KbdShortcut size="sm" keys="Mod+K" keyLabels={KEY_LABELS} />
               }
             />
-            <SelectionBarPickMenu
-              total={total}
-              applyLabel={applyLabel}
-              options={[
-                ...PEOPLE.map((person) => ({
-                  value: person.id,
-                  textValue: person.name,
-                  count: assignees.get(person.id) ?? 0,
-                  icon: <MemberAvatar member={person} size={16} />
-                })),
-                {
-                  value: "none",
-                  textValue: "Unassigned",
-                  count: assignees.get("none") ?? 0,
-                  icon: <User />
-                }
-              ]}
-              onApply={(id) =>
-                edit((row) => ({
-                  ...row,
-                  assignee: PEOPLE.find((person) => person.id === id)
-                }))
-              }
-              trigger={
-                <SelectionBarField
-                  name="Assignee"
-                  icon={
-                    <SelectionBarStack>
-                      {people.length > 0 && (
-                        <AvatarStack
-                          key="people"
-                          subjects={people}
-                          size={16}
-                          max={3}
-                          overlap={4}
-                          animated
-                          countTooltip={false}
-                        />
-                      )}
-                      {assignees.has("none") && (
-                        <User
-                          key="nobody"
-                          className={
-                            people.length > 0
-                              ? "text-muted-foreground"
-                              : undefined
-                          }
-                        />
-                      )}
-                    </SelectionBarStack>
-                  }
-                  value={
-                    sharedPerson === undefined
-                      ? plural(assignees.size, "assignee", "assignees")
-                      : (sharedPerson?.name ?? "Unassigned")
-                  }
-                  mixed={sharedPerson === undefined}
-                />
-              }
-            />
-            <SelectionBarPickMenu
-              total={total}
-              applyLabel={applyLabel}
-              options={PRIORITIES.map((priority) => {
-                const meta = PRIORITY[priority]
-                return {
-                  value: priority,
-                  textValue: meta.label,
-                  count: priorities.get(priority) ?? 0,
-                  icon: <meta.icon className={meta.className} />
-                }
-              })}
-              onApply={(priority) => edit((row) => ({ ...row, priority }))}
-              trigger={
-                <SelectionBarField
-                  name="Priority"
-                  icon={
-                    <SelectionBarStack>
-                      {PRIORITIES.filter((priority) =>
-                        priorities.has(priority)
-                      ).map((priority) => {
-                        const meta = PRIORITY[priority]
-                        return (
-                          <meta.icon
-                            key={priority}
-                            className={meta.className}
-                          />
-                        )
-                      })}
-                    </SelectionBarStack>
-                  }
-                  value={
-                    sharedPriority
-                      ? PRIORITY[sharedPriority].label
-                      : plural(priorities.size, "priority", "priorities")
-                  }
-                  mixed={sharedPriority === undefined}
-                />
-              }
-            />
-            <SelectionBarPickMenu
-              total={total}
-              applyLabel={applyLabel}
-              options={[
-                ...SPRINTS.map((sprint) => ({
-                  value: sprint,
-                  textValue: sprint,
-                  count: sprints.get(sprint) ?? 0,
-                  icon: <Flag className="text-state-info" />
-                })),
-                {
-                  value: "none",
-                  textValue: "No sprint",
-                  count: sprints.get("none") ?? 0,
-                  icon: <Zap />
-                }
-              ]}
-              onApply={(sprint) =>
-                edit(({ sprint: _, ...row }) =>
-                  sprint === "none" ? row : { ...row, sprint }
-                )
-              }
-              trigger={
-                <SelectionBarField
-                  name="Sprint"
-                  icon={
-                    <SelectionBarStack>
-                      {named.length === 1 && sprints.size === 1 ? (
-                        <Flag key={named[0]} className="text-state-info" />
-                      ) : (
-                        <Zap key="sprints" />
-                      )}
-                    </SelectionBarStack>
-                  }
-                  value={
-                    sprints.has("none") && named.length > 0
-                      ? `${sprintSummary(named)}, none`
-                      : sprintSummary(named)
-                  }
-                  mixed={sprints.size > 1}
-                />
-              }
-            />
-            <SelectionBarToggleMenu
-              total={total}
-              applyLabel={applyLabel}
-              search={{
-                placeholder: "Search labels",
-                empty: "No labels match"
-              }}
-              options={TAGS.map((tag) => ({
-                value: tag.name,
-                textValue: tag.name,
-                count: tagCounts.get(tag.name) ?? 0,
-                icon: (
-                  <span
-                    aria-hidden
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: tag.color }}
-                  />
-                )
-              }))}
-              onApply={({ add, remove }) =>
-                edit((row) => {
-                  const kept = (row.tags ?? []).filter(
-                    (tag) => !remove.includes(tag.name)
-                  )
-                  const added = TAGS.filter(
-                    (tag) =>
-                      add.includes(tag.name) &&
-                      !kept.some((each) => each.name === tag.name)
-                  )
-                  return { ...row, tags: [...kept, ...added] }
-                })
-              }
-              trigger={
-                <SelectionBarField
-                  name="Labels"
-                  icon={
-                    <SelectionBarStack>
-                      {heldTags.length === 0 ? (
-                        <Tag key="none" />
-                      ) : (
-                        heldTags.map((tag) => (
-                          <span
-                            key={tag.name}
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: tag.color }}
-                          />
-                        ))
-                      )}
-                    </SelectionBarStack>
-                  }
-                  value={
-                    heldTags.length === 0
-                      ? "No labels"
-                      : sameTags
-                        ? heldTags.map((tag) => tag.name).join(", ")
-                        : plural(heldTags.length, "label", "labels")
-                  }
-                  mixed={!sameTags}
-                />
-              }
-            />
-            <SelectionBarSeparator />
-            <SelectionBarField name="More actions" icon={<MoreHorizontal />} />
           </SelectionBar>
         )}
       </AnimatePresence>
+      <Guide
+        open={guide && count > 1}
+        onClose={() => setGuide(false)}
+        target={() => {
+          const first = lab.selected[0]
+          return first === undefined
+            ? null
+            : list.current?.querySelector(`[data-row="${first.id}"]`)
+        }}
+        title={`Edit all ${count} tickets at once`}
+        doneLabel="Got it"
+      >
+        Change the status, priority, assignee, sprint or labels on any
+        selected row, and every selected ticket gets the same change. Hover a
+        field first to see which tickets it will change.
+      </Guide>
     </div>
   )
 }
 
-function StatusIcon({ status }: Readonly<{ status: Status }>) {
+function StatusIcon({ status }: Readonly<{ status: DemoTicket["status"] }>) {
   const meta = STATUS[status]
   return <meta.icon className={meta.className} />
+}
+
+function MenuRow({
+  row,
+  lab,
+  open,
+  setOpen,
+  onHover,
+  lit,
+  onLight
+}: Readonly<{
+  row: DemoTicket
+  lab: ListLab
+  open: Field | null
+  setOpen: (field: Field | null) => void
+  onHover: () => void
+  lit: Field | null
+  onLight: (field: Field | null) => void
+}>) {
+  const menus = useRowMenus(lab, row, open, setOpen, lit, onLight)
+  const selected = lab.picked.has(row.id)
+  return (
+    <div onPointerEnter={onHover} className="contents">
+      <ListRow
+        data-row={row.id}
+        selected={selected}
+        link={
+          <ItemLink
+            href={`#${row.id}`}
+            aria-label={`${row.id} ${row.title}`}
+            onClick={(event) => event.preventDefault()}
+          />
+        }
+        lead={
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(checked) => lab.toggle(row.id, checked)}
+            aria-label={`Select ${row.id}`}
+            variant="quiet"
+            className="opacity-0 group-hover/reveal:opacity-100 data-checked:opacity-100"
+          />
+        }
+        status={menus.status}
+        priority={menus.priority}
+        ticketKey={
+          <TicketKey value={row.id} className="min-w-(--ticket-key-width)" />
+        }
+        title={<ListRowTitle>{row.title}</ListRowTitle>}
+        trailing={
+          <>
+            {menus.labels}
+            {menus.sprint}
+          </>
+        }
+        assignee={menus.assignee}
+      />
+    </div>
+  )
 }

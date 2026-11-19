@@ -10,8 +10,8 @@ import {
 
 /*
  * The selection bar demo's backlog: twelve tickets with a bit of
- * everything, to push the stacks past their four icons (and the avatars
- * past three), and the helpers that summarise a selection of them.
+ * everything, so every menu has several values to count, and the helpers
+ * that count a selection of them.
  */
 
 export const STATUSES: ReadonlyArray<Status> = [
@@ -124,18 +124,6 @@ export const TICKETS: ReadonlyArray<DemoTicket> = [
     assignee: PEOPLE[0]
   }
 ]
-
-// Sprints read as one name when they share its start: "Sprint 24, 25".
-export function sprintSummary(names: ReadonlyArray<string>) {
-  const [first, ...rest] = names
-  if (first === undefined) return "No sprint"
-  if (rest.length === 0) return first
-  const prefix = first.split(" ").slice(0, -1).join(" ")
-  const shared = rest.every((name) => name.startsWith(`${prefix} `))
-  return prefix && shared
-    ? `${prefix} ${names.map((name) => name.slice(prefix.length + 1)).join(", ")}`
-    : names.join(", ")
-}
 
 export const countOf = <T,>(
   rows: ReadonlyArray<DemoTicket>,

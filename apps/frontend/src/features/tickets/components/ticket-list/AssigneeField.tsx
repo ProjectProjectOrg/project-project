@@ -110,7 +110,7 @@ function TriggerVisual({
 // focus or open menu, so empty tickets don't fill the column with
 // placeholders.
 const emptyRevealClass = {
-  row: "opacity-0 motion-safe:duration-(--highlight-glide) not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 in-data-keyboard-navigation:duration-0!",
+  row: "opacity-0 motion-safe:duration-(--highlight-glide) in-data-[row-selected]:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 in-data-keyboard-navigation:duration-0!",
   card: "opacity-0 not-in-data-keyboard-navigation:group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 in-data-keyboard-navigation:duration-0!"
 }
 

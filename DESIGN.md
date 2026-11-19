@@ -207,6 +207,8 @@ Hover, pressed, and the secondary button are **translucent overlays**, not opaqu
 
 - **Hover** (`--hover`, 4% black / 6% white; pressed `--active` 7% / 12%): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
 - **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%, with `--chip-sheen` (a top light) and `--chip-edge` (the `--kbd-glow` bottom edge) on top): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `chipClassName({ kind: "label" })`. Data chips (icon and value) stay unfilled and light up the same way on hover. Corners at half the height in `--button-corner`, like the Badge.
+- **Guide scrim** (`--guide-scrim`, 14% near-black / 40% black, under a 3px blur): what a Guide lays over everything but its spotlight; the spotlight gets the 2px `--ring`.
+- **Suggested fill** (`--suggested-fill`): the flag's warm tone at 22% / 14%, under a selection bar field that has a suggestion (with a dot in `--state-warning`); its menu opens with the suggestion staged.
 - **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
 - **Field hover and focus** (`--field-hover` 4.5% / 6%, `--field-focus` 2.5% / 3.5%): every bordered field: Input and InputGroup, Select and other `field` buttons (over their `--field` fill, as an inset shadow). About a 0.03–0.06 lightness step, enough to read next to borders and text; focus (or an open picker) is lighter, so it reads as "you are here".

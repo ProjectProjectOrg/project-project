@@ -17,7 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { ChevronRight, Layers } from "@pp/ui/icons"
+import { ChevronRight, Layers, Tag } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
@@ -230,16 +230,38 @@ export function TagChips({
   names,
   onPatch,
   max,
-  collapse = false
+  collapse = false,
+  placeholder
 }: Readonly<{
   names: Ticket["tags"]
   onPatch?: (patch: TicketEdit) => void
   max?: number
   collapse?: boolean
+  // With no labels, an empty chip that adds one ("Label"): a selected row
+  // shows every field, so you can see where each goes.
+  placeholder?: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
-  if (names.length === 0) return null
+  if (names.length === 0)
+    return placeholder !== undefined && onPatch ? (
+      <TagChipMenu applied={names} onPatch={onPatch}>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className={chipClassName({
+                interaction: "press",
+                className: "gap-1 text-muted-foreground"
+              })}
+            />
+          }
+        >
+          <Tag className="size-3 shrink-0" strokeWidth={1.75} />
+          {placeholder}
+        </DropdownMenuTrigger>
+      </TagChipMenu>
+    ) : null
   const colors = new Map(
     Result.isSuccess(tags) ? tags.value.map((tag) => [tag.name, tag.color]) : []
   )

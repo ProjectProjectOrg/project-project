@@ -10,7 +10,14 @@ import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { type ComponentProps, memo, use, useRef, useState } from "react"
+import {
+  type ComponentProps,
+  type ReactNode,
+  memo,
+  use,
+  useRef,
+  useState
+} from "react"
 
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
@@ -105,6 +112,9 @@ function RowImpl({
     selectionActions.count > 1
       ? sharedTicketFields(selectionActions.selectedTickets)
       : null
+  // Selected with others: the row shows every field (empty ones as a
+  // placeholder) and its fields change them all.
+  const acting = selection?.selected === true && selectionActions.count > 1
   const onPatch = (edit: TicketEdit) => {
     if (!selectionActions.patch(edit)) patchRow(edit)
   }
@@ -112,6 +122,8 @@ function RowImpl({
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
       data-ticket-id={ticket.id}
+      // Selected with others: its fields change them all (selectionKeys).
+      data-row-selected={acting ? "" : undefined}
       {...pointAt}
     >
       <DeferredDropdownMenus>
@@ -163,24 +175,28 @@ function RowImpl({
                 )
               }
               status={
-                <StatusButton
-                  ticket={ticket}
-                  selected={
-                    shared === null ? undefined : (shared.status ?? null)
-                  }
-                  stopPropagation
-                  onPatch={onPatch}
-                />
+                <RowField name="status">
+                  <StatusButton
+                    ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.status ?? null)
+                    }
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </RowField>
               }
               priority={
-                <PriorityButton
-                  ticket={ticket}
-                  selected={
-                    shared === null ? undefined : (shared.priority ?? null)
-                  }
-                  stopPropagation
-                  onPatch={onPatch}
-                />
+                <RowField name="priority">
+                  <PriorityButton
+                    ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.priority ?? null)
+                    }
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </RowField>
               }
               ticketKey={
                 <TicketKey
@@ -240,10 +256,16 @@ function RowImpl({
                 <>
                   <UpdateFailureMarker update={update(ticket.id)} />
                   {shows("tags") && (
-                    <span className="flex items-center gap-1.5 *:max-w-32 empty:hidden">
+                    <span
+                      data-row-field="labels"
+                      className="flex items-center gap-1.5 *:max-w-32 empty:hidden"
+                    >
                       <TagChips
                         names={ticket.tags}
                         onPatch={editable ? onPatch : undefined}
+                        placeholder={
+                          acting ? m.tickets_row_add_label() : undefined
+                        }
                         max={3}
                         collapse
                       />
@@ -268,8 +290,17 @@ function RowImpl({
                     />
                   </span>
                   {showSprint && shows("sprint") && (
-                    <fieldset disabled={!editable} className="contents">
-                      <RowSprint ticketId={ticket.id} />
+                    <fieldset
+                      disabled={!editable}
+                      data-row-field="sprint"
+                      className="contents"
+                    >
+                      <RowSprint
+                        ticketId={ticket.id}
+                        placeholder={
+                          acting ? m.tickets_row_add_sprint() : undefined
+                        }
+                      />
                     </fieldset>
                   )}
                 </>
@@ -286,11 +317,13 @@ function RowImpl({
               }
               assignee={
                 shows("assignee") && (
-                  <AssigneeField
-                    ticket={ticket}
-                    members={members}
-                    onPatch={onPatch}
-                  />
+                  <RowField name="assignee">
+                    <AssigneeField
+                      ticket={ticket}
+                      members={members}
+                      onPatch={onPatch}
+                    />
+                  </RowField>
                 )
               }
             />
@@ -327,7 +360,7 @@ function RowCheckbox({
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
       variant="quiet"
-      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
+      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] data-checked:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100"
     />
   )
 }
@@ -336,7 +369,10 @@ const withShift = (event: Event) =>
   (event instanceof MouseEvent || event instanceof KeyboardEvent) &&
   event.shiftKey
 
-function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
+function RowSprint({
+  ticketId,
+  placeholder
+}: Readonly<{ ticketId: TicketId; placeholder?: string }>) {
   const { orgSlug, slug } = useProjectRoute()
   const membership = useAtomValue(
     sprintMembership(sprintListRequest(orgSlug, slug))
@@ -347,6 +383,7 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
       variant="responsive"
       ticketId={ticketId}
       membership={membership.value.get(ticketId) ?? null}
+      placeholder={placeholder}
     />
   )
 }
@@ -366,3 +403,16 @@ const sameRowProps = (previous: RowProps, next: RowProps) => {
 }
 
 export const Row = memo(RowImpl, sameRowProps)
+
+// A row field the selection's keys (S, A, P, ⇧S, T) can open, and whose
+// hover lights the same field on every selected row (selectionKeys).
+function RowField({
+  name,
+  children
+}: Readonly<{ name: string; children: ReactNode }>) {
+  return (
+    <span data-row-field={name} className="contents">
+      {children}
+    </span>
+  )
+}
