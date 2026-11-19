@@ -141,6 +141,7 @@ export function TicketComposer({
 
   const typeAddon = (
     <CreatorTypeMenu
+      key="type"
       type={type}
       lastUsed={creatorType.lastUsed}
       epics={epics}
@@ -153,6 +154,7 @@ export function TicketComposer({
   const sprintAddon =
     hasSprints && !isEpicType(type) ? (
       <CreatorSprintMenu
+        key="sprint"
         sprints={sprints}
         selected={selectedSprint}
         onSelectedChange={setPickedSprint}

@@ -295,6 +295,7 @@ export function SprintTicketCreator({
 
   const typeAddon = (
     <CreatorTypeMenu
+      key="type"
       type={creatorType.type}
       lastUsed={creatorType.lastUsed}
       epics={false}
