@@ -319,7 +319,7 @@ export function CommandFrame({
       />
       <div className="relative flex min-h-0 flex-1">
         {renderPeek !== undefined && peek.mounted && (
-          <CommandPeekPane open={peek.active} render={renderPeek} />
+          <CommandPeekPane render={renderPeek} />
         )}
         {warmPeek !== undefined && !peek.mounted && (
           <PeekWarmer warm={warmPeek} />
