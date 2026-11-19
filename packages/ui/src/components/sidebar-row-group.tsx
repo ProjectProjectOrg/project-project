@@ -51,13 +51,11 @@ const presence = {
   variants: {
     hidden: { opacity: 0, height: 0 },
     shown: { opacity: 1, height: "auto", transition: transitions.layout },
-    gone: (last: boolean) => ({
+    gone: {
       opacity: 0,
       height: 0,
-      transition: last
-        ? { duration: 0 }
-        : { ...transitions.fade, duration: 0.16 }
-    })
+      transition: { ...transitions.layout, duration: 0.18 }
+    }
   }
 } as const
 
@@ -96,7 +94,7 @@ function SidebarRowGroup({
 
   if (onReorder === undefined)
     return (
-      <AnimatePresence initial={false} custom={keys.length === 0}>
+      <AnimatePresence initial={false}>
         {keys.map((key) => (
           <motion.div
             key={key}
@@ -138,7 +136,7 @@ function SidebarRowGroup({
       onReorder={(next: string[]) => setPreview([...fixed, ...next])}
       className="relative flex flex-col"
     >
-      <AnimatePresence initial={false} custom={keys.length === 0}>
+      <AnimatePresence initial={false}>
         {fixed.map((key) => (
           <motion.div
             key={key}
