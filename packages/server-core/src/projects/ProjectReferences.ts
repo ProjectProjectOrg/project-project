@@ -188,7 +188,12 @@ const make = Effect.gen(function* () {
     for (const ids of Arr.chunksOf(stale, 500)) {
       yield* db
         .delete(projectImportReference)
-        .where(inArray(projectImportReference.id, ids))
+        .where(
+          and(
+            eq(projectImportReference.projectId, scope.projectId),
+            inArray(projectImportReference.id, ids)
+          )
+        )
         .pipe(Effect.orDie)
     }
     return { items: matches.map(({ item }) => item) }
