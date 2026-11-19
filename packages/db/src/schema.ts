@@ -1672,7 +1672,8 @@ export const projectImportReference = pgTable(
     target: text("target").notNull()
   },
   (t) => [
-    index("project_import_reference_ticket_idx").on(t.projectId, t.ticketId)
+    index("project_import_reference_ticket_idx").on(t.projectId, t.ticketId),
+    index("project_import_reference_project_idx").on(t.projectId, t.id)
   ]
 )
 
