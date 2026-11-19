@@ -32,10 +32,10 @@ export const relationCommands: ReadonlyArray<Command> = [
     group: "ticketRelations",
     label: ({ ticketData }) =>
       isEpic(ticketData)
-        ? m.tickets_command_add_ticket_to_epic()
-        : m.tickets_command_add_sub_ticket(),
+        ? m.tickets_command_create_ticket_in_epic()
+        : m.tickets_command_new_sub_ticket(),
     icon: ListPlus,
-    keywords: ["sub-ticket", "child", "subtask", "attach"],
+    keywords: ["sub-ticket", "child", "subtask", "attach", "add", "new"],
     when: (context) =>
       editable(context) && context.tickets.create && context.canHoldChildren,
     page: "ticketSubTicket"

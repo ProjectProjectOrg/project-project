@@ -60,10 +60,16 @@ const STRONG_MATCH = 55
 
 const GROUP_BONUS = 5
 
-const groupBonus = (group: string | undefined, query: string) =>
-  group?.toLowerCase().startsWith(query.trim().toLowerCase()) === true
+// A row whose group is what you typed ("view") edges ahead, unless its label
+// already says it: then rows tie and keep the menu's order, so on a ticket
+// "Create related ticket" stays above the general "Create ticket…".
+const groupBonus = (item: CommandFrameItem, query: string) => {
+  const needle = query.trim().toLowerCase()
+  return item.group?.toLowerCase().startsWith(needle) === true &&
+    !item.label.toLowerCase().startsWith(needle)
     ? GROUP_BONUS
     : 0
+}
 
 const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
   const ranked = items.flatMap((item, index) => {
@@ -73,7 +79,7 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
     const score = scoreSearch(item, query)
     return score === null
       ? []
-      : [{ item, index, score: score + groupBonus(item.group, query) }]
+      : [{ item, index, score: score + groupBonus(item, query) }]
   })
   const sorted = ranked.toSorted(
     (a, b) => b.score - a.score || a.index - b.index
