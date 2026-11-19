@@ -92,4 +92,9 @@ function usePopupAnchor<A extends Anchor | undefined>(anchor: A) {
   return anchor ?? (trigger ? unscaled : undefined)
 }
 
-export { PopupAnchorProvider, usePopupAnchor, useTriggerAnchorRef }
+export {
+  PopupAnchorProvider,
+  unscaledRect,
+  usePopupAnchor,
+  useTriggerAnchorRef
+}

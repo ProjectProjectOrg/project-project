@@ -1,62 +1,112 @@
-import { AnimatePresence, motion } from "motion/react"
+import {
+  animate,
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform
+} from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
+import { unscaledRect } from "../lib/popupAnchor"
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { Button } from "./button"
-import { popupSurfaceClass } from "./menu-styles"
+import { X } from "./icons"
+import { TextSwap } from "./text-swap"
+import { PinnedCard, Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
 /*
- * A guide teaches one thing in place: it blurs and dims everything but one
- * part of the screen, and says what to do with it beside that part. The
- * part stays live (the overlay has a hole over it), so people try it right
- * there; doing it, "Got it", Escape or a click elsewhere closes the guide.
+ * A guide teaches in place: it blurs and dims everything but one part of
+ * the screen, and says what to do with it beside that part. The part stays
+ * live (the overlay has a hole over it), so people try it right there. It
+ * closes only through its own buttons (and Escape, the keyboard's Skip).
  *
- *   <Guide open={teach} onClose={() => setTeach(false)} target={row}
- *     title="Change them all from any row" doneLabel="Got it">
- *     With several tickets selected, a row's status, assignee, … change
- *     every selected ticket.
- *   </Guide>
+ *   <Guide open={teach} steps={[{ target: () => row, title: "…", body: "…" }]}
+ *     onClose={() => setTeach(false)} labels={labels} />
  *
- * Show it once per person (the app remembers who has seen it), right when
- * the thing it teaches first applies, never as a tour.
+ * A series is several steps: Next and Back move the spotlight, which glides
+ * from part to part with the card (drawn by the tooltip host, like hover
+ * cards), and Skip ends it. A step on another page says how to get there
+ * (`onShow`, which navigates); until its part is on screen the guide waits,
+ * so mount it above the pages and keep `step` where a page change keeps it.
+ *
+ * Show it once per person, right when what it teaches first applies.
  */
+
+export type GuideStep = Readonly<{
+  // The part it teaches: a ref, or a function that finds it.
+  target: React.RefObject<Element | null> | (() => Element | null | undefined)
+  // What to do, in a few words: "Edit all 4 tickets at once".
+  title: string
+  // How, in a sentence or two.
+  body: React.ReactNode
+  // Which side of the part the card takes (below by default).
+  side?: "top" | "bottom" | "left" | "right"
+  // Runs as the step comes up: open the page or panel its part is on.
+  onShow?: () => void
+}>
+
+export type GuideLabels = Readonly<{
+  // Closes a single guide, and the last step of a series: "Got it", "Done".
+  done: string
+  next: string
+  back: string
+  // Ends it early: the ✕'s name and tooltip ("Skip the guide").
+  skip: string
+  // "2 of 3"
+  progress: (step: number, total: number) => string
+}>
+
+// Why it closed: the last step's button ("Got it", "Done"), or Skip (Escape
+// too, for the keyboard). A click beside it doesn't close it: a guide ends
+// only through its own buttons.
+export type GuideCloseReason = "done" | "skip"
 
 type Rect = Readonly<{ x: number; y: number; width: number; height: number }>
 
-// The space around the spotlight's hole, and its corners.
+// The room around the spotlight's hole, and its corners.
 const PAD = 6
 const RADIUS = 16
-// The callout's gap from the spotlight, and from the window's edges.
+// The card's gap from the spotlight.
 const GAP = 12
-const EDGE = 12
-const CALLOUT_WIDTH = 320
 
-const sameRect = (a: Rect | null, b: Rect) =>
-  a !== null &&
-  a.x === b.x &&
-  a.y === b.y &&
-  a.width === b.width &&
-  a.height === b.height
+const find = (target: GuideStep["target"]) =>
+  (typeof target === "function" ? target() : target.current) ?? null
 
-// The target's box, padded, followed every frame while open (it may move
-// with scrolling, layout or animation).
-function useTargetRect(
-  target: () => Element | null | undefined,
-  open: boolean
-) {
-  const [rect, setRect] = React.useState<Rect | null>(null)
+// The current step's part and its padded box, followed every frame while
+// open (scrolling, layout, a page that hasn't rendered it yet).
+function useTarget(step: GuideStep | undefined, open: boolean) {
+  const [found, setFound] = React.useState<{
+    element: Element
+    rect: Rect
+  } | null>(null)
   const read = React.useEffectEvent(() => {
-    const box = target()?.getBoundingClientRect()
-    if (box === undefined) return
-    const next = {
+    const element = step === undefined ? null : find(step.target)
+    // Without its press scale (buttons shrink to 97% while pressed), so
+    // pressing the part doesn't nudge the spotlight or the card.
+    const box = element === null ? undefined : unscaledRect(element)
+    if (element === null || box === undefined || box.width === 0) {
+      setFound(null)
+      return
+    }
+    const rect = {
       x: Math.round(box.x - PAD),
       y: Math.round(box.y - PAD),
       width: Math.round(box.width + PAD * 2),
       height: Math.round(box.height + PAD * 2)
     }
-    setRect((current) => (sameRect(current, next) ? current : next))
+    setFound((current) =>
+      current !== null &&
+      current.element === element &&
+      current.rect.x === rect.x &&
+      current.rect.y === rect.y &&
+      current.rect.width === rect.width &&
+      current.rect.height === rect.height
+        ? current
+        : { element, rect }
+    )
   })
   React.useLayoutEffect(() => {
     if (!open) return undefined
@@ -68,162 +118,277 @@ function useTargetRect(
     tick()
     return () => cancelAnimationFrame(frame)
   }, [open])
-  return rect
+  return open ? found : null
 }
 
-// The overlay's shape: the whole window, less a rounded hole at `rect`.
-const holePath = (rect: Rect) => {
-  const { x, y, width: w, height: h } = rect
-  const r = Math.min(RADIUS, w / 2, h / 2)
+// The overlay's shape: the window, less a rounded hole.
+const holePath = (x: number, y: number, w: number, h: number) => {
+  const r = Math.max(0, Math.min(RADIUS, w / 2, h / 2))
   const W = window.innerWidth
   const H = window.innerHeight
   return `path(evenodd, "M0 0H${W}V${H}H0Z M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z")`
 }
 
-// Below the spotlight when there's room, else above; lined up with its
-// start, kept inside the window.
-const calloutPlace = (rect: Rect, height: number) => {
-  const below = rect.y + rect.height + GAP
-  const fitsBelow = below + height + EDGE <= window.innerHeight
-  const top = fitsBelow ? below : Math.max(EDGE, rect.y - GAP - height)
-  const width = Math.min(CALLOUT_WIDTH, window.innerWidth - EDGE * 2)
-  const left = Math.min(
-    Math.max(EDGE, rect.x),
-    window.innerWidth - EDGE - width
+// The blur with its hole and the ring around it. The hole glides from part
+// to part on the morph; the blur itself fades in (its radius grows with the
+// tint), so it never pops in at full strength. The blur takes the pointer
+// (a click there does nothing); the hole lets it through to the part.
+function Spotlight({ rect }: Readonly<{ rect: Rect }>) {
+  const reduced = useReducedMotion() ?? false
+  const x = useMotionValue(rect.x)
+  const y = useMotionValue(rect.y)
+  const width = useMotionValue(rect.width)
+  const height = useMotionValue(rect.height)
+  React.useEffect(() => {
+    const move = reduced ? { duration: 0 } : transitions.morph
+    const runs = [
+      animate(x, rect.x, move),
+      animate(y, rect.y, move),
+      animate(width, rect.width, move),
+      animate(height, rect.height, move)
+    ]
+    return () => {
+      for (const run of runs) run.stop()
+    }
+  }, [rect, reduced, x, y, width, height])
+  const clipPath = useTransform(() =>
+    holePath(x.get(), y.get(), width.get(), height.get())
   )
-  return { top, left, width, side: fitsBelow ? "bottom" : "top" } as const
+  return (
+    <>
+      <motion.div
+        aria-hidden
+        initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+        animate={{ opacity: 1, backdropFilter: "blur(3px)" }}
+        exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+        transition={transitions.morph}
+        className="pointer-events-auto absolute inset-0 bg-(--guide-scrim)"
+        style={{ clipPath }}
+      />
+      <motion.div
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={transitions.morph}
+        className="pointer-events-none absolute top-0 left-0 rounded-[16px] shadow-[0_0_0_2px_var(--ring)] [corner-shape:var(--button-corner)]"
+        style={{ x, y, width, height }}
+      />
+    </>
+  )
+}
+
+// Ends the guide: an ✕ in the card's corner. The card is the tooltip
+// host's (one surface), so the ✕'s tooltip is our Tooltip pinned open over
+// it, with the host's delay and its fade.
+const TIP_DELAY = 400
+
+function SkipButton({
+  label,
+  onSkip
+}: Readonly<{ label: string; onSkip: () => void }>) {
+  const [tip, setTip] = React.useState(false)
+  // The host's open delay for a hover; keyboard focus shows it at once.
+  const timer = React.useRef<number | undefined>(undefined)
+  React.useEffect(() => () => window.clearTimeout(timer.current), [])
+  const hover = (on: boolean) => {
+    window.clearTimeout(timer.current)
+    if (on) timer.current = window.setTimeout(() => setTip(true), TIP_DELAY)
+    else setTip(false)
+  }
+  return (
+    <Tooltip open={tip}>
+      <TooltipTrigger
+        render={
+          <Button
+            size="square-6"
+            variant="ghost"
+            aria-label={label}
+            onClick={onSkip}
+            onPointerEnter={() => hover(true)}
+            onPointerLeave={() => hover(false)}
+            onFocus={(event) =>
+              setTip(event.currentTarget.matches(":focus-visible"))
+            }
+            onBlur={() => setTip(false)}
+            className="-mt-0.5 -mr-1.5 shrink-0 text-muted-foreground"
+          />
+        }
+      >
+        <X className="size-3.5" strokeWidth={1.75} />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="z-[80]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 export function Guide({
   open,
+  steps,
+  step: at = 0,
+  onStepChange,
   onClose,
-  target,
-  title,
-  doneLabel,
-  step,
-  children,
+  labels,
   className
 }: Readonly<{
   open: boolean
-  onClose: () => void
-  // The part it teaches: a ref, or a function that finds it.
-  target: React.RefObject<Element | null> | (() => Element | null | undefined)
-  // What to do, in a few words: "Change them all from any row".
-  title: string
-  // The button that closes it: "Got it".
-  doneLabel: string
-  // Where this guide sits in a short series: "1 of 2".
-  step?: string
-  // How, in a sentence or two.
-  children: React.ReactNode
+  // One step for a single guide; several for a series.
+  steps: ReadonlyArray<GuideStep>
+  // Which step shows (a series); changes through `onStepChange`.
+  step?: number
+  onStepChange?: (step: number) => void
+  onClose: (reason: GuideCloseReason) => void
+  labels: GuideLabels
+  // The card's width and padding (w-80 p-4 by default).
   className?: string
 }>) {
-  const find = () => (typeof target === "function" ? target() : target.current)
-  const rect = useTargetRect(find, open)
-  const callout = React.useRef<HTMLDivElement>(null)
-  const done = React.useRef<HTMLButtonElement>(null)
-  const titleId = React.useId()
-  const [height, setHeight] = React.useState(0)
-  React.useLayoutEffect(() => {
-    if (open) setHeight(callout.current?.offsetHeight ?? 0)
-  }, [open, rect])
-  // Focus moves to "Got it" once it's shown, and back where it was after.
-  const shown = open && rect !== null
+  const step = steps[at]
+  const series = steps.length > 1
+  const last = at >= steps.length - 1
+  const found = useTarget(step, open)
+  const shown = open && found !== null
+  // One card for the whole series: the host glides it to each step's part,
+  // and its content rolls to the step's words instead of remounting.
+  const cardId = React.useId()
+
+  // A step comes up: it may need its page or panel first.
+  const showStep = React.useEffectEvent(() => step?.onShow?.())
+  React.useEffect(() => {
+    if (open) showStep()
+  }, [open, at])
+
+  const close = React.useEffectEvent((reason: GuideCloseReason) =>
+    onClose(reason)
+  )
+  // Escape is the keyboard's Skip.
   React.useEffect(() => {
     if (!shown) return undefined
-    const before = document.activeElement
-    done.current?.focus({ preventScroll: true })
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation()
-        onClose()
-      }
-    }
-    // Doing what it teaches closes it: a press in the spotlight goes on to
-    // the target (a menu it opens shows over the page, not under the blur).
-    const onPress = (event: PointerEvent) => {
-      const spot = find()
-      if (spot && event.target instanceof Node && spot.contains(event.target))
-        onClose()
+      if (event.key !== "Escape") return
+      event.stopPropagation()
+      close("skip")
     }
     window.addEventListener("keydown", onKey, true)
-    window.addEventListener("pointerdown", onPress, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  }, [shown])
+
+  // Focus goes to the card's main button as each step shows, and back where
+  // it was when the guide closes.
+  React.useEffect(() => {
+    if (!open) return undefined
+    const before = document.activeElement
     return () => {
-      window.removeEventListener("keydown", onKey, true)
-      window.removeEventListener("pointerdown", onPress, true)
       if (before instanceof HTMLElement) before.focus({ preventScroll: true })
     }
-    // `find` changes every render; the guide reads it as it is.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, onClose])
+  }, [open])
+  React.useEffect(() => {
+    if (!shown) return undefined
+    const frame = requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(
+          "[data-slot=hover-card-content] [data-guide-primary]"
+        )
+        ?.focus({ preventScroll: true })
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [shown, at])
+
   if (typeof document === "undefined") return null
-  const place = rect === null ? null : calloutPlace(rect, height)
-  return createPortal(
-    <AnimatePresence>
-      {open && rect !== null && place !== null && (
-        <motion.div
-          key="guide"
-          data-slot="guide"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={transitions.presence}
-          // Only the blur and the callout take the pointer; the spotlight
-          // passes it through to the page.
-          className="pointer-events-none fixed inset-0 z-[60]"
+  return (
+    <>
+      {createPortal(
+        <AnimatePresence>
+          {shown && (
+            <motion.div
+              key="guide"
+              data-slot="guide"
+              // Only the blur and the card take the pointer; the spotlight
+              // passes it through to the page.
+              className="pointer-events-none fixed inset-0 z-[60]"
+            >
+              <Spotlight rect={found.rect} />
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+      {shown && step !== undefined && (
+        <PinnedCard
+          id={cardId}
+          anchor={found.element}
+          side={step.side ?? "bottom"}
+          sideOffset={PAD + GAP}
+          className={cn("w-80 max-w-[calc(100vw-24px)] p-4", className)}
         >
-          {/* Everything but the spotlight: blurred, dimmed, and a click on
-              it closes the guide. The spotlight stays live. */}
           <div
-            aria-hidden
-            onClick={onClose}
-            className="pointer-events-auto absolute inset-0 bg-(--guide-scrim) backdrop-blur-[3px]"
-            style={{ clipPath: holePath(rect) }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute rounded-[16px] shadow-[0_0_0_2px_var(--ring)] [corner-shape:var(--button-corner)]"
-            style={{
-              left: rect.x,
-              top: rect.y,
-              width: rect.width,
-              height: rect.height
-            }}
-          />
-          <motion.div
-            ref={callout}
             role="dialog"
             aria-modal="false"
-            aria-labelledby={titleId}
-            initial={{ opacity: 0, y: place.side === "bottom" ? -6 : 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={transitions.morph}
-            className={cn(
-              popupSurfaceClass,
-              "pointer-events-auto absolute flex flex-col gap-1.5 p-4",
-              className
-            )}
-            style={{ left: place.left, top: place.top, width: place.width }}
+            aria-label={step.title}
+            className="flex flex-col gap-1.5"
           >
-            <p
-              id={titleId}
-              className="text-subtitle font-semibold text-foreground"
+            <div className="flex items-start gap-2">
+              <p className="min-w-0 flex-1 text-subtitle font-semibold text-foreground">
+                <TextSwap>{step.title}</TextSwap>
+              </p>
+              <SkipButton label={labels.skip} onSkip={() => onClose("skip")} />
+            </div>
+            {/* A step's words cross-fade while the card resizes to them. */}
+            <motion.div
+              key={at}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={transitions.morph}
+              className="text-body text-muted-foreground"
             >
-              {title}
-            </p>
-            <div className="text-body text-muted-foreground">{children}</div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-caption text-muted-foreground tabular-nums">
-                {step}
-              </span>
-              <Button ref={done} size="sm" variant="primary" onClick={onClose}>
-                {doneLabel}
+              {step.body}
+            </motion.div>
+            <div className="mt-2 flex items-center gap-1.5">
+              {series && (
+                <span className="text-caption text-muted-foreground tabular-nums">
+                  <TextSwap speed="fast">
+                    {labels.progress(at + 1, steps.length)}
+                  </TextSwap>
+                </span>
+              )}
+              <span className="flex-1" />
+              <AnimatePresence initial={false}>
+                {series && at > 0 && (
+                  <motion.span
+                    key="back"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: "auto", opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={transitions.morph}
+                    className="-my-1 flex shrink-0 justify-end overflow-hidden py-1"
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onStepChange?.(at - 1)}
+                    >
+                      {labels.back}
+                    </Button>
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              <Button
+                data-guide-primary
+                size="sm"
+                variant="primary"
+                onClick={() =>
+                  last ? onClose("done") : onStepChange?.(at + 1)
+                }
+              >
+                <TextSwap speed="fast">
+                  {last ? labels.done : labels.next}
+                </TextSwap>
               </Button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </PinnedCard>
       )}
-    </AnimatePresence>,
-    document.body
+    </>
   )
 }

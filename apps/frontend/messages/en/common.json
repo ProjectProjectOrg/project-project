@@ -1,6 +1,11 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_back_button": "Back",
+  "common_guide_next": "Next",
+  "common_guide_back": "Back",
+  "common_guide_skip": "Skip the guide",
+  "common_guide_done": "Done",
+  "common_guide_progress": "{step} of {total}",
   "common_cancel_button": "Cancel",
   "common_close": "Close",
   "common_copied": "Copied",

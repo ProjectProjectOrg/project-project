@@ -11,6 +11,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { keyName, typesText } from "../lib/keyCapHighlight"
+import { unscaledRect } from "../lib/popupAnchor"
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { KbdShortcut, type KeyLabels } from "./kbd"
@@ -75,7 +76,9 @@ type Registration = {
 
 // "click": a card opened by clicking its trigger, which stays until Escape,
 // a click outside, or another hover.
-type Source = "hover" | "focus" | "click"
+// "pinned": a card held on one element until it's let go (a Guide's step):
+// hovers, focus and presses elsewhere don't replace or close it.
+type Source = "hover" | "focus" | "click" | "pinned"
 
 // ---------------------------------------------------------------- store
 
@@ -148,8 +151,9 @@ const insideSurface = (id: string) => {
 }
 
 const show = (id: string, source: Source) => {
+  if (activeSource === "pinned" && source !== "pinned") return
   clearTimers()
-  if (popupOpen(id)) return
+  if (source !== "pinned" && popupOpen(id)) return
   if (insideSurface(id)) return
   if (activeId === id && activeSource === source) return
   activeId = id
@@ -217,6 +221,7 @@ const tooltipStore = {
   },
   dismiss(instant = false) {
     window.clearTimeout(showTimer)
+    if (activeSource === "pinned") return
     suppressedId = activeId
     hide(instant)
   },
@@ -242,7 +247,12 @@ const tooltipStore = {
     if (activeId === null) return
     // A keyboard-focused tooltip, or a card opened by a click, stays and is
     // placed again by its trigger.
-    if (activeSource === "focus" || activeSource === "click") emit()
+    if (
+      activeSource === "focus" ||
+      activeSource === "click" ||
+      activeSource === "pinned"
+    )
+      emit()
     else {
       hide(true)
       warmUntil = 0
@@ -383,7 +393,12 @@ function TooltipHost() {
   return <HostSurface />
 }
 
-type Layout = Rect & { side: Side; id: string; glide: boolean }
+type Layout = Rect & {
+  side: Side
+  id: string
+  element: HTMLElement
+  glide: boolean
+}
 
 function HostSurface() {
   const storeVersion = React.useSyncExternalStore(
@@ -447,8 +462,9 @@ function HostSurface() {
       return
     }
     const box = measure.getBoundingClientRect()
+    // Without its press scale, so a press doesn't nudge the card.
     const next = place(
-      element.getBoundingClientRect(),
+      unscaledRect(element),
       { width: Math.ceil(box.width), height: Math.ceil(box.height) },
       registration.placement
     )
@@ -456,6 +472,7 @@ function HostSurface() {
       if (
         previous !== null &&
         previous.id === id &&
+        previous.element === element &&
         previous.x === next.x &&
         previous.y === next.y &&
         previous.width === next.width &&
@@ -465,12 +482,14 @@ function HostSurface() {
       return {
         ...next,
         id,
-        // Glide only to a new trigger while a tooltip is on screen (or still
-        // leaving); a scroll or a content change for the same trigger snaps.
+        element,
+        // Glide only to a new trigger (or a pinned card's new element, a
+        // Guide's next step) while one is on screen (or still leaving); a
+        // scroll or a content change for the same one snaps.
         glide:
           surfaceRef.current !== null &&
           previous !== null &&
-          previous.id !== id &&
+          (previous.id !== id || previous.element !== element) &&
           !prefersReducedMotion()
       }
     })
@@ -486,9 +505,9 @@ function HostSurface() {
     return () => observer.disconnect()
   }, [card, id])
 
-  // A click outside an open card closes it.
+  // A click outside an open card closes it (a pinned one stays).
   React.useEffect(() => {
-    if (!card || id === null) return undefined
+    if (!card || id === null || activeSource === "pinned") return undefined
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
       if (surfaceRef.current?.contains(target)) return
@@ -540,6 +559,8 @@ function HostSurface() {
   React.useEffect(() => {
     if (id === null) return
     const onKey = (event: KeyboardEvent) => {
+      // A pinned card's owner (the Guide) handles its own keys.
+      if (activeSource === "pinned") return
       if (event.key === "Escape") tooltipStore.dismiss()
       else if (
         !MODIFIERS.has(event.key) &&
@@ -548,7 +569,7 @@ function HostSurface() {
       )
         tooltipStore.dismiss(true)
     }
-    const onResize = () => hide(true)
+    const onResize = () => (activeSource === "pinned" ? emit() : hide(true))
     document.addEventListener("keydown", onKey, true)
     window.addEventListener("resize", onResize)
     return () => {
@@ -632,7 +653,9 @@ function HostSurface() {
             // The corners ease between a label's and a card's with the glide.
             className={cn(
               card ? hoverCardSurfaceClass : inkClass,
-              "fixed top-0 left-0 z-50 grid overflow-hidden p-0 transition-[border-radius] duration-180 ease-standard",
+              // A pinned card sits over a Guide's blur.
+              activeSource === "pinned" ? "z-[70]" : "z-50",
+              "fixed top-0 left-0 grid overflow-hidden p-0 transition-[border-radius] duration-180 ease-standard",
               // A card that only shows (git, a sprint's estimate) lets the
               // pointer through, so it never catches it on its way past.
               registration?.className?.includes("pointer-events-none") &&
@@ -851,7 +874,11 @@ function Tooltip({
   return (
     <TooltipContext value={value}>
       {children}
-      {open && trigger && <PinnedTooltip trigger={trigger} content={content} />}
+      <AnimatePresence>
+        {open && trigger && (
+          <PinnedTooltip trigger={trigger} content={content} />
+        )}
+      </AnimatePresence>
     </TooltipContext>
   )
 }
@@ -998,7 +1025,7 @@ function PinnedTooltip({
     if (!element || !current) return
     const update = () => {
       const box = element.getBoundingClientRect()
-      const anchor = trigger.getBoundingClientRect()
+      const anchor = unscaledRect(trigger)
       const next = place(
         anchor,
         { width: Math.ceil(box.width), height: Math.ceil(box.height) },
@@ -1029,6 +1056,7 @@ function PinnedTooltip({
     }
   }, [trigger, current])
   if (!current) return null
+  const reduced = prefersReducedMotion()
   return createPortal(
     <div
       ref={ref}
@@ -1042,13 +1070,22 @@ function PinnedTooltip({
           : "translate(-9999px, 0)"
       }}
       className={cn(
-        inkClass,
-        contentClass,
         "pointer-events-none fixed top-0 left-0 z-40",
         current.className
       )}
     >
-      {current.children}
+      {/* It comes and goes like the host's tooltip: a quick fade and a
+          small scale from its trigger's side. */}
+      <motion.div
+        initial={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
+        transition={appear}
+        style={{ transformOrigin: origin[layout?.side ?? "top"] }}
+        className={cn(inkClass, contentClass)}
+      >
+        {current.children}
+      </motion.div>
     </div>,
     document.body
   )
@@ -1206,6 +1243,67 @@ function HoverCardContent({
   return null
 }
 
+/**
+ * A card the host holds on one element until it unmounts (a Guide's step).
+ * Hovers, focus and presses elsewhere don't replace it; scrolling and
+ * resizing place it again. Moving it to another element under a new `id`
+ * glides like a hover does. With no `anchor` (not on screen yet) it waits.
+ */
+function PinnedCard({
+  id,
+  anchor,
+  side = "bottom",
+  align = "start",
+  sideOffset = 12,
+  className,
+  children
+}: Readonly<{
+  id: string
+  anchor: Element | null
+  side?: Side
+  align?: Align
+  sideOffset?: number
+  className?: string
+  children: React.ReactNode
+}>) {
+  const content = React.useRef<ContentSlot | null>(null)
+  React.useLayoutEffect(() => {
+    const placement = { side, align, sideOffset }
+    content.current = { children, placement, className }
+    const element = anchor instanceof HTMLElement ? anchor : null
+    registrations.set(id, {
+      current: {
+        element,
+        content: null,
+        placement,
+        className,
+        disabled: false,
+        kind: "card"
+      }
+    })
+    if (element === null) {
+      if (activeId === id) {
+        activeSource = null
+        hide()
+      }
+      return
+    }
+    show(id, "pinned")
+    tooltipStore.touch(id)
+  })
+  React.useEffect(
+    () => () => {
+      registrations.delete(id)
+      if (activeId === id) {
+        activeSource = null
+        hide()
+      }
+    },
+    [id]
+  )
+  return <CardPortals id={id} content={content} />
+}
+
 /** Closes whatever the host shows at once, e.g. after a click in a card. */
 const closeHoverCard = () => hide(true)
 
@@ -1215,6 +1313,7 @@ export {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  PinnedCard,
   ShortcutTooltip,
   Tooltip,
   TooltipProvider,

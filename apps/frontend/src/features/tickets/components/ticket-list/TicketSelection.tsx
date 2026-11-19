@@ -140,12 +140,21 @@ export function TicketSelectionProvider({
             setGuideSeen(true)
             writeGuideSeen()
           }}
-          target={() => root.current?.querySelector("[data-row-selected]")}
-          title={m.tickets_guide_bulk_title({ count })}
-          doneLabel={m.tickets_guide_done()}
-        >
-          {m.tickets_guide_bulk_body()}
-        </Guide>
+          steps={[
+            {
+              target: () => root.current?.querySelector("[data-row-selected]"),
+              title: m.tickets_guide_bulk_title({ count }),
+              body: m.tickets_guide_bulk_body()
+            }
+          ]}
+          labels={{
+            done: m.tickets_guide_done(),
+            next: m.common_guide_next(),
+            back: m.common_guide_back(),
+            skip: m.common_guide_skip(),
+            progress: (step, total) => m.common_guide_progress({ step, total })
+          }}
+        />
       </div>
     </SelectionContext>
   )
