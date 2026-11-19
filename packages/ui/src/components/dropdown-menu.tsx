@@ -872,12 +872,10 @@ function DropdownMenuSubTrigger({
   }) {
   return (
     <MenuPrimitive.SubmenuTrigger
-      delay={0}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
         menuItemClass,
-        "data-[popup-open]:text-foreground data-[popup-open]:[&_svg]:stroke-[2]",
         "data-[inset]:pl-8",
         className
       )}

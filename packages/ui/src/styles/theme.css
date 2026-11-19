@@ -8,9 +8,10 @@
 
 @custom-variant dark (&:is(.dark *));
 /* A menu row the highlight sits on: Base UI's highlighted row, the row it
-   holds on while the pointer crosses a separator, or the row it rests on
-   with no pointer (menu-highlight.tsx). */
-@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting]));
+   holds on while the pointer crosses a separator, the row it rests on
+   with no pointer, or a submenu trigger whose submenu has focus
+   (menu-highlight.tsx). */
+@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting], [data-slot=dropdown-menu-sub-trigger][data-popup-open]));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 /* A row's hover reveals: in a ListHoverScope they follow the gliding
    highlight (the row it marks data-hover-highlight), so they light up in the

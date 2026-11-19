@@ -94,12 +94,6 @@ export default function MotionOverview() {
       <Section title="Springs" action={replay}>
         <div className="flex flex-col gap-2">
           <Track
-            label="Snap"
-            note="50ms, no bounce"
-            at={at}
-            transition={spring.snap}
-          />
-          <Track
             label="Fast"
             note="80ms, no bounce"
             at={at}
@@ -121,6 +115,12 @@ export default function MotionOverview() {
       </Section>
       <Section title="Transitions">
         <div className="flex flex-col gap-2">
+          <Track
+            label="Snap"
+            note="40ms"
+            at={at}
+            transition={transitions.snap}
+          />
           <Track
             label="Fade"
             note="150ms"
