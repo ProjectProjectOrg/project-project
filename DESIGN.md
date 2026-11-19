@@ -430,7 +430,7 @@ Every settings area — organization, project, profile — uses the same rail an
 
 ### Composers
 
-A composer (new ticket, sub-ticket, new sprint, archive, flag, feedback) is a popover form in two zones. The card holds the writing: an optional context line, the title, the body. Below it, a tray tinted `--composer-tray` (halfway between `--card` and `--background`) holds everything that isn't writing: field chips (28px), then a row with a hint at the start and the actions at the end. Text starts 16px in throughout; the tray's buttons sit 6px from its edges, and the popover's 20px corners are concentric with them. Parts own their spacing (`@pp/ui/composer`); call sites never pad them.
+A composer (new ticket, sub-ticket, new sprint, archive, flag, feedback) is a popover form in two zones. The card holds the writing: an optional context line, the title, the body. Below it, a tray tinted `--composer-tray` (a step down from the popup's fill, smaller than the menu highlight) holds everything that isn't writing: field chips (28px), then a row with a hint at the start and the actions at the end. Text starts 16px in throughout; the tray's buttons sit 6px from its edges, and the popover's 20px corners are concentric with them. Parts own their spacing (`@pp/ui/composer`); call sites never pad them.
 
 ### Dithered Brand Surfaces
 

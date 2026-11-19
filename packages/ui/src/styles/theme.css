@@ -160,9 +160,6 @@
   --lh-micro-compact: 12px;
   --dither-front: oklch(0.708 0 0);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
-  /* Composer's tray: halfway between the card it hangs off and the page,
-     so the controls read as a step down from the writing. */
-  --composer-tray: color-mix(in oklch, var(--card), var(--background) 45%);
   /* Empty's intensities: the same dither, its ink pulled toward the paper
      (subtle) or toward the text (strong). Medium is --dither-front. */
   --dither-front-subtle: color-mix(
@@ -428,6 +425,9 @@
   --field-focus: oklch(from var(--field) calc(l - 0.02) c h);
   --menu-hover: oklch(from var(--surface) calc(l - 0.035) c h);
   --menu-active: oklch(from var(--surface) calc(l - 0.06) c h);
+  /* Composer's tray: a step down from the surface, smaller than the menu
+     highlight, so the controls read as below the writing. */
+  --composer-tray: oklch(from var(--surface) calc(l - 0.02) c h);
 }
 .dark,
 .dark .surface {
@@ -442,6 +442,7 @@
   --field-line: oklch(from var(--surface) calc(l + 0.04) c h);
   --menu-hover: oklch(from var(--surface) calc(l + 0.06) c h);
   --menu-active: oklch(from var(--surface) calc(l + 0.1) c h);
+  --composer-tray: oklch(from var(--surface) calc(l - 0.035) c h);
 }
 
 @theme inline {

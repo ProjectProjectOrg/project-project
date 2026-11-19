@@ -994,8 +994,8 @@ function CommandMenuDialog({
             opener.current?.isConnected === true && opener.current
           }
           className={cn(
-            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
             commandMenuPanelClass,
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
             "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
             className
           )}
