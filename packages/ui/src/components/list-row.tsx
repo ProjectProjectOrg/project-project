@@ -194,6 +194,13 @@ export function ListHoverScope({
         sessionRef.current += 1
       }}
       onMouseMove={(event) => {
+        // Menus and cards opened from a row are portaled, but React still
+        // bubbles their pointer events here.
+        if (
+          !(event.target instanceof Node) ||
+          !event.currentTarget.contains(event.target)
+        )
+          return
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
