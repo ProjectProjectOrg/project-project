@@ -8,6 +8,7 @@ import {
   organization,
   projectImageReference,
   projectImport,
+  projectImportReference,
   projectIndex,
   projectKey,
   user,
@@ -67,8 +68,16 @@ import { parseMarkdownFile, markdownFileContent } from "../markdown/fileContent"
 import type * as Markdown from "../markdown/Markdown"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
+import type * as TicketDocs from "../tickets/TicketDocs"
+import type * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
+import type * as Users from "../users/Users"
 import * as HiddenProject from "./hiddenProject"
+import {
+  forEachImportReferenceBatch,
+  insertImportReferences,
+  pruneResolvedImportReferences
+} from "./importReferences"
 import {
   importedAuthorOf,
   renameTicketId,
@@ -78,6 +87,7 @@ import {
 } from "./importTransform"
 import { importedTypes, planImportedTypes } from "./importTypes"
 import * as ProjectDocs from "./ProjectDocs"
+import { referenceOrigin } from "./references"
 
 const MANIFEST_MAX_BYTES = 64 * 1024 * 1024
 const MARKDOWN_FILE_MAX_BYTES = 5 * 1024 * 1024
@@ -160,6 +170,10 @@ export class ProjectImports extends Context.Service<
         attempt: number
       ) => Effect.Effect<void, StepError>
       index: (id: string, attempt: number) => Effect.Effect<void, StepError>
+      stageReferenceCandidates: (
+        id: string,
+        attempt: number
+      ) => Effect.Effect<void, StepError>
       publish: (id: string, attempt: number) => Effect.Effect<void, StepError>
       fail: (id: string, attempt: number) => Effect.Effect<void>
     }>
@@ -201,7 +215,13 @@ const make = Effect.gen(function* () {
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
   const engine = yield* WorkflowEngine.WorkflowEngine
-  const provided = yield* Effect.context<Db | HiddenProjectRequirements>()
+  const provided = yield* Effect.context<
+    | Db
+    | HiddenProjectRequirements
+    | TicketDocs.TicketDocs
+    | TicketIndex.TicketIndex
+    | Users.Users
+  >()
 
   const orgMembers = (organizationId: string) =>
     db
@@ -769,7 +789,7 @@ const make = Effect.gen(function* () {
       configuration,
       seed
     })
-    return { row, orgSlug, configuration, plan }
+    return { row, orgSlug, configuration, plan, sourceUrl: manifest.source.url }
   })
 
   const asFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -870,11 +890,47 @@ const make = Effect.gen(function* () {
       .pipe(asFailure)
   })
 
+  const stageReferenceCandidates = Effect.fn(
+    "ProjectImports.stageReferenceCandidates"
+  )(function* (id: string, attempt: number) {
+    const { row, plan, orgSlug, configuration, sourceUrl } = yield* loadAttempt(
+      id,
+      attempt
+    )
+    if (row.status === "succeeded") return
+    const projectId = plan.identity.id
+    yield* db
+      .transaction((tx) =>
+        Effect.gen(function* () {
+          const owner = yield* lockAttempt(id, attempt, true)(tx)
+          if (owner.status === "succeeded") return
+          yield* tx
+            .delete(projectImportReference)
+            .where(eq(projectImportReference.projectId, projectId))
+          yield* forEachImportReferenceBatch(
+            {
+              orgSlug,
+              organizationId: plan.identity.organizationId,
+              projectId,
+              slug: configuration.slug
+            },
+            referenceOrigin(sourceUrl),
+            (candidates) => insertImportReferences(tx, candidates)
+          )
+        })
+      )
+      .pipe(asFailure)
+  })
+
   const publish = Effect.fn("ProjectImports.publish")(function* (
     id: string,
     attempt: number
   ) {
-    const { plan, configuration } = yield* loadAttempt(id, attempt, "publish")
+    const { plan, configuration, orgSlug } = yield* loadAttempt(
+      id,
+      attempt,
+      "publish"
+    )
     const now = yield* DateTime.nowAsDate
     yield* HiddenProject.publishHiddenProject(
       {
@@ -913,11 +969,18 @@ const make = Effect.gen(function* () {
                   current: false
                 }))
               )
+            yield* pruneResolvedImportReferences(tx, {
+              projectId: project.id,
+              organizationId: project.organizationId,
+              orgSlug,
+              slug: project.slug
+            }).pipe(Effect.provide(provided))
             yield* tx
               .update(projectImport)
               .set({
                 status: "succeeded",
                 files: null,
+                referencesScanned: true,
                 retainedUntil: null,
                 updatedAt: publishedAt
               })
@@ -1065,6 +1128,7 @@ const make = Effect.gen(function* () {
       writeDocuments,
       recordAttachments,
       index,
+      stageReferenceCandidates,
       publish,
       fail
     }
@@ -1343,6 +1407,11 @@ export const ProjectImportWorkflowLive = Layer.unwrap(
           steps.recordAttachments(importId, attempt)
         )
         yield* step("index", Schema.Void, steps.index(importId, attempt))
+        yield* step(
+          "reference-candidates",
+          Schema.Void,
+          steps.stageReferenceCandidates(importId, attempt)
+        )
         yield* step("publish", Schema.Void, steps.publish(importId, attempt))
       })
     )

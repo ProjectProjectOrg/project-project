@@ -24,7 +24,8 @@ const snippetAt = (body: string, index: number, length: number) => {
     .trim()}${end < body.length ? "…" : ""}`
 }
 
-const originOf = (url: string) => {
+export const referenceOrigin = (url: string | null) => {
+  if (url === null) return null
   try {
     return new URL(url).origin
   } catch {
@@ -42,7 +43,7 @@ export const referenceCandidates = (body: string, oldOrigin: string | null) => [
   ...(oldOrigin === null
     ? []
     : [...body.matchAll(LINK)].flatMap((match) =>
-        originOf(match[2]) === oldOrigin
+        referenceOrigin(match[2]) === oldOrigin
           ? [
               {
                 kind: "link" as const,

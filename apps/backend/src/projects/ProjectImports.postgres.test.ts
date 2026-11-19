@@ -19,6 +19,7 @@ import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as Users from "@pp/server-core/users/Users"
 import {
   CreatableProjectKey,
   OrgScope,
@@ -33,6 +34,7 @@ import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Redacted from "effect/Redacted"
 import * as Schedule from "effect/Schedule"
@@ -70,7 +72,10 @@ describe.skipIf(!databaseUrl)("project import", () => {
     secretAccessKey: "secret"
   }
 
-  const layer = (workflowEngine = WorkflowEngine.layerMemory) => {
+  const layer = (
+    workflowEngine = WorkflowEngine.layerMemory,
+    transactionalTicketReads?: Array<string>
+  ) => {
     const db = DbLive.pipe(
       Layer.provideMerge(
         PgClient.layer({ url: Redacted.make(databaseUrl!), maxConnections: 2 })
@@ -109,14 +114,39 @@ describe.skipIf(!databaseUrl)("project import", () => {
       Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db)))
     )
     const index = TicketIndexServices.layer.pipe(Layer.provide(ticketDocs))
+    const importTicketDocs = transactionalTicketReads
+      ? Layer.effect(
+          TicketDocs.TicketDocs,
+          Effect.gen(function* () {
+            const docs = yield* TicketDocs.TicketDocs
+            const { transactionService } = yield* PgClient.PgClient
+            return {
+              ...docs,
+              read: (...args) =>
+                Effect.gen(function* () {
+                  if (
+                    Option.isSome(
+                      yield* Effect.serviceOption(transactionService)
+                    )
+                  )
+                    transactionalTicketReads.push(args[2])
+                  return yield* docs.read(...args)
+                })
+            } satisfies TicketDocs.TicketDocs["Service"]
+          })
+        ).pipe(Layer.provide(ticketDocs))
+      : ticketDocs
     return Layer.mergeAll(
       ProjectImports.ProjectImportWorkflowLive.pipe(
-        Layer.provideMerge(ProjectImports.layer)
+        Layer.provideMerge(ProjectImports.layer),
+        Layer.provide(importTicketDocs)
       ),
       ProjectExport.layer
     ).pipe(
       Layer.provideMerge(workflowEngine),
       Layer.provide(index),
+      Layer.provide(ticketDocs),
+      Layer.provide(Users.layer),
       Layer.provide(ProjectDocs.layer),
       Layer.provideMerge(LibraryDocs.layer.pipe(Layer.provide(markdown))),
       Layer.provideMerge(markdown),
@@ -282,6 +312,8 @@ describe.skipIf(!databaseUrl)("project import", () => {
         "---",
         "",
         `See [T-2](mention:ticket/T-2). ![shot](/api/attachments/${source.slug}/${attachmentId})`,
+        "See also [OLD-99](mention:ticket/OLD-99).",
+        "Read the [old page](https://old.example/about).",
         "",
         '<block type="incident-note" sync>',
         "Stale ticket snapshot",
@@ -325,6 +357,11 @@ describe.skipIf(!databaseUrl)("project import", () => {
           projectId: sourceProjectId,
           slug: "src"
         })
+      ),
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({ BETTER_AUTH_URL: "https://old.example" })
+        )
       )
     )
     return archive.stream
@@ -398,8 +435,6 @@ describe.skipIf(!databaseUrl)("project import", () => {
               status: "succeeded",
               destination: { slug: "moved" }
             })
-            yield* imports.steps.publish(uploaded.id, 1)
-
             const q = <T>(text: string, values: ReadonlyArray<unknown>) =>
               Effect.promise(() =>
                 pool.query<T & Record<string, unknown>>(text, [...values])
@@ -416,6 +451,25 @@ describe.skipIf(!databaseUrl)("project import", () => {
             expect(project.published_at).not.toBeNull()
             expect(project.key).toBe("PP")
             expect(project.next_ticket_number).toBe(3)
+            expect(
+              yield* q(
+                "SELECT ticket_id, kind, target FROM project_import_reference WHERE project_id = $1 ORDER BY kind",
+                [project.id]
+              )
+            ).toEqual([
+              {
+                ticket_id: "PP-1",
+                kind: "link",
+                target: "https://old.example/about"
+              },
+              { ticket_id: "PP-1", kind: "ticket", target: "OLD-99" }
+            ])
+            expect(
+              yield* q(
+                "SELECT references_scanned FROM project_import WHERE id = $1",
+                [uploaded.id]
+              )
+            ).toEqual([{ references_scanned: true }])
             expect(
               yield* q(
                 "SELECT sprint_id FROM ticket_index WHERE project_id = $1 AND ticket_id = 'PP-1'",
@@ -535,6 +589,73 @@ describe.skipIf(!databaseUrl)("project import", () => {
             )
             expect(ticket).toContain(`assignees:\n  - ${ada}\n`)
           }).pipe(Effect.provide(layer()))
+        })
+      ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live(
+    "stages one candidate per ticket and target when staging is replayed",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
+          const transactionalTicketReads: Array<string> = []
+          const pausedWorkflow = Layer.effect(
+            WorkflowEngine.WorkflowEngine,
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine
+              return {
+                ...engine,
+                register: (workflow, _execute) =>
+                  engine.register(workflow, () => Effect.never)
+              } satisfies WorkflowEngine.WorkflowEngine["Service"]
+            })
+          ).pipe(Layer.provide(WorkflowEngine.layerMemory))
+          yield* Effect.gen(function* () {
+            yield* writeSource
+            const imports = yield* ProjectImports.ProjectImports
+            const { id } = yield* imports
+              .upload(yield* exported)
+              .pipe(asImporter)
+            yield* imports
+              .run(id, {
+                name: "Replay",
+                slug: "replay",
+                key: decodeKey("RPL"),
+                people: []
+              })
+              .pipe(asImporter)
+            const { steps } = imports
+            yield* steps.ensureHidden(id, 1)
+            const batches = yield* steps.documentBatches(id, 1)
+            for (let batch = 0; batch < batches; batch++)
+              yield* steps.writeDocuments(id, 1, batch)
+            yield* steps.recordAttachments(id, 1)
+            yield* steps.index(id, 1)
+            yield* steps.stageReferenceCandidates(id, 1)
+            yield* steps.stageReferenceCandidates(id, 1)
+            const { rows } = yield* Effect.promise(() =>
+              pool.query(
+                "SELECT ticket_id, kind, target FROM project_import_reference WHERE project_id = (SELECT destination_project_id FROM project_import WHERE id = $1) ORDER BY ticket_id, kind, target",
+                [id]
+              )
+            )
+            expect(rows).toEqual([
+              {
+                ticket_id: "RPL-1",
+                kind: "link",
+                target: "https://old.example/about"
+              },
+              { ticket_id: "RPL-1", kind: "ticket", target: "OLD-99" },
+              { ticket_id: "RPL-1", kind: "ticket", target: "RPL-2" }
+            ])
+            transactionalTicketReads.length = 0
+            yield* steps.publish(id, 1)
+            expect(transactionalTicketReads).toEqual([])
+          }).pipe(
+            Effect.provide(layer(pausedWorkflow, transactionalTicketReads))
+          )
         })
       ).pipe(Effect.provide(BunServices.layer))
   )

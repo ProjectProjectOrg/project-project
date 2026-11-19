@@ -1,0 +1,1 @@
+CREATE INDEX "project_import_reference_project_idx" ON "project_import_reference" ("project_id","id");

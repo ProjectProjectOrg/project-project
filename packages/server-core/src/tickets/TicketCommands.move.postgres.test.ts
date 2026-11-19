@@ -258,6 +258,12 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
               [randomUUID(), sourceId, userId, '{"kind":"description_edited"}']
             )
           )
+          yield* Effect.promise(() =>
+            pool.query(
+              "INSERT INTO project_import_reference (project_id,ticket_id,kind,target) VALUES ($1,'T-1','user','old-bob'), ($1,'T-1','ticket','OLD-99')",
+              [sourceId]
+            )
+          )
           const commands = yield* TicketCommands.TicketCommands
           const result = yield* commands.move("T-1", {
             toProject: slug("product"),
@@ -300,6 +306,20 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
           )
           expect(activity.rows).toEqual([
             { project_id: destinationId, ticket_id: root }
+          ])
+          const references = yield* Effect.promise(() =>
+            pool.query(
+              "SELECT project_id, ticket_id, target FROM project_import_reference WHERE project_id = ANY($1) ORDER BY target",
+              [[sourceId, destinationId]]
+            )
+          )
+          expect(references.rows).toEqual([
+            {
+              project_id: destinationId,
+              ticket_id: root,
+              target: "inbox/OLD-99"
+            },
+            { project_id: destinationId, ticket_id: root, target: "old-bob" }
           ])
           expect(
             recorded.flatMap(({ changes }) =>
