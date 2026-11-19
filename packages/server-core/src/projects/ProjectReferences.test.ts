@@ -41,6 +41,8 @@ import * as ProjectReferences from "./ProjectReferences"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
+const MALFORMED = "<malformed>"
+
 describe.skipIf(!databaseUrl)("ProjectReferences", () => {
   const orgId = randomUUID()
   let pool: Pool
@@ -142,12 +144,20 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
                 return [...bodies.keys()].map((id) => ticketId(id))
               }),
             read: (_org, _slug, id) =>
-              Effect.suspend(() => {
+              Effect.gen(function* () {
                 reads.push(id)
                 const body = bodies.get(id)
-                return body === undefined
-                  ? Effect.fail(new NotFound())
-                  : Effect.succeed(makeTicketDocument(id, { body }))
+                if (body === MALFORMED)
+                  return yield* new TicketDocs.MalformedTicketDocument({
+                    orgSlug: orgId,
+                    slug: scope.slug,
+                    ticketId: id,
+                    path: `${id}.md`,
+                    reason: "missing title",
+                    cause: null
+                  })
+                if (body === undefined) return yield* new NotFound()
+                return makeTicketDocument(id, { body })
               })
           }),
           Layer.mock(TicketIndex.TicketIndex, {
@@ -227,6 +237,27 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
           reads.length = 0
           yield* references.list()
           expect(reads).toEqual(["PP-1"])
+        }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(dbLayer))
+  )
+
+  it.live(
+    "keeps the tracked references of a ticket that cannot be read until it can",
+    () =>
+      Effect.gen(function* () {
+        const { bodies, layer } = yield* fixture(
+          "scanned-import",
+          [["PP-1", MALFORMED]],
+          [{ ticketId: "PP-1", kind: "user", target: "old-bob" }]
+        )
+        yield* Effect.gen(function* () {
+          const references = yield* ProjectReferences.ProjectReferences
+          expect((yield* references.list()).items).toEqual([])
+          bodies.set("PP-1", "Ask [Robert](mention:user/old-bob).")
+          const { items } = yield* references.list()
+          expect(items.map(({ ticketId, label }) => [ticketId, label])).toEqual(
+            [["PP-1", "Robert"]]
+          )
         }).pipe(Effect.provide(layer))
       }).pipe(Effect.provide(dbLayer))
   )

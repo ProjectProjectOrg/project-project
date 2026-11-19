@@ -10,9 +10,8 @@ import type { TicketProject } from "../tickets/ticketProject"
 import * as Users from "../users/Users"
 import { referenceCandidates } from "./references"
 
-type Target = Pick<
-  typeof projectImportReference.$inferSelect,
-  "kind" | "target"
+type Target = Readonly<
+  Pick<typeof projectImportReference.$inferSelect, "kind" | "target">
 >
 type Tx = Parameters<Parameters<Db["Service"]["transaction"]>[0]>[0]
 
@@ -27,7 +26,7 @@ export const readReferenceCandidates = Effect.fn("ImportReferences.read")(
       Effect.map((document) => referenceCandidates(document.body, origin)),
       Effect.catchTags({
         NotFound: () => Effect.succeed([]),
-        MalformedTicketDocument: () => Effect.succeed([])
+        MalformedTicketDocument: () => Effect.succeed(null)
       })
     )
   }
@@ -99,7 +98,9 @@ export const forEachImportReferenceBatch = Effect.fn("ImportReferences.scan")(
         ids.slice(offset, offset + BATCH_SIZE),
         (ticketId) =>
           Effect.map(
-            readReferenceCandidates(project, ticketId, origin),
+            readReferenceCandidates(project, ticketId, origin).pipe(
+              Effect.map((candidates) => candidates ?? [])
+            ),
             (candidates) => [
               ...new Map(
                 candidates.map(({ kind, target }) => [

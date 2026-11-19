@@ -164,6 +164,8 @@ const make = Effect.gen(function* () {
             ticketId,
             origin
           )
+          if (candidates === null)
+            return references.map(({ id }) => ({ id, item: null }))
           const byKey = new Map(
             references.map((row) => [referenceKey(row), row.id])
           )
@@ -196,7 +198,9 @@ const make = Effect.gen(function* () {
         )
         .pipe(Effect.orDie)
     }
-    return { items: matches.map(({ item }) => item) }
+    return {
+      items: matches.flatMap(({ item }) => (item === null ? [] : [item]))
+    }
   })
 
   const fix = Effect.fn("ProjectReferences.fix")(function* (
