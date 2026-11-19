@@ -18,9 +18,12 @@ import {
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
+import * as Schedule from "effect/Schedule"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -82,7 +85,8 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
         typeof projectImportReference.$inferInsert,
         "ticketId" | "kind" | "target"
       >
-    > = []
+    > = [],
+    beforeList: Effect.Effect<void> = Effect.void
   ) {
     const db = yield* Db
     const projectId = randomUUID()
@@ -127,8 +131,9 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
           Layer.succeed(Db, db),
           Layer.mock(TicketDocs.TicketDocs, {
             listIds: () =>
-              Effect.sync(() => {
+              Effect.gen(function* () {
                 listings++
+                yield* beforeList
                 return [...bodies.keys()].map((id) => ticketId(id))
               }),
             read: (_org, _slug, id) =>
@@ -268,21 +273,72 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
   )
 
   it.live(
-    "backfills a previously imported project once when there are no findings",
+    "records that an earlier import was scanned even when it has no findings",
     () =>
       Effect.gen(function* () {
-        const { reads, listings, layer } = yield* fixture("older-import", [
-          ["PP-1", "[Self](mention:ticket/PP-1)"]
-        ])
+        const { projectId, reads, listings, layer } = yield* fixture(
+          "older-import",
+          [["PP-1", "[Self](mention:ticket/PP-1)"]]
+        )
         yield* Effect.gen(function* () {
           const references = yield* ProjectReferences.ProjectReferences
-          const results = yield* Effect.all(
-            [references.list(), references.list()],
-            { concurrency: 2 }
+          expect((yield* references.list()).items).toEqual([])
+          yield* Effect.promise(() =>
+            expect
+              .poll(async () => {
+                const { rows } = await pool.query<{
+                  references_scanned: boolean
+                }>(
+                  "SELECT references_scanned FROM project_import WHERE id = $1",
+                  [projectId]
+                )
+                return rows[0]?.references_scanned
+              })
+              .toBe(true)
           )
-          expect(results.map(({ items }) => items)).toEqual([[], []])
+          expect((yield* references.list()).items).toEqual([])
           expect(listings()).toBe(1)
           expect(reads).toEqual(["PP-1"])
+        }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(dbLayer))
+  )
+
+  it.live(
+    "lists stored references while an earlier import backfills in the background",
+    () =>
+      Effect.gen(function* () {
+        const scanning = yield* Deferred.make<void>()
+        const resume = yield* Deferred.make<void>()
+        const { listings, layer } = yield* fixture(
+          "older-import",
+          [["PP-1", "[Missing](mention:ticket/OLD-99)"]],
+          [],
+          Deferred.succeed(scanning, undefined).pipe(
+            Effect.andThen(Deferred.await(resume))
+          )
+        )
+        yield* Effect.gen(function* () {
+          const references = yield* ProjectReferences.ProjectReferences
+          yield* Effect.gen(function* () {
+            const first = yield* Effect.forkChild(references.list())
+            yield* Deferred.await(scanning)
+            expect(
+              (yield* Fiber.join(first).pipe(Effect.timeout("1 second"))).items
+            ).toEqual([])
+            expect((yield* references.list()).items).toEqual([])
+          }).pipe(Effect.ensuring(Deferred.succeed(resume, undefined)))
+
+          const result = yield* references.list().pipe(
+            Effect.repeat({
+              while: ({ items }) => items.length === 0,
+              schedule: Schedule.spaced("20 millis")
+            }),
+            Effect.timeout("3 seconds")
+          )
+          expect(result.items).toMatchObject([
+            { ticketId: "PP-1", kind: "ticket", target: "OLD-99" }
+          ])
+          expect(listings()).toBe(1)
         }).pipe(Effect.provide(layer))
       }).pipe(Effect.provide(dbLayer))
   )

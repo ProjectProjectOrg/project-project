@@ -34,6 +34,7 @@ import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Redacted from "effect/Redacted"
 import * as Schedule from "effect/Schedule"
@@ -71,7 +72,10 @@ describe.skipIf(!databaseUrl)("project import", () => {
     secretAccessKey: "secret"
   }
 
-  const layer = (workflowEngine = WorkflowEngine.layerMemory) => {
+  const layer = (
+    workflowEngine = WorkflowEngine.layerMemory,
+    transactionalTicketReads?: Array<string>
+  ) => {
     const db = DbLive.pipe(
       Layer.provideMerge(
         PgClient.layer({ url: Redacted.make(databaseUrl!), maxConnections: 2 })
@@ -110,9 +114,32 @@ describe.skipIf(!databaseUrl)("project import", () => {
       Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db)))
     )
     const index = TicketIndexServices.layer.pipe(Layer.provide(ticketDocs))
+    const importTicketDocs = transactionalTicketReads
+      ? Layer.effect(
+          TicketDocs.TicketDocs,
+          Effect.gen(function* () {
+            const docs = yield* TicketDocs.TicketDocs
+            const { transactionService } = yield* PgClient.PgClient
+            return {
+              ...docs,
+              read: (...args) =>
+                Effect.gen(function* () {
+                  if (
+                    Option.isSome(
+                      yield* Effect.serviceOption(transactionService)
+                    )
+                  )
+                    transactionalTicketReads.push(args[2])
+                  return yield* docs.read(...args)
+                })
+            } satisfies TicketDocs.TicketDocs["Service"]
+          })
+        ).pipe(Layer.provide(ticketDocs))
+      : ticketDocs
     return Layer.mergeAll(
       ProjectImports.ProjectImportWorkflowLive.pipe(
-        Layer.provideMerge(ProjectImports.layer)
+        Layer.provideMerge(ProjectImports.layer),
+        Layer.provide(importTicketDocs)
       ),
       ProjectExport.layer
     ).pipe(
@@ -356,6 +383,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem
           root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
+          const transactionalTicketReads: Array<string> = []
           yield* Effect.gen(function* () {
             yield* writeSource
             const notesDir = `${root}/orgs/${source.slug}/projects/src/notes`
@@ -409,6 +437,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
               destination: { slug: "moved" }
             })
             yield* imports.steps.publish(uploaded.id, 1)
+            expect(transactionalTicketReads).toEqual([])
 
             const q = <T>(text: string, values: ReadonlyArray<unknown>) =>
               Effect.promise(() =>
@@ -563,7 +592,11 @@ describe.skipIf(!databaseUrl)("project import", () => {
               `/api/attachments/${target.slug}/${attachment.id}`
             )
             expect(ticket).toContain(`assignees:\n  - ${ada}\n`)
-          }).pipe(Effect.provide(layer()))
+          }).pipe(
+            Effect.provide(
+              layer(WorkflowEngine.layerMemory, transactionalTicketReads)
+            )
+          )
         })
       ).pipe(Effect.provide(BunServices.layer))
   )

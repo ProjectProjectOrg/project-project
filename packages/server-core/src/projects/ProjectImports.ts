@@ -8,6 +8,7 @@ import {
   organization,
   projectImageReference,
   projectImport,
+  projectImportReference,
   projectIndex,
   projectKey,
   user,
@@ -72,7 +73,11 @@ import type * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
 import type * as Users from "../users/Users"
 import * as HiddenProject from "./hiddenProject"
-import { scanImportReferences } from "./importReferences"
+import {
+  insertImportReferences,
+  pruneResolvedImportReferences,
+  readImportReferenceCandidates
+} from "./importReferences"
 import {
   importedAuthorOf,
   renameTicketId,
@@ -165,6 +170,10 @@ export class ProjectImports extends Context.Service<
         attempt: number
       ) => Effect.Effect<void, StepError>
       index: (id: string, attempt: number) => Effect.Effect<void, StepError>
+      stageReferenceCandidates: (
+        id: string,
+        attempt: number
+      ) => Effect.Effect<void, StepError>
       publish: (id: string, attempt: number) => Effect.Effect<void, StepError>
       fail: (id: string, attempt: number) => Effect.Effect<void>
     }>
@@ -881,11 +890,43 @@ const make = Effect.gen(function* () {
       .pipe(asFailure)
   })
 
+  const stageReferenceCandidates = Effect.fn(
+    "ProjectImports.stageReferenceCandidates"
+  )(function* (id: string, attempt: number) {
+    const { row, plan, orgSlug, configuration, sourceUrl } = yield* loadAttempt(
+      id,
+      attempt
+    )
+    if (row.status === "succeeded") return
+    const projectId = plan.identity.id
+    const candidates = yield* readImportReferenceCandidates(
+      {
+        orgSlug,
+        organizationId: plan.identity.organizationId,
+        projectId,
+        slug: configuration.slug
+      },
+      referenceOrigin(sourceUrl)
+    ).pipe(asFailure)
+    yield* db
+      .transaction((tx) =>
+        Effect.gen(function* () {
+          const owner = yield* lockAttempt(id, attempt, true)(tx)
+          if (owner.status === "succeeded") return
+          yield* tx
+            .delete(projectImportReference)
+            .where(eq(projectImportReference.projectId, projectId))
+          yield* insertImportReferences(tx, candidates)
+        })
+      )
+      .pipe(asFailure)
+  })
+
   const publish = Effect.fn("ProjectImports.publish")(function* (
     id: string,
     attempt: number
   ) {
-    const { plan, configuration, orgSlug, sourceUrl } = yield* loadAttempt(
+    const { plan, configuration, orgSlug } = yield* loadAttempt(
       id,
       attempt,
       "publish"
@@ -928,19 +969,12 @@ const make = Effect.gen(function* () {
                   current: false
                 }))
               )
-            yield* scanImportReferences(
-              tx,
-              {
-                projectId: project.id,
-                organizationId: project.organizationId,
-                orgSlug,
-                slug: project.slug
-              },
-              referenceOrigin(sourceUrl)
-            ).pipe(
-              Effect.provide(provided),
-              Effect.catchTag("MarkdownError", Effect.die)
-            )
+            yield* pruneResolvedImportReferences(tx, {
+              projectId: project.id,
+              organizationId: project.organizationId,
+              orgSlug,
+              slug: project.slug
+            }).pipe(Effect.provide(provided))
             yield* tx
               .update(projectImport)
               .set({
@@ -1094,6 +1128,7 @@ const make = Effect.gen(function* () {
       writeDocuments,
       recordAttachments,
       index,
+      stageReferenceCandidates,
       publish,
       fail
     }
@@ -1372,6 +1407,11 @@ export const ProjectImportWorkflowLive = Layer.unwrap(
           steps.recordAttachments(importId, attempt)
         )
         yield* step("index", Schema.Void, steps.index(importId, attempt))
+        yield* step(
+          "reference-candidates",
+          Schema.Void,
+          steps.stageReferenceCandidates(importId, attempt)
+        )
         yield* step("publish", Schema.Void, steps.publish(importId, attempt))
       })
     )

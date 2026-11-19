@@ -25,9 +25,10 @@ import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketReadError } from "../tickets/ticketPresentation"
 import type * as Users from "../users/Users"
 import {
+  insertImportReferences,
+  readImportReferenceCandidates,
   readReferenceCandidates,
   referenceKey,
-  scanImportReferences,
   unresolvedReferences
 } from "./importReferences"
 import { applyReferenceFix, referenceOrigin } from "./references"
@@ -84,24 +85,21 @@ const make = Effect.gen(function* () {
                 eq(projectImport.referencesScanned, false)
               )
             )
-            .for("update")
+            .for("update", { skipLocked: true })
           if (!pending) return
-          yield* scanImportReferences(
-            tx,
+          const candidates = yield* readImportReferenceCandidates(
             scope,
             referenceOrigin(pending.sourceUrl)
           )
+          const unresolved = yield* unresolvedReferences(scope, candidates)
+          yield* insertImportReferences(tx, unresolved)
           yield* tx
             .update(projectImport)
             .set({ referencesScanned: true })
             .where(eq(projectImport.id, importId))
         })
       )
-      .pipe(
-        Effect.catchTag(["SqlError", "EffectDrizzleQueryError"], Effect.die),
-        Effect.uninterruptible,
-        Effect.provide(provided)
-      )
+      .pipe(Effect.provide(provided))
   })
 
   const list = Effect.fn("ProjectReferences.list")(function* () {
@@ -122,7 +120,16 @@ const make = Effect.gen(function* () {
       .limit(1)
       .pipe(Effect.orDie)
     if (!imported) return { items: [] }
-    if (!imported.referencesScanned) yield* backfill(scope, imported.id)
+    if (!imported.referencesScanned)
+      yield* backfill(scope, imported.id).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logError("project import reference backfill failed", {
+            importId: imported.id,
+            cause
+          })
+        ),
+        Effect.forkDetach
+      )
 
     const rows = yield* db
       .select()
