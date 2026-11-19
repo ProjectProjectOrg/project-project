@@ -131,7 +131,7 @@ export function ListSectionHeader({
           "data-stuck:shadow-surface-3",
           creating
             ? // Typing a ticket: the bar becomes the field it holds.
-              "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
+              "bg-field shadow-[inset_0_0_0_1px_var(--field-line)]"
             : cn(
                 "cursor-pointer select-none hover:duration-0 hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
                 // Pressed: one step darker, unless the press is on one of

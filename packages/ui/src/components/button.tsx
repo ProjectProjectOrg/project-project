@@ -69,7 +69,7 @@ const buttonVariants = cva(
           // Tints like Input (fieldTintClass): --field-hover on hover, and
           // the lighter --field-focus while focused or while its popup is
           // open, over the fill as an inset shadow.
-          "justify-between border border-(--segment-line) bg-field text-left text-foreground not-disabled:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-disabled:hover:duration-0 focus-visible:shadow-[inset_0_0_0_100vmax_var(--field-focus)] aria-invalid:border-destructive data-[popup-open]:shadow-[inset_0_0_0_100vmax_var(--field-focus)]",
+          "justify-between border border-(--field-line) bg-field text-left text-foreground not-disabled:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-disabled:hover:duration-0 focus-visible:shadow-[inset_0_0_0_100vmax_var(--field-focus)] aria-invalid:border-destructive data-[popup-open]:shadow-[inset_0_0_0_100vmax_var(--field-focus)]",
         dither: "overflow-hidden bg-transparent"
       },
       size: {

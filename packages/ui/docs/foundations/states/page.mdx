@@ -53,41 +53,23 @@ A loading control stays at full strength with `cursor-progress` and swaps its la
 
 Every target is at least 24×24 (WCAG 2.5.8). Small visual controls (a 16px checkbox, a 12px chip action) extend their hit area with a pseudo-element or a 24px round target, so they stay small to look at and easy to hit.
 
-## Proposal: states measured from the surface
+## Fields and menus step from their surface
 
-Not adopted yet; a proposal to compare. Today hover, press and field tints are fixed overlays (`--hover`, `--active`, `--field-hover`), the same on every surface, plus special cases for popups (`--field-popup`, `--field-hover-popup`, `--menu-hover`, `--menu-active`). The same overlay is a big step on a dark well and a small one on a lighter popup, so states drift: a focused field on the dark page lands on the page fill, and fields sit deeper the higher their surface.
-
-The proposal: every surface declares its fill as `--surface`, and every state steps a fixed amount of lightness from it, so the step is the same everywhere and the popup special cases go away.
+A field, its hover and focus, and the menu highlight are worked out from the surface they sit on (`--surface`), a fixed step of lightness away, so they read the same on the page, a settings group and a popup. `--surface` is the page; a surface that holds fields declares its own with the `surface` class (`surface [--surface:var(--card)]`), as `popupSurfaceClass` and settings groups do, and the tokens are worked out again inside it.
 
 ```css
 /* dark */
---field:       oklch(from var(--surface) calc(min(l - 0.06, 0.23)) c h);
---segment-line: oklch(from var(--surface) calc(l + 0.04) c h); /* field edge */
---field-hover: oklch(from var(--field)   calc(l + 0.035) c h);
+--field:       oklch(from var(--surface) calc(min(l - 0.04, 0.23)) c h);
+--field-line:  oklch(from var(--surface) calc(l + 0.04) c h); /* field edge */
+--field-hover: oklch(from var(--field)   calc(min(l + 0.06, 0.26)) c h);
 --field-focus: oklch(from var(--field)   calc(l + 0.025) c h);
---hover:       oklch(from var(--surface) calc(l + 0.06) c h);
---active:      oklch(from var(--surface) calc(l + 0.10) c h);
+--menu-hover:  oklch(from var(--surface) calc(l + 0.06) c h);
+--menu-active: oklch(from var(--surface) calc(l + 0.10) c h);
 /* light: fields stay white (min(1, l + 0.02)), states step darker */
 ```
 
-A field's hairline steps from the surface too: as today's 6% white over the field, it would land exactly on the surface's lightness and vanish. In dark a field never gets lighter than 0.23, so on a raised surface (a nested popup) it stays a deep well instead of drifting up to grey with its surface. Light can't get lighter than white, so a focused field there is carried by the focus ring, not a tint. Overlays on coloured fills (chips, toned columns) would keep a plain overlay token.
+A field's edge steps from the surface too: a white overlay on the field would land on the surface's own lightness and vanish. In dark a field never gets lighter than 0.23, so on a raised surface (a nested popup) it stays a well instead of drifting up to grey with its surface, and its hover stops at 0.26 so it stays below the popup's fill. Light can't get lighter than white, so a focused field there is carried by the focus ring, not a tint.
 
-<Demo name="surface-rule" title="Every surface, today or proposed" />
+Row and control hover (`--hover`, `--active`) stay translucent overlays: they stack, so a chip still lights up on a hovered row, and they work on coloured fills.
 
-### Before and after: the backlog toolbar
-
-On the page, with the search field focused, Filters hovered and a row under the pointer. In dark, today's focused field takes on the page's own fill, so only its ring says it's focused; after, it stays a well, and the row hover is the same step it is everywhere.
-
-<Demo name="toolbar" title="The backlog toolbar, before and after" />
-
-### Before and after: a settings group
-
-The card well on the page, with a field at rest, one hovered, a select focused and a ghost action hovered. Today every field is the same dark well whatever it sits on; after, fields sit a fixed step below the well, the same relation fields have with the page.
-
-<Demo name="settings" title="A settings group, before and after" />
-
-### Before and after: View options
-
-The popover with Grouping focused and Ordering hovered, and the Sub-tickets select open below it as a nested popup with Expanded hovered. Here the two land close together: today's popup tokens (`--field-popup`, `--field-hover-popup`, `--menu-hover`) already stand in for the rule, which replaces them with one formula.
-
-<Demo name="view-options" title="View options, before and after" className="min-h-96" />
+<Demo name="surface-rule" title="Every surface" />

@@ -152,7 +152,7 @@ A menu whose first row is a choice (a status picker, a priority submenu) is a pi
 
 ### Rows are lit in dark mode
 
-A row's text at rest is `--menu-foreground`: in dark it sits between the muted grey and the foreground (`oklch(0.86 0 0)`), because grey on the raised menu fill read washed out and full white was too loud; light keeps it muted. The highlighted row takes the full foreground. Icons stay muted until the row is highlighted. A destructive row is red in both themes.
+A row's label is weight 450, a hair above body text, so short labels hold up on the menu fill. Its text at rest is `--menu-foreground`: in dark it sits between the muted grey and the foreground (`oklch(0.86 0 0)`), because grey on the raised menu fill read washed out and full white was too loud; light keeps it muted. The highlighted row takes the full foreground. Icons stay muted until the row is highlighted. A destructive row is red in both themes.
 
 ### Submenus open at once and fade out
 
@@ -164,7 +164,7 @@ A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its wa
 
 ### Hover and press match the buttons
 
-The highlight that glides between rows takes `--menu-hover` on hover and `--menu-active` while pressed: the ghost button's fills in light, lifted in dark so they still show on the raised menu fill. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
+The highlight that glides between rows takes `--menu-hover` on hover and `--menu-active` while pressed: a fixed lightness step from the popup's fill (see Interaction states), so they show on the plain and the raised menu alike. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
 
 ### Menu actions confirm in place
 

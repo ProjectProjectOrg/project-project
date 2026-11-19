@@ -7,7 +7,7 @@ colors:
   page: "oklch(0.982 0 0)"
   page-dark: "oklch(0.219 0 0)"
   field: "oklch(1 0 0)"
-  field-dark: "oklch(0.18 0 0)"
+  field-dark: "oklch(0.179 0 0)"
   foreground: "oklch(0.145 0 0)"
   foreground-dark: "oklch(0.985 0 0)"
   muted: "oklch(0.945 0 0)"
@@ -211,7 +211,7 @@ Hover, pressed, and the secondary button are **translucent overlays**, not opaqu
 - **Suggested fill** (`--suggested-fill`): the flag's warm tone at 22% / 14%, under a selection bar field that has a suggestion (with a dot in `--state-warning`); its menu opens with the suggestion staged.
 - **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
-- **Field hover and focus** (`--field-hover` 4.5% / 6%, `--field-focus` 2.5% / 3.5%): every bordered field: Input and InputGroup, Select and other `field` buttons (over their `--field` fill, as an inset shadow). About a 0.03–0.06 lightness step, enough to read next to borders and text; focus (or an open picker) is lighter, so it reads as "you are here".
+- **Fields step from their surface** (`--field`, `--field-hover`, `--field-focus`, `--field-line`, and the menu highlight `--menu-hover`, `--menu-active`): worked out from `--surface`, a fixed lightness step away, so a field reads the same on the page, a settings group and a popup. In dark a field sits 0.04 below its surface (never above 0.23), its hover 0.06 above the field (never above 0.26), focus 0.025 above; light fields stay white and step darker. `--surface` is the page; a surface that holds fields declares its own with the `surface` class (`popupSurfaceClass`, settings groups). The rule and its demo are on the gallery's Interaction states page.
 - **Comment bubble** (`--comment-bubble`: `--page` mixed 4.5% / 5% toward `--foreground`): a comment's bubble on the ticket timeline, lifted off the page in both themes (the old `--card` was darker than the dark page, so comments sank into it).
 - **Bare field placeholder** (`--placeholder-hover`, `--placeholder-focus`: `--muted-foreground` mixed 18% and 30% toward `--foreground`): bare fields in running text (composer titles and descriptions, the ticket title and description, in-place names) have no fill in any state; only the placeholder steps up on hover and again while focused, staying in the placeholder range.
 - **Tint** (`--tint` 8% / 14%, `--tint-hover` 6.5% / 11%): the see-through secondary button fill.
@@ -316,7 +316,7 @@ Components that **elevate** read the surface level they sit on instead of hard-c
 - **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a white card: a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
 - **Dragged list row:** substrate + 1 while it is being dragged.
-- **Popovers and menus** use the tooltip's raised skin (`popupSurfaceClass`: `--tooltip`, `--tooltip-edge`), like hover cards, so everything that floats reads as one family. A popup opened from inside another (a select in View options) steps up to `--tooltip-raised` (`oklch(0.33 0 0)` in dark; light stays white and relies on the edge), so it floats above its parent instead of reading as a cut-out of it. Fields inside a popup (a menu's search, View options' selects) take `--field-popup` (`oklch(0.22 0 0)` in dark), a shallow well below the popup fill, and a gentler hover (`--field-hover-popup`, 4% white) so a hovered field brightens but stays below the popup instead of melting into it.
+- **Popovers and menus** use the tooltip's raised skin (`popupSurfaceClass`: `--tooltip`, `--tooltip-edge`), like hover cards, so everything that floats reads as one family. A popup opened from inside another (a select in View options) steps up to `--tooltip-raised` (`oklch(0.33 0 0)` in dark; light stays white and relies on the edge), so it floats above its parent instead of reading as a cut-out of it. It's a surface, so fields inside (a menu's search, View options' selects) and the menu highlight step from the popup's fill.
 
 Everything that only changes state on hover or press uses the overlays instead and needs no surface level.
 
