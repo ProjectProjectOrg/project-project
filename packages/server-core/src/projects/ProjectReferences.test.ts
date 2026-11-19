@@ -45,7 +45,12 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
   const orgId = randomUUID()
   let pool: Pool
   const dbLayer = DbLive.pipe(
-    Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl ?? "") })),
+    Layer.provide(
+      PgClient.layer({
+        url: Redacted.make(databaseUrl ?? ""),
+        maxConnections: 2
+      })
+    ),
     Layer.orDie
   )
 
@@ -86,7 +91,7 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
         "ticketId" | "kind" | "target"
       >
     > = [],
-    beforeList: Effect.Effect<void> = Effect.void
+    beforeList: (slug: string) => Effect.Effect<void> = () => Effect.void
   ) {
     const db = yield* Db
     const projectId = randomUUID()
@@ -130,10 +135,10 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
         Layer.mergeAll(
           Layer.succeed(Db, db),
           Layer.mock(TicketDocs.TicketDocs, {
-            listIds: () =>
+            listIds: (_org, slug) =>
               Effect.gen(function* () {
                 listings++
-                yield* beforeList
+                yield* beforeList(slug)
                 return [...bodies.keys()].map((id) => ticketId(id))
               }),
             read: (_org, _slug, id) =>
@@ -186,7 +191,7 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
         Layer.succeed(ActivityActor, ActivityActor.user(orgId))
       )
     )
-    return { projectId, bodies, reads, listings: () => listings, layer }
+    return { projectId, scope, bodies, reads, listings: () => listings, layer }
   })
 
   it.live(
@@ -304,18 +309,22 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
   )
 
   it.live(
-    "lists stored references while an earlier import backfills in the background",
+    "lists references while the backfill slot is occupied by another project",
     () =>
       Effect.gen(function* () {
         const scanning = yield* Deferred.make<void>()
+        const otherScanning = yield* Deferred.make<void>()
         const resume = yield* Deferred.make<void>()
+        const other = yield* fixture("older-import", [])
         const { listings, layer } = yield* fixture(
           "older-import",
           [["PP-1", "[Missing](mention:ticket/OLD-99)"]],
           [],
-          Deferred.succeed(scanning, undefined).pipe(
-            Effect.andThen(Deferred.await(resume))
-          )
+          (slug) =>
+            Deferred.succeed(
+              slug === other.scope.slug ? otherScanning : scanning,
+              undefined
+            ).pipe(Effect.andThen(Deferred.await(resume)))
         )
         yield* Effect.gen(function* () {
           const references = yield* ProjectReferences.ProjectReferences
@@ -325,7 +334,18 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
             expect(
               (yield* Fiber.join(first).pipe(Effect.timeout("1 second"))).items
             ).toEqual([])
-            expect((yield* references.list()).items).toEqual([])
+            const second = yield* references
+              .list()
+              .pipe(
+                Effect.provideService(ProjectScope, other.scope),
+                Effect.timeout("1 second")
+              )
+            expect(second.items).toEqual([])
+            expect(
+              (yield* Deferred.await(otherScanning).pipe(
+                Effect.timeoutOption("250 millis")
+              ))._tag
+            ).toBe("None")
           }).pipe(Effect.ensuring(Deferred.succeed(resume, undefined)))
 
           const result = yield* references.list().pipe(
@@ -341,6 +361,33 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
           expect(listings()).toBe(1)
         }).pipe(Effect.provide(layer))
       }).pipe(Effect.provide(dbLayer))
+  )
+
+  it.live("releases the backfill transaction when the service closes", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const scanning = yield* Deferred.make<void>()
+      const resume = yield* Deferred.make<void>()
+      const { projectId, layer } = yield* fixture("older-import", [], [], () =>
+        Deferred.succeed(scanning, undefined).pipe(
+          Effect.andThen(Deferred.await(resume))
+        )
+      )
+      yield* Effect.gen(function* () {
+        yield* Effect.gen(function* () {
+          const references = yield* ProjectReferences.ProjectReferences
+          yield* references.list()
+          yield* Deferred.await(scanning)
+        }).pipe(Effect.provide(layer))
+        expect(
+          yield* db
+            .select({ scanned: projectImport.referencesScanned })
+            .from(projectImport)
+            .where(eq(projectImport.id, projectId))
+            .for("update", { skipLocked: true })
+        ).toEqual([{ scanned: false }])
+      }).pipe(Effect.ensuring(Deferred.succeed(resume, undefined)))
+    }).pipe(Effect.provide(dbLayer))
   )
 
   it.live("fixes every occurrence and removes its stored rows", () =>

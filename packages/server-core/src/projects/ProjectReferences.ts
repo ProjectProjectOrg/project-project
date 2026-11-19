@@ -14,9 +14,11 @@ import {
 } from "@pp/shared"
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import * as Arr from "effect/Array"
+import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Semaphore from "effect/Semaphore"
 
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketCommands from "../tickets/TicketCommands"
@@ -25,8 +27,8 @@ import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketReadError } from "../tickets/ticketPresentation"
 import type * as Users from "../users/Users"
 import {
+  forEachImportReferenceBatch,
   insertImportReferences,
-  readImportReferenceCandidates,
   readReferenceCandidates,
   referenceKey,
   unresolvedReferences
@@ -59,6 +61,8 @@ export class ProjectReferences extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
+  const serviceScope = yield* Effect.scope
+  const backfillSlot = yield* Semaphore.make(1)
   const ticketDocs = yield* TicketDocs.TicketDocs
   const commands = yield* TicketCommands.TicketCommands
   const provided = yield* Effect.context<
@@ -87,12 +91,16 @@ const make = Effect.gen(function* () {
             )
             .for("update", { skipLocked: true })
           if (!pending) return
-          const candidates = yield* readImportReferenceCandidates(
+          yield* forEachImportReferenceBatch(
             scope,
-            referenceOrigin(pending.sourceUrl)
+            referenceOrigin(pending.sourceUrl),
+            (candidates) =>
+              unresolvedReferences(scope, candidates).pipe(
+                Effect.flatMap((unresolved) =>
+                  insertImportReferences(tx, unresolved)
+                )
+              )
           )
-          const unresolved = yield* unresolvedReferences(scope, candidates)
-          yield* insertImportReferences(tx, unresolved)
           yield* tx
             .update(projectImport)
             .set({ referencesScanned: true })
@@ -122,13 +130,16 @@ const make = Effect.gen(function* () {
     if (!imported) return { items: [] }
     if (!imported.referencesScanned)
       yield* backfill(scope, imported.id).pipe(
+        backfillSlot.withPermitsIfAvailable(1),
         Effect.catchCause((cause) =>
-          Effect.logError("project import reference backfill failed", {
-            importId: imported.id,
-            cause
-          })
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.void
+            : Effect.logError("project import reference backfill failed", {
+                importId: imported.id,
+                cause
+              })
         ),
-        Effect.forkDetach
+        Effect.forkIn(serviceScope)
       )
 
     const rows = yield* db

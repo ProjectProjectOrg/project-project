@@ -74,9 +74,9 @@ import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
 import type * as Users from "../users/Users"
 import * as HiddenProject from "./hiddenProject"
 import {
+  forEachImportReferenceBatch,
   insertImportReferences,
-  pruneResolvedImportReferences,
-  readImportReferenceCandidates
+  pruneResolvedImportReferences
 } from "./importReferences"
 import {
   importedAuthorOf,
@@ -899,15 +899,6 @@ const make = Effect.gen(function* () {
     )
     if (row.status === "succeeded") return
     const projectId = plan.identity.id
-    const candidates = yield* readImportReferenceCandidates(
-      {
-        orgSlug,
-        organizationId: plan.identity.organizationId,
-        projectId,
-        slug: configuration.slug
-      },
-      referenceOrigin(sourceUrl)
-    ).pipe(asFailure)
     yield* db
       .transaction((tx) =>
         Effect.gen(function* () {
@@ -916,7 +907,16 @@ const make = Effect.gen(function* () {
           yield* tx
             .delete(projectImportReference)
             .where(eq(projectImportReference.projectId, projectId))
-          yield* insertImportReferences(tx, candidates)
+          yield* forEachImportReferenceBatch(
+            {
+              orgSlug,
+              organizationId: plan.identity.organizationId,
+              projectId,
+              slug: configuration.slug
+            },
+            referenceOrigin(sourceUrl),
+            (candidates) => insertImportReferences(tx, candidates)
+          )
         })
       )
       .pipe(asFailure)

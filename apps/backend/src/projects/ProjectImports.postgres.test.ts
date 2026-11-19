@@ -383,7 +383,6 @@ describe.skipIf(!databaseUrl)("project import", () => {
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem
           root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
-          const transactionalTicketReads: Array<string> = []
           yield* Effect.gen(function* () {
             yield* writeSource
             const notesDir = `${root}/orgs/${source.slug}/projects/src/notes`
@@ -436,9 +435,6 @@ describe.skipIf(!databaseUrl)("project import", () => {
               status: "succeeded",
               destination: { slug: "moved" }
             })
-            yield* imports.steps.publish(uploaded.id, 1)
-            expect(transactionalTicketReads).toEqual([])
-
             const q = <T>(text: string, values: ReadonlyArray<unknown>) =>
               Effect.promise(() =>
                 pool.query<T & Record<string, unknown>>(text, [...values])
@@ -592,10 +588,73 @@ describe.skipIf(!databaseUrl)("project import", () => {
               `/api/attachments/${target.slug}/${attachment.id}`
             )
             expect(ticket).toContain(`assignees:\n  - ${ada}\n`)
-          }).pipe(
-            Effect.provide(
-              layer(WorkflowEngine.layerMemory, transactionalTicketReads)
+          }).pipe(Effect.provide(layer()))
+        })
+      ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live(
+    "stages one candidate per ticket and target when staging is replayed",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
+          const transactionalTicketReads: Array<string> = []
+          const pausedWorkflow = Layer.effect(
+            WorkflowEngine.WorkflowEngine,
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine
+              return {
+                ...engine,
+                register: (workflow, _execute) =>
+                  engine.register(workflow, () => Effect.never)
+              } satisfies WorkflowEngine.WorkflowEngine["Service"]
+            })
+          ).pipe(Layer.provide(WorkflowEngine.layerMemory))
+          yield* Effect.gen(function* () {
+            yield* writeSource
+            const imports = yield* ProjectImports.ProjectImports
+            const { id } = yield* imports
+              .upload(yield* exported)
+              .pipe(asImporter)
+            yield* imports
+              .run(id, {
+                name: "Replay",
+                slug: "replay",
+                key: decodeKey("RPL"),
+                people: []
+              })
+              .pipe(asImporter)
+            const { steps } = imports
+            yield* steps.ensureHidden(id, 1)
+            const batches = yield* steps.documentBatches(id, 1)
+            for (let batch = 0; batch < batches; batch++)
+              yield* steps.writeDocuments(id, 1, batch)
+            yield* steps.recordAttachments(id, 1)
+            yield* steps.index(id, 1)
+            yield* steps.stageReferenceCandidates(id, 1)
+            yield* steps.stageReferenceCandidates(id, 1)
+            const { rows } = yield* Effect.promise(() =>
+              pool.query(
+                "SELECT ticket_id, kind, target FROM project_import_reference WHERE project_id = (SELECT destination_project_id FROM project_import WHERE id = $1) ORDER BY ticket_id, kind, target",
+                [id]
+              )
             )
+            expect(rows).toEqual([
+              {
+                ticket_id: "RPL-1",
+                kind: "link",
+                target: "https://old.example/about"
+              },
+              { ticket_id: "RPL-1", kind: "ticket", target: "OLD-99" },
+              { ticket_id: "RPL-1", kind: "ticket", target: "RPL-2" }
+            ])
+            transactionalTicketReads.length = 0
+            yield* steps.publish(id, 1)
+            expect(transactionalTicketReads).toEqual([])
+          }).pipe(
+            Effect.provide(layer(pausedWorkflow, transactionalTicketReads))
           )
         })
       ).pipe(Effect.provide(BunServices.layer))

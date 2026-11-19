@@ -1,6 +1,6 @@
 import type { Db } from "@pp/db"
 import { projectImportReference } from "@pp/db/schema"
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, gt, inArray } from "drizzle-orm"
 import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 
@@ -79,27 +79,40 @@ export const unresolvedReferences = Effect.fn("ImportReferences.unresolved")(
   }
 )
 
-export const readImportReferenceCandidates = Effect.fn("ImportReferences.scan")(
-  function* (project: TicketProject, origin: string | null) {
+export const forEachImportReferenceBatch = Effect.fn("ImportReferences.scan")(
+  function* <E, R>(
+    project: TicketProject,
+    origin: string | null,
+    consume: (
+      candidates: ReadonlyArray<
+        Pick<
+          typeof projectImportReference.$inferSelect,
+          "projectId" | "ticketId" | "kind" | "target"
+        >
+      >
+    ) => Effect.Effect<void, E, R>
+  ) {
     const docs = yield* TicketDocs.TicketDocs
     const ids = yield* docs.listIds(project.orgSlug, project.slug)
-    const tickets = yield* Effect.forEach(
-      ids,
-      (ticketId) =>
-        Effect.map(
-          readReferenceCandidates(project, ticketId, origin),
-          (candidates) => [
-            ...new Map(
-              candidates.map(({ kind, target }) => [
-                referenceKey({ kind, target }),
-                { projectId: project.projectId, ticketId, kind, target }
-              ])
-            ).values()
-          ]
-        ),
-      { concurrency: 16 }
-    )
-    return tickets.flat()
+    for (let offset = 0; offset < ids.length; offset += BATCH_SIZE) {
+      const tickets = yield* Effect.forEach(
+        ids.slice(offset, offset + BATCH_SIZE),
+        (ticketId) =>
+          Effect.map(
+            readReferenceCandidates(project, ticketId, origin),
+            (candidates) => [
+              ...new Map(
+                candidates.map(({ kind, target }) => [
+                  referenceKey({ kind, target }),
+                  { projectId: project.projectId, ticketId, kind, target }
+                ])
+              ).values()
+            ]
+          ),
+        { concurrency: 16 }
+      )
+      yield* consume(tickets.flat())
+    }
   }
 )
 
@@ -117,19 +130,34 @@ export const insertImportReferences = Effect.fn("ImportReferences.insert")(
 export const pruneResolvedImportReferences = Effect.fn(
   "ImportReferences.pruneResolved"
 )(function* (tx: Tx, project: TicketProject) {
-  const rows = yield* tx
-    .select()
-    .from(projectImportReference)
-    .where(eq(projectImportReference.projectId, project.projectId))
-  const unresolved = new Set(
-    (yield* unresolvedReferences(project, rows)).map(({ id }) => id)
-  )
-  const resolved = rows
-    .filter(({ id }) => !unresolved.has(id))
-    .map(({ id }) => id)
-  for (const ids of Arr.chunksOf(resolved, BATCH_SIZE)) {
-    yield* tx
-      .delete(projectImportReference)
-      .where(inArray(projectImportReference.id, ids))
+  let afterId: string | undefined
+  while (true) {
+    const rows = yield* tx
+      .select()
+      .from(projectImportReference)
+      .where(
+        and(
+          eq(projectImportReference.projectId, project.projectId),
+          afterId === undefined
+            ? undefined
+            : gt(projectImportReference.id, afterId)
+        )
+      )
+      .orderBy(projectImportReference.id)
+      .limit(BATCH_SIZE)
+    const last = rows.at(-1)
+    if (!last) return
+    const unresolved = new Set(
+      (yield* unresolvedReferences(project, rows)).map(({ id }) => id)
+    )
+    const resolved = rows
+      .filter(({ id }) => !unresolved.has(id))
+      .map(({ id }) => id)
+    if (resolved.length > 0)
+      yield* tx
+        .delete(projectImportReference)
+        .where(inArray(projectImportReference.id, resolved))
+    if (rows.length < BATCH_SIZE) return
+    afterId = last.id
   }
 })
