@@ -19,6 +19,7 @@ import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as Users from "@pp/server-core/users/Users"
 import {
   CreatableProjectKey,
   OrgScope,
@@ -117,6 +118,8 @@ describe.skipIf(!databaseUrl)("project import", () => {
     ).pipe(
       Layer.provideMerge(workflowEngine),
       Layer.provide(index),
+      Layer.provide(ticketDocs),
+      Layer.provide(Users.layer),
       Layer.provide(ProjectDocs.layer),
       Layer.provideMerge(LibraryDocs.layer.pipe(Layer.provide(markdown))),
       Layer.provideMerge(markdown),
@@ -282,6 +285,8 @@ describe.skipIf(!databaseUrl)("project import", () => {
         "---",
         "",
         `See [T-2](mention:ticket/T-2). ![shot](/api/attachments/${source.slug}/${attachmentId})`,
+        "See also [OLD-99](mention:ticket/OLD-99).",
+        "Read the [old page](https://old.example/about).",
         "",
         '<block type="incident-note" sync>',
         "Stale ticket snapshot",
@@ -325,6 +330,11 @@ describe.skipIf(!databaseUrl)("project import", () => {
           projectId: sourceProjectId,
           slug: "src"
         })
+      ),
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({ BETTER_AUTH_URL: "https://old.example" })
+        )
       )
     )
     return archive.stream
@@ -416,6 +426,25 @@ describe.skipIf(!databaseUrl)("project import", () => {
             expect(project.published_at).not.toBeNull()
             expect(project.key).toBe("PP")
             expect(project.next_ticket_number).toBe(3)
+            expect(
+              yield* q(
+                "SELECT ticket_id, kind, target FROM project_import_reference WHERE project_id = $1 ORDER BY kind",
+                [project.id]
+              )
+            ).toEqual([
+              {
+                ticket_id: "PP-1",
+                kind: "link",
+                target: "https://old.example/about"
+              },
+              { ticket_id: "PP-1", kind: "ticket", target: "OLD-99" }
+            ])
+            expect(
+              yield* q(
+                "SELECT references_scanned FROM project_import WHERE id = $1",
+                [uploaded.id]
+              )
+            ).toEqual([{ references_scanned: true }])
             expect(
               yield* q(
                 "SELECT sprint_id FROM ticket_index WHERE project_id = $1 AND ticket_id = 'PP-1'",

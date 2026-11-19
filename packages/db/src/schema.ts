@@ -40,6 +40,7 @@
 
 import type {
   ProjectImport,
+  ReferenceKind,
   LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
@@ -1640,6 +1641,7 @@ export const projectImport = pgTable(
     configuration: jsonb("configuration").$type<ProjectImportConfiguration>(),
     destinationProjectId: uuid("destination_project_id"),
     destinationProjectSlug: text("destination_project_slug"),
+    referencesScanned: boolean("references_scanned").notNull().default(false),
     failureReason: text("failure_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -1651,7 +1653,26 @@ export const projectImport = pgTable(
   },
   (t) => [
     index("project_import_org_idx").on(t.organizationId, t.createdAt),
-    index("project_import_retention_idx").on(t.retainedUntil)
+    index("project_import_retention_idx").on(t.retainedUntil),
+    index("project_import_destination_idx")
+      .on(t.destinationProjectId, t.updatedAt)
+      .where(sql`${t.status} = 'succeeded'`)
+  ]
+)
+
+export const projectImportReference = pgTable(
+  "project_import_reference",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id").notNull(),
+    kind: text("kind").$type<ReferenceKind>().notNull(),
+    target: text("target").notNull()
+  },
+  (t) => [
+    index("project_import_reference_ticket_idx").on(t.projectId, t.ticketId)
   ]
 )
 

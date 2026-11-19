@@ -1,5 +1,5 @@
 import { Db } from "@pp/db"
-import { projectImport } from "@pp/db/schema"
+import { projectImport, projectImportReference } from "@pp/db/schema"
 import {
   type ActivityActor,
   type Conflict,
@@ -7,28 +7,30 @@ import {
   type Forbidden,
   type MentionInvalid,
   type NotFound,
-  ProjectExportManifestJson,
   ProjectScope,
   type ReferencesToFix,
   type ReferenceToFix,
   Validation
 } from "@pp/shared"
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
 
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketCommands from "../tickets/TicketCommands"
 import * as TicketDocs from "../tickets/TicketDocs"
-import * as TicketIndex from "../tickets/TicketIndex"
+import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketReadError } from "../tickets/ticketPresentation"
-import * as Users from "../users/Users"
-import { applyReferenceFix, referenceCandidates } from "./references"
-
-const decodeManifest = Schema.decodeUnknownOption(ProjectExportManifestJson)
+import type * as Users from "../users/Users"
+import {
+  readReferenceCandidates,
+  referenceKey,
+  scanImportReferences,
+  unresolvedReferences
+} from "./importReferences"
+import { applyReferenceFix, referenceOrigin } from "./references"
 
 export class ProjectReferences extends Context.Service<
   ProjectReferences,
@@ -54,95 +56,125 @@ export class ProjectReferences extends Context.Service<
   }>
 >()("@pp/server-core/projects/ProjectReferences") {}
 
-const originOf = (url: string | null) => {
-  if (url === null) return null
-  try {
-    return new URL(url).origin
-  } catch {
-    return null
-  }
-}
-
 const make = Effect.gen(function* () {
   const db = yield* Db
   const ticketDocs = yield* TicketDocs.TicketDocs
-  const ticketIndex = yield* TicketIndex.TicketIndex
-  const users = yield* Users.Users
   const commands = yield* TicketCommands.TicketCommands
+  const provided = yield* Effect.context<
+    TicketDocs.TicketDocs | TicketIndex.TicketIndex | Users.Users
+  >()
 
-  const oldOrigin = Effect.fn("ProjectReferences.oldOrigin")(function* (
-    projectId: string
+  const backfill = Effect.fn("ProjectReferences.backfill")(function* (
+    scope: ProjectScope["Service"],
+    importId: string
   ) {
-    const [row] = yield* db
-      .select({ manifest: projectImport.manifest })
+    yield* db
+      .transaction((tx) =>
+        Effect.gen(function* () {
+          const [pending] = yield* tx
+            .select({
+              sourceUrl: sql<
+                string | null
+              >`${projectImport.manifest} -> 'source' ->> 'url'`
+            })
+            .from(projectImport)
+            .where(
+              and(
+                eq(projectImport.id, importId),
+                eq(projectImport.referencesScanned, false)
+              )
+            )
+            .for("update")
+          if (!pending) return
+          yield* scanImportReferences(
+            tx,
+            scope,
+            referenceOrigin(pending.sourceUrl)
+          )
+          yield* tx
+            .update(projectImport)
+            .set({ referencesScanned: true })
+            .where(eq(projectImport.id, importId))
+        })
+      )
+      .pipe(
+        Effect.catchTag(["SqlError", "EffectDrizzleQueryError"], Effect.die),
+        Effect.uninterruptible,
+        Effect.provide(provided)
+      )
+  })
+
+  const list = Effect.fn("ProjectReferences.list")(function* () {
+    const scope = yield* ProjectScope
+    const [imported] = yield* db
+      .select({
+        id: projectImport.id,
+        referencesScanned: projectImport.referencesScanned
+      })
       .from(projectImport)
       .where(
         and(
-          eq(projectImport.destinationProjectId, projectId),
+          eq(projectImport.destinationProjectId, scope.projectId),
           eq(projectImport.status, "succeeded")
         )
       )
       .orderBy(desc(projectImport.updatedAt))
       .limit(1)
       .pipe(Effect.orDie)
-    if (!row) return null
-    return Option.match(decodeManifest(row.manifest), {
-      onNone: () => null,
-      onSome: (manifest) => originOf(manifest.source.url)
-    })
-  })
+    if (!imported) return { items: [] }
+    if (!imported.referencesScanned) yield* backfill(scope, imported.id)
 
-  const descriptions = Effect.fn("ProjectReferences.descriptions")(
-    function* () {
-      const scope = yield* ProjectScope
-      const ids = yield* ticketDocs.listIds(scope.orgSlug, scope.slug)
-      const documents = yield* Effect.forEach(
-        ids,
-        (id) =>
-          ticketDocs.read(scope.orgSlug, scope.slug, id).pipe(
-            Effect.map((document) => [{ id, body: document.body }]),
-            Effect.catchTags({
-              NotFound: () => Effect.succeed([]),
-              MalformedTicketDocument: () => Effect.succeed([])
-            })
-          ),
-        { concurrency: 16 }
-      )
-      return documents.flat()
-    }
-  )
+    const rows = yield* db
+      .select()
+      .from(projectImportReference)
+      .where(eq(projectImportReference.projectId, scope.projectId))
+      .orderBy(projectImportReference.ticketId)
+      .pipe(Effect.orDie)
+    if (rows.length === 0) return { items: [] }
 
-  const list = Effect.fn("ProjectReferences.list")(function* () {
-    const scope = yield* ProjectScope
-    const origin = yield* oldOrigin(scope.projectId)
-    const found = (yield* descriptions()).flatMap(({ id, body }) =>
-      referenceCandidates(body, origin).map((candidate) =>
-        Object.assign({ ticketId: id }, candidate)
-      )
+    const unresolved = yield* unresolvedReferences(scope, rows).pipe(
+      Effect.provide(provided)
     )
-    const ticketTargets = [
-      ...new Set(found.flatMap((r) => (r.kind === "ticket" ? [r.target] : [])))
-    ]
-    const existingTickets = yield* ticketIndex.existingIds(scope, ticketTargets)
-    const mentionableTickets = yield* ticketIndex.mentionableIds(
-      scope,
-      ticketTargets
-    )
-    const userTargets = [
-      ...new Set(found.flatMap((r) => (r.kind === "user" ? [r.target] : [])))
-    ]
-    const existingUsers = new Set(
-      (yield* users.findManyByIds(userTargets)).map((user) => user.id)
-    )
-    const resolves = (reference: ReferenceToFix) => {
-      if (reference.kind === "link") return false
-      if (reference.kind === "user") return existingUsers.has(reference.target)
-      return (
-        existingTickets.has(reference.target) ||
-        mentionableTickets.has(reference.target)
-      )
+    const current = yield* Effect.forEach(
+      Object.entries(Arr.groupBy(unresolved, (row) => row.ticketId)),
+      ([ticketId, references]) =>
+        Effect.gen(function* () {
+          const origin = referenceOrigin(
+            references.find((row) => row.kind === "link")?.target ?? null
+          )
+          const candidates = yield* readReferenceCandidates(
+            scope,
+            ticketId,
+            origin
+          )
+          const byKey = new Map(
+            references.map((row) => [referenceKey(row), row.id])
+          )
+          return candidates.flatMap((candidate) => {
+            const id = byKey.get(referenceKey(candidate))
+            return id === undefined
+              ? []
+              : [
+                  {
+                    id,
+                    item: { ticketId, ...candidate } satisfies ReferenceToFix
+                  }
+                ]
+          })
+        }),
+      { concurrency: 16 }
+    ).pipe(Effect.provide(provided))
+
+    const matches = current.flat()
+    const liveIds = new Set(matches.map(({ id }) => id))
+    const stale = rows.filter(({ id }) => !liveIds.has(id)).map(({ id }) => id)
+    for (const ids of Arr.chunksOf(stale, 500)) {
+      yield* db
+        .delete(projectImportReference)
+        .where(inArray(projectImportReference.id, ids))
+        .pipe(Effect.orDie)
     }
-    return { items: found.filter((reference) => !resolves(reference)) }
+    return { items: matches.map(({ item }) => item) }
   })
 
   const fix = Effect.fn("ProjectReferences.fix")(function* (
@@ -169,18 +201,29 @@ const make = Effect.gen(function* () {
         ticketId
       )
       const body = applyReferenceFix(document.body, input, input.action)
-      if (body !== document.body)
-        yield* commands
-          .update(ticketId, { body }, undefined, {
-            body: document.body,
-            updatedAt: document.updatedAt
-          })
-          .pipe(
-            Effect.catchTag(
-              "SprintCompletedImmutable",
-              () => new Validation({ reason: "sprint_completed_immutable" })
-            )
+      if (body === document.body) continue
+      yield* commands
+        .update(ticketId, { body }, undefined, {
+          body: document.body,
+          updatedAt: document.updatedAt
+        })
+        .pipe(
+          Effect.catchTag(
+            "SprintCompletedImmutable",
+            () => new Validation({ reason: "sprint_completed_immutable" })
           )
+        )
+      yield* db
+        .delete(projectImportReference)
+        .where(
+          and(
+            eq(projectImportReference.projectId, scope.projectId),
+            eq(projectImportReference.ticketId, ticketId),
+            eq(projectImportReference.kind, input.kind),
+            eq(projectImportReference.target, input.target)
+          )
+        )
+        .pipe(Effect.orDie)
     }
     return yield* list()
   })

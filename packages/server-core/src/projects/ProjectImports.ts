@@ -67,8 +67,12 @@ import { parseMarkdownFile, markdownFileContent } from "../markdown/fileContent"
 import type * as Markdown from "../markdown/Markdown"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
+import type * as TicketDocs from "../tickets/TicketDocs"
+import type * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
+import type * as Users from "../users/Users"
 import * as HiddenProject from "./hiddenProject"
+import { scanImportReferences } from "./importReferences"
 import {
   importedAuthorOf,
   renameTicketId,
@@ -78,6 +82,7 @@ import {
 } from "./importTransform"
 import { importedTypes, planImportedTypes } from "./importTypes"
 import * as ProjectDocs from "./ProjectDocs"
+import { referenceOrigin } from "./references"
 
 const MANIFEST_MAX_BYTES = 64 * 1024 * 1024
 const MARKDOWN_FILE_MAX_BYTES = 5 * 1024 * 1024
@@ -201,7 +206,13 @@ const make = Effect.gen(function* () {
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
   const engine = yield* WorkflowEngine.WorkflowEngine
-  const provided = yield* Effect.context<Db | HiddenProjectRequirements>()
+  const provided = yield* Effect.context<
+    | Db
+    | HiddenProjectRequirements
+    | TicketDocs.TicketDocs
+    | TicketIndex.TicketIndex
+    | Users.Users
+  >()
 
   const orgMembers = (organizationId: string) =>
     db
@@ -769,7 +780,7 @@ const make = Effect.gen(function* () {
       configuration,
       seed
     })
-    return { row, orgSlug, configuration, plan }
+    return { row, orgSlug, configuration, plan, sourceUrl: manifest.source.url }
   })
 
   const asFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -874,7 +885,11 @@ const make = Effect.gen(function* () {
     id: string,
     attempt: number
   ) {
-    const { plan, configuration } = yield* loadAttempt(id, attempt, "publish")
+    const { plan, configuration, orgSlug, sourceUrl } = yield* loadAttempt(
+      id,
+      attempt,
+      "publish"
+    )
     const now = yield* DateTime.nowAsDate
     yield* HiddenProject.publishHiddenProject(
       {
@@ -913,11 +928,25 @@ const make = Effect.gen(function* () {
                   current: false
                 }))
               )
+            yield* scanImportReferences(
+              tx,
+              {
+                projectId: project.id,
+                organizationId: project.organizationId,
+                orgSlug,
+                slug: project.slug
+              },
+              referenceOrigin(sourceUrl)
+            ).pipe(
+              Effect.provide(provided),
+              Effect.catchTag("MarkdownError", Effect.die)
+            )
             yield* tx
               .update(projectImport)
               .set({
                 status: "succeeded",
                 files: null,
+                referencesScanned: true,
                 retainedUntil: null,
                 updatedAt: publishedAt
               })
