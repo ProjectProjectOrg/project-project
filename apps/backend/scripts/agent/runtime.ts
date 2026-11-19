@@ -182,6 +182,7 @@ export async function runServers(
   }
   process.on("SIGINT", stop)
   process.on("SIGTERM", stop)
+  process.on("SIGHUP", stop)
   try {
     const target = `http://127.0.0.1:${port}`
     await waitForServer(backend, `${target}/api/health`, shutdown.signal)
@@ -262,6 +263,7 @@ export async function runServers(
   } finally {
     process.off("SIGINT", stop)
     process.off("SIGTERM", stop)
+    process.off("SIGHUP", stop)
     for (const child of [gallery, frontend, backend]) {
       if (!child) continue
       child.kill("SIGTERM")
