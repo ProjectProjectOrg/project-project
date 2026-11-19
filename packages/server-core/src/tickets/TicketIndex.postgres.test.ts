@@ -1845,6 +1845,48 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("reads and filters legacy indexed types as no type", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const index = yield* TicketIndex.TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      yield* index.upsertTicket(project, indexedDocument("T-1"))
+      yield* index.upsertTicket(
+        project,
+        indexedDocument("T-2", {
+          parent: ticketId("T-1"),
+          type: TypeKey.make("bug")
+        })
+      )
+      yield* withClient((client) =>
+        client.query(
+          "update ticket_index set type = 'other' where project_id = $1 and ticket_id = 'T-1'",
+          [project.projectId]
+        )
+      )
+
+      const entries = yield* index.list(project, ["T-1", "T-2"])
+      expect(entries.find((entry) => entry.id === "T-1")?.type).toBeNull()
+      expect(
+        entries.find((entry) => entry.id === "T-2")?.parent?.type
+      ).toBeNull()
+      const options = { viewerId: "viewer", limit: 10 }
+      const sort = { key: "id", dir: "asc" } satisfies TicketSort
+      const included = yield* index.query(
+        project,
+        { type: ["none"], sort },
+        options
+      )
+      const excluded = yield* index.query(
+        project,
+        { excludeType: ["none"], sort },
+        options
+      )
+      expect(included.map(({ entry }) => entry.id)).toEqual(["T-1"])
+      expect(excluded.map(({ entry }) => entry.id)).toEqual(["T-2"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect(
     "stores custom type keys and no type, and lists, filters and counts by both",
     () =>

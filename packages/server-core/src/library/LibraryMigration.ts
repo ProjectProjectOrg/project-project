@@ -1,3 +1,8 @@
+import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { organization, projectIndex, ticketIndex } from "@pp/db/schema"
+import { LEGACY_NO_TYPE } from "@pp/shared"
+import { and, asc, eq, sql } from "drizzle-orm"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
@@ -7,6 +12,7 @@ import * as Match from "effect/Match"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as LibraryDocs from "./LibraryDocs"
 import {
   isEmptyLegacyLayer,
@@ -37,7 +43,9 @@ export type MigrationSummary = Readonly<{
   >
 }>
 
-export type ProjectRef = Readonly<{ orgSlug: string; projectSlug: string }>
+type ProjectRef = Readonly<{ orgSlug: string; projectSlug: string }>
+
+type PendingProject = ProjectRef & Readonly<{ projectId: string }>
 
 export type TicketTypeMigration = ProjectRef & Readonly<{ rewritten: number }>
 
@@ -53,10 +61,7 @@ export class LibraryMigration extends Context.Service<
       MigrationSummary,
       Markdown.MarkdownError
     >
-    migrateTicketTypes: () => Effect.Effect<
-      TicketTypeSummary,
-      Markdown.MarkdownError
-    >
+    migrateTicketTypes: () => Effect.Effect<TicketTypeSummary, never, Db>
   }>
 >()("@pp/server-core/library/LibraryMigration") {}
 
@@ -105,6 +110,8 @@ const logLayer = (migration: LayerMigration) =>
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
   const docs = yield* LibraryDocs.LibraryDocs
+  const { withTicketDocumentLock, withTicketWriteLocks } =
+    yield* TicketDocumentLock.TicketDocumentLock
 
   const orgFrontmatter = (orgSlug: string) =>
     Effect.gen(function* () {
@@ -377,22 +384,58 @@ const make = Effect.gen(function* () {
   )
 
   const rewriteTicket = (orgSlug: string, projectSlug: string, id: string) =>
-    Effect.gen(function* () {
-      const file = yield* markdown.readTicketFileRaw(orgSlug, projectSlug, id)
-      const rewritten = withoutLegacyTicketType(file.content)
-      if (rewritten === null) return false
-      yield* markdown.writeTicketFileRaw(orgSlug, projectSlug, id, rewritten)
-      return true
-    }).pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
+    withTicketDocumentLock(
+      orgSlug,
+      projectSlug,
+      id,
+      withTicketWriteLocks(
+        orgSlug,
+        projectSlug,
+        [id],
+        Effect.gen(function* () {
+          const file = yield* markdown.readTicketFileRaw(
+            orgSlug,
+            projectSlug,
+            id
+          )
+          const rewritten = withoutLegacyTicketType(file.content)
+          if (rewritten === null) return false
+          yield* markdown.writeTicketFileRaw(
+            orgSlug,
+            projectSlug,
+            id,
+            rewritten
+          )
+          return true
+        })
+      )
+    ).pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
 
-  const migrateProjectTickets = (orgSlug: string, projectSlug: string) =>
+  const migrateProjectTickets = (
+    db: Db["Service"],
+    { orgSlug, projectSlug, projectId }: PendingProject
+  ) =>
     Effect.gen(function* () {
+      yield* markdown.readProjectFileRaw(orgSlug, projectSlug)
       const ids = yield* markdown.listTicketIds(orgSlug, projectSlug)
       const outcomes = yield* Effect.forEach(
         ids,
         (id) => rewriteTicket(orgSlug, projectSlug, id),
         { concurrency: 8 }
       )
+      yield* db
+        .update(ticketIndex)
+        .set({ type: null })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.type, sql`${LEGACY_NO_TYPE}`)
+          )
+        )
+      yield* db
+        .update(projectIndex)
+        .set({ ticketTypesMigrated: true })
+        .where(eq(projectIndex.id, projectId))
       const rewritten = outcomes.filter(Boolean).length
       if (rewritten > 0) {
         yield* Effect.logInfo(
@@ -400,10 +443,7 @@ const make = Effect.gen(function* () {
         ).pipe(Effect.annotateLogs({ orgSlug, projectSlug, rewritten }))
       }
       return { orgSlug, projectSlug, rewritten }
-    })
-
-  const migrateProjectTicketsSafely = (orgSlug: string, projectSlug: string) =>
-    migrateProjectTickets(orgSlug, projectSlug).pipe(
+    }).pipe(
       Effect.catchCause((cause) =>
         Cause.hasInterrupts(cause)
           ? Effect.interrupt
@@ -419,24 +459,36 @@ const make = Effect.gen(function* () {
 
   const migrateTicketTypes = Effect.fn("LibraryMigration.migrateTicketTypes")(
     function* () {
-      const orgSlugs = yield* markdown.listOrgSlugs()
-      const projects = yield* Effect.forEach(orgSlugs, (orgSlug) =>
-        Effect.map(markdown.listProjectSlugs(orgSlug), (projectSlugs) =>
-          projectSlugs.map((projectSlug) => ({ orgSlug, projectSlug }))
+      const db = yield* Db
+      const projects = yield* db
+        .select({
+          orgSlug: organization.slug,
+          projectSlug: projectIndex.slug,
+          projectId: projectIndex.id
+        })
+        .from(projectIndex)
+        .innerJoin(
+          organization,
+          eq(organization.id, projectIndex.organizationId)
         )
-      )
-      const outcomes = yield* Effect.forEach(projects.flat(), (project) =>
-        Effect.map(
-          migrateProjectTicketsSafely(project.orgSlug, project.projectSlug),
-          (migration) => ({ project, migration })
+        .where(
+          and(eq(projectIndex.ticketTypesMigrated, false), publishedProject())
         )
+        .orderBy(asc(organization.slug), asc(projectIndex.slug))
+        .pipe(Effect.orDie)
+      const outcomes = yield* Effect.forEach(projects, (project) =>
+        Effect.map(migrateProjectTickets(db, project), (migration) => ({
+          project,
+          migration
+        }))
       )
       return {
         migrated: outcomes.flatMap(({ migration }) =>
           migration === null || migration.rewritten === 0 ? [] : [migration]
         ),
-        failed: outcomes.flatMap(({ project, migration }) =>
-          migration === null ? [project] : []
+        failed: outcomes.flatMap(
+          ({ project: { orgSlug, projectSlug }, migration }) =>
+            migration === null ? [{ orgSlug, projectSlug }] : []
         )
       }
     }
