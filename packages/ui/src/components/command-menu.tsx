@@ -596,7 +596,7 @@ function CommandMenuList({
   return (
     <ScrollArea
       className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
-      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!flex [&>div[style]]:!min-h-full [&>div[style]]:!flex-col [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
     >
       <div
         ref={(node) => {
@@ -689,7 +689,7 @@ function CommandMenuEmpty({
       aria-live="polite"
       data-slot="command-menu-empty"
       className={cn(
-        "px-3 py-6 text-center text-muted-foreground",
+        "flex flex-1 flex-col px-3 py-6 text-center text-muted-foreground",
         "text-body",
         className
       )}
