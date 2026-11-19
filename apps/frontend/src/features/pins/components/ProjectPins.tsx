@@ -1,9 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import { PinTarget, type TicketDetail } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
 import { SidebarNote, SidebarRowGroup, SidebarSection } from "@pp/ui/sidebar"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import { useState } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { useState, type ReactNode } from "react"
 
 import { pinItem, pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
 import { predictionOf } from "@/features/pins/components/PinRow"
@@ -39,26 +41,38 @@ const noTicket: Atom.Atom<Result.AsyncResult<TicketDetail, unknown>> =
 function useLivePrediction(
   orgSlug: string,
   slug: string,
-  viewing: PinTarget | null
+  viewing: PinTarget | null,
+  shown: boolean
 ) {
-  const ticket = useAtomValue(
+  const viewingTicket =
     viewing !== null && PinTarget.isAnyOf(["ticket"])(viewing)
+  const ticket = useAtomValue(
+    viewingTicket
       ? ticketDetail(ticketRequest(orgSlug, slug, viewing.ref))
       : noTicket
   )
   const sprints = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
-  if (viewing !== null && PinTarget.isAnyOf(["ticket"])(viewing))
-    return Result.isSuccess(ticket)
-      ? ({
+  // While the next ticket loads, the live row keeps showing the last one, so
+  // it changes in place instead of shrinking out and growing back in.
+  const [held, setHeld] = useState<TicketDetail | null>(null)
+  const loaded = Result.isSuccess(ticket) ? ticket.value : null
+  const current =
+    shown && viewingTicket
+      ? (loaded ?? (Result.isInitial(ticket) ? held : null))
+      : null
+  if (current !== held) setHeld(current)
+  if (viewingTicket)
+    return current === null
+      ? null
+      : ({
           ticket: {
-            id: ticket.value.id,
-            title: ticket.value.title,
-            status: ticket.value.status,
-            archivedAt: ticket.value.archivedAt,
-            parent: ticket.value.parent?.id ?? null
+            id: current.id,
+            title: current.title,
+            status: current.status,
+            archivedAt: current.archivedAt,
+            parent: current.parent?.id ?? null
           }
         } satisfies PinPrediction)
-      : null
   if (
     viewing !== null &&
     PinTarget.isAnyOf(["sprint"])(viewing) &&
@@ -80,6 +94,36 @@ function useLivePrediction(
   return null
 }
 
+// The live row's key, whatever is viewed: moving between tickets swaps the
+// row's content in place instead of one row shrinking out as another grows.
+const LIVE_KEY = "live"
+// The head of the list holds the live row or, with nothing pinned, the empty
+// note. One slot for both, so they fade into each other in place rather than
+// stacking while one grows and the other shrinks.
+const HEAD_KEY = "head"
+
+function HeadSlot({
+  showing,
+  children
+}: Readonly<{ showing: "live" | "empty"; children: ReactNode }>) {
+  const reduce = useReducedMotion() ?? false
+  return (
+    <div className="relative">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.div
+          key={showing}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: reduce ? 0 : 0.1 } }}
+          transition={reduce ? { duration: 0 } : transitions.fade}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
 export function ProjectPins({
   orgSlug,
   slug,
@@ -98,14 +142,11 @@ export function ProjectPins({
   const viewed = viewing === null ? null : { projectSlug: slug, ...viewing }
   const viewingPinned =
     viewed !== null && pins.some((pin) => samePin(pin, viewed))
-  const prediction = useLivePrediction(orgSlug, slug, viewing)
+  const shown = showsLiveRow(viewing, activeSprintId, viewingPinned)
+  const prediction = useLivePrediction(orgSlug, slug, viewing, shown)
   const live =
-    showsLiveRow(viewing, activeSprintId, viewingPinned) && prediction !== null
-      ? {
-          target: viewing,
-          display: prediction,
-          key: pinKey({ projectSlug: slug, ...viewing })
-        }
+    shown && prediction !== null
+      ? { target: viewing, display: prediction }
       : null
   const viewedKey = viewed === null ? null : pinKey(viewed)
   const [landed, setLanded] = useState<
@@ -122,7 +163,7 @@ export function ProjectPins({
       ? []
       : [
           {
-            key: viewedKey,
+            key: LIVE_KEY,
             target: live.target,
             display: live.display,
             pin: null,
@@ -140,28 +181,32 @@ export function ProjectPins({
     }))
   ]
   const tree = nestPins(rows, (row) => ticketLinkOf(row.display))
+  const liveNode = tree.find((node) => node.row.key === LIVE_KEY)
+  const empty = Result.isSuccess(result) && pins.length === 0 && live === null
+  const pinTree = (node: (typeof tree)[number]) => (
+    <PinTree key={node.row.key} orgSlug={orgSlug} slug={slug} node={node} />
+  )
 
   return (
     <SidebarSection label={m.chrome_sidebar_pinned()} count={pins.length}>
       <SidebarRowGroup
         onReorder={(order) => reorder(topPins(tree), order)}
-        isSortable={(key) => key !== live?.key}
+        isSortable={(key) => key !== HEAD_KEY}
       >
-        {tree.map((node) => (
-          <PinTree
-            key={node.row.key}
-            orgSlug={orgSlug}
-            slug={slug}
-            node={node}
-          />
-        ))}
+        {liveNode === undefined && !empty ? null : (
+          <HeadSlot key={HEAD_KEY} showing={empty ? "empty" : "live"}>
+            {liveNode === undefined ? (
+              <SidebarNote>{m.chrome_sidebar_pinned_empty()}</SidebarNote>
+            ) : (
+              pinTree(liveNode)
+            )}
+          </HeadSlot>
+        )}
+        {tree.filter((node) => node !== liveNode).map(pinTree)}
       </SidebarRowGroup>
       {failure === null ? null : (
         <SidebarNote className="text-destructive">{failure}</SidebarNote>
       )}
-      {Result.isSuccess(result) && pins.length === 0 && live === null ? (
-        <SidebarNote>{m.chrome_sidebar_pinned_empty()}</SidebarNote>
-      ) : null}
     </SidebarSection>
   )
 }
