@@ -359,7 +359,7 @@ older image without the include, restore the backed-up volume mount as well.
 
 ### Updating Nginx
 
-The web image uses Nginx 1.30.6. Before merging an Nginx upgrade, pause
+The web image uses Nginx 1.30.7. Before merging an Nginx upgrade, pause
 Watchtower on each instance so it cannot deploy the image before validation:
 
 ```sh
@@ -379,7 +379,7 @@ IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -v
 IMAGE_TAG=$release_tag docker compose run --rm --no-deps web nginx -t
 ```
 
-Expect Nginx 1.30.6 and a successful configuration check. On IGNE this checks
+Expect Nginx 1.30.7 and a successful configuration check. On IGNE this checks
 the actual mounted TLS configuration and certificates. Only then deploy:
 
 ```sh
