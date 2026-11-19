@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { TicketTextHit } from "@pp/shared"
+import type { TicketTextHit, TicketTitle } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
@@ -49,7 +49,7 @@ const titleScore = (
 }
 
 const titleMatches = (
-  titles: ReadonlyArray<Readonly<{ id: string; title: string }>>,
+  titles: ReadonlyArray<TicketTitle>,
   query: string,
   projectSlug: string
 ) =>
@@ -58,7 +58,15 @@ const titleMatches = (
       const score = titleScore(ticket, query, true)
       return score === null
         ? []
-        : [{ id: ticket.id, title: ticket.title, projectSlug, score }]
+        : [
+            {
+              id: ticket.id,
+              title: ticket.title,
+              status: ticket.status,
+              projectSlug,
+              score
+            }
+          ]
     })
     .toSorted((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, TITLE_LIMIT)
@@ -115,6 +123,7 @@ export function useTicketCommandSearch(
             {
               id: row.ticket.id,
               title: row.ticket.title,
+              status: row.ticket.status,
               projectSlug: row.project.slug,
               score
             }
@@ -131,6 +140,7 @@ export function useTicketCommandSearch(
   const text = textHits.map((hit) => ({
     id: hit.id,
     title: hit.title,
+    status: hit.status,
     projectSlug,
     match: hit.match
   }))

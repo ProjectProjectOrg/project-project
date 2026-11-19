@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { TicketId } from "./Ticket"
+import { TicketId, TicketStatus } from "./Ticket"
 
 export const TicketTextSearchQuery = Schema.Struct({
   q: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
@@ -15,7 +15,8 @@ export type TicketTextSearchQuery = typeof TicketTextSearchQuery.Type
 
 export const TicketTitle = Schema.Struct({
   id: TicketId,
-  title: Schema.String
+  title: Schema.String,
+  status: TicketStatus
 })
 export type TicketTitle = typeof TicketTitle.Type
 
@@ -31,6 +32,7 @@ export type TicketTextSnippet = typeof TicketTextSnippet.Type
 export const TicketTextHit = Schema.Struct({
   id: TicketId,
   title: Schema.String,
+  status: TicketStatus,
   match: Schema.Union([
     Schema.Struct({ where: Schema.Literal("title") }),
     Schema.Struct({

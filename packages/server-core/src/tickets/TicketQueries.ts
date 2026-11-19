@@ -47,6 +47,7 @@ import {
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
+  TicketStatus,
   type User,
   UserId,
   EPIC_TYPE,
@@ -311,6 +312,7 @@ const decodeMovedTicketLocation = Schema.decodeUnknownSync(MovedTicketLocation)
 const decodeTextFrontmatter = Schema.decodeUnknownOption(
   Schema.Struct({
     title: Schema.String,
+    status: TicketStatus,
     archivedAt: Schema.optional(Schema.NullOr(Schema.Unknown))
   })
 )
@@ -605,7 +607,9 @@ const make = Effect.gen(function* () {
     const scope = yield* ProjectScope
     const entries = yield* ticketIndex.list(scope)
     return entries.flatMap((entry) =>
-      entry.archivedAt === null ? [{ id: entry.id, title: entry.title }] : []
+      entry.archivedAt === null
+        ? [{ id: entry.id, title: entry.title, status: entry.status }]
+        : []
     )
   })
 
@@ -637,7 +641,7 @@ const make = Effect.gen(function* () {
             ) {
               return
             }
-            const { title } = frontmatter.value
+            const { title, status } = frontmatter.value
             const match = matchTicketText({ title, body: content }, words)
             if (match === null) return
             let low = 0
@@ -653,7 +657,7 @@ const make = Effect.gen(function* () {
               else low = middle + 1
             }
             if (low >= limit) return
-            top.splice(low, 0, { id, title, match, position })
+            top.splice(low, 0, { id, title, status, match, position })
             if (top.length > limit) top.pop()
           }),
           Effect.catchTag("NotFound", () => Effect.void)
@@ -671,14 +675,15 @@ const make = Effect.gen(function* () {
         user.name
       ])
     )
-    return top.flatMap<TicketTextHit>(({ id, title, match }) => {
+    return top.flatMap<TicketTextHit>(({ id, title, status, match }) => {
       if (match.where === "title")
-        return [{ id, title, match: { where: "title" } }]
+        return [{ id, title, status, match: { where: "title" } }]
       if (match.where === "description") {
         return [
           {
             id,
             title,
+            status,
             match: { where: "description", snippet: match.snippet }
           }
         ]
@@ -691,6 +696,7 @@ const make = Effect.gen(function* () {
         {
           id,
           title,
+          status,
           match: { where: "comment", author, snippet: match.snippet }
         }
       ]

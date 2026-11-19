@@ -48,10 +48,19 @@ it.effect(
   "textSearch finds rendered words across markdown and decoded titles",
   () => {
     const files = new Map([
-      ["T-1", "---\ntitle: Formatting\n---\n**perf**authentication"],
-      ["T-2", "---\ntitle: Mention\n---\nAsk [Luuk](mention:user/u_1)."],
-      ["T-3", "---\ntitle: Link\n---\nperf[render](https://example.com)ing"],
-      ["T-4", '---\ntitle: "\\u0063ache"\n---\nDescription']
+      [
+        "T-1",
+        "---\nstatus: todo\ntitle: Formatting\n---\n**perf**authentication"
+      ],
+      [
+        "T-2",
+        "---\nstatus: todo\ntitle: Mention\n---\nAsk [Luuk](mention:user/u_1)."
+      ],
+      [
+        "T-3",
+        "---\nstatus: todo\ntitle: Link\n---\nperf[render](https://example.com)ing"
+      ],
+      ["T-4", '---\nstatus: todo\ntitle: "\\u0063ache"\n---\nDescription']
     ])
     const docs = makeFakeTicketDocs([...files.keys()])
     const layer = makeTicketsLayer(
@@ -87,11 +96,11 @@ it.effect(
   "textSearch keeps the best matches when stronger hits finish later",
   () => {
     const files = new Map([
-      ["T-2", "---\ntitle: needle\n---\n"],
-      ["T-100", "---\ntitle: Body\n---\nneedle"],
-      ["T-1", "---\ntitle: needle\n---\n"],
-      ["T-200", "---\ntitle: Another body\n---\nneedle"],
-      ["T-10", "---\ntitle: needle\n---\n"]
+      ["T-2", "---\nstatus: todo\ntitle: needle\n---\n"],
+      ["T-100", "---\nstatus: todo\ntitle: Body\n---\nneedle"],
+      ["T-1", "---\nstatus: todo\ntitle: needle\n---\n"],
+      ["T-200", "---\nstatus: todo\ntitle: Another body\n---\nneedle"],
+      ["T-10", "---\nstatus: todo\ntitle: needle\n---\n"]
     ])
     const docs = makeFakeTicketDocs([...files.keys()])
     const layer = makeTicketsLayer(

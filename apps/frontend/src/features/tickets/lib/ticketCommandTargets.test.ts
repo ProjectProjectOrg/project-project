@@ -1,10 +1,21 @@
+import { StatusSlug } from "@pp/shared"
 import { expect, it } from "vitest"
 
 import { ticketCommandValue, ticketItem } from "./ticketCommandTargets"
 
 it("keeps command identities separate when projects share a ticket ID", () => {
-  const alpha = { projectSlug: "alpha", id: "T-1", title: "Alpha ticket" }
-  const beta = { projectSlug: "beta", id: "T-1", title: "Beta ticket" }
+  const alpha = {
+    projectSlug: "alpha",
+    id: "T-1",
+    title: "Alpha ticket",
+    status: StatusSlug.make("todo")
+  }
+  const beta = {
+    projectSlug: "beta",
+    id: "T-1",
+    title: "Beta ticket",
+    status: StatusSlug.make("todo")
+  }
   expect([
     ticketItem(alpha, "Tickets").value,
     ticketItem(beta, "Tickets").value

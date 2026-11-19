@@ -11,6 +11,7 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
+import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import {
   TicketPeek,
   TicketPrefetch
@@ -159,6 +160,14 @@ export function RootCommands({
       ...ticketItem(target, m.tickets_command_group_results(), {
         inSearch: true
       }),
+      leading: (
+        <TicketStatusIcon
+          status={target.status}
+          orgSlug={context.orgSlug}
+          slug={target.projectSlug}
+          className="size-4"
+        />
+      ),
       actionable: !isContextTicket(self, target),
       enterLabel: m.chrome_command_menu_open_ticket()
     }))
