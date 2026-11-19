@@ -149,19 +149,26 @@ export default function Overview() {
       <Guide
         open={guide && count > 1}
         onClose={() => setGuide(false)}
-        target={() => {
-          const first = lab.selected[0]
-          return first === undefined
-            ? null
-            : list.current?.querySelector(`[data-row="${first.id}"]`)
+        steps={[
+          {
+            target: () => {
+              const first = lab.selected[0]
+              return first === undefined
+                ? null
+                : list.current?.querySelector(`[data-row="${first.id}"]`)
+            },
+            title: `Edit all ${count} tickets at once`,
+            body: "Change the status, priority, assignee, sprint or labels on any selected row, and every selected ticket gets the same change. Hover a field first to see which tickets it will change."
+          }
+        ]}
+        labels={{
+          done: "Got it",
+          next: "Next",
+          back: "Back",
+          skip: "Skip the guide",
+          progress: (step, total) => `${step} of ${total}`
         }}
-        title={`Edit all ${count} tickets at once`}
-        doneLabel="Got it"
-      >
-        Change the status, priority, assignee, sprint or labels on any
-        selected row, and every selected ticket gets the same change. Hover a
-        field first to see which tickets it will change.
-      </Guide>
+      />
     </div>
   )
 }

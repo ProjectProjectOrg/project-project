@@ -18,37 +18,68 @@ import { Guide } from "@pp/ui/guide"
 <Guide
   open={!seen && selected > 1}
   onClose={markSeen}
-  target={() => list.current?.querySelector("[data-selected]")}
-  title={m.tickets_guide_bulk_title({ count: selected })}
-  doneLabel={m.tickets_guide_done()}
->
-  {m.tickets_guide_bulk_body()}
-</Guide>
+  steps={[
+    {
+      target: () => list.current?.querySelector("[data-row-selected]"),
+      title: m.tickets_guide_bulk_title({ count: selected }),
+      body: m.tickets_guide_bulk_body()
+    }
+  ]}
+  labels={{
+    done: m.tickets_guide_done(),
+    next: m.common_guide_next(),
+    back: m.common_guide_back(),
+    skip: m.common_guide_skip(),
+    progress: (step, total) => m.common_guide_progress({ step, total })
+  }}
+/>
 ```
 
 | Prop | Type |
 | --- | --- |
-| `open`, `onClose` | whether it shows; "Got it", Escape, a click outside, or doing the thing closes it |
-| `target` | a ref, or a function that finds the element it teaches |
-| `title` | `string`: what to do, in a few words |
-| `doneLabel` | `string`: the button that closes it ("Got it") |
-| `step` | `string`: where it sits in a short series ("1 of 2") |
-| `children` | how, in a sentence or two |
+| `open` | whether it shows |
+| `steps` | `{ target, title, body, side?, onShow? }[]`: one for a single guide, several for a series. `target` is a ref or a function that finds the part; `onShow` runs as the step comes up (open the page its part is on) |
+| `step`, `onStepChange` | which step shows, for a series; Next and Back ask for the next one |
+| `onClose` | `(reason: "done" \| "skip") => void`: the last step's button, or the ✕ (Escape too) |
+| `labels` | `{ done, next, back, skip, progress(step, total) }`: the buttons, the ✕'s name and tooltip, and "2 of 3" |
+| `className` | the card's width and padding (`w-80 p-4`) |
 
 ## Rules
 
 ### One thing, in place
 
-A guide points at the real thing, on the real screen, at the moment it first applies: never a tour of the app, never a picture of it. The rest blurs (3px) and dims (`--guide-scrim`), and the spotlight gets the 2px `--ring` with 6px of room and 16px corners, so the eye goes straight to it.
+A guide points at the real thing, on the real screen, at the moment it first applies: never a picture of it. The rest blurs and dims (`--guide-scrim`), and the spotlight gets the 2px `--ring` with 6px of room and 16px corners, so the eye goes straight to it.
 
-### The spotlight stays live
+### It fades in, never pops
 
-The overlay has a hole over the target, so you can do what it teaches right there; doing it is the best way to close it. A click anywhere else, Escape or "Got it" also closes it, and focus goes back where it was.
+The blur's radius grows from 0 to 3px with the tint over the morph (260ms), instead of appearing at full strength, and leaves the same way.
+
+### The spotlight stays live, the rest doesn't close it
+
+The overlay has a hole over the part, so you can try it right there. A click on the blur does nothing: a guide ends only through its own buttons, the last step's "Got it" or "Done", or the ✕ in the card's corner ("Skip the guide", with its tooltip). Escape is the keyboard's ✕. Focus goes to the card's main button and back where it was after.
+
+### A series glides
+
+The card is the tooltip host's, pinned to the step's part (like a hover card that stays). Next and Back move the spotlight and the card together on the morph: the hole and ring glide, the card glides and resizes, the title and the step count roll to their new text, the body cross-fades, and Back grows in from the second step. Keep a series to three or four steps.
+
+### Across pages
+
+A step whose part is on another page says how to get there in `onShow` (navigate, open a panel). Until the part is on screen the guide waits, blur and all, and then picks up there. Mount it above the pages and keep `step` where a page change keeps it.
 
 ### Once per person
 
 The app remembers who has seen each guide and never shows it again. A guide that keeps coming back is noise.
 
-### Beside, not over
+## Examples
 
-The callout sits under the spotlight, or above it when there's no room, lined up with its start and kept 12px inside the window, on the popup surface. It follows the target if the page moves.
+### In the app
+
+The first time several tickets are selected, the list spotlights the first selected row.
+
+<Demo name="in-the-app" title="Teaching the selection" className="min-h-96" />
+
+### A short series
+
+Next and Back move the spotlight and the card from part to part; the ✕ ends it on any step.
+
+<Demo name="steps" title="Three steps" className="min-h-72" />

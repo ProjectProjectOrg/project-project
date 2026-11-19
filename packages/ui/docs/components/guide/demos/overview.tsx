@@ -3,9 +3,11 @@ import { Guide } from "@pp/ui/guide"
 import { Bell, Filter, Plus } from "@pp/ui/icons"
 import { useRef, useState } from "react"
 
+import { LABELS } from "./parts/labels"
+
 // A small toolbar, and a guide that teaches one of its buttons. The rest
 // blurs and dims; the button stays live, so you can press it while the
-// guide is up. "Got it", Escape or a click elsewhere closes it.
+// guide is up. Only "Got it" (or Escape) closes it.
 export default function Overview() {
   const [open, setOpen] = useState(false)
   const [filters, setFilters] = useState(0)
@@ -38,14 +40,15 @@ export default function Overview() {
       <Guide
         open={open}
         onClose={() => setOpen(false)}
-        target={target}
-        title="Narrow the list"
-        doneLabel="Got it"
-        step="1 of 1"
-      >
-        Filter by status, assignee or label; the list keeps your filters until
-        you clear them. Press F to open it from anywhere.
-      </Guide>
+        steps={[
+          {
+            target,
+            title: "Narrow the list",
+            body: "Filter by status, assignee or label; the list keeps your filters until you clear them. Press F to open it from anywhere."
+          }
+        ]}
+        labels={LABELS}
+      />
     </div>
   )
 }
