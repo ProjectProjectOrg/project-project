@@ -164,10 +164,10 @@ export function TicketContextMenu({
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuContent
           anchor={anchor ?? undefined}
-          side="bottom"
+          side="right"
           align="start"
-          sideOffset={2}
-          collisionAvoidance={{ side: "flip", align: "flip" }}
+          sideOffset={8}
+          collisionAvoidance={{ side: "flip", align: "shift" }}
           className={cn("w-52", atPointerMotionClass)}
           style={instant ? { animation: "none" } : undefined}
           onContextMenu={suppressNativeMenu}
