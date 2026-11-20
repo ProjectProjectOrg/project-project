@@ -21,7 +21,11 @@ const user: User = {
     lastVerifiedAt: null,
     lastCheckError: null
   },
-  settings: { avatarSource: null, editorPreference: "github" },
+  settings: {
+    avatarSource: null,
+    editorPreference: "github",
+    chipColors: "flat"
+  },
   avatarOptions: [
     { source: "generated", image: null },
     { source: "github", image: "https://avatars.githubusercontent.com/u/1" }
@@ -43,7 +47,8 @@ describe("applySettingsPatch", () => {
     expect(next.image).toBe("https://example.test/a.png")
     expect(next.settings).toStrictEqual({
       avatarSource: null,
-      editorPreference: "cursor"
+      editorPreference: "cursor",
+      chipColors: "flat"
     })
   })
 })

@@ -68,6 +68,11 @@ export const defaultEditorPreference: EditorPreference = "github"
 export const AvatarSource = Schema.Literals(["generated", "github", "google"])
 export type AvatarSource = typeof AvatarSource.Type
 
+export const ChipColors = Schema.Literals(["flat", "rich"])
+export type ChipColors = typeof ChipColors.Type
+
+export const defaultChipColors: ChipColors = "flat"
+
 export const AvatarOption = Schema.Struct({
   source: AvatarSource,
   image: Schema.NullOr(Schema.String)
@@ -76,13 +81,15 @@ export type AvatarOption = typeof AvatarOption.Type
 
 export const UserSettings = Schema.Struct({
   avatarSource: Schema.NullOr(AvatarSource),
-  editorPreference: EditorPreference
+  editorPreference: EditorPreference,
+  chipColors: ChipColors
 })
 export type UserSettings = typeof UserSettings.Type
 
 export const UpdateUserSettingsInput = Schema.Struct({
   avatarSource: Schema.optional(AvatarSource),
-  editorPreference: Schema.optional(EditorPreference)
+  editorPreference: Schema.optional(EditorPreference),
+  chipColors: Schema.optional(ChipColors)
 })
 export type UpdateUserSettingsInput = typeof UpdateUserSettingsInput.Type
 

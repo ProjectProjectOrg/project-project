@@ -1,0 +1,76 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4815ed3c-e15f-4f0e-9cc1-8a11fb1cae46",
+  "prevIds": [
+    "3a04f564-3f89-4733-9bc7-eec3dc981396"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user_settings",
+        "chip_colors"
+      ],
+      "writes": [
+        "s|col|public.user_settings.chip_colors",
+        "n|col|public.user_settings.chip_colors",
+        "e|col|public.user_settings.chip_colors"
+      ],
+      "reads": [
+        "n|tbl|public.user_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_settings"
+      ],
+      "writes": [
+        "s|ck|public.user_settings.user_settings_chip_colors_check",
+        "n|ck|public.user_settings.user_settings_chip_colors_check",
+        "e|ck|public.user_settings.user_settings_chip_colors_check",
+        "n|con|public.user_settings.user_settings_chip_colors_check"
+      ],
+      "reads": [
+        "n|tbl|public.user_settings",
+        "n|sch|public",
+        "n|col|public.user_settings.chip_colors"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_settings",
+        "name": "chip_colors",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_settings",
+        "name": "user_settings_chip_colors_check",
+        "value": "\"chip_colors\" in ('flat', 'rich')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

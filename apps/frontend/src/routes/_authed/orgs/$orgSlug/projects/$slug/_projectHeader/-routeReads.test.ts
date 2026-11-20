@@ -23,7 +23,11 @@ const viewer = Schema.decodeSync(User)({
   createdAt: "2026-01-01T00:00:00.000Z",
   activeOrgSlug: "org",
   personalGithub: { connected: false },
-  settings: { avatarSource: null, editorPreference: "github" },
+  settings: {
+    avatarSource: null,
+    editorPreference: "github",
+    chipColors: "flat"
+  },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

@@ -28,7 +28,11 @@ it.effect(
             image: null,
             createdAt: "2026-01-01T00:00:00.000Z",
             activeOrgSlug: "org",
-            settings: { avatarSource: null, editorPreference: "github" },
+            settings: {
+              avatarSource: null,
+              editorPreference: "github",
+              chipColors: "flat"
+            },
             personalGithub: { connected: false },
             personalEverhour: {
               connected: false,
