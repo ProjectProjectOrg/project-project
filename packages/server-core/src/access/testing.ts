@@ -26,7 +26,7 @@ export const testUser = (id: string) =>
     createdAt: "2026-09-25T00:00:00Z",
     activeOrgSlug: null,
     personalGithub: { connected: false },
-    editorPreference: "github",
+    settings: { avatarSource: null, editorPreference: "github" },
     personalEverhour: {
       connected: false,
       everhourUserId: null,
@@ -34,7 +34,8 @@ export const testUser = (id: string) =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   })
 
 export const orgScope = (

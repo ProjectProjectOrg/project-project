@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import type { User } from "@pp/shared"
+import { DissolveAvatar } from "@pp/ui/dissolve-avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +56,7 @@ export function AccountMenu({
             // The name can be empty; fall back to the email.
             tooltip={user.name || user.email}
           >
-            <MemberAvatar member={user} size={28} />
+            <DissolveAvatar member={user} size={28} />
           </SidebarRailItem>
         }
       />

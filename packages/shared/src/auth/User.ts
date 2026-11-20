@@ -63,6 +63,29 @@ export const EditorPreference = Schema.Literals([
 ])
 export type EditorPreference = typeof EditorPreference.Type
 
+export const defaultEditorPreference: EditorPreference = "github"
+
+export const AvatarSource = Schema.Literals(["generated", "github", "google"])
+export type AvatarSource = typeof AvatarSource.Type
+
+export const AvatarOption = Schema.Struct({
+  source: AvatarSource,
+  image: Schema.NullOr(Schema.String)
+})
+export type AvatarOption = typeof AvatarOption.Type
+
+export const UserSettings = Schema.Struct({
+  avatarSource: Schema.NullOr(AvatarSource),
+  editorPreference: EditorPreference
+})
+export type UserSettings = typeof UserSettings.Type
+
+export const UpdateUserSettingsInput = Schema.Struct({
+  avatarSource: Schema.optional(AvatarSource),
+  editorPreference: Schema.optional(EditorPreference)
+})
+export type UpdateUserSettingsInput = typeof UpdateUserSettingsInput.Type
+
 export const User = Schema.Struct({
   id: UserId,
   email: Schema.String,
@@ -77,12 +100,17 @@ export const User = Schema.Struct({
   // without a second fetch.
   activeOrgSlug: Schema.NullOr(Schema.String),
   personalGithub: PersonalGithub,
-  editorPreference: EditorPreference,
-  personalEverhour: PersonalEverhour
+  personalEverhour: PersonalEverhour,
+  settings: UserSettings,
+  avatarOptions: Schema.Array(AvatarOption)
 })
 export type User = typeof User.Type
 
 export type UserIdentity = Omit<
   User,
-  "activeOrgSlug" | "personalGithub" | "personalEverhour"
+  | "activeOrgSlug"
+  | "personalGithub"
+  | "personalEverhour"
+  | "settings"
+  | "avatarOptions"
 >

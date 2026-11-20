@@ -46,18 +46,6 @@ import * as Layer from "effect/Layer"
 import { toWebHeaders } from "../http/toWebHeaders"
 import { isClientRefusal } from "../organizations/Handlers"
 
-export function normalizeEditorPreference(value: string | null | undefined) {
-  switch (value) {
-    case "github_dev":
-    case "vscode":
-    case "cursor":
-      return value
-    case "github":
-    default:
-      return "github" as const
-  }
-}
-
 export const AuthenticationLive = Layer.effect(
   Authentication,
   Effect.gen(function* () {
@@ -94,10 +82,6 @@ export const AuthenticationLive = Layer.effect(
           // seam — the schema is what guards the wire.
           const username =
             (session.user as { username?: string | null }).username ?? null
-          const editorPreference = normalizeEditorPreference(
-            (session.user as { editorPreference?: string | null })
-              .editorPreference
-          )
           return yield* httpEffect.pipe(
             Effect.provideService(ActivityActor, ActivityActor.user(id)),
             Effect.provideService(CurrentUser, {
@@ -106,8 +90,7 @@ export const AuthenticationLive = Layer.effect(
               name,
               username,
               image: image ?? null,
-              createdAt,
-              editorPreference
+              createdAt
             })
           )
         })

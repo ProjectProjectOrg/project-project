@@ -118,7 +118,8 @@ const services = (world: Browsing) => {
           email: null,
           lastVerifiedAt: null,
           lastCheckError: null
-        }
+        },
+        avatarOptions: []
       },
       roles: []
     })

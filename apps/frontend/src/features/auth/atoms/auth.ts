@@ -1,4 +1,8 @@
-import type { EditorPreference } from "@pp/shared"
+import type {
+  AvatarSource,
+  EditorPreference,
+  UpdateUserSettingsInput
+} from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -8,6 +12,8 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
+import { viewMutation } from "@/api/viewMutation"
+import { applySettingsPatch } from "@/features/profile/lib/userSettings"
 import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
@@ -88,15 +94,44 @@ export const disconnectPersonalGithub = Api.runtime.fn(
   })
 )
 
-export const updateEditorPreference = Api.runtime.fn(
-  Effect.fn("updateEditorPreference")(function* (
-    editorPreference: EditorPreference
-  ) {
-    yield* Effect.tryPromise(() =>
-      authData(authClient.updateUser({ editorPreference }))
-    )
-    yield* Reactivity.invalidate([Keys.me()])
+const publishMemberAvatar = Effect.fn("publishMemberAvatar")(function* (
+  get: Atom.FnContext
+) {
+  const orgSlug = yield* get.result(me()).pipe(
+    Effect.map((user) => user.activeOrgSlug),
+    Effect.orElseSucceed(() => null)
+  )
+  if (orgSlug !== null) {
+    yield* Reactivity.invalidate([Keys.orgMembers(orgSlug)])
+  }
+})
+
+const settingsMutation = <Input>(
+  name: string,
+  toPatch: (input: Input) => UpdateUserSettingsInput,
+  publishOthers: (
+    get: Atom.FnContext
+  ) => Effect.Effect<void, never, Reactivity.Reactivity> = () => Effect.void
+) =>
+  viewMutation(meAtom, {
+    name,
+    predict: (user, input: Input) => applySettingsPatch(user, toPatch(input)),
+    call: (client, input, get) =>
+      client.auth
+        .updateSettings({ payload: toPatch(input) })
+        .pipe(Effect.tap(() => publishOthers(get))),
+    confirm: (user, settings) => ({ ...user, settings })
   })
+
+export const updateAvatarSource = settingsMutation(
+  "updateAvatarSource",
+  (avatarSource: AvatarSource) => ({ avatarSource }),
+  publishMemberAvatar
+)
+
+export const updateEditorPreference = settingsMutation(
+  "updateEditorPreference",
+  (editorPreference: EditorPreference) => ({ editorPreference })
 )
 
 export const setActiveOrganization = Api.runtime.fn(
