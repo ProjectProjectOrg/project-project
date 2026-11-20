@@ -81,7 +81,7 @@ export function ViewOptions() {
 
 Popover, dropdown menu, select and context menu all use `popupSurfaceClass` from `menu-styles.ts`: the tooltip's raised skin (the `--tooltip` fill, the `--tooltip-edge` hairline and top light) with 19px squircle corners. Tooltips and hover cards wear the same skin through the tooltip host, so whatever floats reads as one family. Restyle the shared class, never one popup.
 
-A popup opened from inside another (a select in View options) steps one level up, to `--tooltip-raised` (lighter in dark; light stays white and relies on the edge), so it floats above its parent instead of reading as a cut-out of it. Popovers, menus and selects do this themselves through `PopupLayerContext`.
+A popup opened from inside another (a select in View options) steps one level up, to `--tooltip-raised` (lighter in both themes: `0.33` over `0.29` in dark, `0.996` over `0.99` in light), so it floats above its parent instead of reading as a cut-out of it. Popovers, menus and selects do this themselves through `PopupLayerContext`.
 
 ### No shadows
 

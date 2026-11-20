@@ -99,28 +99,28 @@
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
      Pages sit one step up on --page, cards and popups one more on --card.
      The sidebar's icon rail sits one step below, on --rail. */
-  --background: oklch(0.955 0 0);
-  --rail: oklch(0.925 0 0);
-  --page: oklch(0.982 0 0);
+  --background: oklch(0.94 0 0);
+  --rail: oklch(0.912 0 0);
+  --page: oklch(0.968 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.99 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.99 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.945 0 0);
+  --secondary: oklch(0.93 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.945 0 0);
-  /* 0.50 keeps 4.5:1 on every light surface, hover and pressed rows included
+  --muted: oklch(0.93 0 0);
+  /* 0.48 keeps 4.5:1 on every light surface, hover and pressed rows included
      (frame + active is the darkest at 4.6:1). */
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.945 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --accent: oklch(0.93 0 0);
   --accent-foreground: oklch(0.205 0 0);
   /* @fluid components reference `bg-selected` for the active/checked indicator
      in tabs-subtle, dropdown, and select. Distinct from --accent (lighter,
      used for hover) so the active state has a stronger visual presence. */
-  --selected: oklch(0.9 0 0);
+  --selected: oklch(0.885 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --state-success: oklch(0.7 0.16 135);
   --state-warning: oklch(0.5 0.16 75);
@@ -129,8 +129,8 @@
   --state-danger: oklch(0.7 0.16 15);
   --destructive-light: oklch(0.95 0.02 27);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
   /* Focus ring: 3:1 against the frame, page and cards. */
   --ring: oklch(0.58 0 0);
   --radius: 1rem;
@@ -174,17 +174,17 @@
   );
   --focus-ring: oklch(0.693 0.161 265.2);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
-  --surface-1: oklch(0.955 0 0);
-  --surface-2: oklch(0.977 0 0);
-  --surface-3: oklch(1 0 0);
-  --surface-4: oklch(1 0 0);
-  --surface-5: oklch(1 0 0);
-  --surface-6: oklch(1 0 0);
-  --surface-7: oklch(1 0 0);
-  --surface-8: oklch(1 0 0);
-  --shadow-color: oklch(0 0 0 / 0.06);
+  --surface-1: oklch(0.94 0 0);
+  --surface-2: oklch(0.968 0 0);
+  --surface-3: oklch(0.984 0 0);
+  --surface-4: oklch(0.99 0 0);
+  --surface-5: oklch(0.99 0 0);
+  --surface-6: oklch(0.993 0 0);
+  --surface-7: oklch(0.996 0 0);
+  --surface-8: oklch(0.996 0 0);
+  --shadow-color: oklch(0 0 0 / 0.07);
   --shadow-1: 0 0 0 1px var(--shadow-color);
-  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.14);
+  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.15);
   --shadow-2: var(--shadow-1), 0 1px 1px -0.5px var(--shadow-color);
   --shadow-3: var(--shadow-2), 0 3px 3px -1.5px var(--shadow-color);
   --shadow-4: var(--shadow-3), 0 6px 6px -3px var(--shadow-color);
@@ -192,28 +192,28 @@
   --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
-  --hover: rgb(0 0 0 / 0.04);
+  --hover: rgb(0 0 0 / 0.045);
   /* Label chips (epic, tags, +N on cards and rows): a quiet filled pill, so
      names read as labels next to the plain icon-and-value data chips. */
-  --chip-label: oklch(0 0 0 / 5%);
-  --chip-label-hover: oklch(0 0 0 / 9%);
+  --chip-label: oklch(0 0 0 / 5.5%);
+  --chip-label-hover: oklch(0 0 0 / 10%);
   /* A chip's fill carries the badge's light: a top sheen and a bottom glow
      edge, over a translucent fill so it reads on hovered rows and washes. */
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 14%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
   /* The slider's field edge and its fill. */
   --slider-line: oklch(0 0 0 / 8%);
-  --slider-fill: oklch(0.93 0 0);
-  /* Tooltips sit on the theme, not against it: white with a hairline and a
-     top light here, a lifted grey in dark. No shadow, like every popup. */
-  --tooltip: oklch(1 0 0);
+  --slider-fill: oklch(0.918 0 0);
+  /* Tooltips sit on the theme, not against it: a near-white step above the
+     page with a hairline and a top light here, a lifted grey in dark. No
+     shadow, like every popup. */
+  --tooltip: oklch(0.99 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(0 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 70%);
   /* A popup opened from inside another popup (a select in a popover) steps
      one level up, so it floats above the surface it came from instead of
-     reading as a cut-out of it. Light mode is already white: the edge
-     carries it there. */
-  --tooltip-raised: var(--tooltip);
+     reading as a cut-out of it. */
+  --tooltip-raised: oklch(0.996 0 0);
   /* A menu row's text at rest. Light keeps it muted; dark lifts it between
      muted and the foreground, since grey on the raised fill reads washed
      out. Highlighted rows take the full foreground. */
@@ -227,7 +227,7 @@
   /* What a guide lays over everything but its spotlight, under a blur. */
   --guide-scrim: oklch(0.2 0 0 / 0.14);
   --avatar-edge: oklch(0.145 0 0 / 0.1);
-  --segment-line: oklch(0 0 0 / 5%);
+  --segment-line: oklch(0 0 0 / 6%);
   --field-line: var(--segment-line);
   --surface: var(--page);
   --kbd-glow: oklch(1 0 0 / 70%);
@@ -238,15 +238,15 @@
   --button-sheen-bottom: 1%;
   --button-edge: 0%;
   --button-edge-to: black;
-  --button-secondary: oklch(0 0 0 / 5%);
-  --button-secondary-hover: oklch(0 0 0 / 8%);
-  --button-secondary-active: oklch(0 0 0 / 11%);
-  --button-tertiary: oklch(0 0 0 / 2.5%);
-  --button-tertiary-hover: oklch(0 0 0 / 5%);
-  --button-tertiary-active: oklch(0 0 0 / 8%);
+  --button-secondary: oklch(0 0 0 / 5.5%);
+  --button-secondary-hover: oklch(0 0 0 / 9%);
+  --button-secondary-active: oklch(0 0 0 / 12.5%);
+  --button-tertiary: oklch(0 0 0 / 2.75%);
+  --button-tertiary-hover: oklch(0 0 0 / 5.5%);
+  --button-tertiary-active: oklch(0 0 0 / 9%);
   --avatar-lit: rgb(255 255 255 / 0.55);
   --avatar-squircle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M100.00 50.00L99.95 62.79L99.79 68.06L99.52 72.08L99.14 75.44L98.66 78.35L98.06 80.93L97.35 83.25L96.53 85.36L95.59 87.27L94.54 89.01L93.35 90.60L92.04 92.04L90.60 93.35L89.01 94.54L87.27 95.59L85.36 96.53L83.25 97.35L80.93 98.06L78.35 98.66L75.44 99.14L72.08 99.52L68.06 99.79L62.79 99.95L50.00 100.00L37.21 99.95L31.94 99.79L27.92 99.52L24.56 99.14L21.65 98.66L19.07 98.06L16.75 97.35L14.64 96.53L12.73 95.59L10.99 94.54L9.40 93.35L7.96 92.04L6.65 90.60L5.46 89.01L4.41 87.27L3.47 85.36L2.65 83.25L1.94 80.93L1.34 78.35L0.86 75.44L0.48 72.08L0.21 68.06L0.05 62.79L0.00 50.00L0.05 37.21L0.21 31.94L0.48 27.92L0.86 24.56L1.34 21.65L1.94 19.07L2.65 16.75L3.47 14.64L4.41 12.73L5.46 10.99L6.65 9.40L7.96 7.96L9.40 6.65L10.99 5.46L12.73 4.41L14.64 3.47L16.75 2.65L19.07 1.94L21.65 1.34L24.56 0.86L27.92 0.48L31.94 0.21L37.21 0.05L50.00 0.00L62.79 0.05L68.06 0.21L72.08 0.48L75.44 0.86L78.35 1.34L80.93 1.94L83.25 2.65L85.36 3.47L87.27 4.41L89.01 5.46L90.60 6.65L92.04 7.96L93.35 9.40L94.54 10.99L95.59 12.73L96.53 14.64L97.35 16.75L98.06 19.07L98.66 21.65L99.14 24.56L99.52 27.92L99.79 31.94L99.95 37.21Z'/%3E%3C/svg%3E");
-  --active: rgb(0 0 0 / 0.07);
+  --active: rgb(0 0 0 / 0.079);
   /* A bare field's placeholder: hover and focus step it toward the text
      colour, staying in the placeholder range. */
   /* A comment's bubble: the page lifted toward the text colour, so a
@@ -262,12 +262,12 @@
     var(--muted-foreground) 70%,
     var(--foreground)
   );
-  --tint: oklch(0 0 0 / 8%);
-  --tint-hover: oklch(0 0 0 / 6.5%);
+  --tint: oklch(0 0 0 / 9%);
+  --tint-hover: oklch(0 0 0 / 7.2%);
   --prose-body: oklch(0.23 0.002 265);
   --prose-quiet: oklch(0.145 0 0 / 0.6);
-  --prose-code: oklch(0 0 0 / 4.5%);
-  --prose-code-ring: oklch(0 0 0 / 6%);
+  --prose-code: oklch(0 0 0 / 5%);
+  --prose-code-ring: oklch(0 0 0 / 7%);
   /* Control outlines need 3:1 against the frame, page and muted wells
      (WCAG 1.4.11); 43% black is the floor in light. */
   --prose-check-ring: oklch(0 0 0 / 44%);
@@ -420,7 +420,7 @@
    groups), and the tokens are worked out again there. */
 :root,
 .surface {
-  --field: oklch(from var(--surface) calc(min(1, l + 0.02)) c h);
+  --field: oklch(from var(--surface) calc(min(0.995, l + 0.02)) c h);
   --field-hover: oklch(from var(--field) calc(l - 0.035) c h);
   --field-focus: oklch(from var(--field) calc(l - 0.02) c h);
   --menu-hover: oklch(from var(--surface) calc(l - 0.035) c h);

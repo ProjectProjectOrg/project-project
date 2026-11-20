@@ -65,7 +65,7 @@ A field, its hover and focus, and the menu highlight are worked out from the sur
 --field-focus: oklch(from var(--field)   calc(l + 0.025) c h);
 --menu-hover:  oklch(from var(--surface) calc(l + 0.06) c h);
 --menu-active: oklch(from var(--surface) calc(l + 0.10) c h);
-/* light: fields stay white (min(1, l + 0.02)), states step darker */
+/* light: fields sit just above their surface (min(0.995, l + 0.02)), states step darker */
 ```
 
 A field's edge steps from the surface too: a white overlay on the field would land on the surface's own lightness and vanish. In dark a field never gets lighter than 0.23, so on a raised surface (a nested popup) it stays a well instead of drifting up to grey with its surface, and its hover stops at 0.26 so it stays below the popup's fill. Light can't get lighter than white, so a focused field there is carried by the focus ring, not a tint.
