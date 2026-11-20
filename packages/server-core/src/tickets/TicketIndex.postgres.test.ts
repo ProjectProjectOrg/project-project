@@ -904,13 +904,32 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     )
   )
 
-  it.effect("rebuilds a project too large for one bound statement", () => {
+  it.effect("rebuilds a large project in bounded ticket batches", () => {
     const ids = Array.from({ length: 3000 }, (_, i) => ticketId(`T-${i + 1}`))
     return Effect.gen(function* () {
       const organizationId = yield* seedRebuildProject
       const index = yield* TicketIndex.TicketIndex
       const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(organizationId, organizationId)
+      yield* withClient((client) =>
+        client.query(`
+          create function limit_rebuild_batch() returns trigger language plpgsql as $$
+          begin
+            if (select count(*) from inserted_tickets) > 2000 then
+              raise exception 'ticket rebuild exceeded the batch limit';
+            end if;
+            return null;
+          end $$;
+          create trigger limit_rebuild_batch after insert on ticket_index
+            referencing new table as inserted_tickets
+            for each statement execute function limit_rebuild_batch();
+        `)
+      )
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("drop function limit_rebuild_batch() cascade")
+        )
+      )
       yield* maintenance.rebuildProject(project)
 
       const { rows } = yield* withClient((client) =>
