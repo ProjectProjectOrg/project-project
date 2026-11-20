@@ -11,11 +11,10 @@ function SketchMarker({ line }: Readonly<{ line: SketchLine }>) {
   if (line === "bullet")
     return <span className="size-1 shrink-0 rounded-full bg-current" />
   if (line === "number")
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- a 4px drawing of a list number, not UI
     return <span className="h-1 w-1.5 shrink-0 rounded-[1px] bg-current" />
   if (line === "task")
-    return (
-      <span className="size-2 shrink-0 rounded-[2px] border border-current" />
-    )
+    return <span className="size-2 shrink-0 rounded-xs border border-current" />
   return null
 }
 
@@ -91,7 +90,7 @@ export function BlockSketch({
               <span className="truncate">{block.name}</span>
             </span>
           ) : null}
-          <span className={cn("flex flex-col gap-1", names && "pl-[18px]")}>
+          <span className={cn("flex flex-col gap-1", names && "pl-4.5")}>
             {block.lines.map((line, index) => (
               <SketchRow key={index} line={line} index={index} />
             ))}

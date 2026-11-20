@@ -88,7 +88,7 @@ import {
 
 The lines are `TicketLines` and `TicketLine` from `@pp/ui/ticket-lines` (`BoardCardSubTicket` is `TicketLine`). The popovers that preview tickets (a card's progress and links, a row's sub-tickets) use the same parts, with `TicketLinesLabel` for group headings ("Blocked by"), so every list of tickets in a card or a popover is one kind of menu row with one gliding highlight.
 
-Chips use `chipClassName` from `@pp/ui/chip`: `interaction` is `"none"` for a static count, `"hover"` for one that previews on hover and `"press"` for one that opens a menu or link; `shape` is `"label"`, `"icon"` (a 24px circle) or `"count"`.
+Chips are `Chip` from `@pp/ui/chip`: `interaction` is `"none"` for a static count, `"hover"` for one that previews on hover and `"press"` for one that opens a menu or link; `shape` is `"label"`, `"icon"` (a 24px circle) or `"count"`.
 
 ## Rules
 
@@ -98,7 +98,7 @@ The title always takes two lines of room, even when it fits on one, so a column 
 
 ### One language for the chips
 
-Every chip is one of two kinds (`chipClassName({ kind })`). **Data** is a 12px icon and the shortest value, plain: the estimate as its unit icon and a number (8, not "8 points"), progress as 2/5, links as 3, the pull request as #141; priority and flag carry no value, so they are the icon alone. **Labels** are names (the epic, tags and "+N") in a quiet filled pill (`--chip-label`), so a name never reads as a number. The order is fixed: priority and flag, a hairline (`ChipSeparator`, which hides when no number follows), the numbers, then the labels, which wrap last. A card shows two tags; the rest fold into "+N", which lists them on hover.
+Every chip is one of two kinds (`<Chip kind>`). **Data** is a 12px icon and the shortest value, plain: the estimate as its unit icon and a number (8, not "8 points"), progress as 2/5, links as 3, the pull request as #141; priority and flag carry no value, so they are the icon alone. **Labels** are names (the epic, tags and "+N") in a quiet filled pill (`--chip-label`), so a name never reads as a number. The order is fixed: priority and flag, a hairline (`ChipSeparator`, which hides when no number follows), the numbers, then the labels, which wrap last. A card shows two tags; the rest fold into "+N", which lists them on hover.
 
 ### A flag warms the card
 
@@ -106,7 +106,7 @@ A flagged card (`flagged`) gets a wash of the warning tone (`--flag-wash`) that 
 
 ### The row's polish, on a card
 
-Cards share the list row's choices: flat chips (`chipClassName`), priority as signal bars leading the chip row, and a 20px assignee face in a 24px target. An unassigned card shows no face until the card is hovered, focused or has a menu open (`group/card`), so a column of unassigned work isn't a column of empty circles. Corners are 14px with `--button-corner`.
+Cards share the list row's choices: flat chips (`Chip`), priority as signal bars leading the chip row, and a 20px assignee face in a 24px target. An unassigned card shows no face until the card is hovered, focused or has a menu open (`group/card`), so a column of unassigned work isn't a column of empty circles. Corners are 14px with `--button-corner`.
 
 ### Sub-tickets are menu rows
 

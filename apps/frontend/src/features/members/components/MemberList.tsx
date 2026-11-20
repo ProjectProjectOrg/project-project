@@ -256,13 +256,9 @@ export function MemberMenuTrigger({ label }: Readonly<{ label: string }>) {
   return (
     <DropdownMenuTrigger
       render={
-        <button
-          type="button"
-          aria-label={label}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <Button variant="ghost" size="square-8" aria-label={label}>
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
-        </button>
+        </Button>
       }
     />
   )

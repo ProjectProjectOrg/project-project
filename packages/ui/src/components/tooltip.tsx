@@ -150,6 +150,20 @@ const insideSurface = (id: string) => {
   return element != null && surfaceElement?.contains(element) === true
 }
 
+// The trigger of the open card carries data-card-open, so the row it sits
+// in stays lit (ListHoverScope) while the pointer is over the card.
+let markedTrigger: HTMLElement | null = null
+const markOpenCard = () => {
+  const element =
+    activeId !== null && kindOf(activeId) === "card"
+      ? (registrations.get(activeId)?.current.element ?? null)
+      : null
+  if (element === markedTrigger) return
+  markedTrigger?.removeAttribute("data-card-open")
+  element?.setAttribute("data-card-open", "")
+  markedTrigger = element
+}
+
 const show = (id: string, source: Source) => {
   if (activeSource === "pinned" && source !== "pinned") return
   clearTimers()
@@ -158,6 +172,7 @@ const show = (id: string, source: Source) => {
   if (activeId === id && activeSource === source) return
   activeId = id
   activeSource = source
+  markOpenCard()
   emit()
 }
 
@@ -168,10 +183,24 @@ const hide = (instant = false) => {
   warmUntil = performance.now() + WARM_FOR
   activeId = null
   activeSource = null
+  markOpenCard()
   emit()
 }
 
 const MODIFIERS = new Set(["Meta", "Control", "Alt", "Shift"])
+
+// A right-click (or a Mac's control-click) opens a context menu: the card
+// goes at once, like a dropdown does, so its fade doesn't sit on the menu.
+const opensContextMenu = (event: { button: number; ctrlKey: boolean }) =>
+  event.button === 2 || (event.button === 0 && event.ctrlKey)
+
+// The menu that right-click opens takes the hover's place at once too, as
+// one menu takes over from another, so the swap has no gap in it.
+let handedOffAt = Number.NEGATIVE_INFINITY
+const handOff = () => {
+  if (activeId !== null) handedOffAt = performance.now()
+}
+export const tookOverFromHover = () => performance.now() - handedOffAt < 300
 
 const showsKey = (key: string) =>
   Array.from(surfaceElement?.querySelectorAll("[data-key]") ?? []).some(
@@ -341,9 +370,15 @@ const inkClass =
   "rounded-[9px] bg-(color:--tooltip) px-2 py-[5px] text-caption text-foreground shadow-(--tooltip-edge) [corner-shape:var(--button-corner)]"
 
 // A hover card: the tooltip's fill and edge, at a card's corners. Shared
-// with HoverCardContent and PopoverContent's "hover" surface.
+// with HoverCardContent and PopoverContent's "hover" surface. Its corners
+// are --card-radius, so rows inside can round concentric with them
+// (ticket-lines.tsx). It's a surface, so the menu highlight and fields
+// inside step from the card's fill, as in a popup.
 export const hoverCardSurfaceClass =
-  "rounded-[14px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)]"
+  "[--card-radius:14px] rounded-(--card-radius) bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+
+export const liftedSurfaceShadowClass =
+  "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]"
 
 // A card's content box: its natural width up to 24rem, 10px by 8px of
 // padding unless the card sets its own (p-1 around menu rows).
@@ -361,6 +396,8 @@ const glide: Transition = transitions.presence
 // Opening and closing: a fade and a scale from 96% over 160ms ease-out.
 // ease-standard over 100ms was 76% opaque after 60ms and read as a pop.
 const appear: Transition = { duration: 0.16, ease: "easeOut" }
+// Leaving is a fifth quicker than arriving.
+const leave: Transition = { duration: 0.12, ease: "easeOut" }
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -512,7 +549,8 @@ function HostSurface() {
       const target = event.target as Node
       if (surfaceRef.current?.contains(target)) return
       if (registration?.element?.contains(target)) return
-      hide()
+      if (opensContextMenu(event)) handOff()
+      hide(opensContextMenu(event))
     }
     document.addEventListener("pointerdown", onPointerDown, true)
     return () =>
@@ -638,7 +676,7 @@ function HostSurface() {
               closed: (instant: boolean) => ({
                 opacity: 0,
                 scale: reduced ? 1 : 0.96,
-                transition: instant ? { duration: 0 } : appear
+                transition: instant ? { duration: 0 } : leave
               })
             }}
             transition={{
@@ -656,9 +694,11 @@ function HostSurface() {
               // A pinned card sits over a Guide's blur.
               activeSource === "pinned" ? "z-[70]" : "z-50",
               "fixed top-0 left-0 grid overflow-hidden p-0 transition-[border-radius] duration-180 ease-standard",
-              // A card that only shows (git, a sprint's estimate) lets the
-              // pointer through, so it never catches it on its way past.
-              registration?.className?.includes("pointer-events-none") &&
+              // A label, or a card that only shows (git, a sprint's
+              // estimate), lets the pointer through, so it never catches it
+              // on its way to the trigger below (the next row's field).
+              (!card ||
+                registration?.className?.includes("pointer-events-none")) &&
                 "pointer-events-none"
             )}
           >
@@ -832,8 +872,11 @@ function useTrigger(
         onPointerLeave: (event) => {
           if (event.pointerType !== "touch") tooltipStore.hoverEnd(id)
         },
-        onPointerDown: () => {
-          if (!openOnClick && !keepOnPress) tooltipStore.dismiss()
+        onPointerDown: (event) => {
+          if (opensContextMenu(event)) {
+            handOff()
+            tooltipStore.dismiss(true)
+          } else if (!openOnClick && !keepOnPress) tooltipStore.dismiss()
         },
         ...(openOnClick ? { onClick: () => tooltipStore.click(id) } : {}),
         onFocus: (event) => {
@@ -1091,6 +1134,10 @@ function PinnedTooltip({
   )
 }
 
+// False inside a composer: its chips already say what they are, and the
+// hotkeys they'd advertise don't reach them while you type.
+const ShortcutTooltipsContext = React.createContext(true)
+
 /**
  * A trigger whose tooltip names an app hotkey and shows its keys: the
  * hotkey's own name (its meta.name) unless a label is given.
@@ -1106,6 +1153,7 @@ function ShortcutTooltip({
   keyLabels: KeyLabels
   children: React.ReactElement
 }>) {
+  if (!React.use(ShortcutTooltipsContext)) return children
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
@@ -1315,6 +1363,7 @@ export {
   HoverCardTrigger,
   PinnedCard,
   ShortcutTooltip,
+  ShortcutTooltipsContext,
   Tooltip,
   TooltipProvider,
   TooltipHost,

@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { finishedStatusSlugs, type Ticket, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Check } from "@pp/ui/icons"
+import { CheckboxIndicator } from "@pp/ui/checkbox"
 import { Kbd, KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
@@ -143,7 +143,7 @@ export function EpicTicketPicker({
       transition={transitions.layout}
       className="overflow-hidden"
     >
-      <div className="my-1 mr-1 ml-[15px] flex flex-col border-l border-border pl-2">
+      <div className="my-1 mr-1 ml-3.75 flex flex-col border-l border-border pl-2">
         {failure !== null ? (
           Result.matchWithError(failure, {
             onInitial: () => null,
@@ -184,18 +184,7 @@ export function EpicTicketPicker({
                   locked && "cursor-default"
                 )}
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "grid size-4 shrink-0 place-items-center rounded-[5px] border transition-colors",
-                    checked
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border",
-                    locked && "opacity-40"
-                  )}
-                >
-                  {checked && <Check className="size-3" strokeWidth={2.5} />}
-                </span>
+                <CheckboxIndicator checked={checked} disabled={locked} />
                 <span className="flex min-w-0 flex-1 items-baseline gap-2">
                   <span className="text-micro tabular-nums">{ticket.id}</span>
                   <span

@@ -10,7 +10,7 @@ import {
   TicketListSource,
   TicketStatus
 } from "@pp/shared"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { Inbox, CalendarRange } from "@pp/ui/icons"
 import { useLocation } from "@tanstack/react-router"
 import * as Equal from "effect/Equal"
@@ -288,13 +288,13 @@ function SprintSection({
           detail: sprint ? (
             <>
               {dates && (
-                <span className={chipClassName()}>
+                <Chip>
                   <CalendarRange
                     className="size-3 shrink-0"
                     strokeWidth={1.75}
                   />
                   {dates}
-                </span>
+                </Chip>
               )}
               {estimates && (
                 <SprintProgress

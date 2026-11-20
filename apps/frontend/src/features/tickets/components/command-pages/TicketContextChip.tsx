@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { CommandMenuShortcut } from "@pp/ui/command-menu"
+import { CommandMenuChip, CommandMenuShortcut } from "@pp/ui/command-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
@@ -17,7 +17,7 @@ export function TicketContextChip({
   )
   const title = Result.isSuccess(detail) ? detail.value.title : null
   return (
-    <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover pl-2 text-body">
+    <CommandMenuChip className="max-w-full min-w-0 overflow-hidden">
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {ticket.ticketId}
@@ -28,11 +28,7 @@ export function TicketContextChip({
           </span>
         )}
       </span>
-      <CommandMenuShortcut
-        keyLabels={keyLabels()}
-        keys="Backspace"
-        className="ml-0 self-stretch *:h-full *:rounded-none *:px-1.5"
-      />
-    </span>
+      <CommandMenuShortcut keyLabels={keyLabels()} keys="Backspace" />
+    </CommandMenuChip>
   )
 }

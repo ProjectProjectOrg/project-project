@@ -27,7 +27,7 @@ export function EverhourSetupHint({ onDismiss }: { onDismiss?: () => void }) {
           size="icon-xs"
           aria-label={m.time_setup_dismiss()}
           onClick={onDismiss}
-          className="-mt-0.5 shrink-0 text-muted-foreground"
+          className="-mt-0.5 shrink-0"
         >
           <X strokeWidth={1.75} />
         </Button>

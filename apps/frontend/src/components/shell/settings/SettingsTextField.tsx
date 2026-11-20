@@ -75,7 +75,8 @@ export function SettingsTextField({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabel === undefined ? labelId : undefined}
       aria-describedby={descriptionId}
-      className={cn("w-64 text-body", waiting && "animate-pulse", className)}
+      data-pending={waiting || undefined}
+      className={cn("w-64", className)}
     />
   )
 }
@@ -89,7 +90,7 @@ export function SettingsInput({
     <Input
       aria-labelledby={labelId}
       aria-describedby={descriptionId}
-      className={cn("w-64 text-body", className)}
+      className={cn("w-64", className)}
       {...props}
     />
   )
@@ -113,18 +114,21 @@ export function SettingsSegmented<K extends string>({
   waiting = false
 }: Readonly<{
   items: ReadonlyArray<SegmentedItem<K>>
-  value: K
+  value: K | null
   onValueChange: (next: K) => void
   waiting?: boolean
 }>) {
   const { labelId } = useSettingsRow()
   return (
-    <div role="group" aria-labelledby={labelId}>
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      data-pending={waiting || undefined}
+    >
       <SegmentedTabs
         items={items}
         value={value}
         onValueChange={onValueChange}
-        className={cn(waiting && "animate-pulse")}
       />
     </div>
   )

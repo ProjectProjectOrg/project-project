@@ -5,6 +5,7 @@ import * as React from "react"
 
 import { standardEaseCss, transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
+import { Button } from "./button"
 import { Freeze } from "./freeze"
 import { X } from "./icons"
 import { FoldedContext, useFold } from "./selection-bar-fold"
@@ -17,6 +18,7 @@ import {
 import { TextSwap } from "./text-swap"
 import {
   hoverCardSurfaceClass,
+  liftedSurfaceShadowClass,
   Tooltip,
   TooltipContent,
   TooltipTrigger
@@ -30,7 +32,7 @@ import {
  *     count={m.tickets_selection_count({ count })} clearLabel={…}>
  *     <StatusMenu trigger={
  *       <SelectionBarField name="Status" icon={<StatusGlyph … />}
- *         value={shared.status ? label : "2 statuses"} mixed={!shared.status} />
+ *         value={shared.status ? label : "2 statuses"} />
  *     } />
  *     …
  *     <SelectionBarSeparator />
@@ -188,7 +190,7 @@ export function SelectionBar({
           className={cn(
             hoverCardSurfaceClass,
             "pointer-events-auto relative max-w-full overflow-hidden rounded-[18px] whitespace-nowrap",
-            "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]",
+            liftedSurfaceShadowClass,
             className
           )}
         >
@@ -228,14 +230,14 @@ export function SelectionBar({
                     >
                       <TextSwap>{count}</TextSwap>
                     </output>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="square-6"
                       aria-label={clearLabel}
                       onClick={onClear}
-                      className="focus-ring grid size-6 shrink-0 cursor-pointer place-items-center rounded-[8px] text-muted-foreground transition-[background-color,color,scale] duration-150 ease-out [corner-shape:var(--button-corner)] hover:bg-hover hover:text-foreground hover:duration-0 active:scale-[0.97]"
                     >
-                      <X className="size-3.5" strokeWidth={1.75} />
-                    </button>
+                      <X />
+                    </Button>
                     <AnimatePresence initial={false}>
                       {selectAll && (
                         <motion.span
@@ -255,14 +257,14 @@ export function SelectionBar({
                           inert={fold.selectAllFolded}
                           className="flex shrink-0 overflow-hidden"
                         >
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
                             data-fold-select-all
                             onClick={selectAll.onSelect}
-                            className="focus-ring h-8 shrink-0 cursor-pointer rounded-[12px] px-2.5 text-body text-muted-foreground transition-[background-color,color,scale] duration-150 ease-out [corner-shape:var(--button-corner)] hover:bg-hover hover:text-foreground hover:duration-0 active:scale-[0.97]"
+                            className="shrink-0"
                           >
                             {selectAll.label}
-                          </button>
+                          </Button>
                         </motion.span>
                       )}
                     </AnimatePresence>
@@ -293,20 +295,12 @@ type FieldProps = Omit<React.ComponentProps<"button">, "value"> &
     // The field's name, for its accessible label ("Status: 2 statuses").
     name: string
     icon?: React.ReactNode
-    // The icon a name-only field folds to; it appears as the name folds.
-    foldIcon?: React.ReactNode
     // What the selection shares, or how many values it holds; or, for a
     // field that's only a menu, its name again ("Status"). Leave it out for
     // an action (More) that only shows its icon.
     value?: string
-    // The selection doesn't share one value: the text is muted.
-    mixed?: boolean
     // Keys that do the same, after the value; they stay when it folds.
     shortcut?: React.ReactNode
-    // What its menu suggests for the selection ("Suggested: In review"):
-    // the field is lit (a warm fill and dot), and says it on hover and to
-    // screen readers. Its menu opens with the suggestion staged.
-    suggestion?: string
     render?: useRender.RenderProp
   }>
 
@@ -315,11 +309,8 @@ type FieldProps = Omit<React.ComponentProps<"button">, "value"> &
 export function SelectionBarField({
   name,
   icon,
-  foldIcon,
   value,
-  mixed = false,
   shortcut,
-  suggestion,
   render,
   className,
   ...props
@@ -328,12 +319,11 @@ export function SelectionBarField({
   // icon; then its tooltip says what it is: "Status: 2 statuses".
   const { folded, instant } = React.use(FoldedContext)
   // A field without an icon has nothing to fold to, so it keeps its value.
-  const canFold = icon !== undefined || foldIcon !== undefined
+  const canFold = icon !== undefined
   const iconOnly = value === undefined || (folded && canFold)
   // A field that is only its name ("Status", with its key) says it once.
-  const named =
+  const label =
     value === undefined || value === name ? name : `${name}: ${value}`
-  const label = suggestion === undefined ? named : `${named}. ${suggestion}`
   const field = useRender({
     defaultTagName: "button",
     render,
@@ -342,11 +332,10 @@ export function SelectionBarField({
         type: "button",
         "aria-label": label,
         className: cn(
-          "focus-ring inline-flex h-8 max-w-48 min-w-0 shrink-0 cursor-pointer items-center rounded-[12px] px-2.5 text-body text-foreground transition-[background-color,scale,padding] duration-150 ease-out [corner-shape:var(--button-corner)] hover:bg-hover hover:duration-0 active:scale-[0.97] data-[popup-open]:bg-hover [&_svg]:size-3.5 [&_svg]:shrink-0",
+          "focus-ring inline-flex h-8 max-w-48 min-w-0 shrink-0 cursor-pointer items-center rounded-[16px] px-2.5 text-body text-foreground transition-[background-color,scale,padding] duration-150 ease-out [corner-shape:var(--button-corner)] hover:bg-hover hover:duration-0 active:scale-[0.97] data-[popup-open]:bg-hover [&_svg]:size-3.5 [&_svg]:shrink-0",
           // The padding eases with the value (the morph); hover stays quick.
           "[transition-duration:150ms,150ms,260ms] [transition-timing-function:ease-out,ease-out,var(--ease-standard)]",
           iconOnly && "min-w-8 justify-center px-1.5",
-          suggestion !== undefined && "bg-(--suggested-fill)",
           instant && "transition-none",
           className
         )
@@ -357,35 +346,7 @@ export function SelectionBarField({
       {
         children: (
           <>
-            <AnimatePresence initial={false}>
-              {suggestion !== undefined && (
-                <motion.span
-                  key="suggested"
-                  aria-hidden
-                  initial={{ width: 0, marginRight: 0, opacity: 0 }}
-                  animate={{ width: 6, marginRight: 6, opacity: 1 }}
-                  exit={{ width: 0, marginRight: 0, opacity: 0 }}
-                  transition={transitions.morph}
-                  className="size-1.5 shrink-0 rounded-full bg-state-warning"
-                />
-              )}
-            </AnimatePresence>
             {icon}
-            {foldIcon !== undefined && (
-              <motion.span
-                aria-hidden
-                initial={false}
-                animate={
-                  folded
-                    ? { width: "auto", opacity: 1 }
-                    : { width: 0, opacity: 0 }
-                }
-                transition={instant ? { duration: 0 } : transitions.morph}
-                className="flex shrink-0 justify-center overflow-hidden"
-              >
-                {foldIcon}
-              </motion.span>
-            )}
             {value !== undefined && (
               // Folded it shrinks to nothing but stays, so the bar can still
               // tell how wide it would be (data-fold-value).
@@ -402,10 +363,7 @@ export function SelectionBarField({
                       }
                 }
                 transition={instant ? { duration: 0 } : transitions.morph}
-                className={cn(
-                  "flex min-w-0 overflow-hidden transition-colors duration-[260ms] ease-standard",
-                  mixed && "text-muted-foreground"
-                )}
+                className="flex min-w-0 overflow-hidden"
               >
                 <span
                   // Only a value that folds is measured for unfolding.
@@ -428,12 +386,9 @@ export function SelectionBarField({
   })
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={field}
-        disabled={!iconOnly && suggestion === undefined}
-      />
+      <TooltipTrigger render={field} disabled={!iconOnly} />
       <TooltipContent>
-        {iconOnly ? label : suggestion}
+        {label}
         {/* The field shows its keys, except an icon-only action. */}
         {shortcut !== undefined && value === undefined && (
           <span className="ml-1.5 inline-flex">{shortcut}</span>
@@ -443,5 +398,4 @@ export function SelectionBarField({
   )
 }
 
-export { SelectionBarStack } from "./selection-bar-stack"
 export type { SelectionBarResult } from "./selection-bar-result"

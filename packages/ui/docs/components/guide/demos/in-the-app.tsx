@@ -25,16 +25,18 @@ export default function InTheApp() {
         </Button>
       </div>
       <div ref={list}>
-        <ListHoverScope className={listGridClassName}>
-          {TICKETS.slice(0, 5).map((ticket) => (
-            <div
-              key={ticket.id}
-              data-guide-row={SELECTED.has(ticket.id) ? "" : undefined}
-              className="contents"
-            >
-              <Row ticket={ticket} selected={SELECTED.has(ticket.id)} />
-            </div>
-          ))}
+        <ListHoverScope>
+          <div className={listGridClassName}>
+            {TICKETS.slice(0, 5).map((ticket) => (
+              <div
+                key={ticket.id}
+                data-guide-row={SELECTED.has(ticket.id) ? "" : undefined}
+                className="contents"
+              >
+                <Row ticket={ticket} selected={SELECTED.has(ticket.id)} />
+              </div>
+            ))}
+          </div>
         </ListHoverScope>
       </div>
       <Guide

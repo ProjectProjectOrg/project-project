@@ -5,6 +5,7 @@ import { Info } from "./icons"
 import { bareFieldClass } from "./input"
 import { popupSurfaceClass } from "./menu-styles"
 import { PopoverContent } from "./popover"
+import { ShortcutTooltipsContext } from "./tooltip"
 
 // A composer is a small form in two zones. The card holds the writing:
 // context, title and body. Below it, the tray (a tint between the card and
@@ -125,14 +126,16 @@ function ErrorMessage({ children }: Readonly<{ children: ReactNode }>) {
 // Everything that isn't writing, on the tray tint.
 function Tray({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
-    <div
-      data-slot="composer-tray"
-      className={cn(
-        "mt-auto flex flex-col gap-1 bg-(--composer-tray) p-1.5",
-        className
-      )}
-      {...props}
-    />
+    <ShortcutTooltipsContext value={false}>
+      <div
+        data-slot="composer-tray"
+        className={cn(
+          "mt-auto flex flex-col gap-1 bg-(--composer-tray) p-1.5",
+          className
+        )}
+        {...props}
+      />
+    </ShortcutTooltipsContext>
   )
 }
 

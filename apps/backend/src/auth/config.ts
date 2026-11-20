@@ -24,6 +24,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { alias } from "drizzle-orm/pg-core"
 import * as DateTime from "effect/DateTime"
 
+import { avatarSyncHooks } from "./avatarSync"
 import { builtInOAuthClient } from "./builtInOAuthClient"
 import { fetchClientMetadataResource } from "./cimdTransport"
 import { legacyMcpResources } from "./legacyMcpResources"
@@ -287,11 +288,6 @@ export const auth = betterAuth({
         required: false,
         input: false,
         unique: true
-      },
-      editorPreference: {
-        type: "string",
-        required: false,
-        input: true
       }
     }
   },
@@ -337,6 +333,7 @@ export const auth = betterAuth({
   // Subsequent in-app org changes flow through the switcher (T-08) — never
   // via URL navigation.
   databaseHooks: {
+    account: avatarSyncHooks(db),
     session: {
       create: {
         before: async (sessionData) => {

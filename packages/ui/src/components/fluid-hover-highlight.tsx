@@ -31,7 +31,11 @@ const toTarget = (rect: ItemRect, fullWidth: boolean) =>
     ? { y: rect.top, height: rect.height }
     : { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
 
-const activeRect = ({ activeIndex, itemRects, isMeasured }: FluidHoverSource) =>
+const activeRect = ({
+  activeIndex,
+  itemRects,
+  isMeasured
+}: FluidHoverSource) =>
   isMeasured && activeIndex !== null ? (itemRects[activeIndex] ?? null) : null
 
 export function FluidHoverHighlight({
@@ -65,7 +69,7 @@ export function FluidHoverHighlight({
           key={hover.sessionRef.current}
           data-slot="fluid-hover-highlight"
           className={cn(
-            "pointer-events-none absolute top-0 left-0 bg-hover",
+            "pointer-events-none absolute top-0 left-0 rounded-lg bg-hover",
             className
           )}
           style={fullWidth ? { left: rect.left, right: rect.left } : undefined}

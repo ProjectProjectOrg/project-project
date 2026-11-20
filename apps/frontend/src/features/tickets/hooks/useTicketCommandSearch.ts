@@ -63,6 +63,7 @@ const titleMatches = (
               id: ticket.id,
               title: ticket.title,
               status: ticket.status,
+              type: ticket.type,
               projectSlug,
               score
             }
@@ -124,6 +125,7 @@ export function useTicketCommandSearch(
               id: row.ticket.id,
               title: row.ticket.title,
               status: row.ticket.status,
+              type: row.ticket.type,
               projectSlug: row.project.slug,
               score
             }
@@ -141,6 +143,7 @@ export function useTicketCommandSearch(
     id: hit.id,
     title: hit.title,
     status: hit.status,
+    type: hit.type,
     projectSlug,
     match: hit.match
   }))

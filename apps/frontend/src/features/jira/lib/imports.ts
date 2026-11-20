@@ -44,7 +44,9 @@ export const unfinishedImportOf = (
         !isFinishedJiraImport(summary.status)
     )
 
-export const jiraProgressRatio = (progress: JiraMigrationSummary["progress"]) =>
+export const jiraProgressRatio = (
+  progress: JiraMigrationSummary["progress"]
+) =>
   progress.total === null || progress.total <= 0
     ? null
     : Math.min(1, Math.max(0, progress.done / progress.total))

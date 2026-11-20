@@ -11,10 +11,12 @@ body {
   height: auto;
 }
 
-.gallery-inline-code span {
-  color: var(--shiki-light);
-}
+@utility gallery-inline-code {
+  & span {
+    color: var(--shiki-light);
+  }
 
-.dark .gallery-inline-code span {
-  color: var(--shiki-dark);
+  .dark & span {
+    color: var(--shiki-dark);
+  }
 }

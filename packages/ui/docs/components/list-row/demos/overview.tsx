@@ -35,16 +35,20 @@ export default function Overview() {
       className="@container w-full rounded-xl bg-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
-      <ListHoverScope className={listGridClassName}>
-        <Caption>Rows: move down the list, click a checkbox to select</Caption>
-        {TICKETS.map((ticket) => (
-          <Row
-            key={ticket.id}
-            ticket={ticket}
-            selected={selected.has(ticket.id)}
-            onSelect={toggle(ticket.id)}
-          />
-        ))}
+      <ListHoverScope>
+        <div className={listGridClassName}>
+          <Caption>
+            Rows: move down the list, click a checkbox to select
+          </Caption>
+          {TICKETS.map((ticket) => (
+            <Row
+              key={ticket.id}
+              ticket={ticket}
+              selected={selected.has(ticket.id)}
+              onSelect={toggle(ticket.id)}
+            />
+          ))}
+        </div>
       </ListHoverScope>
       <div className={listGridClassName}>
         <Caption>Hover</Caption>

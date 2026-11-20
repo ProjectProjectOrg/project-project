@@ -45,14 +45,12 @@ export function StatusActionsMenu({
   statuses,
   label,
   canDelete,
-  onEdit,
-  triggerClassName
+  onEdit
 }: Props &
   Readonly<{
     label: string
     canDelete: boolean
     onEdit: () => void
-    triggerClassName?: string
   }>) {
   return (
     <DropdownMenu>
@@ -63,7 +61,7 @@ export function StatusActionsMenu({
             variant="ghost"
             size="icon-sm"
             aria-label={m.tickets_status_actions_aria({ label })}
-            className={cn("shrink-0", triggerClassName)}
+            className="shrink-0"
           >
             <MoreHorizontal strokeWidth={1.75} />
           </Button>
@@ -123,7 +121,7 @@ function DeleteStatusItems({ status, statuses }: Props) {
     <DropdownMenuSub>
       <DropdownMenuSubTrigger
         disabled={!automation.ready}
-        className="text-destructive data-[highlighted]:text-destructive data-[popup-open]:text-destructive [&_svg]:text-destructive"
+        variant="destructive"
       >
         {icon}
         {m.tickets_status_delete_button()}

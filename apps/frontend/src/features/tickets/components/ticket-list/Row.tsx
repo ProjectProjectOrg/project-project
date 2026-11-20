@@ -1,12 +1,19 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Member, ParentFilter, Ticket, TicketId } from "@pp/shared"
+import {
+  estimationUnit,
+  type Member,
+  type ParentFilter,
+  type Ticket,
+  type TicketId
+} from "@pp/shared"
 import { Checkbox } from "@pp/ui/checkbox"
-import { chipClassName } from "@pp/ui/chip"
 import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
 import { ItemLink } from "@pp/ui/item-link"
 import { hasModifier, isKeyboardNavigating } from "@pp/ui/lib/keyboard"
+import { cn } from "@pp/ui/lib/utils"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
+import { Reveal } from "@pp/ui/reveal"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -20,12 +27,12 @@ import {
 } from "react"
 
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
-import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { BoardCardGit } from "@/features/sprints/components/BoardCardGit"
 import { TagChips } from "@/features/sprints/components/BoardCardProperties"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
@@ -44,7 +51,7 @@ import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
-import { EstimateBadgeTrigger } from "./EstimateField"
+import { EstimateBadgeTrigger, estimateColumnWidth } from "./EstimateField"
 import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -88,6 +95,7 @@ function RowImpl({
   const patchRow = useAtomSet(update(ticket.id))
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
+  const estimateUnit = estimationUnit(estimation)
   const { shows } = useDisplayProperties()
   const [previewMounted, setPreviewMounted] = useState(false)
   const navigating = () => isKeyboardNavigating(rowElement.current)
@@ -273,21 +281,11 @@ function RowImpl({
                   )}
                   {shows("git") && (
                     <fieldset disabled={!editable} className="contents">
-                      <TicketGitChip
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        ticket={ticket}
-                      />
+                      <BoardCardGit ticket={ticket} />
                     </fieldset>
                   )}
                   <span className="flex items-center gap-1.5 empty:hidden">
-                    <RelationChips
-                      ticket={ticket}
-                      className={chipClassName({
-                        interaction: "hover",
-                        shape: "count"
-                      })}
-                    />
+                    <RelationChips ticket={ticket} />
                   </span>
                   {showSprint && shows("sprint") && (
                     <fieldset
@@ -306,13 +304,21 @@ function RowImpl({
                 </>
               }
               estimate={
-                shows("estimate") && (
-                  <EstimateBadgeTrigger
-                    ticket={ticket}
-                    mode={estimation}
-                    onPatch={onPatch}
-                    variant="compact"
-                  />
+                shows("estimate") &&
+                estimateUnit !== null && (
+                  <span
+                    className={cn(
+                      "flex text-caption",
+                      estimateColumnWidth(estimateUnit)
+                    )}
+                  >
+                    <EstimateBadgeTrigger
+                      ticket={ticket}
+                      mode={estimation}
+                      onPatch={onPatch}
+                      variant="compact"
+                    />
+                  </span>
                 )
               }
               assignee={
@@ -350,18 +356,20 @@ function RowCheckbox({
   selection: NonNullable<ReturnType<typeof useTicketSelection>>
 }>) {
   return (
-    <Checkbox
-      checked={selection.selected}
-      onCheckedChange={(_checked, details) =>
-        selection.toggle(withShift(details.event))
-      }
-      onMouseDown={(event) => {
-        if (event.shiftKey) event.preventDefault()
-      }}
-      aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
-      variant="quiet"
-      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] data-checked:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100"
-    />
+    <Reveal>
+      <Checkbox
+        checked={selection.selected}
+        onCheckedChange={(_checked, details) =>
+          selection.toggle(withShift(details.event))
+        }
+        onMouseDown={(event) => {
+          if (event.shiftKey) event.preventDefault()
+        }}
+        aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
+        variant="quiet"
+        className="before:absolute before:-inset-y-4.25 before:-right-[11px] before:-left-[15px] before:content-['']"
+      />
+    </Reveal>
   )
 }
 

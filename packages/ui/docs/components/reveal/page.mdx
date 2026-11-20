@@ -1,0 +1,48 @@
+export const meta = {
+  title: "Reveal",
+  group: "Primitives",
+  description:
+    "A row's secondary controls, hidden until the row is hovered, focused or has a menu open."
+}
+
+## Overview
+
+Hover a row to show its menu.
+
+<Demo name="overview" title="Rows" />
+
+## Usage
+
+```tsx
+import { Reveal } from "@pp/ui/reveal"
+
+<li className="group/reveal">
+  …
+  <Reveal>
+    <Button variant="ghost" size="icon-xs" aria-label="Delete" />
+  </Reveal>
+</li>
+```
+
+| Prop        | Type        | Default |
+| ----------- | ----------- | ------- |
+| `className` | `string`    |         |
+| `children`  | `ReactNode` |         |
+
+## Rules
+
+### The row is the nearest `group/reveal`
+
+List rows, board cards, comment rows and settings rows all mark themselves `group/reveal`. Reveal never takes an option for which parent it follows.
+
+### Visible whenever the row is in play
+
+Hover (or the list's hover highlight), keyboard focus anywhere in the row, an open popup in the row, a selected row, and a checked or just-copied child all show it. Touch screens have no hover, so there it always shows.
+
+### Keyboard navigation is instant
+
+While the list is driven from the keyboard, the pointer's hover is ignored and the fade is skipped, so the highlight never waits on it.
+
+### Hide the wrapper, not the control
+
+The opacity sits on Reveal's own span, so the control inside keeps its variant untouched. Position the wrapper (`className="absolute right-1"`) when the control was positioned.

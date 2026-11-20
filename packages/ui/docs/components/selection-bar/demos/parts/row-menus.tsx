@@ -1,9 +1,4 @@
-import {
-  ChipDots,
-  chipClassName,
-  chipNarrowOnlyClass,
-  chipWideOnlyClass
-} from "@pp/ui/chip"
+import { Chip, ChipDots } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -424,25 +419,22 @@ export function useRowMenus(
       title={title("Sprint")}
       heading={heading("Sprint")}
       trigger={
-        <button
-          type="button"
+        <Chip
+          interaction="press"
           aria-label={row.sprint ? `Sprint: ${row.sprint}` : "Add to sprint"}
           aria-keyshortcuts="Shift+S"
           {...light("sprint")}
-          className={chipClassName({
-            interaction: "press",
-            className: cn(
-              "max-w-[14ch] gap-1",
-              litClass("sprint"),
-              !row.sprint &&
-                "text-muted-foreground opacity-0 group-hover/reveal:opacity-100",
-              !row.sprint && lab.picked.has(row.id) && "opacity-100"
-            )
-          })}
+          className={cn(
+            "max-w-[14ch] gap-1",
+            many && lit === "sprint" && LIT,
+            !row.sprint &&
+              "text-muted-foreground opacity-0 group-hover/reveal:opacity-100",
+            !row.sprint && lab.picked.has(row.id) && "opacity-100"
+          )}
         >
           <Flag className="size-3 shrink-0" strokeWidth={1.75} />
           <span className="truncate">{row.sprint ?? "Sprint"}</span>
-        </button>
+        </Chip>
       }
       current={sharedOf(targets.map((each) => each.sprint ?? "none"))}
       options={[
@@ -496,23 +488,18 @@ export function useRowMenus(
             )}
           >
             {rowTags.length === 0 ? (
-              <span
-                className={chipClassName({
-                  className: "gap-1 text-muted-foreground"
-                })}
-              >
+              <Chip className="gap-1 text-muted-foreground">
                 <Tag className="size-3" strokeWidth={1.75} />
                 Label
-              </span>
+              </Chip>
             ) : (
               <>
                 {rowTags.slice(0, 3).map((tag) => (
-                  <span
+                  <Chip
                     key={tag.name}
-                    className={chipClassName({
-                      kind: "label",
-                      className: cn("max-w-32", chipWideOnlyClass)
-                    })}
+                    kind="label"
+                    show="wide"
+                    className="max-w-32"
                   >
                     <span
                       aria-hidden
@@ -520,27 +507,17 @@ export function useRowMenus(
                       style={{ backgroundColor: tag.color }}
                     />
                     <span className="truncate">{tag.name}</span>
-                  </span>
+                  </Chip>
                 ))}
                 {rowTags.length > 3 && (
-                  <span
-                    className={chipClassName({
-                      kind: "label",
-                      className: chipWideOnlyClass
-                    })}
-                  >
+                  <Chip kind="label" show="wide">
                     +{rowTags.length - 3}
-                  </span>
+                  </Chip>
                 )}
-                <span
-                  className={chipClassName({
-                    kind: "label",
-                    className: chipNarrowOnlyClass
-                  })}
-                >
+                <Chip kind="label" show="narrow">
                   <ChipDots colors={rowTags.map((tag) => tag.color)} />
                   {rowTags.length}
-                </span>
+                </Chip>
               </>
             )}
           </button>

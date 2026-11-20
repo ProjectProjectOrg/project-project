@@ -127,9 +127,7 @@ export function EpicField({
             }))}
           />
         </DropdownMenuList>
-        <DropdownMenuEmpty
-          className={Result.isInitial(result) ? "animate-pulse" : undefined}
-        >
+        <DropdownMenuEmpty data-pending={Result.isInitial(result) || undefined}>
           {emptyMessage}
         </DropdownMenuEmpty>
       </DropdownMenuContent>

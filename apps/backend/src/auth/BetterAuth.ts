@@ -1,7 +1,14 @@
 import * as schema from "@pp/db/schema"
-import { member, oauthClient, organization, user } from "@pp/db/schema"
+import {
+  member,
+  oauthClient,
+  organization,
+  user,
+  userSettings
+} from "@pp/db/schema"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
+  AvatarOption,
   NotFound,
   Org,
   OrgInvitation,
@@ -12,7 +19,11 @@ import {
   PersonalEverhour,
   PersonalGithub,
   UserInvitation,
+  UserSettings,
+  Validation,
+  defaultEditorPreference,
   type OrgAssignableRole,
+  type UpdateUserSettingsInput,
   type User,
   type UserIdentity,
   type CursorPayload,
@@ -34,6 +45,7 @@ import {
   auth,
   keepingAProjectPm
 } from "./config"
+import { avatarOptions, effectiveAvatarSource } from "./providerAvatar"
 
 const decodeOrgMember = Schema.decodeEffect(OrgMember)
 
@@ -42,6 +54,10 @@ const decodeOrgMembers = Schema.decodeEffect(OrgMembers)
 const decodePersonalGithub = Schema.decodeEffect(PersonalGithub)
 
 const decodePersonalEverhour = Schema.decodeEffect(PersonalEverhour)
+
+const decodeUserSettings = Schema.decodeEffect(UserSettings)
+
+const decodeAvatarOptions = Schema.decodeEffect(Schema.Array(AvatarOption))
 
 const decodeOrgMembership = Schema.decodeEffect(
   Schema.Struct({
@@ -275,20 +291,6 @@ export const BetterAuthLive = Layer.effect(
       return yield* readMember(organizationId, userId)
     })
 
-    const getPersonalGithub = Effect.fn("BetterAuth.getPersonalGithub")(
-      function* (userId: string) {
-        const row = yield* attempt(() =>
-          db.query.account.findFirst({
-            columns: { id: true },
-            where: { userId, providerId: "github" }
-          })
-        )
-        return yield* decodePersonalGithub({
-          connected: row !== undefined
-        }).pipe(Effect.orDie)
-      }
-    )
-
     const getPersonalEverhour = Effect.fn("BetterAuth.getPersonalEverhour")(
       function* (userId: string) {
         const row = yield* attempt(() =>
@@ -314,6 +316,114 @@ export const BetterAuthLive = Layer.effect(
       }
     )
 
+    const readSettings = Effect.fn("BetterAuth.readSettings")(function* (
+      userId: string
+    ) {
+      const row = yield* attempt(() =>
+        db.query.userSettings.findFirst({
+          columns: { avatarSource: true, editorPreference: true },
+          where: { userId }
+        })
+      )
+      return yield* decodeUserSettings({
+        avatarSource: row?.avatarSource ?? null,
+        editorPreference: row?.editorPreference ?? defaultEditorPreference
+      }).pipe(Effect.orDie)
+    })
+
+    const readLinkedAccounts = Effect.fn("BetterAuth.readLinkedAccounts")(
+      function* (userId: string) {
+        return yield* attempt(() =>
+          db.query.account.findMany({
+            columns: { providerId: true, accountId: true, idToken: true },
+            where: { userId }
+          })
+        )
+      }
+    )
+
+    const readProfile = Effect.fn("BetterAuth.readProfile")(function* (
+      userId: string
+    ) {
+      const [accounts, settings, row] = yield* Effect.all(
+        [
+          readLinkedAccounts(userId),
+          readSettings(userId),
+          attempt(() =>
+            db.query.user.findFirst({
+              columns: { image: true },
+              where: { id: userId }
+            })
+          )
+        ],
+        { concurrency: "unbounded" }
+      )
+      const image = row?.image ?? null
+      const options = yield* decodeAvatarOptions(avatarOptions(accounts)).pipe(
+        Effect.orDie
+      )
+      return {
+        image,
+        settings: {
+          ...settings,
+          avatarSource: effectiveAvatarSource(
+            settings.avatarSource,
+            image,
+            options
+          )
+        },
+        avatarOptions: options,
+        personalGithub: yield* decodePersonalGithub({
+          connected: accounts.some((account) => account.providerId === "github")
+        }).pipe(Effect.orDie)
+      }
+    })
+
+    const updateSettings = Effect.fn("BetterAuth.updateSettings")(function* (
+      userId: string,
+      input: UpdateUserSettingsInput
+    ) {
+      const { avatarSource } = input
+      const chosen =
+        avatarSource === undefined
+          ? undefined
+          : avatarOptions(yield* readLinkedAccounts(userId)).find(
+              (option) => option.source === avatarSource
+            )
+      if (avatarSource !== undefined && chosen === undefined) {
+        return yield* new Validation({
+          reason: `No ${avatarSource} account is linked`
+        })
+      }
+      const changes = {
+        ...(input.avatarSource === undefined
+          ? {}
+          : { avatarSource: input.avatarSource }),
+        ...(input.editorPreference === undefined
+          ? {}
+          : { editorPreference: input.editorPreference })
+      }
+      const updatedAt = DateTime.toDate(yield* DateTime.now)
+      yield* attempt(() =>
+        db.transaction(async (tx) => {
+          await tx
+            .insert(userSettings)
+            .values({ userId, ...changes })
+            .onConflictDoUpdate({
+              target: userSettings.userId,
+              set: { ...changes, updatedAt }
+            })
+          if (chosen !== undefined) {
+            await tx
+              .update(user)
+              .set({ image: chosen.image })
+              .where(eq(user.id, userId))
+          }
+        })
+      )
+      return yield* readSettings(userId)
+    })
+
     const getOrgSlugById = Effect.fn("BetterAuth.getOrgSlugById")(function* (
       organizationId: string | null | undefined
     ) {
@@ -331,20 +441,22 @@ export const BetterAuthLive = Layer.effect(
       identity: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) {
-      const [activeOrgSlug, personalGithub, personalEverhour] =
-        yield* Effect.all(
-          [
-            getOrgSlugById(activeOrganizationId),
-            getPersonalGithub(identity.id),
-            getPersonalEverhour(identity.id)
-          ],
-          { concurrency: "unbounded" }
-        )
+      const [activeOrgSlug, profile, personalEverhour] = yield* Effect.all(
+        [
+          getOrgSlugById(activeOrganizationId),
+          readProfile(identity.id),
+          getPersonalEverhour(identity.id)
+        ],
+        { concurrency: "unbounded" }
+      )
       return {
         ...identity,
+        image: profile.image,
         activeOrgSlug,
-        personalGithub,
-        personalEverhour
+        personalGithub: profile.personalGithub,
+        personalEverhour,
+        settings: profile.settings,
+        avatarOptions: profile.avatarOptions
       } satisfies User
     })
 
@@ -355,10 +467,10 @@ export const BetterAuthLive = Layer.effect(
           catch: (cause) => new BetterAuth.BetterAuthError({ cause })
         })
       }),
-      getPersonalGithub,
       getPersonalEverhour,
       getOrgSlugById,
       me,
+      updateSettings,
       getSession: Effect.fn("BetterAuth.getSession")(function* (
         headers: Headers
       ) {

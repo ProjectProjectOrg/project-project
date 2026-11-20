@@ -6,10 +6,11 @@ import {
   type Ticket
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
+  HoverCardFooter,
   HoverCardTrigger
 } from "@pp/ui/hover-card"
 import { ArrowRight } from "@pp/ui/icons"
@@ -66,17 +67,14 @@ export function AssigneeLoadCard({
     <HoverCard>
       <HoverCardTrigger
         render={
-          <button
-            type="button"
+          <Chip
+            interaction="press"
             aria-label={m.sprints_load_card_trigger({ name, amount })}
             onClick={(event) => {
               event.stopPropagation()
               onFilter?.()
             }}
-            className={chipClassName({
-              interaction: "press",
-              className: "pl-1 tabular-nums"
-            })}
+            className="tabular-nums"
           />
         }
       >
@@ -124,22 +122,22 @@ export function AssigneeLoadCard({
           </span>
         )}
         {onFilter !== null && (
-          <div className="-mx-3 -mb-3 border-t border-border/60 p-1.5">
+          <HoverCardFooter className="p-1.5">
             <Button
               variant="ghost"
-              size="sm"
+              size="inline"
               trailingIcon={ArrowRight}
               onClick={(event) => {
                 event.stopPropagation()
                 onFilter()
               }}
-              className="w-full justify-between px-1.5"
+              className="w-full justify-between"
             >
               {assignee === null
                 ? m.sprints_load_card_filter_unassigned()
                 : m.sprints_load_card_filter()}
             </Button>
-          </div>
+          </HoverCardFooter>
         )}
       </HoverCardContent>
     </HoverCard>

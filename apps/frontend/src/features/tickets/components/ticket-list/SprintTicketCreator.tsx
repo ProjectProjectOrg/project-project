@@ -358,11 +358,9 @@ export function SprintTicketCreator({
                 <>
                   <CommandMenuItem
                     value={row.value}
+                    dimmed={pendingEpic !== null && !opened}
                     className={cn(
-                      "transition-opacity duration-200",
-                      pendingEpic !== null &&
-                        !opened &&
-                        "pointer-events-none opacity-35"
+                      pendingEpic !== null && !opened && "pointer-events-none"
                     )}
                   >
                     {Item.$match(item, {

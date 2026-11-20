@@ -1,5 +1,5 @@
 import { hasSubTickets, type Ticket } from "@pp/shared"
-import { Button } from "@pp/ui/button"
+import { Chip } from "@pp/ui/chip"
 import { Flag, Link2, OctagonMinus, SquareEqual } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { cn } from "@pp/ui/lib/utils"
@@ -11,11 +11,8 @@ import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-import {
-  RELATION_PREVIEW_LABELS,
-  TicketPreview,
-  TicketPreviewTrigger
-} from "./TicketPreview"
+import { RELATION_PREVIEW_LABELS } from "./TicketListPreviews"
+import { TicketPreview, TicketPreviewTrigger } from "./TicketPreview"
 
 type RelationCounts = Pick<
   Ticket,
@@ -31,7 +28,7 @@ const RELATION_CHIPS = [
     relation: "blockedBy",
     field: "openBlockerCount",
     icon: OctagonMinus,
-    tone: "text-state-warning hover:text-state-warning data-[popup-open]:text-state-warning"
+    warning: true
   },
   {
     relation: "blocking",
@@ -45,7 +42,7 @@ const RELATION_CHIPS = [
     relation: RelationPreviewKind
     field: Exclude<keyof RelationCounts, "id">
     icon: IconComponent
-    tone?: string
+    warning?: true
   }>
 >
 
@@ -64,19 +61,15 @@ export function RelationChips({
         preview={TicketPreview.relations({ id: ticket.id, relation })}
         aria-label={RELATION_PREVIEW_LABELS[relation]()}
         render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="compact"
-            className={cn(
-              "relative z-20",
-              className,
-              "tone" in chip && chip.tone
-            )}
+          <Chip
+            interaction="hover"
+            shape="count"
+            tone={"warning" in chip ? "warning" : undefined}
+            className={cn("relative z-20", className)}
           />
         }
       >
-        <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <Icon className="shrink-0" strokeWidth={1.75} />
         {n > 1 && <span className="tabular-nums">{n}</span>}
       </TicketPreviewTrigger>
     )
@@ -108,15 +101,14 @@ export function SubTicketsChip({
       })}
       aria-label={label}
       render={
-        <Button
-          type="button"
-          variant="ghost"
-          size="compact"
+        <Chip
+          interaction="hover"
+          shape="count"
           className={cn("relative z-20", className)}
         />
       }
     >
-      <ProgressCount done={done} total={total} className="text-inherit" />
+      <ProgressCount done={done} total={total} tone="inherit" />
     </TicketPreviewTrigger>
   )
 }
@@ -131,19 +123,15 @@ export function FlagChip({
       preview={TicketPreview.flag({ id: ticket.id, flag: ticket.flag })}
       aria-label={m.tickets_flag_indicator_aria_label()}
       render={
-        <Button
-          type="button"
-          variant="ghost"
-          size="compact"
-          className={cn(
-            "relative z-20",
-            className,
-            "text-state-danger hover:text-state-danger data-[popup-open]:text-state-danger"
-          )}
+        <Chip
+          interaction="hover"
+          shape="icon"
+          tone="danger"
+          className={cn("relative z-20", className)}
         />
       }
     >
-      <Flag className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <Flag className="size-3 shrink-0" strokeWidth={1.75} />
     </TicketPreviewTrigger>
   )
 }

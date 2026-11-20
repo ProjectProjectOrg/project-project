@@ -93,7 +93,6 @@ export function AppearanceRow({
       onClick={onActivate}
       variant="appearance-row"
       size="appearance-row"
-      className="rounded-[calc(var(--radius-lg)-1px)]"
     >
       {content}
     </Button>

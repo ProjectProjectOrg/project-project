@@ -280,7 +280,6 @@
   "project_detail_about_heading": "Description",
   "project_detail_about_storage_prefix": "Stored as",
   "project_detail_about_storage_suffix": " on disk.",
-  "project_detail_actions_aria_label": "Project actions",
   "project_detail_delete_button": "Delete project",
   "project_detail_delete_confirm_button": "Delete",
   "project_detail_delete_confirm_prompt": "Delete this project? This can't be undone.",
@@ -490,7 +489,6 @@
   "project_settings_delete_description": "Permanently remove this project, its tickets and its markdown folder. This can't be undone.",
   "project_settings_delete_error": "Couldn't delete the project. Try again.",
   "project_settings_delete_heading": "Delete project",
-  "project_settings_description_heading": "Description",
   "project_settings_estimation_clear_stale": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -541,7 +539,6 @@
   "project_settings_everhour_help_subtitle": "You only need the personal API token once. ProjectProject stores it on your profile, then project settings can connect Everhour projects.",
   "project_settings_everhour_help_title": "Find your Everhour API key",
   "project_settings_everhour_help_trigger_label": "Show Everhour API key instructions",
-  "project_settings_everhour_help_trigger_text": "?",
   "project_settings_everhour_last_synced": "Last synced {date}.",
   "project_settings_everhour_loading": "Loading Everhour status…",
   "project_settings_everhour_not_connected": "Connect Everhour to create a board project with sprint sections and ticket tasks.",

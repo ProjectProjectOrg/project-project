@@ -367,7 +367,7 @@ function SelectContent({
         sideOffset={sideOffset}
         alignItemWithTrigger={false}
         anchor={anchor}
-        className="z-50 outline-none"
+        className="outline-none"
       >
         <SelectPrimitive.Popup
           finalFocus={finalFocus}

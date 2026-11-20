@@ -26,7 +26,7 @@ const user = (id: string) =>
     createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
     activeOrgSlug: null,
     personalGithub: { connected: false },
-    editorPreference: "github",
+    settings: { avatarSource: null, editorPreference: "github" },
     personalEverhour: {
       connected: false,
       everhourUserId: null,
@@ -34,7 +34,8 @@ const user = (id: string) =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   }) satisfies User
 
 const wouter: TicketActivityActor = { kind: "user", user: user("wouter") }

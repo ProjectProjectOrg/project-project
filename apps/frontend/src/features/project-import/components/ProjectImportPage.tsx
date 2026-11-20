@@ -84,10 +84,10 @@ function ImportScreen({
 
 function ImportSkeleton() {
   return (
-    <div className="flex min-h-[520px] flex-col gap-6 py-1">
-      <div className="skeleton h-7 w-64 rounded-lg" />
-      <div className="skeleton h-4 w-full max-w-lg rounded" />
-      <div className="skeleton mt-3 h-24 w-full rounded-xl" />
+    <div className="flex min-h-130 flex-col gap-6 py-1">
+      <div className="h-7 w-64 skeleton rounded-lg" />
+      <div className="h-4 w-full max-w-lg skeleton rounded" />
+      <div className="mt-3 h-24 w-full skeleton rounded-xl" />
     </div>
   )
 }

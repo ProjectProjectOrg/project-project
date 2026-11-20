@@ -147,7 +147,7 @@ function ListSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="skeleton h-[60px] rounded-lg border border-border bg-card"
+          className="h-15 skeleton rounded-lg border border-border bg-card"
         />
       ))}
     </div>

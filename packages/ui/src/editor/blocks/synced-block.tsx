@@ -14,7 +14,10 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
   project: m.editor_block_origin_project
 }
 
-export const syncedChipLabel = (mode: SyncedBlockMode, origin: LibraryOrigin) =>
+export const syncedChipLabel = (
+  mode: SyncedBlockMode,
+  origin: LibraryOrigin
+) =>
   mode === "reference"
     ? m.editor_synced_linked()
     : m.editor_synced_from({ origin: ORIGIN_LABELS[origin]() })
@@ -60,7 +63,7 @@ export function SyncedChip({
     <span
       data-synced-chip
       className={cn(
-        "pointer-events-none absolute right-2 bottom-[calc(100%-0.5rem)] z-10 flex h-6 items-center gap-1 rounded-[12px] bg-(color:--tooltip) pl-1.5 text-caption whitespace-nowrap text-muted-foreground opacity-0 shadow-(--tooltip-edge) [corner-shape:var(--button-corner)] transition-opacity duration-150 select-none group-focus-within/reveal:pointer-events-auto group-focus-within/reveal:opacity-100 group-hover/reveal:pointer-events-auto group-hover/reveal:opacity-100",
+        "pointer-events-none absolute right-2 bottom-[calc(100%-0.5rem)] z-10 flex h-6 items-center gap-1 rounded-[12px] bg-(color:--tooltip) pl-1.5 text-caption whitespace-nowrap text-muted-foreground opacity-0 shadow-(--tooltip-edge) transition-opacity duration-150 select-none [corner-shape:var(--button-corner)] group-focus-within/reveal:pointer-events-auto group-focus-within/reveal:opacity-100 group-hover/reveal:pointer-events-auto group-hover/reveal:opacity-100",
         visible && "pointer-events-auto",
         visible && "opacity-100"
       )}

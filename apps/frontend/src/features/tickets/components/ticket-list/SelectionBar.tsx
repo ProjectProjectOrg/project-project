@@ -216,9 +216,15 @@ function Fields({
               />
             }
             value={m.tickets_selection_move_to({ status: meta.label })}
-            aria-keyshortcuts="N"
+            aria-keyshortcuts={
+              appHotkeys["tickets.selection-next"].defaultHotkey
+            }
             shortcut={
-              <KbdShortcut size="sm" keys="N" keyLabels={keyLabels()} />
+              <KbdShortcut
+                size="sm"
+                keys={appHotkeys["tickets.selection-next"].defaultHotkey}
+                keyLabels={keyLabels()}
+              />
             }
             onClick={() => edit({ status: next })}
           />
@@ -230,7 +236,11 @@ function Fields({
         value={m.tickets_selection_actions()}
         aria-label={m.tickets_selection_actions()}
         shortcut={
-          <KbdShortcut size="sm" keys="Mod+K" keyLabels={keyLabels()} />
+          <KbdShortcut
+            size="sm"
+            keys={appHotkeys["app.command-menu"].defaultHotkey}
+            keyLabels={keyLabels()}
+          />
         }
         onClick={() => {
           const [lead] = tickets

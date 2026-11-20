@@ -54,7 +54,7 @@ import { TicketKey } from "@pp/ui/ticket-key"
 | `link` | `ReactNode` | An `ItemLink` stretched over the row, so a click anywhere opens the ticket |
 | `lead` | `ReactNode` | The first column: the selection checkbox |
 | `status`, `priority` | `ReactNode` | The two icon columns, each `--list-icon` wide |
-| `ticketKey` | `ReactNode` | A `TicketKey`; give it `min-w-(--ticket-key-width)` so keys line up |
+| `ticketKey` | `ReactNode` | A `TicketKey`; give it `min-w-(--ticket-key-width)` so keys line up. Leave out with `priority` for a row that isn't a ticket |
 | `title` | `ReactNode` | The title column, which takes the remaining width: the parent (`ListRowCrumbs`), `ListRowTitle`, inline chips |
 | `trailing` | `ReactNode` | Chips at the end: tags, git, relations, sprint |
 | `estimate`, `assignee` | `ReactNode` | The last two columns; the assignee hides on narrow screens |
@@ -64,7 +64,7 @@ import { TicketKey } from "@pp/ui/ticket-key"
 
 `ListRowTitle` takes `variant="quiet"` for the regular weight instead of semibold, for rows that sit under a heading that should lead, such as the sub-tickets on a ticket's page.
 
-Parts used with it: `ItemLink` (`@pp/ui/item-link`), `TicketKey` (`@pp/ui/ticket-key`), `ProgressCount` (`@pp/ui/progress-count`) and `chipClassName` (`@pp/ui/chip`), which the board card shares.
+Parts used with it: `ItemLink` (`@pp/ui/item-link`), `TicketKey` (`@pp/ui/ticket-key`), `ProgressCount` (`@pp/ui/progress-count`) and `Chip` (`@pp/ui/chip`), which the board card shares.
 
 ## Rules
 
@@ -75,6 +75,10 @@ A ticket has at most one parent: its epic, or the ticket it is a sub-ticket of (
 ### The whole row is the link
 
 A click anywhere on the row opens the ticket, through one `ItemLink` stretched under the row's content. The row's own controls (status, priority, assignee, chips) sit above it on `z-20`, so they still take their own clicks. Keyboard users tab to the link once per row; the link's inset ring is the row's focus.
+
+### Rows that aren't tickets
+
+A row for something other than a ticket (a sprint on the Sprints page) leaves out `priority` and `ticketKey`. Those two columns then go to the title, so it starts 8px after the icon, where a section header's label starts, instead of after two empty columns' gaps.
 
 ### One grid for the whole list
 
@@ -90,11 +94,11 @@ The row fills on hover without a delay. While someone moves through the list wit
 
 ### 40px rows, the title leads
 
-A row is 40px: 24px fields and 8px above and below (`listRowHeight`, which the virtualized backlog uses for its row tracks). Its corners are half its height (20px) with `--button-corner`, like a button, and the hover highlight and focus ring share them. Everything but the title is quiet: chips are flat muted text with no outline (`chipClassName`), the estimate is a bare number with its unit icon, and priority is signal bars (one, two or three lit) in the priority's colour.
+A row is 40px: 24px fields and 8px above and below (`listRowHeight`, which the virtualized backlog uses for its row tracks). Its corners are half its height (20px) with `--button-corner`, like a button, and the hover highlight and focus ring share them. Everything but the title is quiet: chips are flat muted text with no outline (`Chip`), the estimate is a bare number with its unit icon, and priority is signal bars (one, two or three lit) in the priority's colour.
 
 ### Tags fold before the title shrinks
 
-The title column keeps at least 10rem, and the list grid is the `list` container. Below 48rem a row's tags fold into one chip: every tag's dot and the count (`ChipDots`, `chipNarrowOnlyClass`), with the names on hover. The named chips and their "+N" carry `chipWideOnlyClass`. If the chips still don't fit, whole chips drop out rather than being cut in half.
+The title column keeps at least 10rem, and the list grid is the `list` container. Below 48rem a row's tags fold into one chip: every tag's dot and the count (`ChipDots` on a `show="narrow"` chip), with the names on hover. The named chips and their "+N" take `show="wide"`. If the chips still don't fit, whole chips drop out rather than being cut in half.
 
 ### Placeholders wait for the hover
 

@@ -7,6 +7,10 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { useEffect, useRef, useState } from "react"
 
 import { me, signInProviders } from "@/features/auth/atoms/auth"
+import {
+  GoogleMark,
+  MicrosoftMark
+} from "@/features/auth/components/ProviderMarks"
 import { MagicLinkForm } from "@/features/auth/forms/magic-link"
 import {
   signInErrorCallbackURL,
@@ -88,7 +92,7 @@ export function LoginPage() {
   }
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-login-page p-6">
       <div className="pointer-events-none absolute inset-0">
         <Dither
           disableAnimation
@@ -112,7 +116,7 @@ export function LoginPage() {
       </div>
       <div
         ref={cardRef}
-        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)]"
+        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-login-card"
       >
         <div className="relative flex flex-col items-center gap-4 px-8 pt-10 pb-8 text-foreground">
           <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary corner-squircle">
@@ -175,65 +179,5 @@ export function LoginPage() {
         </p>
       </div>
     </main>
-  )
-}
-
-function GoogleMark({
-  size = 16,
-  className
-}: {
-  size?: number | string
-  className?: string
-}) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden="true"
-    >
-      <path
-        fill="#4285F4"
-        d="M21.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.52Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 22c2.7 0 4.97-.9 6.62-2.43l-3.24-2.51c-.9.6-2.05.95-3.38.95-2.6 0-4.8-1.76-5.59-4.12H3.06v2.6A10 10 0 0 0 12 22Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M6.41 13.89A6.01 6.01 0 0 1 6.1 12c0-.66.11-1.3.31-1.89v-2.6H3.06A10 10 0 0 0 2 12c0 1.61.39 3.14 1.06 4.49l3.35-2.6Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.99c1.47 0 2.78.5 3.82 1.49l2.87-2.87C16.96 3 14.7 2 12 2a10 10 0 0 0-8.94 5.51l3.35 2.6C7.2 7.75 9.4 5.99 12 5.99Z"
-      />
-    </svg>
-  )
-}
-
-function MicrosoftMark({
-  size = 16,
-  className
-}: {
-  size?: number | string
-  className?: string
-}) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden="true"
-    >
-      <path fill="#F25022" d="M2 2h9.5v9.5H2z" />
-      <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" />
-      <path fill="#00A4EF" d="M2 12.5h9.5V22H2z" />
-      <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" />
-    </svg>
   )
 }

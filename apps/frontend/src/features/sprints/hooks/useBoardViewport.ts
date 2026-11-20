@@ -23,8 +23,8 @@ export function useBoardViewport(ref: RefObject<HTMLDivElement | null>) {
     update()
     const ro = new ResizeObserver(update)
     ro.observe(container, { box: "border-box" })
-    for (let node: Element | null = el; node && node !== paddingSource; ) {
-      for (let prev = node.previousElementSibling; prev; ) {
+    for (let node: Element | null = el; node && node !== paddingSource;) {
+      for (let prev = node.previousElementSibling; prev;) {
         ro.observe(prev, { box: "border-box" })
         prev = prev.previousElementSibling
       }

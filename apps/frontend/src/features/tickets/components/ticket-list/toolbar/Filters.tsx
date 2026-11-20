@@ -40,6 +40,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import { TextSwap } from "@pp/ui/text-swap"
+import { ToolbarButton, ToolbarClearButton } from "@pp/ui/toolbar-button"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -88,7 +89,7 @@ import {
   clearedFilters,
   type FilterDimension
 } from "./model"
-import { ToolbarButton, ToolbarChevron } from "./shared"
+import { ToolbarChevron } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
 const TOGGLES: ReadonlySet<FilterDimension> = new Set([
@@ -122,6 +123,11 @@ export function Filters() {
     setShownCount(activeFilterCount)
   }
   const hasToggles = filters.some((dimension) => TOGGLES.has(dimension))
+  const clearFilters = () =>
+    onChange({
+      ...clearedFilters(filters),
+      status: showStatus ? undefined : value.status
+    })
   const hasSubmenus =
     showStatus || filters.some((dimension) => !TOGGLES.has(dimension))
 
@@ -137,32 +143,45 @@ export function Filters() {
         })
       }}
     >
-      <DropdownMenuTrigger
-        ref={triggerRef}
-        render={
-          <ToolbarButton
-            active={active}
-            aria-label={
-              compact && active
-                ? m.tickets_filters_active_aria_label({
-                    count: activeFilterCount
-                  })
-                : m.tickets_filters_aria_label()
-            }
-          >
-            <ListFilter className="size-4" strokeWidth={1.75} />
-            <CollapsingLabel show={!compact}>
-              {m.tickets_filters_label()}
-            </CollapsingLabel>
-            <CollapsingLabel show={active}>
-              <Badge variant="count" active>
-                <TextSwap speed="fast">{String(shownCount)}</TextSwap>
-              </Badge>
-            </CollapsingLabel>
-            <ToolbarChevron />
-          </ToolbarButton>
-        }
-      />
+      <div className="group/toolbar relative flex">
+        <DropdownMenuTrigger
+          ref={triggerRef}
+          render={
+            <ToolbarButton
+              active={active}
+              aria-label={
+                active
+                  ? m.tickets_filters_active_aria_label({
+                      count: activeFilterCount
+                    })
+                  : m.tickets_filters_aria_label()
+              }
+            >
+              <ListFilter className="size-4" strokeWidth={1.75} />
+              <CollapsingLabel show={!compact}>
+                {m.tickets_filters_label()}
+              </CollapsingLabel>{" "}
+              <CollapsingLabel show={active}>
+                <Badge variant="count" active>
+                  <TextSwap speed="fast">{String(shownCount)}</TextSwap>
+                </Badge>
+              </CollapsingLabel>
+              <CollapsingLabel show={!active}>
+                <ToolbarChevron />
+              </CollapsingLabel>
+              <CollapsingLabel show={active}>
+                <span aria-hidden className="block size-5" />
+              </CollapsingLabel>
+            </ToolbarButton>
+          }
+        />
+        {active && (
+          <ToolbarClearButton
+            label={m.tickets_filters_clear_all()}
+            onClick={clearFilters}
+          />
+        )}
+      </div>
       <DropdownMenuContent
         anchor={anchor}
         align="start"
@@ -246,15 +265,7 @@ export function Filters() {
         {active && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() =>
-                onChange({
-                  ...clearedFilters(filters),
-                  status: showStatus ? undefined : value.status
-                })
-              }
-              className="cursor-pointer"
-            >
+            <DropdownMenuItem onClick={clearFilters} className="cursor-pointer">
               <X className="size-4" strokeWidth={1.75} />
               {m.tickets_filters_clear_all()}
             </DropdownMenuItem>

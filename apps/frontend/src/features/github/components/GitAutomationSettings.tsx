@@ -16,7 +16,6 @@ import {
   type IconType,
   Minus
 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import type * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -149,7 +148,7 @@ function Rules({
         {canEdit ? (
           <SettingsSwitch
             checked={automation.forwardOnly}
-            className={cn(forwardOnly.waiting && "animate-pulse")}
+            data-pending={forwardOnly.waiting || undefined}
             onCheckedChange={(next) => void forwardOnly.run(next)}
           />
         ) : (
@@ -223,7 +222,8 @@ function RuleRow({
         >
           <SelectTrigger
             aria-label={meta.label()}
-            className={cn("w-44", save.waiting && "animate-pulse")}
+            data-pending={save.waiting || undefined}
+            className="w-44"
             selectedLabel={current}
           />
         </Select>

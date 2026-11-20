@@ -73,7 +73,7 @@ export function DestinationSection({
       open={open}
       onToggle={onToggle}
     >
-      <div className="grid max-w-[560px] gap-4">
+      <div className="grid max-w-140 gap-4">
         {fields.map(({ field: name, label, hint, invalid, literal }) => (
           <form.Field
             key={name}

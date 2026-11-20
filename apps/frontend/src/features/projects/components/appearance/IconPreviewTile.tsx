@@ -21,10 +21,7 @@ export function LiveIconImage({ live }: { live: LiveImageIcon }) {
     <CroppedImage
       src={live.src}
       crop={live.crop}
-      className={cn(
-        live.treatment === "sticker" &&
-          "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
-      )}
+      className={cn(live.treatment === "sticker" && "sticker-outline")}
     />
   )
 }

@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
   type Dispatch,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -44,7 +45,11 @@ import {
 } from "./fluid-hover-highlight"
 import { Check, Minus } from "./icons"
 import { KbdShortcut } from "./kbd"
-import { menuItemClass, popupSurfaceClass } from "./menu-styles"
+import {
+  destructiveItemClass,
+  menuItemClass,
+  popupSurfaceClass
+} from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
 import { ScrollArea } from "./scroll-area"
 import { SegmentedTabs } from "./segmented-tabs"
@@ -556,6 +561,8 @@ function CommandMenuInput({
         className={cn(
           "h-full w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
           "text-body",
+          // Read-only, it describes the page instead of searching it.
+          "read-only:cursor-default read-only:text-muted-foreground read-only:caret-transparent",
           fieldTouchClass,
           className
         )}
@@ -569,12 +576,16 @@ export type CommandMenuListProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     renderItem: (item: CommandMenuItemData, index: number) => ReactNode
     children?: ReactNode
+    // The hairline above the list. Off when the frame draws its own under
+    // the input, across a peek pane beside the list too.
+    divider?: boolean
   }>
 
 function CommandMenuList({
   className,
   children,
   renderItem,
+  divider = true,
   ref,
   ...props
 }: CommandMenuListProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -595,7 +606,10 @@ function CommandMenuList({
 
   return (
     <ScrollArea
-      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
+      className={cn(
+        "scroll-divider flex min-h-0 flex-1 flex-col [&::after]:!hidden [&::before]:!-top-px",
+        divider && "border-t border-border/60"
+      )}
       viewportClassName="min-h-0 flex-1 [&>div[style]]:!flex [&>div[style]]:!min-h-full [&>div[style]]:!flex-col [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
     >
       <div
@@ -704,6 +718,36 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keyLabels: KeyLabels
   }>
 
+// A pill in the input row naming what the open page acts on: a ticket, a
+// sprint, the selection.
+// A chip in the command menu's input: the page's context (a ticket, a
+// sprint) or a selected ticket, with an optional trailing remove button or
+// shortcut that runs to the edge. `count` is the quiet "+N more".
+const COMMAND_MENU_CHIP_VARIANT = {
+  label:
+    "gap-1.5 px-2 text-body has-[>:is(button,[data-slot=command-menu-shortcut]):last-child]:pr-0 [&>[data-slot=command-menu-shortcut]]:ml-0 [&>[data-slot=command-menu-shortcut]]:self-stretch [&>[data-slot=command-menu-shortcut]>*]:h-full [&>[data-slot=command-menu-shortcut]>*]:rounded-none [&>[data-slot=command-menu-shortcut]>*]:px-1.5",
+  count: "px-2 text-caption text-muted-foreground"
+} as const
+
+function CommandMenuChip({
+  variant = "label",
+  className,
+  ...props
+}: ComponentProps<"span"> &
+  Readonly<{ variant?: keyof typeof COMMAND_MENU_CHIP_VARIANT }>) {
+  return (
+    <span
+      data-slot="command-menu-chip"
+      className={cn(
+        "inline-flex h-6 items-center rounded-[7px] bg-hover",
+        COMMAND_MENU_CHIP_VARIANT[variant],
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 // The command menu's shortcut caps are Kbd's (KbdShortcut), pushed to the
 // row's end.
 function CommandMenuShortcut({
@@ -726,6 +770,12 @@ export type CommandMenuItemProps = Omit<
   Readonly<{
     value: string
     children: ReactNode
+    variant?: "default" | "destructive"
+    // detail: a second line under the label (a matched comment, a
+    // description); the caller lays out its columns.
+    layout?: "row" | "detail"
+    // Set aside: already added, or waiting while another row is chosen.
+    dimmed?: boolean
   }>
 
 const CommandMenuItem = memo(function CommandMenuItem({
@@ -733,6 +783,9 @@ const CommandMenuItem = memo(function CommandMenuItem({
   className,
   onClick,
   children,
+  variant = "default",
+  layout = "row",
+  dimmed = false,
   ref,
   ...props
 }: CommandMenuItemProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -770,6 +823,8 @@ const CommandMenuItem = memo(function CommandMenuItem({
       data-fluid-hover-index={index}
       data-value={value}
       data-slot="command-menu-item"
+      data-variant={variant}
+      data-dimmed={dimmed || undefined}
       onClick={(e) => {
         onClick?.(e)
         if (!e.defaultPrevented) select(item)
@@ -779,6 +834,10 @@ const CommandMenuItem = memo(function CommandMenuItem({
         // and icon weight, driven by the same data-highlighted attribute.
         menuItemClass,
         "group/command-item z-10 shrink-0 select-none",
+        destructiveItemClass,
+        "transition-opacity duration-200 data-[dimmed]:opacity-50",
+        layout === "detail" &&
+          "grid h-auto items-baseline gap-x-2 gap-y-0.5 py-2",
         className
       )}
       {...props}
@@ -792,11 +851,14 @@ const CommandMenuItem = memo(function CommandMenuItem({
 export type CommandMenuFooterProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     children: ReactNode
+    // A hairline above it, when it sits straight under the list.
+    divider?: boolean
   }>
 
 function CommandMenuFooter({
   className,
   children,
+  divider = false,
   ref,
   ...props
 }: CommandMenuFooterProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -808,6 +870,7 @@ function CommandMenuFooter({
         "flex shrink-0 items-center overflow-hidden text-muted-foreground",
         "h-10 gap-4 px-4",
         "text-caption",
+        divider && "border-t border-border/60",
         className
       )}
       {...props}
@@ -1079,6 +1142,7 @@ export {
   CommandMenuList,
   CommandMenuEmpty,
   CommandMenuItem,
+  CommandMenuChip,
   CommandMenuShortcut,
   CommandMenuFooter,
   CommandMenuFooterHint,

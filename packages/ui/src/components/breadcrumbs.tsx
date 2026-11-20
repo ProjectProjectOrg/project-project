@@ -18,8 +18,8 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "../hooks/useFluidHover"
-import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
+import { enter, exit, fadeOnly, hidden } from "../lib/widthPresence"
 import { FluidHoverHighlight } from "./fluid-hover-highlight"
 import { ChevronRight } from "./icons"
 import { TextSwap } from "./text-swap"
@@ -50,45 +50,6 @@ type Position = Readonly<{
 }>
 
 const PositionContext = createContext<Position | null>(null)
-
-const BLUR = "blur(4px)"
-const SHARP = "blur(0px)"
-
-// A crumb opens its width on the house curve (260ms, transitions.morph) while
-// its ink fades in a beat behind (60ms in, 180ms long), so it never shows
-// squeezed.
-const INK_DELAY = 0.06
-
-const enter = {
-  width: "auto",
-  opacity: 1,
-  filter: SHARP,
-  transition: {
-    width: transitions.morph,
-    opacity: { ...transitions.presence, delay: INK_DELAY },
-    filter: { ...transitions.presence, delay: INK_DELAY }
-  }
-}
-// Leaving is quicker and on the house curve, not a reversed copy of the
-// enter (that starts too slowly): the ink fades out at once (100ms) while the
-// width closes over 180ms, so the gap is gone before the eye waits for it.
-const inkOut = { ...transitions.fade, duration: 0.1 }
-const exit = {
-  width: 0,
-  opacity: 0,
-  filter: BLUR,
-  transition: {
-    width: { ...transitions.morph, duration: 0.18 },
-    opacity: inkOut,
-    filter: inkOut
-  }
-}
-const hidden = { width: 0, opacity: 0, filter: BLUR }
-const fadeOnly = {
-  enter: { opacity: 1, transition: transitions.fade },
-  exit: { opacity: 0, transition: transitions.fade },
-  hidden: { opacity: 0 }
-}
 
 type BreadcrumbsProps = Readonly<{
   // The nav's accessible name ("Breadcrumb").
@@ -388,7 +349,7 @@ function BreadcrumbItem({
               loading ? "opacity-100" : "opacity-0"
             )}
           >
-            <span className="skeleton block h-4 rounded bg-muted/60" />
+            <span className="block h-4 skeleton rounded bg-muted/60" />
           </span>
         </span>
         {loading && loadingLabel !== undefined ? (

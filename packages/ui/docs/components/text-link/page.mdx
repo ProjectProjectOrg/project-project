@@ -1,0 +1,31 @@
+export const meta = {
+  title: "TextLink",
+  group: "Primitives",
+  description: "A link that reads as text in a line, like a sub-ticket's parent before its title."
+}
+
+## Overview
+
+<Demo name="overview" title="A parent before a title" />
+
+## Usage
+
+```tsx
+import { TextLink } from "@pp/ui/text-link"
+
+<TextLink render={<Link to="…" />}>{parent.title}</TextLink>
+```
+
+## Rules
+
+### Muted until pointed at
+
+At rest it's muted text. On hover it turns foreground and underlines, and it takes the house focus ring.
+
+### The hit area reaches past the text
+
+Its padding is cancelled by equal negative margins, so the click area is bigger than the words and nothing around it moves.
+
+### It takes the text size around it
+
+TextLink sets no size. Put it in a line of body or caption text and it matches.

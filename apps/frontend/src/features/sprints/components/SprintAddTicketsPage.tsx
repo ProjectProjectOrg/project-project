@@ -3,7 +3,6 @@ import { canJoinSprint } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
 import { CommandMenuItem } from "@pp/ui/command-menu"
 import { Check } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useContext, useState } from "react"
@@ -109,7 +108,7 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
           <CommandMenuItem
             value={item.value}
             aria-disabled={inSprint}
-            className={cn(inSprint && "opacity-60")}
+            dimmed={inSprint}
           >
             <TicketStatusIcon
               status={ticket.status}

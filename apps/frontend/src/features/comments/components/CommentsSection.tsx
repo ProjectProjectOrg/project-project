@@ -52,7 +52,7 @@ export function CommentsSection({
     >
       <section className="flex flex-col gap-3 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]">
         <div className="flex items-center gap-1 pl-(--ticket-box-offset)">
-          <h2 className="text-[15px]/5 text-foreground">
+          <h2 className="text-title-compact/5 text-foreground">
             {m.tickets_activity_tab()}
           </h2>
           <Button

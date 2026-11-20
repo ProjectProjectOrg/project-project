@@ -157,6 +157,9 @@ type SidebarRailItemProps = Omit<ComponentProps<"button">, "children"> &
     tooltip?: ReactNode
     active?: boolean
     tone?: string
+    // `tile` holds a project's tile: always a squircle, like ProjectIcon,
+    // whatever the button corner setting; its radius comes with the tile.
+    shape?: "button" | "tile"
     render?: useRender.RenderProp
     children: ReactNode
   }>
@@ -166,6 +169,7 @@ function SidebarRailItem({
   tooltip,
   active = false,
   tone,
+  shape = "button",
   render,
   className,
   style,
@@ -195,7 +199,10 @@ function SidebarRailItem({
         data-tone={tone === undefined ? undefined : ""}
         style={tone === undefined ? style : { ...style, "--rail-tone": tone }}
         className={cn(
-          "pp-rail-item focus-ring grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-[17px] text-subtitle [corner-shape:var(--button-corner)] [&>svg:not([class*='size-'])]:size-[18px]",
+          "pp-rail-item focus-ring grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-[17px] text-subtitle [&>svg:not([class*='size-'])]:size-[18px]",
+          shape === "tile"
+            ? "corner-squircle"
+            : "[corner-shape:var(--button-corner)]",
           className
         )}
         {...props}

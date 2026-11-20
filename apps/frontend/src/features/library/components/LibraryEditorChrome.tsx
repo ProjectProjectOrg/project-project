@@ -29,7 +29,7 @@ export function LibraryEditorHeader({
       <LibraryListLink
         scope={scope}
         kind={kind}
-        className="-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.97]"
+        className="-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-97"
       >
         <ArrowLeft className="size-3.5" strokeWidth={1.75} />
         {kind === "type"

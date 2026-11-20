@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { TicketId } from "@pp/shared"
+import { isEpic, TicketId } from "@pp/shared"
 import { FolderKanban, Plus, Search } from "@pp/ui/icons"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -11,6 +11,7 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
+import { EpicTag } from "@/features/tickets/components/EpicTag"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import {
   TicketPeek,
@@ -168,6 +169,9 @@ export function RootCommands({
           className="size-4"
         />
       ),
+      aside: isEpic(target) ? (
+        <EpicTag orgSlug={context.orgSlug} slug={target.projectSlug} />
+      ) : undefined,
       actionable: !isContextTicket(self, target),
       enterLabel: m.chrome_command_menu_open_ticket()
     }))

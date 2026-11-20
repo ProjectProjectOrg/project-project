@@ -17,5 +17,7 @@ export const compareCodePoints = (a: string, b: string) => {
       : 1
 }
 
-export const compareByOrderKey = <T extends { orderKey: string }>(a: T, b: T) =>
-  a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
+export const compareByOrderKey = <T extends { orderKey: string }>(
+  a: T,
+  b: T
+) => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)

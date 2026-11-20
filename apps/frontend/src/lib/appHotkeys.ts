@@ -193,6 +193,31 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "L",
     scope: "board",
     meta: { name: m.sprints_shortcut_move_right(), group: board }
+  },
+  "sprints.focus-next": {
+    hotkey: "J",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_focus_next(), group: board }
+  },
+  "sprints.focus-previous": {
+    hotkey: "K",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_focus_previous(), group: board }
+  },
+  "sprints.open": {
+    hotkey: "O",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_open(), group: board }
+  },
+  "sprints.dates": {
+    hotkey: "D",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_dates(), group: board }
+  },
+  "sprints.start": {
+    hotkey: "Shift+S",
+    scope: "sprint-list",
+    meta: { name: m.sprints_start_button(), group: board }
   }
 })
 

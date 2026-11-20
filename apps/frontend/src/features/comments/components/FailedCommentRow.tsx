@@ -13,6 +13,7 @@ import {
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { Copy, MoreHorizontal, Pencil, Trash2, X } from "@pp/ui/icons"
+import { Reveal } from "@pp/ui/reveal"
 import { useContext, useState } from "react"
 
 import {
@@ -93,19 +94,20 @@ export function FailedCommentRow({
       failed
       actions={
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="square-7"
-                aria-label={m.comments_menu_aria_label()}
-                className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 data-popup-open:opacity-100 pointer-coarse:opacity-100"
-              />
-            }
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </DropdownMenuTrigger>
+          <Reveal>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="square-7"
+                  aria-label={m.comments_menu_aria_label()}
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" strokeWidth={1.75} />
+            </DropdownMenuTrigger>
+          </Reveal>
           <DropdownMenuContent align="end" sideOffset={6} className="w-52">
             <DropdownMenuItem
               onClick={() => setEditing(true)}

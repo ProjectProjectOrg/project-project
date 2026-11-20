@@ -49,19 +49,23 @@ export function ProgressCount({
   done,
   total,
   label,
+  tone = "muted",
   className
 }: Readonly<{
   done: number
   total: number
   // Read out and shown on hover, for example "3 of 5 sub-tickets done".
   label?: string
+  // Inherit takes the colour of the chip it sits in.
+  tone?: "muted" | "inherit"
   className?: string
 }>) {
   return (
     <span
       title={label}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-muted-foreground",
+        "inline-flex shrink-0 items-center gap-1",
+        tone === "muted" && "text-muted-foreground",
         className
       )}
     >

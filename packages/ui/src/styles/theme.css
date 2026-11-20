@@ -30,6 +30,46 @@
   transition-duration: var(--tw-duration, var(--default-transition-duration));
 }
 
+/* An uploaded sticker icon's die-cut edge and the shadow it casts. */
+@utility sticker-outline {
+  filter: drop-shadow(0 0 1px var(--icon-sticker-outline))
+    drop-shadow(0 1px 2px rgb(0 0 0/0.45));
+}
+
+/* An overlay fill (--tint, --hover) painted over the element's own
+   background colour, so it reads on any surface. */
+@utility tint-layer {
+  background-image: linear-gradient(var(--tint), var(--tint));
+}
+@utility tint-hover-layer {
+  background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+}
+@utility hover-layer {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+/* A control waiting on the server pulses. Callers set data-pending on any
+   element or primitive instead of restyling it. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-pending] {
+    animation: var(--animate-pulse);
+  }
+}
+
+/* A loading placeholder's pulse. */
+@utility skeleton {
+  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* Allo (OFL), the interface face: the variable font (weight, roundness,
    optical size) plus its drawn obliques for italics. Roundness is set on
    the root below. */
@@ -221,9 +261,6 @@
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
-  /* A selection bar field with a suggestion: the flag's warm tone, as a
-     fill under the field. */
-  --suggested-fill: oklch(from var(--state-warning) 0.8 calc(c * 0.9) h / 0.22);
   /* What a guide lays over everything but its spotlight, under a blur. */
   --guide-scrim: oklch(0.2 0 0 / 0.14);
   --avatar-edge: oklch(0.145 0 0 / 0.1);
@@ -371,9 +408,6 @@
   --tooltip-raised: oklch(0.33 0 0);
   --menu-foreground: oklch(0.86 0 0);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
-  --suggested-fill: oklch(
-    from var(--state-warning) 0.72 calc(c * 2.2) h / 0.14
-  );
   --guide-scrim: oklch(0 0 0 / 0.4);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
@@ -545,6 +579,24 @@
   --shadow-surface-6: var(--shadow-6);
   --shadow-surface-7: var(--shadow-7);
   --shadow-surface-8: var(--shadow-8);
+  /* A 32px icon tile's corners (settings rows, file and logo tiles). */
+  --radius-tile: 10px;
+  /* The sign-in page and its card: the page's background tinted toward
+     muted, the card further than the page. */
+  --color-login-page: color-mix(
+    in oklch,
+    var(--background) 82%,
+    var(--muted) 18%
+  );
+  --color-login-card: color-mix(
+    in oklch,
+    var(--background) 45%,
+    var(--muted) 55%
+  );
+  /* A 1px hairline inside the edge, for an empty slot. */
+  --shadow-hairline-inset: inset 0 0 0 1px var(--border);
+  /* A field's hover fill, painted over its background as a shadow. */
+  --shadow-field-hover-fill: inset 0 0 0 100vmax var(--field-hover);
 }
 
 @keyframes marquee-x {
@@ -1656,6 +1708,11 @@
     @apply bg-muted text-foreground antialiased;
     margin: 0;
     padding: 0;
+  }
+  /* The app's own z-indexes stay inside the app, so popups portaled to the
+     body stack by DOM order alone: the one opened last is on top. */
+  #root {
+    isolation: isolate;
   }
   /* Allo with crisp terminals (roundness 0). It inherits, so every text
      on the page gets it; an element that sets its own variation settings

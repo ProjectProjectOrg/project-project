@@ -245,13 +245,11 @@ function ResolvedLabel({
   const when = formatRelative(resolution.at)
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <span className="inline-flex items-center gap-1 text-caption text-state-success" />
-        }
-      >
-        <CircleCheck className="size-3.5" strokeWidth={2} />
-        {m.comments_resolved_label()}
+      <TooltipTrigger render={<span className="inline-flex" />}>
+        <span className="inline-flex items-center gap-1 text-caption text-state-success">
+          <CircleCheck className="size-3.5" strokeWidth={2} />
+          {m.comments_resolved_label()}
+        </span>
       </TooltipTrigger>
       <TooltipContent>
         {resolution.by === null

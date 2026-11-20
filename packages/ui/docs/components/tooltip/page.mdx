@@ -105,7 +105,7 @@ Light in light mode, dark in dark mode (`--tooltip`): near-white (0.99) in light
 
 ### Motion
 
-Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ease-standard` it read as a pop. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
+Opening fades and scales from 96% over 160ms ease-out (at 100ms on `ease-standard` it read as a pop); closing runs the same in reverse a fifth quicker, over 120ms. A right-click closes it at once, so its fade never sits on the context menu. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
 
 ### Shortcuts
 

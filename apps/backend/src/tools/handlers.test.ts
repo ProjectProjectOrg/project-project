@@ -738,7 +738,7 @@ describe("MCP handlers → write tools", () => {
             personalGithub: {
               connected: false
             },
-            editorPreference: "github",
+            settings: { avatarSource: null, editorPreference: "github" },
             personalEverhour: {
               connected: false,
               everhourUserId: null,
@@ -746,7 +746,8 @@ describe("MCP handlers → write tools", () => {
               email: null,
               lastVerifiedAt: null,
               lastCheckError: null
-            }
+            },
+            avatarOptions: []
           }
         },
         origin: "native",
@@ -1808,6 +1809,7 @@ describe("MCP ticket discovery and history", () => {
             id: "T-2",
             title: "Upload failure",
             status: "todo",
+            type: null,
             match: {
               where: "comment",
               author: "Ada",
@@ -1838,6 +1840,7 @@ describe("MCP ticket discovery and history", () => {
                       id: decodeTicketId("T-2"),
                       title: "Upload failure",
                       status: StatusSlug.make("todo"),
+                      type: null,
                       match: {
                         where: "comment",
                         author: "Ada",

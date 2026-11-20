@@ -65,11 +65,7 @@ function UnarchiveButton({
       }
       disabled={waiting}
       onClick={() => onUnarchive()}
-      className={
-        failed
-          ? "text-destructive hover:text-destructive"
-          : "text-muted-foreground hover:text-foreground"
-      }
+      tone={failed ? "error" : undefined}
     >
       <ArchiveRestore strokeWidth={1.75} />
     </Button>
@@ -99,7 +95,6 @@ function ArchivePopover({
             size="icon-sm"
             aria-label={m.tickets_archive_action_aria_label()}
             title={m.tickets_archive_action_aria_label()}
-            className="text-muted-foreground hover:text-foreground"
           >
             <Archive strokeWidth={1.75} />
           </Button>

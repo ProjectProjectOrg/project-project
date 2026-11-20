@@ -88,7 +88,11 @@ export const resolve = (
   } satisfies InboxRowValue
 }
 
-export const read = (row: InboxRowValue, at: Date, clientName: string | null) =>
+export const read = (
+  row: InboxRowValue,
+  at: Date,
+  clientName: string | null
+) =>
   row.latestAt.getTime() > at.getTime()
     ? row
     : ({

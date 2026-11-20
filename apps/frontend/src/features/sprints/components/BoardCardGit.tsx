@@ -5,48 +5,39 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
-import {
-  AlertTriangle,
-  ArrowRight,
-  GitBranch,
-  LoaderCircle
-} from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
+import { Badge } from "@pp/ui/badge"
+import { Chip } from "@pp/ui/chip"
+import { AlertTriangle, GitBranch } from "@pp/ui/icons"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
-import { pendingLabel } from "@/features/github/components/ticket-git/GitField"
 import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { withoutTicketId } from "@/features/github/lib/branchPicker"
-import { ticketRepo } from "@/features/github/lib/repos"
+import { connectedRepos, ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { formatRelative } from "@/lib/relativeTime"
+import {
+  TicketPreview,
+  TicketPreviewTrigger
+} from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { m } from "@/paraglide/messages"
 
 import { GitChipMenu } from "./GitChipMenu"
 import {
-  CHECKS,
   needsAttention,
+  PULL_REQUEST_BADGE_TONES,
   PULL_REQUEST_LOOKS,
   pullRequestKind,
   reportedChecks,
   type PullRequest
 } from "./gitLooks"
-import {
-  GitPreview,
-  PreviewCallout,
-  PreviewItem,
-  PreviewMeta,
-  PreviewTitle
-} from "./GitPreview"
 import { ChecksDot, StackChip } from "./GitStackChip"
 
 export function BoardCardGit({
-  ticket,
-  chipClassName
+  ticket
 }: Readonly<{
   ticket: Pick<
     Ticket,
@@ -58,34 +49,29 @@ export function BoardCardGit({
     | "lastTransitionedPr"
     | "repoId"
   >
-  chipClassName: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const github = Result.isSuccess(projectResult)
     ? ticketRepo(projectResult.value, ticket.repoId)
     : null
-  if (!github) return null
-  return (
-    <ConnectedGit
-      ticket={ticket}
-      github={github}
-      chipClassName={chipClassName}
-    />
-  )
+  if (!github || !Result.isSuccess(projectResult)) return null
+  const repoLabel =
+    connectedRepos(projectResult.value).length > 1 ? github.repoName : null
+  return <ConnectedGit ticket={ticket} github={github} repoLabel={repoLabel} />
 }
 
 function ConnectedGit({
   ticket,
   github,
-  chipClassName
+  repoLabel
 }: Readonly<{
   ticket: Pick<
     Ticket,
     "id" | "gitState" | "type" | "title" | "status" | "lastTransitionedPr"
   >
   github: GithubConnection
-  chipClassName: string
+  repoLabel: string | null
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
@@ -96,29 +82,29 @@ function ConnectedGit({
       stack={stack}
       waiting={waiting}
       github={github}
+      repoLabel={repoLabel}
       ticket={ticket}
-      chipClassName={chipClassName}
     />
   )
 }
 
-export function GitChip({
+function GitChip({
   state,
   stack,
   waiting,
   github,
-  ticket,
-  chipClassName
+  repoLabel,
+  ticket
 }: Readonly<{
   state: GitState
   stack: ReadonlyArray<StackLayerState>
   waiting: boolean
   github: GithubConnection
+  repoLabel: string | null
   ticket: Pick<
     Ticket,
     "id" | "type" | "title" | "status" | "lastTransitionedPr"
   >
-  chipClassName: string
 }>) {
   if (state.tag === "no_branch") return null
   const own = ownLayer(state, ticket, github.defaultBaseBranch ?? "main")
@@ -137,8 +123,8 @@ export function GitChip({
         layers={layers}
         waiting={waiting}
         repo={`${github.repoOwner}/${github.repoName}`}
+        repoLabel={repoLabel}
         ticketId={ticket.id}
-        chipClassName={chipClassName}
       />
     </GitChipMenu>
   )
@@ -150,21 +136,19 @@ function GitChipFace({
   layers,
   waiting,
   repo,
-  ticketId,
-  chipClassName
+  repoLabel,
+  ticketId
 }: Readonly<{
   state: Exclude<GitState, { tag: "no_branch" }>
   stack: ReadonlyArray<StackLayerState>
   layers: ReadonlyArray<StackLayerState>
   waiting: boolean
   repo: string
+  repoLabel: string | null
   ticketId: Ticket["id"]
-  chipClassName: string
 }>) {
   const pulse =
-    (waiting || state.tag === "branch_pending" || state.tag === "pr_pending") &&
-    "animate-pulse"
-  const className = cn(chipClassName, pulse)
+    waiting || state.tag === "branch_pending" || state.tag === "pr_pending"
 
   if (stack.length > 0) {
     return (
@@ -172,31 +156,34 @@ function GitChipFace({
         own={state}
         stack={stack}
         layers={layers}
-        className={className}
+        pulse={pulse}
+        repoLabel={repoLabel}
       />
     )
   }
   if (state.tag === "stale_branch") {
     return (
-      <GitPreview
-        trigger={<span className={className} />}
-        preview={
-          <>
-            <PreviewTitle mono>{state.name}</PreviewTitle>
-            <PreviewCallout
-              icon={AlertTriangle}
-              tone="text-state-warning"
-              label={m.git_stale_branch_status()}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Chip
+              interaction="hover"
+              render={<span />}
+              data-pending={pulse || undefined}
+              className="relative z-20"
             />
-          </>
-        }
-      >
-        <AlertTriangle
-          className="size-3 shrink-0 text-state-warning"
-          strokeWidth={1.75}
-        />
-        {m.git_stale_branch_pill()}
-      </GitPreview>
+          }
+        >
+          <AlertTriangle
+            className="size-3 shrink-0 text-state-warning"
+            strokeWidth={1.75}
+          />
+          {m.git_stale_branch_pill()}
+        </TooltipTrigger>
+        <TooltipContent>
+          {m.git_stale_branch_title({ name: state.name })}
+        </TooltipContent>
+      </Tooltip>
     )
   }
   if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
@@ -205,140 +192,94 @@ function GitChipFace({
         repo={repo}
         name={state.name}
         label={withoutTicketId(state.name, ticketId)}
-        base={state.baseBranch}
-        pending={state.tag === "branch_pending" ? pendingLabel(state) : null}
-        className={className}
+        pulse={pulse}
       />
     )
   }
-  return <PullRequestChip pr={state} className={className} />
+  return (
+    <PullRequestChip
+      pr={state}
+      pulse={pulse}
+      repoLabel={repoLabel}
+      ticketId={ticketId}
+    />
+  )
 }
 
 function BranchChip({
   repo,
   name,
   label,
-  base,
-  pending,
-  className
+  pulse
 }: Readonly<{
   repo: string
   name: string
   label: string
-  base: string
-  pending: string | null
-  className: string
+  pulse: boolean
 }>) {
   const link = usePreferredBranchLink(repo, name)
   return (
-    <GitPreview
-      trigger={
+    <Chip
+      interaction="press"
+      render={
         <a
           href={link.href}
           target={link.target}
           rel={link.rel}
           aria-label={name}
-          draggable={false}
-          onClick={(event) => event.stopPropagation()}
-          className={cn(className, "max-w-36")}
         />
       }
-      preview={
-        <>
-          <PreviewTitle mono>{name}</PreviewTitle>
-          <PreviewMeta>
-            {pending === null ? (
-              <PreviewItem icon={GitBranch}>
-                {m.git_stack_state_no_pr()}
-              </PreviewItem>
-            ) : (
-              <PreviewItem icon={LoaderCircle} tone="text-state-warning">
-                {pending}
-              </PreviewItem>
-            )}
-            <PreviewItem icon={ArrowRight}>
-              <span className="tabular-nums">{base}</span>
-            </PreviewItem>
-          </PreviewMeta>
-        </>
-      }
+      draggable={false}
+      onClick={(event) => event.stopPropagation()}
+      data-pending={pulse || undefined}
+      className="max-w-36"
     >
       <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
       <MiddleTruncate value={label} className="tabular-nums" />
-    </GitPreview>
+    </Chip>
   )
 }
 
 function PullRequestChip({
   pr,
-  className
-}: Readonly<{ pr: PullRequest; className: string }>) {
-  const look = PULL_REQUEST_LOOKS[pullRequestKind(pr)]
-  const Icon = look.icon
+  pulse,
+  repoLabel,
+  ticketId
+}: Readonly<{
+  pr: PullRequest
+  pulse: boolean
+  repoLabel: string | null
+  ticketId: Ticket["id"]
+}>) {
+  const kind = pullRequestKind(pr)
+  const Icon = PULL_REQUEST_LOOKS[kind].icon
   const checks = pr.tag === "pr_open" ? reportedChecks(pr.checks) : null
   const title = pr.tag === "pr_pending" ? null : pr.title
   return (
-    <GitPreview
-      trigger={
-        <a
-          href={pr.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={
-            title === null ? `#${pr.number}` : `#${pr.number} ${title}`
+    <TicketPreviewTrigger
+      preview={TicketPreview.pullRequest({ pr, ticketId, repo: repoLabel })}
+      render={
+        <Badge
+          tone={PULL_REQUEST_BADGE_TONES[kind]}
+          render={
+            <a
+              href={pr.url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={
+                title === null ? `#${pr.number}` : `#${pr.number} ${title}`
+              }
+            />
           }
           draggable={false}
           onClick={(event) => event.stopPropagation()}
-          className={className}
+          data-pending={pulse || undefined}
         />
       }
-      preview={
-        <>
-          {title === null ? (
-            <PreviewTitle mono>{pr.branch}</PreviewTitle>
-          ) : (
-            <PreviewTitle>{title}</PreviewTitle>
-          )}
-          <PreviewMeta>
-            {pr.tag === "pr_pending" ? (
-              <PreviewItem icon={LoaderCircle} tone="text-state-warning">
-                {m.git_pr_opening()}
-              </PreviewItem>
-            ) : (
-              <PreviewItem icon={Icon} tone={look.tone}>
-                {look.label()}
-              </PreviewItem>
-            )}
-            <span className="tabular-nums">#{pr.number}</span>
-            {pr.tag === "pr_merged" ? (
-              pr.mergedAt !== null && <span>{formatRelative(pr.mergedAt)}</span>
-            ) : (
-              <PreviewItem icon={GitBranch}>
-                <MiddleTruncate
-                  value={pr.branch}
-                  className="max-w-28 tabular-nums"
-                />
-                <ArrowRight className="size-3 shrink-0" strokeWidth={1.75} />
-                <span className="tabular-nums">{pr.baseBranch}</span>
-              </PreviewItem>
-            )}
-          </PreviewMeta>
-          {needsAttention(checks) && (
-            <PreviewCallout
-              icon={CHECKS[checks].icon}
-              tone={cn(CHECKS[checks].tone, CHECKS[checks].motion)}
-              label={capitalize(CHECKS[checks].label())}
-            />
-          )}
-        </>
-      }
     >
-      <Icon className={cn("size-3 shrink-0", look.tone)} strokeWidth={1.75} />
+      <Icon strokeWidth={1.75} />
       <span className="tabular-nums">#{pr.number}</span>
       {needsAttention(checks) && <ChecksDot checks={checks} />}
-    </GitPreview>
+    </TicketPreviewTrigger>
   )
 }
-
-const capitalize = (text: string) =>
-  text.charAt(0).toUpperCase() + text.slice(1)

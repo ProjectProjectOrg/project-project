@@ -202,7 +202,7 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
             <span className="min-w-0 truncate text-body leading-5 font-semibold text-foreground">
               {invite.orgName}
             </span>
-            <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-micro leading-[1.5] text-muted-foreground capitalize">
+            <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-micro leading-normal text-muted-foreground capitalize">
               {invitationRoleLabel(invite.role)}
             </span>
           </div>

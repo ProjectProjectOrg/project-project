@@ -1,4 +1,6 @@
+import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import {
   ArrowDown,
   ArrowUp,
@@ -7,9 +9,15 @@ import {
   Rows3,
   SlidersHorizontal
 } from "@pp/ui/icons"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverFooter,
+  PopoverTrigger
+} from "@pp/ui/popover"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useState, type ReactNode } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])
@@ -53,6 +61,12 @@ const DEFAULT_SHOWN = new Set<string>([
 type Grouping = (typeof GROUPINGS)[number]["value"]
 type Ordering = (typeof ORDERINGS)[number]["value"]
 
+const DEFAULT_GROUPING: Grouping = "sprint"
+const DEFAULT_ORDERING: Ordering = "manual"
+
+const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
+  a.size === b.size && [...a].every((item) => b.has(item))
+
 function Picker({
   label,
   displayValue,
@@ -84,13 +98,24 @@ function Picker({
 export default function ViewOptions() {
   const [open, setOpen] = useState(true)
   const [view, setView] = useState<"list" | "board">("list")
-  const [grouping, setGrouping] = useState<Grouping>("status")
+  const [grouping, setGrouping] = useState<Grouping>(DEFAULT_GROUPING)
   const [ordering, setOrdering] = useState<Ordering>("updated")
   const [ascending, setAscending] = useState(false)
   const [shown, setShown] = useState<ReadonlySet<string>>(DEFAULT_SHOWN)
-  const isDefault =
-    shown.size === DEFAULT_SHOWN.size &&
-    [...shown].every((property) => DEFAULT_SHOWN.has(property))
+  const changedCount = [
+    grouping !== DEFAULT_GROUPING,
+    ordering !== DEFAULT_ORDERING,
+    !sameSet(shown, DEFAULT_SHOWN)
+  ].filter(Boolean).length
+  const changed = changedCount > 0
+  const [shownCount, setShownCount] = useState(changedCount)
+  if (changed && changedCount !== shownCount) setShownCount(changedCount)
+  const reset = () => {
+    setGrouping(DEFAULT_GROUPING)
+    setOrdering(DEFAULT_ORDERING)
+    setAscending(true)
+    setShown(DEFAULT_SHOWN)
+  }
   const DirectionIcon = ascending ? ArrowUp : ArrowDown
 
   const toggle = (property: string) => {
@@ -114,7 +139,12 @@ export default function ViewOptions() {
               variant="field"
               tone="strong"
               size="lg"
-              aria-label="View options"
+              aria-label={
+                changed
+                  ? `View options, ${changedCount} changed`
+                  : "View options"
+              }
+              aria-pressed={changed}
               className="gap-2"
             />
           }
@@ -123,7 +153,12 @@ export default function ViewOptions() {
             className="size-4 text-muted-foreground transition-colors duration-80 group-hover:text-foreground group-data-[popup-open]:text-foreground"
             strokeWidth={1.75}
           />
-          View options
+          View options{" "}
+          <CollapsingLabel show={changed}>
+            <Badge variant="count" active>
+              <TextSwap speed="fast">{String(shownCount)}</TextSwap>
+            </Badge>
+          </CollapsingLabel>
           <ChevronDown
             aria-hidden
             className="size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-280 ease-spring group-hover:text-foreground group-data-[popup-open]:rotate-180 group-data-[popup-open]:text-foreground motion-reduce:transition-none"
@@ -199,20 +234,9 @@ export default function ViewOptions() {
               )}
             </Picker>
             <section className="space-y-2 border-t border-border/60 pt-3">
-              <div className="flex min-h-7 items-center justify-between gap-3">
-                <h3 className="text-body text-muted-foreground">
-                  Display properties
-                </h3>
-                {!isDefault && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShown(DEFAULT_SHOWN)}
-                  >
-                    Reset
-                  </Button>
-                )}
-              </div>
+              <h3 className="flex min-h-7 items-center text-body text-muted-foreground">
+                Display properties
+              </h3>
               <div className="flex flex-wrap gap-1.5">
                 {PROPERTIES.map((property) => (
                   <Button
@@ -229,6 +253,11 @@ export default function ViewOptions() {
               </div>
             </section>
           </div>
+          <PopoverFooter show={changed}>
+            <Button variant="ghost" size="sm" onClick={reset}>
+              Reset view
+            </Button>
+          </PopoverFooter>
         </PopoverContent>
       </Popover>
     </div>

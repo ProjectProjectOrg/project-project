@@ -53,15 +53,15 @@ Where an avatar changes in front of the person (picking a profile photo, a name 
 
 Avatars use the app's squircle corners (`corner-shape: squircle` at a 50% radius) and fall back to a circle. A 1px hairline sits inside the edge, with a soft light along the top: white at 55% in light mode and 22% in dark. The orb reads as lit from above with no drop shadow.
 
-### Initials from 24px
+### Initials from 20px
 
-From 24px up, the orb carries the member's initials (two letters), in an ink tuned per hue and theme: at least 5:1 against every tone of the orb in both themes, so it meets WCAG AA contrast (4.5:1) wherever a letter lands. In a stack, the initials centre in the part the next avatar's cutout leaves visible.
+From 24px up, the orb carries the member's initials (two letters); at 20px, only the first letter, since two don't fit. Either way they're drawn in an ink tuned per hue and theme: at least 5:1 against every tone of the orb in both themes, so it meets WCAG AA contrast (4.5:1) wherever a letter lands. In a stack, the initials centre in the part the next avatar's cutout leaves visible.
 
-Below 24px the letters are too small to read on a dithered orb, so 16px and 20px avatars show only the orb.
+Below 20px the letters are too small to read on a dithered orb, so 16px and 18px avatars show only the orb.
 
-### Below 24px, always show the name
+### Below 20px, always show the name
 
-An avatar smaller than 24px has no initials, so it can't identify a person on its own. Put the member's name next to it: an assignee chip, an activity line, a "flagged by" row. Where there's no room for a name, use 24px or larger so the initials show.
+An avatar smaller than 20px has no initials, so it can't identify a person on its own. Put the member's name next to it: an assignee chip, an activity line, a "flagged by" row. Where there's no room for a name, use 20px or larger so an initial shows.
 
 ### Stacks cut a gap, they don't paint one
 

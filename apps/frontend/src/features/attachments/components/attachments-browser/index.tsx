@@ -13,6 +13,7 @@ import {
   EmptyTitle
 } from "@pp/ui/empty"
 import { CloudOff, FilterX, FolderOpen } from "@pp/ui/icons"
+import { Reveal } from "@pp/ui/reveal"
 import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -242,7 +243,7 @@ function AttachmentsTable({
   return (
     <div className={waiting ? "animate-pulse" : undefined}>
       <div className="max-h-[calc(100vh-24rem)] min-h-64 overflow-auto rounded-lg border border-border">
-        <table className="w-full min-w-[720px] table-auto border-collapse text-left">
+        <table className="w-full min-w-180 table-auto border-collapse text-left">
           <thead className="sticky top-0 z-10 bg-page">
             <tr className="border-b border-border text-caption text-muted-foreground">
               <th scope="col" className="w-6 px-2 py-2 font-normal">
@@ -360,14 +361,11 @@ function DeleteCell({
 
   return (
     <ConfirmButton.Root className="justify-end">
-      <ConfirmButton.Trigger
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-      >
-        {m.attachments_delete_button()}
-      </ConfirmButton.Trigger>
+      <Reveal>
+        <ConfirmButton.Trigger type="button" variant="ghost" size="sm">
+          {m.attachments_delete_button()}
+        </ConfirmButton.Trigger>
+      </Reveal>
       <ConfirmButton.Confirm>
         <DeleteConfirm
           prompt={deletePrompt({

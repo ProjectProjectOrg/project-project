@@ -1,6 +1,6 @@
 import {
+  Chip,
   ChipDots,
-  chipClassName,
   type ChipInteraction,
   type ChipKind
 } from "@pp/ui/chip"
@@ -26,14 +26,14 @@ function Estimate({
   interaction = "press"
 }: Readonly<{ force?: string; interaction?: ChipInteraction }>) {
   return (
-    <button
-      type="button"
+    <Chip
+      interaction={interaction}
       data-force={force}
       aria-label="3 points"
-      className={chipClassName({ interaction, className: "tabular-nums" })}
+      className="tabular-nums"
     >
       <Gauge className="size-3" strokeWidth={1.75} />3
-    </button>
+    </Chip>
   )
 }
 
@@ -42,18 +42,14 @@ function Tag({
   kind = "label"
 }: Readonly<{ force?: string; kind?: ChipKind }>) {
   return (
-    <button
-      type="button"
-      data-force={force}
-      className={chipClassName({ kind, interaction: "press" })}
-    >
+    <Chip kind={kind} interaction="press" data-force={force}>
       <span
         aria-hidden
         className="size-2 shrink-0 rounded-full"
         style={{ backgroundColor: TAG_COLORS[0] }}
       />
       sync
-    </button>
+    </Chip>
   )
 }
 
@@ -85,9 +81,9 @@ export default function Overview() {
           <Estimate force="focus" />
         </Cell>
         <Cell caption="Static">
-          <span className={chipClassName({ className: "tabular-nums" })}>
+          <Chip className="tabular-nums">
             <Gauge aria-hidden className="size-3" strokeWidth={1.75} />3
-          </span>
+          </Chip>
         </Cell>
 
         <Cell caption="Label">
@@ -103,13 +99,9 @@ export default function Overview() {
           <Tag force="focus" />
         </Cell>
         <Cell caption="Folded">
-          <button
-            type="button"
-            aria-label="4 tags"
-            className={chipClassName({ kind: "label", interaction: "press" })}
-          >
+          <Chip kind="label" interaction="press" aria-label="4 tags">
             <ChipDots colors={TAG_COLORS} />4
-          </button>
+          </Chip>
         </Cell>
       </div>
     </div>

@@ -180,7 +180,8 @@ function TypeEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="mx-0 text-display font-bold"
+              variant="title"
+              className="mx-0"
             />
           ) : (
             <h2 className="min-w-0 truncate px-2 text-display font-bold">

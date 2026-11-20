@@ -1,4 +1,4 @@
-import { ProjectPolicy } from "@pp/access/policies"
+import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
 import { canHoldChildren } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -16,6 +16,7 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import {
+  sprintList,
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
@@ -32,7 +33,12 @@ import {
   type TicketPermissions
 } from "@/features/tickets/lib/ticketPermissions"
 
-import { pointedAt, type TicketContext } from "../lib/commandMenu"
+import {
+  pointedAt,
+  type SprintContext,
+  type SprintTarget,
+  type TicketContext
+} from "../lib/commandMenu"
 import type { CommandContext } from "../lib/commands"
 import { pointedTicket } from "./commandMenu"
 
@@ -128,5 +134,23 @@ export const commandContext = Atom.family((key: CommandContextKey) =>
       canManageProject:
         actor !== null && ProjectPolicy.canUpdate(actor, { settings: true })
     }
+  })
+)
+
+export const sprintTargetContext = Atom.family((target: SprintTarget | null) =>
+  Atom.make((get) => {
+    if (target === null) return null
+    const { orgSlug, slug, groupId } = target
+    const sprints = success(get(sprintList(sprintListRequest(orgSlug, slug))))
+    const sprint = sprints?.find((each) => each.id === groupId)
+    if (sprints === null || sprint === undefined) return null
+    const actor = get(projectActor(projectRequest(orgSlug, slug)))
+    return {
+      orgSlug,
+      slug,
+      sprint,
+      sprints,
+      canPlan: GroupPolicy.can(actor, "sprint", "manage")
+    } satisfies SprintContext
   })
 )

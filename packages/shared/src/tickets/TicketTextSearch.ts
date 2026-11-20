@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema"
 
+import { TypeKey } from "../library/LibraryKey"
 import { TicketId, TicketStatus } from "./Ticket"
 
 export const TicketTextSearchQuery = Schema.Struct({
@@ -16,7 +17,8 @@ export type TicketTextSearchQuery = typeof TicketTextSearchQuery.Type
 export const TicketTitle = Schema.Struct({
   id: TicketId,
   title: Schema.String,
-  status: TicketStatus
+  status: TicketStatus,
+  type: Schema.NullOr(TypeKey)
 })
 export type TicketTitle = typeof TicketTitle.Type
 
@@ -33,6 +35,7 @@ export const TicketTextHit = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
+  type: Schema.NullOr(TypeKey),
   match: Schema.Union([
     Schema.Struct({ where: Schema.Literal("title") }),
     Schema.Struct({

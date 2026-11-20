@@ -14,6 +14,7 @@ export function TicketPageShell({
   children: ReactNode
 }>) {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- centres the 64rem page while the sidebar column hangs off its right
     <div className="ticket-page grid w-full grid-cols-1 gap-x-16 gap-y-3 lg:grid-cols-[minmax(0,42rem)_18rem] lg:pl-[max(0px,calc((100%-64rem)/2))]">
       <div className="flex items-center justify-between gap-3 lg:contents">
         <div>{back}</div>

@@ -4,6 +4,7 @@ import { Guide } from "@pp/ui/guide"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
+import * as Schema from "effect/Schema"
 import { AnimatePresence } from "motion/react"
 import {
   createContext,
@@ -33,6 +34,10 @@ import {
   selectionKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
+import {
+  createLocalStorageCodec,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
@@ -73,7 +78,11 @@ export function TicketSelectionProvider({
   }, [])
   // The first time several are selected, a guide says the rows change them
   // all (once per person; this browser remembers it for now).
-  const [guideSeen, setGuideSeen] = useState(readGuideSeen)
+  const [guideSeen, setGuideSeen] = useLocalStorageState(
+    "projectproject:guide:bulk-edit",
+    guideSeenCodec,
+    false
+  )
 
   const rowKeyFor = (target: EventTarget | null) => {
     const list = root.current
@@ -136,10 +145,7 @@ export function TicketSelectionProvider({
         </AnimatePresence>
         <Guide
           open={count > 1 && !guideSeen}
-          onClose={() => {
-            setGuideSeen(true)
-            writeGuideSeen()
-          }}
+          onClose={() => setGuideSeen(true)}
           steps={[
             {
               target: () => root.current?.querySelector("[data-row-selected]"),
@@ -160,23 +166,7 @@ export function TicketSelectionProvider({
   )
 }
 
-const GUIDE_SEEN_KEY = "pp.guide.bulk-edit"
-
-const readGuideSeen = () => {
-  try {
-    return window.localStorage.getItem(GUIDE_SEEN_KEY) !== null
-  } catch {
-    return false
-  }
-}
-
-const writeGuideSeen = () => {
-  try {
-    window.localStorage.setItem(GUIDE_SEEN_KEY, "1")
-  } catch {
-    // Private windows may refuse; then it shows once per visit.
-  }
-}
+const guideSeenCodec = createLocalStorageCodec(Schema.Boolean)
 
 const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
   ({

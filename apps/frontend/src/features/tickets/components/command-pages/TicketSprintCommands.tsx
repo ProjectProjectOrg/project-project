@@ -1,7 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
 import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
-import { CircleSlash, Plus, Timer } from "@pp/ui/icons"
+import { CircleDashed, CircleSlash, Plus, Timer } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useContext, useState, type ReactNode } from "react"
 
@@ -97,8 +97,8 @@ export function TicketSprintCommands({
     const sprint = id === null ? undefined : byId.get(id)
     return sprint === undefined ? (
       <StagedValue
-        label={m.tickets_selection_no_sprint()}
-        icon={<CircleSlash strokeWidth={1.75} />}
+        label={m.tickets_sprint_none()}
+        icon={<CircleDashed strokeWidth={1.75} />}
       />
     ) : (
       <StagedValue

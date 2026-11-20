@@ -1,4 +1,4 @@
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { CalendarRange, Flag, Gauge, Inbox } from "@pp/ui/icons"
 import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle, listGridClassName } from "@pp/ui/list-row"
@@ -120,19 +120,14 @@ export default function Overview() {
         label="Sprint 25"
         detail={
           <>
-            <span className={chipClassName()}>
+            <Chip>
               <CalendarRange className="size-3 shrink-0" strokeWidth={1.75} />
               Nov 23 – Dec 7
-            </span>
-            <span
-              className={chipClassName({
-                interaction: "hover",
-                className: "tabular-nums"
-              })}
-            >
+            </Chip>
+            <Chip interaction="hover" className="tabular-nums">
               <Gauge className="size-3 shrink-0" strokeWidth={1.75} />
               12
-            </span>
+            </Chip>
           </>
         }
         tickets={[INVITED, CRASH]}

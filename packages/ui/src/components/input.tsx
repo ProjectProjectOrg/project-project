@@ -6,7 +6,8 @@ import { cn } from "../lib/utils"
 // default: the bordered field, tinted on hover and, lighter, while focused.
 // bare: text only, for fields inside a composer that styles its own text; no
 // fill or line in any state, its placeholder steps up on hover and focus.
-type InputVariant = "default" | "bare"
+// title: bare, in the page title's type, for renaming a page in place.
+type InputVariant = "default" | "bare" | "title"
 // The same heights as Button, so a field and a button sit level in a row.
 type InputSize = "sm" | "md" | "lg"
 
@@ -35,7 +36,8 @@ const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default: `border border-(--field-line) bg-field focus-ring aria-invalid:border-destructive ${fieldTintClass}`,
-  bare: bareFieldClass
+  bare: bareFieldClass,
+  title: `${bareFieldClass} text-display font-bold`
 }
 
 // Corners at half the height, shaped like Button's (--button-corner).

@@ -208,7 +208,7 @@ function ManagedSlackRow({
         title={m.slack_refresh_channels()}
         disabled={busy || channelsResult.waiting}
         onClick={refreshChannels}
-        className={cn(channelsResult.waiting && "animate-pulse")}
+        data-pending={channelsResult.waiting || undefined}
       >
         <RefreshCw strokeWidth={1.75} />
       </Button>

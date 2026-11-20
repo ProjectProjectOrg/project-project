@@ -18,6 +18,7 @@ import {
   or,
   sql as drizzleSql
 } from "drizzle-orm"
+import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
 import * as Context from "effect/Context"
@@ -257,6 +258,8 @@ export class TicketIndexMaintenance extends Context.Service<
   }>
 >()("@pp/server-core/tickets/TicketIndexMaintenance") {}
 
+const REBUILD_BATCH_SIZE = 2_000
+
 const make = Effect.gen(function* () {
   const db = yield* Db
   const sql = yield* SqlClient.SqlClient
@@ -327,7 +330,6 @@ const make = Effect.gen(function* () {
     documents: ReadonlyArray<TicketDocs.TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
   ) => {
-    const tickets = ticketIndexRowsFor(project, documents)
     const allComments = commentIndexRowsFor(project, documents)
     return sql
       .withTransaction(
@@ -357,109 +359,126 @@ const make = Effect.gen(function* () {
           const documentIds = new Set<string>(
             documents.map((document) => document.id)
           )
+          const indexedById = new Map(
+            indexedBefore.map((ref) => [ref.ticketId, ref])
+          )
           const missing = indexedBefore.filter(
             (ref) => !documentIds.has(ref.ticketId)
           )
-          const documentUpdatedAt = new Map(
-            documents.map((document) => [
-              document.id as string,
-              document.updatedAt.getTime()
-            ])
-          )
-          const aheadOfDisk = indexedBefore.filter(
-            (ref) =>
-              ref.updatedAt.getTime() >
-              (documentUpdatedAt.get(ref.ticketId) ?? Infinity)
-          )
-          const missingSet = jsonRecordset(ticketIndex, "missing", missing)
-          const removed = yield* db
-            .delete(ticketIndex)
-            .where(
-              and(
-                eq(ticketIndex.projectId, project.projectId),
-                drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${missingSet.rows.ticketId}, ${missingSet.rows.updatedAt} from ${missingSet.from})`
+          // Bounded batches keep each bound JSONB value under PostgreSQL's size limit.
+          const touchedIds: Array<string> = []
+          for (const batch of Arr.chunksOf(missing, REBUILD_BATCH_SIZE)) {
+            const missingSet = jsonRecordset(ticketIndex, "missing", batch)
+            const removed = yield* db
+              .delete(ticketIndex)
+              .where(
+                and(
+                  eq(ticketIndex.projectId, project.projectId),
+                  drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${missingSet.rows.ticketId}, ${missingSet.rows.updatedAt} from ${missingSet.from})`
+                )
               )
+              .returning({ ticketId: ticketIndex.ticketId })
+            touchedIds.push(...removed.map((row) => row.ticketId))
+          }
+          const writtenIds = new Set<string>()
+          for (const batch of Arr.chunksOf(documents, REBUILD_BATCH_SIZE)) {
+            const tickets = ticketIndexRowsFor(project, batch)
+            const aheadOfDisk = batch.flatMap((document) => {
+              const ref = indexedById.get(document.id)
+              return ref !== undefined &&
+                ref.updatedAt.getTime() > document.updatedAt.getTime()
+                ? [ref]
+                : []
+            })
+            const ticketSet = jsonRecordset(ticketIndex, "tickets", tickets)
+            const aheadSet = jsonRecordset(ticketIndex, "ahead", aheadOfDisk)
+            const written = yield* db
+              .insert(ticketIndex)
+              .select(() => ticketSet.select)
+              .onConflictDoUpdate({
+                target: [ticketIndex.projectId, ticketIndex.ticketId],
+                set: excludedTicketIndexColumns(tickets[0]),
+                setWhere: or(
+                  drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`,
+                  drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${aheadSet.rows.ticketId}, ${aheadSet.rows.updatedAt} from ${aheadSet.from})`
+                )
+              })
+              .returning({ ticketId: ticketIndex.ticketId })
+            if (written.length === 0) continue
+            const batchWritten = new Set(written.map((row) => row.ticketId))
+            for (const id of batchWritten) writtenIds.add(id)
+            touchedIds.push(...batchWritten)
+            const writtenDocuments = batch.filter((document) =>
+              batchWritten.has(document.id)
             )
-            .returning({ ticketId: ticketIndex.ticketId })
-          const ticketSet = jsonRecordset(ticketIndex, "tickets", tickets)
-          const aheadSet = jsonRecordset(ticketIndex, "ahead", aheadOfDisk)
-          const written =
-            tickets.length === 0
-              ? []
-              : yield* db
-                  .insert(ticketIndex)
-                  .select(() => ticketSet.select)
-                  .onConflictDoUpdate({
-                    target: [ticketIndex.projectId, ticketIndex.ticketId],
-                    set: excludedTicketIndexColumns(tickets[0]),
-                    setWhere: or(
-                      drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`,
-                      drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${aheadSet.rows.ticketId}, ${aheadSet.rows.updatedAt} from ${aheadSet.from})`
-                    )
-                  })
-                  .returning({ ticketId: ticketIndex.ticketId })
-          const writtenIds = new Set(written.map((row) => row.ticketId))
-          const touchedIds = [...removed, ...written].map((row) => row.ticketId)
-          const writtenSet = jsonRecordset(
-            ticketIndex,
-            "written",
-            [...writtenIds].map((ticketId) => ({ ticketId }))
-          )
-          yield* db
-            .delete(ticketBranch)
-            .where(
-              and(
-                eq(ticketBranch.projectId, project.projectId),
-                drizzleSql`${ticketBranch.ticketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
+            const writtenSet = jsonRecordset(ticketIndex, "written", written)
+            yield* db
+              .delete(ticketBranch)
+              .where(
+                and(
+                  eq(ticketBranch.projectId, project.projectId),
+                  drizzleSql`${ticketBranch.ticketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
+                )
               )
-            )
-          const branchSet = jsonRecordset(
-            ticketBranch,
-            "branches",
-            documents
-              .filter((document) => writtenIds.has(document.id))
-              .flatMap((document) =>
+            for (const branches of Arr.chunksOf(
+              writtenDocuments.flatMap((document) =>
                 TicketIndex.ticketBranchRowsFor(project, document)
+              ),
+              REBUILD_BATCH_SIZE
+            )) {
+              const branchSet = jsonRecordset(
+                ticketBranch,
+                "branches",
+                branches
               )
-          )
-          yield* db.insert(ticketBranch).select(() => branchSet.select)
-          yield* db
-            .delete(ticketRelationIndex)
-            .where(
-              and(
-                eq(ticketRelationIndex.projectId, project.projectId),
-                drizzleSql`${ticketRelationIndex.fromTicketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
+              yield* db.insert(ticketBranch).select(() => branchSet.select)
+            }
+            yield* db
+              .delete(ticketRelationIndex)
+              .where(
+                and(
+                  eq(ticketRelationIndex.projectId, project.projectId),
+                  drizzleSql`${ticketRelationIndex.fromTicketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
+                )
               )
-            )
-          const relationSet = jsonRecordset(
-            ticketRelationIndex,
-            "relations",
-            documents
-              .filter((document) => writtenIds.has(document.id))
-              .flatMap((document) =>
+            for (const relations of Arr.chunksOf(
+              writtenDocuments.flatMap((document) =>
                 TicketIndex.ticketRelationRowsFor(project, document)
+              ),
+              REBUILD_BATCH_SIZE
+            )) {
+              const relationSet = jsonRecordset(
+                ticketRelationIndex,
+                "relations",
+                relations
               )
-          )
-          yield* db.insert(ticketRelationIndex).select(() => relationSet.select)
-          const touchedSet = jsonRecordset(
-            ticketIndex,
-            "touched",
-            touchedIds.map((ticketId) => ({ ticketId }))
-          )
-          yield* db
-            .delete(commentIndex)
-            .where(
-              and(
-                eq(commentIndex.projectId, project.projectId),
-                drizzleSql`${commentIndex.ticketId} in (select ${touchedSet.rows.ticketId} from ${touchedSet.from})`
-              )
+              yield* db
+                .insert(ticketRelationIndex)
+                .select(() => relationSet.select)
+            }
+          }
+          for (const ids of Arr.chunksOf(touchedIds, REBUILD_BATCH_SIZE)) {
+            const touchedSet = jsonRecordset(
+              ticketIndex,
+              "touched",
+              ids.map((ticketId) => ({ ticketId }))
             )
-          const commentSet = jsonRecordset(
-            commentIndex,
-            "comments",
-            comments.filter((comment) => writtenIds.has(comment.ticketId))
-          )
-          yield* db.insert(commentIndex).select(() => commentSet.select)
+            yield* db
+              .delete(commentIndex)
+              .where(
+                and(
+                  eq(commentIndex.projectId, project.projectId),
+                  drizzleSql`${commentIndex.ticketId} in (select ${touchedSet.rows.ticketId} from ${touchedSet.from})`
+                )
+              )
+          }
+          for (const rows of Arr.chunksOf(
+            comments.filter((comment) => writtenIds.has(comment.ticketId)),
+            REBUILD_BATCH_SIZE
+          )) {
+            const commentSet = jsonRecordset(commentIndex, "comments", rows)
+            yield* db.insert(commentIndex).select(() => commentSet.select)
+          }
           yield* db
             .update(projectIndex)
             .set({

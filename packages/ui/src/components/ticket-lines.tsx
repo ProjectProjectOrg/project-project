@@ -65,19 +65,29 @@ export function TicketLines({
       )}
       {...props}
     >
-      <MenuHighlight />
+      <MenuHighlight className={lineCornersClass} />
       {children}
     </ul>
   )
 }
 
+// Lines sit 4px into their card (a hover card, a board card), so they round
+// at its --card-radius less that inset, concentric with it (a menu's rows
+// fit its 19px popup instead).
+const lineCornersClass = "rounded-[calc(var(--card-radius)-var(--spacing))]"
+
 // A heading over a group of lines ("Blocked by", "3/5 sub-tickets done").
+// It starts where a line's status icon does, as a menu label starts at its
+// rows' icons: the row's 8px, then the 14px icon centred in its 24px column.
 export function TicketLinesLabel({
   className,
   ...props
 }: ComponentProps<"li">) {
   return (
-    <li className={cn(menuLabelClass, "col-span-full", className)} {...props} />
+    <li
+      className={cn(menuLabelClass, "col-span-full pl-3.25", className)}
+      {...props}
+    />
   )
 }
 
@@ -130,6 +140,7 @@ export function TicketLine({
       className={cn(
         menuItemClass,
         menuChoiceItemClass,
+        lineCornersClass,
         "z-20 col-span-full grid grid-cols-subgrid"
       )}
     >

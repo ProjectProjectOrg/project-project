@@ -1,34 +1,8 @@
-import { Button } from "@pp/ui/button"
 import { ChevronDown } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
-import type { ComponentProps, ReactNode } from "react"
+import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
-
-// Toolbar triggers (filters, view options, grouping) share the field look of
-// the search input and select triggers beside them: same height, fill,
-// hairline and corners, with a muted leading icon and the select's chevron.
-export function ToolbarButton({
-  active,
-  className,
-  ...props
-}: ComponentProps<typeof Button> & { active?: boolean }) {
-  return (
-    <Button
-      type="button"
-      variant="field"
-      tone="strong"
-      size="lg"
-      aria-pressed={active}
-      {...props}
-      className={cn(
-        "gap-2 [&>svg:first-child]:text-muted-foreground [&>svg:first-child]:transition-[color,stroke-width] [&>svg:first-child]:duration-80 hover:[&>svg:first-child]:text-foreground data-[popup-open]:[&>svg:first-child]:text-foreground",
-        className
-      )}
-    />
-  )
-}
 
 export function ToolbarChevron() {
   return (

@@ -71,7 +71,6 @@
   "tickets_archive_reason_placeholder": "Why are you archiving this? Shown in the activity.",
   "tickets_archive_submit": "Archive",
   "tickets_archived_banner": "This ticket is archived. It's hidden from lists and boards until you restore it.",
-  "tickets_assign_sprint_chip": "Assign sprint",
   "tickets_assignee_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -224,7 +223,7 @@
   "tickets_estimate_time_label": "Duration",
   "tickets_estimate_time_placeholder": "2w 4d 6h 45m",
   "tickets_estimate_time_save": "Save",
-  "tickets_filters_active_aria_label": "Filters ({count} active)",
+  "tickets_filters_active_aria_label": "Filters, {count} active",
   "tickets_filters_archived_show": "Show archived",
   "tickets_filters_aria_label": "Filters",
   "tickets_filters_assignee_mine": "Mine",
@@ -483,7 +482,6 @@
       }
     }
   ],
-  "tickets_selection_no_sprint": "No sprint",
   "tickets_shortcut_focus_next": "Focus next ticket",
   "tickets_shortcut_focus_previous": "Focus previous ticket",
   "tickets_shortcut_new_ticket": "New ticket",
@@ -542,9 +540,8 @@
   ],
   "tickets_sprint_assign_error_fallback": "Failed to update sprint",
   "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
+  "tickets_sprint_none": "No sprint",
   "tickets_sprint_popover_new_sprint_action": "New sprint…",
-  "tickets_sprint_popover_no_assignment_action": "Don't assign to a sprint",
-  "tickets_sprint_popover_remove_action": "Remove from sprint",
   "tickets_status_actions_aria": "Actions for {label}",
   "tickets_status_aria_label": "Status: {label}. Click to change.",
   "tickets_status_chip_aria_label": "{label} ({count})",
@@ -631,6 +628,7 @@
   "tickets_view_options_display_properties": "Display properties",
   "tickets_view_options_estimate": "Estimate",
   "tickets_view_options_label": "View options",
+  "tickets_view_options_changed_aria_label": "View options, {count} changed",
   "tickets_view_options_ordering": "Ordering",
   "tickets_view_options_picker_aria_label": "{label}: {value}",
   "tickets_view_options_priority": "Priority",
@@ -639,7 +637,7 @@
   "tickets_view_options_property_git": "Pull requests",
   "tickets_view_options_property_sprint": "Sprint",
   "tickets_view_options_property_tags": "Tags",
-  "tickets_view_options_reset": "Reset",
+  "tickets_view_options_reset": "Reset view",
   "tickets_view_options_set_ascending": "Sort ascending",
   "tickets_view_options_set_descending": "Sort descending",
   "tickets_view_options_updated": "Updated",

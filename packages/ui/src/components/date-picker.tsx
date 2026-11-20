@@ -53,6 +53,7 @@ type SharedProps = Readonly<{
   // A custom trigger (a split button, inline text). Defaults to a field.
   trigger?: ReactElement
   align?: "start" | "center" | "end"
+  sideOffset?: number
   open?: boolean
   onOpenChange?: (open: boolean) => void
   className?: string
@@ -145,6 +146,7 @@ function DatePicker(props: DatePickerProps) {
     hint,
     trigger,
     align = "start",
+    sideOffset,
     className,
     "aria-label": ariaLabel
   } = props
@@ -154,14 +156,20 @@ function DatePicker(props: DatePickerProps) {
     if (props.open === undefined) setOwnOpen(next)
     props.onOpenChange?.(next)
   }
+  // What the popup showed while open. A pick that closes it (a quick pick,
+  // a typed date) also changes the value, and the exiting popup would
+  // redraw with it; it fades out as it was instead.
+  const [held, setHeld] = useState(props.value)
+  if (open && held !== props.value) setHeld(props.value)
+  const value = open ? props.value : held
   const [typed, setTyped] = useState("")
   const preview = readTyped(typed, props.mode, allowPast)
   const [month, setMonth] = useState<Date | undefined>(undefined)
 
   const typedDate = Preview.$is("day")(preview) || Preview.$is("range")(preview)
   const shown: Date | DateRange | undefined = Preview.$match(preview, {
-    empty: () => props.value,
-    unreadable: () => props.value,
+    empty: () => value,
+    unreadable: () => value,
     day: ({ value }) => value,
     range: ({ value }) => value
   })
@@ -173,10 +181,7 @@ function DatePicker(props: DatePickerProps) {
     setTyped("")
     setMonth(undefined)
   }
-  const close = () => {
-    reset()
-    setOpen(false)
-  }
+  const close = () => setOpen(false)
 
   const applyTyped = () => {
     if (Preview.$is("day")(preview) && props.mode === "single") {
@@ -274,9 +279,9 @@ function DatePicker(props: DatePickerProps) {
   return (
     <Popover
       open={open}
-      onOpenChange={(next) => {
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(next) => {
         if (!next) reset()
-        setOpen(next)
       }}
     >
       <PopoverTrigger
@@ -310,6 +315,7 @@ function DatePicker(props: DatePickerProps) {
       </PopoverTrigger>
       <PopoverContent
         align={align}
+        sideOffset={sideOffset}
         initialFocus={false}
         className="w-auto overflow-hidden p-0"
       >

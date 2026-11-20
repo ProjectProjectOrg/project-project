@@ -1,0 +1,30 @@
+export const meta = {
+  title: "ToolbarButton",
+  group: "Primitives",
+  description: "A list toolbar's trigger (filters, view options, grouping), in the field look of the search beside it."
+}
+
+## Overview
+
+<Demo name="overview" title="Rest and with a clear button" />
+
+## Usage
+
+```tsx
+import { ToolbarButton, ToolbarClearButton } from "@pp/ui/toolbar-button"
+
+<div className="group/toolbar relative flex">
+  <MenuTrigger render={<ToolbarButton active>…</ToolbarButton>} />
+  <ToolbarClearButton label="Clear filters" onClick={clear} />
+</div>
+```
+
+## Rules
+
+### The field look, with a muted leading icon
+
+Same height, fill, hairline and corners as the search input and select triggers beside it. The leading icon is muted and brightens on hover or while the menu is open.
+
+### Clear sits inside the field
+
+A trigger that can be cleared sits in a `group/toolbar` wrapper with the clear button over its end. Hovering the clear button lights the field too, so the two read as one control.

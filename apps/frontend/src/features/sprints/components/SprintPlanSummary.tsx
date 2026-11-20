@@ -1,7 +1,6 @@
 import type { Group, UserId } from "@pp/shared"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { Scale } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 
 import { useProject } from "@/features/projects/hooks/useProject"
@@ -42,14 +41,10 @@ export function SprintPlanSummary({
         <Tooltip>
           <TooltipTrigger
             render={
-              <span
-                className={chipClassName({
-                  interaction: "hover",
-                  className: cn(
-                    "tabular-nums",
-                    over && "text-state-warning hover:text-state-warning"
-                  )
-                })}
+              <Chip
+                interaction="hover"
+                tone={over ? "warning" : undefined}
+                className="tabular-nums"
               />
             }
           >

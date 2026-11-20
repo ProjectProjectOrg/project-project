@@ -27,8 +27,9 @@ export type AvatarSubject = Readonly<{
 }>
 
 // Below this size initials on a dithered orb read as noise, so the
-// orb shows alone and the member's name must sit next to it.
-const INITIALS_MIN_SIZE = 24
+// orb shows alone and the member's name must sit next to it. From 20px
+// to 24px the orb carries one letter (avatarInitials), two from 24px.
+const INITIALS_MIN_SIZE = 20
 
 const fontSize = (size: number, initials: string) =>
   Math.max(8, Math.round(size * (initials.length > 1 ? 0.34 : 0.44)))

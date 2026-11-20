@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
-import type { DateRange } from "@pp/ui/calendar"
-import { DatePicker } from "@pp/ui/date-picker"
+import { Button } from "@pp/ui/button"
+import { Chip } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuConfirmItem,
@@ -12,6 +12,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
 import {
+  CalendarRange,
   CalendarX,
   MoreHorizontal,
   Play,
@@ -38,9 +39,9 @@ import {
   sprintDateDraft,
   sprintEnded,
   sprintDatesPatch,
-  startSprintPatch
+  startSprintPatch,
+  type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
-import { dateLabels } from "@/lib/dateLabels"
 import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -51,6 +52,7 @@ import {
   sprintStatusText,
   SprintStateIcon
 } from "./SprintChip"
+import { SprintDatesPicker } from "./SprintDatesPicker"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
 export function SprintStatusSelect({
@@ -203,7 +205,7 @@ export function SprintNameField({
         disabled={disabled}
         className={cn(
           bareFieldStateClass,
-          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-97"
         )}
       >
         {sprint.name}
@@ -246,27 +248,22 @@ export function SprintSubtitle({
 }) {
   const status = sprintStatusText(sprint, nowDate())
   return (
-    <div className="flex items-center gap-2 text-caption text-muted-foreground">
+    <div className="-mx-1.5 flex items-center gap-1">
       <SprintDatesField sprint={sprint} disabled={disabled} />
       {status !== null && (
-        <>
-          <span aria-hidden>·</span>
-          <span
-            className={cn(
-              "tabular-nums",
-              sprintEnded(sprint) && "text-state-warning"
-            )}
-          >
-            {status}
-          </span>
-        </>
+        <Chip
+          tone={sprintEnded(sprint) ? "warning" : undefined}
+          className="tabular-nums"
+        >
+          {status}
+        </Chip>
       )}
       <SprintEstimateTotals sprint={sprint} />
     </div>
   )
 }
 
-function SprintDatesField({
+export function SprintDatesField({
   sprint,
   disabled
 }: {
@@ -276,8 +273,7 @@ function SprintDatesField({
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState<DateRange>(sprintDateDraft(sprint))
+  const [draft, setDraft] = useState<SprintDateDraft>(sprintDateDraft(sprint))
 
   const fmt = shortDateFormatter()
   const label =
@@ -289,33 +285,32 @@ function SprintDatesField({
           : m.sprints_starts_on({ date: fmt.format(sprint.startsAt) })
         : `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
 
+  const content = (
+    <>
+      <CalendarRange className="size-3 shrink-0" strokeWidth={1.75} />
+      {label}
+    </>
+  )
   if (disabled) {
-    return <span className="tabular-nums">{label}</span>
+    return <Chip className="tabular-nums">{content}</Chip>
   }
   return (
-    <DatePicker
-      mode="range"
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next) {
+    <SprintDatesPicker
+      value={draft}
+      onChange={setDraft}
+      allowPast
+      onOpenChange={(open) => {
+        if (open) {
           setDraft(sprintDateDraft(sprint))
           return
         }
         const patch = sprintDatesPatch(sprint, draft)
         if (patch) update(patch)
       }}
-      value={{ from: draft.from, to: draft.to }}
-      onChange={(next) => setDraft({ from: next.from, to: next.to })}
-      labels={dateLabels("range")}
-      allowPast
       trigger={
-        <button
-          type="button"
-          className="-mx-1 rounded px-1 tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
-        >
-          {label}
-        </button>
+        <Chip interaction="press" data-sprint-dates className="tabular-nums">
+          {content}
+        </Chip>
       }
     />
   )
@@ -344,13 +339,13 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="square-8"
             aria-label={m.sprints_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">

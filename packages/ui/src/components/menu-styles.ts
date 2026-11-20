@@ -9,7 +9,7 @@ import { createContext, use } from "react"
 // layer above the content: as the popup's own inset shadow, a tinted child
 // (the composer's tray, cmd+k's list) would paint over it.
 export const popupSurfaceClass =
-  "relative z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+  "relative isolate origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
 
 // Whether content sits inside a popup. Every popup provides it, and a popup
 // opened from inside one takes the raised fill (--tooltip-raised).
@@ -38,6 +38,9 @@ export const menuPopupClass = `${menuSurfaceClass} ${popupMotionClass}`
 
 export const menuItemClass =
   "relative flex cursor-pointer items-center gap-2 rounded-md [corner-shape:var(--button-corner)] border-y border-transparent bg-clip-padding px-2 py-[7px] text-body font-[450] text-(--menu-foreground) outline-hidden [&_svg]:text-muted-foreground lit:[&_svg]:text-foreground transition-colors lit:text-foreground lit:duration-0 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 lit:[&_svg]:stroke-[2] lit:[&_svg]:duration-0 [&_svg:not([class*='size-'])]:size-4"
+
+export const destructiveItemClass =
+  "data-[variant=destructive]:text-destructive data-[variant=destructive]:lit:text-destructive data-[variant=destructive]:[&_svg]:text-destructive!"
 
 export const menuLabelClass = "px-2 py-1.5 text-caption text-muted-foreground"
 

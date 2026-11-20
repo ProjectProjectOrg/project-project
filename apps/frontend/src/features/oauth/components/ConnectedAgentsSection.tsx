@@ -101,7 +101,7 @@ function AgentRow({
   return (
     <SettingsRow
       icon={
-        <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-border text-muted-foreground">
+        <span className="grid size-8 shrink-0 place-items-center rounded-tile border border-border text-muted-foreground">
           <KeyRound className="size-4" strokeWidth={1.75} />
         </span>
       }

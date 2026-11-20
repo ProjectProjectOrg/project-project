@@ -6,6 +6,7 @@ import type {
   TicketId,
   TicketRelations
 } from "@pp/shared"
+import { ActionRow } from "@pp/ui/action-row"
 import { Button } from "@pp/ui/button"
 import {
   ContextMenu,
@@ -131,9 +132,24 @@ function RelationEntry({
   }
 
   const content = (
-    <div
+    <ActionRow
       ref={entry}
-      className="group/reveal relative flex max-w-full min-w-0 items-center"
+      action={
+        unmark === null ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="square-7"
+            aria-label={m.tickets_relations_remove_aria_label({
+              title: linked.title
+            })}
+            onClick={unlink}
+            className="size-6"
+          >
+            <X className="size-3.5" strokeWidth={1.75} />
+          </Button>
+        )
+      }
     >
       <Popover open={preview} onOpenChange={setPreview}>
         <PopoverTrigger
@@ -155,7 +171,7 @@ function RelationEntry({
               }
               variant="ghost"
               tone="strong"
-              className="max-w-full min-w-0 pr-9 group-hover/reveal:bg-hover"
+              className="max-w-full min-w-0"
             />
           }
         >
@@ -186,21 +202,7 @@ function RelationEntry({
           />
         )}
       </Popover>
-      {unmark !== null && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="square-7"
-          aria-label={m.tickets_relations_remove_aria_label({
-            title: linked.title
-          })}
-          onClick={unlink}
-          className="absolute right-1 size-6 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-        >
-          <X className="size-3.5" strokeWidth={1.75} />
-        </Button>
-      )}
-    </div>
+    </ActionRow>
   )
 
   if (unmark === null) return content
