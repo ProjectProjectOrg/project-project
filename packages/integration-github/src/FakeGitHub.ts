@@ -17,6 +17,7 @@ import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as Semaphore from "effect/Semaphore"
 
 import { GitHub } from "./GitHub"
 
@@ -153,6 +154,7 @@ export const layer = (statePath: string) =>
     GitHub,
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
+      const writes = yield* Semaphore.make(1)
 
       const load = fs.exists(statePath).pipe(
         Effect.flatMap((exists) =>
@@ -264,7 +266,7 @@ export const layer = (statePath: string) =>
               branches: [...current.branches, branchName]
             }))
             return { name: branchName, sha: "0".repeat(40) }
-          }),
+          }).pipe(writes.withPermits(1)),
         openPullRequestAsUser: (owner, name, args) =>
           Effect.gen(function* () {
             const { state, repo } = yield* repoOf(owner, name)
@@ -294,7 +296,7 @@ export const layer = (statePath: string) =>
               ]
             }))
             return { number, url: url(number) }
-          }),
+          }).pipe(writes.withPermits(1)),
         fetchInstallationProjectStates: (
           _installationId,
           owner,
