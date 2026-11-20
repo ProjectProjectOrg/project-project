@@ -8,6 +8,7 @@ import {
   type EstimationMode
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { chipClassName } from "@pp/ui/chip"
 import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
@@ -190,14 +191,18 @@ function compactEstimateTrigger(
       type="button"
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
-      className={cn(
-        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-caption text-muted-foreground tabular-nums transition-[color,background-color,opacity] duration-[150ms,150ms,var(--highlight-glide)] ease-standard outline-none in-data-keyboard-navigation:duration-[150ms,150ms,0ms] hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none data-[popup-open]:bg-hover data-[popup-open]:opacity-100",
-        active === null &&
-          "opacity-0 row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100",
-        className
-      )}
+      className={chipClassName({
+        interaction: "press",
+        shape: "count",
+        className: cn(
+          "tabular-nums transition-[background-color,color,box-shadow,scale,opacity] duration-[150ms,150ms,150ms,150ms,var(--highlight-glide)] focus-visible:opacity-100 in-data-keyboard-navigation:duration-[150ms,150ms,150ms,150ms,0ms] data-[popup-open]:opacity-100",
+          active === null &&
+            "opacity-0 group-has-[:focus-visible]/reveal:opacity-100 row-hover:opacity-100",
+          className
+        )
+      })}
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
+      <Icon strokeWidth={1.75} />
       {active !== null && formatEstimateValue(active)}
     </button>
   )
