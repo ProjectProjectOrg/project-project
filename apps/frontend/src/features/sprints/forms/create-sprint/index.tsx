@@ -2,7 +2,6 @@ import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Group } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { DatePicker } from "@pp/ui/date-picker"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { ArrowRightLeft, CalendarDays } from "@pp/ui/icons"
@@ -29,12 +28,11 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { useUnfinishedCount } from "@/features/sprints/components/CompleteSprintMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { SprintDatesPicker } from "@/features/sprints/components/SprintDatesPicker"
 import {
-  defaultSprintRange,
   formatSprintDates,
   type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
-import { dateLabels } from "@/lib/dateLabels"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -112,6 +110,7 @@ export function CreateSprintForm({
       }
     }
     onDone()
+    if (range.from === undefined) return
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId }
@@ -157,18 +156,12 @@ export function CreateSprintForm({
       <Composer.Error>{failure}</Composer.Error>
       <Composer.Tray>
         <Composer.Footer>
-          <DatePicker
-            mode="range"
-            value={{ from: range.from, to: range.to }}
-            onChange={(next) => setRange({ from: next.from, to: next.to })}
-            labels={dateLabels("range", m.sprints_clear_dates())}
-            quickPicks={[
-              {
-                label: m.sprints_start_today(),
-                value: defaultSprintRange()
-              }
-            ]}
-            disabled={{ before: today }}
+          <SprintDatesPicker
+            value={range}
+            onChange={setRange}
+            allowPast={false}
+            // Clears the tray's 6px padding, so the gap is to the composer.
+            sideOffset={10}
             trigger={
               <Button
                 type="button"

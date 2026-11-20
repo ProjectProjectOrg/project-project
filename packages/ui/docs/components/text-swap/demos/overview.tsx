@@ -94,7 +94,7 @@ export default function Overview() {
           onNext={() => setHint((h) => h + 1)}
         >
           <span className="w-36 text-center text-caption text-muted-foreground">
-            <TextSwap announce className="whitespace-normal">
+            <TextSwap announce wrap>
               {HINTS[hint % HINTS.length]}
             </TextSwap>
           </span>

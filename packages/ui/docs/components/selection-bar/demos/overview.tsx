@@ -82,21 +82,23 @@ export default function Overview() {
         </Button>
       </div>
       <div ref={list}>
-        <ListHoverScope className={listGridClassName}>
-          {lab.rows.map((row) => (
-            <MenuRow
-              key={row.id}
-              row={row}
-              lab={lab}
-              open={opened?.row === row.id ? opened.field : null}
-              setOpen={(field) =>
-                setOpened(field === null ? null : { row: row.id, field })
-              }
-              onHover={() => setHovered(row.id)}
-              lit={shown}
-              onLight={setLit}
-            />
-          ))}
+        <ListHoverScope>
+          <div className={listGridClassName}>
+            {lab.rows.map((row) => (
+              <MenuRow
+                key={row.id}
+                row={row}
+                lab={lab}
+                open={opened?.row === row.id ? opened.field : null}
+                setOpen={(field) =>
+                  setOpened(field === null ? null : { row: row.id, field })
+                }
+                onHover={() => setHovered(row.id)}
+                lit={shown}
+                onLight={setLit}
+              />
+            ))}
+          </div>
         </ListHoverScope>
       </div>
       <AnimatePresence>

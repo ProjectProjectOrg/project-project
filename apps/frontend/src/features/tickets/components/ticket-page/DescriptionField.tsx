@@ -281,7 +281,7 @@ export function DescriptionField({
           <button
             type="button"
             onClick={() => setDefinitionError(null)}
-            className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
+            className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-97"
           >
             {m.editor_block_make_definition_dismiss()}
           </button>

@@ -280,7 +280,6 @@
   "project_detail_about_heading": "Description",
   "project_detail_about_storage_prefix": "Stored as",
   "project_detail_about_storage_suffix": " on disk.",
-  "project_detail_actions_aria_label": "Project actions",
   "project_detail_delete_button": "Delete project",
   "project_detail_delete_confirm_button": "Delete",
   "project_detail_delete_confirm_prompt": "Delete this project? This can't be undone.",

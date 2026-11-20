@@ -47,8 +47,8 @@ export function TicketPageLoading({
         <aside className="flex min-w-0 flex-col gap-5 px-2 lg:pt-3 lg:pl-5">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="flex flex-col gap-1.5">
-              <div className="skeleton h-4 w-14 rounded bg-muted/60" />
-              <div className="skeleton h-6 w-24 rounded bg-muted/60" />
+              <div className="h-4 w-14 skeleton rounded bg-muted/60" />
+              <div className="h-6 w-24 skeleton rounded bg-muted/60" />
             </div>
           ))}
         </aside>
@@ -57,7 +57,7 @@ export function TicketPageLoading({
       <main className="flex min-w-0 flex-col gap-3">
         <header className="flex min-w-0 flex-col items-start gap-1">
           {title === null ? (
-            <div className="skeleton my-2 ml-2 h-7 w-1/2 rounded bg-muted/60" />
+            <div className="my-2 ml-2 h-7 w-1/2 skeleton rounded bg-muted/60" />
           ) : (
             <h1 className="block w-full px-2 py-1.5 text-display-compact font-semibold wrap-anywhere">
               {title}
@@ -65,7 +65,7 @@ export function TicketPageLoading({
           )}
           <div className="min-h-8" />
         </header>
-        <div className="skeleton mx-2 min-h-[8rem] rounded-lg bg-muted/60" />
+        <div className="mx-2 min-h-[8rem] skeleton rounded-lg bg-muted/60" />
       </main>
     </TicketPageShell>
   )

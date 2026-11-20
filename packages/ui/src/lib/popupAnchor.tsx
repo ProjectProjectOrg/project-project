@@ -41,6 +41,29 @@ const anchorFor = (element: Element) => {
   return anchor
 }
 
+// A trigger's anchor also holds still while its popup closes: Base UI drops
+// `data-popup-open` from the trigger the moment it closes, and a trigger
+// relabelled by the choice (a date picker showing the picked range) would
+// otherwise drag the exiting popup along with its new size.
+const triggerAnchors = new WeakMap<Element, VirtualAnchor>()
+
+const triggerAnchorFor = (element: Element) => {
+  const cached = triggerAnchors.get(element)
+  if (cached) return cached
+  let lastOpen: DOMRect | null = null
+  const anchor = {
+    getBoundingClientRect: () => {
+      if (!element.hasAttribute("data-popup-open") && lastOpen) return lastOpen
+      const rect = unscaledRect(element)
+      lastOpen = element.hasAttribute("data-popup-open") ? rect : null
+      return rect
+    },
+    contextElement: element
+  }
+  triggerAnchors.set(element, anchor)
+  return anchor
+}
+
 const TriggerElementContext =
   React.createContext<React.RefObject<Element | null> | null>(null)
 
@@ -86,7 +109,7 @@ function usePopupAnchor<A extends Anchor | undefined>(anchor: A) {
   const trigger = React.useContext(TriggerElementContext)
   const unscaled = React.useCallback(() => {
     const element = trigger?.current
-    return element ? anchorFor(element) : null
+    return element ? triggerAnchorFor(element) : null
   }, [trigger])
   if (anchor instanceof Element) return anchorFor(anchor)
   return anchor ?? (trigger ? unscaled : undefined)

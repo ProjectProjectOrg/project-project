@@ -58,7 +58,7 @@ function WebFavicon({ url }: Readonly<{ url: string }>) {
       alt=""
       referrerPolicy="no-referrer"
       className={cn(
-        "size-3.5 rounded-[2px] object-contain",
+        "size-3.5 rounded-xs object-contain",
         favicon.rendering === "monochrome" && "brightness-0 dark:invert"
       )}
     />

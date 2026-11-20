@@ -1,19 +1,6 @@
 @import "tailwindcss";
 @import "@pp/ui/theme.css";
 
-.skeleton {
-  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
 [data-page-banner] [data-page-header] {
   text-shadow:
     0 0 8px var(--page),

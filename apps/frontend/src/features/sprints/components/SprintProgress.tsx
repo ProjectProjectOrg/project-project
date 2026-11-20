@@ -5,7 +5,7 @@ import {
   type EstimateSummary,
   type Group
 } from "@pp/shared"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -54,14 +54,7 @@ export function SprintProgress({
       {estimate !== null && (
         <HoverCard>
           <HoverCardTrigger
-            render={
-              <span
-                className={chipClassName({
-                  interaction: "hover",
-                  className: "tabular-nums"
-                })}
-              />
-            }
+            render={<Chip interaction="hover" className="tabular-nums" />}
           >
             {estimate}
           </HoverCardTrigger>
@@ -167,25 +160,17 @@ function UnestimatedChip({
       <TooltipTrigger
         render={
           onShow ? (
-            <button
-              type="button"
+            <Chip
+              interaction="press"
               aria-label={m.tickets_estimate_unestimated_filter()}
               onClick={(event) => {
                 event.stopPropagation()
                 onShow()
               }}
-              className={chipClassName({
-                interaction: "press",
-                className:
-                  "text-state-warning tabular-nums hover:text-state-warning"
-              })}
+              className="text-state-warning tabular-nums hover:text-state-warning"
             />
           ) : (
-            <span
-              className={chipClassName({
-                className: "text-state-warning tabular-nums"
-              })}
-            />
+            <Chip className="text-state-warning tabular-nums" />
           )
         }
       >

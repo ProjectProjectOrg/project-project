@@ -39,7 +39,7 @@ export function TagChip({
           type="button"
           aria-label={m.tags_remove_aria_label({ name })}
           onClick={onRemove}
-          className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
+          className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-97"
         >
           <X className="size-3" />
         </button>

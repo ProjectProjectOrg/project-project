@@ -206,7 +206,7 @@ A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled t
 Hover, pressed, and the secondary button are **translucent overlays**, not opaque greys, so they read correctly on any surface — the page, a settings group, a board card, a menu. `--overlay` direction flips per theme: black on light, white on dark.
 
 - **Hover** (`--hover`, 4% black / 6% white; pressed `--active` 7% / 12%): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
-- **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%, with `--chip-sheen` (a top light) and `--chip-edge` (the `--kbd-glow` bottom edge) on top): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `chipClassName({ kind: "label" })`. Data chips (icon and value) stay unfilled and light up the same way on hover. Corners at half the height in `--button-corner`, like the Badge.
+- **Label chips** (`--chip-label` 5% ink / 5% white, `--chip-label-hover` 9% / 9%, with `--chip-sheen` (a top light) and `--chip-edge` (the `--kbd-glow` bottom edge) on top): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `<Chip kind="label">`. Data chips (icon and value) stay unfilled and light up the same way on hover. Corners at half the height in `--button-corner`, like the Badge.
 - **Guide scrim** (`--guide-scrim`, 14% near-black / 40% black, under a 3px blur): what a Guide lays over everything but its spotlight; the spotlight gets the 2px `--ring`.
 - **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
@@ -390,7 +390,7 @@ Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 - **Trailing meta** (counts, shortcuts): `menuItemMetaClass` with `data-menu-meta`. Plain muted tabular numbers, right-aligned, sitting just before the check slot so they line up as a column.
 - **Reset options** ("All types", "Any sprint", "Don't move"): `separated` on the item renders the menu's own separator after it. Don't hand-place separators for this. A separator that ends up first or last in its list hides itself.
 - **Filtering:** `<DropdownMenu filterable>` with `DropdownMenuInput`, `DropdownMenuList`, and `DropdownMenuEmpty` (Base UI 1.9 menu filtering). The input sits inside the popup padding like a row. Give items a `label` when their children aren't plain text.
-- **Icon grids:** `IconGridPicker` (`packages/ui/src/components/icon-grid-picker.tsx`) on `Popover`.
+- **Icon grids:** `IconGridPicker` (`packages/ui/src/components/icon-grid-picker.tsx`) on `Popover`: a ghost square trigger and ghost square cells 5px inside the popup, with every icon drawn in the colour it will have. An icon's colour is a separate `ColorPicker` beside it (status and library editors), never swatches inside the grid. An icon that can't change is a plain glyph in the trigger's place.
 
 ### Status / Tag Chips
 

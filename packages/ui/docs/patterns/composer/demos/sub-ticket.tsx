@@ -53,7 +53,7 @@ export default function SubTicket() {
               </Button>
               <Button type="button" variant="ghost" tone="strong">
                 <SquareCheck
-                  className="size-3.5 text-sky-500"
+                  className="size-3.5 text-state-info"
                   strokeWidth={1.75}
                 />
                 <span>Task</span>

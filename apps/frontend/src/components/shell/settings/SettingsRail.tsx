@@ -78,7 +78,7 @@ export function SettingsRailLink({
       {...linkProps}
       ref={ref}
       className={cn(
-        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-[color,transform] duration-100 before:duration-100 active:scale-[0.97]",
+        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-[color,transform] duration-100 before:duration-100 active:scale-97",
         navActiveFill,
         active
           ? navActiveState

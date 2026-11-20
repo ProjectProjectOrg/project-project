@@ -186,7 +186,7 @@ export function TicketGitPanel({
   if (state === null) {
     return (
       <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
-        <div className="skeleton h-7 w-44 rounded bg-muted/60" />
+        <div className="h-7 w-44 skeleton rounded bg-muted/60" />
       </div>
     )
   }

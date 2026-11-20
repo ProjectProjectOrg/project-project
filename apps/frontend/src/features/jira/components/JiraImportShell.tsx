@@ -213,7 +213,7 @@ function StageItem({
           onClick={onSelect}
           className={cn(
             className,
-            "cursor-pointer transition-[color,transform] active:scale-[0.97] data-[fluid-hover-active]:text-foreground"
+            "cursor-pointer transition-[color,transform] active:scale-97 data-[fluid-hover-active]:text-foreground"
           )}
         >
           {content}

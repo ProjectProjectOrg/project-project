@@ -1,4 +1,4 @@
-import type { Group, Ticket, TicketId } from "@pp/shared"
+import type { Group, GroupId, Ticket, TicketId } from "@pp/shared"
 import * as Data from "effect/Data"
 
 import type { FilterOption } from "@/features/tickets/hooks/useFilterOptions"
@@ -58,6 +58,12 @@ export type SprintContext = Readonly<{
   canPlan: boolean
 }>
 
+export type SprintTarget = Readonly<{
+  orgSlug: string
+  slug: string
+  groupId: GroupId
+}>
+
 export type ViewContext = Readonly<{
   options: ReadonlyArray<FilterOption>
   toggle: (choice: FilterChoice) => void
@@ -69,6 +75,7 @@ export type SprintPage =
   | "sprintComplete"
   | "sprintLength"
   | "sprintRename"
+  | "sprintEdit"
   | "sprintAddTickets"
   | "sprintDelete"
   | "sprintPlan"
@@ -120,6 +127,7 @@ export type ReturnPoint = Readonly<{ search: string; value: string }>
 
 type Frame = Readonly<{
   ticket: TicketContext | null
+  sprint: SprintTarget | null
   selection: ReadonlyArray<SelectedTicket>
   pages: readonly [CommandPage, ...ReadonlyArray<CommandPage>]
 }>
@@ -168,8 +176,21 @@ export const openCommandMenu = (
   CommandMenuState.open({
     row: pointedAt(pointed, ticket),
     ticket,
+    sprint: null,
     selection:
       selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
+    pages: [page],
+    trail: [],
+    search: "",
+    focus: null
+  })
+
+export const openSprintCommandMenu = (sprint: SprintTarget, page: SprintPage) =>
+  CommandMenuState.open({
+    row: null,
+    ticket: null,
+    sprint,
+    selection: [],
     pages: [page],
     trail: [],
     search: "",
@@ -206,6 +227,7 @@ const deeper = (state: OpenCommandMenu, from: ReturnPoint | null) =>
       ...state.trail,
       {
         ticket: state.ticket,
+        sprint: state.sprint,
         selection: state.selection,
         pages: state.pages,
         from
@@ -223,6 +245,7 @@ export const actOnTicket = (
   ({
     ...deeper(state, from),
     ticket,
+    sprint: null,
     selection: [],
     pages: ["root"]
   }) satisfies OpenCommandMenu
@@ -246,15 +269,17 @@ const stepBack = (state: OpenCommandMenu) => {
   if (state.pages[0] !== "root") {
     return {
       ticket: state.ticket,
+      sprint: state.sprint,
       selection: state.selection,
       pages: ["root"],
       from: null
     } satisfies Step
   }
-  return state.ticket === null
+  return state.ticket === null && state.sprint === null
     ? null
     : ({
         ticket: null,
+        sprint: null,
         selection: [],
         pages: ["root"],
         from: null
@@ -267,6 +292,7 @@ export const backCommandMenu = (state: OpenCommandMenu) => {
   return {
     ...state,
     ticket: step.ticket,
+    sprint: step.sprint,
     selection: step.selection,
     pages: step.pages,
     trail: state.trail.slice(0, -1),

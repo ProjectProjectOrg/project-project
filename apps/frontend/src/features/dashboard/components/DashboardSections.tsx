@@ -353,7 +353,7 @@ function RowsSkeleton({ count }: Readonly<{ count: number }>) {
   return (
     <div className="flex flex-col gap-1">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="skeleton h-10 rounded-md bg-muted/60" />
+        <div key={i} className="h-10 skeleton rounded-md bg-muted/60" />
       ))}
     </div>
   )
@@ -363,7 +363,7 @@ function BoardSkeleton() {
   return (
     <div className="flex gap-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn(boardColumnClass, "skeleton h-48")} />
+        <div key={i} className={cn(boardColumnClass, "h-48 skeleton")} />
       ))}
     </div>
   )

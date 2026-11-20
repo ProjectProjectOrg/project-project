@@ -24,7 +24,7 @@ export function SearchInput() {
     searchInput.length > 0 && searchInput.length < MIN_SEARCH_CHARS
   useGlobalShortcut(appHotkeys["tickets.search"], searchRef)
   return (
-    <InputGroup className="min-w-0 flex-1 basis-[220px]">
+    <InputGroup className="min-w-0 flex-1 basis-55">
       <InputGroupAddon>
         <SearchIcon className="size-4" strokeWidth={1.75} />
       </InputGroupAddon>

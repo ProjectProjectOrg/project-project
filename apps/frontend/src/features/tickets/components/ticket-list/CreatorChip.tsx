@@ -32,7 +32,7 @@ export function CreatorChip({
         expanded
           ? cn(badgeVariants({ tone }), "px-2")
           : "px-1 hover:bg-hover hover:text-foreground",
-        "transition-expand focus-ring inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[12px] [corner-shape:var(--button-corner)] active:scale-[0.97]",
+        "transition-expand focus-ring inline-flex h-6 shrink-0 items-center gap-1.5 rounded-sm [corner-shape:var(--button-corner)] active:scale-97",
         className
       )}
     >

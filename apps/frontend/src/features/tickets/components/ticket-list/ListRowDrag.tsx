@@ -355,7 +355,7 @@ export function DraggableRow({
           aria-hidden
           className={cn(
             "pointer-events-none absolute inset-x-2 h-0.5 rounded-full bg-foreground/60",
-            edge === "top" ? "-top-[3px]" : "-bottom-[3px]"
+            edge === "top" ? "-top-0.75" : "-bottom-0.75"
           )}
         />
       )}

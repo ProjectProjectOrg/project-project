@@ -275,7 +275,7 @@ function TagChips({
               type="button"
               aria-label={m.templates_editor_tag_remove_aria({ tag })}
               onClick={() => onRemove(tag)}
-              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
+              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-97"
             >
               <X className="size-3" strokeWidth={1.75} />
             </button>

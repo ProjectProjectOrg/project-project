@@ -69,7 +69,7 @@ export function Row({
         </div>
       </td>
 
-      <td className="max-w-[180px] truncate px-2 py-2 text-body text-muted-foreground">
+      <td className="max-w-45 truncate px-2 py-2 text-body text-muted-foreground">
         {row.projectSlug ?? m.attachments_project_deleted()}
       </td>
 
@@ -127,7 +127,7 @@ export function Row({
                   href={attachmentDownloadUrl(orgSlug, row.id)}
                   download={row.filename}
                   aria-label={m.attachments_download()}
-                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-97"
                 />
               }
             >
@@ -225,7 +225,7 @@ function TicketCell({
 function Thumbnail({ row }: { row: AttachmentRow }) {
   if (!hasThumbnail(row)) {
     return (
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-[7px] border border-border text-muted-foreground">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-tile border border-border text-muted-foreground">
         <FileText className="size-4" strokeWidth={1.75} />
       </span>
     )
@@ -235,7 +235,7 @@ function Thumbnail({ row }: { row: AttachmentRow }) {
       src={row.url}
       alt={m.attachments_thumbnail_alt({ filename: row.filename })}
       loading="lazy"
-      className="size-8 shrink-0 rounded-[7px] border border-border object-cover"
+      className="size-8 shrink-0 rounded-tile border border-border object-cover"
     />
   )
 }

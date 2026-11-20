@@ -1,10 +1,12 @@
 import { STATUS_DESCRIPTION_MAX_LENGTH } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { ColorPicker } from "@pp/ui/color-picker"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { useState, type KeyboardEvent } from "react"
 
 import { StatusIconPicker } from "@/features/statuses/components/StatusIconPicker"
+import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
@@ -58,20 +60,28 @@ export function StatusEditorForm({
     >
       <div className="flex items-center gap-2">
         <span className="w-4 shrink-0" />
+        <form.Field name="icon">
+          {(iconField) =>
+            identityLocked ? (
+              <StatusGlyphBox icon={iconField.value} color={values.color} />
+            ) : (
+              <StatusIconPicker
+                value={iconField.value}
+                color={values.color}
+                disabled={busy}
+                onChange={iconField.handleChange}
+              />
+            )
+          }
+        </form.Field>
         <form.Field name="color">
           {(colorField) => (
-            <form.Field name="icon">
-              {(iconField) => (
-                <StatusIconPicker
-                  value={iconField.value}
-                  color={colorField.value}
-                  iconLocked={identityLocked}
-                  disabled={busy}
-                  onChange={iconField.handleChange}
-                  onColorChange={colorField.handleChange}
-                />
-              )}
-            </form.Field>
+            <ColorPicker
+              value={colorField.value}
+              onChange={colorField.handleChange}
+              ariaLabel={m.tickets_status_color_picker_aria()}
+              swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
+            />
           )}
         </form.Field>
         <form.Field name="label">
@@ -137,5 +147,22 @@ export function StatusEditorForm({
         </p>
       ) : null}
     </form>
+  )
+}
+
+// A built-in status keeps its icon: shown in the trigger's place, so the
+// colour and the name stay where they are.
+function StatusGlyphBox({
+  icon,
+  color
+}: Readonly<{ icon: StatusEditorValues["icon"]; color: string }>) {
+  const Icon = getStatusIcon(icon)
+  return (
+    <span
+      aria-hidden
+      className="flex size-8 shrink-0 items-center justify-center"
+    >
+      <Icon className="size-4" style={{ color }} />
+    </span>
   )
 }

@@ -8,7 +8,7 @@ import {
   type EstimationMode
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
@@ -68,21 +68,19 @@ export function EstimateBadgeTrigger({
   ticket,
   mode,
   onPatch,
-  variant = "badge",
-  className
+  variant = "badge"
 }: Readonly<{
   ticket: EstimateTicket
   mode: EstimationMode
   onPatch: (patch: TicketEdit) => void
   variant?: "badge" | "compact"
-  className?: string
 }>) {
   const unit = estimationUnit(mode)
   if (unit === null) return null
   const trigger =
     variant === "compact"
-      ? compactEstimateTrigger(ticket, mode, unit, className)
-      : estimateTrigger(ticket, mode, className)
+      ? compactEstimateTrigger(ticket, mode, unit)
+      : estimateTrigger(ticket, mode)
   if (unit !== "tshirt") {
     return (
       <EstimateInputPopover
@@ -142,11 +140,7 @@ export function EstimateBadgeTrigger({
   )
 }
 
-function estimateTrigger(
-  ticket: EstimateTicket,
-  mode: EstimationMode,
-  className: string | undefined
-) {
+function estimateTrigger(ticket: EstimateTicket, mode: EstimationMode) {
   const active = activeEstimate(ticket.estimate, mode)
   const stale = isStaleEstimate(ticket.estimate, mode) ? ticket.estimate : null
   const label =
@@ -164,7 +158,6 @@ function estimateTrigger(
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
-      className={className}
     >
       <TextSwap
         className="gap-1.5"
@@ -179,32 +172,27 @@ function estimateTrigger(
 function compactEstimateTrigger(
   ticket: EstimateTicket,
   mode: EstimationMode,
-  unit: EstimateUnit,
-  className: string | undefined
+  unit: EstimateUnit
 ) {
   const active = activeEstimate(ticket.estimate, mode)
   const label =
     active !== null ? formatEstimate(active) : m.tickets_estimate_empty()
   const Icon = ESTIMATE_UNIT_ICON[unit]
   return (
-    <button
-      type="button"
+    <Chip
+      interaction="press"
+      shape="count"
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
-      className={chipClassName({
-        interaction: "press",
-        shape: "count",
-        className: cn(
-          "tabular-nums transition-[background-color,color,box-shadow,scale,opacity] duration-[150ms,150ms,150ms,150ms,var(--highlight-glide)] focus-visible:opacity-100 in-data-keyboard-navigation:duration-[150ms,150ms,150ms,150ms,0ms] data-[popup-open]:opacity-100",
-          active === null &&
-            "opacity-0 group-has-[:focus-visible]/reveal:opacity-100 row-hover:opacity-100",
-          className
-        )
-      })}
+      className={cn(
+        "tabular-nums transition-[background-color,color,box-shadow,scale,opacity] duration-[150ms,150ms,150ms,150ms,var(--highlight-glide)] focus-visible:opacity-100 in-data-keyboard-navigation:duration-[150ms,150ms,150ms,150ms,0ms] data-[popup-open]:opacity-100",
+        active === null &&
+          "opacity-0 group-has-[:focus-visible]/reveal:opacity-100 row-hover:opacity-100"
+      )}
     >
       <Icon strokeWidth={1.75} />
       {active !== null && formatEstimateValue(active)}
-    </button>
+    </Chip>
   )
 }
 
@@ -360,7 +348,7 @@ function EstimateInputForm({
       ) : (
         unit === "time" && (
           <p className="text-caption text-muted-foreground tabular-nums">
-            <TextSwap announce className="whitespace-normal">
+            <TextSwap announce wrap>
               {parsed?.unit === "time"
                 ? formatWorkDurationLong(parsed.minutes * 60)
                 : m.tickets_estimate_time_hint()}

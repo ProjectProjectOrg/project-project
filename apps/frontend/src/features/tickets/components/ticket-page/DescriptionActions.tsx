@@ -59,7 +59,7 @@ export function DescriptionActions({
                 "rounded-full pl-3",
                 status === "failed"
                   ? "bg-destructive-light text-destructive hover:bg-destructive-light"
-                  : "bg-surface-2 bg-[image:linear-gradient(var(--tint),var(--tint))] hover:bg-surface-2 hover:bg-[image:linear-gradient(var(--tint-hover),var(--tint-hover))]"
+                  : "bg-surface-2 tint-layer hover:bg-surface-2 hover:tint-hover-layer"
               )}
             >
               <SaveDot status={status} />
@@ -81,7 +81,7 @@ export function DescriptionActions({
                 appHotkeys["tickets.edit-description"].defaultHotkey
               }
               onClick={onEdit}
-              className="rounded-full bg-page pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
+              className="rounded-full bg-page pl-3 hover:bg-page hover:hover-layer"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}

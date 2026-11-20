@@ -60,7 +60,7 @@ function ProjectGroup({
       icon={
         <span
           aria-hidden
-          className="size-1.5 shrink-0 rounded-[2px]"
+          className="size-1.5 shrink-0 rounded-xs"
           style={{ background: project.color }}
         />
       }

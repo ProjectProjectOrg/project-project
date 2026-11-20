@@ -124,7 +124,7 @@ export function FigmaTokenWalkthrough() {
                   aria-current={index === selectedIndex ? "step" : undefined}
                   onClick={() => emblaApi?.scrollTo(index)}
                   className={cn(
-                    "size-1.5 rounded-full transition-all duration-150 active:scale-[0.97]",
+                    "size-1.5 rounded-full transition-all duration-150 active:scale-97",
                     index === selectedIndex
                       ? "w-4 bg-foreground"
                       : "bg-muted-foreground/35 hover:bg-muted-foreground/60"

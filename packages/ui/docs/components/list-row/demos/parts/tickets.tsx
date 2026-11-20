@@ -1,10 +1,4 @@
-import {
-  ChipDots,
-  ChipSeparator,
-  chipClassName,
-  chipNarrowOnlyClass,
-  chipWideOnlyClass
-} from "@pp/ui/chip"
+import { Chip, ChipDots, ChipSeparator, type ChipShow } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -189,13 +183,9 @@ export function PriorityField({ priority }: Readonly<{ priority: Priority }>) {
 export function PriorityChip({ priority }: Readonly<{ priority: Priority }>) {
   const { icon: Icon, label, className } = PRIORITY[priority]
   return (
-    <button
-      type="button"
-      aria-label={`Priority: ${label}`}
-      className={chipClassName({ interaction: "press", shape: "icon" })}
-    >
+    <Chip interaction="press" shape="icon" aria-label={`Priority: ${label}`}>
       <Icon className={cn("size-3", className)} strokeWidth={1.75} />
-    </button>
+    </Chip>
   )
 }
 
@@ -245,28 +235,20 @@ export function TagChips({
   const tags = ticket.tags ?? []
   const shown = max === undefined ? tags : tags.slice(0, max)
   const hidden = tags.slice(shown.length)
-  const wide = collapse ? chipWideOnlyClass : undefined
+  const named = collapse ? "wide" : "always"
   return (
     <>
       {shown.map((tag) => (
-        <button
-          key={tag.name}
-          type="button"
-          className={chipClassName({
-            kind: "label",
-            interaction: "press",
-            className: wide
-          })}
-        >
+        <Chip key={tag.name} kind="label" interaction="press" show={named}>
           <TagDot color={tag.color} />
           <span className="truncate">{tag.name}</span>
-        </button>
+        </Chip>
       ))}
       {hidden.length > 0 ? (
         <TagList
           tags={hidden}
           label={`${hidden.length} more tags`}
-          className={wide}
+          show={named}
         >
           +{hidden.length}
         </TagList>
@@ -275,7 +257,7 @@ export function TagChips({
         <TagList
           tags={tags}
           label={tags.length === 1 ? "1 tag" : `${tags.length} tags`}
-          className={chipNarrowOnlyClass}
+          show="narrow"
         >
           <ChipDots colors={tags.map((tag) => tag.color)} />
           {tags.length}
@@ -289,26 +271,24 @@ export function TagChips({
 function TagList({
   tags,
   label,
-  className,
+  show,
   children
 }: Readonly<{
   tags: ReadonlyArray<{ name: string; color: string }>
   label: string
-  className?: string
+  show: ChipShow
   children: ReactNode
 }>) {
   return (
     <HoverCard>
       <HoverCardTrigger
         render={
-          <button
-            type="button"
+          <Chip
+            kind="label"
+            interaction="press"
             aria-label={label}
-            className={chipClassName({
-              kind: "label",
-              interaction: "press",
-              className: cn("tabular-nums", className)
-            })}
+            show={show}
+            className="tabular-nums"
           />
         }
       >
@@ -334,30 +314,30 @@ function TagList({
 export function FlagChip({ flagged }: Readonly<{ flagged?: boolean }>) {
   if (!flagged) return null
   return (
-    <span
-      className={chipClassName({
-        interaction: "hover",
-        shape: "icon",
-        className: "[&_svg]:size-3"
-      })}
+    <Chip
+      interaction="hover"
+      shape="icon"
+      render={<span />}
+      className="[&_svg]:size-3"
     >
       <Flag aria-hidden className="text-state-warning" strokeWidth={1.75} />
       <span className="sr-only">Flagged</span>
-    </span>
+    </Chip>
   )
 }
 
 export function EpicChip({ epic }: Readonly<{ epic?: string }>) {
   if (!epic) return null
   return (
-    <a
-      href="#epic"
+    <Chip
+      kind="label"
+      interaction="press"
+      render={<a href="#epic" />}
       onClick={(event) => event.preventDefault()}
-      className={chipClassName({ kind: "label", interaction: "press" })}
     >
       <Layers className="size-3 shrink-0" strokeWidth={1.75} />
       <span className="truncate">{epic}</span>
-    </a>
+    </Chip>
   )
 }
 
@@ -386,27 +366,24 @@ export { RelationChip, SubTicketCount }
 export function GitChip({ pr }: Readonly<{ pr?: string }>) {
   if (!pr) return null
   return (
-    <button type="button" className={chipClassName({ interaction: "press" })}>
+    <Chip interaction="press">
       <GitPullRequest className="size-3 shrink-0" strokeWidth={1.75} />
       {pr}
-    </button>
+    </Chip>
   )
 }
 
 export function EstimateChip({ estimate }: Readonly<{ estimate?: number }>) {
   if (estimate === undefined) return null
   return (
-    <button
-      type="button"
+    <Chip
+      interaction="press"
       aria-label={estimate === 1 ? "1 point" : `${estimate} points`}
-      className={chipClassName({
-        interaction: "press",
-        className: "tabular-nums"
-      })}
+      className="tabular-nums"
     >
       <Gauge className="size-3" strokeWidth={1.75} />
       {estimate}
-    </button>
+    </Chip>
   )
 }
 
@@ -426,6 +403,7 @@ export function ParentCrumb({ title }: Readonly<{ title: string }>) {
 
 // A status's glyph, as section headers and board columns show it.
 export function StatusIcon({ status }: Readonly<{ status: Status }>) {
+  // oxlint-disable-next-line shadcn/require-static-classes -- one static class per status, in STATUS above
   const { icon, className } = STATUS[status]
   return <StatusGlyph icon={icon} className={className} />
 }

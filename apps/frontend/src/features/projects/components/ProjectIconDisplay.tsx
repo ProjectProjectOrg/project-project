@@ -68,10 +68,7 @@ export function ProjectIconDisplay({
         src={source}
         crop={iconImage.crop}
         onError={() => setFailed(true)}
-        className={cn(
-          iconImage.type === "sticker" &&
-            "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
-        )}
+        className={cn(iconImage.type === "sticker" && "sticker-outline")}
       />
     </span>
   )

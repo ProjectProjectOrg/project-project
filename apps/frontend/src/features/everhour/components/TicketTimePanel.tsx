@@ -137,7 +137,7 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
               <Popover>
                 <PopoverTrigger
                   aria-label={m.time_sync_explainer()}
-                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-[0.97]"
+                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-97"
                 >
                   <Info className="h-4 w-4" />
                 </PopoverTrigger>

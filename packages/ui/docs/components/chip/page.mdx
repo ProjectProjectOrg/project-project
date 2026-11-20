@@ -3,7 +3,7 @@ export const meta = {
   group: "Primitives",
   description:
     "The small pills on ticket rows and board cards: priority, flag, estimate, sub-tickets, links, git, the epic and tags. Each one opens a menu, a preview or a link.",
-  sources: [{ kind: "own", name: "chipClassName" }]
+  sources: [{ kind: "own", name: "Chip" }]
 }
 
 ## Overview
@@ -15,32 +15,32 @@ Data chips on the first row, label chips on the second. Hover, press and focus a
 ## Usage
 
 ```tsx
-import { ChipSeparator, chipClassName } from "@pp/ui/chip"
+import { Chip, ChipSeparator } from "@pp/ui/chip"
 
-<PriorityMenu
-  render={<button className={chipClassName({ interaction: "press", shape: "icon" })} />}
-/>
+<PriorityMenu trigger={<Chip interaction="press" shape="icon" aria-label={label} />} />
 <ChipSeparator />
-<button className={chipClassName({ interaction: "press", className: "tabular-nums" })}>
+<Chip interaction="press" className="tabular-nums">
   <Gauge className="size-3" strokeWidth={1.75} />
   {estimate}
-</button>
-<Link to={epic.href} className={chipClassName({ kind: "label", interaction: "press" })}>
+</Chip>
+<Chip kind="label" interaction="press" render={<Link to={epic.href} />}>
   <Layers className="size-3 shrink-0" strokeWidth={1.75} />
   <span className="truncate">{epic.name}</span>
-</Link>
+</Chip>
 ```
 
-`chipClassName` is a class, not a component: every chip in the app is already a trigger of its own (a menu, a preview, a router link) and takes the class as its `className` or `render`.
+Most chips are triggers (a menu, a preview, a router link): pass the `Chip` as the trigger's `render`, or another element as the chip's `render`. A static chip is a `span`; one that reacts is a `button`. Classes on a `render` element are appended without merging, so extra classes go in the chip's `className`.
 
-| Option        | Type                             | Default   |
+| Prop          | Type                             | Default   |
 | ------------- | -------------------------------- | --------- |
 | `kind`        | `"data" \| "label"`              | `"data"`  |
 | `interaction` | `"none" \| "hover" \| "press"`   | `"none"`  |
 | `shape`       | `"label" \| "icon" \| "count"`   | `"label"` |
-| `className`   | `string`                         |           |
+| `render`      | `ReactElement \| function`       |           |
 
-Also exported: `ChipSeparator` (the hairline after the state icons), `ChipDots` (a folded tag chip's dots) and `chipWideOnlyClass` / `chipNarrowOnlyClass` (tags fold into one chip on a narrow list).
+Every other prop goes to the element.
+
+Also exported: `ChipSeparator` (the hairline after the state icons), `ChipDots` (a folded tag chip's dots). `show="wide"` / `show="narrow"` shows a chip only on a wide or narrow list, so tags fold into one chip on a narrow list.
 
 ## Rules
 

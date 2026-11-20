@@ -1,4 +1,4 @@
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -49,13 +49,10 @@ function Large() {
       <HoverCard>
         <HoverCardTrigger
           render={
-            <button
-              type="button"
+            <Chip
+              interaction="hover"
               aria-label="1 of 3 sub-tickets done"
-              className={chipClassName({
-                interaction: "hover",
-                className: "[zoom:3]"
-              })}
+              className="[zoom:3]"
             />
           }
         >

@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuConfirmItem,
   DropdownMenuContent,
+  PointerMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
@@ -22,8 +23,6 @@ import {
   Split,
   Trash2
 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
-import { atPointerMotionClass } from "@pp/ui/menu-styles"
 import { Popover } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -162,18 +161,14 @@ export function TicketContextMenu({
         }
       })}
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
-        <DropdownMenuContent
+        <PointerMenuContent
           anchor={anchor ?? undefined}
-          side="right"
-          align="start"
-          sideOffset={8}
-          collisionAvoidance={{ side: "flip", align: "shift" }}
-          className={cn("w-52", atPointerMotionClass)}
-          style={instant ? { animation: "none" } : undefined}
+          instant={instant}
+          className="w-52"
           onContextMenu={suppressNativeMenu}
         >
           <TicketMenuItems {...menu} onFlow={setFlow} />
-        </DropdownMenuContent>
+        </PointerMenuContent>
       </DropdownMenu>
       <TicketMenuFlows {...menu} flow={flow} onFlow={setFlow} anchor={anchor} />
     </>

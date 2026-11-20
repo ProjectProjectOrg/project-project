@@ -83,8 +83,8 @@ function ReferenceGroups({
 function ReferencesSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      <div className="skeleton h-28 rounded-lg bg-muted/60" />
-      <div className="skeleton h-28 rounded-lg bg-muted/60" />
+      <div className="h-28 skeleton rounded-lg bg-muted/60" />
+      <div className="h-28 skeleton rounded-lg bg-muted/60" />
     </div>
   )
 }

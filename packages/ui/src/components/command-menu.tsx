@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
   type Dispatch,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -704,6 +705,21 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keyLabels: KeyLabels
   }>
 
+// A pill in the input row naming what the open page acts on: a ticket, a
+// sprint, the selection.
+function CommandMenuChip({ className, ...props }: ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="command-menu-chip"
+      className={cn(
+        "inline-flex h-6 items-center rounded-[7px] bg-hover",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 // The command menu's shortcut caps are Kbd's (KbdShortcut), pushed to the
 // row's end.
 function CommandMenuShortcut({
@@ -1079,6 +1095,7 @@ export {
   CommandMenuList,
   CommandMenuEmpty,
   CommandMenuItem,
+  CommandMenuChip,
   CommandMenuShortcut,
   CommandMenuFooter,
   CommandMenuFooterHint,

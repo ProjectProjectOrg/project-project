@@ -7,18 +7,7 @@ import {
   type ProjectDetail as ProjectDetailType
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@pp/ui/dropdown-menu"
-import {
-  ArrowLeft,
-  FileText,
-  MoreHorizontal,
-  SlidersHorizontal
-} from "@pp/ui/icons"
+import { ArrowLeft, FileText } from "@pp/ui/icons"
 import { bareFieldStateClass } from "@pp/ui/input"
 import { spring, transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
@@ -48,6 +37,7 @@ import {
 import { ActiveSprintLine } from "@/features/sprints/components/ActiveSprintLine"
 import { BacklogCommandScope } from "@/features/sprints/components/BacklogCommandScope"
 import { CompleteSprintButton } from "@/features/sprints/components/CompleteSprintMenu"
+import { NewSprintButton } from "@/features/sprints/components/NewSprintButton"
 import { SprintCommandScope } from "@/features/sprints/components/SprintCommandScopes"
 import {
   SprintDeleteMenu,
@@ -59,14 +49,13 @@ import { SprintStartButton } from "@/features/sprints/components/SprintStartButt
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
+import { Appear, morphFrom, morphTo } from "./Appear"
+
 const CURRENT_SPRINT_ROUTE =
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/current"
 
 const currentSprintId = (sprints: ReadonlyArray<Group>, loaded: boolean) =>
   loaded ? (pickActiveSprint(sprints)?.id ?? null) : "current"
-
-const morphFrom = { opacity: 0, filter: "blur(4px)" }
-const morphTo = { opacity: 1, filter: "blur(0px)" }
 
 function MorphSlot({
   slotKey,
@@ -143,6 +132,11 @@ export function ProjectHeader({
   const onBacklog = matches.some(
     (mt) =>
       mt.routeId === "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+  )
+  const onSprints = matches.some(
+    (mt) =>
+      mt.routeId ===
+      "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/"
   )
 
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
@@ -288,16 +282,38 @@ export function ProjectHeader({
               <div className="size-8" />
             )
           ) : (
-            <div className="flex items-center gap-3">
-              {actor.call("projects", "gitStates") && (
-                <GithubChip repos={connectedRepos(project)} />
-              )}
-              <ProjectMenu />
-            </div>
+            <ProjectActions
+              project={project}
+              newSprint={onSprints && canPlan}
+              reduce={reduce}
+            />
           )}
         </MorphSlot>
       </header>
     </LayoutGroup>
+  )
+}
+
+// GitHub, and New sprint on the Sprints page.
+function ProjectActions({
+  project,
+  newSprint,
+  reduce
+}: {
+  project: ProjectDetailType
+  newSprint: boolean
+  reduce: boolean
+}) {
+  const actor = useProjectActor()
+  return (
+    <div className="flex items-center">
+      {actor.call("projects", "gitStates") && (
+        <GithubChip repos={connectedRepos(project)} />
+      )}
+      <Appear show={newSprint} reduce={reduce} className="pl-3">
+        <NewSprintButton variant="secondary" />
+      </Appear>
+    </div>
   )
 }
 
@@ -345,7 +361,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         disabled={!canEdit}
         className={cn(
           bareFieldStateClass,
-          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-97"
         )}
       >
         {name}
@@ -377,38 +393,5 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         </p>
       )}
     </div>
-  )
-}
-
-function ProjectMenu() {
-  const { orgSlug, slug } = useProjectRoute()
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="square-8"
-            aria-label={m.project_detail_actions_aria_label()}
-            className="focus-visible:ring-2"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-        <DropdownMenuItem
-          render={
-            <Link
-              to="/settings/orgs/$orgSlug/projects/$slug"
-              params={{ orgSlug, slug }}
-            />
-          }
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          {m.project_detail_tab_settings()}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }

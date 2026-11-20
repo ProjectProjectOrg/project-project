@@ -1,4 +1,4 @@
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -30,20 +30,13 @@ export default function SprintHeader() {
         collapseLabel="Toggle section Sprint 26"
         detail={
           <>
-            <span className={chipClassName()}>
+            <Chip>
               <CalendarRange className="size-3 shrink-0" strokeWidth={1.75} />
               Dec 8 – Dec 21
-            </span>
+            </Chip>
             <HoverCard>
               <HoverCardTrigger
-                render={
-                  <span
-                    className={chipClassName({
-                      interaction: "hover",
-                      className: "tabular-nums"
-                    })}
-                  />
-                }
+                render={<Chip interaction="hover" className="tabular-nums" />}
               >
                 <Gauge className="size-3 shrink-0" strokeWidth={1.75} />
                 <span className="text-foreground">21 pts</span>
@@ -65,14 +58,10 @@ export default function SprintHeader() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <button
-                    type="button"
+                  <Chip
+                    interaction="press"
                     aria-label="Show tickets without an estimate"
-                    className={chipClassName({
-                      interaction: "press",
-                      className:
-                        "text-state-warning tabular-nums hover:text-state-warning"
-                    })}
+                    className="text-state-warning tabular-nums hover:text-state-warning"
                   />
                 }
               >
@@ -88,12 +77,9 @@ export default function SprintHeader() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <span
-                    className={chipClassName({
-                      interaction: "hover",
-                      className:
-                        "text-state-warning tabular-nums hover:text-state-warning"
-                    })}
+                  <Chip
+                    interaction="hover"
+                    className="text-state-warning tabular-nums hover:text-state-warning"
                   />
                 }
               >

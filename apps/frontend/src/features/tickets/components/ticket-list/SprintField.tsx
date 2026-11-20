@@ -2,8 +2,8 @@ import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { chipClassName } from "@pp/ui/chip"
-import { Plus, Zap } from "@pp/ui/icons"
+import { Chip } from "@pp/ui/chip"
+import { CircleDashed, Plus, Zap } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -84,6 +84,12 @@ export function SprintField({
         sprints={sprints}
         selectedId={selectedId}
         onSelect={(s) => {
+          if (s === null) {
+            if (!selection.patchBulk({ sprint: null }) && membership) {
+              void removeTickets({ groupId: membership.id })
+            }
+            return
+          }
           if (selection.count === 1) {
             addTickets({ groupId: s.id })
             return
@@ -93,20 +99,10 @@ export function SprintField({
             tickets: selection.selectedIds()
           })
         }}
-        // Removing is offered only when one of them is in a sprint.
-        onClear={
-          membership || [...selectedSprints].some((id) => id !== null)
-            ? () => {
-                if (!selection.patchBulk({ sprint: null }) && membership) {
-                  void removeTickets({ groupId: membership.id })
-                }
-              }
-            : undefined
-        }
         onRequestNewSprint={onRequestNewSprint}
         trigger={
-          <button
-            type="button"
+          <Chip
+            interaction="press"
             onClick={(e) => e.stopPropagation()}
             aria-label={
               failed
@@ -115,14 +111,11 @@ export function SprintField({
                   ? m.tickets_sprint_chip_aria({ name: membership.name })
                   : placeholder
             }
-            className={chipClassName({
-              interaction: "press",
-              className: cn(
-                "max-w-[14ch] gap-1",
-                failed && "text-destructive hover:text-destructive",
-                !membership && "text-muted-foreground"
-              )
-            })}
+            className={cn(
+              "max-w-[14ch] gap-1",
+              failed && "text-destructive hover:text-destructive",
+              !membership && "text-muted-foreground"
+            )}
           >
             {membership ? (
               <SprintStateIcon sprint={membership} size="xs" />
@@ -137,7 +130,7 @@ export function SprintField({
             >
               {membership?.name ?? placeholder}
             </span>
-          </button>
+          </Chip>
         }
       />
     </fieldset>
@@ -157,7 +150,7 @@ export function SprintSelect({
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const current = sprints.find((sprint) => sprint.id === value) ?? null
-  const label = current?.name ?? m.tickets_assign_sprint_chip()
+  const label = current?.name ?? m.tickets_sprint_none()
 
   if (
     !sprints.some((sprint) => sprint.completedAt === null) &&
@@ -172,26 +165,21 @@ export function SprintSelect({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={current?.id ?? null}
-      onSelect={(sprint) => onChange(sprint.id)}
-      onClear={value !== null ? () => onChange(null) : undefined}
+      onSelect={(sprint) => onChange(sprint?.id ?? null)}
       trigger={
         <Button
           type="button"
           variant="ghost"
           tone={current ? "strong" : "muted"}
-          aria-label={
-            current
-              ? m.tickets_sprint_chip_aria({ name: current.name })
-              : m.tickets_assign_sprint_chip()
-          }
+          aria-label={m.tickets_sprint_chip_aria({ name: label })}
         >
           <TextSwap
-            className="max-w-[14ch] gap-1.5"
+            className="gap-1.5"
             icon={
               current ? (
-                <SprintStateIcon sprint={current} size="xs" />
+                <SprintStateIcon sprint={current} size="sm" />
               ) : (
-                <Plus className="size-3.5" strokeWidth={1.75} />
+                <CircleDashed className="size-3.5" strokeWidth={1.75} />
               )
             }
           >
@@ -233,7 +221,7 @@ export function SprintBadgeTrigger({
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
   const label = failed
     ? m.tickets_sprint_assign_error_fallback()
-    : (current?.name ?? m.tickets_assign_sprint_chip())
+    : (current?.name ?? m.tickets_sprint_none())
 
   if (creating || (!hasAnyEligible && Result.isSuccess(list) && canPlan)) {
     return (
@@ -259,10 +247,10 @@ export function SprintBadgeTrigger({
         onOpenChange={setOpen}
         sprints={sprints}
         selectedId={current?.id ?? null}
-        onSelect={(s) => addTickets({ groupId: s.id })}
-        onClear={
-          current ? () => removeTickets({ groupId: current.id }) : undefined
-        }
+        onSelect={(s) => {
+          if (s !== null) addTickets({ groupId: s.id })
+          else if (current) void removeTickets({ groupId: current.id })
+        }}
         trigger={
           <Button
             type="button"
@@ -270,11 +258,7 @@ export function SprintBadgeTrigger({
             tone={current ? "strong" : "muted"}
             onClick={(e) => e.stopPropagation()}
             aria-label={
-              failed
-                ? m.tickets_sprint_assign_error_fallback()
-                : current
-                  ? m.tickets_sprint_chip_aria({ name: current.name })
-                  : m.tickets_assign_sprint_chip()
+              failed ? label : m.tickets_sprint_chip_aria({ name: label })
             }
             className={cn(failed && "text-destructive", className)}
           >
@@ -282,9 +266,9 @@ export function SprintBadgeTrigger({
               className="max-w-[14ch] gap-1.5"
               icon={
                 current ? (
-                  <SprintStateIcon sprint={current} size="xs" />
+                  <SprintStateIcon sprint={current} size="sm" />
                 ) : (
-                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  <CircleDashed className="size-3.5" strokeWidth={1.75} />
                 )
               }
             >

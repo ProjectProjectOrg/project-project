@@ -149,7 +149,7 @@ export function Filters() {
           render={
             <ToolbarButton
               active={active}
-              className="group-hover/filters:duration-0 group-hover/filters:not-disabled:shadow-[inset_0_0_0_100vmax_var(--field-hover)] group-hover/filters:[&>svg:first-child]:text-foreground"
+              className="group-hover/filters:duration-0 group-hover/filters:not-disabled:shadow-field-hover-fill group-hover/filters:[&>svg:first-child]:text-foreground"
               aria-label={
                 active
                   ? m.tickets_filters_active_aria_label({

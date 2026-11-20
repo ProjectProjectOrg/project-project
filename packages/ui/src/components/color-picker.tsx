@@ -254,7 +254,6 @@ export function ColorPicker({
           // Centre the grid on the trigger.
           sideOffset={-(HALF_HEIGHT + TRIGGER_HEIGHT / 2)}
           collisionPadding={8}
-          className="z-50"
         >
           <Popover.Popup
             ref={popupRef}
@@ -262,7 +261,7 @@ export function ColorPicker({
             initialFocus={initialRef}
             aria-label={ariaLabel}
             onKeyDown={onKeyDown}
-            className="pointer-events-none relative outline-none"
+            className="pointer-events-none relative isolate outline-none"
             style={{ width: HALF_WIDTH * 2, height: HALF_HEIGHT * 2 }}
             // App hotkeys (Escape among them) stay out while the grid has
             // focus, and work again the moment it closes.

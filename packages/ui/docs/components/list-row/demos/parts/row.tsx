@@ -1,5 +1,5 @@
 import { Checkbox } from "@pp/ui/checkbox"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { Flag } from "@pp/ui/icons"
 import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
@@ -131,16 +131,13 @@ export function Row({
 function SprintChip({ sprint }: Readonly<{ sprint?: string }>) {
   if (!sprint) return null
   return (
-    <button
-      type="button"
+    <Chip
+      interaction="press"
       aria-label={`Sprint: ${sprint}`}
-      className={chipClassName({
-        interaction: "press",
-        className: "max-w-[14ch] gap-1"
-      })}
+      className="max-w-[14ch] gap-1"
     >
       <Flag className="size-3 shrink-0" strokeWidth={1.75} />
       <span className="truncate">{sprint}</span>
-    </button>
+    </Chip>
   )
 }

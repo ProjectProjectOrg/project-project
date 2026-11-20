@@ -127,9 +127,9 @@ function ProjectGitStatePolling({ enabled }: { enabled: boolean }) {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="skeleton h-12 rounded-lg bg-muted/60" />
-      <div className="skeleton h-9 rounded-lg bg-muted/60" />
-      <div className="skeleton h-40 rounded-xl bg-muted/60" />
+      <div className="h-12 skeleton rounded-lg bg-muted/60" />
+      <div className="h-9 skeleton rounded-lg bg-muted/60" />
+      <div className="h-40 skeleton rounded-xl bg-muted/60" />
     </div>
   )
 }

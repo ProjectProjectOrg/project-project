@@ -110,7 +110,7 @@ export function AccountMenu({
         {version ? (
           <DropdownMenuItem
             onClick={() => void navigator.clipboard.writeText(version)}
-            className="items-start py-[5px]"
+            className="items-start py-1.25"
           >
             <Copy className="mt-0.5 size-4" strokeWidth={1.75} />
             <span className="flex min-w-0 flex-col">

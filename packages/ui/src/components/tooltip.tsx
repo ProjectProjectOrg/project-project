@@ -150,6 +150,20 @@ const insideSurface = (id: string) => {
   return element != null && surfaceElement?.contains(element) === true
 }
 
+// The trigger of the open card carries data-card-open, so the row it sits
+// in stays lit (ListHoverScope) while the pointer is over the card.
+let markedTrigger: HTMLElement | null = null
+const markOpenCard = () => {
+  const element =
+    activeId !== null && kindOf(activeId) === "card"
+      ? (registrations.get(activeId)?.current.element ?? null)
+      : null
+  if (element === markedTrigger) return
+  markedTrigger?.removeAttribute("data-card-open")
+  element?.setAttribute("data-card-open", "")
+  markedTrigger = element
+}
+
 const show = (id: string, source: Source) => {
   if (activeSource === "pinned" && source !== "pinned") return
   clearTimers()
@@ -158,6 +172,7 @@ const show = (id: string, source: Source) => {
   if (activeId === id && activeSource === source) return
   activeId = id
   activeSource = source
+  markOpenCard()
   emit()
 }
 
@@ -168,6 +183,7 @@ const hide = (instant = false) => {
   warmUntil = performance.now() + WARM_FOR
   activeId = null
   activeSource = null
+  markOpenCard()
   emit()
 }
 
@@ -659,9 +675,11 @@ function HostSurface() {
               // A pinned card sits over a Guide's blur.
               activeSource === "pinned" ? "z-[70]" : "z-50",
               "fixed top-0 left-0 grid overflow-hidden p-0 transition-[border-radius] duration-180 ease-standard",
-              // A card that only shows (git, a sprint's estimate) lets the
-              // pointer through, so it never catches it on its way past.
-              registration?.className?.includes("pointer-events-none") &&
+              // A label, or a card that only shows (git, a sprint's
+              // estimate), lets the pointer through, so it never catches it
+              // on its way to the trigger below (the next row's field).
+              (!card ||
+                registration?.className?.includes("pointer-events-none")) &&
                 "pointer-events-none"
             )}
           >
@@ -1094,6 +1112,10 @@ function PinnedTooltip({
   )
 }
 
+// False inside a composer: its chips already say what they are, and the
+// hotkeys they'd advertise don't reach them while you type.
+const ShortcutTooltipsContext = React.createContext(true)
+
 /**
  * A trigger whose tooltip names an app hotkey and shows its keys: the
  * hotkey's own name (its meta.name) unless a label is given.
@@ -1109,6 +1131,7 @@ function ShortcutTooltip({
   keyLabels: KeyLabels
   children: React.ReactElement
 }>) {
+  if (!React.use(ShortcutTooltipsContext)) return children
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
@@ -1318,6 +1341,7 @@ export {
   HoverCardTrigger,
   PinnedCard,
   ShortcutTooltip,
+  ShortcutTooltipsContext,
   Tooltip,
   TooltipProvider,
   TooltipHost,

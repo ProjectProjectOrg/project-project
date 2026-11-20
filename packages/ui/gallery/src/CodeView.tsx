@@ -28,7 +28,7 @@ export function CodeView({
   return (
     <div
       className={cn(
-        "gallery-code overflow-hidden py-2 [--diffs-font-family:var(--font-mono)] [--diffs-font-size:12px] [--diffs-line-height:22px]",
+        "overflow-hidden py-2 [--diffs-font-family:var(--font-mono)] [--diffs-font-size:12px] [--diffs-line-height:22px]",
         className
       )}
     >

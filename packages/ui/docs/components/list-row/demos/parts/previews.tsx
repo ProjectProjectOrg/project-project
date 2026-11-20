@@ -1,4 +1,4 @@
-import { chipClassName } from "@pp/ui/chip"
+import { Chip, type ChipShape } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -20,21 +20,19 @@ import { StatusIcon, type SampleTicket, type Status } from "./tickets"
 // hover fill, and a hover card after a short delay.
 function PreviewChip({
   label,
-  className,
+  shape,
   trigger,
   children
 }: Readonly<{
   label: string
-  className: string
+  shape?: ChipShape
   trigger: ReactNode
   children: ReactNode
 }>) {
   return (
     <HoverCard>
       <HoverCardTrigger
-        render={
-          <button type="button" aria-label={label} className={className} />
-        }
+        render={<Chip interaction="hover" shape={shape} aria-label={label} />}
       >
         {trigger}
       </HoverCardTrigger>
@@ -88,7 +86,7 @@ export function RelationChip({ count }: Readonly<{ count?: number }>) {
   return (
     <PreviewChip
       label={`${count} linked tickets`}
-      className={chipClassName({ interaction: "hover", shape: "count" })}
+      shape="count"
       trigger={
         <>
           <Link2 strokeWidth={1.75} />
@@ -131,7 +129,6 @@ export function SubTicketCount({ ticket }: Readonly<{ ticket: SampleTicket }>) {
   return (
     <PreviewChip
       label={label}
-      className={chipClassName({ interaction: "hover" })}
       trigger={
         <ProgressCount done={done} total={total} className="text-inherit" />
       }

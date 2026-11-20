@@ -152,8 +152,8 @@ export default function NewTicket() {
                 <span>Add estimate</span>
               </Button>
               <Button type="button" variant="ghost" tone="muted">
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                <span>Assign sprint</span>
+                <CircleDashed className="size-3.5" strokeWidth={1.75} />
+                <span>No sprint</span>
               </Button>
             </Composer.Fields>
             <Composer.Footer>

@@ -28,7 +28,7 @@ function Rail({ shape, connectUp }: { shape: RailShape; connectUp: boolean }) {
       />
       {shape === "node" ? (
         <span
-          className="absolute size-[7px] -translate-y-1/2 rounded-full bg-foreground"
+          className="absolute size-1.75 -translate-y-1/2 rounded-full bg-foreground"
           style={{ top: rowCenter }}
         />
       ) : (

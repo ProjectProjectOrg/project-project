@@ -1,0 +1,71 @@
+import {
+  AlertCircle,
+  Archive,
+  Ban,
+  Circle,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  Eye,
+  Flame,
+  Hourglass,
+  Inbox,
+  Loader,
+  Lock,
+  Rocket,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  Trophy,
+  XCircle,
+  type IconType
+} from "@pp/ui/icons"
+
+export const ICON_NAMES = [
+  "Circle",
+  "CircleDashed",
+  "CircleDot",
+  "CircleCheck",
+  "Loader",
+  "Hourglass",
+  "Timer",
+  "Eye",
+  "Search",
+  "ShieldCheck",
+  "Ban",
+  "AlertCircle",
+  "Lock",
+  "XCircle",
+  "Archive",
+  "Inbox",
+  "Flame",
+  "Rocket",
+  "Sparkles",
+  "Trophy"
+] as const
+
+export type IconName = (typeof ICON_NAMES)[number]
+
+export const ICONS: Readonly<Record<IconName, IconType>> = {
+  Circle,
+  CircleDashed,
+  CircleDot,
+  CircleCheck,
+  Loader,
+  Hourglass,
+  Timer,
+  Eye,
+  Search,
+  ShieldCheck,
+  Ban,
+  AlertCircle,
+  Lock,
+  XCircle,
+  Archive,
+  Inbox,
+  Flame,
+  Rocket,
+  Sparkles,
+  Trophy
+}

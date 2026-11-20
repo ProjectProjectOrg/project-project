@@ -163,7 +163,7 @@ function ListSkeleton() {
   return (
     <div className="flex flex-col gap-2">
       {[0, 1, 2].map((index) => (
-        <div key={index} className="skeleton h-9 rounded-lg" />
+        <div key={index} className="h-9 skeleton rounded-lg" />
       ))}
     </div>
   )

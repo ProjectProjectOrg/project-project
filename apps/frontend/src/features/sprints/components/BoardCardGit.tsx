@@ -5,6 +5,7 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
+import { Chip } from "@pp/ui/chip"
 import {
   AlertTriangle,
   ArrowRight,
@@ -45,8 +46,7 @@ import {
 import { ChecksDot, StackChip } from "./GitStackChip"
 
 export function BoardCardGit({
-  ticket,
-  chipClassName
+  ticket
 }: Readonly<{
   ticket: Pick<
     Ticket,
@@ -58,7 +58,6 @@ export function BoardCardGit({
     | "lastTransitionedPr"
     | "repoId"
   >
-  chipClassName: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
@@ -66,26 +65,18 @@ export function BoardCardGit({
     ? ticketRepo(projectResult.value, ticket.repoId)
     : null
   if (!github) return null
-  return (
-    <ConnectedGit
-      ticket={ticket}
-      github={github}
-      chipClassName={chipClassName}
-    />
-  )
+  return <ConnectedGit ticket={ticket} github={github} />
 }
 
 function ConnectedGit({
   ticket,
-  github,
-  chipClassName
+  github
 }: Readonly<{
   ticket: Pick<
     Ticket,
     "id" | "gitState" | "type" | "title" | "status" | "lastTransitionedPr"
   >
   github: GithubConnection
-  chipClassName: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
@@ -97,7 +88,6 @@ function ConnectedGit({
       waiting={waiting}
       github={github}
       ticket={ticket}
-      chipClassName={chipClassName}
     />
   )
 }
@@ -107,8 +97,7 @@ export function GitChip({
   stack,
   waiting,
   github,
-  ticket,
-  chipClassName
+  ticket
 }: Readonly<{
   state: GitState
   stack: ReadonlyArray<StackLayerState>
@@ -118,7 +107,6 @@ export function GitChip({
     Ticket,
     "id" | "type" | "title" | "status" | "lastTransitionedPr"
   >
-  chipClassName: string
 }>) {
   if (state.tag === "no_branch") return null
   const own = ownLayer(state, ticket, github.defaultBaseBranch ?? "main")
@@ -138,7 +126,6 @@ export function GitChip({
         waiting={waiting}
         repo={`${github.repoOwner}/${github.repoName}`}
         ticketId={ticket.id}
-        chipClassName={chipClassName}
       />
     </GitChipMenu>
   )
@@ -150,8 +137,7 @@ function GitChipFace({
   layers,
   waiting,
   repo,
-  ticketId,
-  chipClassName
+  ticketId
 }: Readonly<{
   state: Exclude<GitState, { tag: "no_branch" }>
   stack: ReadonlyArray<StackLayerState>
@@ -159,12 +145,11 @@ function GitChipFace({
   waiting: boolean
   repo: string
   ticketId: Ticket["id"]
-  chipClassName: string
 }>) {
-  const pulse =
-    (waiting || state.tag === "branch_pending" || state.tag === "pr_pending") &&
-    "animate-pulse"
-  const className = cn(chipClassName, pulse)
+  const className =
+    waiting || state.tag === "branch_pending" || state.tag === "pr_pending"
+      ? "animate-pulse"
+      : undefined
 
   if (stack.length > 0) {
     return (
@@ -179,7 +164,9 @@ function GitChipFace({
   if (state.tag === "stale_branch") {
     return (
       <GitPreview
-        trigger={<span className={className} />}
+        trigger={
+          <Chip interaction="press" render={<span />} className={className} />
+        }
         preview={
           <>
             <PreviewTitle mono>{state.name}</PreviewTitle>
@@ -227,20 +214,25 @@ function BranchChip({
   label: string
   base: string
   pending: string | null
-  className: string
+  className: string | undefined
 }>) {
   const link = usePreferredBranchLink(repo, name)
   return (
     <GitPreview
       trigger={
-        <a
-          href={link.href}
-          target={link.target}
-          rel={link.rel}
-          aria-label={name}
+        <Chip
+          interaction="press"
+          render={
+            <a
+              href={link.href}
+              target={link.target}
+              rel={link.rel}
+              aria-label={name}
+            />
+          }
           draggable={false}
           onClick={(event) => event.stopPropagation()}
-          className={cn(className, "max-w-36")}
+          className={cn("max-w-36", className)}
         />
       }
       preview={
@@ -272,7 +264,7 @@ function BranchChip({
 function PullRequestChip({
   pr,
   className
-}: Readonly<{ pr: PullRequest; className: string }>) {
+}: Readonly<{ pr: PullRequest; className: string | undefined }>) {
   const look = PULL_REQUEST_LOOKS[pullRequestKind(pr)]
   const Icon = look.icon
   const checks = pr.tag === "pr_open" ? reportedChecks(pr.checks) : null
@@ -280,12 +272,17 @@ function PullRequestChip({
   return (
     <GitPreview
       trigger={
-        <a
-          href={pr.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={
-            title === null ? `#${pr.number}` : `#${pr.number} ${title}`
+        <Chip
+          interaction="press"
+          render={
+            <a
+              href={pr.url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={
+                title === null ? `#${pr.number}` : `#${pr.number} ${title}`
+              }
+            />
           }
           draggable={false}
           onClick={(event) => event.stopPropagation()}

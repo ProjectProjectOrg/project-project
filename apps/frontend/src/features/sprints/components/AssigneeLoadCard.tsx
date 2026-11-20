@@ -6,7 +6,7 @@ import {
   type Ticket
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import {
   HoverCard,
   HoverCardContent,
@@ -66,17 +66,14 @@ export function AssigneeLoadCard({
     <HoverCard>
       <HoverCardTrigger
         render={
-          <button
-            type="button"
+          <Chip
+            interaction="press"
             aria-label={m.sprints_load_card_trigger({ name, amount })}
             onClick={(event) => {
               event.stopPropagation()
               onFilter?.()
             }}
-            className={chipClassName({
-              interaction: "press",
-              className: "pl-1 tabular-nums"
-            })}
+            className="pl-1 tabular-nums"
           />
         }
       >

@@ -104,7 +104,7 @@ function PopoverContent({
           className={cn(
             surface === "hover"
               ? cn(
-                  "z-50 origin-[var(--transform-origin)]",
+                  "isolate origin-[var(--transform-origin)]",
                   hoverCardSurfaceClass
                 )
               : popupSurfaceClass,

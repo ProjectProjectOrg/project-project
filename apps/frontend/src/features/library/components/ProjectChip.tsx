@@ -14,6 +14,7 @@ export function ProjectChip({ scope }: Readonly<{ scope: LibraryScope }>) {
       {detail === null ? null : (
         <span
           aria-hidden
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- ProjectIcon's corners at 16px (28% of the size), clipping an uploaded icon the same way
           className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
         >
           <ProjectIconDisplay

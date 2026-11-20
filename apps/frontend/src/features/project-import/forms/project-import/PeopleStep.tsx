@@ -49,7 +49,7 @@ export function PeopleStep({
           result={members}
           reset={refreshMembers}
           contained
-          onInitial={() => <div className="skeleton h-28 w-full rounded-xl" />}
+          onInitial={() => <div className="h-28 w-full skeleton rounded-xl" />}
           onSuccess={({ value }) => (
             <div className="divide-y divide-border">
               {people.map((person, index) => (

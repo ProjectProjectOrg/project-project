@@ -110,6 +110,7 @@ export function TicketPreviewTrigger({
         }}
         {...props}
       />
+      {/* oxlint-disable-next-line shadcn/require-static-classes -- one static width per preview kind, in PREVIEW_WIDTHS below */}
       <HoverCardContent className={PREVIEW_WIDTHS[preview._tag]}>
         <ProjectContext value={project}>
           <PreviewContent preview={preview} />

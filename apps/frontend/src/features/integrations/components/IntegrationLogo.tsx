@@ -35,7 +35,7 @@ export function IntegrationLogo({
       aria-hidden
       data-size={size}
       className={cn(
-        "group/logo grid size-8 shrink-0 place-items-center rounded-[10px] border border-border bg-background text-foreground data-[size=lg]:size-12 data-[size=lg]:rounded-[14px] data-[size=sm]:size-4 data-[size=sm]:rounded-none data-[size=sm]:border-0 data-[size=sm]:bg-transparent [&_img]:size-4 data-[size=lg]:[&_img]:size-6 [&_svg]:size-4 data-[size=lg]:[&_svg]:size-6",
+        "group/logo grid size-8 shrink-0 place-items-center rounded-tile border border-border bg-background text-foreground data-[size=lg]:size-12 data-[size=lg]:rounded-md data-[size=sm]:size-4 data-[size=sm]:rounded-none data-[size=sm]:border-0 data-[size=sm]:bg-transparent [&_img]:size-4 data-[size=lg]:[&_img]:size-6 [&_svg]:size-4 data-[size=lg]:[&_svg]:size-6",
         className
       )}
     >

@@ -101,7 +101,7 @@ function StatusLink({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        "-my-[5px] inline-flex items-center gap-0.5 py-[5px]",
+        "-my-1.25 inline-flex items-center gap-0.5 py-1.25",
         textLinkClass
       )}
     >

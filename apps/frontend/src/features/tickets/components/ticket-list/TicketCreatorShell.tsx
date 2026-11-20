@@ -67,7 +67,7 @@ export function TicketCreatorShell({
         focused={expanded}
         className={cn(
           "transition-[padding] duration-200 ease-out",
-          expanded && "pl-[5px]"
+          expanded && "pl-1.25"
         )}
       >
         {/* One slot for every leading chip, 4px apart, so they read as a

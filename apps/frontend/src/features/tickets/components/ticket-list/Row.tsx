@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Member, ParentFilter, Ticket, TicketId } from "@pp/shared"
 import { Checkbox } from "@pp/ui/checkbox"
-import { chipClassName } from "@pp/ui/chip"
 import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
 import { ItemLink } from "@pp/ui/item-link"
 import { hasModifier, isKeyboardNavigating } from "@pp/ui/lib/keyboard"
@@ -281,13 +280,7 @@ function RowImpl({
                     </fieldset>
                   )}
                   <span className="flex items-center gap-1.5 empty:hidden">
-                    <RelationChips
-                      ticket={ticket}
-                      className={chipClassName({
-                        interaction: "hover",
-                        shape: "count"
-                      })}
-                    />
+                    <RelationChips ticket={ticket} />
                   </span>
                   {showSprint && shows("sprint") && (
                     <fieldset
@@ -360,7 +353,7 @@ function RowCheckbox({
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
       variant="quiet"
-      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] data-checked:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100"
+      className="opacity-0 transition-[box-shadow,scale,opacity] duration-[150ms,120ms,var(--highlight-glide)] group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-4.25 before:-right-[11px] before:-left-[15px] before:content-[''] in-data-keyboard-navigation:duration-[150ms,120ms,0ms] data-checked:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100"
     />
   )
 }

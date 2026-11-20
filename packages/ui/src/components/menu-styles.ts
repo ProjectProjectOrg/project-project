@@ -9,7 +9,7 @@ import { createContext, use } from "react"
 // layer above the content: as the popup's own inset shadow, a tinted child
 // (the composer's tray, cmd+k's list) would paint over it.
 export const popupSurfaceClass =
-  "relative z-50 origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+  "relative isolate origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
 
 // Whether content sits inside a popup. Every popup provides it, and a popup
 // opened from inside one takes the raised fill (--tooltip-raised).

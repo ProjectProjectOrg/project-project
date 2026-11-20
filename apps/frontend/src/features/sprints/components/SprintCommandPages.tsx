@@ -1,6 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { pickActiveSprint, type Group } from "@pp/shared"
-import { CommandMenuItem } from "@pp/ui/command-menu"
+import { CommandMenuChip, CommandMenuItem } from "@pp/ui/command-menu"
 import {
   CalendarDays,
   CalendarX,
@@ -93,12 +93,12 @@ export function SprintContextChip({
   sprint
 }: Readonly<{ sprint: SprintContext }>) {
   return (
-    <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover px-2 text-body">
+    <CommandMenuChip className="max-w-full min-w-0 gap-1.5 overflow-hidden px-2 text-body">
       <SprintStateIcon sprint={sprint.sprint} size="xs" />
       <span className="min-w-0 truncate font-semibold text-foreground">
         {sprint.sprint.name}
       </span>
-    </span>
+    </CommandMenuChip>
   )
 }
 

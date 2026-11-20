@@ -41,7 +41,7 @@ export function AppRail({
         <OrgSwitcher
           trigger={
             <SidebarRailItem label={m.org_switcher_trigger_aria_label()}>
-              <Logo className="size-[22px]" />
+              <Logo className="size-5.5" />
             </SidebarRailItem>
           }
         />

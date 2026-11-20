@@ -1,4 +1,10 @@
-import { TicketId, TicketRank, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  GroupId,
+  TicketId,
+  TicketRank,
+  TicketStatus,
+  TypeKey
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -8,11 +14,13 @@ import {
   currentCommandPage,
   deselectFromCommandMenu,
   openCommandMenu,
+  openSprintCommandMenu,
   pushCommandPage
 } from "./commandMenu"
 
 const decodeTicketId = Schema.decodeSync(TicketId)
 const decodeStatus = Schema.decodeSync(TicketStatus)
+const decodeGroupId = Schema.decodeSync(GroupId)
 
 const ticket = {
   orgSlug: "acme",
@@ -34,6 +42,21 @@ describe("backCommandMenu", () => {
     expect(root.ticket).toBe(ticket)
     const global = backCommandMenu(root)
     expect(global.ticket).toBeNull()
+    expect(backCommandMenu(global)).toBe(global)
+  })
+
+  it("keeps a row's sprint through its pages, then lets go of it", () => {
+    const sprint = {
+      orgSlug: "acme",
+      slug: "app",
+      groupId: decodeGroupId("G-3")
+    }
+    const rename = openSprintCommandMenu(sprint, "sprintRename")
+    const root = backCommandMenu(rename)
+    expect(currentCommandPage(root)).toBe("root")
+    expect(root.sprint).toBe(sprint)
+    const global = backCommandMenu(root)
+    expect(global.sprint).toBeNull()
     expect(backCommandMenu(global)).toBe(global)
   })
 

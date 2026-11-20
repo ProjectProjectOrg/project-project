@@ -106,7 +106,7 @@ export function TitleField({
         }}
         className={cn(
           bareFieldStateClass,
-          "block w-full min-w-0 resize-none overflow-hidden rounded-[12px] bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none"
+          "block w-full min-w-0 resize-none overflow-hidden rounded-sm bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none"
         )}
       />
       {error && (

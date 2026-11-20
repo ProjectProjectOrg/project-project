@@ -1,6 +1,6 @@
 import type { Group, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Plus } from "@pp/ui/icons"
+import { CircleDashed } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useRef, type ComponentProps, type RefObject } from "react"
@@ -189,8 +189,6 @@ export function CreatorSprintMenu({
       sprints={sprints}
       selectedId={selected?.id ?? null}
       onSelect={onSelectedChange}
-      onClear={() => onSelectedChange(null)}
-      clearLabel={m.tickets_sprint_popover_no_assignment_action()}
       trigger={
         <CreatorChip
           expanded={expanded}
@@ -199,16 +197,14 @@ export function CreatorSprintMenu({
             selected ? (
               <SprintStateIcon sprint={selected} size="md" />
             ) : (
-              <Plus className="size-4 shrink-0" strokeWidth={1.75} />
+              <CircleDashed className="size-4 shrink-0" strokeWidth={1.75} />
             )
           }
-          label={selected ? selected.name : m.tickets_assign_sprint_chip()}
+          label={selected?.name ?? m.tickets_sprint_none()}
           labelClassName="max-w-[10ch]"
-          aria-label={
-            selected
-              ? m.tickets_sprint_chip_aria({ name: selected.name })
-              : m.tickets_assign_sprint_chip()
-          }
+          aria-label={m.tickets_sprint_chip_aria({
+            name: selected?.name ?? m.tickets_sprint_none()
+          })}
         />
       }
     />

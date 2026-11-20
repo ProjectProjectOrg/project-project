@@ -25,7 +25,8 @@
     {
       "name": "landmines-types",
       "specifier": "@interfere/landmines/types"
-    }
+    },
+    "@shadcn/lint"
   ],
   "options": {
     "typeAware": true,
@@ -45,6 +46,12 @@
   "settings": {
     "react": {
       "version": "19.0"
+    },
+    "shadcn": {
+      "ui": "@pp/ui",
+      "ignoreImports": ["^@pp/ui/(icons|lib|hooks)(/|$)"],
+      "themeImports": ["^@pp/ui/"],
+      "note": "DESIGN.md holds the design rules and approved exceptions."
     }
   },
   "rules": {
@@ -104,7 +111,10 @@
     "anti-slop-effect/no-manual-tagged-construction": "warn",
     "anti-slop-effect/no-service-constructor-imports": "error",
     "anti-slop-effect/prefer-effect-match": "warn",
-    "landmines-types/no-explicit-return-types": "error"
+    "landmines-types/no-explicit-return-types": "error",
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-unknown-classes": "error",
+    "shadcn/require-static-classes": "error"
   },
   "overrides": [
     {
@@ -166,7 +176,19 @@
     {
       "files": ["apps/frontend/src/**/*.{ts,tsx}"],
       "rules": {
-        "workspace/no-raw-api-query": "error"
+        "workspace/no-raw-api-query": "error",
+        "shadcn/no-arbitrary-values": [
+          "error",
+          {
+            "allow": [
+              "layout",
+              "transition-*",
+              "duration-*",
+              "rounded-[inherit]",
+              "rounded-t-[inherit]"
+            ]
+          }
+        ]
       }
     },
     {
@@ -220,6 +242,21 @@
       ],
       "rules": {
         "eslint/max-lines": "off"
+      }
+    },
+    {
+      "files": ["packages/ui/src/**"],
+      "rules": {
+        "shadcn/require-static-classes": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/frontend/src/features/auth/components/LoginPage.tsx",
+        "packages/ui/src/editor/figma/figma-chip.tsx"
+      ],
+      "rules": {
+        "shadcn/no-raw-colors": "off"
       }
     },
     {

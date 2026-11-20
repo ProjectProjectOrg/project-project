@@ -5,13 +5,7 @@ import {
   type TicketPriority,
   isEpic
 } from "@pp/shared"
-import {
-  ChipDots,
-  ChipSeparator,
-  chipClassName,
-  chipNarrowOnlyClass,
-  chipWideOnlyClass
-} from "@pp/ui/chip"
+import { Chip, ChipDots, ChipSeparator } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,9 +44,6 @@ import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"
 
-const pressChip = chipClassName({ interaction: "press" })
-const labelChip = chipClassName({ kind: "label", interaction: "press" })
-
 export function BoardCardProperties({
   ticket,
   editable,
@@ -76,14 +67,7 @@ export function BoardCardProperties({
         editable={editable}
         onChange={(priority) => onPatch({ priority })}
       />
-      <FlagChip
-        ticket={ticket}
-        className={chipClassName({
-          interaction: "hover",
-          shape: "icon",
-          className: "w-[22px] [&_svg]:size-3"
-        })}
-      />
+      <FlagChip ticket={ticket} className="w-5.5" />
       <ChipSeparator />
       {ticket.estimate !== null &&
         estimation !== "off" &&
@@ -94,18 +78,12 @@ export function BoardCardProperties({
               mode={estimation}
               onPatch={onPatch}
               variant="compact"
-              className={pressChip}
             />
           </fieldset>
         )}
-      <BoardSubTicketsChip ticket={ticket} />
-      <RelationChips
-        ticket={ticket}
-        className={chipClassName({ interaction: "hover", shape: "count" })}
-      />
-      {shows("git") && (
-        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
-      )}
+      <SubTicketsChip ticket={ticket} />
+      <RelationChips ticket={ticket} />
+      {shows("git") && <BoardCardGit ticket={ticket} />}
       {isEpic(ticket.parent) && shows("epic") && (
         <EpicChip epic={ticket.parent} />
       )}
@@ -140,35 +118,20 @@ function PriorityChip({
       onChange={onChange}
       className="w-40"
       trigger={
-        <button
-          type="button"
+        <Chip
+          interaction="press"
+          shape="icon"
           disabled={!editable}
           onClick={(event) => event.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label })}
           title={label}
-          className={chipClassName({ interaction: "press", shape: "icon" })}
         >
           <Icon
             className={cn("size-3 shrink-0", meta.className)}
             strokeWidth={1.75}
           />
-        </button>
+        </Chip>
       }
-    />
-  )
-}
-
-// Progress previews the sub-tickets on hover, like links preview theirs, also
-// while the card lists them, so every chip on the card answers a hover.
-function BoardSubTicketsChip({
-  ticket
-}: Readonly<{
-  ticket: Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
-}>) {
-  return (
-    <SubTicketsChip
-      ticket={ticket}
-      className={chipClassName({ interaction: "hover" })}
     />
   )
 }
@@ -179,12 +142,17 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
     <TicketPreviewTrigger
       preview={TicketPreview.ticket({ id: epic.id })}
       render={
-        <Link
-          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-          params={{ orgSlug, slug, id: epic.id }}
-          preload="intent"
-          draggable={false}
-          className={labelChip}
+        <Chip
+          kind="label"
+          interaction="press"
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: epic.id }}
+              preload="intent"
+              draggable={false}
+            />
+          }
         />
       }
     >
@@ -225,7 +193,7 @@ export function ParentTicketCrumb({
 
 // A ticket's tags: the first `max` as chips, the rest behind "+N". With
 // `collapse` (list rows), a narrow list folds them all into one chip of
-// dots and a count (chipNarrowOnlyClass).
+// dots and a count.
 export function TagChips({
   names,
   onPatch,
@@ -248,13 +216,7 @@ export function TagChips({
       <TagChipMenu applied={names} onPatch={onPatch}>
         <DropdownMenuTrigger
           render={
-            <button
-              type="button"
-              className={chipClassName({
-                interaction: "press",
-                className: "gap-1 text-muted-foreground"
-              })}
-            />
+            <Chip interaction="press" className="gap-1 text-muted-foreground" />
           }
         >
           <Tag className="size-3 shrink-0" strokeWidth={1.75} />
@@ -267,15 +229,15 @@ export function TagChips({
   )
   const shown = max === undefined ? names : names.slice(0, max)
   const hidden = names.slice(shown.length)
-  const wide = collapse ? chipWideOnlyClass : undefined
+  const named = collapse ? "wide" : "always"
   const chip = (
     key: string,
     preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
     content: ReactNode,
-    label?: string,
-    className?: string
+    label: string | undefined,
+    show: ComponentProps<typeof Chip>["show"]
   ) => {
-    const button = <button type="button" className={cn(labelChip, className)} />
+    const button = <Chip kind="label" interaction="press" show={show} />
     return onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
@@ -314,7 +276,7 @@ export function TagChips({
             <span className="truncate">{name}</span>
           </>,
           undefined,
-          wide
+          named
         )
       )}
       {hidden.length > 0 &&
@@ -325,7 +287,7 @@ export function TagChips({
             {m.tags_more({ count: hidden.length })}
           </span>,
           m.tags_more_aria_label({ count: hidden.length }),
-          wide
+          named
         )}
       {collapse &&
         chip(
@@ -336,7 +298,7 @@ export function TagChips({
             <span className="tabular-nums">{names.length}</span>
           </>,
           m.tags_count_aria_label({ count: names.length }),
-          chipNarrowOnlyClass
+          "narrow"
         )}
     </>
   )

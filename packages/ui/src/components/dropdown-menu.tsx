@@ -36,6 +36,7 @@ import { LogoLoader } from "./logo"
 import { MenuHighlight, chosenRow } from "./menu-highlight"
 import {
   PopupLayerContext,
+  atPointerMotionClass,
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
@@ -225,6 +226,32 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
         </MenuPrimitive.Root>
       </FilterableRoot>
     </DeferredMenuContext>
+  )
+}
+
+// A menu opened at a point (a row's right-click or Shift+F10): beside the
+// point, flipping rather than covering it, with only the fade and zoom out
+// of it. `instant` drops the animation, for a menu taking over from
+// another at once.
+function PointerMenuContent({
+  instant = false,
+  className,
+  ...props
+}: Omit<
+  DropdownMenuContentProps,
+  "side" | "align" | "sideOffset" | "collisionAvoidance" | "style"
+> &
+  Readonly<{ instant?: boolean }>) {
+  return (
+    <DropdownMenuContent
+      side="right"
+      align="start"
+      sideOffset={8}
+      collisionAvoidance={{ side: "flip", align: "shift" }}
+      className={cn(className, atPointerMotionClass)}
+      style={instant ? { animation: "none" } : undefined}
+      {...props}
+    />
   )
 }
 
@@ -874,11 +901,7 @@ function DropdownMenuSubTrigger({
     <MenuPrimitive.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(
-        menuItemClass,
-        "data-[inset]:pl-8",
-        className
-      )}
+      className={cn(menuItemClass, "data-[inset]:pl-8", className)}
       {...props}
     >
       {children}
@@ -950,6 +973,7 @@ export {
   DropdownMenuPortal,
   DropdownMenuTrigger,
   DropdownMenuContent,
+  PointerMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuItem,

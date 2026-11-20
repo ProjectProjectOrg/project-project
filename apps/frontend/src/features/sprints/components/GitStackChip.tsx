@@ -1,4 +1,5 @@
 import type { GitState, StackLayerState } from "@pp/shared"
+import { Chip } from "@pp/ui/chip"
 import { Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 
@@ -21,13 +22,15 @@ export function StackChip({
   own: GitState
   stack: ReadonlyArray<StackLayerState>
   layers: ReadonlyArray<StackLayerState>
-  className: string
+  className: string | undefined
 }>) {
   const { count, worstChecks, anyOpen } = stackSummary(own, stack)
   const checks = reportedChecks(worstChecks)
   return (
     <GitPreview
-      trigger={<span className={className} />}
+      trigger={
+        <Chip interaction="press" render={<span />} className={className} />
+      }
       preview={
         <>
           <PreviewMeta>

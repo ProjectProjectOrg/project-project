@@ -14,6 +14,7 @@ import {
   SwitchProjectPage
 } from "@/features/projects/components/ProjectCommandPages"
 import { CreateSprintPage } from "@/features/sprints/components/CreateSprintPage"
+import { EditSprintPage } from "@/features/sprints/components/EditSprintPage"
 import { SprintAddTicketsPage } from "@/features/sprints/components/SprintAddTicketsPage"
 import {
   SprintCompletePage,
@@ -186,6 +187,7 @@ export const COMMAND_PAGES: Readonly<
   sprintComplete: sprintPage(SprintCompletePage),
   sprintLength: sprintPage(SprintLengthPage),
   sprintRename: sprintPage(SprintRenamePage),
+  sprintEdit: sprintPage(EditSprintPage),
   sprintAddTickets: sprintPage(SprintAddTicketsPage),
   sprintDelete: sprintPage(SprintDeletePage),
   sprintPlan: sprintPage(SprintPlanPage),
