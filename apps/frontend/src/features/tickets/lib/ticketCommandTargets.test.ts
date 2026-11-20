@@ -8,13 +8,15 @@ it("keeps command identities separate when projects share a ticket ID", () => {
     projectSlug: "alpha",
     id: "T-1",
     title: "Alpha ticket",
-    status: StatusSlug.make("todo")
+    status: StatusSlug.make("todo"),
+    type: null
   }
   const beta = {
     projectSlug: "beta",
     id: "T-1",
     title: "Beta ticket",
-    status: StatusSlug.make("todo")
+    status: StatusSlug.make("todo"),
+    type: null
   }
   expect([
     ticketItem(alpha, "Tickets").value,

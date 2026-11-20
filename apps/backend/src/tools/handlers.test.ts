@@ -1809,6 +1809,7 @@ describe("MCP ticket discovery and history", () => {
             id: "T-2",
             title: "Upload failure",
             status: "todo",
+            type: null,
             match: {
               where: "comment",
               author: "Ada",
@@ -1839,6 +1840,7 @@ describe("MCP ticket discovery and history", () => {
                       id: decodeTicketId("T-2"),
                       title: "Upload failure",
                       status: StatusSlug.make("todo"),
+                      type: null,
                       match: {
                         where: "comment",
                         author: "Ada",
