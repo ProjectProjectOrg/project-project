@@ -345,6 +345,9 @@ const inkClass =
 export const hoverCardSurfaceClass =
   "rounded-[14px] bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)]"
 
+export const liftedSurfaceShadowClass =
+  "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]"
+
 // A card's content box: its natural width up to 24rem, 10px by 8px of
 // padding unless the card sets its own (p-1 around menu rows).
 const cardContentClass = "w-max max-w-[min(24rem,calc(100vw-16px))] px-2.5 py-2"
