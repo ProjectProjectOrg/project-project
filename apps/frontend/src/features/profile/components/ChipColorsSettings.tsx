@@ -53,10 +53,6 @@ const PREVIEW_TICKETS: ReadonlyArray<PreviewTicket> = [
       {
         label: m.profile_chip_colors_preview_tag_bug,
         color: TAG_DEFAULT_PALETTE[1]
-      },
-      {
-        label: m.profile_chip_colors_preview_tag_backend,
-        color: TAG_DEFAULT_PALETTE[7]
       }
     ],
     pr: { kind: "open", number: 128, checks: "failing" }
@@ -116,7 +112,10 @@ function ChipColorsPreview({ rich }: Readonly<{ rich: boolean }>) {
   return (
     <div aria-hidden inert className="p-3">
       <div
-        className={cn("rounded-xl bg-page p-1", listGridClassName)}
+        className={cn(
+          listGridClassName,
+          "grid-cols-[auto_auto_auto_auto_minmax(0,1fr)_auto_auto_auto] rounded-xl bg-page p-1"
+        )}
         style={{ "--ticket-key-width": "5ch" }}
       >
         {PREVIEW_TICKETS.map((ticket) => (
@@ -194,6 +193,6 @@ function PreviewPullRequestChip({
   return rich ? (
     <Badge tone={PULL_REQUEST_BADGE_TONES[pr.kind]}>{content}</Badge>
   ) : (
-    <Chip>{content}</Chip>
+    <Chip shape="count">{content}</Chip>
   )
 }

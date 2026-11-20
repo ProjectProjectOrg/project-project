@@ -283,7 +283,7 @@ function PullRequestChip({
             {...face}
           />
         ) : (
-          <Chip interaction="press" render={link} {...face} />
+          <Chip interaction="press" shape="count" render={link} {...face} />
         )
       }
     >
