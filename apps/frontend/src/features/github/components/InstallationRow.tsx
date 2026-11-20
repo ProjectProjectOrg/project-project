@@ -82,7 +82,6 @@ export function InstallationRow({
           {installation.accountLogin}
           <ExternalLink
             className="size-3 text-muted-foreground"
-
             aria-label={m.github_chip_open_on_github()}
           />
         </a>

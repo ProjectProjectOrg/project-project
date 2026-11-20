@@ -30,16 +30,16 @@ Use the token, through its Tailwind class, never a value:
 
 | Token | Light | Dark | For |
 | --- | --- | --- | --- |
-| `--background` | 0.955 | 0.145 | The frame: sidebar, rail, recessed boxes |
-| `--page` | 0.982 | 0.219 | What every page sits on |
-| `--card` | 1 | 0.205 | Cards, popups |
-| `--field` | 1 | 0.18 | Inputs and select triggers |
-| `--muted` | 0.945 | 0.269 | Wells and placeholders |
+| `--background` | 0.94 | 0.145 | The frame: sidebar, rail, recessed boxes |
+| `--page` | 0.968 | 0.219 | What every page sits on |
+| `--card` | 0.99 | 0.205 | Cards, popups |
+| `--field` | 0.988 | 0.18 | Inputs and select triggers |
+| `--muted` | 0.93 | 0.269 | Wells and placeholders |
 | `--foreground` | 0.145 | 0.985 | Text, the primary button |
-| `--muted-foreground` | 0.5 | 0.708 | Secondary text, icons at rest |
-| `--hover`, `--active` | 4%, 7% black | 6%, 12% white | Hover and pressed, over anything |
+| `--muted-foreground` | 0.48 | 0.708 | Secondary text, icons at rest |
+| `--hover`, `--active` | 4.5%, 7.9% black | 6%, 12% white | Hover and pressed, over anything |
 | `--field-hover`, `--field-focus` | 4.5%, 2.5% black | 6%, 3.5% white | Bordered fields and field triggers, hovered and focused |
-| `--tint` | 8% black | 14% white | The secondary button |
+| `--tint` | 9% black | 14% white | The secondary button |
 
 Lightness (OKLCH L) for the greys; all of them have zero chroma. The user's colours come from `TAG_COLOR_WHEEL` in `@pp/shared`; state colours from `--state-*`.
 
@@ -51,7 +51,7 @@ No brand hue. Buttons, inputs, rows, menus and the frame are greys, and the prim
 
 ### Three layers, steps on purpose
 
-Frame, page, then cards and fields: `0.955 → 0.982 → 1` in light, `0.145 → 0.219` (cards at `0.205`) in dark. The steps are small so the eye reads structure, not boxes. Both themes layer in the same order, so a layout that works in one works in the other.
+Frame, page, then cards and fields: `0.94 → 0.968 → 0.99` in light, `0.145 → 0.219` (cards at `0.205`) in dark. The steps are small so the eye reads structure, not boxes. Both themes layer in the same order, so a layout that works in one works in the other.
 
 ### States are overlays, not greys
 
