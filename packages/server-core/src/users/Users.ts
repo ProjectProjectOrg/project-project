@@ -1,5 +1,10 @@
 import { Db } from "@pp/db"
-import { defaultEditorPreference, UserId, type User } from "@pp/shared"
+import {
+  defaultChipColors,
+  defaultEditorPreference,
+  UserId,
+  type User
+} from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -98,7 +103,8 @@ const make = Effect.gen(function* () {
           },
           settings: {
             avatarSource: null,
-            editorPreference: defaultEditorPreference
+            editorPreference: defaultEditorPreference,
+            chipColors: defaultChipColors
           },
           personalEverhour: {
             connected: false,

@@ -11,6 +11,7 @@ import {
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
+import { ChipColorsSettings } from "@/features/profile/components/ChipColorsSettings"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { THEME_ITEMS, useTheme } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
@@ -37,7 +38,10 @@ export function Preferences() {
       contained
       onInitial={() => <SettingsSkeleton />}
       onSuccess={({ value }) => (
-        <EditorPreferenceRow preference={value.settings.editorPreference} />
+        <>
+          <EditorPreferenceRow preference={value.settings.editorPreference} />
+          <ChipColorsSettings selected={value.settings.chipColors} />
+        </>
       )}
     />
   )

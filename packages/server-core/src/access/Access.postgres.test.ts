@@ -33,7 +33,11 @@ const userFor = (id: string) =>
     createdAt: "2026-09-24T00:00:00Z",
     activeOrgSlug: null,
     personalGithub: { connected: false },
-    settings: { avatarSource: null, editorPreference: "github" },
+    settings: {
+      avatarSource: null,
+      editorPreference: "github",
+      chipColors: "flat"
+    },
     personalEverhour: {
       connected: false,
       everhourUserId: null,

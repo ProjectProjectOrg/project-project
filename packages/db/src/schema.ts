@@ -38,7 +38,7 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
-import { AvatarSource, EditorPreference } from "@pp/shared"
+import { AvatarSource, ChipColors, EditorPreference } from "@pp/shared"
 import type {
   ProjectImport,
   ReferenceKind,
@@ -698,6 +698,7 @@ export const userSettings = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     avatarSource: text("avatar_source").$type<AvatarSource>(),
     editorPreference: text("editor_preference").$type<EditorPreference>(),
+    chipColors: text("chip_colors").$type<ChipColors>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -713,6 +714,10 @@ export const userSettings = pgTable(
     check(
       "user_settings_editor_preference_check",
       sql`${table.editorPreference} in ${literalList(EditorPreference.literals)}`
+    ),
+    check(
+      "user_settings_chip_colors_check",
+      sql`${table.chipColors} in ${literalList(ChipColors.literals)}`
     )
   ]
 )

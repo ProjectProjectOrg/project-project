@@ -1054,7 +1054,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       createdAt: nativeCreatedAt,
       activeOrgSlug: orgSlug,
       personalGithub: { connected: false as const },
-      settings: { avatarSource: null, editorPreference: "github" as const },
+      settings: {
+        avatarSource: null,
+        editorPreference: "github" as const,
+        chipColors: "flat" as const
+      },
       personalEverhour: {
         connected: false as const,
         everhourUserId: null,

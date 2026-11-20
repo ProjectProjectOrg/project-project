@@ -1,5 +1,6 @@
 import type {
   AvatarSource,
+  ChipColors,
   EditorPreference,
   UpdateUserSettingsInput
 } from "@pp/shared"
@@ -32,6 +33,13 @@ export const signInProviders = query("publicAuth", "signInProviders", {
 export const currentUserId = Atom.make((get) => {
   const viewer = get(meAtom)
   return AsyncResult.isSuccess(viewer) ? viewer.value.id : undefined
+})
+
+export const richChipColors = Atom.make((get) => {
+  const viewer = get(meAtom)
+  return (
+    AsyncResult.isSuccess(viewer) && viewer.value.settings.chipColors === "rich"
+  )
 })
 
 export const sendMagicLink = Api.runtime.fn(
@@ -132,6 +140,11 @@ export const updateAvatarSource = settingsMutation(
 export const updateEditorPreference = settingsMutation(
   "updateEditorPreference",
   (editorPreference: EditorPreference) => ({ editorPreference })
+)
+
+export const updateChipColors = settingsMutation(
+  "updateChipColors",
+  (chipColors: ChipColors) => ({ chipColors })
 )
 
 export const setActiveOrganization = Api.runtime.fn(

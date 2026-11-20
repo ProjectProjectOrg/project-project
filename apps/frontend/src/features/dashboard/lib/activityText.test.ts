@@ -20,7 +20,11 @@ const user = (id: string, name: string) => ({
   createdAt: "2026-09-25T00:00:00Z",
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  settings: { avatarSource: null, editorPreference: "github" as const },
+  settings: {
+    avatarSource: null,
+    editorPreference: "github" as const,
+    chipColors: "flat" as const
+  },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

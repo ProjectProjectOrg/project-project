@@ -1,0 +1,2 @@
+ALTER TABLE "user_settings" ADD COLUMN "chip_colors" text;--> statement-breakpoint
+ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_chip_colors_check" CHECK ("chip_colors" in ('flat', 'rich'));

@@ -15,7 +15,9 @@ export const applySettingsPatch = (
     image: chosen === undefined ? user.image : chosen.image,
     settings: {
       avatarSource: patch.avatarSource ?? user.settings.avatarSource,
-      editorPreference: patch.editorPreference ?? user.settings.editorPreference
+      editorPreference:
+        patch.editorPreference ?? user.settings.editorPreference,
+      chipColors: patch.chipColors ?? user.settings.chipColors
     }
   } satisfies User
 }

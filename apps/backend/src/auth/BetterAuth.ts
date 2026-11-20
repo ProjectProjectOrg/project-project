@@ -21,6 +21,7 @@ import {
   UserInvitation,
   UserSettings,
   Validation,
+  defaultChipColors,
   defaultEditorPreference,
   type OrgAssignableRole,
   type UpdateUserSettingsInput,
@@ -321,13 +322,18 @@ export const BetterAuthLive = Layer.effect(
     ) {
       const row = yield* attempt(() =>
         db.query.userSettings.findFirst({
-          columns: { avatarSource: true, editorPreference: true },
+          columns: {
+            avatarSource: true,
+            editorPreference: true,
+            chipColors: true
+          },
           where: { userId }
         })
       )
       return yield* decodeUserSettings({
         avatarSource: row?.avatarSource ?? null,
-        editorPreference: row?.editorPreference ?? defaultEditorPreference
+        editorPreference: row?.editorPreference ?? defaultEditorPreference,
+        chipColors: row?.chipColors ?? defaultChipColors
       }).pipe(Effect.orDie)
     })
 
@@ -401,7 +407,10 @@ export const BetterAuthLive = Layer.effect(
           : { avatarSource: input.avatarSource }),
         ...(input.editorPreference === undefined
           ? {}
-          : { editorPreference: input.editorPreference })
+          : { editorPreference: input.editorPreference }),
+        ...(input.chipColors === undefined
+          ? {}
+          : { chipColors: input.chipColors })
       }
       const updatedAt = DateTime.toDate(yield* DateTime.now)
       yield* attempt(() =>

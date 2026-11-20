@@ -401,6 +401,7 @@ Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 
 - **Style:** colored icon glyph (16×16) at the user-assigned hue from the tag wheel, paired with a sentence-case label in `text-foreground`. No filled pill background, no border in the chip's resting state — the icon's color carries the signal.
 - **Density:** chips sit at `gap-1.5` from their label; never stacked four-high on a row.
+- **Chip colors:** a user setting (Preferences, `chipColors`). Flat, the default: a tag is a label chip with a dot in its hue, a pull request a data chip whose state icon carries the colour. Rich: both are badges filled with their hue (`TagChip`, the `Badge` tone of the pull request state).
 
 ### Navigation (Sidebar, Settings Rail)
 

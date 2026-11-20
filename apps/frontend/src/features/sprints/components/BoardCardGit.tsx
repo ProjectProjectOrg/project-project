@@ -8,10 +8,13 @@ import type {
 import { Badge } from "@pp/ui/badge"
 import { Chip } from "@pp/ui/chip"
 import { AlertTriangle, GitBranch } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as Result from "effect/reactivity/AsyncResult"
+import type { MouseEvent } from "react"
 
+import { richChipColors } from "@/features/auth/atoms/auth"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
@@ -255,29 +258,43 @@ function PullRequestChip({
   const Icon = PULL_REQUEST_LOOKS[kind].icon
   const checks = pr.tag === "pr_open" ? reportedChecks(pr.checks) : null
   const title = pr.tag === "pr_pending" ? null : pr.title
+  const rich = useAtomValue(richChipColors)
+  const link = (
+    <a
+      href={pr.url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={title === null ? `#${pr.number}` : `#${pr.number} ${title}`}
+    />
+  )
+  const face = {
+    draggable: false,
+    onClick: (event: MouseEvent) => event.stopPropagation(),
+    "data-pending": pulse || undefined
+  }
   return (
     <TicketPreviewTrigger
       preview={TicketPreview.pullRequest({ pr, ticketId, repo: repoLabel })}
       render={
-        <Badge
-          tone={PULL_REQUEST_BADGE_TONES[kind]}
-          render={
-            <a
-              href={pr.url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={
-                title === null ? `#${pr.number}` : `#${pr.number} ${title}`
-              }
-            />
-          }
-          draggable={false}
-          onClick={(event) => event.stopPropagation()}
-          data-pending={pulse || undefined}
-        />
+        rich ? (
+          <Badge
+            tone={PULL_REQUEST_BADGE_TONES[kind]}
+            render={link}
+            {...face}
+          />
+        ) : (
+          <Chip interaction="press" shape="count" render={link} {...face} />
+        )
       }
     >
-      <Icon strokeWidth={1.75} />
+      <Icon
+        className={
+          rich
+            ? undefined
+            : cn("size-3 shrink-0", PULL_REQUEST_LOOKS[kind].tone)
+        }
+        strokeWidth={1.75}
+      />
       <span className="tabular-nums">#{pr.number}</span>
       {needsAttention(checks) && <ChecksDot checks={checks} />}
     </TicketPreviewTrigger>

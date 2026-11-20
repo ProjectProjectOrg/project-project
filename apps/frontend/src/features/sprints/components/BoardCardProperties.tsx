@@ -24,6 +24,7 @@ import {
   type ReactNode
 } from "react"
 
+import { richChipColors } from "@/features/auth/atoms/auth"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagChip } from "@/features/tags/components/TagChip"
@@ -227,6 +228,7 @@ export function TagChips({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
+  const rich = useAtomValue(richChipColors)
   if (names.length === 0)
     return placeholder !== undefined && onPatch ? (
       <TagChipMenu applied={names} onPatch={onPatch}>
@@ -273,19 +275,30 @@ export function TagChips({
   return (
     <>
       {shown.map((name) =>
-        chip(
-          name,
-          TicketPreview.tag({ name }),
-          <span className="truncate">{name}</span>,
-          undefined,
-          <TagChip
-            color={colors.get(name)}
-            render={<button type="button" />}
-            className={
-              collapse ? "hidden min-w-0 @3xl/list:inline-flex" : "min-w-0"
-            }
-          />
-        )
+        rich
+          ? chip(
+              name,
+              TicketPreview.tag({ name }),
+              <span className="truncate">{name}</span>,
+              undefined,
+              <TagChip
+                color={colors.get(name)}
+                render={<button type="button" />}
+                className={
+                  collapse ? "hidden min-w-0 @3xl/list:inline-flex" : "min-w-0"
+                }
+              />
+            )
+          : chip(
+              name,
+              TicketPreview.tag({ name }),
+              <>
+                <ChipDots colors={[colors.get(name)]} />
+                <span className="truncate">{name}</span>
+              </>,
+              undefined,
+              labelChip(collapse ? "wide" : "always")
+            )
       )}
       {hidden.length > 0 &&
         chip(

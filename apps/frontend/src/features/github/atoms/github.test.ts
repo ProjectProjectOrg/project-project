@@ -110,7 +110,11 @@ const user = {
   createdAt: "2026-09-15T10:00:00.000Z",
   activeOrgSlug: "acme",
   personalGithub: { connected: true },
-  settings: { avatarSource: null, editorPreference: "github" },
+  settings: {
+    avatarSource: null,
+    editorPreference: "github",
+    chipColors: "flat"
+  },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
