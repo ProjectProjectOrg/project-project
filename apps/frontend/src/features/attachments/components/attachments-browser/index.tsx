@@ -13,6 +13,7 @@ import {
   EmptyTitle
 } from "@pp/ui/empty"
 import { CloudOff, FilterX, FolderOpen } from "@pp/ui/icons"
+import { Reveal } from "@pp/ui/reveal"
 import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -360,14 +361,11 @@ function DeleteCell({
 
   return (
     <ConfirmButton.Root className="justify-end">
-      <ConfirmButton.Trigger
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-      >
-        {m.attachments_delete_button()}
-      </ConfirmButton.Trigger>
+      <Reveal>
+        <ConfirmButton.Trigger type="button" variant="ghost" size="sm">
+          {m.attachments_delete_button()}
+        </ConfirmButton.Trigger>
+      </Reveal>
       <ConfirmButton.Confirm>
         <DeleteConfirm
           prompt={deletePrompt({

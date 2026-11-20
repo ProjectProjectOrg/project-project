@@ -1,5 +1,4 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
-import { Button } from "@pp/ui/button"
 import { ChevronRight, Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
@@ -79,14 +78,15 @@ function ChildrenSection({
       {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- lines the heading up with the ticket's boxes */}
       <div className="flex items-center gap-1 pl-[calc(var(--ticket-box-offset)-0.5rem)]">
         <h2>
-          <Button
+          {/* The section's heading, so a plain button in the title's type
+              with the ghost button's hover, not a restyled Button. */}
+          <button
             type="button"
-            variant="ghost"
             aria-expanded={expanded}
             onClick={() =>
               empty ? setAdding((current) => !current) : setOpen(!open)
             }
-            className="h-7 gap-1.5 px-2 text-title-compact/5 motion-safe:active:scale-100"
+            className="group focus-ring inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-title-compact/5 text-muted-foreground transition-colors outline-none [corner-shape:var(--button-corner)] hover:bg-hover hover:text-foreground"
           >
             {empty && (
               <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -100,7 +100,7 @@ function ChildrenSection({
                 aria-hidden
               />
             )}
-          </Button>
+          </button>
         </h2>
         {editable && !empty && (
           <AddChildTicketButton

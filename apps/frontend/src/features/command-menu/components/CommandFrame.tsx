@@ -216,7 +216,7 @@ export function CommandFrame({
       style={{ "--row-key-width": keyWidth(visible) }}
       stretch
       className={cn(
-        "flex min-h-0 flex-col [&_.scroll-divider]:border-t-0",
+        "flex min-h-0 flex-col",
         fixedHeight ? "h-[min(440px,76dvh)] flex-none" : "flex-1"
       )}
       items={visible}
@@ -240,11 +240,6 @@ export function CommandFrame({
           placeholder={placeholder}
           readOnly={description !== undefined}
           value={description ?? search}
-          className={
-            description === undefined
-              ? undefined
-              : "cursor-default text-muted-foreground caret-transparent"
-          }
           onChange={(event) => {
             const next = event.target.value
             setSearch(next)
@@ -332,6 +327,7 @@ export function CommandFrame({
           )}
         >
           <CommandMenuList
+            divider={false}
             renderItem={(item) => {
               if (renderItem) return renderItem(item, numbers.get(item.value))
               const decoration = decorations.get(item.value)

@@ -136,9 +136,7 @@ function TicketOptions({
           </DropdownMenuItem>
         ))}
       </DropdownMenuList>
-      <DropdownMenuEmpty
-        className={Result.isInitial(result) ? "animate-pulse" : undefined}
-      >
+      <DropdownMenuEmpty data-pending={Result.isInitial(result) || undefined}>
         {emptyMessage}
       </DropdownMenuEmpty>
     </>

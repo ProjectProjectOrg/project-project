@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
-import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
@@ -30,6 +29,7 @@ import {
   type TagEditorRequest
 } from "@/features/tags/atoms/tags"
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
+import { TagChip } from "@/features/tags/components/TagChip"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
@@ -39,7 +39,6 @@ type Props = {
   canManageTags: boolean
 }
 
-const NEUTRAL = "#94a3b8"
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
@@ -168,7 +167,6 @@ export function TagEditor({ ticket, canManageTags }: Props) {
               variant="ghost"
               tone={displayed.length === 0 ? "muted" : "strong"}
               size={displayed.length === 0 ? undefined : "icon-sm"}
-              className="motion-safe:transition-[background-color,color,scale]"
               aria-label={m.tags_add_button()}
             >
               <Plus className="size-3.5" strokeWidth={1.75} />
@@ -244,14 +242,6 @@ function AppliedTagChip({
     onDeleteError(mutationErrorText(Result.fromExit(exit)))
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
   }
-  const hex = color ?? NEUTRAL
-  // The tag's own hue through the badge's clean-colour recipe, like TagChip.
-  const badgeProps = {
-    "data-slot": "tag-chip",
-    tone: null,
-    className: cn("gap-1.5", waiting && "animate-pulse"),
-    style: { "--badge-tone": hex }
-  } as const
   const removeButton = (
     <button
       type="button"
@@ -268,15 +258,15 @@ function AppliedTagChip({
 
   if (!canManage || !tag) {
     return (
-      <Badge {...badgeProps}>
+      <TagChip color={color} data-pending={waiting || undefined}>
         <TextSwap>{name}</TextSwap>
         {removeButton}
-      </Badge>
+      </TagChip>
     )
   }
 
   return (
-    <Badge {...badgeProps}>
+    <TagChip color={color} data-pending={waiting || undefined}>
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
@@ -290,6 +280,6 @@ function AppliedTagChip({
         </button>
       </TagAdminPopover>
       {removeButton}
-    </Badge>
+    </TagChip>
   )
 }

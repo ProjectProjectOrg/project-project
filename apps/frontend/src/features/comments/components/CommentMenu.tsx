@@ -25,6 +25,7 @@ import {
   Plus,
   Trash2
 } from "@pp/ui/icons"
+import { Reveal } from "@pp/ui/reveal"
 import type * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { Ref } from "react"
@@ -189,20 +190,21 @@ export function CommentMenuButton({
 }: CommentMenuProps & Readonly<{ ref: Ref<HTMLButtonElement> }>) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            ref={ref}
-            type="button"
-            variant="ghost"
-            size="square-7"
-            aria-label={m.comments_menu_aria_label()}
-            className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 data-popup-open:opacity-100 pointer-coarse:opacity-100"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </Button>
-        }
-      />
+      <Reveal>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              ref={ref}
+              type="button"
+              variant="ghost"
+              size="square-7"
+              aria-label={m.comments_menu_aria_label()}
+            >
+              <MoreHorizontal className="size-4" strokeWidth={1.75} />
+            </Button>
+          }
+        />
+      </Reveal>
       <DropdownMenuContent align="end" sideOffset={6} className="w-52">
         <CommentMenuItems {...menu} />
       </DropdownMenuContent>

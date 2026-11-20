@@ -2,7 +2,6 @@ import { STATUS_DESCRIPTION_MAX_LENGTH } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { Input } from "@pp/ui/input"
-import { cn } from "@pp/ui/lib/utils"
 import { useState, type KeyboardEvent } from "react"
 
 import { StatusIconPicker } from "@/features/statuses/components/StatusIconPicker"
@@ -13,8 +12,6 @@ import { m } from "@/paraglide/messages"
 import { statusEditorFormOpts, type StatusEditorValues } from "./opts"
 
 export type { StatusEditorValues } from "./opts"
-
-const FIELD = "h-8 rounded-lg focus-visible:border-ring focus-visible:ring-0"
 
 type Props = Readonly<{
   initial: StatusEditorValues
@@ -98,7 +95,8 @@ export function StatusEditorForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               onKeyDown={cancelOnEscape}
-              className={cn("w-56 shrink-0", FIELD)}
+              size="md"
+              className="w-56 shrink-0"
             />
           )}
         </form.Field>
@@ -119,7 +117,8 @@ export function StatusEditorForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               onKeyDown={cancelOnEscape}
-              className={cn("min-w-0 flex-1", FIELD)}
+              size="md"
+              className="min-w-0 flex-1"
             />
           )}
         </form.Field>

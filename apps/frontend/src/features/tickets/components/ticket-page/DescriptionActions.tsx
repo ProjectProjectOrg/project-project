@@ -51,16 +51,11 @@ export function DescriptionActions({
         >
           {editing ? (
             <Button
-              variant="secondary"
+              variant="tertiary"
+              tone={status === "failed" ? "error" : undefined}
               aria-keyshortcuts="Escape"
               onClick={onDone}
               title={status === "failed" ? m.editor_save_failed() : undefined}
-              className={cn(
-                "rounded-full pl-3",
-                status === "failed"
-                  ? "bg-destructive-light text-destructive hover:bg-destructive-light"
-                  : "bg-surface-2 tint-layer hover:bg-surface-2 hover:tint-hover-layer"
-              )}
             >
               <SaveDot status={status} />
               <MorphLabel>
@@ -75,15 +70,14 @@ export function DescriptionActions({
             </Button>
           ) : (
             <Button
-              variant="ghost"
+              variant="tertiary"
+              leadingIcon={Pencil}
               aria-label={m.tickets_description_edit()}
               aria-keyshortcuts={
                 appHotkeys["tickets.edit-description"].defaultHotkey
               }
               onClick={onEdit}
-              className="rounded-full bg-page pl-3 hover:bg-page hover:hover-layer"
             >
-              <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}
               <KbdShortcut
                 keys={appHotkeys["tickets.edit-description"].defaultHotkey}

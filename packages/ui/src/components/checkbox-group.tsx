@@ -134,7 +134,7 @@ export function CheckboxGroup({
         {...props}
       >
         <SelectionBackgrounds blocks={blocks} />
-        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        <FluidHoverHighlight hover={hover} />
         <AnimatePresence>
           {focusRect && (
             <motion.div

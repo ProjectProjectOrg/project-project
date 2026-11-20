@@ -2,7 +2,6 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Bell } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 
@@ -64,7 +63,8 @@ export function SubscribeToggle({
                 size="compact"
                 aria-pressed={subscribers.subscribed}
                 onClick={() => subscribe(!subscribers.subscribed)}
-                className={cn(waiting && "animate-pulse", className)}
+                data-pending={waiting || undefined}
+                className={className}
               >
                 <Bell className="size-3.5" strokeWidth={1.75} />
                 <TextSwap>

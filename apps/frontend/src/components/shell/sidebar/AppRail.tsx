@@ -113,7 +113,7 @@ function ProjectTile({
       active={inProject?.slug === project.slug}
       // The item takes the tile's own shape, so the tile looks the same
       // here as everywhere else.
-      className="corner-squircle"
+      shape="tile"
       style={{ borderRadius: projectIconRadius(RAIL_TILE) }}
       render={
         settingsSection === undefined ? (

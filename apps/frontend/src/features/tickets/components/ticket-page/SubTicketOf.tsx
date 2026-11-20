@@ -55,7 +55,8 @@ export function SubTicketOf({
         render={
           <Button
             variant="ghost"
-            className="h-6 min-w-0 gap-1 px-1.5"
+            size="compact"
+            className="min-w-0"
             render={
               <Link
                 to="/orgs/$orgSlug/projects/$slug/tickets/$id"

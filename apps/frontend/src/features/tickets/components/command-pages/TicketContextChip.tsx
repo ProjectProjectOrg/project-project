@@ -17,7 +17,7 @@ export function TicketContextChip({
   )
   const title = Result.isSuccess(detail) ? detail.value.title : null
   return (
-    <CommandMenuChip className="max-w-full min-w-0 gap-1.5 overflow-hidden pl-2 text-body">
+    <CommandMenuChip className="max-w-full min-w-0 overflow-hidden">
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
           {ticket.ticketId}
@@ -28,11 +28,7 @@ export function TicketContextChip({
           </span>
         )}
       </span>
-      <CommandMenuShortcut
-        keyLabels={keyLabels()}
-        keys="Backspace"
-        className="ml-0 self-stretch *:h-full *:rounded-none *:px-1.5"
-      />
+      <CommandMenuShortcut keyLabels={keyLabels()} keys="Backspace" />
     </CommandMenuChip>
   )
 }

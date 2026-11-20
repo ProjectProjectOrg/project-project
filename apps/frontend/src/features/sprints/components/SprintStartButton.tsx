@@ -1,6 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { ButtonGroup } from "@pp/ui/button-group"
 import { DatePicker } from "@pp/ui/date-picker"
 import { ChevronDown, Play } from "@pp/ui/icons"
 import { useState } from "react"
@@ -22,14 +23,13 @@ export function SprintStartButton({ sprint }: { sprint: Group }) {
   if (sprintState(sprint) !== "planned") return null
   const today = nowDate()
   return (
-    <div className="flex items-center">
+    <ButtonGroup>
       <Button
         type="button"
         variant="tertiary"
         size="sm"
         leadingIcon={Play}
         onClick={() => update(startSprintPatch(sprint, nowDate()))}
-        className="rounded-r-none"
       >
         {m.sprints_start_button()}
       </Button>
@@ -58,12 +58,11 @@ export function SprintStartButton({ sprint }: { sprint: Group }) {
             variant="tertiary"
             size="square-7"
             aria-label={m.sprints_schedule_button()}
-            className="-ml-px rounded-l-none"
           >
             <ChevronDown className="size-3.5" strokeWidth={1.75} />
           </Button>
         }
       />
-    </div>
+    </ButtonGroup>
   )
 }

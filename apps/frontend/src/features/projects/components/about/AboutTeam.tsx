@@ -45,8 +45,8 @@ export function AboutTeam({
       {hidden > 0 || pendingMembers.length > 0 ? (
         <Button
           variant="ghost"
-          size="sm"
-          className="mt-1 -ml-1.5 w-fit max-w-full justify-start gap-2 px-1.5"
+          size="inline"
+          className="mt-1 -ml-1.5 w-fit max-w-full justify-start"
           render={<Link {...team} />}
         >
           {[

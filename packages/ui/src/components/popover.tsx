@@ -129,10 +129,24 @@ function PopoverContent({
   )
 }
 
-function PopoverTitle(
-  props: React.ComponentProps<typeof PopoverPrimitive.Title>
-) {
-  return <PopoverPrimitive.Title data-slot="popover-title" {...props} />
+// Unstyled by default, so it takes the header it sits in; `subtitle` is a
+// popover's own heading.
+function PopoverTitle({
+  size = "inherit",
+  className,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Title> &
+  Readonly<{ size?: "inherit" | "subtitle" }>) {
+  return (
+    <PopoverPrimitive.Title
+      data-slot="popover-title"
+      className={cn(
+        size === "subtitle" && "text-subtitle font-semibold",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
 function PopoverClose(

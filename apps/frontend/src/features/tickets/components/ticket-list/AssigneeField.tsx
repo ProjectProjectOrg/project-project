@@ -16,6 +16,7 @@ import {
 import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
+import { Reveal } from "@pp/ui/reveal"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as Match from "effect/Match"
 import type { ReactNode } from "react"
@@ -106,14 +107,6 @@ function TriggerVisual({
   )
 }
 
-// Unassigned, the outlined button waits for the row's (or card's) hover,
-// focus or open menu, so empty tickets don't fill the column with
-// placeholders.
-const rowRevealClass =
-  "opacity-0 motion-safe:duration-(--highlight-glide) in-data-[row-selected]:opacity-100 not-in-data-keyboard-navigation:row-hover:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 in-data-keyboard-navigation:duration-0!"
-const cardRevealClass =
-  "opacity-0 not-in-data-keyboard-navigation:group-hover/card:opacity-100 group-has-[:focus-visible]/card:opacity-100 group-has-[[data-popup-open]]/card:opacity-100 in-data-keyboard-navigation:duration-0!"
-
 function Trigger({
   variant,
   empty,
@@ -152,7 +145,10 @@ function Trigger({
       </ShortcutTooltip>
     )
   }
-  return (
+  // Unassigned, the outlined button waits for the row's (or card's) hover,
+  // focus or open menu, so empty tickets don't fill the column with
+  // placeholders.
+  const trigger = (
     <ShortcutTooltip
       hotkey={appHotkeys["tickets.assign"]}
       label={value}
@@ -162,21 +158,13 @@ function Trigger({
         render={
           <Button
             type="button"
-            variant="ghost"
+            variant={empty ? "outline" : "ghost"}
             tone={empty ? "muted" : "strong"}
             size="square-6"
             onClick={(e) => e.stopPropagation()}
             aria-label={label}
             // Square around one face, as wide as a stack of them.
-            className={cn(
-              "w-auto min-w-6",
-              empty &&
-                cn(
-                  "shadow-hairline-inset",
-                  variant === "row" ? rowRevealClass : cardRevealClass
-                ),
-              className
-            )}
+            className={cn("w-auto min-w-6", className)}
           >
             {children}
           </Button>
@@ -184,6 +172,7 @@ function Trigger({
       />
     </ShortcutTooltip>
   )
+  return empty ? <Reveal>{trigger}</Reveal> : trigger
 }
 
 export function AssignMeItem({

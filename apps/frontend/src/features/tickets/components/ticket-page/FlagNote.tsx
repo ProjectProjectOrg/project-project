@@ -32,7 +32,7 @@ export function FlagNote({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {flag.reason !== undefined && (
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
-            <Markdown size="compact" blocks="flat" className="text-body">
+            <Markdown size="compact" blocks="flat">
               {flag.reason}
             </Markdown>
           </MentionScopeProvider>

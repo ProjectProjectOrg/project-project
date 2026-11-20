@@ -167,10 +167,11 @@ function UnestimatedChip({
                 event.stopPropagation()
                 onShow()
               }}
-              className="text-state-warning tabular-nums hover:text-state-warning"
+              tone="warning"
+              className="tabular-nums"
             />
           ) : (
-            <Chip className="text-state-warning tabular-nums" />
+            <Chip tone="warning" className="tabular-nums" />
           )
         }
       >

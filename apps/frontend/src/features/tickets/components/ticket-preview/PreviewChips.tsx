@@ -11,11 +11,8 @@ import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-import {
-  RELATION_PREVIEW_LABELS,
-  TicketPreview,
-  TicketPreviewTrigger
-} from "./TicketPreview"
+import { RELATION_PREVIEW_LABELS } from "./TicketListPreviews"
+import { TicketPreview, TicketPreviewTrigger } from "./TicketPreview"
 
 type RelationCounts = Pick<
   Ticket,
@@ -25,9 +22,6 @@ type RelationCounts = Pick<
   | "relatedCount"
   | "duplicateCount"
 >
-
-const warningTone =
-  "text-state-warning hover:text-state-warning data-[popup-open]:text-state-warning data-[card-open]:text-state-warning"
 
 const RELATION_CHIPS = [
   {
@@ -70,11 +64,8 @@ export function RelationChips({
           <Chip
             interaction="hover"
             shape="count"
-            className={cn(
-              "relative z-20",
-              "warning" in chip && warningTone,
-              className
-            )}
+            tone={"warning" in chip ? "warning" : undefined}
+            className={cn("relative z-20", className)}
           />
         }
       >
@@ -117,7 +108,7 @@ export function SubTicketsChip({
         />
       }
     >
-      <ProgressCount done={done} total={total} className="text-inherit" />
+      <ProgressCount done={done} total={total} tone="inherit" />
     </TicketPreviewTrigger>
   )
 }
@@ -135,10 +126,8 @@ export function FlagChip({
         <Chip
           interaction="hover"
           shape="icon"
-          className={cn(
-            "relative z-20 text-state-danger hover:text-state-danger data-[card-open]:text-state-danger data-[popup-open]:text-state-danger",
-            className
-          )}
+          tone="danger"
+          className={cn("relative z-20", className)}
         />
       }
     >

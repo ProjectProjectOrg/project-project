@@ -46,6 +46,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@pp/ui/hover-card
 | | `align` | `"start" \| "center" \| "end"` | `"start"` |
 | | `sideOffset` | `number` | `6` |
 | | `className` | width and padding; `pointer-events-none` for a card that only shows | `px-2.5 py-2` |
+| `HoverCardTitle` | `children` | the card's title, two lines at most | |
+| `HoverCardFooter` | `children` | the last row under a hairline: an outcome or an action. It bleeds out of a `p-3` card | |
 
 `closeHoverCard()` closes it at once, for a click on a row inside. A popover that opens on hover and only shows something (the ticket peek on a row's title, an image in an attachment chip) takes the same skin with `<PopoverContent surface="hover">`.
 
@@ -69,7 +71,11 @@ It replaced Base UI's Preview Card and keeps what that gave: it opens on hover a
 
 ### One family of hovers
 
-It wears the tooltip's skin: the raised fill (`--tooltip`: white in light, a lifted grey in dark), the hairline and top light (`--tooltip-edge`), 14px squircle corners and no shadow. Opening and closing match the tooltip too: a fade and a scale from 96% over 160ms ease-out. Menus and click-opened popovers wear the same skin (`popupSurfaceClass`), so everything that floats is one family; a hover card differs only in its smaller corners and in opening on hover.
+It wears the tooltip's skin: the raised fill (`--tooltip`: white in light, a lifted grey in dark), the hairline and top light (`--tooltip-edge`), 14px squircle corners and no shadow. Opening and closing match the tooltip too: a fade and a scale from 96%, 160ms in and 120ms out, ease-out. Menus and click-opened popovers wear the same skin (`popupSurfaceClass`), so everything that floats is one family; a hover card differs only in its smaller corners and in opening on hover.
+
+### A record: title, then footer
+
+A card that reads like a record (a pull request, a tag) pads 12px (`p-3`), leads with `HoverCardTitle` and ends with `HoverCardFooter`: one row under a hairline, out to the card's edges, for the outcome (checks failing, merged two days ago) or the one action (filter by assignee). Don't hand-draw the hairline.
 
 ### Padding follows the content
 

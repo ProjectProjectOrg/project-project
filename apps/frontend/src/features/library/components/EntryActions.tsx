@@ -29,7 +29,7 @@ export function DeleteEntryTrigger({
       type="button"
       variant="tertiary"
       size="sm"
-      className="text-destructive hover:text-destructive"
+      tone="destructive"
       {...props}
     >
       {label}
@@ -52,7 +52,7 @@ export function DeleteEntryConfirm({
         type="button"
         variant="tertiary"
         size="sm"
-        className="text-destructive hover:text-destructive"
+        tone="destructive"
       >
         {label}
       </ConfirmButton.Trigger>

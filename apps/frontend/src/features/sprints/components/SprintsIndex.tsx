@@ -274,7 +274,7 @@ function ActiveProgress({ sprint }: Readonly<{ sprint: Group }>) {
         done={finished}
         total={total}
         label={m.sprints_overview_progress_label({ done: finished, total })}
-        className="text-inherit"
+        tone="inherit"
       />
     </Chip>
   )

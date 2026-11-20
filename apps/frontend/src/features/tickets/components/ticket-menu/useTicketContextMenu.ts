@@ -2,6 +2,7 @@ import {
   forwardThroughMenuBackdrop,
   isMenuBackdrop
 } from "@pp/ui/lib/menuBackdrop"
+import { tookOverFromHover } from "@pp/ui/tooltip"
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
 
 export type Anchor = Readonly<{ getBoundingClientRect: () => DOMRect }>
@@ -62,7 +63,7 @@ export function useTicketContextMenu() {
   const showAt = (nextAnchor: Anchor) => {
     const switching = openMenu.current !== null && openMenu.current !== self
     if (switching) openMenu.current?.closeInstantly()
-    if (!open) setInstant(switching)
+    if (!open) setInstant(switching || tookOverFromHover())
     setAnchor(nextAnchor)
     setOpen(true)
   }

@@ -8,7 +8,6 @@ import {
   type TypeKey
 } from "@pp/shared"
 import { Building2, Folder } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { Switch } from "@pp/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Link } from "@tanstack/react-router"
@@ -313,7 +312,7 @@ function UseSwitch({
               checked={on}
               aria-label={label}
               onCheckedChange={onChange}
-              className={cn(waiting && "animate-pulse")}
+              data-pending={waiting || undefined}
             />
           }
         />

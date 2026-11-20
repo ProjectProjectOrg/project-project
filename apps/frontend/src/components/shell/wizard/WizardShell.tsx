@@ -85,7 +85,7 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
                     type="button"
                     variant="ghost"
                     size="step"
-                    className="w-full justify-start rounded-xl text-left text-muted-foreground hover:text-foreground"
+                    className="w-full justify-start text-left"
                     onClick={() => navigation.onNavigate(target)}
                   >
                     {content}

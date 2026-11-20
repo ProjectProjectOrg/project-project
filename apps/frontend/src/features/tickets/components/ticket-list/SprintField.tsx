@@ -111,11 +111,8 @@ export function SprintField({
                   ? m.tickets_sprint_chip_aria({ name: membership.name })
                   : placeholder
             }
-            className={cn(
-              "max-w-[14ch] gap-1",
-              failed && "text-destructive hover:text-destructive",
-              !membership && "text-muted-foreground"
-            )}
+            tone={failed ? "error" : undefined}
+            className="max-w-[14ch]"
           >
             {membership ? (
               <SprintStateIcon sprint={membership} size="xs" />
@@ -255,12 +252,12 @@ export function SprintBadgeTrigger({
           <Button
             type="button"
             variant="ghost"
-            tone={current ? "strong" : "muted"}
+            tone={failed ? "error" : current ? "strong" : "muted"}
             onClick={(e) => e.stopPropagation()}
             aria-label={
               failed ? label : m.tickets_sprint_chip_aria({ name: label })
             }
-            className={cn(failed && "text-destructive", className)}
+            className={className}
           >
             <TextSwap
               className="max-w-[14ch] gap-1.5"

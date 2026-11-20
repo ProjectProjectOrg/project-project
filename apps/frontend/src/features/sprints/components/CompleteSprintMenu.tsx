@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { ChevronDown, Inbox, Plus, Trophy } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState } from "react"
 
@@ -33,7 +32,6 @@ import {
   completeSprint,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { sprintEnded } from "@/features/sprints/lib/sprintDates"
 import { m } from "@/paraglide/messages"
 
 import { NewSprintPopover } from "./NewSprintPopover"
@@ -168,10 +166,6 @@ export function CompleteSprintButton(props: SprintPair) {
     ...props,
     onNew: () => setCreating(true)
   })
-  const className = cn(
-    sprintEnded(props.sprint) &&
-      "border-state-warning/50 text-state-warning hover:text-state-warning"
-  )
   if (action.unfinished === 0) {
     return (
       <Button
@@ -179,7 +173,6 @@ export function CompleteSprintButton(props: SprintPair) {
         variant="tertiary"
         size="sm"
         leadingIcon={Trophy}
-        className={className}
         onClick={() => action.completeTo({ kind: "backlog" })}
       >
         {m.sprints_complete_button()}
@@ -197,7 +190,6 @@ export function CompleteSprintButton(props: SprintPair) {
               variant="tertiary"
               size="sm"
               leadingIcon={Trophy}
-              className={className}
               trailingIcon={ChevronDown}
             >
               {m.sprints_complete_button()}

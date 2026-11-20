@@ -93,7 +93,7 @@ function PinRowView({
         }
         label={ticket.title}
         meta={<span className="text-micro tabular-nums">{ticket.id}</span>}
-        className={ticket.archivedAt === null ? undefined : "opacity-60"}
+        dimmed={ticket.archivedAt !== null}
         action={action}
         render={
           <Link

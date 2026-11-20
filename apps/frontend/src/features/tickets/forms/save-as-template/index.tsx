@@ -4,7 +4,6 @@ import { Button } from "@pp/ui/button"
 import { Checkbox } from "@pp/ui/checkbox"
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { Input } from "@pp/ui/input"
-import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Exit from "effect/Exit"
 import { useId, useMemo, useState } from "react"
@@ -208,7 +207,8 @@ export function SaveAsTemplateForm({
         type="submit"
         size="sm"
         disabled={state.waiting}
-        className={cn("self-end", state.waiting && "animate-pulse")}
+        data-pending={state.waiting || undefined}
+        className="self-end"
       >
         {m.templates_save_as_submit()}
       </Button>

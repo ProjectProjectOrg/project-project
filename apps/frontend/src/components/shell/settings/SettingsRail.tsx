@@ -42,7 +42,7 @@ export function SettingsRailNav({
           onClick={hover.handlers.onClick}
           className="relative flex flex-col gap-5"
         >
-          <FluidHoverHighlight hover={hover} className="rounded-lg" />
+          <FluidHoverHighlight hover={hover} />
           {children}
         </div>
       </nav>

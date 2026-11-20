@@ -170,7 +170,7 @@ function Editor({
           size="square-7"
           onClick={() => openConfirm()}
           aria-label={m.tags_delete_button()}
-          className="not-disabled:hover:text-destructive"
+          tone="destructive"
         >
           <Trash2 className="size-3.5" strokeWidth={1.75} />
         </Button>

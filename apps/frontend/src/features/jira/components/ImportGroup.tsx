@@ -40,7 +40,7 @@ export function ImportGroup({
         onClick={hover.handlers.onClick}
         className="relative"
       >
-        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        <FluidHoverHighlight hover={hover} />
         <ul className="flex flex-col">
           {imports.map((summary, index) => (
             <ImportRow

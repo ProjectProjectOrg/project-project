@@ -65,10 +65,12 @@ export function TicketCreatorShell({
     >
       <InputGroup
         focused={expanded}
+        /* oxlint-disable shadcn/no-restyle -- the field's start eases in as the type chip slides in; a one-off motion */
         className={cn(
           "transition-[padding] duration-200 ease-out",
           expanded && "pl-1.25"
         )}
+        /* oxlint-enable shadcn/no-restyle */
       >
         {/* One slot for every leading chip, 4px apart, so they read as a
             pair and the field's 8px gap only falls before the title. */}

@@ -48,8 +48,8 @@ function GoToRow({
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className="w-full justify-start gap-2 px-1.5"
+      size="inline"
+      className="w-full justify-start"
       render={link}
     >
       <span className="flex w-5 shrink-0">

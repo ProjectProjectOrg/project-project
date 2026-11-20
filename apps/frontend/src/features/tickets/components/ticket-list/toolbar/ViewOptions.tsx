@@ -12,6 +12,7 @@ import {
 } from "@pp/ui/popover"
 import { Switch } from "@pp/ui/switch"
 import { TextSwap } from "@pp/ui/text-swap"
+import { ToolbarButton } from "@pp/ui/toolbar-button"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState, type ComponentProps } from "react"
 
@@ -32,7 +33,7 @@ import { m } from "@/paraglide/messages"
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
 import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
-import { OptionPicker, ToolbarButton, ToolbarChevron } from "./shared"
+import { OptionPicker, ToolbarChevron } from "./shared"
 
 export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
   const { viewControls, boardScope, searchActive: compact } = useTicketToolbar()

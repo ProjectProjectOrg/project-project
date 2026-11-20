@@ -7,7 +7,6 @@ import {
 } from "@pp/ui/command-menu"
 import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import { Archive, CircleSlash, Flag, Layers, Plus, Trash2 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
@@ -691,7 +690,7 @@ export function TicketDeletePage({
         }
       }}
       renderItem={(item) => (
-        <CommandMenuItem value={item.value} className={cn("text-destructive")}>
+        <CommandMenuItem value={item.value} variant="destructive">
           <span className="min-w-0 flex-1 truncate">
             <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
           </span>

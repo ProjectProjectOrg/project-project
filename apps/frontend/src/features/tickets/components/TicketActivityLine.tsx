@@ -164,10 +164,11 @@ function Tags({
       {names.map((name) => (
         <TagChip
           key={name}
-          name={name}
           size="xs"
-          color={tags.find((tag) => tag.name === name)?.color ?? null}
-        />
+          color={tags.find((tag) => tag.name === name)?.color}
+        >
+          {name}
+        </TagChip>
       ))}
     </TimelineValues>
   )

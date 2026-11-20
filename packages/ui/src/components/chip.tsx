@@ -95,6 +95,20 @@ const shapeClass: Readonly<Record<ChipShape, string>> = {
   count: "min-w-6 justify-center gap-1 px-1.5 [&_svg]:size-3"
 }
 
+// A chip that reports a problem keeps its colour through hover and an open
+// popup or card.
+type ChipTone = "default" | "warning" | "danger" | "error"
+
+const toneClass: Readonly<Record<ChipTone, string>> = {
+  default: "",
+  warning:
+    "text-state-warning hover:text-state-warning data-[popup-open]:text-state-warning data-[card-open]:text-state-warning",
+  danger:
+    "text-state-danger hover:text-state-danger data-[popup-open]:text-state-danger data-[card-open]:text-state-danger",
+  error:
+    "text-destructive hover:text-destructive data-[popup-open]:text-destructive data-[card-open]:text-destructive"
+}
+
 const showClass: Readonly<Record<ChipShow, string>> = {
   always: "",
   wide: "hidden @3xl/list:inline-flex",
@@ -107,6 +121,7 @@ type ChipProps = ComponentProps<"button"> &
     interaction?: ChipInteraction
     shape?: ChipShape
     show?: ChipShow
+    tone?: ChipTone
     render?: useRender.RenderProp
   }>
 
@@ -119,6 +134,7 @@ export function Chip({
   interaction = "none",
   shape = "label",
   show = "always",
+  tone = "default",
   render,
   className,
   ...props
@@ -138,13 +154,14 @@ export function Chip({
         kindClass[kind],
         kind === "label" && interaction !== "none" && labelHover,
         showClass[show],
+        toneClass[tone],
         className
       )
     }
   })
 }
 
-export type { ChipInteraction, ChipKind, ChipShape, ChipShow }
+export type { ChipInteraction, ChipKind, ChipShape, ChipShow, ChipTone }
 
 // The hairline between the state icons (priority, flag) and the numbers.
 // It hides itself when no data chip follows, so it never dangles. (A child

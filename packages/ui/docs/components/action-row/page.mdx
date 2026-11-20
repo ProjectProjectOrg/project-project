@@ -1,0 +1,35 @@
+export const meta = {
+  title: "ActionRow",
+  group: "Primitives",
+  description: "A row link or button with one trailing action over its end, like a ticket relation with its remove ✕."
+}
+
+## Overview
+
+Hover the row to show its action.
+
+<Demo name="overview" title="A relation with remove" />
+
+## Usage
+
+```tsx
+import { ActionRow } from "@pp/ui/action-row"
+
+<ActionRow action={<Button variant="ghost" size="square-7" aria-label="Remove">…</Button>}>
+  <Button variant="ghost" render={<Link to="…" />}>…</Button>
+</ActionRow>
+```
+
+## Rules
+
+### The row makes room for its action
+
+The row's Button gets end padding for the action, so a long label truncates before it instead of running under it.
+
+### One lit row
+
+Hovering the action keeps the row's Button lit, so the row and its action read as one thing.
+
+### The action waits for the row
+
+The action is wrapped in Reveal: it shows on the row's hover, focus or open menu, and always on touch screens.

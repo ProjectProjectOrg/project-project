@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Info } from "@pp/ui/icons"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -137,12 +138,20 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
               <Popover>
                 <PopoverTrigger
                   aria-label={m.time_sync_explainer()}
-                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-97"
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="square-7"
+                      className="ml-auto"
+                    />
+                  }
                 >
                   <Info className="h-4 w-4" />
                 </PopoverTrigger>
-                <PopoverContent className="w-72 text-caption text-muted-foreground">
-                  {m.time_sync_explainer()}
+                <PopoverContent className="w-72">
+                  <p className="text-caption text-muted-foreground">
+                    {m.time_sync_explainer()}
+                  </p>
                 </PopoverContent>
               </Popover>
             </div>

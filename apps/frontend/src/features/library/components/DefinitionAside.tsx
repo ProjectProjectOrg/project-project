@@ -45,6 +45,8 @@ type CommitInputProps = Readonly<{
   maxLength?: number
   required?: boolean
   disabled?: boolean
+  // title: the page's own name, edited in place in the title's type.
+  variant?: "field" | "title"
   className?: string
 }>
 
@@ -56,6 +58,7 @@ export function CommitInput({
   maxLength,
   required = false,
   disabled = false,
+  variant = "field",
   className
 }: CommitInputProps) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -68,6 +71,7 @@ export function CommitInput({
   }
   return (
     <Input
+      variant={variant === "title" ? "title" : "default"}
       size="sm"
       aria-label={ariaLabel}
       placeholder={placeholder}

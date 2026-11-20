@@ -35,7 +35,6 @@
   "figma_project_help_subtitle": "A personal access token lets ProjectProject read the designs this project links to. It takes about a minute to create.",
   "figma_project_help_title": "Where do I find a personal access token?",
   "figma_project_help_trigger_label": "How to create a Figma personal access token",
-  "figma_project_help_trigger_text": "?",
   "figma_project_storage_link": "Set up storage",
   "figma_project_storage_required": "Connect object storage before connecting Figma.",
   "figma_project_title": "Figma",

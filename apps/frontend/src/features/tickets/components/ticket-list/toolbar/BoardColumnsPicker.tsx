@@ -53,7 +53,7 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
             value: displayValue
           })}
           render={<Button type="button" variant="field" size="md" />}
-          className="ml-auto w-40 min-w-0 gap-2"
+          className="ml-auto w-40 min-w-0"
         >
           <span className="min-w-0 flex-1 truncate text-left">
             {displayValue}

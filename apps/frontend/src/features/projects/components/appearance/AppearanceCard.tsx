@@ -93,8 +93,6 @@ export function AppearanceRow({
       onClick={onActivate}
       variant="appearance-row"
       size="appearance-row"
-      // oxlint-disable-next-line shadcn/no-arbitrary-values -- concentric with the card: its radius less its 1px edge
-      className="rounded-[calc(var(--radius-lg)-1px)]"
     >
       {content}
     </Button>

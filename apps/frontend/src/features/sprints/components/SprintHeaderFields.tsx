@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Chip } from "@pp/ui/chip"
 import {
   DropdownMenu,
@@ -251,10 +252,8 @@ export function SprintSubtitle({
       <SprintDatesField sprint={sprint} disabled={disabled} />
       {status !== null && (
         <Chip
-          className={cn(
-            "tabular-nums",
-            sprintEnded(sprint) && "text-state-warning"
-          )}
+          tone={sprintEnded(sprint) ? "warning" : undefined}
+          className="tabular-nums"
         >
           {status}
         </Chip>
@@ -340,13 +339,13 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="square-8"
             aria-label={m.sprints_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-97"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">

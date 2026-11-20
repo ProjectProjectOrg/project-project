@@ -14,12 +14,19 @@ import {
 import { ChevronRight, Layers, Tag } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { TextLink } from "@pp/ui/text-link"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState, type ComponentProps, type ReactNode } from "react"
+import {
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode
+} from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { TagChip } from "@/features/tags/components/TagChip"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
@@ -176,12 +183,16 @@ export function ParentTicketCrumb({
       <TicketPreviewTrigger
         preview={TicketPreview.ticket({ id: parent.id })}
         render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug, slug, id: parent.id }}
-            preload="intent"
-            draggable={false}
-            className="relative z-20 -mx-1.5 -my-1 flex min-w-0 rounded-md px-1.5 py-1 transition-colors outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          <TextLink
+            className="relative z-20 flex min-w-0"
+            render={
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{ orgSlug, slug, id: parent.id }}
+                preload="intent"
+                draggable={false}
+              />
+            }
           />
         }
       >
@@ -190,6 +201,11 @@ export function ParentTicketCrumb({
     </>
   )
 }
+
+// The neutral chip behind "+N" and the folded dots on a narrow list.
+const labelChip = (show: ComponentProps<typeof Chip>["show"]) => (
+  <Chip kind="label" interaction="press" show={show} />
+)
 
 // A ticket's tags: the first `max` as chips, the rest behind "+N". With
 // `collapse` (list rows), a narrow list folds them all into one chip of
@@ -214,11 +230,7 @@ export function TagChips({
   if (names.length === 0)
     return placeholder !== undefined && onPatch ? (
       <TagChipMenu applied={names} onPatch={onPatch}>
-        <DropdownMenuTrigger
-          render={
-            <Chip interaction="press" className="gap-1 text-muted-foreground" />
-          }
-        >
+        <DropdownMenuTrigger render={<Chip interaction="press" />}>
           <Tag className="size-3 shrink-0" strokeWidth={1.75} />
           {placeholder}
         </DropdownMenuTrigger>
@@ -229,20 +241,18 @@ export function TagChips({
   )
   const shown = max === undefined ? names : names.slice(0, max)
   const hidden = names.slice(shown.length)
-  const named = collapse ? "wide" : "always"
   const chip = (
     key: string,
     preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
     content: ReactNode,
-    label: string | undefined,
-    show: ComponentProps<typeof Chip>["show"]
-  ) => {
-    const button = <Chip kind="label" interaction="press" show={show} />
-    return onPatch ? (
+    ariaLabel: string | undefined,
+    button: ReactElement
+  ) =>
+    onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
           preview={preview}
-          aria-label={label}
+          aria-label={ariaLabel}
           aria-haspopup="menu"
           onClick={undefined}
           render={<DropdownMenuTrigger render={button} />}
@@ -254,29 +264,27 @@ export function TagChips({
       <TicketPreviewTrigger
         key={key}
         preview={preview}
-        aria-label={label}
+        aria-label={ariaLabel}
         render={button}
       >
         {content}
       </TicketPreviewTrigger>
     )
-  }
   return (
     <>
       {shown.map((name) =>
         chip(
           name,
           TicketPreview.tag({ name }),
-          <>
-            <span
-              aria-hidden
-              className="size-2 shrink-0 rounded-full bg-muted-foreground"
-              style={{ backgroundColor: colors.get(name) ?? undefined }}
-            />
-            <span className="truncate">{name}</span>
-          </>,
+          <span className="truncate">{name}</span>,
           undefined,
-          named
+          <TagChip
+            color={colors.get(name)}
+            render={<button type="button" />}
+            className={
+              collapse ? "hidden min-w-0 @3xl/list:inline-flex" : "min-w-0"
+            }
+          />
         )
       )}
       {hidden.length > 0 &&
@@ -287,7 +295,7 @@ export function TagChips({
             {m.tags_more({ count: hidden.length })}
           </span>,
           m.tags_more_aria_label({ count: hidden.length }),
-          named
+          labelChip(collapse ? "wide" : "always")
         )}
       {collapse &&
         chip(
@@ -298,7 +306,7 @@ export function TagChips({
             <span className="tabular-nums">{names.length}</span>
           </>,
           m.tags_count_aria_label({ count: names.length }),
-          "narrow"
+          labelChip("narrow")
         )}
     </>
   )

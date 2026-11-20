@@ -1,4 +1,5 @@
 import type { GitState } from "@pp/shared"
+import type { BadgeTone } from "@pp/ui/badge"
 import {
   Check,
   X,
@@ -68,6 +69,14 @@ export type PullRequest = Extract<
 
 export type PullRequestKind = "open" | "draft" | "merged" | "closed"
 
+// The badge tone each state wears on a chip row, like GitHub's.
+export const PULL_REQUEST_BADGE_TONES = {
+  open: "emerald",
+  draft: "muted",
+  merged: "violet",
+  closed: "red"
+} as const satisfies Readonly<Record<PullRequestKind, BadgeTone>>
+
 export const PULL_REQUEST_LOOKS: Readonly<Record<PullRequestKind, Look>> = {
   open: {
     icon: GitPullRequest,
@@ -86,7 +95,7 @@ export const PULL_REQUEST_LOOKS: Readonly<Record<PullRequestKind, Look>> = {
   },
   closed: {
     icon: GitPullRequestClosed,
-    tone: "text-muted-foreground",
+    tone: "text-state-danger",
     label: m.git_stack_state_closed
   }
 }

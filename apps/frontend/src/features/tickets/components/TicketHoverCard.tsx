@@ -21,7 +21,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
-import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import {
   projectEstimation,
   projectRequest
@@ -30,6 +29,8 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { ProjectContext } from "@/features/projects/hooks/useProject"
+import { BoardCardGit } from "@/features/sprints/components/BoardCardGit"
 import {
   ticketDetail,
   ticketRequest
@@ -197,11 +198,9 @@ export function TicketPreviewBody({
           )}
           {ticket.branch && (
             <div>
-              <TicketGitChip
-                orgSlug={scope.orgSlug}
-                slug={scope.slug}
-                ticket={ticket}
-              />
+              <ProjectContext value={projectRequest(scope.orgSlug, scope.slug)}>
+                <BoardCardGit ticket={ticket} />
+              </ProjectContext>
             </div>
           )}
         </div>

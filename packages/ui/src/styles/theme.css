@@ -48,6 +48,14 @@
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
+/* A control waiting on the server pulses. Callers set data-pending on any
+   element or primitive instead of restyling it. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-pending] {
+    animation: var(--animate-pulse);
+  }
+}
+
 /* A loading placeholder's pulse. */
 @utility skeleton {
   animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;

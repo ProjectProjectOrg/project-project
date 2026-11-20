@@ -35,6 +35,7 @@ import {
 import { LogoLoader } from "./logo"
 import { MenuHighlight, chosenRow } from "./menu-highlight"
 import {
+  destructiveItemClass,
   PopupLayerContext,
   atPointerMotionClass,
   menuItemClass,
@@ -377,8 +378,7 @@ function DropdownMenuItem({
       className={cn(
         menuItemClass,
         "data-[inset]:pl-8",
-        "data-[variant=destructive]:text-destructive data-[variant=destructive]:lit:text-destructive",
-        "data-[variant=destructive]:[&_svg]:text-destructive!",
+        destructiveItemClass,
         className
       )}
       {...props}
@@ -892,16 +892,25 @@ function DropdownMenuSubTrigger({
   hotkey,
   keyLabels,
   children,
+  variant = "default",
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> &
   SubTriggerHotkey & {
     inset?: boolean
+    variant?: "default" | "destructive"
   }) {
   return (
     <MenuPrimitive.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(menuItemClass, "data-[inset]:pl-8", className)}
+      data-variant={variant}
+      className={cn(
+        menuItemClass,
+        "data-[inset]:pl-8",
+        destructiveItemClass,
+        "data-[variant=destructive]:data-[popup-open]:text-destructive",
+        className
+      )}
       {...props}
     >
       {children}

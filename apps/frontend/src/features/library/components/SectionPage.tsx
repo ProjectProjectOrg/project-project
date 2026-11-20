@@ -219,7 +219,8 @@ function SectionEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="mx-0 min-w-0 flex-1 text-display font-bold"
+              variant="title"
+              className="mx-0 min-w-0 flex-1"
             />
           ) : (
             <h2 className="min-w-0 truncate px-2 text-display font-bold">
@@ -254,9 +255,7 @@ function SectionEditor({
               data-section-preview
               className="rounded-lg border border-border px-3 py-2"
             >
-              <Markdown className="text-body">
-                {stripHints(section.content)}
-              </Markdown>
+              <Markdown>{stripHints(section.content)}</Markdown>
             </div>
           )}
           {editable ? (

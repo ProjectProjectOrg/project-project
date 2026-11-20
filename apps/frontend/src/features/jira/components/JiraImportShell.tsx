@@ -52,7 +52,10 @@ export function JiraImportShell({
   const currentIndex = jiraImportStageIndex(stage)
   return (
     <MotionConfig reducedMotion="user">
-      <div className="absolute inset-0 flex flex-col px-6 pt-6">
+      {/* Below the page bar, it takes exactly the height left (a zero basis,
+          so its content never stretches the page) and runs to the bottom
+          edge, so each step scrolls inside its own frame. */}
+      <div className="-mb-6 flex min-h-0 flex-1 basis-0 flex-col">
         <PageContainer width="focused" className="min-h-0 flex-1 gap-0">
           <header className="flex h-12 shrink-0 items-start justify-between gap-4">
             <PageHeader className="min-w-0 [&>h1]:truncate">
@@ -134,7 +137,7 @@ function StageRail({
         onClick={hover.handlers.onClick}
         className="relative"
       >
-        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        <FluidHoverHighlight hover={hover} />
         <ol className="flex flex-col">
           {jiraImportStages.map((stage, index) => (
             <StageItem

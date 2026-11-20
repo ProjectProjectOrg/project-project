@@ -68,6 +68,7 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
             member={user}
             size={PROFILE_AVATAR_SIZE}
             className="-mt-12 mb-2"
+            // oxlint-disable-next-line shadcn/no-restyle -- the avatar overlaps the card's top edge; the card colour fills behind a transparent image
             avatarClassName="bg-card"
           />
           <p className="text-subtitle font-semibold">{user.name}</p>

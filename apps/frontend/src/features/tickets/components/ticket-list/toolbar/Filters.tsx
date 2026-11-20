@@ -7,7 +7,6 @@ import {
   type Member
 } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
-import { Button } from "@pp/ui/button"
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import {
   DropdownMenu,
@@ -41,6 +40,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import { TextSwap } from "@pp/ui/text-swap"
+import { ToolbarButton, ToolbarClearButton } from "@pp/ui/toolbar-button"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -89,7 +89,7 @@ import {
   clearedFilters,
   type FilterDimension
 } from "./model"
-import { ToolbarButton, ToolbarChevron } from "./shared"
+import { ToolbarChevron } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
 const TOGGLES: ReadonlySet<FilterDimension> = new Set([
@@ -143,13 +143,12 @@ export function Filters() {
         })
       }}
     >
-      <div className="group/filters relative flex">
+      <div className="group/toolbar relative flex">
         <DropdownMenuTrigger
           ref={triggerRef}
           render={
             <ToolbarButton
               active={active}
-              className="group-hover/filters:duration-0 group-hover/filters:not-disabled:shadow-field-hover-fill group-hover/filters:[&>svg:first-child]:text-foreground"
               aria-label={
                 active
                   ? m.tickets_filters_active_aria_label({
@@ -177,16 +176,10 @@ export function Filters() {
           }
         />
         {active && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
+          <ToolbarClearButton
+            label={m.tickets_filters_clear_all()}
             onClick={clearFilters}
-            aria-label={m.tickets_filters_clear_all()}
-            className="absolute top-1/2 right-3 -translate-y-1/2 not-disabled:hover:bg-(--button-tertiary-hover) not-disabled:active:bg-(--button-tertiary-active)"
-          >
-            <X strokeWidth={1.75} />
-          </Button>
+          />
         )}
       </div>
       <DropdownMenuContent

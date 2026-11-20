@@ -58,7 +58,11 @@ const buttonVariants = cva(
         tertiary:
           "text-foreground not-disabled:hover:bg-[image:linear-gradient(var(--hover),var(--hover))] not-disabled:active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         ghost:
-          "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
+          "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
+        // Ghost with a hairline ring: an empty slot waiting for a value, like
+        // an unassigned ticket's avatar.
+        outline:
+          "bg-transparent text-muted-foreground shadow-hairline-inset not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         toolbar:
           "bg-transparent text-muted-foreground not-disabled:hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
         overlay:
@@ -85,6 +89,9 @@ const buttonVariants = cva(
         xs: "h-5 gap-1 px-1.5 text-micro",
         compact: "h-6 gap-0.5 px-1.5 text-caption",
         sm: "h-7 gap-1 px-3 text-caption",
+        // A row in an aside list (Go to, links, repositories): sm height
+        // with tight padding, so the label lines up with the text above it.
+        inline: "h-7 gap-2 px-1.5 text-caption",
         md: "h-8 gap-1.5 px-4 text-body",
         lg: "h-9 gap-1.5 px-5 text-body",
         "icon-xs": "h-5 w-5 p-0 [&_svg]:h-3 [&_svg]:w-3",
@@ -99,8 +106,18 @@ const buttonVariants = cva(
       },
       // Ghost: muted text that brightens on hover (default), or full
       // foreground text for triggers that show a value, like ticket fields.
-      // Overlay: destructive turns the hover red, for remove actions.
-      tone: { muted: "", strong: "", destructive: "" },
+      // Destructive marks a remove action: ghost and overlay turn red on
+      // hover, tertiary is red at rest. Warning and error colour the label
+      // in every state, for a control that reports a problem.
+      tone: {
+        muted: "",
+        strong: "",
+        destructive: "",
+        warning:
+          "text-state-warning not-disabled:hover:text-state-warning data-[popup-open]:text-state-warning",
+        error:
+          "text-destructive not-disabled:hover:text-destructive data-[popup-open]:text-destructive"
+      },
       iconLeft: { true: "" },
       iconRight: { true: "" },
       bleed: { start: "", end: "" }
@@ -126,7 +143,21 @@ const buttonVariants = cva(
       { size: "sm", iconRight: true, className: "pr-[9px]" },
       { size: "md", iconRight: true, className: "pr-3" },
       { size: "lg", iconRight: true, className: "pr-[15px]" },
-      { variant: "ghost", tone: "strong", className: "text-foreground" },
+      {
+        variant: ["ghost", "outline"],
+        tone: "strong",
+        className: "text-foreground"
+      },
+      {
+        variant: "ghost",
+        tone: "destructive",
+        className: "not-disabled:hover:text-destructive"
+      },
+      {
+        variant: "tertiary",
+        tone: "destructive",
+        className: "text-destructive not-disabled:hover:text-destructive"
+      },
       // Field buttons pad like Input, not like a button.
       { variant: "field", size: ["md", "lg"], className: "px-3" },
       { variant: "field", size: "sm", className: "px-2.5" },
@@ -150,7 +181,7 @@ const buttonVariants = cva(
       { variant: "ghost", size: "md", iconLeft: true, className: "pl-2" },
       { variant: "ghost", size: "md", iconRight: true, className: "pr-2" },
       {
-        variant: "ghost",
+        variant: ["ghost", "outline"],
         size: "square-6",
         className:
           "relative before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-[''] [&_svg]:size-4"
@@ -176,6 +207,7 @@ const BUTTON_RADIUS: Partial<Record<ButtonSize, string>> = {
   compact: "rounded-[12px] [corner-shape:var(--button-corner)]",
   "square-6": "rounded-[12px] [corner-shape:var(--button-corner)]",
   sm: "rounded-[14px] [corner-shape:var(--button-corner)]",
+  inline: "rounded-[14px] [corner-shape:var(--button-corner)]",
   "square-7": "rounded-[14px] [corner-shape:var(--button-corner)]",
   md: "rounded-[16px] [corner-shape:var(--button-corner)]",
   "icon-sm": "rounded-[16px] [corner-shape:var(--button-corner)]",
@@ -183,7 +215,10 @@ const BUTTON_RADIUS: Partial<Record<ButtonSize, string>> = {
   lg: "rounded-[18px] [corner-shape:var(--button-corner)]",
   icon: "rounded-[18px] [corner-shape:var(--button-corner)]",
   "square-9": "rounded-[18px] [corner-shape:var(--button-corner)]",
-  "icon-lg": "rounded-[20px] [corner-shape:var(--button-corner)]"
+  "icon-lg": "rounded-[20px] [corner-shape:var(--button-corner)]",
+  step: "rounded-xl",
+  // Concentric with the appearance card around it: its radius less its edge.
+  "appearance-row": "rounded-[calc(var(--radius-lg)-1px)]"
 }
 
 // A trailing key (Kbd, or a KbdShortcut's keys) sits like a trailing icon,
@@ -328,6 +363,7 @@ function Button({
   const iconSize = Match.value(size).pipe(
     Match.when("xs", () => 12),
     Match.when("sm", () => 14),
+    Match.when("inline", () => 14),
     Match.when("lg", () => 20),
     Match.orElse(() => 16)
   )

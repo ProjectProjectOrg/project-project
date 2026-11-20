@@ -188,6 +188,36 @@
               "rounded-t-[inherit]"
             ]
           }
+        ],
+        "shadcn/no-restyle": [
+          "error",
+          {
+            "allow": [
+              "layout",
+              "tabular-nums",
+              "truncate",
+              "line-clamp-*",
+              "placeholder:font-sans"
+            ],
+            "contracts": [
+              {
+                "pattern": "^(PopoverContent|HoverCardContent|HoverCardFooter|BoardColumns|ConfirmButtonRoot|ListHoverScope|TimelineValues|InputGroupAddon|CommandMenuList|CommandMenuEmpty)$",
+                "allow": ["layout", "spacing"]
+              },
+              {
+                "pattern": "^(MiddleTruncate|MarqueeIfOverflow|TextSwap)$",
+                "allow": ["layout", "spacing", "color", "typography"]
+              },
+              {
+                "pattern": "^Hitbox$",
+                "allow": ["layout", "spacing", "shape"]
+              },
+              {
+                "pattern": "^FluidHoverHighlight$",
+                "allow": ["layout", "shape"]
+              }
+            ]
+          }
         ]
       }
     },
@@ -253,6 +283,7 @@
     {
       "files": [
         "apps/frontend/src/features/auth/components/LoginPage.tsx",
+        "apps/frontend/src/features/auth/components/ProviderMarks.tsx",
         "packages/ui/src/editor/figma/figma-chip.tsx"
       ],
       "rules": {

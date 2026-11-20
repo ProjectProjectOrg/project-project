@@ -4,6 +4,7 @@ import {
   formatDuration,
   formatWorkDuration,
   formatWorkDurationLong,
+  formatWorkDurationShort,
   parseDurationToSeconds
 } from "./duration"
 
@@ -49,6 +50,17 @@ describe("formatWorkDuration", () => {
     [(2 * 40 + 4 * 8 + 6) * 3600 + 45 * 60, "2w 4d 6h 45m"]
   ])("formats %i seconds in working weeks and days", (seconds, expected) => {
     expect(formatWorkDuration(seconds)).toBe(expected)
+  })
+})
+
+describe("formatWorkDurationShort", () => {
+  it.each([
+    [45 * 60, "45m"],
+    [5400, "1.5h"],
+    [2 * 8 * 3600, "2d"],
+    [999 * 3600, "25w"]
+  ])("formats %i seconds as its largest working unit", (seconds, expected) => {
+    expect(formatWorkDurationShort(seconds)).toBe(expected)
   })
 })
 

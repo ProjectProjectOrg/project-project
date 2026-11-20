@@ -3,16 +3,16 @@ import {
   Circle,
   GitMerge,
   GitPullRequest,
-  GitPullRequestClosed
+  GitPullRequestClosed,
+  GitPullRequestDraft
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 
 import { checksColor } from "@/features/github/lib/checksColor"
-import { m } from "@/paraglide/messages"
 
 const pullRequestIcons = {
   open: GitPullRequest,
-  draft: GitPullRequest,
+  draft: GitPullRequestDraft,
   merged: GitMerge,
   closed: GitPullRequestClosed
 }
@@ -31,9 +31,11 @@ export function PrLink({
   const badgeTone =
     tone === "merged"
       ? "violet"
-      : tone === "closed" || tone === "draft"
-        ? "muted"
-        : "emerald"
+      : tone === "closed"
+        ? "red"
+        : tone === "draft"
+          ? "muted"
+          : "emerald"
   const Icon = pullRequestIcons[tone]
   return (
     <Badge
@@ -56,7 +58,6 @@ export function PrLink({
           strokeWidth={0}
         />
       )}
-      {tone === "draft" && <span>{m.git_pr_draft_label()}</span>}
     </Badge>
   )
 }

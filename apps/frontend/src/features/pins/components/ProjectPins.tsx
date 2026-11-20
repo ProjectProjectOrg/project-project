@@ -205,7 +205,7 @@ export function ProjectPins({
         {tree.filter((node) => node !== liveNode).map(pinTree)}
       </SidebarRowGroup>
       {failure === null ? null : (
-        <SidebarNote className="text-destructive">{failure}</SidebarNote>
+        <SidebarNote tone="error">{failure}</SidebarNote>
       )}
     </SidebarSection>
   )

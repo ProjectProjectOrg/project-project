@@ -77,6 +77,24 @@ export const formatWorkDuration = (seconds: number) => {
   ].join(" ")
 }
 
+const SHORT_UNITS = [
+  [WEEK, (weeks: number) => m.time_duration_weeks({ weeks })],
+  [DAY, (days: number) => m.time_duration_days({ days })],
+  [HOUR, (hours: number) => m.time_duration_hours({ hours })]
+] as const
+
+// The largest working unit only, to one decimal below 10 ("45m", "1.5h",
+// "2d", "25w"): never wider than four characters, for a row's estimate.
+export const formatWorkDurationShort = (seconds: number) => {
+  const total = Math.max(0, Math.round(seconds / MINUTE)) * MINUTE
+  for (const [size, format] of SHORT_UNITS) {
+    if (total < size) continue
+    const value = total / size
+    return format(value < 10 ? Math.round(value * 10) / 10 : Math.round(value))
+  }
+  return m.time_duration_minutes({ minutes: total / MINUTE })
+}
+
 export const formatWorkDurationLong = (seconds: number) => {
   const { weeks, days, hours, minutes } = workParts(seconds)
   return new Intl.ListFormat(getLocale(), {

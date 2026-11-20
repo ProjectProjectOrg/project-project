@@ -20,7 +20,7 @@ export function TicketSelectionChips({
       {tickets.slice(0, SHOWN).map((ticket) => (
         <CommandMenuChip
           key={ticket.id}
-          className="max-w-48 min-w-0 gap-1.5 overflow-hidden pl-2 text-body"
+          className="max-w-48 min-w-0 overflow-hidden"
         >
           <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
             {ticket.id}
@@ -41,7 +41,7 @@ export function TicketSelectionChips({
         </CommandMenuChip>
       ))}
       {rest > 0 && (
-        <CommandMenuChip className="shrink-0 px-2 text-caption text-muted-foreground tabular-nums">
+        <CommandMenuChip variant="count" className="shrink-0 tabular-nums">
           {m.tickets_selection_more({ count: rest })}
         </CommandMenuChip>
       )}

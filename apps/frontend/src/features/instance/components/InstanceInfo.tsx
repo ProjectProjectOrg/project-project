@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { CopyButton } from "@pp/ui/copy-button"
+import { Reveal } from "@pp/ui/reveal"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { m } from "@/paraglide/messages"
@@ -21,13 +22,15 @@ export function InstanceInfo() {
           >
             {displayVersion(version)}
           </span>
-          <CopyButton
-            value={version}
-            copyLabel={m.chrome_sidebar_copy_version()}
-            copiedLabel={m.chrome_sidebar_version_copied()}
-            className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[copied]:opacity-100 pointer-coarse:opacity-100"
-            iconClassName="size-3"
-          />
+          <Reveal>
+            <CopyButton
+              value={version}
+              copyLabel={m.chrome_sidebar_copy_version()}
+              copiedLabel={m.chrome_sidebar_version_copied()}
+              className="size-5"
+              iconClassName="size-3"
+            />
+          </Reveal>
         </>
       ) : null}
     </div>

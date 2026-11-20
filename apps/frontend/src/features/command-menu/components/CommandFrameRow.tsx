@@ -15,8 +15,8 @@ export function CommandFrameRow({
     return (
       <CommandMenuItem
         value={item.value}
+        layout="detail"
         className={cn(
-          "grid h-auto items-baseline gap-x-2 gap-y-0.5 py-2",
           leading == null
             ? "grid-cols-[auto_minmax(0,1fr)]"
             : "grid-cols-[auto_auto_minmax(0,1fr)]"

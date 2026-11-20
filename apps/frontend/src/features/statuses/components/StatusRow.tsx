@@ -11,6 +11,7 @@ import { GripVertical } from "@pp/ui/icons"
 import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
 import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
+import { Reveal } from "@pp/ui/reveal"
 import * as Cause from "effect/Cause"
 import type * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
@@ -51,9 +52,6 @@ type Props = Readonly<{
   onDragEnd: () => OrderKey | null
   onMove: (delta: -1 | 1) => OrderKey | null
 }>
-
-const REVEAL =
-  "opacity-0 transition-all group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100 pointer-coarse:opacity-100"
 
 const isUnchanged = (status: ProjectStatus, draft: StatusEditorValues) =>
   draft.label.trim() === status.label &&
@@ -223,14 +221,15 @@ export function StatusRow({
             </span>
           </div>
           {canManage ? (
-            <StatusActionsMenu
-              status={status}
-              statuses={statuses}
-              label={displayLabel}
-              canDelete={!baseline}
-              onEdit={() => setEditing(true)}
-              triggerClassName={REVEAL}
-            />
+            <Reveal>
+              <StatusActionsMenu
+                status={status}
+                statuses={statuses}
+                label={displayLabel}
+                canDelete={!baseline}
+                onEdit={() => setEditing(true)}
+              />
+            </Reveal>
           ) : (
             <span className="size-8 shrink-0" />
           )}
@@ -268,10 +267,7 @@ function DragHandle({
           onMoveDown()
         }
       }}
-      className={cn(
-        "flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing",
-        REVEAL
-      )}
+      className="flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/reveal:opacity-100 hover:text-foreground focus-visible:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing pointer-coarse:opacity-100"
     >
       <GripVertical className="h-4 w-4" />
     </button>
