@@ -75,6 +75,53 @@ export async function loginUrl(root: string, env: Record<string, string>) {
   return url
 }
 
+export function portlessEnvironment(directory: string) {
+  return {
+    PORTLESS_STATE_DIR: path.join(directory, "portless"),
+    PORTLESS_PORT: "1355",
+    PORTLESS_HTTPS: "1",
+    PORTLESS_UNPRIVILEGED: "1",
+    PORTLESS_PREFIX: ""
+  }
+}
+
+async function portless(
+  registry: AgentRegistry,
+  environment: Environment,
+  env: Record<string, string>,
+  args: string[]
+) {
+  const child = Bun.spawn(
+    [
+      "node",
+      path.join(environment.worktree, "node_modules/portless/dist/cli.js"),
+      ...args
+    ],
+    {
+      cwd: environment.worktree,
+      env: { ...env, ...portlessEnvironment(registry.directory) },
+      stdout: "ignore",
+      stderr: "pipe"
+    }
+  )
+  const [errors, code] = await Promise.all([
+    new Response(child.stderr).text(),
+    child.exited
+  ])
+  if (code !== 0) throw new Error(`portless ${args[0]} failed: ${errors}`)
+}
+
+async function freePort() {
+  const probe = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    fetch: () => new Response()
+  })
+  const port = probe.port!
+  await probe.stop(true)
+  return port
+}
+
 async function waitForServer(
   child: Subprocess<"ignore", "inherit", "inherit">,
   url: string,
@@ -119,15 +166,9 @@ export async function runServers(
   })
   const stopper = path.join(resources, "stop")
   await rm(stopper, { force: true })
-  const backendPort = Bun.serve({
-    port: 0,
-    hostname: "127.0.0.1",
-    fetch: () => new Response()
-  })
-  const port = backendPort.port!
-  await backendPort.stop(true)
+  const port = await freePort()
   const backend = Bun.spawn(
-    [process.execPath, "--no-env-file", "apps/backend/src/main.ts"],
+    [process.execPath, "--no-env-file", "--watch", "apps/backend/src/main.ts"],
     {
       cwd: environment.worktree,
       env: { ...env, PORT: String(port), HOST: "127.0.0.1" },
@@ -136,12 +177,16 @@ export async function runServers(
     }
   )
   let frontend: Subprocess<"ignore", "inherit", "inherit"> | undefined
+  let gallery: Subprocess<"ignore", "inherit", "inherit"> | undefined
+  const galleryName = `pp-${environment.id}-gallery.projectproject`
+  let galleryAliased = false
   const shutdown = new AbortController()
   const stop = () => {
     shutdown.abort()
   }
   process.on("SIGINT", stop)
   process.on("SIGTERM", stop)
+  process.on("SIGHUP", stop)
   try {
     const target = `http://127.0.0.1:${port}`
     await waitForServer(backend, `${target}/api/health`, shutdown.signal)
@@ -177,24 +222,57 @@ export async function runServers(
         stderr: "inherit"
       }
     )
+    const galleryPort = await freePort()
+    gallery = Bun.spawn(
+      [
+        "node",
+        path.join(environment.worktree, "node_modules/vite/bin/vite.js"),
+        "--config",
+        "gallery/vite.config.ts",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(galleryPort)
+      ],
+      {
+        cwd: path.join(environment.worktree, "packages/ui"),
+        env,
+        stdout: "inherit",
+        stderr: "inherit"
+      }
+    )
+    await portless(registry, environment, env, [
+      "alias",
+      galleryName,
+      String(galleryPort),
+      "--force"
+    ])
+    galleryAliased = true
     await waitForServer(
       frontend,
       `http://127.0.0.1:${frontendPort}/`,
       shutdown.signal
     )
     await ready()
+    const galleryUrl = new URL(env.BETTER_AUTH_URL)
+    galleryUrl.hostname = `${galleryName}.localhost`
     process.stdout.write(
-      `\nAgent app: ${env.BETTER_AUTH_URL}${fixturePath}\nLogin: ${await loginUrl(environment.worktree, env)}\n\n`
+      `\nAgent app: ${env.BETTER_AUTH_URL}${fixturePath}\nLogin: ${await loginUrl(environment.worktree, env)}\nGallery: ${galleryUrl}\n\n`
     )
     while (!shutdown.signal.aborted && !(await exists(stopper))) {
-      if (backend.exitCode !== null || frontend.exitCode !== null)
+      if (
+        backend.exitCode !== null ||
+        frontend.exitCode !== null ||
+        gallery.exitCode !== null
+      )
         throw new Error("An agent server exited")
       await Bun.sleep(250)
     }
   } finally {
     process.off("SIGINT", stop)
     process.off("SIGTERM", stop)
-    for (const child of [frontend, backend]) {
+    process.off("SIGHUP", stop)
+    for (const child of [gallery, frontend, backend]) {
       if (!child) continue
       child.kill("SIGTERM")
       const finished = await Promise.race([
@@ -206,6 +284,12 @@ export async function runServers(
         await child.exited
       }
     }
+    if (galleryAliased)
+      await portless(registry, environment, env, [
+        "alias",
+        "--remove",
+        galleryName
+      ]).catch(() => {})
     await rm(runningFile, { force: true })
     await rm(stopper, { force: true })
   }

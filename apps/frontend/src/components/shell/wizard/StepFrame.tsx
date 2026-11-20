@@ -27,13 +27,13 @@ export function StepFrame({
   onNext: () => void
 }>) {
   return (
-    <div className="flex min-h-[650px] flex-col">
+    <div className="flex min-h-162.5 flex-col">
       <div className="flex flex-1 flex-col gap-6 pt-1 pb-8">
         <div className="max-w-[65ch]">
           <h2 className="text-subtitle font-semibold text-balance text-foreground">
             {title}
           </h2>
-          <p className="mt-1.5 text-body leading-[21px] text-pretty text-muted-foreground">
+          <p className="mt-1.5 text-body leading-5.25 text-pretty text-muted-foreground">
             {description}
           </p>
         </div>
@@ -44,7 +44,7 @@ export function StepFrame({
           </p>
         ) : null}
       </div>
-      <div className="flex h-[72px] items-center justify-between gap-3 border-t border-border px-4">
+      <div className="flex h-18 items-center justify-between gap-3 border-t border-border px-4">
         {showBack ? (
           <Button
             type="button"

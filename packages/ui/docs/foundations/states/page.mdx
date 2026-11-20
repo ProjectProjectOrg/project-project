@@ -52,3 +52,24 @@ A loading control stays at full strength with `cursor-progress` and swaps its la
 ### Hit areas of 24px or more
 
 Every target is at least 24×24 (WCAG 2.5.8). Small visual controls (a 16px checkbox, a 12px chip action) extend their hit area with a pseudo-element or a 24px round target, so they stay small to look at and easy to hit.
+
+## Fields and menus step from their surface
+
+A field, its hover and focus, and the menu highlight are worked out from the surface they sit on (`--surface`), a fixed step of lightness away, so they read the same on the page, a settings group and a popup. `--surface` is the page; a surface that holds fields declares its own with the `surface` class (`surface [--surface:var(--card)]`), as `popupSurfaceClass` and settings groups do, and the tokens are worked out again inside it.
+
+```css
+/* dark */
+--field:       oklch(from var(--surface) calc(min(l - 0.04, 0.23)) c h);
+--field-line:  oklch(from var(--surface) calc(l + 0.04) c h); /* field edge */
+--field-hover: oklch(from var(--field)   calc(min(l + 0.06, 0.26)) c h);
+--field-focus: oklch(from var(--field)   calc(l + 0.025) c h);
+--menu-hover:  oklch(from var(--surface) calc(l + 0.06) c h);
+--menu-active: oklch(from var(--surface) calc(l + 0.10) c h);
+/* light: fields sit just above their surface (min(0.995, l + 0.02)), states step darker */
+```
+
+A field's edge steps from the surface too: a white overlay on the field would land on the surface's own lightness and vanish. In dark a field never gets lighter than 0.23, so on a raised surface (a nested popup) it stays a well instead of drifting up to grey with its surface, and its hover stops at 0.26 so it stays below the popup's fill. Light can't get lighter than white, so a focused field there is carried by the focus ring, not a tint.
+
+Row and control hover (`--hover`, `--active`) stay translucent overlays: they stack, so a chip still lights up on a hovered row, and they work on coloured fills.
+
+<Demo name="surface-rule" title="Every surface" />

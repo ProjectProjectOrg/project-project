@@ -34,7 +34,7 @@ export function NewSectionPopover({
         sideOffset={6}
         className="w-80"
       >
-        <PopoverTitle className="text-subtitle font-semibold">
+        <PopoverTitle size="subtitle">
           {m.templates_new_section_title()}
         </PopoverTitle>
         <p className="mt-0.5 mb-3 text-body text-muted-foreground">

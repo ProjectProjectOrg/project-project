@@ -160,6 +160,10 @@ import {
   PlayIcon,
   Plug01Icon,
   PlusSignIcon,
+  Progress02Icon,
+  Progress03Icon,
+  Progress04Icon,
+  ProgressIcon,
   PulseIcon,
   PuzzleIcon,
   QuoteDownIcon,
@@ -664,6 +668,13 @@ export const PinOff = icon(PinOffIcon, "PinOff")
 export const Play = icon(PlayIcon, "Play")
 export const Plug = icon(Plug01Icon, "Plug")
 export const Plus = icon(PlusSignIcon, "Plus")
+export const Progress = icon(ProgressIcon, "Progress")
+export const ProgressQuarter = icon(Progress02Icon, "ProgressQuarter")
+export const ProgressHalf = icon(Progress03Icon, "ProgressHalf")
+export const ProgressThreeQuarters = icon(
+  Progress04Icon,
+  "ProgressThreeQuarters"
+)
 export const Puzzle = icon(PuzzleIcon, "Puzzle")
 export const RefreshCw = icon(Refresh03Icon, "RefreshCw")
 export const Rocket = icon(Rocket01Icon, "Rocket")

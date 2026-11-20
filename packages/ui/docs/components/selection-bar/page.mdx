@@ -1,0 +1,120 @@
+export const meta = {
+  title: "Selection bar",
+  group: "Patterns",
+  description:
+    "While tickets are selected, the rows are the toolbar: a selected row's status, priority, assignee, sprint and labels change every selected ticket. The bar that rises under them says how many, suggests the next step (N), opens Actions (⌘K) for the rest, and after a change says what happened, with Undo or Retry.",
+  sources: [{ kind: "own", name: "SelectionBar" }]
+}
+
+## Overview
+
+The four In progress tickets start selected. Change one of their statuses, priorities, assignees, sprints or labels, and the change goes to all four; hover one first to see it light on every selected row. Press S, A, P, ⇧S or T over a selected row to open the same menu, N to take the suggestion. "Show the guide" plays the guide that teaches it (see Guide).
+
+<Demo name="overview" title="The rows are the toolbar" className="min-h-[36rem]" />
+
+## Usage
+
+The bar carries only what isn't a row's property: the suggestion and Actions.
+
+```tsx
+import {
+  SelectionBar,
+  SelectionBarField,
+  SelectionBarSeparator
+} from "@pp/ui/selection-bar"
+
+<SelectionBar
+  label={m.tickets_selection_bar_label({ count })}
+  count={m.tickets_selection_count({ count })}
+  clearLabel={m.tickets_selection_clear_aria_label()}
+  onClear={clear}
+  selectAll={{ label: m.tickets_selection_select_all({ count: total }), onSelect }}
+  result={undo && { tone: "success", message: m.tickets_selection_updated({ count }), actions: [{ label: m.tickets_selection_undo(), onClick: undo }] }}
+>
+  {next && (
+    <>
+      <SelectionBarField
+        name={m.tickets_selection_suggested()}
+        icon={<StatusIcon status={next} />}
+        value={m.tickets_selection_move_to({ status: next.label })}
+        aria-keyshortcuts="N"
+        shortcut={<KbdShortcut size="sm" keys="N" keyLabels={keyLabels()} />}
+        onClick={() => edit({ status: next.slug })}
+      />
+      <SelectionBarSeparator />
+    </>
+  )}
+  <SelectionBarField
+    name={m.tickets_selection_actions()}
+    value={m.tickets_selection_actions()}
+    shortcut={<KbdShortcut size="sm" keys="Mod+K" keyLabels={keyLabels()} />}
+    onClick={openCommandMenuWithSelection}
+  />
+</SelectionBar>
+```
+
+| Part | Prop | Type |
+| --- | --- | --- |
+| `SelectionBar` | `label` | `string`: names the toolbar ("Actions for 3 selected tickets") |
+| | `count` | `string`: "3 selected", rolls as it changes |
+| | `clearLabel`, `onClear` | the ✕ that clears the selection |
+| | `selectAll` | `{ label, onSelect }`: "Select all 46"; leave it out once everything is selected |
+| | `result` | `{ tone: "pending" \| "success" \| "error", message, actions }`: what the last change is doing or did, shown in the bar's place |
+| `SelectionBarField` | `name` | `string`: the field's name, for its label ("Status: 2 statuses") |
+| | `icon` | `ReactNode`: the field's icon |
+| | `value` | `string`: the shared value, or how many there are; the name again for a field that's only a menu ("Status"); leave it out for an icon-only action |
+| | `shortcut` | `ReactNode`: keys that do the same (`KbdShortcut`), after the value; they stay when the field folds |
+| | `render` | render it as something else; menus render it as their trigger |
+| `SelectionBarSeparator` | | a hairline between groups |
+
+## Rules
+
+### The rows are the toolbar
+
+With several tickets selected, a selected row's own status, priority, assignee, sprint and labels change every selected ticket. Chip, then value: two clicks, in the same spot where you change one ticket, so it's one habit for one ticket or fifty, and you never leave the list. A pick applies at once (Undo is in the bar); labels toggle one at a time, a label on some of the selection showing a dash. Selected rows show every slot, empty ones too, so you can see where each property goes.
+
+### Hover shows what will change
+
+Hovering (or focusing) a selected row's property lights the same property on every selected row, before you click. Its menu then says it again in its heading ("Status · 4 tickets") and counts each value across the selection.
+
+### One suggestion, one press
+
+When the selection has an obvious next step (every ticket in one status: the next status), the bar suggests it: "Suggested · Move to In review", applied with a click or N. The row's status menu marks the same value with a dot and opens on it, so Enter takes it there too.
+
+### ⌘K for the rest
+
+Actions opens ⌘K with the selection, for everything that isn't on a row (estimate, type, archive): the keyboard way in, without leaving the list for the common changes.
+
+### Taught once, by a guide
+
+Nothing on a row says it now changes them all, so the first time someone selects several tickets, a Guide spotlights a selected row and says so. The app remembers it was seen.
+
+### The result takes the bar's place
+
+While a change is out, the bar says so ("Updating 3 tickets…"). Once it lands, the bar swaps the selection for what happened: "Updated 11 tickets" with Undo, for six seconds or until the selection changes. A change that fails says how many tickets it couldn't update, with Retry and Cancel, and stays until you pick one. The old content fades up and out while the new fades in, and the bar's size glides between them on the same curve. If focus was in the bar, it moves to the result's first button, and a screen reader hears the message.
+
+### Select all says how much
+
+"Select all 46" names the count: never a checkbox that quietly means this page or everything. It shows only while something is left to select.
+
+### It never jumps
+
+The bar is as wide as its content, and everything in it animates its own size on one curve (the morph, 260ms): the count rolls to its new number, "Select all" folds away, and a field's value (where it shows one) rolls to its new text. So the bar's edge glides with them.
+
+### It never covers the rows
+
+It floats: the tooltip's raised surface plus a soft drop shadow, the one popup-like surface that keeps a shadow, because it sits over moving list content rather than beside a trigger. The bar takes its own 40px under the list, so even a short list keeps its last rows clear, and while the list scrolls it stays 24px above the window's bottom. It rises in with a short fade and lift, already folded or not, and while it leaves it keeps showing what it showed instead of "0 selected".
+
+### Keyboard and screen readers
+
+It's a toolbar named by `label`: Tab reaches it once and the arrow keys (and Home and End) move between its buttons. The count is announced as it changes, and the bar never takes focus when it appears, so you can keep selecting (X toggles a row, ⌘A selects all, Escape clears). Over a selected row, S, A, P, ⇧S and T open its property menus; N takes the suggestion and ⌘K opens Actions. Each row control names its property and says its key (`aria-keyshortcuts`).
+
+## Examples
+
+### In the app
+
+<Demo name="in-the-app" title="The bar on its own" />
+
+### After a change
+
+<Demo name="failed" title="A change that fails, then lands" />

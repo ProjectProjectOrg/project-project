@@ -1,154 +1,15 @@
-import { useAtomValue } from "@effect/atom-react"
-import type {
-  GitState,
-  GithubConnection,
-  StackLayerState,
-  Ticket,
-  TicketDetail
-} from "@pp/shared"
-import { Badge } from "@pp/ui/badge"
-import { AlertTriangle, Circle, Layers } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
-import * as Result from "effect/reactivity/AsyncResult"
+import type { GitState, GithubConnection, TicketDetail } from "@pp/shared"
 
-import {
-  StackedBranches,
-  stackSummary
-} from "@/features/github/components/ticket-git/TicketStack"
+import { StackedBranches } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
-import { checksColor } from "@/features/github/lib/checksColor"
-import { repoSlug, ticketRepo } from "@/features/github/lib/repos"
-import { project, projectRequest } from "@/features/projects/atoms/projects"
+import { repoSlug } from "@/features/github/lib/repos"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
-import { m } from "@/paraglide/messages"
 
 import { BranchAttemptError } from "./BranchAttemptError"
-import { BranchChip } from "./BranchChip"
 import { GitField } from "./GitField"
 import { PANEL_CHROME, type GitPanelFrame } from "./gitPanelFrame"
 import { NoBranchPanel } from "./NoBranchPanel"
-import { PrLink } from "./PrLink"
-
-function truncate(name: string, max = 18) {
-  return name.length > max ? `${name.slice(0, max - 1)}…` : name
-}
-
-export function TicketGitChip({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: Pick<Ticket, "id" | "gitState" | "repoId">
-}) {
-  const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
-  const github = Result.isSuccess(projectResult)
-    ? ticketRepo(projectResult.value, ticket.repoId)
-    : null
-  if (!github) return <span aria-hidden />
-  return (
-    <ConnectedGitChip
-      orgSlug={orgSlug}
-      slug={slug}
-      ticket={ticket}
-      github={github}
-    />
-  )
-}
-
-function ConnectedGitChip({
-  orgSlug,
-  slug,
-  ticket,
-  github
-}: Readonly<{
-  orgSlug: string
-  slug: string
-  ticket: Pick<Ticket, "id" | "gitState" | "repoId">
-  github: GithubConnection
-}>) {
-  const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
-  if (!state || state.tag === "no_branch") return <span aria-hidden />
-  const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
-  const pulse = (waiting || pending) && "animate-pulse"
-
-  if (stack.length > 0) {
-    return (
-      <span className={cn(pulse)}>
-        <StackChip own={state} stack={stack} />
-      </span>
-    )
-  }
-
-  if (state.tag === "stale_branch") {
-    return (
-      <Badge
-        tone="amber"
-        size="xs"
-        className={cn(pulse)}
-        title={m.git_stale_branch_title({ name: state.name })}
-      >
-        <AlertTriangle />
-        {m.git_stale_branch_pill()}
-      </Badge>
-    )
-  }
-
-  if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
-    return (
-      <span
-        className={cn("inline-flex max-w-full min-w-0 items-center", pulse)}
-      >
-        <BranchChip
-          slug={repoSlug(github)}
-          name={state.name}
-          displayName={truncate(state.name)}
-        />
-      </span>
-    )
-  }
-
-  if (state.tag === "pr_open") {
-    return (
-      <span className={cn(pulse)}>
-        <PrLink
-          number={state.number}
-          url={state.url}
-          tone={state.draft ? "draft" : "open"}
-          checks={state.checks}
-        />
-      </span>
-    )
-  }
-
-  if (state.tag === "pr_pending") {
-    return (
-      <span className={cn(pulse)}>
-        <PrLink number={state.number} url={state.url} tone="open" />
-      </span>
-    )
-  }
-
-  if (state.tag === "pr_merged") {
-    return (
-      <span className={cn(pulse)}>
-        <PrLink number={state.number} url={state.url} tone="merged" />
-      </span>
-    )
-  }
-
-  if (state.tag === "pr_closed") {
-    return (
-      <span className={cn(pulse)}>
-        <PrLink number={state.number} url={state.url} tone="closed" />
-      </span>
-    )
-  }
-
-  return null
-}
 
 export function TicketGitPanel({
   ticket,
@@ -186,7 +47,7 @@ export function TicketGitPanel({
   if (state === null) {
     return (
       <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
-        <div className="skeleton h-7 w-44 rounded bg-muted/60" />
+        <div className="h-7 w-44 skeleton rounded bg-muted/60" />
       </div>
     )
   }
@@ -237,28 +98,5 @@ function PanelForState({
     <NoBranchPanel frame={frame} />
   ) : (
     <GitField state={state} frame={frame} />
-  )
-}
-
-function StackChip({
-  own,
-  stack
-}: Readonly<{ own: GitState; stack: ReadonlyArray<StackLayerState> }>) {
-  const { count, worstChecks: worst, anyOpen } = stackSummary(own, stack)
-  return (
-    <Badge
-      tone={anyOpen ? "emerald" : count.merged > 0 ? "violet" : "muted"}
-      size="xs"
-      title={m.git_stack_count_title(count)}
-    >
-      <Layers />
-      {m.git_stack_count(count)}
-      {worst && (
-        <Circle
-          className={cn("size-2 fill-current", checksColor(worst))}
-          strokeWidth={0}
-        />
-      )}
-    </Badge>
   )
 }

@@ -134,7 +134,7 @@ export function CheckboxGroup({
         {...props}
       >
         <SelectionBackgrounds blocks={blocks} />
-        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        <FluidHoverHighlight hover={hover} />
         <AnimatePresence>
           {focusRect && (
             <motion.div
@@ -258,7 +258,7 @@ function CheckMark({
           checked
             ? "border-transparent"
             : active
-              ? "border-neutral-400 dark:border-neutral-500"
+              ? "border-ring"
               : "border-border"
         )}
       />

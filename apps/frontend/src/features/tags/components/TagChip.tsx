@@ -1,49 +1,22 @@
 import { Badge } from "@pp/ui/badge"
-import { X } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
-
-import { m } from "@/paraglide/messages"
-
-type Props = {
-  name: string
-  color: string | null
-  onRemove?: () => void
-  size?: "xs" | "sm"
-  className?: string
-  pulse?: boolean
-}
+import type { ComponentProps } from "react"
 
 const NEUTRAL = "#94a3b8"
 
+// A tag in its own hue, through the badge's clean-colour recipe. Pass
+// `render` to make it a menu trigger or preview trigger.
 export function TagChip({
-  name,
   color,
-  onRemove,
-  size = "sm",
-  className,
-  pulse
-}: Props) {
-  const hex = color ?? NEUTRAL
+  style,
+  ...props
+}: Omit<ComponentProps<typeof Badge>, "tone" | "color"> &
+  Readonly<{ color: string | null | undefined }>) {
   return (
     <Badge
       data-slot="tag-chip"
+      {...props}
       tone={null}
-      size={size}
-      className={cn(pulse && "animate-pulse", className)}
-      // The tag's own hue goes through the badge's clean-colour recipe.
-      style={{ "--badge-tone": hex }}
-    >
-      {name}
-      {onRemove ? (
-        <button
-          type="button"
-          aria-label={m.tags_remove_aria_label({ name })}
-          onClick={onRemove}
-          className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
-        >
-          <X className="size-3" />
-        </button>
-      ) : null}
-    </Badge>
+      style={{ ...style, "--badge-tone": color ?? NEUTRAL }}
+    />
   )
 }

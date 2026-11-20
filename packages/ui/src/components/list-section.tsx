@@ -131,12 +131,12 @@ export function ListSectionHeader({
           "data-stuck:shadow-surface-3",
           creating
             ? // Typing a ticket: the bar becomes the field it holds.
-              "bg-field shadow-[inset_0_0_0_1px_var(--segment-line)]"
+              "bg-field shadow-[inset_0_0_0_1px_var(--field-line)]"
             : cn(
-                "cursor-pointer select-none hover:duration-0 [&:hover:not(:has(button:hover,a:hover))]:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
+                "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)] hover:duration-0",
                 // Pressed: one step darker, unless the press is on one of
                 // the header's own controls (a chip, the chevron, the "+").
-                "[&:active:not(:has(button:active,a:active,[data-popup-open]))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
+                "[&:active:not(:has(button:active,a:active,[data-popup-open],[data-section-detail]:active))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
               )
         )}
       >
@@ -201,12 +201,13 @@ export function ListSectionHeader({
                     <TextSwap>{String(count)}</TextSwap>
                   </span>
                   {detail ? (
-                    // Chips (chipClassName): dates, estimates, capacity, each
+                    // Chips (<Chip>): dates, estimates, capacity, each
                     // with its own hover. Clicks on them don't toggle.
                     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops a pointer click on a chip from toggling the section; the chips are controls of their own
                     <span
+                      data-section-detail=""
                       onClick={(event) => event.stopPropagation()}
-                      className="ml-auto hidden items-center gap-1 text-caption text-muted-foreground sm:flex"
+                      className="ml-auto hidden cursor-default items-center gap-1 text-caption text-muted-foreground sm:flex"
                     >
                       {detail}
                     </span>

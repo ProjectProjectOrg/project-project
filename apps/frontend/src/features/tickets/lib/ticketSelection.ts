@@ -1,4 +1,4 @@
-import type { TicketId, TicketStatus } from "@pp/shared"
+import type { TicketId } from "@pp/shared"
 
 export type TicketSelection = Readonly<{
   keys: ReadonlySet<string>
@@ -56,21 +56,4 @@ export const selectAll = (
       ? selection.anchor
       : (keys[0] ?? null)
   return { keys: new Set(keys), anchor }
-}
-
-export const suggestedStatus = (
-  current: ReadonlyArray<TicketStatus>,
-  order: ReadonlyArray<TicketStatus>
-) => {
-  const counts = new Map<TicketStatus, number>()
-  for (const status of current)
-    counts.set(status, (counts.get(status) ?? 0) + 1)
-  const common = order.reduce<TicketStatus | null>(
-    (best, status) =>
-      (counts.get(status) ?? 0) > (best === null ? 0 : (counts.get(best) ?? 0))
-        ? status
-        : best,
-    null
-  )
-  return common === null ? null : (order[order.indexOf(common) + 1] ?? null)
 }

@@ -1,4 +1,4 @@
-import { Plus } from "@pp/ui/icons"
+import { CircleDashed } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -131,17 +131,15 @@ export default function TicketCreator() {
                         sprint ? (
                           <SprintGlyph sprint={sprint} />
                         ) : (
-                          <Plus
+                          <CircleDashed
                             className="size-4 shrink-0"
                             strokeWidth={1.75}
                           />
                         )
                       }
-                      label={sprint ? sprint.name : "Assign sprint"}
+                      label={sprint?.name ?? "No sprint"}
                       labelClassName="max-w-[10ch]"
-                      aria-label={
-                        sprint ? `Sprint: ${sprint.name}` : "Assign sprint"
-                      }
+                      aria-label={`Sprint: ${sprint?.name ?? "No sprint"}`}
                     />
                   }
                 />

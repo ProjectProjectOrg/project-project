@@ -1,10 +1,11 @@
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { ToolbarButton } from "@pp/ui/toolbar-button"
 
 import { m } from "@/paraglide/messages"
 
-import { ToolbarButton, ToolbarChevron } from "./toolbar/shared"
+import { ToolbarChevron } from "./toolbar/shared"
 
 export type GroupingOption<K extends string> = Readonly<{
   key: K

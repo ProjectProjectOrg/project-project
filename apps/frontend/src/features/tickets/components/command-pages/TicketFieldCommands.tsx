@@ -7,7 +7,6 @@ import {
 } from "@pp/ui/command-menu"
 import { blockIconComponent } from "@pp/ui/editor/blocks/block-icons"
 import { Archive, CircleSlash, Flag, Layers, Plus, Trash2 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
@@ -58,6 +57,13 @@ import { errorMessage } from "@/lib/errorMessage"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
+import {
+  StagedChanges,
+  StagedRowCount,
+  StagedToggle,
+  StagedValue,
+  useStagedToggles
+} from "./StagedChanges"
 import { useTicketMutation } from "./useTicketMutation"
 
 export type TicketPageProps = CommandPageProps &
@@ -229,9 +235,18 @@ export function TicketTagsPage({
   ticket,
   context,
   chip,
-  onBack
+  onBack,
+  env
 }: TicketPageProps) {
   const { current, update } = useTicketMutation(ticket, context.selection)
+  // Several tickets: toggles are staged, and Apply sends them all at once.
+  const many = context.selection.length > 1
+  const staged = useStagedToggles(context.selection.map((each) => each.tags))
+  const apply = () => {
+    if (staged.changes.length === 0) return
+    update({ tags: { add: staged.add, remove: staged.remove } })
+    env.close()
+  }
   const req = tagsRequest(ticket.orgSlug, ticket.slug)
   const result = useAtomValue(tagsFor(req))
   const create = useAtomSet(createTag(req), { mode: "promiseExit" })
@@ -258,6 +273,38 @@ export function TicketTagsPage({
       onBack={onBack}
       onSearchChange={setQuery}
       notice={failure}
+      onSubmit={many ? apply : undefined}
+      footer={
+        many ? (
+          <StagedChanges
+            hint={m.tickets_selection_toggle()}
+            applyLabel={m.tickets_selection_apply({ count: staged.affected })}
+            onApply={apply}
+            lines={staged.changes.map(({ value, on, count }) => ({
+              key: value,
+              count,
+              change: (
+                <StagedToggle on={on}>
+                  <StagedValue
+                    label={value}
+                    icon={
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor: tags.find(
+                            (tag) => tag.name === value
+                          )?.color
+                        }}
+                      />
+                    }
+                  />
+                </StagedToggle>
+              )
+            }))}
+          />
+        ) : undefined
+      }
       items={[
         ...tags.map((tag) => ({ value: tag.name, label: tag.name })),
         ...(Option.isSome(newName)
@@ -278,12 +325,18 @@ export function TicketTagsPage({
           setFailure(null)
           const exit = await create({ name: newName.value })
           setPending(false)
-          if (Exit.isSuccess(exit)) update({ tags: { add: [newName.value] } })
-          else setFailure(errorMessage(Cause.squash(exit.cause)))
+          if (Exit.isFailure(exit))
+            setFailure(errorMessage(Cause.squash(exit.cause)))
+          else if (many) staged.toggle(newName.value)
+          else update({ tags: { add: [newName.value] } })
           return
         }
         const tag = tags.find((candidate) => candidate.name === item.value)
         if (tag === undefined) return
+        if (many) {
+          staged.toggle(tag.name)
+          return
+        }
         update({
           tags: applied.includes(tag.name)
             ? { remove: [tag.name] }
@@ -300,8 +353,14 @@ export function TicketTagsPage({
               style={{ backgroundColor: tag?.color }}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {many && tag !== undefined && (
+              <StagedRowCount count={staged.held(tag.name)} />
+            )}
             <CommandMenuCheck
-              checked={tag !== undefined && applied.includes(tag.name)}
+              checked={
+                tag !== undefined &&
+                (many ? staged.checked(tag.name) : applied.includes(tag.name))
+              }
               label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>
@@ -631,7 +690,7 @@ export function TicketDeletePage({
         }
       }}
       renderItem={(item) => (
-        <CommandMenuItem value={item.value} className={cn("text-destructive")}>
+        <CommandMenuItem value={item.value} variant="destructive">
           <span className="min-w-0 flex-1 truncate">
             <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
           </span>

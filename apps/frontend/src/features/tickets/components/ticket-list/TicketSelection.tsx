@@ -1,8 +1,10 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { BulkTicketPatch } from "@pp/shared"
+import { Guide } from "@pp/ui/guide"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
+import * as Schema from "effect/Schema"
 import { AnimatePresence } from "motion/react"
 import {
   createContext,
@@ -20,6 +22,7 @@ import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
 import type { BulkTicketUpdateAtom } from "@/features/tickets/atoms/ticketRows"
+import { lightRowFields } from "@/features/tickets/lib/selectionKeys"
 import {
   toBulkPatch,
   type TicketEdit
@@ -31,13 +34,18 @@ import {
   selectionKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
+import {
+  createLocalStorageCodec,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { m } from "@/paraglide/messages"
 
 import { SelectionBar } from "./SelectionBar"
 import {
+  applySelected,
   createSelectionStore,
-  type SelectionStore,
-  updateSelected
+  type SelectionStore
 } from "./selectionStore"
 
 const SelectionContext = createContext<SelectionStore | null>(null)
@@ -55,13 +63,26 @@ export function TicketSelectionProvider({
     setStore(createSelectionStore())
   }
   const registry = use(RegistryContext)
-  const selecting = useAtomValue(store.count) > 0
+  const count = useAtomValue(store.count)
+  const selecting = count > 0
   const scope = useMemo(
     () => selectionScope(registry, store),
     [registry, store]
   )
   useCommandScope(scope)
   const root = useRef<HTMLDivElement>(null)
+  // Hovering a selected row's field lights it on every selected row.
+  useEffect(() => {
+    const list = root.current
+    return list === null ? undefined : lightRowFields(list)
+  }, [])
+  // The first time several are selected, a guide says the rows change them
+  // all (once per person; this browser remembers it for now).
+  const [guideSeen, setGuideSeen] = useLocalStorageState(
+    "projectproject:guide:bulk-edit",
+    guideSeenCodec,
+    false
+  )
 
   const rowKeyFor = (target: EventTarget | null) => {
     const list = root.current
@@ -122,16 +143,36 @@ export function TicketSelectionProvider({
             />
           )}
         </AnimatePresence>
+        <Guide
+          open={count > 1 && !guideSeen}
+          onClose={() => setGuideSeen(true)}
+          steps={[
+            {
+              target: () => root.current?.querySelector("[data-row-selected]"),
+              title: m.tickets_guide_bulk_title({ count }),
+              body: m.tickets_guide_bulk_body()
+            }
+          ]}
+          labels={{
+            done: m.tickets_guide_done(),
+            next: m.common_guide_next(),
+            back: m.common_guide_back(),
+            skip: m.common_guide_skip(),
+            progress: (step, total) => m.common_guide_progress({ step, total })
+          }}
+        />
       </div>
     </SelectionContext>
   )
 }
 
+const guideSeenCodec = createLocalStorageCodec(Schema.Boolean)
+
 const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
   ({
     clearSelection: () => registry.set(store.selection, emptySelection),
-    updateSelection: (slug, tickets, patch) =>
-      updateSelected(registry, store, slug, tickets, patch),
+    updateSelection: (slug, tickets, patch, restore) =>
+      applySelected(registry, store, slug, tickets, patch, restore),
     selection: () => {
       const keys = [...registry.get(store.selection).keys]
       const [first] = keys
@@ -233,13 +274,18 @@ export function useSelectionStore() {
 export function useSelectionActions(key: string) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
-  const size = useAtomValue(store === null ? noCount : store.count)
   const selected = useAtomValue(
     store === null ? notSelected : store.isSelected(key)
   )
-  const acting = store !== null && selected && size > 1
-  const { keys } = useAtomValue(store === null ? noSelection : store.selection)
-  const known = useAtomValue(store === null ? noKnown : store.known)
+  // Only a selected row follows the whole selection (its size, keys and
+  // tickets): every other row watches just its own flag, so an edit to the
+  // selected tickets, or selecting another row, doesn't render the whole
+  // list again.
+  const watching = store !== null && selected ? store : null
+  const size = useAtomValue(watching === null ? noCount : watching.count)
+  const acting = watching !== null && size > 1
+  const { keys } = useAtomValue(acting ? watching.selection : noSelection)
+  const known = useAtomValue(acting ? watching.known : noKnown)
   const selectedTickets = acting
     ? [...keys].flatMap((each) => known.get(each) ?? [])
     : []
@@ -251,9 +297,9 @@ export function useSelectionActions(key: string) {
         )
   const patchBulk = (patch: BulkTicketPatch) => {
     if (!acting) return false
-    void updateSelected(
+    void applySelected(
       registry,
-      store,
+      watching,
       projectOfKey(key),
       selectedIds(),
       patch

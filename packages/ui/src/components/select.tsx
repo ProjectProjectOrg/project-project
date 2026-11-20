@@ -21,9 +21,11 @@ import { Button } from "./button"
 import { ChevronDown } from "./icons"
 import { MenuHighlight } from "./menu-highlight"
 import {
+  PopupLayerContext,
   menuItemClass,
   menuPopupClass,
-  menuSeparatorClass
+  menuSeparatorClass,
+  useRaisedPopupClass
 } from "./menu-styles"
 import { TextSwap } from "./text-swap"
 
@@ -356,6 +358,7 @@ function SelectContent({
   finalFocus
 }: SelectContentProps) {
   const anchor = usePopupAnchor(undefined)
+  const raisedClass = useRaisedPopupClass()
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -364,13 +367,14 @@ function SelectContent({
         sideOffset={sideOffset}
         alignItemWithTrigger={false}
         anchor={anchor}
-        className="z-50 outline-none"
+        className="outline-none"
       >
         <SelectPrimitive.Popup
           finalFocus={finalFocus}
           onClick={(event) => event.stopPropagation()}
           className={cn(
             menuPopupClass,
+            raisedClass,
             // At least 192px so a compact trigger still gets a list wide
             // enough to read, and at least as wide as a wider trigger.
             "min-w-[max(12rem,var(--anchor-width))]",
@@ -378,7 +382,7 @@ function SelectContent({
           )}
         >
           <MenuHighlight />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>
     </SelectPrimitive.Portal>
@@ -402,7 +406,7 @@ type SelectItemProps = Omit<
 // turns semibold. No row fill and
 // no trailing tick, so it never stacks with the sliding highlight.
 const choiceItemClass =
-  "transition-[color,font-weight] duration-150 data-[selected]:font-semibold data-[selected]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
+  "transition-[color,font-weight] duration-150 data-[selected]:font-semibold data-[selected]:text-foreground lit:duration-0 motion-reduce:transition-none"
 
 const choiceIndicatorClass =
   "w-4 shrink-0 opacity-0 transition-opacity duration-80 ease-standard group-data-[selected]/choice:opacity-100 group-data-[selected]/choice:duration-60 motion-reduce:transition-none"

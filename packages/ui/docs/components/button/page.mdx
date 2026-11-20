@@ -50,8 +50,8 @@ import { Plus } from "@pp/ui/icons"
 | Prop                           | Type                                                                                                                   | Default     |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
 | `variant`                      | `"primary" \| "secondary" \| "tertiary" \| "destructive" \| "ghost" \| …`                                              | `"primary"` |
-| `tone`                         | `"muted" \| "strong"`, ghost only: muted text that brightens on hover, or full foreground for triggers showing a value | `"muted"`   |
-| `size`                         | `"xs" \| "compact" \| "sm" \| "md" \| "lg" \| "icon-xs" \| "icon-sm" \| "icon" \| "icon-lg" \| …`                      | `"md"`      |
+| `tone`                         | `"muted" \| "strong"`, ghost only: muted text that brightens on hover, or full foreground for triggers showing a value. `"destructive"`: a remove action, red on hover (ghost, overlay) or at rest (tertiary). `"warning" \| "error"`: a control reporting a problem, coloured in every state | `"muted"`   |
+| `size`                         | `"xs" \| "compact" \| "sm" \| "inline" \| "md" \| "lg" \| "icon-xs" \| "icon-sm" \| "icon" \| "icon-lg" \| …`                      | `"md"`      |
 | `leadingIcon` / `trailingIcon` | `IconComponent`                                                                                                        |             |
 | `loading`                      | `boolean`                                                                                                              | `false`     |
 | `bleed`                        | `"start" \| "end"`                                                                                                     |             |

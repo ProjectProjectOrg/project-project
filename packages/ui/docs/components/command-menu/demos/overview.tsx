@@ -21,6 +21,7 @@ import {
   Signal,
   UserPlus
 } from "@pp/ui/icons"
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import { useState, type ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {
@@ -97,7 +98,9 @@ function Panel({
   return (
     <div className="grid gap-2">
       <span className="text-caption text-muted-foreground">{label}</span>
-      <div className="flex max-h-[26rem] w-[30rem] max-w-full flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground [corner-shape:var(--button-corner)]">
+      <div
+        className={`${popupSurfaceClass} flex max-h-[26rem] w-[30rem] max-w-full flex-col overflow-hidden`}
+      >
         {children}
       </div>
     </div>

@@ -60,7 +60,7 @@ import { Badge } from "@pp/ui/badge"
 
 ## Rules
 
-- One component, three variants. `soft` is a tinted label (roles, pull requests, mentions, statuses, tags), `outline` is the card-coloured chip for files and links in running text, `count` is a mono number next to a label.
+- One component, three variants. `soft` is a tinted label (roles, pull requests, mentions, statuses, tags), `outline` is the card-coloured chip for files and links in running text, `count` is a tabular number next to a label.
 - Fill and text are both built from the tone in oklch (`.pp-badge` in `theme.css`): a pure pastel fill with same-hue text at 46% lightness in light mode, a deep wash with 82% text in dark mode. Never tint a badge with an opacity of its tone or mix the tone toward black; both turn it grey.
 - The buttons' sheen lies over every fill: a hair lighter at the top, a hair darker at the bottom. No borders or shadows; the outline chip uses the `--segment-line` hairline.
 - Corners are half the height, shaped by `--button-corner`. Focus uses the shared `focus-ring`.

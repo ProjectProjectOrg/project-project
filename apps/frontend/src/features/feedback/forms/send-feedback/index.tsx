@@ -6,7 +6,6 @@ import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { CircleCheck, Paperclip } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { spring } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useLocation } from "@tanstack/react-router"
@@ -173,7 +172,7 @@ export function SendFeedbackForm({
                 ? m.feedback_title_placeholder_bug()
                 : m.feedback_title_placeholder_feature()
             return (
-              <Composer.Title className="grid leading-6">
+              <Composer.Title className="grid">
                 <Input
                   ref={titleRef}
                   variant="bare"
@@ -187,7 +186,7 @@ export function SendFeedbackForm({
                   onBlur={field.handleBlur}
                   onKeyDown={sendOnModEnter}
                   onPaste={attachPasted}
-                  className="col-start-1 row-start-1 leading-6"
+                  className="col-start-1 row-start-1"
                 />
                 {field.value === "" ? (
                   <TitlePlaceholder placeholder={placeholder} />
@@ -247,7 +246,7 @@ export function SendFeedbackForm({
                 type="submit"
                 size="sm"
                 disabled={busy}
-                className={cn(state.waiting && "animate-pulse")}
+                data-pending={state.waiting || undefined}
               >
                 {state.waiting ? m.feedback_sending() : m.feedback_submit()}
               </Button>

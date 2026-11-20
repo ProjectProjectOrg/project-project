@@ -243,7 +243,7 @@ export function LibraryCreateForm({
           type="submit"
           variant="primary"
           disabled={busy}
-          className={cn(busy && "animate-pulse")}
+          data-pending={busy || undefined}
         >
           {submitLabel(kind, onCreated !== undefined)}
         </Button>

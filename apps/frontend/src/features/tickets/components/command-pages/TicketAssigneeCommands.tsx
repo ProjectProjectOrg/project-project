@@ -15,6 +15,13 @@ import type {
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { m } from "@/paraglide/messages"
 
+import {
+  StagedChanges,
+  StagedRowCount,
+  StagedToggle,
+  StagedValue,
+  useStagedToggles
+} from "./StagedChanges"
 import { useTicketMutation } from "./useTicketMutation"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
@@ -44,9 +51,23 @@ export function TicketAssigneeCommands({
   const byId = new Map<string, Member>(
     members.map((member) => [member.id, member])
   )
+  // Several tickets: toggles are staged, and Apply sends them all at once.
+  const many = selection.length > 1
+  const staged = useStagedToggles(selection.map((each) => each.assignees))
+  const apply = () => {
+    if (staged.changes.length === 0) return
+    update({ assignees: { add: staged.add, remove: staged.remove } })
+    onClose()
+  }
   const viewer = viewerId === undefined ? undefined : byId.get(viewerId)
-  const viewerAssigned = viewer !== undefined && assigned.has(viewer.id)
+  const viewerAssigned =
+    viewer !== undefined &&
+    (many ? staged.checked(viewer.id) === true : assigned.has(viewer.id))
   const toggle = (id: string) => {
+    if (many) {
+      staged.toggle(id)
+      return
+    }
     if (current === null) return
     update({
       assignees: assigned.has(id) ? { remove: [id] } : { add: [id] }
@@ -59,6 +80,35 @@ export function TicketAssigneeCommands({
       chip={chip}
       placeholder={m.tickets_command_assign_placeholder()}
       onBack={onBack}
+      onSubmit={many ? apply : undefined}
+      footer={
+        many ? (
+          <StagedChanges
+            hint={m.tickets_selection_toggle()}
+            applyLabel={m.tickets_selection_apply({ count: staged.affected })}
+            onApply={apply}
+            lines={staged.changes.flatMap(({ value, on, count }) => {
+              const member = byId.get(value)
+              return member === undefined
+                ? []
+                : [
+                    {
+                      key: value,
+                      count,
+                      change: (
+                        <StagedToggle on={on}>
+                          <StagedValue
+                            label={member.name || member.email}
+                            icon={<MemberAvatar member={member} size={14} />}
+                          />
+                        </StagedToggle>
+                      )
+                    }
+                  ]
+            })}
+          />
+        ) : undefined
+      }
       items={[
         ...(viewer === undefined || current === null
           ? []
@@ -99,8 +149,11 @@ export function TicketAssigneeCommands({
           <CommandMenuItem value={item.value}>
             <MemberAvatar member={member} size={18} />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {many && <StagedRowCount count={staged.held(member.id)} />}
             <CommandMenuCheck
-              checked={assigned.has(item.value)}
+              checked={
+                many ? staged.checked(member.id) : assigned.has(item.value)
+              }
               label={m.chrome_command_menu_selected()}
             />
           </CommandMenuItem>

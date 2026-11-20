@@ -33,7 +33,7 @@ function InputGroup({
         if (input !== document.activeElement) input.focus()
       }}
       className={cn(
-        "group/input-group relative flex h-9 w-full min-w-0 cursor-text items-center gap-2 rounded-[18px] border border-(--segment-line) bg-field px-3 transition-[color,box-shadow] [corner-shape:var(--button-corner)] has-[>[data-slot=input-group-control]:last-child]:pr-[5px] has-[>[data-slot=kbd]:last-child]:pr-[7px]",
+        "group/input-group relative flex h-9 w-full min-w-0 cursor-text items-center gap-2 rounded-[18px] border border-(--field-line) bg-field px-3 transition-[color,box-shadow] [corner-shape:var(--button-corner)] has-[>[data-slot=input-group-control]:last-child]:pr-[5px] has-[>[data-slot=kbd]:last-child]:pr-[7px]",
         // A leading icon sits optically close to the edge, like Button's
         // icon side: about 10px to the glyph against 13px on the text side.
         "has-[>[data-slot=input-group-addon]:first-child]:pl-1",

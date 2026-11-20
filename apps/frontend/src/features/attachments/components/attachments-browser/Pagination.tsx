@@ -1,6 +1,5 @@
 import { Button } from "@pp/ui/button"
 import { ChevronLeft, ChevronRight } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 
 import { m } from "@/paraglide/messages"
 
@@ -59,10 +58,7 @@ export function Pagination({
                 aria-label={m.attachments_page_of({ page: slot })}
                 aria-current={slot === page ? "page" : undefined}
                 onClick={() => onPageChange(slot)}
-                className={cn(
-                  "min-w-8 tabular-nums",
-                  slot === page && "bg-accent font-semibold text-foreground"
-                )}
+                className="min-w-8 tabular-nums"
               >
                 {slot}
               </Button>

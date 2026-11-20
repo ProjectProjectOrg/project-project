@@ -338,11 +338,7 @@ function StackLayerRow({
         />
       )}
       <span title={label} className="mt-0.5">
-        <Icon
-          className={cn("size-3.5 shrink-0", className)}
-
-          aria-hidden
-        />
+        <Icon className={cn("size-3.5 shrink-0", className)} aria-hidden />
         <span className="sr-only">{label}</span>
       </span>
       <div className="min-w-0 flex-1">

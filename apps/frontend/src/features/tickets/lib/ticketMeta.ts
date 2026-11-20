@@ -77,6 +77,6 @@ export function statusMetaFor(
     label: status,
     icon: Circle,
     className: "text-muted-foreground",
-    color: null
+    color: "var(--muted-foreground)"
   }
 }

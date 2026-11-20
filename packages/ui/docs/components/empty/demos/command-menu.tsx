@@ -14,6 +14,7 @@ import {
   EmptyTitle
 } from "@pp/ui/empty"
 import { Plus, Search, type IconType } from "@pp/ui/icons"
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import type { ReactNode } from "react"
 
 // ⌘K with nothing to list: CommandFrame's header and list, and the empty is
@@ -69,7 +70,9 @@ function Frame({
   empty: FrameEmpty
 }>) {
   return (
-    <div className="flex max-h-[min(440px,76dvh)] w-full flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground [corner-shape:var(--button-corner)]">
+    <div
+      className={`${popupSurfaceClass} flex max-h-[min(440px,76dvh)] w-full flex-col overflow-hidden`}
+    >
       <CommandMenu
         stretch
         items={[]}
@@ -89,12 +92,8 @@ function Frame({
           />
         </div>
         <div className="relative flex min-h-0 flex-1">
-          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 shrink-0 flex-col bg-popover">
-            <CommandMenuList
-              aria-label={placeholder}
-              className="min-h-0 flex-1"
-              renderItem={() => null}
-            >
+          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 shrink-0 flex-col bg-(color:--tooltip)">
+            <CommandMenuList aria-label={placeholder} renderItem={() => null}>
               <CommandMenuEmpty className="p-0">
                 <CommandFrameEmpty {...empty} />
               </CommandMenuEmpty>

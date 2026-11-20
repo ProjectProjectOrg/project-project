@@ -215,7 +215,7 @@ export function ProjectBannerForm({
                   : undefined
               }
               thumb={
-                <span className="block h-7 w-[84px] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
+                <span className="block h-7 w-21 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
                   {values.source.src ? (
                     <img
                       src={values.source.src}

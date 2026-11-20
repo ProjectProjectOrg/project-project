@@ -11,7 +11,7 @@ import { TicketSelectionChips } from "@/features/tickets/components/command-page
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
-import { commandContext } from "../atoms/commandContext"
+import { commandContext, sprintTargetContext } from "../atoms/commandContext"
 import {
   commandMenuState,
   commandScopes,
@@ -116,7 +116,7 @@ function CommandMenuPrewarm({
     <div
       aria-hidden
       inert
-      className="pointer-events-none invisible fixed top-0 -left-[200vw] flex h-[440px] w-[640px] flex-col overflow-hidden"
+      className="pointer-events-none invisible fixed top-0 -left-[200vw] flex h-110 w-[640px] flex-col overflow-hidden"
     >
       <CommandMenuPage
         orgSlug={orgSlug}
@@ -167,7 +167,8 @@ function CommandMenuPage({
     ...useAtomValue(commandContext({ orgSlug, projectSlug, ticket })),
     routeProjectSlug: params.slug ?? null,
     selection: state.selection,
-    sprint: scopeSprint(scopes),
+    sprint:
+      useAtomValue(sprintTargetContext(state.sprint)) ?? scopeSprint(scopes),
     view: scopeView(scopes)
   }
   const integrations = useIntegrationCommands(context)

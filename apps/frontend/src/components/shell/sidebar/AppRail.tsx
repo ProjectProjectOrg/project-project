@@ -41,7 +41,7 @@ export function AppRail({
         <OrgSwitcher
           trigger={
             <SidebarRailItem label={m.org_switcher_trigger_aria_label()}>
-              <Logo className="size-[22px]" />
+              <Logo className="size-5.5" />
             </SidebarRailItem>
           }
         />
@@ -113,7 +113,7 @@ function ProjectTile({
       active={inProject?.slug === project.slug}
       // The item takes the tile's own shape, so the tile looks the same
       // here as everywhere else.
-      className="corner-squircle"
+      shape="tile"
       style={{ borderRadius: projectIconRadius(RAIL_TILE) }}
       render={
         settingsSection === undefined ? (

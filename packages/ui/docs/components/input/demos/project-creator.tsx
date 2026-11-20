@@ -25,7 +25,7 @@ const slugify = (name: string) =>
     .replace(/^-|-$/g, "")
 
 // The new-project field on the projects page: the name is the main input,
-// and once it has text a second, monospace input for the ticket key appears
+// and once it has text a second input for the ticket key (tabular figures) appears
 // inside the same field, derived from the name until you edit it. The line
 // below previews the first ticket id and the project URL.
 export default function ProjectCreator() {

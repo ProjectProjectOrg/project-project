@@ -10,7 +10,7 @@ export function PageContainer({
     <div
       className={cn(
         "flex w-full flex-col gap-6",
-        width === "focused" && "mx-auto max-w-[1020px]",
+        width === "focused" && "mx-auto max-w-255",
         className
       )}
       {...props}

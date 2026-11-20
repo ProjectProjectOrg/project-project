@@ -1,5 +1,5 @@
 import { Button } from "@pp/ui/button"
-import { ChevronLeft, ChevronRight } from "@pp/ui/icons"
+import { ChevronLeft, ChevronRight, CircleHelp } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import useEmblaCarousel from "embla-carousel-react"
@@ -61,11 +61,11 @@ export function FigmaTokenWalkthrough() {
           <Button
             type="button"
             variant="ghost"
-            className="align-middle text-micro"
+            className="align-middle"
             size="icon-xs"
             aria-label={m.figma_project_help_trigger_label()}
           >
-            {m.figma_project_help_trigger_text()}
+            <CircleHelp strokeWidth={1.75} />
           </Button>
         }
       />
@@ -124,7 +124,7 @@ export function FigmaTokenWalkthrough() {
                   aria-current={index === selectedIndex ? "step" : undefined}
                   onClick={() => emblaApi?.scrollTo(index)}
                   className={cn(
-                    "size-1.5 rounded-full transition-all duration-150 active:scale-[0.97]",
+                    "size-1.5 rounded-full transition-all duration-150 active:scale-97",
                     index === selectedIndex
                       ? "w-4 bg-foreground"
                       : "bg-muted-foreground/35 hover:bg-muted-foreground/60"

@@ -83,7 +83,7 @@ function Empty({
       </div>
       <div
         ref={cardRef}
-        className="relative flex max-w-sm animate-in flex-col items-center gap-1 px-4 py-3 text-center text-balance duration-500 zoom-in-95 fade-in @md/empty:px-6 @md/empty:py-5"
+        className="relative flex max-w-sm min-w-0 animate-in flex-col items-center gap-1 px-4 py-3 text-center text-balance [overflow-wrap:anywhere] duration-500 zoom-in-95 fade-in @md/empty:px-6 @md/empty:py-5"
       >
         {children}
       </div>

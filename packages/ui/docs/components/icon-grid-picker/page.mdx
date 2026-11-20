@@ -1,0 +1,75 @@
+export const meta = {
+  title: "Icon grid picker",
+  group: "Primitives",
+  description:
+    "A ghost square that opens a grid of icons. Status icons and library entry icons, each next to its colour picker.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Popover",
+      note: "focus, Escape and outside press",
+      href: "https://base-ui.com/react/components/popover"
+    },
+    { kind: "own", name: "IconGridPicker", note: "the trigger and the grid" }
+  ]
+}
+
+## Overview
+
+The trigger shows the current icon. Open it for a grid of icons, eight to a row, with the current one pressed; picking one closes the grid.
+
+<Demo name="overview" title="Enabled and disabled" className="min-h-80" />
+
+## Usage
+
+```tsx
+import { IconGridPicker } from "@pp/ui/icon-grid-picker"
+
+<IconGridPicker
+  value={icon}
+  options={STATUS_ICON_NAMES}
+  onChange={setIcon}
+  triggerLabel={m.tickets_status_icon_picker_aria()}
+  triggerIcon={<Current className="size-4" style={{ color }} />}
+  optionLabel={(name) => m.tickets_status_icon_option_aria({ name })}
+  renderIcon={(name) => <StatusIcon name={name} className="size-3.5" style={{ color }} />}
+/>
+```
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `K`, the current icon's name | required |
+| `options` | `ReadonlyArray<K>`, the icons in the grid, in order | required |
+| `onChange` | `(value: K) => void` | required |
+| `triggerIcon` | `ReactNode`, the current icon at 16px | required |
+| `renderIcon` | `(name: K) => ReactNode`, one icon at 14px | required |
+| `triggerLabel` | `string`, names the trigger | required |
+| `optionLabel` | `(name: K) => string`, names each icon | required |
+| `disabled` | `boolean` | `false` |
+| `onOpenChange` | `(open: boolean) => void` | |
+
+## Rules
+
+### Ghost squares, inside and out
+
+The trigger is a 32px ghost `Button` and every icon in the grid is a 28px one, so hover, press (97%), the pressed fill for the current icon and the focus ring all come from the button. No outline: controls are flat.
+
+### Concentric with the popup
+
+The grid sits 5px inside the popup, like menu rows: the popup's 19px corners and the cells' 14px corners share a centre. The popup wears the tooltip skin like every click-opened panel.
+
+### The grid previews the result
+
+Draw every icon in the colour it will have (a status's colour, a library entry's), not in the grid's grey, so choosing an icon is choosing what the row will look like.
+
+### Colour is a separate control
+
+An icon and its colour are two decisions, so they are two triggers side by side: the icon grid, then the `ColorPicker` honeycomb. The grid never carries its own swatches.
+
+### Locked icons aren't a disabled picker
+
+Where the icon can't change (a built-in status), show the icon as a plain glyph in the trigger's 32px place, so the controls beside it don't move. `disabled` is for a picker that's busy, such as while a save is in flight.
+
+## Examples
+
+<Demo name="in-the-app" title="The status editor" className="min-h-96" />

@@ -4,7 +4,7 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
-import { Plus, X } from "@pp/ui/icons"
+import { CircleDashed, Plus } from "@pp/ui/icons"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import * as DateTime from "effect/DateTime"
@@ -32,14 +32,14 @@ function rangeText(s: Group) {
 export type SprintAssignMenuProps = {
   trigger: ReactElement
   sprints: ReadonlyArray<Group>
+  // null: in no sprint. undefined: tickets in different sprints, so
+  // nothing is marked.
   selectedId: Group["id"] | null | undefined
-  onSelect: (sprint: Group) => void
-  onClear?: () => void
+  onSelect: (sprint: Group | null) => void
   onRequestNewSprint?: () => void
   open?: boolean
   onOpenChange?: SelectProps["onOpenChange"]
   finalFocus?: NonNullable<SelectProps["contentProps"]>["finalFocus"]
-  clearLabel?: string
 }
 
 export function pickDefaultSprint(
@@ -53,7 +53,7 @@ export function pickDefaultSprint(
   )
 }
 
-const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
+export const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
   const now = DateTime.toDate(DateTime.nowUnsafe())
   const stateOrder = { active: 0, planned: 1, completed: 2 } as const
   return sprints
@@ -71,22 +71,19 @@ export function SprintAssignMenu({
   sprints,
   selectedId,
   onSelect,
-  onClear,
   onRequestNewSprint,
   open,
   onOpenChange,
-  finalFocus,
-  clearLabel
+  finalFocus
 }: SprintAssignMenuProps) {
   const eligible = eligibleSprints(sprints)
   const sprintOptions = eligible.map((s, index) => ({
     value: s.id,
     textValue: s.name,
-    separated:
-      index === eligible.length - 1 && onRequestNewSprint !== undefined,
+    separated: index === eligible.length - 1,
     label: (
       <>
-        <SprintStateIcon sprint={s} size="xs" />
+        <SprintStateIcon sprint={s} size="md" />
         <span className="min-w-0 flex-1 truncate">{s.name}</span>
         <span data-menu-meta className={menuItemMetaClass}>
           {rangeText(s)}
@@ -94,23 +91,18 @@ export function SprintAssignMenu({
       </>
     )
   }))
-  const clearText = clearLabel ?? m.tickets_sprint_popover_remove_action()
-  const clearOptions =
-    onClear === undefined
-      ? []
-      : [
-          {
-            value: NO_SPRINT,
-            textValue: clearText,
-            separated: eligible.length > 0,
-            label: (
-              <>
-                <X strokeWidth={1.75} />
-                {clearText}
-              </>
-            )
-          }
-        ]
+  const noneText = m.tickets_sprint_none()
+  const noneOption = {
+    value: NO_SPRINT,
+    textValue: noneText,
+    separated: onRequestNewSprint !== undefined,
+    label: (
+      <>
+        <CircleDashed strokeWidth={1.75} />
+        <span className="truncate">{noneText}</span>
+      </>
+    )
+  }
   const newSprintText = m.tickets_sprint_popover_new_sprint_action()
   const actionOptions =
     onRequestNewSprint === undefined
@@ -128,20 +120,16 @@ export function SprintAssignMenu({
             onAction: onRequestNewSprint
           }
         ]
-  const items = [...clearOptions, ...sprintOptions, ...actionOptions]
+  const items = [...sprintOptions, noneOption, ...actionOptions]
   return (
     <Select
       items={items}
-      value={
-        selectedId === undefined
-          ? null
-          : (selectedId ?? (onClear === undefined ? null : NO_SPRINT))
-      }
+      value={selectedId === undefined ? null : (selectedId ?? NO_SPRINT)}
       open={open}
       onOpenChange={onOpenChange}
       onValueChange={(id) => {
         if (id === NO_SPRINT) {
-          if (selectedId !== null) onClear?.()
+          if (selectedId !== null) onSelect(null)
           return
         }
         const next = eligible.find((s) => s.id === id)
@@ -149,7 +137,7 @@ export function SprintAssignMenu({
       }}
       contentProps={{
         align: "start",
-        className: "w-64",
+        className: "max-w-80",
         finalFocus: finalFocus ?? false
       }}
     >

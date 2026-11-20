@@ -14,7 +14,6 @@ import {
   GitBranch as GithubIcon,
   Settings2
 } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { MenuNote } from "@pp/ui/menu-note"
 import { Link } from "@tanstack/react-router"
 
@@ -58,7 +57,7 @@ export function GithubChip({
             leadingIcon={warning ? AlertTriangle : GithubIcon}
             trailingIcon={ChevronDown}
             title={warning ?? undefined}
-            className={cn(warning && "text-state-warning")}
+            tone={warning ? "warning" : undefined}
           >
             <RepoName owner={github.repoOwner} name={github.repoName} />
             {more > 0 ? (

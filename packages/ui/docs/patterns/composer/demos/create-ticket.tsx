@@ -1,6 +1,13 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { Circle, Minus, Plus, SquareCheck, UserRound } from "@pp/ui/icons"
+import {
+  Circle,
+  CircleDashed,
+  Minus,
+  Plus,
+  SquareCheck,
+  UserRound
+} from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { useState } from "react"
 
@@ -53,7 +60,7 @@ export default function CreateTicket() {
               </Button>
               <Button type="button" variant="ghost" tone="strong">
                 <SquareCheck
-                  className="size-3.5 text-sky-500"
+                  className="size-3.5 text-state-info"
                   strokeWidth={1.75}
                 />
                 <span>Task</span>
@@ -74,8 +81,8 @@ export default function CreateTicket() {
                 <span>Add estimate</span>
               </Button>
               <Button type="button" variant="ghost" tone="muted">
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                <span>Assign sprint</span>
+                <CircleDashed className="size-3.5" strokeWidth={1.75} />
+                <span>No sprint</span>
               </Button>
             </Composer.Fields>
             <Composer.Footer>

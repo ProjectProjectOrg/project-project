@@ -16,7 +16,7 @@ export function TerminalSurface({
   children
 }: TerminalSurfaceProps) {
   return (
-    <div className="flex min-h-[520px] flex-col items-center justify-center px-6 py-12 text-center">
+    <div className="flex min-h-130 flex-col items-center justify-center px-6 py-12 text-center">
       <div className="w-full max-w-xl">
         <h2 className="text-subtitle font-semibold text-balance text-foreground">
           {title}

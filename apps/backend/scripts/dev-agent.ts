@@ -34,6 +34,7 @@ import {
   decodeSecrets,
   childEnvironment,
   loginUrl,
+  portlessEnvironment,
   prepareFiles,
   runServers,
   seedIdentity
@@ -186,11 +187,7 @@ async function start() {
       cwd: root,
       env: {
         ...childEnvironment(environment, await secretsFor(environment), "0"),
-        PORTLESS_STATE_DIR: path.join(directory, "portless"),
-        PORTLESS_PORT: "1355",
-        PORTLESS_HTTPS: "1",
-        PORTLESS_UNPRIVILEGED: "1",
-        PORTLESS_PREFIX: ""
+        ...portlessEnvironment(directory)
       },
       stdin: "inherit",
       stdout: "inherit",

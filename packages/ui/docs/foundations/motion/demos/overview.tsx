@@ -116,6 +116,12 @@ export default function MotionOverview() {
       <Section title="Transitions">
         <div className="flex flex-col gap-2">
           <Track
+            label="Snap"
+            note="40ms"
+            at={at}
+            transition={transitions.snap}
+          />
+          <Track
             label="Fade"
             note="150ms"
             at={at}

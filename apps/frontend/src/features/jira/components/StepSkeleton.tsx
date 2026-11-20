@@ -5,10 +5,10 @@ import { pickerHeightClass } from "./ProjectPicker"
 export function StepSkeleton() {
   return (
     <div className="flex flex-col gap-4 py-1">
-      <div className="skeleton h-6 w-64 rounded-lg" />
-      <div className="skeleton h-4 w-full max-w-lg rounded" />
+      <div className="h-6 w-64 skeleton rounded-lg" />
+      <div className="h-4 w-full max-w-lg skeleton rounded" />
       <div
-        className={cn("skeleton mt-4 w-full rounded-xl", pickerHeightClass)}
+        className={cn("mt-4 w-full skeleton rounded-xl", pickerHeightClass)}
       />
     </div>
   )

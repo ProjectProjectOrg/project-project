@@ -61,7 +61,7 @@ export const appHotkeys = defineAppHotkeys({
   "tickets.add-sub-ticket": {
     hotkey: "C",
     scope: "ticket",
-    meta: { name: m.tickets_command_add_sub_ticket(), group: create }
+    meta: { name: m.tickets_command_new_sub_ticket(), group: create }
   },
   "projects.create": {
     hotkey: "C",
@@ -79,6 +79,10 @@ export const appHotkeys = defineAppHotkeys({
   "tickets.assign-me": {
     hotkey: "I",
     meta: { name: m.tickets_command_assign_me(), group: ticket }
+  },
+  "tickets.selection-next": {
+    hotkey: "N",
+    meta: { name: m.tickets_selection_next_hotkey(), group: ticket }
   },
   "tickets.priority": {
     hotkey: "P",
@@ -189,6 +193,31 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "L",
     scope: "board",
     meta: { name: m.sprints_shortcut_move_right(), group: board }
+  },
+  "sprints.focus-next": {
+    hotkey: "J",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_focus_next(), group: board }
+  },
+  "sprints.focus-previous": {
+    hotkey: "K",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_focus_previous(), group: board }
+  },
+  "sprints.open": {
+    hotkey: "O",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_open(), group: board }
+  },
+  "sprints.dates": {
+    hotkey: "D",
+    scope: "sprint-list",
+    meta: { name: m.sprints_shortcut_dates(), group: board }
+  },
+  "sprints.start": {
+    hotkey: "Shift+S",
+    scope: "sprint-list",
+    meta: { name: m.sprints_start_button(), group: board }
   }
 })
 

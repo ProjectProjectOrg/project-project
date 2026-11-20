@@ -1,7 +1,7 @@
 import { isEpic } from "@pp/shared"
 import type { TicketParent } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
 import { ListRowCrumbs } from "@pp/ui/list-row-crumbs"
+import { TextLink } from "@pp/ui/text-link"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 
@@ -35,12 +35,16 @@ export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
     <TicketPreviewTrigger
       preview={preview}
       render={
-        <Link
-          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-          params={{ orgSlug, slug, id: parent.id }}
-          preload="intent"
-          draggable={false}
-          className={cn(parentLinkClass, "max-w-[24ch] truncate")}
+        <TextLink
+          className="max-w-[24ch] shrink-0 truncate"
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: parent.id }}
+              preload="intent"
+              draggable={false}
+            />
+          }
         />
       }
     >
@@ -57,13 +61,17 @@ export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
             <TicketPreviewTrigger
               preview={preview}
               render={
-                <Link
-                  to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                  params={{ orgSlug, slug, id: parent.id }}
-                  preload="intent"
-                  draggable={false}
-                  aria-label={parent.title}
-                  className={cn(parentLinkClass, "flex")}
+                <TextLink
+                  aria-label={`${parent.id} ${parent.title}`}
+                  className="flex shrink-0"
+                  render={
+                    <Link
+                      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                      params={{ orgSlug, slug, id: parent.id }}
+                      preload="intent"
+                      draggable={false}
+                    />
+                  }
                 />
               }
             >
@@ -75,6 +83,3 @@ export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
     />
   )
 }
-
-const parentLinkClass =
-  "focus-ring -mx-1.5 -my-1 shrink-0 rounded-md px-1.5 py-1 text-body text-muted-foreground underline-offset-4 transition-colors outline-none hover:text-foreground hover:underline"

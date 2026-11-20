@@ -52,11 +52,7 @@ export function SectionHeader({ ref, ...props }: SectionHeaderProps) {
       ref={ref}
       icon={
         meta ? (
-          <StatusGlyph
-            icon={meta.icon}
-            className={meta.className}
-            color={meta.color}
-          />
+          <StatusGlyph icon={meta.icon} color={meta.color} />
         ) : (
           heading?.icon
         )

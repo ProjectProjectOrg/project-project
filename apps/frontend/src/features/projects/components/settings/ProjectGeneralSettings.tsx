@@ -1,12 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { Button } from "@pp/ui/button"
-import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
-import { Markdown } from "@pp/ui/editor/markdown"
-import { MarkdownSaveIndicator } from "@pp/ui/editor/save-indicator"
-import { type SaveStatus } from "@pp/ui/editor/save-queue"
 import { getRouteApi } from "@tanstack/react-router"
-import { useState } from "react"
 
 import {
   SettingsGroup,
@@ -37,9 +32,7 @@ export function ProjectGeneralSettings() {
   const rename = useSave((name: string) => update({ name }))
   const actor = useProjectActor()
   const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
-  const canEditBody = ProjectPolicy.canUpdate(actor, { body: true })
   const canExport = actor.call("projects", "export")
-  const [status, setStatus] = useState<SaveStatus>("idle")
 
   return (
     <>
@@ -81,31 +74,6 @@ export function ProjectGeneralSettings() {
             <span className="text-body text-muted-foreground tabular-nums">
               {project.key}
             </span>
-          </SettingsRow>
-          <SettingsRow
-            layout="stacked"
-            label={m.project_settings_description_heading()}
-            description={
-              canEditBody ? (
-                <MarkdownSaveIndicator status={status} />
-              ) : undefined
-            }
-          >
-            <div className="w-full">
-              {canEditBody ? (
-                <LexicalEditor
-                  key={project.slug}
-                  markdown={project.body}
-                  onChange={async (next) => {
-                    await update({ body: next })
-                  }}
-                  onStatusChange={setStatus}
-                  className="rounded-lg border border-border bg-background px-3 py-2"
-                />
-              ) : (
-                <Markdown>{project.body}</Markdown>
-              )}
-            </div>
           </SettingsRow>
         </SettingsGroup>
       </SettingsSection>

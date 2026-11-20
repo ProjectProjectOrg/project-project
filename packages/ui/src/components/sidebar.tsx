@@ -96,7 +96,7 @@ function SidebarPanelBody({
   className
 }: SidebarPanelBodyProps) {
   const listRef = useRef<HTMLDivElement>(null)
-  const hover = useFluidHover(listRef)
+  const hover = useFluidHover(listRef, { reach: 4 })
   const counter = useRef(0)
   const registry = useMemo<RowRegistry>(
     () => ({
@@ -167,12 +167,18 @@ function SidebarSection({
 
 function SidebarNote({
   children,
+  tone = "muted",
   className
-}: Readonly<{ children: ReactNode; className?: string }>) {
+}: Readonly<{
+  children: ReactNode
+  tone?: "muted" | "error"
+  className?: string
+}>) {
   return (
     <p
       className={cn(
-        "mx-2.5 mt-0.5 text-caption text-muted-foreground",
+        "mx-2.5 mt-0.5 text-caption",
+        tone === "error" ? "text-destructive" : "text-muted-foreground",
         className
       )}
     >
@@ -192,6 +198,8 @@ type SidebarRowProps = Omit<ComponentProps<"button">, "children"> &
     action?: ReactNode
     // The row opens a sub-page in the panel (settings): a trailing chevron.
     submenu?: boolean
+    // A row for something set aside, like an archived ticket's pin.
+    dimmed?: boolean
     render?: useRender.RenderProp
   }>
 
@@ -204,6 +212,7 @@ function SidebarRow({
   highlight = false,
   action,
   submenu = false,
+  dimmed = false,
   render,
   className,
   ...props
@@ -226,6 +235,7 @@ function SidebarRow({
       "data-fluid": registry === null ? undefined : "",
       className: cn(
         "pp-sidebar-row focus-ring flex h-8 w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-[16px] px-2.5 text-left text-body select-none [corner-shape:var(--button-corner)]",
+        dimmed && "opacity-50",
         className
       ),
       children: (

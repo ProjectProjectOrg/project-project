@@ -67,7 +67,6 @@ export function CropStep({
                   value={crop.zoom}
                   onChange={(zoom) => form.setFieldValue("crop.zoom", zoom)}
                   formatValue={(value) => `${value.toFixed(2)}×`}
-                  valuePosition="top"
                   endLabels={[
                     m.project_icon_crop_zoom_min(),
                     m.project_icon_crop_zoom_max()

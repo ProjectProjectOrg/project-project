@@ -1,4 +1,5 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import * as React from "react"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
@@ -7,8 +8,14 @@ import {
   usePopupAnchor,
   useTriggerAnchorRef
 } from "../lib/popupAnchor"
+import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
-import { popupMotionClass, popupSurfaceClass } from "./menu-styles"
+import {
+  PopupLayerContext,
+  popupMotionClass,
+  popupSurfaceClass,
+  useRaisedPopupClass
+} from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
 import { hoverCardSurfaceClass } from "./tooltip"
 
@@ -79,6 +86,7 @@ function PopoverContent({
   ...props
 }: PopoverContentProps) {
   const popupAnchor = usePopupAnchor(anchor)
+  const raisedClass = useRaisedPopupClass()
   return (
     <PopoverPortal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
@@ -96,10 +104,11 @@ function PopoverContent({
           className={cn(
             surface === "hover"
               ? cn(
-                  "z-50 origin-[var(--transform-origin)]",
+                  "isolate origin-[var(--transform-origin)]",
                   hoverCardSurfaceClass
                 )
               : popupSurfaceClass,
+            raisedClass,
             popupMotionClass,
             "p-3",
             className
@@ -113,17 +122,31 @@ function PopoverContent({
             </div>
           )}
         >
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPortal>
   )
 }
 
-function PopoverTitle(
-  props: React.ComponentProps<typeof PopoverPrimitive.Title>
-) {
-  return <PopoverPrimitive.Title data-slot="popover-title" {...props} />
+// Unstyled by default, so it takes the header it sits in; `subtitle` is a
+// popover's own heading.
+function PopoverTitle({
+  size = "inherit",
+  className,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Title> &
+  Readonly<{ size?: "inherit" | "subtitle" }>) {
+  return (
+    <PopoverPrimitive.Title
+      data-slot="popover-title"
+      className={cn(
+        size === "subtitle" && "text-subtitle font-semibold",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
 function PopoverClose(
@@ -132,4 +155,62 @@ function PopoverClose(
   return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
 }
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverClose }
+const fadeOnly = { height: { duration: 0 }, opacity: transitions.fade }
+
+// A bar under a sectioned popover (p-0) that folds in while `show` holds,
+// growing the popover by its height, and folds out again.
+function PopoverFooter({
+  show,
+  className,
+  children
+}: Readonly<{ show: boolean; className?: string; children: React.ReactNode }>) {
+  const reduce = useReducedMotion() ?? false
+  const footerRef = React.useRef<HTMLDivElement>(null)
+  // A press that hides the footer (Reset) would drop focus to the page;
+  // hand it to the panel instead, so Tab and Escape keep working.
+  React.useLayoutEffect(() => {
+    const footer = footerRef.current
+    if (show || !footer?.contains(document.activeElement)) return
+    footer.closest<HTMLElement>("[data-slot=popover-content]")?.focus()
+  }, [show])
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.div
+          ref={footerRef}
+          data-slot="popover-footer"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{
+            height: "auto",
+            opacity: 1,
+            transition: reduce ? fadeOnly : transitions.layout
+          }}
+          exit={{
+            height: 0,
+            opacity: 0,
+            transition: reduce ? fadeOnly : transitions.presence
+          }}
+          className="shrink-0 overflow-clip"
+        >
+          <div
+            className={cn(
+              "flex items-center justify-end gap-2 border-t border-border/60 px-3 py-2",
+              className
+            )}
+          >
+            {children}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverTitle,
+  PopoverClose,
+  PopoverFooter
+}

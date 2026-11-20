@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuConfirmItem,
   DropdownMenuContent,
+  PointerMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
@@ -160,18 +161,14 @@ export function TicketContextMenu({
         }
       })}
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
-        <DropdownMenuContent
+        <PointerMenuContent
           anchor={anchor ?? undefined}
-          side="bottom"
-          align="start"
-          sideOffset={2}
-          collisionAvoidance={{ side: "shift", align: "shift" }}
+          instant={instant}
           className="w-52"
-          style={instant ? { animation: "none" } : undefined}
           onContextMenu={suppressNativeMenu}
         >
           <TicketMenuItems {...menu} onFlow={setFlow} />
-        </DropdownMenuContent>
+        </PointerMenuContent>
       </DropdownMenu>
       <TicketMenuFlows {...menu} flow={flow} onFlow={setFlow} anchor={anchor} />
     </>

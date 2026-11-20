@@ -31,6 +31,8 @@ import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
+import { LinkCard } from "./LinkCard"
+
 const KIND_ICONS: Readonly<
   Record<Exclude<ProjectLinkKind, "figma" | "paper" | "web">, IconType>
 > = {
@@ -58,7 +60,7 @@ function WebFavicon({ url }: Readonly<{ url: string }>) {
       alt=""
       referrerPolicy="no-referrer"
       className={cn(
-        "size-3.5 rounded-[2px] object-contain",
+        "size-3.5 rounded-xs object-contain",
         favicon.rendering === "monochrome" && "brightness-0 dark:invert"
       )}
     />
@@ -117,8 +119,8 @@ export function AboutLinks({
       {links.length === 0 ? (
         <Button
           variant="ghost"
-          size="sm"
-          className="w-fit max-w-full justify-start px-1.5"
+          size="inline"
+          className="w-fit max-w-full justify-start"
           leadingIcon={Plus}
           onClick={() => setAdding(true)}
         >
@@ -159,19 +161,12 @@ function LinkRow({
       <Tooltip>
         <TooltipTrigger
           render={
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto w-full flex-col items-stretch justify-start gap-0 rounded-lg px-1.5 pt-0.5 pb-1.5 group-hover/reveal:bg-hover group-hover/reveal:text-foreground"
-              render={
-                <a
-                  ref={rowRef}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label={link.label}
-                />
-              }
+            <LinkCard
+              ref={rowRef}
+              href={link.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label={link.label}
             />
           }
         >

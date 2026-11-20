@@ -153,7 +153,7 @@ function DeleteTypeBody({
 
   return (
     <>
-      <PopoverTitle className="mb-1.5 text-subtitle font-semibold">
+      <PopoverTitle size="subtitle" className="mb-1.5">
         {m.templates_settings_delete_confirm({ name: type.name })}
       </PopoverTitle>
       <AsyncView

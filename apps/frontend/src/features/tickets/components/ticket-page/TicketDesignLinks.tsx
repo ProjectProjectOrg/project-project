@@ -116,8 +116,8 @@ function FigmaDesignLink({
   return (
     <Button
       variant="ghost"
-      className="w-fit max-w-full justify-start gap-2 px-1.5"
-      size="sm"
+      className="w-fit max-w-full justify-start"
+      size="inline"
       render={
         <a
           href={link.url}
@@ -145,8 +145,8 @@ function PaperDesignLink({
   return (
     <Button
       variant="ghost"
-      className="w-fit max-w-full justify-start gap-2 px-1.5"
-      size="sm"
+      className="w-fit max-w-full justify-start"
+      size="inline"
       render={
         <a
           href={link.url}

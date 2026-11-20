@@ -1,5 +1,5 @@
 import { Checkbox } from "@pp/ui/checkbox"
-import { chipClassName } from "@pp/ui/chip"
+import { Chip } from "@pp/ui/chip"
 import { Flag } from "@pp/ui/icons"
 import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
@@ -33,7 +33,7 @@ export function parentCrumbs(ticket: SampleTicket) {
                 href={`#${parent.id}`}
                 title={parent.title}
                 onClick={(event) => event.preventDefault()}
-                className="relative z-20 max-w-48 truncate text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                className="relative z-20 -my-1 max-w-48 truncate py-1 text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
               >
                 {parent.title}
               </a>
@@ -42,9 +42,9 @@ export function parentCrumbs(ticket: SampleTicket) {
               <a
                 href={`#${parent.id}`}
                 title={parent.title}
-                aria-label={parent.title}
+                aria-label={`${parent.id} ${parent.title}`}
                 onClick={(event) => event.preventDefault()}
-                className="relative z-20 flex underline-offset-4 hover:underline"
+                className="relative z-20 -my-1 flex py-1 underline-offset-4 hover:underline"
               >
                 <TicketKey value={parent.id} />
               </a>
@@ -131,16 +131,13 @@ export function Row({
 function SprintChip({ sprint }: Readonly<{ sprint?: string }>) {
   if (!sprint) return null
   return (
-    <button
-      type="button"
+    <Chip
+      interaction="press"
       aria-label={`Sprint: ${sprint}`}
-      className={chipClassName({
-        interaction: "press",
-        className: "max-w-[14ch] gap-1"
-      })}
+      className="max-w-[14ch] gap-1"
     >
       <Flag className="size-3 shrink-0" strokeWidth={1.75} />
       <span className="truncate">{sprint}</span>
-    </button>
+    </Chip>
   )
 }

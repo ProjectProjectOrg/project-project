@@ -28,7 +28,7 @@ export const meta = {
 | Tone | A step of lightness (`--page`, `--card`) | Every surface, first |
 | `--shadow-1` | A 1px ring, no offset, no blur | Board cards, dense rows |
 | Lit edge (`avatarEdgeClass`) | A 1px edge plus a soft light along the top | Avatars, project tiles, attachments, embeds |
-| `popupSurfaceClass` | Card fill, 60% hairline, 19px corners | Popovers, menus, selects, the slash menu |
+| `popupSurfaceClass` | The tooltip's raised fill (`--tooltip`) and edge (`--tooltip-edge`), 19px corners | Popovers, menus, selects, the slash menu |
 | `--surface-1` … `8` | A ladder of layers, with their own ring | Surfaces on surfaces (board columns and cards) |
 | `.button-fill`, `.pp-badge` | A sheen from the fill's own colour | Filled buttons, badges, chips |
 
@@ -48,11 +48,11 @@ Things that are objects rather than areas (an avatar, a project tile, an attachm
 
 ### Popups share one surface
 
-Every popup is `popupSurfaceClass`: the card fill and a 60% hairline, nothing else. The tonal step and the hairline already separate it from the page; a shadow would only add noise to a menu that's gone in a second.
+Every popup is `popupSurfaceClass`: the tooltip's raised skin, a lifted fill with a hairline and a light along the top, nothing else. Popovers, menus, hover cards and tooltips all wear it, so whatever floats reads as one family. The tonal step and the hairline already separate it from the page; a shadow would only add noise to a menu that's gone in a second. A popup opened from inside another (a select in a popover) steps one level up, to `--tooltip-raised`, so the two layers never share a fill.
 
 ### Both themes layer the same way
 
-The ladder steps down for a recessed well and up for a card in light and in dark, by comparable amounts. Light's upward steps are smaller (white is a ceiling), but never flat, so a nested card stays visible. One deliberate exception: settings groups are white cards in light, because a grey well on the light page reads muddy.
+The ladder steps down for a recessed well and up for a card in light and in dark, by comparable amounts. Light's upward steps are smaller (white is a ceiling), but never flat, so a nested card stays visible: the base sits low enough to leave room, and nothing but a nested popup gets near white. One deliberate exception: settings groups are near-white cards in light, because a grey well on the light page reads muddy.
 
 ### Sheen, not gradients
 

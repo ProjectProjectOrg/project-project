@@ -21,8 +21,8 @@ import {
 import { filterJiraProjects } from "@/features/jira/lib/source"
 import { m } from "@/paraglide/messages"
 
-export const pickerHeightClass = "h-[296px]"
-const pickerMaxHeightClass = "max-h-[296px]"
+export const pickerHeightClass = "h-74"
+const pickerMaxHeightClass = "max-h-74"
 
 export function ProjectPicker({
   cloudId,
@@ -45,7 +45,7 @@ export function ProjectPicker({
         result={result}
         onInitial={() => (
           <div
-            className={cn("skeleton w-full rounded-xl", pickerHeightClass)}
+            className={cn("w-full skeleton rounded-xl", pickerHeightClass)}
           />
         )}
         onFailure={(failure) => (

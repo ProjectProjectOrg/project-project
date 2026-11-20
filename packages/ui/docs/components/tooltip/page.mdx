@@ -101,15 +101,15 @@ We started on Base UI's tooltip and replaced it. Base UI's tooltip adds no ARIA 
 
 ### Raised, in the theme's own colours
 
-Light in light mode, dark in dark mode (`--tooltip`): white in light, a lifted grey (0.29) in dark, so it stands above the dark page instead of sinking into it. A 9% hairline and a top light (`--tooltip-edge`) give it its edge over white cards and popovers, where a plain card-coloured box would disappear. The inverted ink label it replaced had too much contrast for something you see on every hover. No shadow, squircle corners at about half its height.
+Light in light mode, dark in dark mode (`--tooltip`): near-white (0.99) in light, a lifted grey (0.29) in dark, so it stands above the dark page instead of sinking into it. A 9% hairline and a top light (`--tooltip-edge`) give it its edge over cards and popovers, where a plain card-coloured box would disappear. The inverted ink label it replaced had too much contrast for something you see on every hover. No shadow, squircle corners at about half its height.
 
 ### Motion
 
-Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ease-standard` it read as a pop. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
+Opening fades and scales from 96% over 160ms ease-out (at 100ms on `ease-standard` it read as a pop); closing runs the same in reverse a fifth quicker, over 120ms. A right-click closes it at once, so its fade never sits on the context menu. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
 
 ### Shortcuts
 
-A keyboard shortcut sits on the right in a `Kbd`, coloured from the tooltip's text like any key.
+A keyboard shortcut sits on the right in a `Kbd`, coloured from the tooltip's text like any key. Pressing the shortcut closes the tooltip at once, so it never fades over the menu the key just opened; holding a modifier alone keeps it open, so its key caps light up.
 
 ## Examples
 

@@ -71,7 +71,6 @@
   "tickets_archive_reason_placeholder": "Why are you archiving this? Shown in the activity.",
   "tickets_archive_submit": "Archive",
   "tickets_archived_banner": "This ticket is archived. It's hidden from lists and boards until you restore it.",
-  "tickets_assign_sprint_chip": "Assign sprint",
   "tickets_assignee_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -109,8 +108,8 @@
   "tickets_children_sub_ticket_placeholder": "Sub-ticket title",
   "tickets_children_attach_button": "Add existing",
   "tickets_clear_search_button": "Clear search",
-  "tickets_command_add_sub_ticket": "Add sub-ticket",
-  "tickets_command_add_ticket_to_epic": "Add ticket to epic",
+  "tickets_command_new_sub_ticket": "Create sub-ticket",
+  "tickets_command_create_ticket_in_epic": "Create ticket in epic",
   "tickets_command_assign": "Assign to",
   "tickets_command_assign_me": "Assign to me",
   "tickets_command_assign_placeholder": "Assign to…",
@@ -224,7 +223,7 @@
   "tickets_estimate_time_label": "Duration",
   "tickets_estimate_time_placeholder": "2w 4d 6h 45m",
   "tickets_estimate_time_save": "Save",
-  "tickets_filters_active_aria_label": "Filters ({count} active)",
+  "tickets_filters_active_aria_label": "Filters, {count} active",
   "tickets_filters_archived_show": "Show archived",
   "tickets_filters_aria_label": "Filters",
   "tickets_filters_assignee_mine": "Mine",
@@ -422,15 +421,67 @@
   "tickets_section_create_dismiss_aria_label": "Dismiss ticket creator for {label}",
   "tickets_section_create_placeholder": "Ticket title…",
   "tickets_section_load_more_button": "Load more ({remaining})",
-  "tickets_selection_actions": "Actions",
   "tickets_selection_clear_aria_label": "Clear selection",
   "tickets_selection_count": "{count} selected",
   "tickets_selection_failed": "Couldn't update {count} tickets",
   "tickets_selection_flag_title": "{count} tickets",
   "tickets_selection_more": "+{count}",
-  "tickets_selection_move_to": "Move to {status}",
   "tickets_selection_remove_aria_label": "Remove {id}",
   "tickets_selection_retry": "Retry",
+  "tickets_selection_cancel": "Cancel",
+  "tickets_selection_updating": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Updating {count} ticket…",
+        "countPlural=*": "Updating {count} tickets…"
+      }
+    }
+  ],
+  "tickets_selection_apply": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Apply to {count} ticket",
+        "countPlural=*": "Apply to {count} tickets"
+      }
+    }
+  ],
+  "tickets_selection_select_all": "Select all {count}",
+  "tickets_selection_choose": "Choose",
+  "tickets_selection_toggle": "Toggle",
+  "tickets_selection_actions": "Actions",
+  "tickets_selection_suggested": "Suggested",
+  "tickets_selection_move_to": "Move to {status}",
+  "tickets_selection_next_hotkey": "Take the suggested next step for the selection",
+  "tickets_guide_bulk_title": "Edit all {count} tickets at once",
+  "tickets_guide_bulk_body": "Change the status, priority, assignee, sprint or labels on any selected row, and every selected ticket gets the same change. Hover a field first to see which tickets it will change.",
+  "tickets_guide_done": "Got it",
+  "tickets_row_add_label": "Label",
+  "tickets_row_add_sprint": "Sprint",
+  "tickets_selection_updated": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Updated {count} ticket",
+        "countPlural=*": "Updated {count} tickets"
+      }
+    }
+  ],
+  "tickets_selection_undo": "Undo",
+  "tickets_selection_bar_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Actions for {count} selected ticket",
+        "countPlural=*": "Actions for {count} selected tickets"
+      }
+    }
+  ],
   "tickets_shortcut_focus_next": "Focus next ticket",
   "tickets_shortcut_focus_previous": "Focus previous ticket",
   "tickets_shortcut_new_ticket": "New ticket",
@@ -489,9 +540,8 @@
   ],
   "tickets_sprint_assign_error_fallback": "Failed to update sprint",
   "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
+  "tickets_sprint_none": "No sprint",
   "tickets_sprint_popover_new_sprint_action": "New sprint…",
-  "tickets_sprint_popover_no_assignment_action": "Don't assign to a sprint",
-  "tickets_sprint_popover_remove_action": "Remove from sprint",
   "tickets_status_actions_aria": "Actions for {label}",
   "tickets_status_aria_label": "Status: {label}. Click to change.",
   "tickets_status_chip_aria_label": "{label} ({count})",
@@ -578,6 +628,7 @@
   "tickets_view_options_display_properties": "Display properties",
   "tickets_view_options_estimate": "Estimate",
   "tickets_view_options_label": "View options",
+  "tickets_view_options_changed_aria_label": "View options, {count} changed",
   "tickets_view_options_ordering": "Ordering",
   "tickets_view_options_picker_aria_label": "{label}: {value}",
   "tickets_view_options_priority": "Priority",
@@ -586,7 +637,7 @@
   "tickets_view_options_property_git": "Pull requests",
   "tickets_view_options_property_sprint": "Sprint",
   "tickets_view_options_property_tags": "Tags",
-  "tickets_view_options_reset": "Reset",
+  "tickets_view_options_reset": "Reset view",
   "tickets_view_options_set_ascending": "Sort ascending",
   "tickets_view_options_set_descending": "Sort descending",
   "tickets_view_options_updated": "Updated",

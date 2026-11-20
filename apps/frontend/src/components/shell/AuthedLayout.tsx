@@ -7,6 +7,7 @@ import {
   useParams
 } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
+import { motion } from "motion/react"
 import { useState } from "react"
 
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs"
@@ -58,7 +59,11 @@ function Shell({ user }: { user: User }) {
         <main className="flex min-h-0 overflow-hidden p-2 pt-0 lg:pt-2">
           <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-page">
             <PageBackdropContext value={backdrop}>
-              <div
+              {/* layoutScroll: layout animations inside measure against the
+                  page, not the viewport, so the scroll reset on navigation
+                  doesn't fly them in from where the page used to be. */}
+              <motion.div
+                layoutScroll
                 data-scroll-root
                 className="relative isolate min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-none"
               >
@@ -75,7 +80,7 @@ function Shell({ user }: { user: User }) {
                   <Outlet />
                 </div>
                 <div data-scroll-spacer aria-hidden />
-              </div>
+              </motion.div>
             </PageBackdropContext>
           </div>
         </main>

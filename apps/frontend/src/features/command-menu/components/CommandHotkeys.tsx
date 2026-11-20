@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { use } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
+import { openRowField } from "@/features/tickets/lib/selectionKeys"
 
 import { commandContext } from "../atoms/commandContext"
 import {
@@ -37,6 +38,20 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     const current = registry.get(commandScopes)
     const pointed = registry.get(pointedTicket)
     const target = commandTarget(orgSlug, current, pointed)
+    // With several selected, a field's key opens that field on a selected
+    // row (the rows are the toolbar), not ⌘K.
+    const id = commands[0]?.hotkey?.id
+    if (
+      id !== undefined &&
+      target.ticket !== null &&
+      openRowField(
+        id,
+        target.ticket.slug,
+        target.selection,
+        pointed?.ticketId ?? null
+      )
+    )
+      return
     const key = {
       orgSlug,
       projectSlug: params.slug ?? target.ticket?.slug ?? null,

@@ -6,7 +6,7 @@ Run these from the worktree root, after `bun install`:
 bun run dev:agent
 ```
 
-Keep it running while verifying. Startup prints the HTTPS app address and a fresh magic link. Open that link in the browser used for verification; it signs in as `agent@example.test` and lands in the Verification project. For another link:
+Keep it running while verifying. Startup prints the HTTPS app address, a fresh magic link and the component gallery's address. The gallery is a Portless alias next to the app: for `https://pp-<id>.projectproject.localhost:1355` it is `https://pp-<id>-gallery.projectproject.localhost:1355`. Open that link in the browser used for verification; it signs in as `agent@example.test` and lands in the Verification project. For another link:
 
 ```sh
 bun run dev:login

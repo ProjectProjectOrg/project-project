@@ -202,7 +202,6 @@ export function TreatmentStep({
                   min={0}
                   max={CUTOUT_MAX_TOLERANCE}
                   value={treatment.tolerance}
-                  valuePosition="top"
                   onChange={(tolerance) => {
                     form.setFieldValue("treatment.tolerance", tolerance)
                     void restyle("sticker", tolerance)

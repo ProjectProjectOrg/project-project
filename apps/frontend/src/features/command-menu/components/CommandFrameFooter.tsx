@@ -39,7 +39,7 @@ export function SearchFooter({
   const shown = item !== undefined && item.disabled !== true ? item : null
   if (shown === null && !peekOpen) return null
   return (
-    <CommandMenuFooter className="border-t border-border/60">
+    <CommandMenuFooter divider>
       <motion.div
         initial={reduceMotion ? false : { y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

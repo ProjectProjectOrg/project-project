@@ -10,18 +10,31 @@ import type { CommandFrameItem } from "./CommandFrame"
 export function CommandFrameRow({
   item
 }: Readonly<{ item: CommandFrameItem }>) {
-  const { prefix, parent, aside, detail, shortcut } = item
+  const { prefix, parent, leading, aside, detail, shortcut } = item
   if (detail !== undefined) {
     return (
       <CommandMenuItem
         value={item.value}
-        className="grid h-auto grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-0.5 py-2"
+        layout="detail"
+        className={cn(
+          leading == null
+            ? "grid-cols-[auto_minmax(0,1fr)]"
+            : "grid-cols-[auto_auto_minmax(0,1fr)]"
+        )}
       >
+        {leading != null && (
+          <span className="flex h-lh items-center self-start">{leading}</span>
+        )}
         <span className="min-w-(--row-key-width) text-caption text-muted-foreground tabular-nums">
           {prefix}
         </span>
         <span className="truncate">{item.label}</span>
-        <span className="col-start-2 truncate text-caption text-muted-foreground">
+        <span
+          className={cn(
+            "truncate text-caption text-muted-foreground",
+            leading == null ? "col-start-2" : "col-start-3"
+          )}
+        >
           {detail.author !== undefined && (
             <span className="text-muted-foreground">{detail.author} </span>
           )}
@@ -32,6 +45,7 @@ export function CommandFrameRow({
   }
   return (
     <CommandMenuItem value={item.value}>
+      {leading}
       <span className="flex min-w-0 flex-1 items-center gap-1">
         {prefix !== undefined && (
           <span className="flex min-w-0 flex-1 items-baseline gap-2">

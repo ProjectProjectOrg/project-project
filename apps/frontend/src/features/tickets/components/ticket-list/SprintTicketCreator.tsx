@@ -20,6 +20,7 @@ import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import type { ListboxState } from "@pp/ui/menu-listbox"
 import { MenuNote } from "@pp/ui/menu-note"
+import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
@@ -306,7 +307,12 @@ export function SprintTicketCreator({
   )
 
   const dropdown = dropdownOpen ? (
-    <div className="absolute inset-x-0 top-full z-30 mt-1 flex max-h-80 flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+    <div
+      className={cn(
+        popupSurfaceClass,
+        "absolute inset-x-0 top-full z-30 mt-1 flex max-h-80 flex-col overflow-hidden"
+      )}
+    >
       <CommandMenu
         items={menuItems}
         onSelect={(item) => {
@@ -352,11 +358,9 @@ export function SprintTicketCreator({
                 <>
                   <CommandMenuItem
                     value={row.value}
+                    dimmed={pendingEpic !== null && !opened}
                     className={cn(
-                      "transition-opacity duration-200",
-                      pendingEpic !== null &&
-                        !opened &&
-                        "pointer-events-none opacity-35"
+                      pendingEpic !== null && !opened && "pointer-events-none"
                     )}
                   >
                     {Item.$match(item, {

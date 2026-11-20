@@ -1,7 +1,6 @@
 import type { TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Split } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -24,10 +23,7 @@ export function SplitTicketControl({
       size={size}
       aria-label={m.tickets_split_action_aria_label()}
       title={m.tickets_split_action_aria_label()}
-      className={cn(
-        "text-muted-foreground transition-colors hover:text-foreground",
-        className
-      )}
+      className={className}
       render={
         <Link
           to="/orgs/$orgSlug/projects/$slug/tickets/$id/split"

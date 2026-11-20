@@ -8,11 +8,13 @@ import {
   type EstimationMode
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Chip } from "@pp/ui/chip"
 import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Reveal } from "@pp/ui/reveal"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
@@ -21,6 +23,7 @@ import { useId, useState, type FormEvent, type ReactElement } from "react"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimate,
+  formatEstimateShort,
   formatEstimateValue,
   parseEstimateMinutes,
   parseEstimatePoints
@@ -30,6 +33,8 @@ import { appHotkeys } from "@/lib/appHotkeys"
 import { formatWorkDurationLong } from "@/lib/duration"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
+
+import { QuickPoints } from "./QuickPoints"
 
 const NO_ESTIMATE = "__no-estimate"
 
@@ -67,23 +72,26 @@ export function EstimateBadgeTrigger({
   ticket,
   mode,
   onPatch,
-  variant = "badge",
-  className
+  variant = "badge"
 }: Readonly<{
   ticket: EstimateTicket
   mode: EstimationMode
   onPatch: (patch: TicketEdit) => void
   variant?: "badge" | "compact"
-  className?: string
 }>) {
   const unit = estimationUnit(mode)
   if (unit === null) return null
   const trigger =
     variant === "compact"
-      ? compactEstimateTrigger(ticket, mode, unit, className)
-      : estimateTrigger(ticket, mode, className)
-  if (unit !== "tshirt") {
-    return (
+      ? compactEstimateTrigger(ticket, mode, unit)
+      : estimateTrigger(ticket, mode)
+  // On a row, an empty estimate waits for the row's hover or focus.
+  const reveal =
+    variant === "compact" && activeEstimate(ticket.estimate, mode) === null
+  const field =
+    unit === "tshirt" ? (
+      <SizeSelect ticket={ticket} onPatch={onPatch} trigger={trigger} />
+    ) : (
       <EstimateInputPopover
         unit={unit}
         ticket={ticket}
@@ -91,7 +99,18 @@ export function EstimateBadgeTrigger({
         trigger={trigger}
       />
     )
-  }
+  return reveal ? <Reveal>{field}</Reveal> : field
+}
+
+function SizeSelect({
+  ticket,
+  onPatch,
+  trigger
+}: Readonly<{
+  ticket: EstimateTicket
+  onPatch: (patch: TicketEdit) => void
+  trigger: ReactElement
+}>) {
   const current =
     ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
   const sizeOptions = ESTIMATE_SIZES.map((value, index) => ({
@@ -126,7 +145,7 @@ export function EstimateBadgeTrigger({
         }
         const size = ESTIMATE_SIZES.find((entry) => entry === value)
         if (size !== undefined && size !== current) {
-          onPatch({ estimate: { unit, value: size } })
+          onPatch({ estimate: { unit: "tshirt", value: size } })
         }
       }}
       contentProps={{ align: "start", className: "w-40", finalFocus: false }}
@@ -141,11 +160,7 @@ export function EstimateBadgeTrigger({
   )
 }
 
-function estimateTrigger(
-  ticket: EstimateTicket,
-  mode: EstimationMode,
-  className: string | undefined
-) {
+function estimateTrigger(ticket: EstimateTicket, mode: EstimationMode) {
   const active = activeEstimate(ticket.estimate, mode)
   const stale = isStaleEstimate(ticket.estimate, mode) ? ticket.estimate : null
   const label =
@@ -163,7 +178,6 @@ function estimateTrigger(
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
-      className={className}
     >
       <TextSwap
         className="gap-1.5"
@@ -175,35 +189,43 @@ function estimateTrigger(
   )
 }
 
+// One width for an estimate with a value, so a list's estimate column and a
+// card's chips don't move as values come and go: the chip's icon and padding
+// (28px) plus two characters (points up to 99, XL) or four (time, as its
+// largest unit: "1.5d"). An empty estimate is just its icon.
+const twoCharChipWidth = "min-w-[calc(1.75rem+2ch)]"
+const timeChipWidth = "min-w-[calc(1.75rem+4ch)]"
+
+// A list row reserves that width for the column even while the row has no
+// estimate; the empty chip sits at its start, next to the tags.
+export const estimateColumnWidth = (unit: EstimateUnit) =>
+  unit === "time" ? timeChipWidth : twoCharChipWidth
+
 function compactEstimateTrigger(
   ticket: EstimateTicket,
   mode: EstimationMode,
-  unit: EstimateUnit,
-  className: string | undefined
+  unit: EstimateUnit
 ) {
   const active = activeEstimate(ticket.estimate, mode)
   const label =
     active !== null ? formatEstimate(active) : m.tickets_estimate_empty()
   const Icon = ESTIMATE_UNIT_ICON[unit]
   return (
-    <button
-      type="button"
+    <Chip
+      interaction="press"
+      shape="count"
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       className={cn(
-        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-caption text-muted-foreground tabular-nums transition-[color,background-color] outline-none hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none data-[popup-open]:bg-hover data-[popup-open]:opacity-100",
-        active === null &&
-          "opacity-0 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100",
-        className
+        "tabular-nums",
+        active !== null && (unit === "time" ? timeChipWidth : twoCharChipWidth)
       )}
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
-      {active !== null && formatEstimateValue(active)}
-    </button>
+      <Icon strokeWidth={1.75} />
+      {active !== null && formatEstimateShort(active)}
+    </Chip>
   )
 }
-
-const QUICK_POINTS = [1, 2, 3, 5, 8, 13] as const
 
 type TypedUnit = Exclude<EstimateUnit, "tshirt">
 
@@ -268,7 +290,9 @@ function EstimateInputPopover({
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-60"
+        // Points: as wide as the quick-point buttons, so they line up with
+        // the field under them.
+        className={unit === "points" ? "w-53" : "w-60"}
         onClick={(e) => e.stopPropagation()}
       >
         <EstimateInputForm
@@ -316,23 +340,10 @@ function EstimateInputForm({
         {copy.label()}
       </label>
       {unit === "points" && (
-        <div className="grid grid-cols-6 gap-1">
-          {QUICK_POINTS.map((value) => (
-            <Button
-              key={value}
-              type="button"
-              variant={initial === String(value) ? "secondary" : "ghost"}
-              size="sm"
-              className="px-0 tabular-nums"
-              onClick={() => {
-                const estimate = parseTypedEstimate(unit, String(value))
-                if (estimate !== null) onSubmit(estimate)
-              }}
-            >
-              {value}
-            </Button>
-          ))}
-        </div>
+        <QuickPoints
+          current={initial}
+          onPick={(value) => onSubmit({ unit: "points", value })}
+        />
       )}
       <Input
         id={inputId}
@@ -355,7 +366,7 @@ function EstimateInputForm({
       ) : (
         unit === "time" && (
           <p className="text-caption text-muted-foreground tabular-nums">
-            <TextSwap announce className="whitespace-normal">
+            <TextSwap announce wrap>
               {parsed?.unit === "time"
                 ? formatWorkDurationLong(parsed.minutes * 60)
                 : m.tickets_estimate_time_hint()}

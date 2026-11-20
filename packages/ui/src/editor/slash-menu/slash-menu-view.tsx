@@ -145,7 +145,7 @@ export function SlashMenuList({
               }
         }
         className={cn(
-          "fixed top-0 left-0 z-50",
+          "fixed top-0 left-0 isolate",
           "data-[slash-menu-side=above]:slide-in-from-bottom-2 data-[slash-menu-side=below]:slide-in-from-top-2",
           layout !== null &&
             "animate-in transition-none duration-150 ease-out fade-in-0 motion-reduce:animate-none"

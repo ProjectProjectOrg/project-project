@@ -1,24 +1,38 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Member, ParentFilter, Ticket, TicketId } from "@pp/shared"
+import {
+  estimationUnit,
+  type Member,
+  type ParentFilter,
+  type Ticket,
+  type TicketId
+} from "@pp/shared"
 import { Checkbox } from "@pp/ui/checkbox"
-import { chipClassName } from "@pp/ui/chip"
 import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
 import { ItemLink } from "@pp/ui/item-link"
 import { hasModifier, isKeyboardNavigating } from "@pp/ui/lib/keyboard"
+import { cn } from "@pp/ui/lib/utils"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
+import { Reveal } from "@pp/ui/reveal"
 import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { type ComponentProps, memo, use, useRef, useState } from "react"
+import {
+  type ComponentProps,
+  type ReactNode,
+  memo,
+  use,
+  useRef,
+  useState
+} from "react"
 
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
-import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { BoardCardGit } from "@/features/sprints/components/BoardCardGit"
 import { TagChips } from "@/features/sprints/components/BoardCardProperties"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
@@ -37,7 +51,7 @@ import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
-import { EstimateBadgeTrigger } from "./EstimateField"
+import { EstimateBadgeTrigger, estimateColumnWidth } from "./EstimateField"
 import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -81,6 +95,7 @@ function RowImpl({
   const patchRow = useAtomSet(update(ticket.id))
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
+  const estimateUnit = estimationUnit(estimation)
   const { shows } = useDisplayProperties()
   const [previewMounted, setPreviewMounted] = useState(false)
   const navigating = () => isKeyboardNavigating(rowElement.current)
@@ -105,6 +120,9 @@ function RowImpl({
     selectionActions.count > 1
       ? sharedTicketFields(selectionActions.selectedTickets)
       : null
+  // Selected with others: the row shows every field (empty ones as a
+  // placeholder) and its fields change them all.
+  const acting = selection?.selected === true && selectionActions.count > 1
   const onPatch = (edit: TicketEdit) => {
     if (!selectionActions.patch(edit)) patchRow(edit)
   }
@@ -112,6 +130,8 @@ function RowImpl({
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
       data-ticket-id={ticket.id}
+      // Selected with others: its fields change them all (selectionKeys).
+      data-row-selected={acting ? "" : undefined}
       {...pointAt}
     >
       <DeferredDropdownMenus>
@@ -163,24 +183,28 @@ function RowImpl({
                 )
               }
               status={
-                <StatusButton
-                  ticket={ticket}
-                  selected={
-                    shared === null ? undefined : (shared.status ?? null)
-                  }
-                  stopPropagation
-                  onPatch={onPatch}
-                />
+                <RowField name="status">
+                  <StatusButton
+                    ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.status ?? null)
+                    }
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </RowField>
               }
               priority={
-                <PriorityButton
-                  ticket={ticket}
-                  selected={
-                    shared === null ? undefined : (shared.priority ?? null)
-                  }
-                  stopPropagation
-                  onPatch={onPatch}
-                />
+                <RowField name="priority">
+                  <PriorityButton
+                    ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.priority ?? null)
+                    }
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </RowField>
               }
               ticketKey={
                 <TicketKey
@@ -240,10 +264,16 @@ function RowImpl({
                 <>
                   <UpdateFailureMarker update={update(ticket.id)} />
                   {shows("tags") && (
-                    <span className="flex items-center gap-1.5 *:max-w-32 empty:hidden">
+                    <span
+                      data-row-field="labels"
+                      className="flex items-center gap-1.5 *:max-w-32 empty:hidden"
+                    >
                       <TagChips
                         names={ticket.tags}
                         onPatch={editable ? onPatch : undefined}
+                        placeholder={
+                          acting ? m.tickets_row_add_label() : undefined
+                        }
                         max={3}
                         collapse
                       />
@@ -251,46 +281,55 @@ function RowImpl({
                   )}
                   {shows("git") && (
                     <fieldset disabled={!editable} className="contents">
-                      <TicketGitChip
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        ticket={ticket}
-                      />
+                      <BoardCardGit ticket={ticket} />
                     </fieldset>
                   )}
                   <span className="flex items-center gap-1.5 empty:hidden">
-                    <RelationChips
-                      ticket={ticket}
-                      className={chipClassName({
-                        interaction: "hover",
-                        shape: "count"
-                      })}
-                    />
+                    <RelationChips ticket={ticket} />
                   </span>
                   {showSprint && shows("sprint") && (
-                    <fieldset disabled={!editable} className="contents">
-                      <RowSprint ticketId={ticket.id} />
+                    <fieldset
+                      disabled={!editable}
+                      data-row-field="sprint"
+                      className="contents"
+                    >
+                      <RowSprint
+                        ticketId={ticket.id}
+                        placeholder={
+                          acting ? m.tickets_row_add_sprint() : undefined
+                        }
+                      />
                     </fieldset>
                   )}
                 </>
               }
               estimate={
-                shows("estimate") && (
-                  <EstimateBadgeTrigger
-                    ticket={ticket}
-                    mode={estimation}
-                    onPatch={onPatch}
-                    variant="compact"
-                  />
+                shows("estimate") &&
+                estimateUnit !== null && (
+                  <span
+                    className={cn(
+                      "flex text-caption",
+                      estimateColumnWidth(estimateUnit)
+                    )}
+                  >
+                    <EstimateBadgeTrigger
+                      ticket={ticket}
+                      mode={estimation}
+                      onPatch={onPatch}
+                      variant="compact"
+                    />
+                  </span>
                 )
               }
               assignee={
                 shows("assignee") && (
-                  <AssigneeField
-                    ticket={ticket}
-                    members={members}
-                    onPatch={onPatch}
-                  />
+                  <RowField name="assignee">
+                    <AssigneeField
+                      ticket={ticket}
+                      members={members}
+                      onPatch={onPatch}
+                    />
+                  </RowField>
                 )
               }
             />
@@ -317,18 +356,20 @@ function RowCheckbox({
   selection: NonNullable<ReturnType<typeof useTicketSelection>>
 }>) {
   return (
-    <Checkbox
-      checked={selection.selected}
-      onCheckedChange={(_checked, details) =>
-        selection.toggle(withShift(details.event))
-      }
-      onMouseDown={(event) => {
-        if (event.shiftKey) event.preventDefault()
-      }}
-      aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
-      variant="quiet"
-      className="opacity-0 not-in-data-keyboard-navigation:group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
-    />
+    <Reveal>
+      <Checkbox
+        checked={selection.selected}
+        onCheckedChange={(_checked, details) =>
+          selection.toggle(withShift(details.event))
+        }
+        onMouseDown={(event) => {
+          if (event.shiftKey) event.preventDefault()
+        }}
+        aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
+        variant="quiet"
+        className="before:absolute before:-inset-y-4.25 before:-right-[11px] before:-left-[15px] before:content-['']"
+      />
+    </Reveal>
   )
 }
 
@@ -336,7 +377,10 @@ const withShift = (event: Event) =>
   (event instanceof MouseEvent || event instanceof KeyboardEvent) &&
   event.shiftKey
 
-function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
+function RowSprint({
+  ticketId,
+  placeholder
+}: Readonly<{ ticketId: TicketId; placeholder?: string }>) {
   const { orgSlug, slug } = useProjectRoute()
   const membership = useAtomValue(
     sprintMembership(sprintListRequest(orgSlug, slug))
@@ -347,8 +391,36 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
       variant="responsive"
       ticketId={ticketId}
       membership={membership.value.get(ticketId) ?? null}
+      placeholder={placeholder}
     />
   )
 }
 
-export const Row = memo(RowImpl)
+// After a change the list refetches and hands every row a new ticket
+// object, changed or not; a row renders again only when its ticket's
+// contents did (Ticket is plain data, so JSON compares it), or any other
+// prop changed.
+const sameRowProps = (previous: RowProps, next: RowProps) => {
+  const keys = new Set([...Object.keys(previous), ...Object.keys(next)])
+  return [...keys].every((key) =>
+    key === "ticket"
+      ? previous.ticket === next.ticket ||
+        JSON.stringify(previous.ticket) === JSON.stringify(next.ticket)
+      : Reflect.get(previous, key) === Reflect.get(next, key)
+  )
+}
+
+export const Row = memo(RowImpl, sameRowProps)
+
+// A row field the selection's keys (S, A, P, ⇧S, T) can open, and whose
+// hover lights the same field on every selected row (selectionKeys).
+function RowField({
+  name,
+  children
+}: Readonly<{ name: string; children: ReactNode }>) {
+  return (
+    <span data-row-field={name} className="contents">
+      {children}
+    </span>
+  )
+}

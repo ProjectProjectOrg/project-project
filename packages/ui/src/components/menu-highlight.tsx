@@ -1,7 +1,13 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useLayoutEffect, useRef, useState } from "react"
+import {
+  animate,
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useReducedMotion
+} from "motion/react"
+import { useLayoutEffect, useRef, useState, type RefObject } from "react"
 
-import { spring } from "../lib/springs"
+import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 
 export type HighlightTone = "default" | "destructive"
@@ -28,10 +34,13 @@ const CHOICE_ROW = "[role=menuitemradio], [role=option]"
 const CHOSEN_ROW =
   "[role=menuitemradio][data-checked]:not([data-disabled]), [role=option][data-selected]:not([data-disabled])"
 const RESTING = "data-menu-resting"
+const HELD = "data-menu-held"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const HIGHLIGHT_INSET = 1
 
 type Point = Readonly<{ x: number; y: number }>
+
+type Place = (rect: HighlightRect) => void
 
 const toneOf = (element: HTMLElement) =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
@@ -46,22 +55,19 @@ export const chosenRow = (container: HTMLElement) =>
     ? firstOwned(container, CHOSEN_ROW)
     : undefined
 
-const contains = (element: HTMLElement, pointer: Point) => {
-  const box = element.getBoundingClientRect()
-  return (
-    pointer.x >= box.left &&
-    pointer.x <= box.right &&
-    pointer.y >= box.top &&
-    pointer.y <= box.bottom
-  )
-}
+const ownerOf = (element: Element) =>
+  element.closest("[data-menu-highlight-host]")
 
-const ownedAt = (container: HTMLElement, selector: string, pointer: Point) =>
-  Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
-    (row) =>
-      row.closest("[data-menu-highlight-host]") === container &&
-      contains(row, pointer)
-  )
+// The row under the pointer, from one hit test instead of measuring every
+// row. A submenu over the point hides this menu's rows, as it does on screen.
+const ownedAt = (
+  container: HTMLElement,
+  selector: string,
+  hit: Element | null
+) => {
+  const row = hit?.closest<HTMLElement>(selector)
+  return row && ownerOf(row) === container ? row : undefined
+}
 
 // Base UI ignores the pointer on a menu while one of its submenus is open,
 // and marks no row as highlighted until the pointer moves again after the
@@ -79,14 +85,16 @@ const measureHighlight = (
   restOnFirst: boolean,
   shown: boolean
 ) => {
-  if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
+  const hit =
+    pointer === null ? null : document.elementFromPoint(pointer.x, pointer.y)
+  if (ownedAt(container, NO_HIGHLIGHT, hit)) return null
   const active =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
       ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
-        (pointer === null ? undefined : ownedAt(container, MENU_ROW, pointer)))
+        ownedAt(container, MENU_ROW, hit))
       : undefined)
-  if (active === undefined && pointer !== null && contains(container, pointer))
+  if (active === undefined && hit !== null && ownerOf(hit) === container)
     return "hold" as const
   const resting =
     active === undefined
@@ -101,12 +109,15 @@ const measureHighlight = (
   const element = active ?? resting
   if (element === undefined) return null
   return {
-    top: element.offsetTop + HIGHLIGHT_INSET,
-    left: element.offsetLeft,
-    width: element.offsetWidth,
-    height: element.offsetHeight - HIGHLIGHT_INSET * 2,
-    tone: toneOf(element)
-  } satisfies HighlightRect
+    element,
+    rect: {
+      top: element.offsetTop + HIGHLIGHT_INSET,
+      left: element.offsetLeft,
+      width: element.offsetWidth,
+      height: element.offsetHeight - HIGHLIGHT_INSET * 2,
+      tone: toneOf(element)
+    } satisfies HighlightRect
+  }
 }
 
 const sameRect = (a: HighlightRect | null, b: HighlightRect | null) =>
@@ -151,7 +162,13 @@ function observeHighlight(
     passive: true
   })
   measure(pointer)
-  const mutations = new MutationObserver(remeasure)
+  // Row changes come in bursts (Base UI marks rows and opens submenus in
+  // several steps), so they're measured once, in the frame they paint in.
+  const mutations = new MutationObserver(() => {
+    cancelAnimationFrame(frame)
+    frame = 0
+    measure(pointer)
+  })
   mutations.observe(container, {
     subtree: true,
     childList: true,
@@ -171,7 +188,8 @@ function observeHighlight(
 }
 
 function useHighlightRect(
-  anchorRef: React.RefObject<HTMLElement | null>,
+  anchorRef: RefObject<HTMLElement | null>,
+  placeRef: RefObject<Place | null>,
   selector: string,
   restOnFirst: boolean
 ) {
@@ -180,23 +198,36 @@ function useHighlightRect(
     session: 0
   })
 
+  // While the highlight holds on a row the pointer has left, the row keeps
+  // its lit look (`data-menu-held`), so its text never dims under the fill.
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
-    return container
-      ? observeHighlight(container, (pointer) =>
-          setState((previous) => {
-            const rect = measureHighlight(
-              container,
-              selector,
-              pointer,
-              restOnFirst,
-              previous.rect !== null
-            )
-            return rect === "hold" ? previous : nextHighlight(previous, rect)
-          })
-        )
-      : undefined
-  }, [anchorRef, selector, restOnFirst])
+    if (!container) return undefined
+    let lit: HTMLElement | undefined
+    // Measured outside setState: React runs updaters during render, where
+    // every layout read is a forced one.
+    const stop = observeHighlight(container, (pointer) => {
+      const next = measureHighlight(
+        container,
+        selector,
+        pointer,
+        restOnFirst,
+        lit !== undefined
+      )
+      if (next === "hold") {
+        lit?.setAttribute(HELD, "")
+        return
+      }
+      lit?.removeAttribute(HELD)
+      if (next && lit !== undefined) placeRef.current?.(next.rect)
+      lit = next?.element
+      setState((previous) => nextHighlight(previous, next?.rect ?? null))
+    })
+    return () => {
+      stop()
+      lit?.removeAttribute(HELD)
+    }
+  }, [anchorRef, placeRef, selector, restOnFirst])
 
   return state
 }
@@ -210,43 +241,80 @@ export function MenuHighlight({
   className
 }: Readonly<{ selector?: string; restOnFirst?: boolean; className?: string }>) {
   const anchorRef = useRef<HTMLSpanElement>(null)
-  const { rect, session } = useHighlightRect(anchorRef, selector, restOnFirst)
+  const placeRef = useRef<Place | null>(null)
+  const { rect, session } = useHighlightRect(
+    anchorRef,
+    placeRef,
+    selector,
+    restOnFirst
+  )
   const reduceMotion = useReducedMotion() ?? false
 
   return (
     <span ref={anchorRef} aria-hidden data-menu-chrome className="contents">
       <AnimatePresence>
         {rect === null ? null : (
-          <motion.span
+          <HighlightShape
             key={session}
-            data-slot="menu-highlight"
-            data-tone={rect.tone}
-            className={cn(
-              "pointer-events-none absolute top-0 left-0 block rounded-md [corner-shape:var(--button-corner)]",
-              className
-            )}
-            initial={{
-              opacity: 1,
-              x: rect.left,
-              y: rect.top,
-              width: rect.width,
-              height: rect.height
-            }}
-            animate={{
-              opacity: 1,
-              x: rect.left,
-              y: rect.top,
-              width: rect.width,
-              height: rect.height
-            }}
-            exit={{
-              opacity: 0,
-              transition: { duration: restOnFirst ? 0 : 0.15 }
-            }}
-            transition={reduceMotion ? { duration: 0 } : spring.fast}
+            rect={rect}
+            placeRef={placeRef}
+            reduceMotion={reduceMotion}
+            restOnFirst={restOnFirst}
+            className={className}
           />
         )}
       </AnimatePresence>
     </span>
+  )
+}
+
+// Moves between rows are animated from the measurement itself, not from a
+// render, so the fill sets off in the frame its row lights up.
+function HighlightShape({
+  rect,
+  placeRef,
+  reduceMotion,
+  restOnFirst,
+  className
+}: Readonly<{
+  rect: HighlightRect
+  placeRef: RefObject<Place | null>
+  reduceMotion: boolean
+  restOnFirst: boolean
+  className: string | undefined
+}>) {
+  const x = useMotionValue(rect.left)
+  const y = useMotionValue(rect.top)
+  const width = useMotionValue(rect.width)
+  const height = useMotionValue(rect.height)
+
+  useLayoutEffect(() => {
+    const transition = reduceMotion ? { duration: 0 } : transitions.snap
+    const place: Place = (next) => {
+      animate(x, next.left, transition)
+      animate(y, next.top, transition)
+      animate(width, next.width, transition)
+      animate(height, next.height, transition)
+    }
+    placeRef.current = place
+    return () => {
+      if (placeRef.current === place) placeRef.current = null
+    }
+  }, [placeRef, reduceMotion, x, y, width, height])
+
+  return (
+    <motion.span
+      data-slot="menu-highlight"
+      data-tone={rect.tone}
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 block rounded-md [corner-shape:var(--button-corner)]",
+        className
+      )}
+      style={{ x, y, width, height }}
+      exit={{
+        opacity: 0,
+        transition: { duration: restOnFirst ? 0 : 0.15 }
+      }}
+    />
   )
 }

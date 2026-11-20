@@ -46,6 +46,9 @@ type TextSwapProps = Readonly<{
   // the value as a labelled image, which isn't read out when it changes;
   // use this for lines whose change matters on its own (a live hint).
   announce?: boolean
+  // Let a long value wrap onto more lines. Otherwise it stays on one line,
+  // clipped at the width it's given.
+  wrap?: boolean
   className?: string
 }>
 
@@ -55,6 +58,7 @@ function TextSwap({
   iconKey,
   speed = "normal",
   announce = false,
+  wrap = false,
   className
 }: TextSwapProps) {
   const swap = (
@@ -63,17 +67,20 @@ function TextSwap({
       // Empty text (a value rolling out to nothing) has nothing to read.
       aria-hidden={announce || children === "" || undefined}
       className={cn(
-        "inline-flex max-w-full min-w-0 items-center whitespace-nowrap",
+        "inline-flex max-w-full min-w-0 items-center",
+        wrap ? "whitespace-normal" : "whitespace-nowrap",
         className
       )}
     >
       {icon != null && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
-      <SwapText value={children} duration={DURATION[speed]} />
+      <span className={wrap ? "max-w-full min-w-0" : "min-w-0 overflow-x-clip"}>
+        <SwapText value={children} duration={DURATION[speed]} wrap={wrap} />
+      </span>
     </span>
   )
   if (!announce) return swap
   return (
-    <span aria-live="polite">
+    <span aria-live="polite" className="flex min-w-0">
       <span className="sr-only">{children}</span>
       {swap}
     </span>
@@ -86,14 +93,14 @@ function TextSwap({
 // in with the old value and moved to the new one, so that change rolls too.
 function SwapText({
   value,
-  duration
-}: Readonly<{ value: string; duration: number }>) {
+  duration,
+  wrap
+}: Readonly<{ value: string; duration: number; wrap: boolean }>) {
   const [first] = useState(value)
   const [live, setLive] = useState(false)
-  if (!live && value === first)
-    return <span className="max-w-full min-w-0">{value}</span>
+  if (!live && value === first) return value
   if (!live) setLive(true)
-  return <LiveText from={first} value={value} duration={duration} />
+  return <LiveText from={first} value={value} duration={duration} wrap={wrap} />
 }
 
 const isScritto = (element: HTMLElement | null): element is ScrittoElement =>
@@ -102,8 +109,9 @@ const isScritto = (element: HTMLElement | null): element is ScrittoElement =>
 function LiveText({
   from,
   value,
-  duration
-}: Readonly<{ from: string; value: string; duration: number }>) {
+  duration,
+  wrap
+}: Readonly<{ from: string; value: string; duration: number; wrap: boolean }>) {
   const ref = useRef<HTMLElement>(null)
   const started = useRef(false)
   useLayoutEffect(() => {
@@ -122,7 +130,9 @@ function LiveText({
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Scritto hides its glyphs; the label is the value, as @scritto/react sets it
       role="img"
       aria-label={value}
-      className="max-w-full min-w-0"
+      // Scritto forces white-space: normal (!important) on any value with a
+      // space, so only a box as wide as the whole value keeps it on one line.
+      className={wrap ? undefined : "inline-block w-max"}
     />
   )
 }

@@ -63,7 +63,7 @@ export function SettingsGroup({
     props: {
       ...props,
       className: cn(
-        "divide-y divide-border overflow-hidden rounded-lg border border-border bg-card",
+        "surface divide-y divide-border overflow-hidden rounded-lg border border-border bg-card [--surface:var(--card)]",
         className
       )
     }

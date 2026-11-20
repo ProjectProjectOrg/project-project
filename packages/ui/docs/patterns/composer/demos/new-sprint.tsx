@@ -34,7 +34,7 @@ const twoWeeksFromToday = () => {
   }
 }
 
-// The sprint rail's New sprint button (CreateSprintForm). LexicalEditor is
+// The sprints overview's New sprint button (CreateSprintForm). LexicalEditor is
 // app-only; a textarea stands in with the editor's content classes.
 export default function NewSprint() {
   const [name, setName] = useState("")

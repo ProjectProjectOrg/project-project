@@ -5,27 +5,28 @@ import {
   type TicketPriority,
   isEpic
 } from "@pp/shared"
-import {
-  ChipDots,
-  ChipSeparator,
-  chipClassName,
-  chipNarrowOnlyClass,
-  chipWideOnlyClass
-} from "@pp/ui/chip"
+import { Chip, ChipDots, ChipSeparator } from "@pp/ui/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { ChevronRight, Layers } from "@pp/ui/icons"
+import { ChevronRight, Layers, Tag } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { TextLink } from "@pp/ui/text-link"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState, type ComponentProps, type ReactNode } from "react"
+import {
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode
+} from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { TagChip } from "@/features/tags/components/TagChip"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
@@ -50,9 +51,6 @@ import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"
 
-const pressChip = chipClassName({ interaction: "press" })
-const labelChip = chipClassName({ kind: "label", interaction: "press" })
-
 export function BoardCardProperties({
   ticket,
   editable,
@@ -76,14 +74,7 @@ export function BoardCardProperties({
         editable={editable}
         onChange={(priority) => onPatch({ priority })}
       />
-      <FlagChip
-        ticket={ticket}
-        className={chipClassName({
-          interaction: "hover",
-          shape: "icon",
-          className: "w-[22px] [&_svg]:size-3"
-        })}
-      />
+      <FlagChip ticket={ticket} className="w-5.5" />
       <ChipSeparator />
       {ticket.estimate !== null &&
         estimation !== "off" &&
@@ -94,18 +85,12 @@ export function BoardCardProperties({
               mode={estimation}
               onPatch={onPatch}
               variant="compact"
-              className={pressChip}
             />
           </fieldset>
         )}
-      <BoardSubTicketsChip ticket={ticket} />
-      <RelationChips
-        ticket={ticket}
-        className={chipClassName({ interaction: "hover", shape: "count" })}
-      />
-      {shows("git") && (
-        <BoardCardGit ticket={ticket} chipClassName={pressChip} />
-      )}
+      <SubTicketsChip ticket={ticket} />
+      <RelationChips ticket={ticket} />
+      {shows("git") && <BoardCardGit ticket={ticket} />}
       {isEpic(ticket.parent) && shows("epic") && (
         <EpicChip epic={ticket.parent} />
       )}
@@ -140,35 +125,20 @@ function PriorityChip({
       onChange={onChange}
       className="w-40"
       trigger={
-        <button
-          type="button"
+        <Chip
+          interaction="press"
+          shape="icon"
           disabled={!editable}
           onClick={(event) => event.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label })}
           title={label}
-          className={chipClassName({ interaction: "press", shape: "icon" })}
         >
           <Icon
             className={cn("size-3 shrink-0", meta.className)}
             strokeWidth={1.75}
           />
-        </button>
+        </Chip>
       }
-    />
-  )
-}
-
-// Progress previews the sub-tickets on hover, like links preview theirs, also
-// while the card lists them, so every chip on the card answers a hover.
-function BoardSubTicketsChip({
-  ticket
-}: Readonly<{
-  ticket: Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
-}>) {
-  return (
-    <SubTicketsChip
-      ticket={ticket}
-      className={chipClassName({ interaction: "hover" })}
     />
   )
 }
@@ -179,12 +149,17 @@ function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
     <TicketPreviewTrigger
       preview={TicketPreview.ticket({ id: epic.id })}
       render={
-        <Link
-          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-          params={{ orgSlug, slug, id: epic.id }}
-          preload="intent"
-          draggable={false}
-          className={labelChip}
+        <Chip
+          kind="label"
+          interaction="press"
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: epic.id }}
+              preload="intent"
+              draggable={false}
+            />
+          }
         />
       }
     >
@@ -208,12 +183,16 @@ export function ParentTicketCrumb({
       <TicketPreviewTrigger
         preview={TicketPreview.ticket({ id: parent.id })}
         render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug, slug, id: parent.id }}
-            preload="intent"
-            draggable={false}
-            className="relative z-20 -mx-1.5 -my-1 flex min-w-0 rounded-md px-1.5 py-1 transition-colors outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          <TextLink
+            className="relative z-20 flex min-w-0"
+            render={
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{ orgSlug, slug, id: parent.id }}
+                preload="intent"
+                draggable={false}
+              />
+            }
           />
         }
       >
@@ -223,42 +202,57 @@ export function ParentTicketCrumb({
   )
 }
 
+// The neutral chip behind "+N" and the folded dots on a narrow list.
+const labelChip = (show: ComponentProps<typeof Chip>["show"]) => (
+  <Chip kind="label" interaction="press" show={show} />
+)
+
 // A ticket's tags: the first `max` as chips, the rest behind "+N". With
 // `collapse` (list rows), a narrow list folds them all into one chip of
-// dots and a count (chipNarrowOnlyClass).
+// dots and a count.
 export function TagChips({
   names,
   onPatch,
   max,
-  collapse = false
+  collapse = false,
+  placeholder
 }: Readonly<{
   names: Ticket["tags"]
   onPatch?: (patch: TicketEdit) => void
   max?: number
   collapse?: boolean
+  // With no labels, an empty chip that adds one ("Label"): a selected row
+  // shows every field, so you can see where each goes.
+  placeholder?: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
-  if (names.length === 0) return null
+  if (names.length === 0)
+    return placeholder !== undefined && onPatch ? (
+      <TagChipMenu applied={names} onPatch={onPatch}>
+        <DropdownMenuTrigger render={<Chip interaction="press" />}>
+          <Tag className="size-3 shrink-0" strokeWidth={1.75} />
+          {placeholder}
+        </DropdownMenuTrigger>
+      </TagChipMenu>
+    ) : null
   const colors = new Map(
     Result.isSuccess(tags) ? tags.value.map((tag) => [tag.name, tag.color]) : []
   )
   const shown = max === undefined ? names : names.slice(0, max)
   const hidden = names.slice(shown.length)
-  const wide = collapse ? chipWideOnlyClass : undefined
   const chip = (
     key: string,
     preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
     content: ReactNode,
-    label?: string,
-    className?: string
-  ) => {
-    const button = <button type="button" className={cn(labelChip, className)} />
-    return onPatch ? (
+    ariaLabel: string | undefined,
+    button: ReactElement
+  ) =>
+    onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
           preview={preview}
-          aria-label={label}
+          aria-label={ariaLabel}
           aria-haspopup="menu"
           onClick={undefined}
           render={<DropdownMenuTrigger render={button} />}
@@ -270,29 +264,27 @@ export function TagChips({
       <TicketPreviewTrigger
         key={key}
         preview={preview}
-        aria-label={label}
+        aria-label={ariaLabel}
         render={button}
       >
         {content}
       </TicketPreviewTrigger>
     )
-  }
   return (
     <>
       {shown.map((name) =>
         chip(
           name,
           TicketPreview.tag({ name }),
-          <>
-            <span
-              aria-hidden
-              className="size-2 shrink-0 rounded-full bg-muted-foreground"
-              style={{ backgroundColor: colors.get(name) ?? undefined }}
-            />
-            <span className="truncate">{name}</span>
-          </>,
+          <span className="truncate">{name}</span>,
           undefined,
-          wide
+          <TagChip
+            color={colors.get(name)}
+            render={<button type="button" />}
+            className={
+              collapse ? "hidden min-w-0 @3xl/list:inline-flex" : "min-w-0"
+            }
+          />
         )
       )}
       {hidden.length > 0 &&
@@ -303,7 +295,7 @@ export function TagChips({
             {m.tags_more({ count: hidden.length })}
           </span>,
           m.tags_more_aria_label({ count: hidden.length }),
-          wide
+          labelChip(collapse ? "wide" : "always")
         )}
       {collapse &&
         chip(
@@ -314,7 +306,7 @@ export function TagChips({
             <span className="tabular-nums">{names.length}</span>
           </>,
           m.tags_count_aria_label({ count: names.length }),
-          chipNarrowOnlyClass
+          labelChip("narrow")
         )}
     </>
   )

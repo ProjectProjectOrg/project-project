@@ -20,6 +20,7 @@ export type TicketToolbarProps = Readonly<{
   estimation: EstimationMode
   scopeKey?: string
   viewControls?: ReactNode
+  onResetViewControls?: () => void
   showSort?: boolean
   boardScope?: BoardScope
 }>
@@ -31,8 +32,6 @@ type TicketToolbarContextValue = Omit<TicketToolbarProps, "showSort"> &
     controlsCompact: boolean
     setFocused: (focused: boolean) => void
     patchFilter: (patch: Partial<TicketFilter>) => void
-    clearAll: () => void
-    hasActiveFilters: boolean
   }>
 
 export const TicketToolbarContext =

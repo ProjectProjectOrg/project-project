@@ -94,11 +94,7 @@ export function CreateBranchSubmenu({
           <StatusSubmenu value={status} onChange={setStatus} />
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={branchName === ""}
-          onClick={submit}
-          className="text-foreground"
-        >
+        <DropdownMenuItem disabled={branchName === ""} onClick={submit}>
           <Plus />
           <span className="flex-1">{m.git_branch_create_submit()}</span>
           <KbdShortcut

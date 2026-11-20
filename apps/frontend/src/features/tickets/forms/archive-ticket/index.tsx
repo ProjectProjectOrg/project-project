@@ -3,8 +3,8 @@ import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { Archive, Ban, Clock, Copy } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
-import { PopoverTitle } from "@pp/ui/popover"
 import * as Exit from "effect/Exit"
+import { useId } from "react"
 
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"
@@ -46,9 +46,11 @@ export function ArchiveForm({
   const submit = () => {
     if (!waiting) void form.handleSubmit()
   }
+  const headingId = useId()
 
   return (
     <form
+      aria-labelledby={headingId}
       className="flex flex-col"
       onSubmit={(event) => {
         event.preventDefault()
@@ -56,10 +58,13 @@ export function ArchiveForm({
       }}
     >
       <Composer.Header>
-        <PopoverTitle className="inline-flex items-center gap-1.5 font-normal text-foreground">
+        <h2
+          id={headingId}
+          className="inline-flex items-center gap-1.5 font-normal text-foreground"
+        >
           <Archive className="size-3.5" strokeWidth={1.75} />
           {m.tickets_archive_heading()}
-        </PopoverTitle>
+        </h2>
         <span className="tabular-nums">{ticket.id}</span>
       </Composer.Header>
       <Composer.Title className="truncate">{ticket.title}</Composer.Title>

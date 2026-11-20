@@ -62,6 +62,16 @@ export function ViewOptions() {
 
 `PopoverContent` wraps Base UI's portal, positioner and popup, so placement props go straight on it. `PopoverTitle` and `PopoverClose` pass through to Base UI.
 
+`PopoverFooter` is a bar for the bottom of a sectioned popover (`p-0`), placed after the scrolling body. It folds in while `show` is true:
+
+```tsx
+<PopoverFooter show={!isDefault}>
+  <Button variant="ghost" size="sm" onClick={reset}>
+    {m.tickets_view_options_reset_view()}
+  </Button>
+</PopoverFooter>
+```
+
 | Prop                 | Type                                     | Default    |
 | -------------------- | ---------------------------------------- | ---------- |
 | `side`               | `"top" \| "bottom" \| "left" \| "right"` | `"bottom"` |
@@ -73,16 +83,19 @@ export function ViewOptions() {
 | `collisionBoundary`  | `Element \| "clipping-ancestors"`        |            |
 | `collisionPadding`   | `number`                                 |            |
 | `keepMounted`        | `boolean` (keep the popup in the DOM)    | `false`    |
+| `surface`            | `"popup" \| "hover"`: a click-opened panel, or the hover card's skin and 14px corners for content shown on hover | `"popup"` |
 
 ## Rules
 
 ### One surface for every popup
 
-Popover, dropdown menu, select, context menu and hover card all use `popupSurfaceClass` from `menu-styles.ts`: the card fill, a 60% hairline border and 20px corners. A popover opened next to a menu looks like the same kind of thing, so restyle the shared class, never one popup.
+Popover, dropdown menu, select and context menu all use `popupSurfaceClass` from `menu-styles.ts`: the tooltip's raised skin (the `--tooltip` fill, the `--tooltip-edge` hairline and top light) with 19px squircle corners. Tooltips and hover cards wear the same skin through the tooltip host, so whatever floats reads as one family. Restyle the shared class, never one popup.
+
+A popup opened from inside another (a select in View options) steps one level up, to `--tooltip-raised` (lighter in both themes: `0.33` over `0.29` in dark, `0.996` over `0.99` in light), so it floats above its parent instead of reading as a cut-out of it. Popovers, menus and selects do this themselves through `PopupLayerContext`.
 
 ### No shadows
 
-The hairline alone separates the panel from the page, in light and dark. Shadows stay off popups, including callsite overrides such as `shadow-md`.
+The raised fill and the hairline separate the panel from the page, in light and dark. Shadows stay off popups, including callsite overrides such as `shadow-md`.
 
 ### Same motion as menus
 
@@ -92,11 +105,17 @@ Opening fades in, scales up from 95% and slides 8px out from the trigger's side 
 
 The default padding is 12px. Content that brings its own sections and dividers, like View options or the sprint creator, passes `p-0` and pads each section itself, so dividers run edge to edge.
 
+### Footers fold in
+
+A `PopoverFooter` appears only when it has something to offer, such as a reset once a view differs from the default. It grows from zero height and fades in over 220ms (`transitions.layout`), and folds out over 180ms (`transitions.presence`), so the popover gets taller and shorter with it rather than jumping. A footer already showing when the popover opens is just there. Reduced motion keeps only the fade.
+
+The footer sits outside the scrolling body, so it stays put while the body scrolls. Its top hairline (`border-border/60`, the same as the section dividers) runs edge to edge, and its actions sit on the right. Reset is a small ghost button.
+
 ## Examples
 
 ### View options
 
-The ticket toolbar's View options popover in the backlog list: the list and board switch, grouping and ordering pickers with a sort direction button, and display property chips with a reset once they differ from the default.
+The ticket toolbar's View options popover in the backlog list: the list and board switch, grouping and ordering pickers with a sort direction button, and display property chips. Once anything differs from the default, the trigger shows how many settings changed and a footer folds in to reset the view.
 
 <Demo
   name="view-options"
@@ -106,7 +125,7 @@ The ticket toolbar's View options popover in the backlog list: the list and boar
 
 ### New sprint
 
-The sprint rail's "New sprint" button opens the sprint composer: a whole form in a popover, with the date range picker as a second popover nested inside it. Focus stays trapped in the form, and the nested calendar closes on its own without closing the form.
+The sprints overview's "New sprint" button opens the sprint composer: a whole form in a popover, laid out like every composer (title and description on the card, dates and actions on the tray), with the date range picker as a second popover nested inside it. Focus stays trapped in the form, and the nested calendar closes on its own without closing the form.
 
 <Demo
   name="new-sprint"

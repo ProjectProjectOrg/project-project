@@ -38,7 +38,7 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
     : currentIndex
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-7.5rem)] w-full max-w-[1020px] flex-col">
+    <div className="mx-auto flex min-h-[calc(100dvh-7.5rem)] w-full max-w-255 flex-col">
       <header className="flex min-h-12 items-start justify-between gap-4">
         <h1 className="text-title font-semibold text-foreground">{title}</h1>
         {action}
@@ -85,7 +85,7 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
                     type="button"
                     variant="ghost"
                     size="step"
-                    className="w-full justify-start rounded-xl text-left text-muted-foreground hover:text-foreground"
+                    className="w-full justify-start text-left"
                     onClick={() => navigation.onNavigate(target)}
                   >
                     {content}
@@ -109,7 +109,7 @@ export function WizardShell<Id extends string, Navigable extends Id = Id>({
           </>
         ) : null}
 
-        <section className="max-w-[820px] min-w-0 flex-1">{children}</section>
+        <section className="max-w-205 min-w-0 flex-1">{children}</section>
       </div>
     </div>
   )

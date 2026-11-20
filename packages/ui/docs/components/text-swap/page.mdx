@@ -38,7 +38,7 @@ import { TextSwap } from "@pp/ui/text-swap"
 <TextSwap speed="fast">{String(count)}</TextSwap>
 
 // A hint whose change matters on its own: also said to screen readers.
-<TextSwap announce className="whitespace-normal">{hint}</TextSwap>
+<TextSwap announce wrap>{hint}</TextSwap>
 ```
 
 | Prop        | Type                   | Default                                           |
@@ -48,6 +48,7 @@ import { TextSwap } from "@pp/ui/text-swap"
 | `iconKey`   | `string`               | which icon is showing; defaults to the text       |
 | `speed`     | `"normal" \| "fast"`   | `"normal"` (260ms); `"fast"` is 180ms             |
 | `announce`  | `boolean`              | `false`; also tell screen readers the new value   |
+| `wrap`      | `boolean`              | `false`; wrap a long value instead of clipping it |
 
 ## Rules
 

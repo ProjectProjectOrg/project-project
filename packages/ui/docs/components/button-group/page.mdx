@@ -1,0 +1,30 @@
+export const meta = {
+  title: "ButtonGroup",
+  group: "Primitives",
+  description: "Buttons joined edge to edge, like a split button: an action and a menu of its options."
+}
+
+## Overview
+
+<Demo name="overview" title="Split button" />
+
+## Usage
+
+```tsx
+import { ButtonGroup } from "@pp/ui/button-group"
+
+<ButtonGroup>
+  <Button variant="tertiary" size="sm">Start sprint</Button>
+  <Button variant="tertiary" size="square-7" aria-label="Schedule">…</Button>
+</ButtonGroup>
+```
+
+## Rules
+
+### The buttons keep their own look
+
+Each button keeps its variant and size. The group only squares the edges where two buttons meet and overlaps them by a pixel, so a hairline is never doubled.
+
+### Direct children only
+
+The group shapes its direct children. A trigger that renders a Button through `render` (a DatePicker's, a menu's) counts, because the Button is still the child in the DOM.

@@ -7,7 +7,68 @@
 @plugin "@toolwind/corner-shape";
 
 @custom-variant dark (&:is(.dark *));
+/* A menu row the highlight sits on: Base UI's highlighted row, the row it
+   holds on while the pointer crosses a separator, the row it rests on
+   with no pointer, or a submenu trigger whose submenu has focus
+   (menu-highlight.tsx). */
+@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting], [data-slot=dropdown-menu-sub-trigger][data-popup-open]));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
+/* A row's hover reveals: in a ListHoverScope they follow the gliding
+   highlight (the row it marks data-hover-highlight), so they light up in the
+   same frame it sets off for that row; elsewhere, the row's own hover. */
+@custom-variant row-hover (&:is(:where(.group\/reveal)[data-hover-highlight] *, :where(.group\/reveal):not(:where([data-slot="list-hover-scope"] *)):hover *));
+
+/* Button's transition: everything that changes on hover and press, but not
+   the outline, so the focus ring appears at once instead of growing in. */
+@utility transition-control {
+  transition-property:
+    scale, color, background-color, border-color, box-shadow, opacity;
+  transition-timing-function: var(
+    --tw-ease,
+    var(--default-transition-timing-function)
+  );
+  transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* An uploaded sticker icon's die-cut edge and the shadow it casts. */
+@utility sticker-outline {
+  filter: drop-shadow(0 0 1px var(--icon-sticker-outline))
+    drop-shadow(0 1px 2px rgb(0 0 0/0.45));
+}
+
+/* An overlay fill (--tint, --hover) painted over the element's own
+   background colour, so it reads on any surface. */
+@utility tint-layer {
+  background-image: linear-gradient(var(--tint), var(--tint));
+}
+@utility tint-hover-layer {
+  background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
+}
+@utility hover-layer {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+/* A control waiting on the server pulses. Callers set data-pending on any
+   element or primitive instead of restyling it. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-pending] {
+    animation: var(--animate-pulse);
+  }
+}
+
+/* A loading placeholder's pulse. */
+@utility skeleton {
+  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
 
 /* Allo (OFL), the interface face: the variable font (weight, roundness,
    optical size) plus its drawn obliques for italics. Roundness is set on
@@ -72,31 +133,34 @@
      column (checkbox, chevron) on the icons of the fields above the list
      (composer, search), which sit 17px in. */
   --list-pad-start: 5px;
+  /* How long the list's hover highlight takes to glide to a row (spring.fast
+     in springs.ts), so a row's hover reveals fade in as it arrives. */
+  --highlight-glide: 80ms;
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
      Pages sit one step up on --page, cards and popups one more on --card.
      The sidebar's icon rail sits one step below, on --rail. */
-  --background: oklch(0.955 0 0);
-  --rail: oklch(0.925 0 0);
-  --page: oklch(0.982 0 0);
+  --background: oklch(0.94 0 0);
+  --rail: oklch(0.912 0 0);
+  --page: oklch(0.968 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.99 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.99 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.945 0 0);
+  --secondary: oklch(0.93 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.945 0 0);
-  /* 0.50 keeps 4.5:1 on every light surface, hover and pressed rows included
+  --muted: oklch(0.93 0 0);
+  /* 0.48 keeps 4.5:1 on every light surface, hover and pressed rows included
      (frame + active is the darkest at 4.6:1). */
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.945 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --accent: oklch(0.93 0 0);
   --accent-foreground: oklch(0.205 0 0);
   /* @fluid components reference `bg-selected` for the active/checked indicator
      in tabs-subtle, dropdown, and select. Distinct from --accent (lighter,
      used for hover) so the active state has a stronger visual presence. */
-  --selected: oklch(0.9 0 0);
+  --selected: oklch(0.885 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --state-success: oklch(0.7 0.16 135);
   --state-warning: oklch(0.5 0.16 75);
@@ -105,8 +169,8 @@
   --state-danger: oklch(0.7 0.16 15);
   --destructive-light: oklch(0.95 0.02 27);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
   /* Focus ring: 3:1 against the frame, page and cards. */
   --ring: oklch(0.58 0 0);
   --radius: 1rem;
@@ -136,9 +200,6 @@
   --lh-micro-compact: 12px;
   --dither-front: oklch(0.708 0 0);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
-  /* Composer's tray: halfway between the card it hangs off and the page,
-     so the controls read as a step down from the writing. */
-  --composer-tray: color-mix(in oklch, var(--card), var(--background) 45%);
   /* Empty's intensities: the same dither, its ink pulled toward the paper
      (subtle) or toward the text (strong). Medium is --dither-front. */
   --dither-front-subtle: color-mix(
@@ -153,17 +214,17 @@
   );
   --focus-ring: oklch(0.693 0.161 265.2);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
-  --surface-1: oklch(0.955 0 0);
-  --surface-2: oklch(0.977 0 0);
-  --surface-3: oklch(1 0 0);
-  --surface-4: oklch(1 0 0);
-  --surface-5: oklch(1 0 0);
-  --surface-6: oklch(1 0 0);
-  --surface-7: oklch(1 0 0);
-  --surface-8: oklch(1 0 0);
-  --shadow-color: oklch(0 0 0 / 0.06);
+  --surface-1: oklch(0.94 0 0);
+  --surface-2: oklch(0.968 0 0);
+  --surface-3: oklch(0.984 0 0);
+  --surface-4: oklch(0.99 0 0);
+  --surface-5: oklch(0.99 0 0);
+  --surface-6: oklch(0.993 0 0);
+  --surface-7: oklch(0.996 0 0);
+  --surface-8: oklch(0.996 0 0);
+  --shadow-color: oklch(0 0 0 / 0.07);
   --shadow-1: 0 0 0 1px var(--shadow-color);
-  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.14);
+  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.15);
   --shadow-2: var(--shadow-1), 0 1px 1px -0.5px var(--shadow-color);
   --shadow-3: var(--shadow-2), 0 3px 3px -1.5px var(--shadow-color);
   --shadow-4: var(--shadow-3), 0 6px 6px -3px var(--shadow-color);
@@ -171,51 +232,58 @@
   --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
-  --hover: rgb(0 0 0 / 0.04);
+  --hover: rgb(0 0 0 / 0.045);
   /* Label chips (epic, tags, +N on cards and rows): a quiet filled pill, so
      names read as labels next to the plain icon-and-value data chips. */
-  --chip-label: oklch(0 0 0 / 5%);
-  --chip-label-hover: oklch(0 0 0 / 9%);
+  --chip-label: oklch(0 0 0 / 5.5%);
+  --chip-label-hover: oklch(0 0 0 / 10%);
   /* A chip's fill carries the badge's light: a top sheen and a bottom glow
      edge, over a translucent fill so it reads on hovered rows and washes. */
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 14%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
-  /* Tooltips sit on the theme, not against it: white with a hairline and a
-     top light here, a lifted grey in dark. No shadow, like every popup. */
-  --tooltip: oklch(1 0 0);
+  /* The slider's field edge and its fill. */
+  --slider-line: oklch(0 0 0 / 8%);
+  --slider-fill: oklch(0.918 0 0);
+  /* Tooltips sit on the theme, not against it: a near-white step above the
+     page with a hairline and a top light here, a lifted grey in dark. No
+     shadow, like every popup. */
+  --tooltip: oklch(0.99 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(0 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 70%);
+  /* A popup opened from inside another popup (a select in a popover) steps
+     one level up, so it floats above the surface it came from instead of
+     reading as a cut-out of it. */
+  --tooltip-raised: oklch(0.996 0 0);
+  /* A menu row's text at rest. Light keeps it muted; dark lifts it between
+     muted and the foreground, since grey on the raised fill reads washed
+     out. Highlighted rows take the full foreground. */
+  --menu-foreground: var(--muted-foreground);
   /* A flagged card's wash: the warning tone, fading out under its key and
      title. */
   --flag-wash: oklch(from var(--state-warning) 0.78 calc(c * 0.9) h / 0.28);
+  /* What a guide lays over everything but its spotlight, under a blur. */
+  --guide-scrim: oklch(0.2 0 0 / 0.14);
   --avatar-edge: oklch(0.145 0 0 / 0.1);
-  --segment-line: oklch(0 0 0 / 5%);
+  --segment-line: oklch(0 0 0 / 6%);
+  --field-line: var(--segment-line);
+  --surface: var(--page);
   --kbd-glow: oklch(1 0 0 / 70%);
   /* Filled buttons: a faint vertical sheen and an optional edge in the
      button's own colour. Tune here; 0% turns either off. */
   --button-corner: superellipse(1.5);
-  /* Text field fill. Light: white, lifted off the page (0.982).
-     Dark: just below the page (0.219), so a field reads as a well
-     without sinking all the way to the base layer (0.145). */
-  --field: oklch(1 0 0);
   --button-sheen-top: 1.75%;
   --button-sheen-bottom: 1%;
   --button-edge: 0%;
   --button-edge-to: black;
-  --button-secondary: oklch(0 0 0 / 5%);
-  --button-secondary-hover: oklch(0 0 0 / 8%);
-  --button-secondary-active: oklch(0 0 0 / 11%);
-  --button-tertiary: oklch(0 0 0 / 2.5%);
-  --button-tertiary-hover: oklch(0 0 0 / 5%);
-  --button-tertiary-active: oklch(0 0 0 / 8%);
+  --button-secondary: oklch(0 0 0 / 5.5%);
+  --button-secondary-hover: oklch(0 0 0 / 9%);
+  --button-secondary-active: oklch(0 0 0 / 12.5%);
+  --button-tertiary: oklch(0 0 0 / 2.75%);
+  --button-tertiary-hover: oklch(0 0 0 / 5.5%);
+  --button-tertiary-active: oklch(0 0 0 / 9%);
   --avatar-lit: rgb(255 255 255 / 0.55);
   --avatar-squircle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M100.00 50.00L99.95 62.79L99.79 68.06L99.52 72.08L99.14 75.44L98.66 78.35L98.06 80.93L97.35 83.25L96.53 85.36L95.59 87.27L94.54 89.01L93.35 90.60L92.04 92.04L90.60 93.35L89.01 94.54L87.27 95.59L85.36 96.53L83.25 97.35L80.93 98.06L78.35 98.66L75.44 99.14L72.08 99.52L68.06 99.79L62.79 99.95L50.00 100.00L37.21 99.95L31.94 99.79L27.92 99.52L24.56 99.14L21.65 98.66L19.07 98.06L16.75 97.35L14.64 96.53L12.73 95.59L10.99 94.54L9.40 93.35L7.96 92.04L6.65 90.60L5.46 89.01L4.41 87.27L3.47 85.36L2.65 83.25L1.94 80.93L1.34 78.35L0.86 75.44L0.48 72.08L0.21 68.06L0.05 62.79L0.00 50.00L0.05 37.21L0.21 31.94L0.48 27.92L0.86 24.56L1.34 21.65L1.94 19.07L2.65 16.75L3.47 14.64L4.41 12.73L5.46 10.99L6.65 9.40L7.96 7.96L9.40 6.65L10.99 5.46L12.73 4.41L14.64 3.47L16.75 2.65L19.07 1.94L21.65 1.34L24.56 0.86L27.92 0.48L31.94 0.21L37.21 0.05L50.00 0.00L62.79 0.05L68.06 0.21L72.08 0.48L75.44 0.86L78.35 1.34L80.93 1.94L83.25 2.65L85.36 3.47L87.27 4.41L89.01 5.46L90.60 6.65L92.04 7.96L93.35 9.40L94.54 10.99L95.59 12.73L96.53 14.64L97.35 16.75L98.06 19.07L98.66 21.65L99.14 24.56L99.52 27.92L99.79 31.94L99.95 37.21Z'/%3E%3C/svg%3E");
-  --active: rgb(0 0 0 / 0.07);
-  /* Bare fields (composer titles, in-place names) sit in running text, so
-     their hover is lighter than a control's --hover, and focus lighter
-     still: "you are typing here", not a highlight. */
-  --field-hover: rgb(0 0 0 / 0.025);
-  --field-focus: rgb(0 0 0 / 0.015);
+  --active: rgb(0 0 0 / 0.079);
   /* A bare field's placeholder: hover and focus step it toward the text
      colour, staying in the placeholder range. */
   /* A comment's bubble: the page lifted toward the text colour, so a
@@ -231,12 +299,12 @@
     var(--muted-foreground) 70%,
     var(--foreground)
   );
-  --tint: oklch(0 0 0 / 8%);
-  --tint-hover: oklch(0 0 0 / 6.5%);
+  --tint: oklch(0 0 0 / 9%);
+  --tint-hover: oklch(0 0 0 / 7.2%);
   --prose-body: oklch(0.23 0.002 265);
   --prose-quiet: oklch(0.145 0 0 / 0.6);
-  --prose-code: oklch(0 0 0 / 4.5%);
-  --prose-code-ring: oklch(0 0 0 / 6%);
+  --prose-code: oklch(0 0 0 / 5%);
+  --prose-code-ring: oklch(0 0 0 / 7%);
   /* Control outlines need 3:1 against the frame, page and muted wells
      (WCAG 1.4.11); 43% black is the floor in light. */
   --prose-check-ring: oklch(0 0 0 / 44%);
@@ -248,6 +316,7 @@
 }
 
 .dark {
+  --surface: var(--page);
   --background: oklch(0.145 0 0);
   --rail: oklch(0.115 0 0);
   --page: oklch(0.219 0 0);
@@ -326,20 +395,24 @@
     0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
-  --hover: rgb(255 255 255 / 0.04);
+  --hover: rgb(255 255 255 / 0.06);
   --chip-label: oklch(1 0 0 / 5%);
   --chip-label-hover: oklch(1 0 0 / 9%);
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 4%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
+  --slider-line: oklch(1 0 0 / 9%);
+  --slider-fill: oklch(0.3 0 0);
   --tooltip: oklch(0.29 0 0);
   --tooltip-edge:
     inset 0 0 0 1px oklch(1 0 0 / 9%), inset 0 1px 0 oklch(1 0 0 / 7%);
+  --tooltip-raised: oklch(0.33 0 0);
+  --menu-foreground: oklch(0.86 0 0);
   --flag-wash: oklch(from var(--state-warning) 0.72 calc(c * 2.2) h / 0.16);
+  --guide-scrim: oklch(0 0 0 / 0.4);
   --avatar-edge: oklch(0.985 0 0 / 0.1);
   --segment-line: oklch(1 0 0 / 6%);
   --kbd-glow: oklch(1 0 0 / 9%);
   --button-edge-to: white;
-  --field: oklch(0.18 0 0);
   --button-secondary: oklch(1 0 0 / 11%);
   --button-secondary-hover: oklch(1 0 0 / 15%);
   --button-secondary-active: oklch(1 0 0 / 19%);
@@ -347,9 +420,7 @@
   --button-tertiary-hover: oklch(1 0 0 / 9%);
   --button-tertiary-active: oklch(1 0 0 / 13%);
   --avatar-lit: rgb(255 255 255 / 0.22);
-  --active: rgb(255 255 255 / 0.1);
-  --field-hover: rgb(255 255 255 / 0.03);
-  --field-focus: rgb(255 255 255 / 0.02);
+  --active: rgb(255 255 255 / 0.12);
   --comment-bubble: color-mix(in oklab, var(--page), var(--foreground) 5%);
   --placeholder-hover: color-mix(
     in oklab,
@@ -374,6 +445,38 @@
   --checkbox-ring-quiet: oklch(1 0 0 / 35%);
   --checkbox-fill-hover: oklch(0.86 0 0);
   --switch-thumb-off: oklch(1 0 0 / 45%);
+}
+
+/* Fields and the menu highlight step a fixed amount of lightness from the
+   surface they sit on, so they read the same on the page, a card and a
+   popup. --surface is the page; a surface that holds fields declares its
+   own with the `surface` class and --surface (popupSurfaceClass, settings
+   groups), and the tokens are worked out again there. */
+:root,
+.surface {
+  --field: oklch(from var(--surface) calc(min(0.995, l + 0.02)) c h);
+  --field-hover: oklch(from var(--field) calc(l - 0.035) c h);
+  --field-focus: oklch(from var(--field) calc(l - 0.02) c h);
+  --menu-hover: oklch(from var(--surface) calc(l - 0.035) c h);
+  --menu-active: oklch(from var(--surface) calc(l - 0.06) c h);
+  /* Composer's tray: a step down from the surface, smaller than the menu
+     highlight, so the controls read as below the writing. */
+  --composer-tray: oklch(from var(--surface) calc(l - 0.02) c h);
+}
+.dark,
+.dark .surface {
+  /* In dark a field never gets lighter than 0.23 and its hover never
+     lighter than 0.26, so on a raised popup it stays a well and its hover
+     stays below the popup's own fill. */
+  --field: oklch(from var(--surface) calc(min(l - 0.04, 0.23)) c h);
+  --field-hover: oklch(from var(--field) calc(min(l + 0.06, 0.26)) c h);
+  --field-focus: oklch(from var(--field) calc(l + 0.025) c h);
+  /* A field's edge, a step above the surface: a white overlay on the field
+     would land on the surface's own lightness and vanish. */
+  --field-line: oklch(from var(--surface) calc(l + 0.04) c h);
+  --menu-hover: oklch(from var(--surface) calc(l + 0.06) c h);
+  --menu-active: oklch(from var(--surface) calc(l + 0.1) c h);
+  --composer-tray: oklch(from var(--surface) calc(l - 0.035) c h);
 }
 
 @theme inline {
@@ -420,6 +523,8 @@
   --color-rail: var(--rail);
   --color-field: var(--field);
   --color-active: var(--active);
+  --color-menu-hover: var(--menu-hover);
+  --color-menu-active: var(--menu-active);
   --color-tint: var(--tint);
   --color-tint-hover: var(--tint-hover);
   --color-background: var(--background);
@@ -474,6 +579,24 @@
   --shadow-surface-6: var(--shadow-6);
   --shadow-surface-7: var(--shadow-7);
   --shadow-surface-8: var(--shadow-8);
+  /* A 32px icon tile's corners (settings rows, file and logo tiles). */
+  --radius-tile: 10px;
+  /* The sign-in page and its card: the page's background tinted toward
+     muted, the card further than the page. */
+  --color-login-page: color-mix(
+    in oklch,
+    var(--background) 82%,
+    var(--muted) 18%
+  );
+  --color-login-card: color-mix(
+    in oklch,
+    var(--background) 45%,
+    var(--muted) 55%
+  );
+  /* A 1px hairline inside the edge, for an empty slot. */
+  --shadow-hairline-inset: inset 0 0 0 1px var(--border);
+  /* A field's hover fill, painted over its background as a shadow. */
+  --shadow-field-hover-fill: inset 0 0 0 100vmax var(--field-hover);
 }
 
 @keyframes marquee-x {
@@ -494,16 +617,16 @@
 .transition-opacity:hover,
 .transition-all:hover,
 .transition:hover,
-.motion-safe\:transition-all:hover,
+.motion-safe\:transition-control:hover,
 .transition-colors[data-highlighted],
 .transition-all[data-highlighted],
-.motion-safe\:transition-all[data-highlighted],
+.motion-safe\:transition-control[data-highlighted],
 .transition-colors[data-selected="true"],
 .transition-all[data-selected="true"],
-.motion-safe\:transition-all[data-selected="true"],
+.motion-safe\:transition-control[data-selected="true"],
 [data-hovered].transition-colors,
 [data-hovered].transition-opacity,
-[data-hovered].motion-safe\:transition-all,
+[data-hovered].motion-safe\:transition-control,
 [data-hovered] .transition-colors,
 [data-hovered] .transition-opacity,
 .group\/hitbox:hover .transition-colors,
@@ -543,23 +666,6 @@
       var(--theme-clip-radius, 150vmax) at var(--theme-clip-x, 50%)
         var(--theme-clip-y, 50%)
     );
-  }
-}
-
-/* Base UI leaves a few frames with no submenu between rows: hold the closing one up to 50ms, until the next is placed. */
-[data-slot="dropdown-menu-sub-content"][data-closed] {
-  animation: submenu-hold 50ms steps(1, end);
-}
-:root:has(
-    [data-slot="dropdown-menu-sub-positioner"]:not([style*="opacity: 0"])
-      > [data-open]
-  )
-  [data-slot="dropdown-menu-sub-content"][data-closed] {
-  visibility: hidden;
-}
-@keyframes submenu-hold {
-  to {
-    opacity: 1;
   }
 }
 
@@ -730,6 +836,57 @@
   }
 }
 
+/* Slider thumb: the Switch's thumb. A 6x16 squircle bar at rest, the
+   Switch's 16px thumb on hover, 4px wider while dragged, on the Switch's
+   spring. Base UI places it (left and the centring translate), so only its
+   size and look are set here. The value beside it springs on the same curve
+   when it makes way. */
+.slider-thumb {
+  --slider-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+  corner-shape: var(--button-corner);
+  background-color: var(--foreground);
+  transition:
+    width 240ms var(--slider-spring),
+    height 240ms var(--slider-spring),
+    border-radius 240ms var(--slider-spring);
+}
+.slider-thumb[data-hovered],
+.slider-thumb:has(:focus-visible),
+[data-force~="hover"] .slider-thumb,
+[data-force~="focus"] .slider-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+}
+.slider-thumb[data-pressing],
+[data-force~="active"] .slider-thumb {
+  width: 20px;
+  height: 16px;
+  border-radius: 8px;
+}
+[data-disabled] .slider-thumb {
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+}
+.slider-value {
+  transition: translate 280ms cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+/* The gallery pins focus with data-force; the field takes the ring. */
+[data-force~="focus"] [data-slot="slider-field"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slider-thumb,
+  .slider-value {
+    transition-duration: 0ms;
+  }
+}
+
 /* Filled buttons (primary, secondary, destructive). The fill is one colour,
    --button-fill; a sheen made from that same colour with color-mix in oklab
    lies over it, so the hue never greys. The sheen is the resting look: hover
@@ -881,11 +1038,11 @@
 }
 
 /* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
-   Hover and press match the buttons: plain rows take the ghost button's
-   --hover, then --active while pressed; destructive rows the destructive
-   button's fill, then its hover mix. */
+   Plain rows take --menu-hover, then --menu-active while pressed (the
+   ghost button's fills, lifted in dark for the tooltip skin); destructive
+   rows the destructive button's fill, then its hover mix. */
 [data-slot="menu-highlight"] {
-  background-color: var(--hover);
+  background-color: var(--menu-hover);
   transition: background-color 80ms var(--ease-standard);
 }
 [data-slot="menu-highlight"][data-tone="destructive"] {
@@ -893,7 +1050,7 @@
 }
 [data-menu-highlight-host]:has([data-highlighted]:active)
   [data-slot="menu-highlight"] {
-  background-color: var(--active);
+  background-color: var(--menu-active);
 }
 [data-menu-highlight-host]:has([data-highlighted]:active)
   [data-slot="menu-highlight"][data-tone="destructive"] {
@@ -1471,7 +1628,8 @@
    real surface underneath. The cutout is the avatar's own shape: a squircle
    (|x|^4 + |y|^4 = 1, what corner-shape: squircle draws at a 50% radius),
    2px larger on every side. */
-[data-slot="avatar-group"] > :not(:last-child) {
+[data-slot="avatar-group"] > :not(:last-child),
+[data-slot="avatar-group"][data-animated] > * {
   --avatar-gap: 2px;
   --avatar-cut-size: calc(var(--avatar-size) + var(--avatar-gap) * 2);
   -webkit-mask-image: var(--avatar-squircle), linear-gradient(#000 0 0);
@@ -1482,18 +1640,39 @@
   mask-size:
     var(--avatar-cut-size) var(--avatar-cut-size),
     100% 100%;
+  /* Centred on the next avatar: 1.5 avatars in, less the overlap. */
   -webkit-mask-position:
-    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
-      calc(var(--avatar-gap) * -1),
+    calc(
+        var(--avatar-size) * 1.5 - var(--avatar-overlap) -
+          var(--avatar-cut-size) / 2
+      )
+      calc(var(--avatar-size) / 2 - var(--avatar-cut-size) / 2),
     0 0;
   mask-position:
-    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
-      calc(var(--avatar-gap) * -1),
+    calc(
+        var(--avatar-size) * 1.5 - var(--avatar-overlap) -
+          var(--avatar-cut-size) / 2
+      )
+      calc(var(--avatar-size) / 2 - var(--avatar-cut-size) / 2),
     0 0;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+}
+
+/* An animated stack (AvatarStack animated) keeps the cutout on every
+   avatar and sizes it instead: none where no one stays after it (the last,
+   or the one before a person leaving), so the gap shrinks into the leaving
+   avatar and grows around an arriving one, on the morph's curve, instead of
+   lingering until the leaving one is gone. */
+[data-slot="avatar-group"][data-animated] > * {
+  transition-property: mask-size, mask-position;
+  transition-duration: 260ms;
+  transition-timing-function: var(--ease-standard);
+}
+[data-slot="avatar-group"][data-animated] > :not(:has(~ :not([data-leaving]))) {
+  --avatar-cut-size: 0px;
 }
 
 /* Centre the initials in the part of a stacked avatar the cutout leaves. */
@@ -1529,6 +1708,11 @@
     @apply bg-muted text-foreground antialiased;
     margin: 0;
     padding: 0;
+  }
+  /* The app's own z-indexes stay inside the app, so popups portaled to the
+     body stack by DOM order alone: the one opened last is on top. */
+  #root {
+    isolation: isolate;
   }
   /* Allo with crisp terminals (roundness 0). It inherits, so every text
      on the page gets it; an element that sets its own variation settings

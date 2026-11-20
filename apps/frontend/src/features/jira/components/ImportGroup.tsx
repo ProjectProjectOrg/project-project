@@ -40,7 +40,7 @@ export function ImportGroup({
         onClick={hover.handlers.onClick}
         className="relative"
       >
-        <FluidHoverHighlight hover={hover} className="rounded-lg" />
+        <FluidHoverHighlight hover={hover} />
         <ul className="flex flex-col">
           {imports.map((summary, index) => (
             <ImportRow
@@ -78,7 +78,7 @@ function ImportRow({
   const projectSlug =
     summary.status === "succeeded" ? summary.destinationProjectSlug : null
   const className =
-    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-body text-foreground transition-transform duration-100 active:scale-[0.97]"
+    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-body text-foreground transition-transform duration-100 active:scale-97"
   const content = (
     <>
       <span className="flex min-w-0 items-baseline gap-2">

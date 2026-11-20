@@ -40,7 +40,9 @@ import { HoverSide } from "./tooltip"
  * and assignee. The CSS variables `--list-lead`, `--list-lead-gap`,
  * `--list-icon` and `--list-row-gap` (theme.css) size the leading columns, so
  * section headers can line up with them; `--ticket-key-width` (set by the
- * list) keeps keys of different lengths one width.
+ * list) keeps keys of different lengths one width. A row that isn't a ticket
+ * (a sprint) leaves out priority and key; its title then starts where a
+ * section header's label does.
  */
 
 // A row's height in px, for lists that lay rows out themselves (the
@@ -50,7 +52,7 @@ export const listRowHeight = 40
 // The title keeps at least 10rem; past that the chips' column gives way
 // (it's as wide as the widest row's chips), so a row with many tags never
 // squeezes the titles to nothing. The grid is the `list` container: below
-// 48rem a row's tags fold into one chip (chipNarrowOnlyClass).
+// 48rem a row's tags fold into one chip (Chip's `show`).
 export const listGridClassName =
   "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_minmax(0,auto)_auto_auto]"
 
@@ -86,7 +88,7 @@ const rowAt = (container: HTMLElement, x: number, y: number) => {
 
 const openPopupRow = (container: HTMLElement) =>
   container.querySelector<HTMLElement>(
-    '[data-slot="list-row"]:is([data-popup-open], :has([data-popup-open]))'
+    '[data-slot="list-row"]:is([data-popup-open], :has([data-popup-open], [data-card-open]))'
   )
 
 /*
@@ -110,6 +112,7 @@ export function ListHoverScope({
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
   const sessionRef = useRef(0)
+  const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
   const track = useCallback(() => {
@@ -118,6 +121,11 @@ export function ListHoverScope({
     const at = point.current
     if (!container) return
     const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
+    if (litRow.current !== row) {
+      litRow.current?.removeAttribute("data-hover-highlight")
+      row?.setAttribute("data-hover-highlight", "")
+      litRow.current = row
+    }
     if (!row) {
       setHovered(null)
       return
@@ -159,13 +167,14 @@ export function ListHoverScope({
     if (container) {
       popups.observe(container, {
         subtree: true,
-        attributeFilter: ["data-popup-open"]
+        attributeFilter: ["data-popup-open", "data-card-open"]
       })
     }
     return () => {
       root.removeEventListener("scroll", onScroll)
       popups.disconnect()
       cancelAnimationFrame(frame.current)
+      litRow.current?.removeAttribute("data-hover-highlight")
     }
   }, [schedule])
 
@@ -187,6 +196,13 @@ export function ListHoverScope({
         sessionRef.current += 1
       }}
       onMouseMove={(event) => {
+        // Menus and cards opened from a row are portaled, but React still
+        // bubbles their pointer events here.
+        if (
+          !(event.target instanceof Node) ||
+          !event.currentTarget.contains(event.target)
+        )
+          return
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
@@ -249,6 +265,7 @@ export function ListRow({
   // In a ListHoverScope the gliding highlight is the hover; on its own the
   // row fills itself.
   const inHoverScope = use(InHoverScopeContext)
+  const ticketColumns = priority !== undefined || ticketKey !== undefined
   const ownHover = inHoverScope
     ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:bg-hover in-data-keyboard-navigation:not-data-selected:data-[popup-open]:bg-hover"
     : "not-in-data-keyboard-navigation:hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover not-data-selected:data-[popup-open]:bg-hover"
@@ -290,20 +307,31 @@ export function ListRow({
           >
             {status}
           </span>
-          <span className={cn(itemLayerClass, "inline-flex")}>{priority}</span>
-          {/* The key reads at the title's size, like a parent's key before
-            the title (ListRowCrumbs), so the row keeps one text size. */}
-          <span className="shrink-0 text-body [&>[data-slot=ticket-key]]:text-body">
-            {ticketKey}
-          </span>
+          {ticketColumns && (
+            <>
+              <span className={cn(itemLayerClass, "inline-flex")}>
+                {priority}
+              </span>
+              {/* The key reads at the title's size, like a parent's key before
+                the title (ListRowCrumbs), so the row keeps one text size. */}
+              <span className="shrink-0 text-body [&>[data-slot=ticket-key]]:text-body">
+                {ticketKey}
+              </span>
+            </>
+          )}
         </fieldset>
-        <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1">
+        <div
+          className={cn(
+            "row-start-1 flex min-w-0 items-center self-stretch pl-1",
+            ticketColumns ? "col-start-5" : "col-span-3 col-start-3"
+          )}
+        >
           {title}
         </div>
         {/* Squeezed, chips that no longer fit wrap onto a second line that
           is clipped away, so whole chips drop out instead of being cut in
-          half. The 4px padding keeps focus rings inside the clip. */}
-        <div className="-my-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden py-1 [&>fieldset>span:empty]:hidden">
+          half. The 4px padding on every side keeps focus rings inside the clip. */}
+        <div className="-m-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden p-1 [&>fieldset>span:empty]:hidden">
           {trailing}
         </div>
         <fieldset disabled={disabled} className="contents">

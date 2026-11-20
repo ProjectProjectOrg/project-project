@@ -49,7 +49,7 @@ export function ConnectMenu() {
             size="sm"
             leadingIcon={connectError ? AlertTriangle : GithubIcon}
             title={connectError ?? undefined}
-            className={cn(connectError && "text-state-warning")}
+            tone={connectError ? "warning" : undefined}
           >
             {m.github_chip_connect_repo_button()}
           </Button>

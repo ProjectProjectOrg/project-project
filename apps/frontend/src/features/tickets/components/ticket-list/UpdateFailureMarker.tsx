@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { CircleAlert } from "@pp/ui/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 
@@ -20,10 +21,11 @@ export function UpdateFailureMarker({
     <Tooltip>
       <TooltipTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="block-grip"
+            tone="error"
             aria-label={`${m.tickets_row_update_error_fallback()} ${message}`}
-            className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-destructive outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         }
       >

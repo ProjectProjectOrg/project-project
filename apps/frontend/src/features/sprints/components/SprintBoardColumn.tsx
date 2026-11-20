@@ -65,13 +65,7 @@ export const columnReorder = (
 function MetaGlyph({
   meta
 }: Readonly<{ meta: ReturnType<typeof statusMetaFor> }>) {
-  return (
-    <StatusGlyph
-      icon={meta.icon}
-      className={meta.className}
-      color={meta.color}
-    />
-  )
+  return <StatusGlyph icon={meta.icon} color={meta.color} />
 }
 
 export function SprintBoardColumn({
@@ -275,7 +269,7 @@ function CardSlot({
           {created !== null && (
             <CreatedFlash
               at={created.at}
-              className="z-10 rounded-[14px]"
+              className="z-10 rounded-md"
               onDone={onCreatedShown}
             />
           )}

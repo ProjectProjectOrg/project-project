@@ -7,7 +7,6 @@
     "./theme.css": "./src/styles/theme.css",
     "./confirm-button-context": "./src/components/confirm-button-context.ts",
     "./menu-styles": "./src/components/menu-styles.ts",
-    "./slider-math": "./src/components/slider-math.ts",
     "./lib/surfaceContext": "./src/lib/surfaceContext.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./hooks/useMergeSplit": "./src/hooks/useMergeSplit.tsx",

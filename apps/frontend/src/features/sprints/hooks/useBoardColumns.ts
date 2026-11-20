@@ -22,6 +22,7 @@ export type BoardColumns = Readonly<{
   toggleHidden: (slug: string) => void
   toggleCollapsed: (slug: string) => void
   showAll: () => void
+  reset: () => void
 }>
 
 const layoutCodec = createLocalStorageCodec(BoardColumnLayout)
@@ -58,14 +59,16 @@ export function useBoardColumns(scope: BoardScope) {
     () => update((current) => ({ ...current, hidden: [] })),
     [update]
   )
+  const reset = useCallback(() => update(() => EMPTY_BOARD_LAYOUT), [update])
   return useMemo(
     () => ({
       hidden: layout.hidden,
       collapsed: layout.collapsed,
       toggleHidden,
       toggleCollapsed,
-      showAll
+      showAll,
+      reset
     }),
-    [layout, toggleHidden, toggleCollapsed, showAll]
+    [layout, toggleHidden, toggleCollapsed, showAll, reset]
   )
 }

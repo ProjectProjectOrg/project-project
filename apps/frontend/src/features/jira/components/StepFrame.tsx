@@ -27,7 +27,7 @@ export function StepFrame({
             {title}
           </h2>
           {description === undefined ? null : (
-            <div className="mt-1.5 text-body leading-[21px] text-pretty text-muted-foreground">
+            <div className="mt-1.5 text-body leading-5.25 text-pretty text-muted-foreground">
               {description}
             </div>
           )}

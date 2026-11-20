@@ -1,6 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { pickActiveSprint, type Group } from "@pp/shared"
-import { CommandMenuItem } from "@pp/ui/command-menu"
+import { CommandMenuChip, CommandMenuItem } from "@pp/ui/command-menu"
 import {
   CalendarDays,
   CalendarX,
@@ -93,12 +93,12 @@ export function SprintContextChip({
   sprint
 }: Readonly<{ sprint: SprintContext }>) {
   return (
-    <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover px-2 text-body">
+    <CommandMenuChip className="max-w-full min-w-0 overflow-hidden">
       <SprintStateIcon sprint={sprint.sprint} size="xs" />
       <span className="min-w-0 truncate font-semibold text-foreground">
         {sprint.sprint.name}
       </span>
-    </span>
+    </CommandMenuChip>
   )
 }
 
@@ -122,7 +122,7 @@ function DateRow({
   dimmed?: boolean
 }>) {
   return (
-    <CommandMenuItem value={value} className={cn(dimmed && "opacity-50")}>
+    <CommandMenuItem value={value} dimmed={dimmed}>
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className="shrink-0 text-body text-muted-foreground tabular-nums">
         {detail}
@@ -411,7 +411,7 @@ export function SprintDeletePage({ sprint, onBack, env }: SprintPageProps) {
         })
       }}
       renderItem={(item) => (
-        <CommandMenuItem value={item.value} className="text-destructive">
+        <CommandMenuItem value={item.value} variant="destructive">
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </CommandMenuItem>
       )}

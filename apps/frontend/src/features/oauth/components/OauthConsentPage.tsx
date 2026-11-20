@@ -102,7 +102,7 @@ function ConsentForm({
         <ul className="w-full space-y-1.5 rounded-xl bg-background/60 p-3 text-body text-foreground">
           {capabilities.map((label) => (
             <li key={label} className="flex items-start gap-2">
-              <span aria-hidden className="mt-[5px] text-muted-foreground">
+              <span aria-hidden className="mt-1.25 text-muted-foreground">
                 ·
               </span>
               <span>{label}</span>

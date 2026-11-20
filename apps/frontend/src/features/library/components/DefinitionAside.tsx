@@ -45,6 +45,8 @@ type CommitInputProps = Readonly<{
   maxLength?: number
   required?: boolean
   disabled?: boolean
+  // title: the page's own name, edited in place in the title's type.
+  variant?: "field" | "title"
   className?: string
 }>
 
@@ -56,6 +58,7 @@ export function CommitInput({
   maxLength,
   required = false,
   disabled = false,
+  variant = "field",
   className
 }: CommitInputProps) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -68,6 +71,7 @@ export function CommitInput({
   }
   return (
     <Input
+      variant={variant === "title" ? "title" : "default"}
       size="sm"
       aria-label={ariaLabel}
       placeholder={placeholder}
@@ -275,7 +279,7 @@ function TagChips({
               type="button"
               aria-label={m.templates_editor_tag_remove_aria({ tag })}
               onClick={() => onRemove(tag)}
-              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
+              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-97"
             >
               <X className="size-3" strokeWidth={1.75} />
             </button>

@@ -72,6 +72,26 @@ function Checkbox({
   )
 }
 
+// The box alone, for a row that is itself the control (a toggle button
+// with aria-pressed): it shows the state and takes no input of its own.
+function CheckboxIndicator({
+  checked,
+  disabled = false,
+  className
+}: Readonly<{ checked: boolean; disabled?: boolean; className?: string }>) {
+  return (
+    <span
+      aria-hidden
+      data-slot="checkbox-indicator"
+      data-checked={checked ? "" : undefined}
+      data-disabled={disabled ? "" : undefined}
+      className={cn(checkboxClass(), className)}
+    >
+      <Box />
+    </span>
+  )
+}
+
 // The fill and the mark, drawn over the box.
 function Box() {
   return (
@@ -96,4 +116,4 @@ function Box() {
   )
 }
 
-export { Checkbox }
+export { Checkbox, CheckboxIndicator }

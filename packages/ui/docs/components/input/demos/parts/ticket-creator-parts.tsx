@@ -7,7 +7,6 @@ import {
   Layers,
   Sparkles,
   SquareCheck,
-  X,
   Zap,
   type IconType
 } from "@pp/ui/icons"
@@ -302,20 +301,10 @@ export const typeItems = (lastUsed: string) => [
 ]
 
 export const sprintItems: ReadonlyArray<SelectOption<string>> = [
-  {
-    value: NO_SPRINT,
-    textValue: "No sprint",
-    separated: true,
-    label: (
-      <>
-        <X strokeWidth={1.75} />
-        No sprint
-      </>
-    )
-  },
-  ...SPRINTS.map((option) => ({
+  ...SPRINTS.map((option, index) => ({
     value: option.id,
     textValue: option.name,
+    separated: index === SPRINTS.length - 1,
     label: (
       <>
         <SprintGlyph sprint={option} />
@@ -325,5 +314,15 @@ export const sprintItems: ReadonlyArray<SelectOption<string>> = [
         </span>
       </>
     )
-  }))
+  })),
+  {
+    value: NO_SPRINT,
+    textValue: "No sprint",
+    label: (
+      <>
+        <CircleDashed strokeWidth={1.75} />
+        No sprint
+      </>
+    )
+  }
 ]

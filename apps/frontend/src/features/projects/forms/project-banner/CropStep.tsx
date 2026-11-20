@@ -71,7 +71,6 @@ export function BannerCropStep({
                   max={4}
                   step={0.05}
                   value={crop.zoom}
-                  valuePosition="top"
                   onChange={(zoom) => form.setFieldValue("crop.zoom", zoom)}
                   formatValue={(value) => `${value.toFixed(2)}×`}
                   endLabels={[

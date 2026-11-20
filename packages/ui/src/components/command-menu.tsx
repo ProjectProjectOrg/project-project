@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
   type Dispatch,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -42,9 +43,13 @@ import {
   FluidHoverHighlight,
   type FluidHoverSource
 } from "./fluid-hover-highlight"
-import { Check } from "./icons"
+import { Check, Minus } from "./icons"
 import { KbdShortcut } from "./kbd"
-import { menuItemClass } from "./menu-styles"
+import {
+  destructiveItemClass,
+  menuItemClass,
+  popupSurfaceClass
+} from "./menu-styles"
 import { PopupHotkeyScope } from "./popup-hotkey-scope"
 import { ScrollArea } from "./scroll-area"
 import { SegmentedTabs } from "./segmented-tabs"
@@ -556,6 +561,8 @@ function CommandMenuInput({
         className={cn(
           "h-full w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
           "text-body",
+          // Read-only, it describes the page instead of searching it.
+          "read-only:cursor-default read-only:text-muted-foreground read-only:caret-transparent",
           fieldTouchClass,
           className
         )}
@@ -569,12 +576,16 @@ export type CommandMenuListProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     renderItem: (item: CommandMenuItemData, index: number) => ReactNode
     children?: ReactNode
+    // The hairline above the list. Off when the frame draws its own under
+    // the input, across a peek pane beside the list too.
+    divider?: boolean
   }>
 
 function CommandMenuList({
   className,
   children,
   renderItem,
+  divider = true,
   ref,
   ...props
 }: CommandMenuListProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -595,8 +606,11 @@ function CommandMenuList({
 
   return (
     <ScrollArea
-      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
-      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
+      className={cn(
+        "scroll-divider flex min-h-0 flex-1 flex-col [&::after]:!hidden [&::before]:!-top-px",
+        divider && "border-t border-border/60"
+      )}
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!flex [&>div[style]]:!min-h-full [&>div[style]]:!flex-col [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
     >
       <div
         ref={(node) => {
@@ -689,7 +703,7 @@ function CommandMenuEmpty({
       aria-live="polite"
       data-slot="command-menu-empty"
       className={cn(
-        "px-3 py-6 text-center text-muted-foreground",
+        "flex flex-1 flex-col px-3 py-6 text-center text-muted-foreground",
         "text-body",
         className
       )}
@@ -703,6 +717,36 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keys: string | ReadonlyArray<string>
     keyLabels: KeyLabels
   }>
+
+// A pill in the input row naming what the open page acts on: a ticket, a
+// sprint, the selection.
+// A chip in the command menu's input: the page's context (a ticket, a
+// sprint) or a selected ticket, with an optional trailing remove button or
+// shortcut that runs to the edge. `count` is the quiet "+N more".
+const COMMAND_MENU_CHIP_VARIANT = {
+  label:
+    "gap-1.5 px-2 text-body has-[>:is(button,[data-slot=command-menu-shortcut]):last-child]:pr-0 [&>[data-slot=command-menu-shortcut]]:ml-0 [&>[data-slot=command-menu-shortcut]]:self-stretch [&>[data-slot=command-menu-shortcut]>*]:h-full [&>[data-slot=command-menu-shortcut]>*]:rounded-none [&>[data-slot=command-menu-shortcut]>*]:px-1.5",
+  count: "px-2 text-caption text-muted-foreground"
+} as const
+
+function CommandMenuChip({
+  variant = "label",
+  className,
+  ...props
+}: ComponentProps<"span"> &
+  Readonly<{ variant?: keyof typeof COMMAND_MENU_CHIP_VARIANT }>) {
+  return (
+    <span
+      data-slot="command-menu-chip"
+      className={cn(
+        "inline-flex h-6 items-center rounded-[7px] bg-hover",
+        COMMAND_MENU_CHIP_VARIANT[variant],
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 // The command menu's shortcut caps are Kbd's (KbdShortcut), pushed to the
 // row's end.
@@ -726,6 +770,12 @@ export type CommandMenuItemProps = Omit<
   Readonly<{
     value: string
     children: ReactNode
+    variant?: "default" | "destructive"
+    // detail: a second line under the label (a matched comment, a
+    // description); the caller lays out its columns.
+    layout?: "row" | "detail"
+    // Set aside: already added, or waiting while another row is chosen.
+    dimmed?: boolean
   }>
 
 const CommandMenuItem = memo(function CommandMenuItem({
@@ -733,6 +783,9 @@ const CommandMenuItem = memo(function CommandMenuItem({
   className,
   onClick,
   children,
+  variant = "default",
+  layout = "row",
+  dimmed = false,
   ref,
   ...props
 }: CommandMenuItemProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -770,6 +823,8 @@ const CommandMenuItem = memo(function CommandMenuItem({
       data-fluid-hover-index={index}
       data-value={value}
       data-slot="command-menu-item"
+      data-variant={variant}
+      data-dimmed={dimmed || undefined}
       onClick={(e) => {
         onClick?.(e)
         if (!e.defaultPrevented) select(item)
@@ -779,6 +834,10 @@ const CommandMenuItem = memo(function CommandMenuItem({
         // and icon weight, driven by the same data-highlighted attribute.
         menuItemClass,
         "group/command-item z-10 shrink-0 select-none",
+        destructiveItemClass,
+        "transition-opacity duration-200 data-[dimmed]:opacity-50",
+        layout === "detail" &&
+          "grid h-auto items-baseline gap-x-2 gap-y-0.5 py-2",
         className
       )}
       {...props}
@@ -792,11 +851,14 @@ const CommandMenuItem = memo(function CommandMenuItem({
 export type CommandMenuFooterProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     children: ReactNode
+    // A hairline above it, when it sits straight under the list.
+    divider?: boolean
   }>
 
 function CommandMenuFooter({
   className,
   children,
+  divider = false,
   ref,
   ...props
 }: CommandMenuFooterProps & Readonly<{ ref?: Ref<HTMLDivElement> }>) {
@@ -808,6 +870,7 @@ function CommandMenuFooter({
         "flex shrink-0 items-center overflow-hidden text-muted-foreground",
         "h-10 gap-4 px-4",
         "text-caption",
+        divider && "border-t border-border/60",
         className
       )}
       {...props}
@@ -872,9 +935,47 @@ const PULSE_RELEASE = {
   restDelta: 0.002
 } as const
 
-// The cmd+k panel's surface, also for showing a cmd+k page in place.
-const commandMenuPanelClass =
-  "flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none [corner-shape:var(--button-corner)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+// The cmd+k panel's surface, also for showing a cmd+k page in place: the
+// popup skin every floating panel wears (popupSurfaceClass), at cmd+k's
+// width.
+const commandMenuPanelClass = `${popupSurfaceClass} flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden`
+
+// What had focus while the panel was closed. Cmd+k opens from a hotkey, so
+// it has no trigger to return to; without this Base UI falls back to the
+// last control it remembers (an earlier popover's trigger) even after focus
+// left it. Closing returns to what you were on (a row, the search field), or
+// leaves focus where it is when that was the page itself.
+function useFocusBeforeOpen(open: boolean) {
+  const opener = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (open) return undefined
+    // Focus moving into or out of the panel itself (opening, the close
+    // animation) is the panel's, not the page's.
+    const inPanel = (node: EventTarget | Element | null) =>
+      node instanceof Element &&
+      node.closest('[data-slot="command-menu-dialog"]') !== null
+    const remember = () => {
+      const active = document.activeElement
+      if (inPanel(active)) return
+      opener.current =
+        active instanceof HTMLElement && active !== document.body
+          ? active
+          : null
+    }
+    remember()
+    const forget = (event: FocusEvent) => {
+      if (event.relatedTarget === null && !inPanel(event.target))
+        opener.current = null
+    }
+    document.addEventListener("focusin", remember)
+    document.addEventListener("focusout", forget)
+    return () => {
+      document.removeEventListener("focusin", remember)
+      document.removeEventListener("focusout", forget)
+    }
+  }, [open])
+  return opener
+}
 
 function CommandMenuDialog({
   open,
@@ -940,6 +1041,7 @@ function CommandMenuDialog({
   useHotkey(shortcut, (event) => {
     if (!event.repeat) onOpenChange(true)
   })
+  const opener = useFocusBeforeOpen(open)
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -951,9 +1053,12 @@ function CommandMenuDialog({
         <DialogPrimitive.Popup
           ref={popupRef}
           data-slot="command-menu-dialog"
+          finalFocus={() =>
+            opener.current?.isConnected === true && opener.current
+          }
           className={cn(
-            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
             commandMenuPanelClass,
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto",
             "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
             className
           )}
@@ -1003,14 +1108,22 @@ function CloseOnShortcut({
 }
 
 // A choice's check. Unchecked rows keep the space, so labels line up.
+// "mixed" (some of a selection have it) shows a dash.
 function CommandMenuCheck({
   checked,
   label
-}: Readonly<{ checked: boolean; label: string }>) {
+}: Readonly<{ checked: boolean | "mixed"; label: string }>) {
+  const Icon = checked === "mixed" ? Minus : Check
   return (
-    <span className={cn("flex shrink-0", !checked && "invisible")}>
-      <Check className="size-3.5" strokeWidth={1.75} />
-      {checked && <span className="sr-only">{label}</span>}
+    <span
+      className={cn(
+        "flex shrink-0",
+        checked === false && "invisible",
+        checked === "mixed" && "text-muted-foreground"
+      )}
+    >
+      <Icon className="size-3.5" strokeWidth={1.75} />
+      {checked !== false && <span className="sr-only">{label}</span>}
     </span>
   )
 }
@@ -1029,6 +1142,7 @@ export {
   CommandMenuList,
   CommandMenuEmpty,
   CommandMenuItem,
+  CommandMenuChip,
   CommandMenuShortcut,
   CommandMenuFooter,
   CommandMenuFooterHint,

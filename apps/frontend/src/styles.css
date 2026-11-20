@@ -1,19 +1,6 @@
 @import "tailwindcss";
 @import "@pp/ui/theme.css";
 
-.skeleton {
-  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
 [data-page-banner] [data-page-header] {
   text-shadow:
     0 0 8px var(--page),
@@ -119,4 +106,21 @@
   opacity: 1;
   pointer-events: auto;
   transition-delay: 0.25s;
+}
+
+/* With several tickets selected, hovering (or focusing) a selected row's
+   field lights the same field on every selected row: what a change there
+   will touch (features/tickets/lib/selectionKeys.ts). */
+[data-lit-field="status"] [data-row-selected] [data-row-field="status"] button,
+[data-lit-field="priority"]
+  [data-row-selected]
+  [data-row-field="priority"]
+  button,
+[data-lit-field="assignee"]
+  [data-row-selected]
+  [data-row-field="assignee"]
+  button,
+[data-lit-field="sprint"] [data-row-selected] [data-row-field="sprint"] button,
+[data-lit-field="labels"] [data-row-selected] [data-row-field="labels"] button {
+  background-color: var(--active);
 }

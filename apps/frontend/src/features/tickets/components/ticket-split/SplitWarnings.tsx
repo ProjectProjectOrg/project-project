@@ -7,7 +7,7 @@ import { m } from "@/paraglide/messages"
 
 function Line({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <p className="flex items-start gap-2 text-body leading-[18px]">
+    <p className="flex items-start gap-2 text-body leading-4.5">
       <span className="mt-px shrink-0 text-state-warning">{icon}</span>
       <span>{children}</span>
     </p>

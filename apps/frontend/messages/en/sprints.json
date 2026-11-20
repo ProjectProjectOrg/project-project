@@ -45,7 +45,6 @@
   "sprints_command_complete": "Complete sprint",
   "sprints_command_copy_link": "Copy sprint link",
   "sprints_command_create": "Create sprint…",
-  "sprints_command_create_named": "Create sprint “{name}”",
   "sprints_command_create_ticket": "Create ticket in {name}…",
   "sprints_command_delete": "Delete sprint",
   "sprints_command_edit_goal": "Edit sprint goal",
@@ -92,6 +91,7 @@
   "sprints_description_empty": "No goal set for this sprint.",
   "sprints_description_label": "Description",
   "sprints_description_placeholder": "Describe the goal of this sprint…",
+  "sprints_edit_button": "Edit sprint",
   "sprints_empty_body": "Add tickets from the backlog to plan this sprint.",
   "sprints_empty_completed_body": "Unfinished tickets moved out when it was completed.",
   "sprints_empty_completed_title": "Nothing was finished in this sprint",
@@ -152,17 +152,25 @@
   "sprints_new_button": "New sprint",
   "sprints_new_name_placeholder": "Sprint name…",
   "sprints_no_dates": "No dates",
-  "sprints_no_dates_hint": "Stays planned until you start it",
+  "sprints_no_dates_hint": "Upcoming until you start it",
   "sprints_no_end_date": "no end date",
   "sprints_not_found_body": "It may have been removed, or you may not have access.",
   "sprints_not_found_title": "Sprint not found",
   "sprints_not_scheduled": "Not scheduled",
+  "sprints_overview_collapse_aria_label": "Toggle section {label}",
   "sprints_overview_completed_heading": "Completed",
-  "sprints_overview_current_heading": "Now",
-  "sprints_overview_percent_done": "{percent}% done",
-  "sprints_overview_plan": "Plan",
-  "sprints_overview_show_all": "Show all {count}",
-  "sprints_overview_show_less": "Show less",
+  "sprints_overview_count_aria_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} sprint",
+        "countPlural=*": "{count} sprints"
+      }
+    }
+  ],
+  "sprints_overview_current_heading": "Active",
+  "sprints_overview_progress_label": "{done} of {total} tickets done",
   "sprints_overview_start": "Start",
   "sprints_overview_ticket_count": [
     {
@@ -174,10 +182,9 @@
       }
     }
   ],
-  "sprints_overview_upcoming_empty": "Nothing planned yet.",
-  "sprints_overview_upcoming_heading": "Up next",
+  "sprints_overview_upcoming_heading": "Upcoming",
   "sprints_plan_placeholder": "Plan {name}…",
-  "sprints_planned_label": "Planned",
+  "sprints_planned_label": "Upcoming",
   "sprints_rail_section_label": "Sprints",
   "sprints_remove_from_sprint_action": "Remove from sprint",
   "sprints_rename_empty": "Type a new name",
@@ -195,10 +202,14 @@
   "sprints_schedule_tomorrow": "Tomorrow",
   "sprints_schedule_typed": "Start on this date",
   "sprints_schedule_unreadable": "Couldn't read that date",
+  "sprints_shortcut_dates": "Change dates",
+  "sprints_shortcut_focus_next": "Focus next sprint",
+  "sprints_shortcut_focus_previous": "Focus previous sprint",
   "sprints_shortcut_move_down": "Move down",
   "sprints_shortcut_move_left": "Move left",
   "sprints_shortcut_move_right": "Move right",
   "sprints_shortcut_move_up": "Move up",
+  "sprints_shortcut_open": "Open sprint",
   "sprints_start_button": "Start sprint",
   "sprints_start_today": "Start today",
   "sprints_started_on": "Started {date}",

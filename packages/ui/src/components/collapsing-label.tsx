@@ -27,14 +27,17 @@ export function CollapsingLabel({
   useLayoutEffect(() => {
     const el = innerRef.current
     if (!el) return
-    setSize({ width: el.offsetWidth, instant: true })
+    setSize({
+      width: Math.ceil(el.getBoundingClientRect().width),
+      instant: true
+    })
     const observer = new ResizeObserver(([entry]) => {
       if (entry)
         setSize({
           width: Math.ceil(
             entry.borderBoxSize[0]?.inlineSize ?? el.offsetWidth
           ),
-          instant: false
+          instant: document.fonts.status === "loading"
         })
     })
     observer.observe(el)

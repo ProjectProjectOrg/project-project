@@ -14,7 +14,11 @@ import {
 import { Gauge, Hourglass, Shirt, type IconType } from "@pp/ui/icons"
 import * as Match from "effect/Match"
 
-import { formatWorkDuration, parseDurationToSeconds } from "@/lib/duration"
+import {
+  formatWorkDuration,
+  formatWorkDurationShort,
+  parseDurationToSeconds
+} from "@/lib/duration"
 import { m } from "@/paraglide/messages"
 
 export const ESTIMATE_UNIT_ICON: Readonly<Record<EstimateUnit, IconType>> = {
@@ -26,6 +30,12 @@ export const ESTIMATE_UNIT_ICON: Readonly<Record<EstimateUnit, IconType>> = {
 export const formatEstimateValue = (estimate: Estimate) =>
   estimate.unit === "time"
     ? formatWorkDuration(estimate.minutes * 60)
+    : String(estimate.value)
+
+// A row's estimate: time as its largest unit, so the value stays narrow.
+export const formatEstimateShort = (estimate: Estimate) =>
+  estimate.unit === "time"
+    ? formatWorkDurationShort(estimate.minutes * 60)
     : String(estimate.value)
 
 export const formatEstimate = (estimate: Estimate) =>

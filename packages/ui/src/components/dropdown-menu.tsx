@@ -35,11 +35,15 @@ import {
 import { LogoLoader } from "./logo"
 import { MenuHighlight, chosenRow } from "./menu-highlight"
 import {
+  destructiveItemClass,
+  PopupLayerContext,
+  atPointerMotionClass,
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
   menuSeparatorClass,
-  menuSurfaceClass
+  menuSurfaceClass,
+  useRaisedPopupClass
 } from "./menu-styles"
 import { TextSwap } from "./text-swap"
 
@@ -226,6 +230,32 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
   )
 }
 
+// A menu opened at a point (a row's right-click or Shift+F10): beside the
+// point, flipping rather than covering it, with only the fade and zoom out
+// of it. `instant` drops the animation, for a menu taking over from
+// another at once.
+function PointerMenuContent({
+  instant = false,
+  className,
+  ...props
+}: Omit<
+  DropdownMenuContentProps,
+  "side" | "align" | "sideOffset" | "collisionAvoidance" | "style"
+> &
+  Readonly<{ instant?: boolean }>) {
+  return (
+    <DropdownMenuContent
+      side="right"
+      align="start"
+      sideOffset={8}
+      collisionAvoidance={{ side: "flip", align: "shift" }}
+      className={cn(className, atPointerMotionClass)}
+      style={instant ? { animation: "none" } : undefined}
+      {...props}
+    />
+  )
+}
+
 const MENU_SELECTOR =
   '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]'
 
@@ -291,6 +321,7 @@ function DropdownMenuPopup({
   ...props
 }: DropdownMenuContentProps) {
   const popupAnchor = usePopupAnchor(anchor)
+  const raisedClass = useRaisedPopupClass()
   return (
     <DropdownMenuPortal>
       <MenuPrimitive.Positioner
@@ -312,12 +343,12 @@ function DropdownMenuPopup({
             onKeyDown?.(event)
             event.stopPropagation()
           }}
-          className={cn(menuPopupClass, className)}
+          className={cn(menuPopupClass, raisedClass, className)}
           {...props}
         >
           <MenuHighlight restOnFirst={highlightFirst} />
           <StartOnChecked />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>
@@ -347,8 +378,7 @@ function DropdownMenuItem({
       className={cn(
         menuItemClass,
         "data-[inset]:pl-8",
-        "data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:text-destructive",
-        "data-[variant=destructive]:*:[svg]:text-destructive!",
+        destructiveItemClass,
         className
       )}
       {...props}
@@ -514,7 +544,7 @@ function DropdownMenuConfirmItem<E = unknown>({
 }
 
 const checkboxItemClass =
-  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground data-[highlighted]:duration-0 motion-reduce:transition-none"
+  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground lit:duration-0 motion-reduce:transition-none"
 
 const checkboxIndicatorClass =
   "-mr-2 w-0 shrink-0 opacity-0 transition-[width,margin,opacity] duration-[160ms,160ms,80ms] delay-[40ms,40ms,0ms] ease-standard data-[checked]:mr-0 data-[checked]:w-4 data-[checked]:opacity-100 data-[checked]:duration-[260ms,260ms,60ms] data-[checked]:delay-0 data-[checked]:ease-spring motion-reduce:transition-none"
@@ -525,6 +555,16 @@ const radioIndicatorClass =
 const checkboxTickClass =
   "fill-none stroke-current stroke-2 [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard group-data-[checked]/check:[stroke-dashoffset:0] group-data-[checked]/check:duration-160 group-data-[checked]/check:delay-90 motion-reduce:transition-none"
 
+// Mixed is unchecked to Base UI: undo the unchecked dimming, and show the
+// indicator (a dash) as a checked one shows its tick.
+const checkboxMixedClass =
+  "text-foreground data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:opacity-100 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:saturate-100"
+
+const checkboxMixedIndicatorClass = "mr-0 w-4 opacity-100"
+
+// Only while mixed: otherwise Base UI's own aria-checked stands.
+const mixedProps = { "aria-checked": "mixed" } as const
+
 const radioDotClass =
   "origin-center fill-current [scale:0] transition-[scale] duration-80 ease-standard group-data-[checked]/check:[scale:1] group-data-[checked]/check:duration-260 group-data-[checked]/check:delay-60 group-data-[checked]/check:ease-spring motion-reduce:transition-none"
 
@@ -532,29 +572,45 @@ function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
+  mixed = false,
   separated = false,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.CheckboxItem> & {
   separated?: boolean
+  // A third state, for a pick over several things at once (labels on a
+  // selection of tickets): on some of them. It shows a dash where the
+  // check goes, keeps its icon at full strength, and reads as "mixed".
+  // `checked` stays false while it's mixed.
+  mixed?: boolean
 }) {
   const item = (
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
-      className={cn(menuItemClass, checkboxItemClass, className)}
+      data-mixed={mixed ? "" : undefined}
+      className={cn(
+        menuItemClass,
+        checkboxItemClass,
+        mixed && checkboxMixedClass,
+        className
+      )}
       checked={checked}
+      {...(mixed ? mixedProps : undefined)}
       {...props}
     >
       <MenuPrimitive.CheckboxItemIndicator
         keepMounted
         aria-hidden
         data-slot="dropdown-menu-checkbox-indicator"
-        className={checkboxIndicatorClass}
+        className={cn(
+          checkboxIndicatorClass,
+          mixed && checkboxMixedIndicatorClass
+        )}
       >
         <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
           <path
             pathLength={1}
-            d="M3.8 8.4 L6.6 11.1 L12.2 5"
-            className={checkboxTickClass}
+            d={mixed ? "M4.5 8 H11.5" : "M3.8 8.4 L6.6 11.1 L12.2 5"}
+            className={cn(checkboxTickClass, mixed && "[stroke-dashoffset:0]")}
           />
         </svg>
       </MenuPrimitive.CheckboxItemIndicator>
@@ -722,7 +778,7 @@ function DropdownMenuList({
   return (
     <MenuPrimitive.List
       data-slot="dropdown-menu-list"
-      className={cn("relative -mx-1 overflow-x-hidden px-1", className)}
+      className={cn("relative -mx-[5px] overflow-x-hidden px-[5px]", className)}
       {...props}
     >
       <MenuHighlight />
@@ -799,7 +855,7 @@ function DropdownMenuShortcut({
   )
 }
 
-// Rows sit 5px inside the popup (4px padding, 1px border). The submenu is
+// Rows sit 5px inside the popup (its padding). The submenu is
 // placed against the row, so the side offset adds that inset back for a
 // 2px gap between the two surfaces, and the align offset lines its first
 // row up with the trigger row.
@@ -833,24 +889,26 @@ type SubTriggerHotkey =
 function DropdownMenuSubTrigger({
   className,
   inset,
-  delay = 0,
   hotkey,
   keyLabels,
   children,
+  variant = "default",
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> &
   SubTriggerHotkey & {
     inset?: boolean
+    variant?: "default" | "destructive"
   }) {
   return (
     <MenuPrimitive.SubmenuTrigger
-      delay={delay}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
+      data-variant={variant}
       className={cn(
         menuItemClass,
-        "data-[popup-open]:text-foreground data-[popup-open]:[&_svg]:stroke-[2]",
         "data-[inset]:pl-8",
+        destructiveItemClass,
+        "data-[variant=destructive]:data-[popup-open]:text-destructive",
         className
       )}
       {...props}
@@ -874,6 +932,13 @@ type DropdownMenuSubContentProps = React.ComponentProps<
     "align" | "alignOffset" | "side" | "sideOffset"
   >
 
+// Base UI keeps a closing popup mounted until its exit transition ends, so
+// the submenu being left fades out while the next one opens beside it and
+// the menu never shows a frame without one. Escape and keyboard closes are
+// marked data-instant and skip the fade.
+const submenuExitClass =
+  "transition-opacity duration-80 ease-standard data-[ending-style]:opacity-0 data-[instant]:transition-none"
+
 function DropdownMenuSubContent({
   className,
   align,
@@ -894,12 +959,12 @@ function DropdownMenuSubContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
-          className={cn(menuSurfaceClass, className)}
+          className={cn(menuSurfaceClass, submenuExitClass, className)}
           {...props}
         >
           <MenuHighlight restOnFirst />
           <StartOnChecked />
-          {children}
+          <PopupLayerContext value={true}>{children}</PopupLayerContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>
@@ -917,6 +982,7 @@ export {
   DropdownMenuPortal,
   DropdownMenuTrigger,
   DropdownMenuContent,
+  PointerMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuItem,

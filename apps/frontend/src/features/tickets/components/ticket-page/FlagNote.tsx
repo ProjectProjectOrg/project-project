@@ -25,14 +25,14 @@ export function FlagNote({
       className="flex items-start gap-2.5 rounded-lg bg-state-danger/10 py-2 pr-2 pl-3"
     >
       <Flag
-        className="mt-[3px] size-3.5 shrink-0 text-state-danger"
+        className="mt-0.75 size-3.5 shrink-0 text-state-danger"
         strokeWidth={1.75}
         aria-label={m.tickets_flag_indicator_aria_label()}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {flag.reason !== undefined && (
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
-            <Markdown size="compact" blocks="flat" className="text-body">
+            <Markdown size="compact" blocks="flat">
               {flag.reason}
             </Markdown>
           </MentionScopeProvider>

@@ -41,6 +41,9 @@ export type CommandFrameItem = CommandMenuItemData &
     keywords?: ReadonlyArray<string>
     parent?: ReadonlyArray<string>
     prefix?: string
+    // Drawn in the icon's place when the row's icon isn't a plain glyph (a
+    // ticket's status, in its project's colour).
+    leading?: ReactNode
     aside?: ReactNode
     searchOnly?: boolean
     prefiltered?: boolean
@@ -60,10 +63,16 @@ const STRONG_MATCH = 55
 
 const GROUP_BONUS = 5
 
-const groupBonus = (group: string | undefined, query: string) =>
-  group?.toLowerCase().startsWith(query.trim().toLowerCase()) === true
+// A row whose group is what you typed ("view") edges ahead, unless its label
+// already says it: then rows tie and keep the menu's order, so on a ticket
+// "Create related ticket" stays above the general "Create ticket…".
+const groupBonus = (item: CommandFrameItem, query: string) => {
+  const needle = query.trim().toLowerCase()
+  return item.group?.toLowerCase().startsWith(needle) === true &&
+    !item.label.toLowerCase().startsWith(needle)
     ? GROUP_BONUS
     : 0
+}
 
 const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
   const ranked = items.flatMap((item, index) => {
@@ -73,7 +82,7 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
     const score = scoreSearch(item, query)
     return score === null
       ? []
-      : [{ item, index, score: score + groupBonus(item.group, query) }]
+      : [{ item, index, score: score + groupBonus(item, query) }]
   })
   const sorted = ranked.toSorted(
     (a, b) => b.score - a.score || a.index - b.index
@@ -95,6 +104,34 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
         (item) => item.prefiltered === true && item.rank === undefined
       )
     )
+}
+
+// The rows a query shows, each row's item by value, and (unsearched, on a
+// numbered page) the number key that picks it.
+const frameRows = (
+  items: ReadonlyArray<CommandFrameItem>,
+  query: string,
+  filter: boolean,
+  numbered: boolean
+) => {
+  const visible =
+    query === ""
+      ? items.filter((item) => item.searchOnly !== true)
+      : filter
+        ? rankItems(items, query)
+        : items
+  return {
+    visible,
+    decorations: new Map(visible.map((item) => [item.value, item] as const)),
+    numbers: new Map(
+      numbered && query === ""
+        ? visible.flatMap((item, index) => {
+            const number = numberKey(index)
+            return number === undefined ? [] : [[item.value, number] as const]
+          })
+        : []
+    )
+  }
 }
 
 const keyWidth = (items: ReadonlyArray<CommandFrameItem>) =>
@@ -123,6 +160,11 @@ export type CommandFrameProps = Readonly<{
   renderPeek?: (value: string) => ReactNode
   warmPeek?: (value: string) => ReactNode
   fixedHeight?: boolean
+  // Below the list, in place of the search footer: a staged change's
+  // preview and its Apply.
+  footer?: ReactNode
+  // Mod+Enter: applies what the page has staged.
+  onSubmit?: () => void
 }>
 
 export type CommandEmpty = Readonly<{
@@ -151,7 +193,9 @@ export function CommandFrame({
   onActOn,
   renderPeek,
   warmPeek,
-  fixedHeight = false
+  fixedHeight = false,
+  footer,
+  onSubmit
 }: CommandFrameProps) {
   const peek = usePeekWipe()
   const highlighted = useRef<CommandMenuItemData | undefined>(undefined)
@@ -160,22 +204,11 @@ export function CommandFrame({
   const backHint = useId()
   useEffect(() => input.current?.focus(), [])
   const query = search.trim()
-  const visible =
-    query === ""
-      ? items.filter((item) => item.searchOnly !== true)
-      : filter
-        ? rankItems(items, query)
-        : items
-  const decorations = new Map(
-    visible.map((item) => [item.value, item] as const)
-  )
-  const numbers = new Map(
-    numbered && query === ""
-      ? visible.flatMap((item, index) => {
-          const number = numberKey(index)
-          return number === undefined ? [] : [[item.value, number] as const]
-        })
-      : []
+  const { visible, decorations, numbers } = frameRows(
+    items,
+    query,
+    filter,
+    numbered
   )
 
   return (
@@ -183,7 +216,7 @@ export function CommandFrame({
       style={{ "--row-key-width": keyWidth(visible) }}
       stretch
       className={cn(
-        "flex min-h-0 flex-col [&_.scroll-divider]:border-t-0",
+        "flex min-h-0 flex-col",
         fixedHeight ? "h-[min(440px,76dvh)] flex-none" : "flex-1"
       )}
       items={visible}
@@ -207,11 +240,6 @@ export function CommandFrame({
           placeholder={placeholder}
           readOnly={description !== undefined}
           value={description ?? search}
-          className={
-            description === undefined
-              ? undefined
-              : "cursor-default text-muted-foreground caret-transparent"
-          }
           onChange={(event) => {
             const next = event.target.value
             setSearch(next)
@@ -254,6 +282,15 @@ export function CommandFrame({
               onSelect(pickedItem)
               return
             }
+            if (
+              onSubmit !== undefined &&
+              event.key === "Enter" &&
+              (event.metaKey || event.ctrlKey)
+            ) {
+              event.preventDefault()
+              onSubmit()
+              return
+            }
             if (event.key === "Backspace" && search === "") {
               event.preventDefault()
               onBack()
@@ -277,7 +314,7 @@ export function CommandFrame({
       />
       <div className="relative flex min-h-0 flex-1">
         {renderPeek !== undefined && peek.mounted && (
-          <CommandPeekPane open={peek.active} render={renderPeek} />
+          <CommandPeekPane render={renderPeek} />
         )}
         {warmPeek !== undefined && !peek.mounted && (
           <PeekWarmer warm={warmPeek} />
@@ -285,12 +322,12 @@ export function CommandFrame({
         <motion.div
           style={peek.style}
           className={cn(
-            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-popover",
-            peek.mounted && "border-r border-border/60"
+            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-(color:--tooltip)",
+            peek.mounted && "border-r border-(--segment-line)"
           )}
         >
           <CommandMenuList
-            className="min-h-0 flex-1"
+            divider={false}
             renderItem={(item) => {
               if (renderItem) return renderItem(item, numbers.get(item.value))
               const decoration = decorations.get(item.value)
@@ -317,9 +354,10 @@ export function CommandFrame({
           </CommandMenuList>
         </motion.div>
       </div>
-      {searchFooter && query !== "" && (
-        <SearchFooter decorations={decorations} peekOpen={peek.active} />
-      )}
+      {footer ??
+        (searchFooter && query !== "" && (
+          <SearchFooter decorations={decorations} peekOpen={peek.active} />
+        ))}
       {notice !== null && (
         <p
           role="alert"
@@ -339,12 +377,16 @@ function CommandFrameEmpty({
   action
 }: CommandEmpty) {
   return (
-    <Empty intensity="subtle" animated={false} className="m-1.5 min-h-56">
+    <Empty
+      intensity="subtle"
+      animated={false}
+      className="m-1.5 min-h-56 flex-1"
+    >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon strokeWidth={1.75} />
         </EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyTitle className="line-clamp-2">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       {action !== undefined && (
@@ -355,8 +397,9 @@ function CommandFrameEmpty({
             size="sm"
             leadingIcon={action.icon}
             onClick={action.run}
+            className="max-w-full"
           >
-            {action.label}
+            <span className="truncate">{action.label}</span>
           </Button>
         </EmptyContent>
       )}

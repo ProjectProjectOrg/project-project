@@ -29,8 +29,8 @@ export function AboutRepositories({
         <Button
           key={repo.repoId || `${repo.repoOwner}/${repo.repoName}`}
           variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 px-1.5"
+          size="inline"
+          className="w-full justify-start"
           render={
             <a
               href={repoUrl(repo)}
