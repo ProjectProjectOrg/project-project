@@ -70,10 +70,8 @@ export const normalizeEstimateFilter = (
   return normalized?.length ? normalized : undefined
 }
 
-export const normalizeEstimateSort = (
-  mode: EstimationMode,
-  sort: TicketSort
-) => (mode === "off" && sort.key === "estimate" ? DEFAULT_TICKET_SORT : sort)
+export const normalizeEstimateSort = (mode: EstimationMode, sort: TicketSort) =>
+  mode === "off" && sort.key === "estimate" ? DEFAULT_TICKET_SORT : sort
 
 export const estimateFilterLabel = (value: EstimateFilterValue) => {
   switch (value) {

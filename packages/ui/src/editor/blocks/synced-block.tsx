@@ -14,10 +14,7 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
   project: m.editor_block_origin_project
 }
 
-export const syncedChipLabel = (
-  mode: SyncedBlockMode,
-  origin: LibraryOrigin
-) =>
+export const syncedChipLabel = (mode: SyncedBlockMode, origin: LibraryOrigin) =>
   mode === "reference"
     ? m.editor_synced_linked()
     : m.editor_synced_from({ origin: ORIGIN_LABELS[origin]() })

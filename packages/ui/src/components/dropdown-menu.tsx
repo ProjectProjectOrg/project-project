@@ -874,11 +874,7 @@ function DropdownMenuSubTrigger({
     <MenuPrimitive.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(
-        menuItemClass,
-        "data-[inset]:pl-8",
-        className
-      )}
+      className={cn(menuItemClass, "data-[inset]:pl-8", className)}
       {...props}
     >
       {children}

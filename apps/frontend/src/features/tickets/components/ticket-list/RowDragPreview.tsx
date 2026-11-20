@@ -16,7 +16,8 @@ const cardClassName =
 
 // The card being carried lifts off the list: the popup edge plus a soft
 // shadow, as the selection bar does.
-const liftClassName = "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]"
+const liftClassName =
+  "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]"
 
 export function RowDragPreview({
   ticket,

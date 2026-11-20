@@ -31,11 +31,7 @@ const toTarget = (rect: ItemRect, fullWidth: boolean) =>
     ? { y: rect.top, height: rect.height }
     : { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
 
-const activeRect = ({
-  activeIndex,
-  itemRects,
-  isMeasured
-}: FluidHoverSource) =>
+const activeRect = ({ activeIndex, itemRects, isMeasured }: FluidHoverSource) =>
   isMeasured && activeIndex !== null ? (itemRects[activeIndex] ?? null) : null
 
 export function FluidHoverHighlight({

@@ -1044,10 +1044,11 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         )
       )
       yield* f.fs.readDirectory(f.root, { recursive: true }).pipe(
-        Effect.map((names) =>
-          names
-            .map((name) => `${f.root}/${name}`)
-            .find((name) => name.endsWith("/G-1.md"))!
+        Effect.map(
+          (names) =>
+            names
+              .map((name) => `${f.root}/${name}`)
+              .find((name) => name.endsWith("/G-1.md"))!
         ),
         Effect.tap((path) => f.fs.remove(path)),
         Effect.tap((path) => f.fs.makeDirectory(path))
