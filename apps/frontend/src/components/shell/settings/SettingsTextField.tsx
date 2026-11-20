@@ -113,7 +113,7 @@ export function SettingsSegmented<K extends string>({
   waiting = false
 }: Readonly<{
   items: ReadonlyArray<SegmentedItem<K>>
-  value: K
+  value: K | null
   onValueChange: (next: K) => void
   waiting?: boolean
 }>) {

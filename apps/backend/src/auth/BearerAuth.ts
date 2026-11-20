@@ -14,7 +14,6 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import type { Caller } from "../tools/ToolCaller"
-import { normalizeEditorPreference } from "./Authentication"
 import { auth } from "./config"
 import { proofUrl } from "./proofUrl"
 
@@ -110,7 +109,6 @@ export const bearerVerifier = (resource: string) =>
               username: user.username,
               image: user.image,
               createdAt: user.createdAt,
-              editorPreference: user.editorPreference,
               banned: user.banned,
               banExpires: user.banExpires
             })
@@ -141,8 +139,7 @@ export const bearerVerifier = (resource: string) =>
           name: account.name,
           username: account.username,
           image: account.image,
-          createdAt: account.createdAt,
-          editorPreference: normalizeEditorPreference(account.editorPreference)
+          createdAt: account.createdAt
         },
         client: Option.some({
           id: decoded.client_id,

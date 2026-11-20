@@ -25,7 +25,7 @@ const user = {
   createdAt: "2026-01-01T00:00:00.000Z",
   activeOrgSlug: "org",
   personalGithub: { connected: false },
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
@@ -33,7 +33,8 @@ const user = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 } as const
 
 describe("CommentAuthor", () => {

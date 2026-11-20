@@ -166,7 +166,7 @@ const grace = {
   createdAt: "2026-05-01T00:00:00.000Z",
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "vscode",
+  settings: { avatarSource: null, editorPreference: "vscode" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
@@ -174,7 +174,8 @@ const grace = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 const linus = { ...grace, id: "u-3", name: "Linus", email: "linus@example.com" }
 const assignment = (id: string, personId: string) => ({

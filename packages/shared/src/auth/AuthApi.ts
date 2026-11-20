@@ -5,12 +5,19 @@ import { NotFound, Validation } from "../errors"
 import { Authentication } from "./Authentication"
 import { OAuthApplication } from "./OAuthApplication"
 import { SignInProvider } from "./SignInProvider"
-import { User } from "./User"
+import { UpdateUserSettingsInput, User, UserSettings } from "./User"
 
 export const AuthGroup = HttpApiGroup.make("auth")
   .add(
     HttpApiEndpoint.get("me", "/me", {
       success: User
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch("updateSettings", "/me/settings", {
+      payload: UpdateUserSettingsInput,
+      success: UserSettings,
+      error: Validation
     })
   )
   .middleware(Authentication)

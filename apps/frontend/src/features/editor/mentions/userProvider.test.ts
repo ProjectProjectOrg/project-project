@@ -28,7 +28,7 @@ it.effect(
             image: null,
             createdAt: "2026-01-01T00:00:00.000Z",
             activeOrgSlug: "org",
-            editorPreference: "github",
+            settings: { avatarSource: null, editorPreference: "github" },
             personalGithub: { connected: false },
             personalEverhour: {
               connected: false,
@@ -37,7 +37,8 @@ it.effect(
               email: null,
               lastVerifiedAt: null,
               lastCheckError: null
-            }
+            },
+            avatarOptions: []
           })
         )
         fetchStub.set(fetch)
