@@ -42,11 +42,10 @@ const twoWeeksFromToday = () => {
   }
 }
 
-const SPRINTS = ["Sprint 14", "Sprint 13", "Sprint 12"]
-
-// The sprint rail's "New sprint" button (in the sidebar, on the frame) opens
-// the sprint composer: a popover holding a whole form, with a second popover
-// nested inside for the date range.
+// The sprints overview's New sprint button opens the sprint composer
+// (NewSprintPopover + CreateSprintForm): a whole form in a popover, with the
+// date range picker nested inside. LexicalEditor is app-only; a textarea
+// stands in with the editor's content classes.
 export default function NewSprint() {
   const [open, setOpen] = useState(true)
   const [name, setName] = useState("")
@@ -55,98 +54,75 @@ export default function NewSprint() {
   const startsNow = range.from !== undefined && range.from <= today
 
   return (
-    <div className="flex w-60 flex-col gap-0.5 rounded-[20px] bg-background p-2 corner-squircle">
-      {SPRINTS.map((sprint) => (
-        <p key={sprint} className="px-2 py-1.5 text-body text-muted-foreground">
-          {sprint}
-        </p>
-      ))}
-      <Popover
-        open={open}
-        onOpenChange={(next, details) => {
-          if (USER_TOGGLES.has(details.reason)) setOpen(next)
-        }}
-        modal="trap-focus"
+    <Popover
+      open={open}
+      onOpenChange={(next, details) => {
+        if (USER_TOGGLES.has(details.reason)) setOpen(next)
+      }}
+      modal="trap-focus"
+    >
+      <PopoverTrigger
+        render={<Button variant="primary" size="sm" leadingIcon={Plus} />}
       >
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              variant="dither"
-              className="mt-1 w-full justify-start text-primary-foreground"
-              leadingIcon={Plus}
-              ditherFrom="var(--primary)"
-              ditherTo="var(--background)"
-              ditherDirection="r"
-              ditherStops={[0.7, 1]}
-              ditherHoverStops={[0.5, 1]}
-            />
-          }
+        New sprint
+      </PopoverTrigger>
+      <Composer.Popover align="start" sideOffset={6} aria-label="New sprint">
+        <form
+          className="flex flex-col"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setOpen(false)
+          }}
         >
-          New sprint
-        </PopoverTrigger>
-        <Composer.Popover align="start" sideOffset={6} aria-label="New sprint">
-          <form
-            className="flex flex-col"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setOpen(false)
-            }}
-          >
-            <Composer.Title className="mt-4">
-              <Input
-                variant="bare"
-                className="text-title font-semibold"
-                aria-label="Sprint name…"
-                placeholder="Sprint name…"
-                value={name}
-                maxLength={120}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </Composer.Title>
-            <Composer.Body>
+          <Composer.Title>
+            <Input
+              variant="bare"
+              aria-label="Sprint name…"
+              placeholder="Sprint name…"
+              value={name}
+              maxLength={120}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </Composer.Title>
+          <Composer.Body>
+            <div className="prose-md">
               <textarea
-                aria-label="Description"
+                aria-label="Add a goal or description…"
                 placeholder="Add a goal or description…"
-                rows={3}
-                className="w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
+                className="lexical-content block min-h-[8rem] w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
               />
-            </Composer.Body>
-            <Composer.Footer className="justify-between pl-1.5">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <DatePicker
-                  mode="range"
-                  value={{ from: range.from, to: range.to }}
-                  onChange={(next) =>
-                    setRange({ from: next.from, to: next.to })
+            </div>
+          </Composer.Body>
+          <Composer.Tray>
+            <Composer.Footer>
+              <DatePicker
+                mode="range"
+                value={{ from: range.from, to: range.to }}
+                onChange={(next) => setRange({ from: next.from, to: next.to })}
+                labels={DATE_LABELS}
+                quickPicks={[
+                  {
+                    label: "Start today",
+                    value: twoWeeksFromToday()
                   }
-                  labels={DATE_LABELS}
-                  quickPicks={[
-                    {
-                      label: "Start today",
-                      value: twoWeeksFromToday()
-                    }
-                  ]}
-                  disabled={{ before: today }}
-                  trigger={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      tone="strong"
-                      size="sm"
-                      leadingIcon={CalendarDays}
-                    >
-                      {datesLabel(range)}
-                    </Button>
-                  }
-                />
-                {range.from === undefined && (
-                  <Composer.Hint>
-                    Stays planned until you start it
-                  </Composer.Hint>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
+                ]}
+                disabled={{ before: today }}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    tone="strong"
+                    size="sm"
+                    leadingIcon={CalendarDays}
+                  >
+                    {datesLabel(range)}
+                  </Button>
+                }
+              />
+              {range.from === undefined && (
+                <Composer.Hint>Stays planned until you start it</Composer.Hint>
+              )}
+              <Composer.Actions>
                 <Button
                   type="button"
                   variant="ghost"
@@ -158,11 +134,11 @@ export default function NewSprint() {
                 <Button type="submit" size="sm" disabled={name.trim() === ""}>
                   {startsNow ? "Create and start" : "Create sprint"}
                 </Button>
-              </div>
+              </Composer.Actions>
             </Composer.Footer>
-          </form>
-        </Composer.Popover>
-      </Popover>
-    </div>
+          </Composer.Tray>
+        </form>
+      </Composer.Popover>
+    </Popover>
   )
 }
