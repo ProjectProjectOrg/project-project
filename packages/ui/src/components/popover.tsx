@@ -1,4 +1,5 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import * as React from "react"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
@@ -7,6 +8,7 @@ import {
   usePopupAnchor,
   useTriggerAnchorRef
 } from "../lib/popupAnchor"
+import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import {
   PopupLayerContext,
@@ -139,4 +141,62 @@ function PopoverClose(
   return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
 }
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverClose }
+const fadeOnly = { height: { duration: 0 }, opacity: transitions.fade }
+
+// A bar under a sectioned popover (p-0) that folds in while `show` holds,
+// growing the popover by its height, and folds out again.
+function PopoverFooter({
+  show,
+  className,
+  children
+}: Readonly<{ show: boolean; className?: string; children: React.ReactNode }>) {
+  const reduce = useReducedMotion() ?? false
+  const footerRef = React.useRef<HTMLDivElement>(null)
+  // A press that hides the footer (Reset) would drop focus to the page;
+  // hand it to the panel instead, so Tab and Escape keep working.
+  React.useLayoutEffect(() => {
+    const footer = footerRef.current
+    if (show || !footer?.contains(document.activeElement)) return
+    footer.closest<HTMLElement>("[data-slot=popover-content]")?.focus()
+  }, [show])
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.div
+          ref={footerRef}
+          data-slot="popover-footer"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{
+            height: "auto",
+            opacity: 1,
+            transition: reduce ? fadeOnly : transitions.layout
+          }}
+          exit={{
+            height: 0,
+            opacity: 0,
+            transition: reduce ? fadeOnly : transitions.presence
+          }}
+          className="shrink-0 overflow-clip"
+        >
+          <div
+            className={cn(
+              "flex items-center justify-end gap-2 border-t border-border/60 px-3 py-2",
+              className
+            )}
+          >
+            {children}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverTitle,
+  PopoverClose,
+  PopoverFooter
+}

@@ -4,8 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { useTicketSearch } from "../search"
 import { TicketToolbarContext, type TicketToolbarProps } from "./context"
 import { Filters } from "./Filters"
-import { activeFilterCount } from "./model"
-import { ClearAll, SearchInput } from "./parts"
+import { SearchInput } from "./parts"
 import { ViewOptions } from "./ViewOptions"
 
 export function TicketToolbar({
@@ -18,6 +17,7 @@ export function TicketToolbar({
   showSort = false,
   scopeKey,
   viewControls,
+  onResetViewControls,
   boardScope
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -47,22 +47,12 @@ export function TicketToolbar({
   const patchFilter = (patch: Partial<TicketFilter>) => {
     onQueryChange({ ...query, ...patch })
   }
-  const clearAll = () => {
-    search.reset()
-    onQueryChange({
-      sort: query.sort,
-      status: boardScope ? query.status : undefined
-    })
-  }
-  const hasActiveFilters =
-    (!boardScope && !!query.status?.length) ||
-    activeFilterCount(query, filters) > 0 ||
-    !!query.q
 
   return (
     <TicketToolbarContext
       value={{
         viewControls,
+        onResetViewControls,
         query,
         onQueryChange,
         members,
@@ -74,9 +64,7 @@ export function TicketToolbar({
         searchActive,
         controlsCompact,
         setFocused,
-        patchFilter,
-        clearAll,
-        hasActiveFilters
+        patchFilter
       }}
     >
       <div
@@ -88,7 +76,6 @@ export function TicketToolbar({
           <div className="relative flex flex-wrap items-center gap-2">
             <Filters />
             <ViewOptions showSort={showSort} />
-            <ClearAll />
           </div>
         )}
       </div>

@@ -1,5 +1,4 @@
 import { Button } from "@pp/ui/button"
-import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import { Search as SearchIcon, X } from "@pp/ui/icons"
 import {
   InputGroup,
@@ -7,7 +6,6 @@ import {
   InputGroupInput
 } from "@pp/ui/input-group"
 import { KbdShortcut } from "@pp/ui/kbd"
-import { cn } from "@pp/ui/lib/utils"
 import { useRef } from "react"
 
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
@@ -55,7 +53,7 @@ export function SearchInput() {
           size="icon-xs"
           onClick={search.clear}
           aria-label={m.tickets_search_clear_aria_label()}
-          className="shrink-0 rounded-xl"
+          className="shrink-0"
         >
           <X strokeWidth={1.75} />
         </Button>
@@ -67,27 +65,5 @@ export function SearchInput() {
         />
       ) : null}
     </InputGroup>
-  )
-}
-
-export function ClearAll() {
-  const { hasActiveFilters, clearAll } = useTicketToolbar()
-  return (
-    <CollapsingLabel show={hasActiveFilters}>
-      <button
-        type="button"
-        onClick={clearAll}
-        disabled={!hasActiveFilters}
-        className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
-          "hover:border-destructive/60 hover:bg-destructive/15",
-          "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-        )}
-        title={m.tickets_filters_clear_all()}
-        aria-label={m.tickets_filters_clear_all()}
-      >
-        <X className="size-4 shrink-0" strokeWidth={1.75} />
-      </button>
-    </CollapsingLabel>
   )
 }

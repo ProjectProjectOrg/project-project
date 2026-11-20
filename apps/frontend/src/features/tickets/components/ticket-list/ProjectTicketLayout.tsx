@@ -170,6 +170,11 @@ export function ProjectTicketLayout({
                 boardScope={
                   isBoard ? (groupId ? "sprints" : "backlog") : undefined
                 }
+                onResetViewControls={
+                  !groupId && !isBoard && grouping !== DEFAULT_GROUPING
+                    ? () => setGrouping(DEFAULT_GROUPING)
+                    : undefined
+                }
                 viewControls={
                   <>
                     <ViewSwitcher />
