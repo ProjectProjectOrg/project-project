@@ -96,7 +96,7 @@ function SidebarPanelBody({
   className
 }: SidebarPanelBodyProps) {
   const listRef = useRef<HTMLDivElement>(null)
-  const hover = useFluidHover(listRef)
+  const hover = useFluidHover(listRef, { reach: 4 })
   const counter = useRef(0)
   const registry = useMemo<RowRegistry>(
     () => ({
