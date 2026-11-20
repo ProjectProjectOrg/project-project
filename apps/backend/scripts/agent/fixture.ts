@@ -1,5 +1,14 @@
-import { member, organization, user } from "@pp/db/schema"
+import {
+  member,
+  organization,
+  organizationGithubApp,
+  organizationGithubIntegration,
+  organizationIntegration,
+  user
+} from "@pp/db/schema"
+import { encodeState, type Repo } from "@pp/integration-github/FakeGitHub"
 import type {
+  ConnectGithubInput,
   CreateProjectInput,
   CreateTicketInput,
   CreateTagInput,
@@ -13,7 +22,7 @@ const decodeTicket = Schema.decodeUnknownSync(
   Schema.Struct({ id: Schema.String })
 )
 
-export const fixtureVersion = 1
+export const fixtureVersion = 2
 export const fixtureEmail = "agent@example.test"
 export const fixturePath = "/orgs/agent/projects/verification"
 
@@ -43,13 +52,146 @@ export async function seedIdentity(url: string) {
         role: "owner",
         createdAt: new Date()
       })
+      const [app] = await tx
+        .insert(organizationGithubApp)
+        .values({
+          organizationId: "agent-org",
+          githubAppId: "1",
+          slug: "fake-github",
+          name: "Fake GitHub",
+          ownerLogin: "agent",
+          clientId: "fake-github",
+          ciphertext: "",
+          nonce: "",
+          tag: ""
+        })
+        .returning({ id: organizationGithubApp.id })
+      const [integration] = await tx
+        .insert(organizationIntegration)
+        .values({
+          organizationId: "agent-org",
+          provider: "github",
+          status: "active"
+        })
+        .returning({ id: organizationIntegration.id })
+      await tx.insert(organizationGithubIntegration).values({
+        organizationIntegrationId: integration.id,
+        githubAppId: app.id,
+        installationId: "1",
+        githubAccountId: "agent",
+        githubAccountLogin: "agent",
+        githubAccountType: "Organization"
+      })
     })
   } finally {
     await pool.end()
   }
 }
 
-export async function seedContent(origin: string, login: string) {
+const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000)
+
+const verificationRepo = (
+  t: Readonly<
+    Record<
+      "branchOnly" | "draft" | "failing" | "stack" | "merged" | "closed",
+      string
+    >
+  >
+) =>
+  ({
+    id: "1",
+    owner: "agent",
+    name: "verification",
+    defaultBranch: "main",
+    branches: [
+      "main",
+      `feat/${t.branchOnly}-no-pr-yet`,
+      `feat/${t.draft}-draft`,
+      `fix/${t.failing}-flaky-login`,
+      `feat/${t.stack}-api`,
+      `feat/${t.stack}-ui`,
+      `feat/${t.stack}-polish`,
+      `feat/${t.merged}-shipped`,
+      `chore/${t.closed}-abandoned`
+    ],
+    pullRequests: [
+      {
+        number: 1,
+        head: `feat/${t.merged}-shipped`,
+        base: "main",
+        title: `${t.merged} Ship the export button`,
+        body: "",
+        checks: "passing",
+        state: "merged",
+        mergedAt: daysAgo(2)
+      },
+      {
+        number: 2,
+        head: `feat/${t.draft}-draft`,
+        base: "main",
+        title: `${t.draft} Draft settings page`,
+        body: "",
+        checks: "pending",
+        state: "open",
+        draft: true
+      },
+      {
+        number: 3,
+        head: `fix/${t.failing}-flaky-login`,
+        base: "main",
+        title: `${t.failing} Fix the flaky login`,
+        body: "",
+        checks: "failing",
+        state: "open",
+        draft: false
+      },
+      {
+        number: 4,
+        head: `feat/${t.stack}-api`,
+        base: "main",
+        title: `${t.stack} Add the search API`,
+        body: "",
+        checks: "passing",
+        state: "open",
+        draft: false
+      },
+      {
+        number: 5,
+        head: `feat/${t.stack}-ui`,
+        base: `feat/${t.stack}-api`,
+        title: `${t.stack} Add the search UI`,
+        body: "",
+        checks: "pending",
+        state: "open",
+        draft: false
+      },
+      {
+        number: 6,
+        head: `feat/${t.stack}-polish`,
+        base: `feat/${t.stack}-ui`,
+        title: `${t.stack} Polish search`,
+        body: "",
+        checks: "none",
+        state: "open",
+        draft: true
+      },
+      {
+        number: 7,
+        head: `chore/${t.closed}-abandoned`,
+        base: "main",
+        title: `${t.closed} Abandoned cleanup`,
+        body: "",
+        checks: "neutral",
+        state: "closed"
+      }
+    ]
+  }) satisfies Repo
+
+export async function seedContent(
+  origin: string,
+  login: string,
+  gitHubStatePath: string
+) {
   const verification = new URL(login)
   const response = await fetch(
     `${origin}${verification.pathname}${verification.search}`,
@@ -67,6 +209,7 @@ export async function seedContent(origin: string, login: string) {
       | typeof CreateTicketInput.Encoded
       | typeof CreateTagInput.Encoded
       | typeof CreateGroupInput.Encoded
+      | typeof ConnectGithubInput.Encoded
   ) => {
     const result = await fetch(`${origin}/api${route}`, {
       method: "POST",
@@ -120,5 +263,23 @@ export async function seedContent(origin: string, login: string) {
     name: "Verification sprint",
     kind: "sprint",
     tickets: [first.id, second.id]
+  })
+  const gitTicket = async (title: string, type: string) =>
+    decodeTicket(
+      await post(`${route}/tickets`, { title, type, status: "in_progress" })
+    ).id
+  const repo = verificationRepo({
+    branchOnly: await gitTicket("Branch pushed, no pull request yet", "feat"),
+    draft: await gitTicket("Draft pull request with pending checks", "feat"),
+    failing: await gitTicket("Pull request with failing checks", "bug"),
+    stack: await gitTicket("Stack of three pull requests", "feat"),
+    merged: await gitTicket("Merged pull request", "feat"),
+    closed: await gitTicket("Pull request closed without merging", "chore")
+  })
+  await Bun.write(gitHubStatePath, encodeState({ repos: [repo] }))
+  await post(`${route}/github`, {
+    repoId: repo.id,
+    repoOwner: repo.owner,
+    repoName: repo.name
   })
 }

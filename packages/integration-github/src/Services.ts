@@ -5,7 +5,10 @@ import * as GitHubApps from "./GitHubApps"
 import * as GitHubIntegrations from "./GitHubIntegrations"
 import * as GitHubWebhooks from "./GitHubWebhooks"
 
-export const layer = Layer.mergeAll(
-  GitHubIntegrations.layer,
-  GitHubWebhooks.layer
-).pipe(Layer.provideMerge(GitHub.layer), Layer.provideMerge(GitHubApps.layer))
+export const layerWith = <E, R>(client: Layer.Layer<GitHub.GitHub, E, R>) =>
+  Layer.mergeAll(GitHubIntegrations.layer, GitHubWebhooks.layer).pipe(
+    Layer.provideMerge(client),
+    Layer.provideMerge(GitHubApps.layer)
+  )
+
+export const layer = layerWith(GitHub.layer)

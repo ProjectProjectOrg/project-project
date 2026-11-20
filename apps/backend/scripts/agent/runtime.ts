@@ -24,6 +24,9 @@ export const Secrets = Schema.Struct({
 export type Secrets = typeof Secrets.Type
 export const decodeSecrets = Schema.decodeUnknownSync(Secrets)
 
+const gitHubStatePath = (environment: Environment) =>
+  path.join(environment.worktree, ".agent.local", "github.json")
+
 export function childEnvironment(
   environment: Environment,
   secrets: Secrets,
@@ -47,6 +50,7 @@ export function childEnvironment(
     NODE_ENV: "development",
     DATABASE_URL: `postgres://${name}:${secrets.password}@127.0.0.1:${port}/${name}`,
     PROJECTS_DIR: path.join(environment.worktree, ".agent.local", "projects"),
+    GITHUB_FAKE_STATE: gitHubStatePath(environment),
     BETTER_AUTH_URL: secrets.origin,
     BETTER_AUTH_SECRET: secrets.auth,
     USER_SECRET_ENCRYPTION_KEY: secrets.encryption,
@@ -142,7 +146,11 @@ export async function runServers(
     const target = `http://127.0.0.1:${port}`
     await waitForServer(backend, `${target}/api/health`, shutdown.signal)
     if (fresh)
-      await seedContent(target, await loginUrl(environment.worktree, env))
+      await seedContent(
+        target,
+        await loginUrl(environment.worktree, env),
+        gitHubStatePath(environment)
+      )
     const frontendPort = process.env.PORT
     if (!frontendPort || !/^\d+$/.test(frontendPort))
       throw new Error(
