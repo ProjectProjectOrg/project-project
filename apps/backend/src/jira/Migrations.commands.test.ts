@@ -1454,7 +1454,12 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 }
               )
               .pipe(Effect.result, Effect.forkChild)
-            yield* Deferred.await(lookup)
+            // Fail with configure's own result if it finishes before reaching
+            // the lookup, instead of waiting for a lookup that never comes.
+            yield* Effect.raceFirst(
+              Deferred.await(lookup),
+              Fiber.join(pending).pipe(Effect.flatMap(Effect.die))
+            )
             const cancelled = yield* m.cancel(
               owner.organizationId,
               owner.userId,
