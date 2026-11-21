@@ -67,7 +67,6 @@ const openServices = Effect.fnUntraced(function* <R, E>(
 })
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
-const secretsKey = process.env.USER_SECRET_ENCRYPTION_KEY
 const decodeBody = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown))
 )
@@ -85,17 +84,12 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     )
       throw new Error("Isolated local database required")
     pool = new Pool({ connectionString: databaseUrl })
-    process.env.USER_SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString(
-      "base64"
-    )
   })
   afterEach(async () => {
     for (const run of cleanup.splice(0).reverse()) await run()
   })
   afterAll(async () => {
     await pool.end()
-    if (secretsKey === undefined) delete process.env.USER_SECRET_ENCRYPTION_KEY
-    else process.env.USER_SECRET_ENCRYPTION_KEY = secretsKey
   })
 
   const fixture = Effect.fnUntraced(function* () {
@@ -258,7 +252,8 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       ConfigProvider.layer(
         ConfigProvider.fromUnknown({
           PROJECTS_DIR: root,
-          BETTER_AUTH_URL: "https://pp.example.test"
+          BETTER_AUTH_URL: "https://pp.example.test",
+          USER_SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64")
         })
       )
     )

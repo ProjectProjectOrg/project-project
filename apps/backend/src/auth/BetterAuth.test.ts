@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Tracer from "effect/Tracer"
 import { expect, vi } from "vitest"
@@ -10,29 +11,26 @@ const mocks = vi.hoisted(() => ({
   oauth2Consent: vi.fn()
 }))
 
-// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
-vi.mock("drizzle-orm/node-postgres", () => ({
-  drizzle: vi.fn(() => ({
-    query: {
-      account: {
-        findFirst: mocks.findFirst
-      }
-    }
-  }))
-}))
-
-// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
-vi.mock("./config", () => ({
-  auth: {
-    handler: vi.fn(),
-    api: {
-      getSession: vi.fn(),
-      oauth2Consent: mocks.oauth2Consent
-    }
-  }
-}))
-
 import { BetterAuthLive } from "./BetterAuth"
+import { AuthInstance } from "./config"
+
+const BetterAuthTest = BetterAuthLive.pipe(
+  Layer.provide(
+    Layer.succeed(AuthInstance, {
+      auth: {
+        handler: vi.fn(),
+        api: {
+          getSession: vi.fn(),
+          oauth2Consent: mocks.oauth2Consent
+        }
+      },
+      db: { query: { account: { findFirst: mocks.findFirst } } },
+      mcpResource: "http://localhost/mcp",
+      toolsResource: "http://localhost/api/v1/tools",
+      signInProviders: []
+    } as unknown as AuthInstance["Service"])
+  )
+)
 
 it.effect("passes the HTTP request through when accepting OAuth consent", () =>
   Effect.gen(function* () {
@@ -51,7 +49,7 @@ it.effect("passes the HTTP request through when accepting OAuth consent", () =>
     const result = yield* Effect.gen(function* () {
       const service = yield* BetterAuth.BetterAuth
       return yield* service.submitConsent(request, input)
-    }).pipe(Effect.provide(BetterAuthLive))
+    }).pipe(Effect.provide(BetterAuthTest))
 
     expect(mocks.oauth2Consent).toHaveBeenCalledWith({
       asResponse: false,
@@ -79,7 +77,7 @@ it.effect("traces each BetterAuth call under its own span", () => {
     yield* service.getOrgSlugById(null)
   }).pipe(
     Effect.withTracer(tracer),
-    Effect.provide(BetterAuthLive),
+    Effect.provide(BetterAuthTest),
     Effect.map(() =>
       expect(
         spans
@@ -108,7 +106,7 @@ it.effect("traces submitConsent under its own span", () => {
     )
   }).pipe(
     Effect.withTracer(tracer),
-    Effect.provide(BetterAuthLive),
+    Effect.provide(BetterAuthTest),
     Effect.map(() =>
       expect(
         spans

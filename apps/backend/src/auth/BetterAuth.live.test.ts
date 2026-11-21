@@ -3,14 +3,21 @@ import { randomUUID } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { invitation, member, organization, user } from "@pp/db/auth-schema"
+import * as schema from "@pp/db/schema"
 import { projectIndex, projectInviteGrant, projectMember } from "@pp/db/schema"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { APIError } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, vi } from "vitest"
+
+import { BetterAuthLive } from "./BetterAuth"
+import { type Auth, AuthInstance, makeAuth } from "./config"
 
 type ProjectMemberRow = Readonly<{ user_id: string; role_id: string }>
 
@@ -33,8 +40,8 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
   const transferTriggerName = `test_transfer_failure_${randomUUID().replaceAll("-", "")}`
   const transferFunctionName = `${transferTriggerName}_fn`
   let pool: Pool
-  let auth: typeof import("./config").auth
-  let betterAuthLive: typeof import("./BetterAuth").BetterAuthLive
+  let auth: Auth
+  let betterAuthLive: Layer.Layer<BetterAuth.BetterAuth>
 
   const listInvitations = (request: Request) =>
     Effect.gen(function* () {
@@ -119,8 +126,32 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
       }
     ])
 
-    ;({ auth } = await import("./config"))
-    ;({ BetterAuthLive: betterAuthLive } = await import("./BetterAuth"))
+    const authDb = drizzle({ client: pool, relations: schema.relations })
+    auth = makeAuth(
+      {
+        databaseUrl: Redacted.make(databaseUrl),
+        secret: Redacted.make(process.env.BETTER_AUTH_SECRET),
+        baseUrl: Option.some(process.env.BETTER_AUTH_URL),
+        resourceOrigin: process.env.BETTER_AUTH_URL,
+        github: Option.none(),
+        google: Option.none(),
+        microsoft: Option.none(),
+        microsoftTenantId: "common",
+        appVersion: "dev"
+      },
+      authDb
+    )
+    betterAuthLive = BetterAuthLive.pipe(
+      Layer.provide(
+        Layer.succeed(AuthInstance, {
+          auth,
+          db: authDb,
+          mcpResource: `${process.env.BETTER_AUTH_URL}/mcp`,
+          toolsResource: `${process.env.BETTER_AUTH_URL}/api/v1/tools`,
+          signInProviders: []
+        })
+      )
+    )
   })
 
   afterAll(async () => {

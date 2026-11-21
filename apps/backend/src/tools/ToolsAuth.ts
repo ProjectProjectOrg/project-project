@@ -1,8 +1,10 @@
 import { ToolFailure } from "@pp/shared"
+import * as Effect from "effect/Effect"
 import { HttpServerResponse } from "effect/http"
+import * as Layer from "effect/Layer"
 
 import { AuthRejection, callerAuthMiddleware } from "../auth/CallerAuth"
-import { toolsResource } from "../auth/config"
+import { AuthInstance } from "../auth/config"
 
 const signInAgain =
   "You're not signed in, or your sign-in expired or was revoked. Run `pp login` and try again."
@@ -23,7 +25,8 @@ const respond = AuthRejection.$match({
     )
 })
 
-export const ToolsAuthMiddlewareLive = callerAuthMiddleware(
-  toolsResource,
-  respond
+export const ToolsAuthMiddlewareLive = Layer.unwrap(
+  Effect.map(AuthInstance, ({ toolsResource }) =>
+    callerAuthMiddleware(toolsResource, respond)
+  )
 )

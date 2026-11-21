@@ -3,12 +3,9 @@ import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
 import { organization } from "better-auth/plugins"
 import { getTestInstance } from "better-auth/test"
 import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
 import { describe, expect, it, vi } from "vitest"
-
-// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
-vi.mock("drizzle-orm/node-postgres", () => ({
-  drizzle: vi.fn(() => ({ query: {} }))
-}))
 
 // oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("better-auth", async () => {
@@ -25,12 +22,31 @@ vi.mock("better-auth", async () => {
 })
 
 import {
-  auth,
+  type AuthDb,
   lastOrgOwnerBlocked,
   lastProjectPmError,
+  makeAuth,
   violatesProjectKeepsAPm
 } from "./config"
 import { orgAccessControl, orgRoles } from "./orgAccess"
+
+const auth = makeAuth(
+  {
+    databaseUrl: Redacted.make("postgres://unused"),
+    secret: Redacted.make("config-test-secret"),
+    baseUrl: Option.none(),
+    resourceOrigin: "http://localhost:3000",
+    github: Option.some({
+      clientId: "github-client",
+      clientSecret: Redacted.make("github-secret")
+    }),
+    google: Option.none(),
+    microsoft: Option.none(),
+    microsoftTenantId: "common",
+    appVersion: "dev"
+  },
+  { query: {} } as unknown as AuthDb
+)
 
 const hookTimestamp = DateTime.toDate(
   DateTime.makeUnsafe("2026-10-23T00:00:00Z")

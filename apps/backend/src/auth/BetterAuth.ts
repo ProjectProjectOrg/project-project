@@ -1,4 +1,3 @@
-import * as schema from "@pp/db/schema"
 import {
   member,
   oauthClient,
@@ -32,7 +31,6 @@ import {
 } from "@pp/shared"
 import { APIError } from "better-auth/api"
 import { and, eq, inArray, isNull } from "drizzle-orm"
-import { drizzle } from "drizzle-orm/node-postgres"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -43,7 +41,7 @@ import { orgRoleOf, pendingInvitations } from "../organizations/Handlers"
 import {
   acceptAsExistingMember,
   assertNotLastProjectPm,
-  auth,
+  AuthInstance,
   keepingAProjectPm
 } from "./config"
 import { avatarOptions, effectiveAvatarSource } from "./providerAvatar"
@@ -86,10 +84,8 @@ const decodeTransferOutcome = Schema.decodeEffect(TransferOutcome)
 
 export const BetterAuthLive = Layer.effect(
   BetterAuth.BetterAuth,
-  Effect.sync(() => {
-    const db = drizzle(process.env.DATABASE_URL!, {
-      relations: schema.relations
-    })
+  Effect.gen(function* () {
+    const { auth, db } = yield* AuthInstance
 
     const attempt = <A>(thunk: () => Promise<A>) =>
       Effect.tryPromise({
@@ -669,7 +665,7 @@ export const BetterAuthLive = Layer.effect(
         const organizationId = yield* resolveOrgId(orgSlug)
         const memberId = yield* resolveMemberId(organizationId, userId)
         yield* attempt(() =>
-          keepingAProjectPm(organizationId, userId, () =>
+          keepingAProjectPm(db, organizationId, userId, () =>
             auth.api.removeMember({
               asResponse: false,
               body: { memberIdOrEmail: memberId, organizationId },
@@ -756,9 +752,9 @@ export const BetterAuthLive = Layer.effect(
         userId: string
       ) {
         const organizationId = yield* resolveOrgId(orgSlug)
-        yield* attempt(() => assertNotLastProjectPm(organizationId, userId))
+        yield* attempt(() => assertNotLastProjectPm(db, organizationId, userId))
         yield* attempt(() =>
-          keepingAProjectPm(organizationId, userId, () =>
+          keepingAProjectPm(db, organizationId, userId, () =>
             auth.api.leaveOrganization({
               asResponse: false,
               body: { organizationId },
@@ -869,7 +865,7 @@ export const BetterAuthLive = Layer.effect(
         )
         if (!session) return yield* new NotFound()
         const alreadyMember = yield* attempt(() =>
-          acceptAsExistingMember(invitationId, session.user)
+          acceptAsExistingMember(db, invitationId, session.user)
         )
         const acceptedMember =
           alreadyMember ??

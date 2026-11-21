@@ -1,7 +1,9 @@
+import * as Effect from "effect/Effect"
 import { type Headers as HttpHeaders, HttpServerResponse } from "effect/http"
+import * as Layer from "effect/Layer"
 
 import { AuthRejection, callerAuthMiddleware } from "../auth/CallerAuth"
-import { mcpResource } from "../auth/config"
+import { AuthInstance } from "../auth/config"
 
 const jsonRpcError = (
   message: string,
@@ -23,4 +25,8 @@ const respond = AuthRejection.$match({
     jsonRpcError(message, status, { "www-authenticate": wwwAuthenticate })
 })
 
-export const McpAuthMiddlewareLive = callerAuthMiddleware(mcpResource, respond)
+export const McpAuthMiddlewareLive = Layer.unwrap(
+  Effect.map(AuthInstance, ({ mcpResource }) =>
+    callerAuthMiddleware(mcpResource, respond)
+  )
+)

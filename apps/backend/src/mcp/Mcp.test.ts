@@ -11,6 +11,7 @@ import { join } from "node:path"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { migrationsFolder } from "@pp/db"
+import * as schema from "@pp/db/schema"
 import { catalogVersion, cliOAuthClient, Tools } from "@pp/shared"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -18,8 +19,12 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import { HttpRouter } from "effect/http"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+
+import { type Auth, makeAuth } from "../auth/config"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -42,7 +47,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   const clientIds = [clientId]
   const orgId = randomUUID()
   const orgIds = [orgId]
-  let auth: (typeof import("../auth/config"))["auth"]
+  let auth: Auth
   let baseUrl: string
   let expiredToken: string
   let resource: string
@@ -221,7 +226,22 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       "INSERT INTO organization (id,name,slug,created_at) VALUES ($1,$2,$1,now())",
       [orgId, "Private organization"]
     )
-    auth = (await import("../auth/config")).auth
+    auth = makeAuth(
+      {
+        databaseUrl: Redacted.make(databaseUrl),
+        secret: Redacted.make(
+          "isolated-effect-v4-oauth-compatibility-test-secret"
+        ),
+        baseUrl: Option.some(baseUrl),
+        resourceOrigin: baseUrl,
+        github: Option.none(),
+        google: Option.none(),
+        microsoft: Option.none(),
+        microsoftTenantId: "common",
+        appVersion: "dev"
+      },
+      drizzle({ client: pool, relations: schema.relations })
+    )
     await auth.$context
     toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
     server.on("request", toNodeHandler(auth))

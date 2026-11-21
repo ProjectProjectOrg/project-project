@@ -38,6 +38,9 @@
 import { createHmac } from "node:crypto"
 
 import { it } from "@effect/vitest"
+import * as GitHubApps from "@pp/integration-github/GitHubApps"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { AppApi, Authentication, Unauthorized } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -45,17 +48,7 @@ import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
 import { HttpApi, HttpApiBuilder, HttpApiClient } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { afterAll, expect, vi } from "vitest"
-
-// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
-vi.mock("./auth/config", () => ({
-  auth: {},
-  mcpResource: "http://localhost:3000/mcp",
-  toolsResource: "http://localhost:3000/api/v1/tools"
-}))
-import * as GitHubApps from "@pp/integration-github/GitHubApps"
-import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
-import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import { afterAll, expect } from "vitest"
 
 import { AuthHandlerLive } from "./auth/Handlers"
 import { RequestValidationLive } from "./http/RequestValidation"

@@ -13,7 +13,8 @@ import {
 import {
   catalogVersion,
   cliOAuthClient,
-  INVITATION_VALID_DAYS
+  INVITATION_VALID_DAYS,
+  type SignInProvider
 } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
@@ -22,7 +23,14 @@ import { admin, jwt, magicLink, organization } from "better-auth/plugins"
 import { and, eq, gt, isNull, ne } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { alias } from "drizzle-orm/pg-core"
+import * as Config from "effect/Config"
+import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
+import { Pool } from "pg"
 
 import { avatarSyncHooks } from "./avatarSync"
 import { builtInOAuthClient } from "./builtInOAuthClient"
@@ -30,9 +38,11 @@ import { fetchClientMetadataResource } from "./cimdTransport"
 import { legacyMcpResources } from "./legacyMcpResources"
 import { orgAccessControl, orgRoles, requireSingleOrgRole } from "./orgAccess"
 import { protectedResourceMetadata } from "./protectedResourceMetadata"
-import { isSignInProviderConfigured } from "./signInProviders"
 
-const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
+const authDatabase = (pool: Pool) =>
+  drizzle({ client: pool, relations: schema.relations })
+
+export type AuthDb = ReturnType<typeof authDatabase>
 
 function roleList(role: string) {
   return role.split(",").map((r) => r.trim())
@@ -66,6 +76,7 @@ export function lastProjectPmError(projectSlugs: ReadonlyArray<string>) {
 }
 
 async function assertNotLastOrgOwner(
+  db: AuthDb,
   organizationId: string,
   targetUserId: string,
   nextRole: string | null
@@ -98,7 +109,11 @@ async function assertNotLastOrgOwner(
   }
 }
 
-async function lastPmProjectSlugs(organizationId: string, userId: string) {
+async function lastPmProjectSlugs(
+  db: AuthDb,
+  organizationId: string,
+  userId: string
+) {
   const otherPm = alias(projectMember, "other_pm")
   return db
     .select({ slug: projectIndex.slug })
@@ -129,10 +144,11 @@ async function lastPmProjectSlugs(organizationId: string, userId: string) {
 }
 
 export async function assertNotLastProjectPm(
+  db: AuthDb,
   organizationId: string,
   userId: string
 ) {
-  const lastPm = await lastPmProjectSlugs(organizationId, userId)
+  const lastPm = await lastPmProjectSlugs(db, organizationId, userId)
   const blocked = lastProjectPmError(lastPm.map((project) => project.slug))
   if (blocked) throw blocked
 }
@@ -149,6 +165,7 @@ export const violatesProjectKeepsAPm = (error: unknown) =>
   constraintOf(error) === "project_keeps_a_pm"
 
 export async function keepingAProjectPm<A>(
+  db: AuthDb,
   organizationId: string,
   userId: string,
   run: () => Promise<A>
@@ -157,13 +174,13 @@ export async function keepingAProjectPm<A>(
     return await run()
   } catch (error) {
     if (violatesProjectKeepsAPm(error)) {
-      await assertNotLastProjectPm(organizationId, userId)
+      await assertNotLastProjectPm(db, organizationId, userId)
     }
     throw error
   }
 }
 
-type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Transaction = Parameters<Parameters<AuthDb["transaction"]>[0]>[0]
 
 async function applyProjectInviteGrants(
   tx: Transaction,
@@ -206,6 +223,7 @@ async function applyProjectInviteGrants(
 }
 
 export async function acceptAsExistingMember(
+  db: AuthDb,
   invitationId: string,
   account: Readonly<{ id: string; email: string; emailVerified: boolean }>
 ) {
@@ -246,17 +264,41 @@ export async function acceptAsExistingMember(
   })
 }
 
-const resourceOrigin =
-  process.env.MCP_RESOURCE_URL ??
-  process.env.BETTER_AUTH_URL ??
-  "http://localhost:3000"
+const provider = (clientId: string, clientSecret: string) =>
+  Config.option(
+    Config.all({
+      clientId: Config.String(clientId),
+      clientSecret: Config.Redacted(clientSecret)
+    })
+  )
 
-export const mcpResource = new URL("/mcp", resourceOrigin).href
+export const AuthSettings = Config.all({
+  databaseUrl: Config.Redacted("DATABASE_URL"),
+  secret: Config.Redacted("BETTER_AUTH_SECRET"),
+  baseUrl: Config.option(Config.String("BETTER_AUTH_URL")),
+  resourceOrigin: Config.String("MCP_RESOURCE_URL").pipe(
+    Config.orElse(() => Config.String("BETTER_AUTH_URL")),
+    Config.withDefault("http://localhost:3000")
+  ),
+  github: provider("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"),
+  google: provider("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"),
+  microsoft: provider("MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"),
+  microsoftTenantId: Config.String("MICROSOFT_TENANT_ID").pipe(
+    Config.withDefault("common")
+  ),
+  appVersion: Config.String("APP_VERSION").pipe(Config.withDefault("dev"))
+})
 
-export const toolsResource = new URL(
-  cliOAuthClient.resourcePath,
-  resourceOrigin
-).href
+export type AuthSettings = Config.Success<typeof AuthSettings>
+
+const resourcesFor = (origin: string) => ({
+  mcpResource: new URL("/mcp", origin).href,
+  toolsResource: new URL(cliOAuthClient.resourcePath, origin).href
+})
+
+const secretOf = <A extends Readonly<{ clientSecret: Redacted.Redacted }>>(
+  settings: Option.Option<A>
+) => Option.map(settings, (value) => Redacted.value(value.clientSecret))
 
 const DAY_SECONDS = 24 * 60 * 60
 
@@ -265,286 +307,347 @@ const microsoftDomainVerified = (claims: {
   readonly xms_edov?: boolean | number | string
 }) => [true, 1, "1", "true"].includes(claims.xms_edov ?? false)
 
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: authSchema
-  }),
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [])
-  ],
-  // `username` is a human-readable handle used in markdown frontmatter and
-  // the members UI. Better Auth's CLI doesn't know about it from the schema
-  // alone — declaring it here lets `auth.api.updateUser` etc. round-trip
-  // the field.
-  user: {
-    additionalFields: {
-      username: {
-        type: "string",
-        required: false,
-        input: false,
-        unique: true
+export const makeAuth = (settings: AuthSettings, db: AuthDb) => {
+  const baseUrl = Option.getOrUndefined(settings.baseUrl)
+  const { mcpResource, toolsResource } = resourcesFor(settings.resourceOrigin)
+  return betterAuth({
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema: authSchema
+    }),
+    secret: Redacted.value(settings.secret),
+    baseURL: baseUrl,
+    trustedOrigins: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      ...(baseUrl === undefined ? [] : [baseUrl])
+    ],
+    // `username` is a human-readable handle used in markdown frontmatter and
+    // the members UI. Better Auth's CLI doesn't know about it from the schema
+    // alone — declaring it here lets `auth.api.updateUser` etc. round-trip
+    // the field.
+    user: {
+      additionalFields: {
+        username: {
+          type: "string",
+          required: false,
+          input: false,
+          unique: true
+        }
       }
-    }
-  },
-  account: {
-    accountLinking: {
-      enabled: true,
-      trustedProviders: ["github", "google"],
-      allowDifferentEmails: true
-    }
-  },
-  socialProviders: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      scope: ["repo", "read:org"],
-      disableSignUp: true
     },
-    google: {
-      enabled: isSignInProviderConfigured("google"),
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["github", "google"],
+        allowDifferentEmails: true
+      }
     },
-    microsoft: {
-      enabled: isSignInProviderConfigured("microsoft"),
-      clientId: process.env.MICROSOFT_CLIENT_ID!,
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      tenantId: process.env.MICROSOFT_TENANT_ID ?? "common",
-      disableProfilePhoto: true,
-      mapProfileToUser: (profile) =>
-        microsoftDomainVerified(profile) ? { emailVerified: true } : {}
-    }
-  },
-  session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60
-    }
-  },
-  // On sign-in, return the user to the org they were last in. We persist
-  // that on `user.lastActiveOrganizationId` (a column on the user table)
-  // and capture it at sign-out time via the `session.delete.before` hook.
-  // First-ever sign-in falls back to the user's first org membership.
-  // Subsequent in-app org changes flow through the switcher (T-08) — never
-  // via URL navigation.
-  databaseHooks: {
-    account: avatarSyncHooks(db),
+    socialProviders: {
+      github: {
+        enabled: Option.isSome(settings.github),
+        clientId: Option.match(settings.github, {
+          onNone: () => "",
+          onSome: ({ clientId }) => clientId
+        }),
+        clientSecret: Option.getOrUndefined(secretOf(settings.github)),
+        scope: ["repo", "read:org"],
+        disableSignUp: true
+      },
+      google: {
+        enabled: Option.isSome(settings.google),
+        clientId: Option.match(settings.google, {
+          onNone: () => "",
+          onSome: ({ clientId }) => clientId
+        }),
+        clientSecret: Option.getOrUndefined(secretOf(settings.google))
+      },
+      microsoft: {
+        enabled: Option.isSome(settings.microsoft),
+        clientId: Option.match(settings.microsoft, {
+          onNone: () => "",
+          onSome: ({ clientId }) => clientId
+        }),
+        clientSecret: Option.getOrUndefined(secretOf(settings.microsoft)),
+        tenantId: settings.microsoftTenantId,
+        disableProfilePhoto: true,
+        mapProfileToUser: (profile) =>
+          microsoftDomainVerified(profile) ? { emailVerified: true } : {}
+      }
+    },
     session: {
-      create: {
-        before: async (sessionData) => {
-          const currentUser = await db.query.user.findFirst({
-            columns: { lastActiveOrganizationId: true },
-            where: { id: sessionData.userId }
-          })
-          let orgId = currentUser?.lastActiveOrganizationId ?? null
-          if (orgId) {
-            const stillMember = await db.query.member.findFirst({
-              columns: { organizationId: true },
-              where: { userId: sessionData.userId, organizationId: orgId }
+      cookieCache: {
+        enabled: true,
+        maxAge: 5 * 60
+      }
+    },
+    // On sign-in, return the user to the org they were last in. We persist
+    // that on `user.lastActiveOrganizationId` (a column on the user table)
+    // and capture it at sign-out time via the `session.delete.before` hook.
+    // First-ever sign-in falls back to the user's first org membership.
+    // Subsequent in-app org changes flow through the switcher (T-08) — never
+    // via URL navigation.
+    databaseHooks: {
+      account: avatarSyncHooks(db),
+      session: {
+        create: {
+          before: async (sessionData) => {
+            const currentUser = await db.query.user.findFirst({
+              columns: { lastActiveOrganizationId: true },
+              where: { id: sessionData.userId }
             })
-            if (!stillMember) orgId = null
+            let orgId = currentUser?.lastActiveOrganizationId ?? null
+            if (orgId) {
+              const stillMember = await db.query.member.findFirst({
+                columns: { organizationId: true },
+                where: { userId: sessionData.userId, organizationId: orgId }
+              })
+              if (!stillMember) orgId = null
+            }
+            if (!orgId) {
+              const firstMembership = await db.query.member.findFirst({
+                columns: { organizationId: true },
+                where: { userId: sessionData.userId }
+              })
+              orgId = firstMembership?.organizationId ?? null
+            }
+            if (!orgId) return { data: sessionData }
+            return {
+              data: { ...sessionData, activeOrganizationId: orgId }
+            }
           }
-          if (!orgId) {
-            const firstMembership = await db.query.member.findFirst({
-              columns: { organizationId: true },
-              where: { userId: sessionData.userId }
-            })
-            orgId = firstMembership?.organizationId ?? null
+        },
+        delete: {
+          before: async (sessionData) => {
+            const orgId =
+              "activeOrganizationId" in sessionData &&
+              typeof sessionData.activeOrganizationId === "string"
+                ? sessionData.activeOrganizationId
+                : null
+            if (!orgId) return
+            await db
+              .update(user)
+              .set({ lastActiveOrganizationId: orgId })
+              .where(eq(user.id, sessionData.userId))
           }
-          if (!orgId) return { data: sessionData }
-          return {
-            data: { ...sessionData, activeOrganizationId: orgId }
-          }
-        }
-      },
-      delete: {
-        before: async (sessionData) => {
-          const orgId =
-            "activeOrganizationId" in sessionData &&
-            typeof sessionData.activeOrganizationId === "string"
-              ? sessionData.activeOrganizationId
-              : null
-          if (!orgId) return
-          await db
-            .update(user)
-            .set({ lastActiveOrganizationId: orgId })
-            .where(eq(user.id, sessionData.userId))
         }
       }
-    }
-  },
-  plugins: [
-    organization({
-      ac: orgAccessControl,
-      roles: orgRoles,
-      disableOrganizationDeletion: true,
-      invitationExpiresIn: INVITATION_VALID_DAYS * 24 * 60 * 60,
-      requireEmailVerificationOnInvitation: true,
-      allowUserToCreateOrganization: false,
-      schema: {
-        organization: {
-          additionalFields: {
-            billingCustomerId: {
-              type: "string",
-              required: false,
-              input: false
-            },
-            subscriptionStatus: {
-              type: "string",
-              required: false,
-              input: false
-            },
-            deletedAt: { type: "date", required: false, input: false }
+    },
+    plugins: [
+      organization({
+        ac: orgAccessControl,
+        roles: orgRoles,
+        disableOrganizationDeletion: true,
+        invitationExpiresIn: INVITATION_VALID_DAYS * 24 * 60 * 60,
+        requireEmailVerificationOnInvitation: true,
+        allowUserToCreateOrganization: false,
+        schema: {
+          organization: {
+            additionalFields: {
+              billingCustomerId: {
+                type: "string",
+                required: false,
+                input: false
+              },
+              subscriptionStatus: {
+                type: "string",
+                required: false,
+                input: false
+              },
+              deletedAt: { type: "date", required: false, input: false }
+            }
           }
-        }
-      },
-      sendInvitationEmail: async (data) => {
-        const acceptUrl = `${process.env.BETTER_AUTH_URL}/invite/${data.invitation.id}`
-        process.stdout.write(
-          `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}\n`
-        )
-      },
-      organizationHooks: {
-        beforeUpdateOrganization: async ({ organization }) => {
-          if (
-            Object.entries(organization).some(
-              ([field, value]) => field !== "name" && value !== undefined
+        },
+        sendInvitationEmail: async (data) => {
+          const acceptUrl = `${baseUrl}/invite/${data.invitation.id}`
+          process.stdout.write(
+            `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}\n`
+          )
+        },
+        organizationHooks: {
+          beforeUpdateOrganization: async ({ organization }) => {
+            if (
+              Object.entries(organization).some(
+                ([field, value]) => field !== "name" && value !== undefined
+              )
+            ) {
+              throw new APIError("BAD_REQUEST", {
+                code: "ORGANIZATION_FIELD_LOCKED",
+                message: "Only the organization name can be changed"
+              })
+            }
+          },
+          beforeCreateInvitation: async ({ invitation }) => {
+            requireSingleOrgRole(invitation.role)
+          },
+          beforeAddMember: async ({ member }) => {
+            requireSingleOrgRole(member.role)
+          },
+          beforeRemoveMember: async ({ member }) => {
+            await assertNotLastOrgOwner(
+              db,
+              member.organizationId,
+              member.userId,
+              null
             )
-          ) {
-            throw new APIError("BAD_REQUEST", {
-              code: "ORGANIZATION_FIELD_LOCKED",
-              message: "Only the organization name can be changed"
-            })
+            await assertNotLastProjectPm(
+              db,
+              member.organizationId,
+              member.userId
+            )
+          },
+          beforeUpdateMemberRole: async ({ member, newRole }) => {
+            requireSingleOrgRole(newRole)
+            await assertNotLastOrgOwner(
+              db,
+              member.organizationId,
+              member.userId,
+              newRole
+            )
+          },
+          afterAcceptInvitation: async ({ invitation, user }) => {
+            await db.transaction((tx) =>
+              applyProjectInviteGrants(tx, invitation, user.id)
+            )
+          },
+          afterRejectInvitation: async ({ invitation }) => {
+            await db
+              .delete(projectInviteGrant)
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
+          },
+          afterCancelInvitation: async ({ invitation }) => {
+            await db
+              .delete(projectInviteGrant)
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
           }
-        },
-        beforeCreateInvitation: async ({ invitation }) => {
-          requireSingleOrgRole(invitation.role)
-        },
-        beforeAddMember: async ({ member }) => {
-          requireSingleOrgRole(member.role)
-        },
-        beforeRemoveMember: async ({ member }) => {
-          await assertNotLastOrgOwner(
-            member.organizationId,
-            member.userId,
-            null
-          )
-          await assertNotLastProjectPm(member.organizationId, member.userId)
-        },
-        beforeUpdateMemberRole: async ({ member, newRole }) => {
-          requireSingleOrgRole(newRole)
-          await assertNotLastOrgOwner(
-            member.organizationId,
-            member.userId,
-            newRole
-          )
-        },
-        afterAcceptInvitation: async ({ invitation, user }) => {
-          await db.transaction((tx) =>
-            applyProjectInviteGrants(tx, invitation, user.id)
-          )
-        },
-        afterRejectInvitation: async ({ invitation }) => {
-          await db
-            .delete(projectInviteGrant)
-            .where(eq(projectInviteGrant.invitationId, invitation.id))
-        },
-        afterCancelInvitation: async ({ invitation }) => {
-          await db
-            .delete(projectInviteGrant)
-            .where(eq(projectInviteGrant.invitationId, invitation.id))
         }
-      }
-    }),
-    magicLink({
-      sendMagicLink: async (data) => {
-        process.stdout.write(
-          `[magic-link] email=${data.email} url=${data.url}\n`
-        )
-      }
-    }),
-    admin(),
-    jwt(),
-    mcp({
-      loginPage: "/login",
-      resource: mcpResource,
-      consentPage: "/oauth/consent",
-      allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
-      // Refresh tokens rotate on every use. Without an overlap window, a
-      // second presentation of an already-rotated token is treated as a
-      // breach and `invalidateRefreshFamily` deletes *every* refresh token
-      // for that client/user pair — forcing a full browser re-auth. MCP
-      // clients run as several long-lived processes sharing one credential,
-      // so concurrent refreshes across the access-token expiry are routine.
-      refreshTokenReuseInterval: 60,
-      refreshTokenExpiresIn: 90 * DAY_SECONDS,
-      resourceSeedMode: "merge",
-      resources: [
-        {
-          identifier: mcpResource,
-          name: "ProjectProject MCP",
-          refreshTokenTtl: 30 * DAY_SECONDS
-        },
-        {
-          identifier: toolsResource,
-          name: cliOAuthClient.name,
-          refreshTokenTtl: 90 * DAY_SECONDS
+      }),
+      magicLink({
+        sendMagicLink: async (data) => {
+          process.stdout.write(
+            `[magic-link] email=${data.email} url=${data.url}\n`
+          )
         }
-      ],
-      extensions: [
-        {
-          claims: {
-            accessToken: async ({ user, client }) => ({
-              pp_consent_ids: user
-                ? (
-                    await db
-                      .select({ id: authSchema.oauthConsent.id })
-                      .from(authSchema.oauthConsent)
-                      .where(
-                        and(
-                          eq(authSchema.oauthConsent.userId, user.id),
-                          eq(authSchema.oauthConsent.clientId, client.clientId)
+      }),
+      admin(),
+      jwt(),
+      mcp({
+        loginPage: "/login",
+        resource: mcpResource,
+        consentPage: "/oauth/consent",
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        // Refresh tokens rotate on every use. Without an overlap window, a
+        // second presentation of an already-rotated token is treated as a
+        // breach and `invalidateRefreshFamily` deletes *every* refresh token
+        // for that client/user pair — forcing a full browser re-auth. MCP
+        // clients run as several long-lived processes sharing one credential,
+        // so concurrent refreshes across the access-token expiry are routine.
+        refreshTokenReuseInterval: 60,
+        refreshTokenExpiresIn: 90 * DAY_SECONDS,
+        resourceSeedMode: "merge",
+        resources: [
+          {
+            identifier: mcpResource,
+            name: "ProjectProject MCP",
+            refreshTokenTtl: 30 * DAY_SECONDS
+          },
+          {
+            identifier: toolsResource,
+            name: cliOAuthClient.name,
+            refreshTokenTtl: 90 * DAY_SECONDS
+          }
+        ],
+        extensions: [
+          {
+            claims: {
+              accessToken: async ({ user, client }) => ({
+                pp_consent_ids: user
+                  ? (
+                      await db
+                        .select({ id: authSchema.oauthConsent.id })
+                        .from(authSchema.oauthConsent)
+                        .where(
+                          and(
+                            eq(authSchema.oauthConsent.userId, user.id),
+                            eq(
+                              authSchema.oauthConsent.clientId,
+                              client.clientId
+                            )
+                          )
                         )
-                      )
-                  ).map((consent) => consent.id)
-                : []
-            })
+                    ).map((consent) => consent.id)
+                  : []
+              })
+            }
           }
+        ]
+      }),
+      cimd({
+        fetchClientMetadataResource,
+        metadataProfile: "mcp-2026-07-28"
+      }),
+      legacyMcpResources({ db, resource: mcpResource }),
+      builtInOAuthClient({
+        db,
+        client: cliOAuthClient,
+        resource: { identifier: toolsResource, name: cliOAuthClient.name }
+      }),
+      protectedResourceMetadata({
+        identifier: toolsResource,
+        name: cliOAuthClient.name,
+        extra: {
+          pp_catalog_version: catalogVersion,
+          pp_build: settings.appVersion || "dev",
+          pp_signed_in_page: new URL(cliOAuthClient.signedInPath, toolsResource)
+            .href,
+          pp_sign_in_failed_page: new URL(
+            cliOAuthClient.signInFailedPath,
+            toolsResource
+          ).href
         }
-      ]
-    }),
-    cimd({
-      fetchClientMetadataResource,
-      metadataProfile: "mcp-2026-07-28"
-    }),
-    legacyMcpResources({ db, resource: mcpResource }),
-    builtInOAuthClient({
-      db,
-      client: cliOAuthClient,
-      resource: { identifier: toolsResource, name: cliOAuthClient.name }
-    }),
-    protectedResourceMetadata({
-      identifier: toolsResource,
-      name: cliOAuthClient.name,
-      extra: {
-        pp_catalog_version: catalogVersion,
-        pp_build: process.env.APP_VERSION || "dev",
-        pp_signed_in_page: new URL(cliOAuthClient.signedInPath, toolsResource)
-          .href,
-        pp_sign_in_failed_page: new URL(
-          cliOAuthClient.signInFailedPath,
-          toolsResource
-        ).href
-      }
-    })
-  ]
-})
+      })
+    ]
+  })
+}
 
-export type User = (typeof auth.$Infer.Session)["user"]
-export type Session = (typeof auth.$Infer.Session)["session"]
+export type Auth = ReturnType<typeof makeAuth>
+export type User = Auth["$Infer"]["Session"]["user"]
+export type Session = Auth["$Infer"]["Session"]["session"]
+
+const signInProvidersOf = (settings: AuthSettings) =>
+  (["google", "microsoft"] as const).filter((name) =>
+    Option.isSome(settings[name])
+  ) satisfies ReadonlyArray<SignInProvider>
+
+export class AuthInstance extends Context.Service<
+  AuthInstance,
+  Readonly<{
+    auth: Auth
+    db: AuthDb
+    mcpResource: string
+    toolsResource: string
+    signInProviders: ReadonlyArray<SignInProvider>
+  }>
+>()("@pp/backend/auth/config/AuthInstance") {}
+
+export const AuthInstanceLive = Layer.effect(
+  AuthInstance,
+  Effect.gen(function* () {
+    const settings = yield* AuthSettings
+    const pool = yield* Effect.acquireRelease(
+      Effect.sync(
+        () =>
+          new Pool({ connectionString: Redacted.value(settings.databaseUrl) })
+      ),
+      (pool) => Effect.promise(() => pool.end())
+    )
+    const db = authDatabase(pool)
+    return AuthInstance.of({
+      auth: makeAuth(settings, db),
+      db,
+      ...resourcesFor(settings.resourceOrigin),
+      signInProviders: signInProvidersOf(settings)
+    })
+  })
+)

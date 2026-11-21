@@ -79,6 +79,7 @@ import * as Layer from "effect/Layer"
 import { OrgAccessLive, ProjectAccessLive } from "./access/AccessMiddleware"
 import { AuthenticationLive } from "./auth/Authentication"
 import { BetterAuthLive } from "./auth/BetterAuth"
+import { AuthInstanceLive } from "./auth/config"
 import { EverhourHostLive } from "./everhour/HostLive"
 import { FeedbackIntakeGuardLive } from "./feedback/FeedbackIntakeGuard"
 import { GitHubLive } from "./github/GitHubLive"
@@ -144,7 +145,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   GitHubProjectStateCache.layer,
   GitHubRequest.layer,
   TicketDocumentLock.layer,
-  BetterAuthLive,
+  BetterAuthLive.pipe(Layer.provideMerge(AuthInstanceLive)),
   DbLive.pipe(Layer.provideMerge(PgLive)),
   FetchHttpClient.layer,
   Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch),
