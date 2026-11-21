@@ -4,8 +4,10 @@ import type { ProjectBanner } from "@pp/shared"
 import { and, eq, sql as sqlFragment } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as FiberMap from "effect/FiberMap"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Semaphore from "effect/Semaphore"
 
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
@@ -22,6 +24,11 @@ export class BannerPlaceholders extends Context.Service<
       projectSlug: string,
       banner: ProjectBanner | null
     ) => Effect.Effect<ProjectBanner | null>
+    heal: (
+      orgSlug: string,
+      projectSlug: string,
+      banner: ProjectBanner | null
+    ) => Effect.Effect<void>
   }>
 >()("@pp/server-core/projects/BannerPlaceholders") {}
 
@@ -34,12 +41,16 @@ const PRESIGN_TTL_SECONDS = 60
 
 const GENERATE_TIMEOUT = "10 seconds"
 
+const HEAL_CONCURRENCY = 2
+
 const make = Effect.gen(function* () {
   const db = yield* Db
   const fetch = yield* Effect.service(Fetch)
   const orgStorage = yield* OrgStorage.OrgStorage
   const s3 = yield* S3Storage.S3Storage
   const unencodable = new Set<string>()
+  const healing = yield* FiberMap.make<string>()
+  const healSlots = yield* Semaphore.make(HEAL_CONCURRENCY)
 
   const generate = (orgSlug: string, attachmentId: string) =>
     Effect.gen(function* () {
@@ -122,7 +133,21 @@ const make = Effect.gen(function* () {
     return { ...normalized, placeholder } satisfies ProjectBanner
   })
 
-  return BannerPlaceholders.of({ ensure })
+  const heal = Effect.fn("BannerPlaceholders.heal")(function* (
+    orgSlug: string,
+    projectSlug: string,
+    banner: ProjectBanner | null
+  ) {
+    if (!bannerNeedsPlaceholder(banner)) return
+    yield* FiberMap.run(
+      healing,
+      banner.attachmentId,
+      healSlots.withPermit(ensure(orgSlug, projectSlug, banner)),
+      { onlyIfMissing: true }
+    )
+  })
+
+  return BannerPlaceholders.of({ ensure, heal })
 })
 
 export const layer = Layer.effect(BannerPlaceholders, make)

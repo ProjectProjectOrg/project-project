@@ -198,7 +198,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           db,
           ticketIndex,
           ticketDocs,
-          Layer.mock(BannerPlaceholders.BannerPlaceholders, {}),
+          Layer.mock(BannerPlaceholders.BannerPlaceholders, {
+            heal: () => Effect.void
+          }),
           Layer.mock(ProjectDocs.ProjectDocs, {}),
           Layer.mock(Users.Users, {}),
           Layer.mock(GitHub.GitHub, {})

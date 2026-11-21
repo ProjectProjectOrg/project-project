@@ -59,7 +59,8 @@ export const projectsOnPostgres = (
     Layer.provide(db),
     Layer.provide(
       Layer.succeed(BannerPlaceholders.BannerPlaceholders, {
-        ensure: (_org, _slug, current) => Effect.succeed(current)
+        ensure: (_org, _slug, current) => Effect.succeed(current),
+        heal: () => Effect.void
       })
     ),
     Layer.provide(

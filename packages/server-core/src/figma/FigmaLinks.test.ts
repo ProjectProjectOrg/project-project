@@ -793,10 +793,11 @@ describe("reconcileTicket dev mode backlink", () => {
           }
           return []
         })
-        const layer = harness({
-          db,
-          figma: { createDevResource, deleteDevResource }
-        })
+        const layer = Layer.succeedContext(
+          yield* Layer.build(
+            harness({ db, figma: { createDevResource, deleteDevResource } })
+          )
+        )
 
         yield* reconcile(layer, BODY)
         yield* Deferred.await(creationStarted)
@@ -809,7 +810,7 @@ describe("reconcileTicket dev mode backlink", () => {
           "FILEKEY123",
           "dev-race"
         )
-      })
+      }).pipe(Effect.scoped)
   )
 })
 

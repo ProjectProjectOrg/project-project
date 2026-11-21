@@ -29,6 +29,7 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as FiberSet from "effect/FiberSet"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
@@ -215,6 +216,7 @@ const make = Effect.gen(function* () {
   const integrations = yield* FigmaIntegrations.FigmaIntegrations
   const orgStorage = yield* OrgStorage.OrgStorage
   const s3 = yield* S3Storage.S3Storage
+  const followUps = yield* FiberSet.make()
 
   const uploadThumbnail = (
     connection: S3Storage.S3Connection,
@@ -416,7 +418,8 @@ const make = Effect.gen(function* () {
                 and(
                   eq(figmaReference.linkId, entry.linkId),
                   eq(figmaReference.projectId, projectId),
-                  eq(figmaReference.ticketId, ticketId)
+                  eq(figmaReference.ticketId, ticketId),
+                  isNull(figmaReference.devResourceId)
                 )
               )
               .returning({ linkId: figmaReference.linkId })
@@ -705,7 +708,8 @@ const make = Effect.gen(function* () {
         return
       }
 
-      yield* Effect.forkDetach(
+      yield* FiberSet.run(
+        followUps,
         Effect.gen(function* () {
           if (toResolve.length > 0) {
             yield* resolveLinks(orgSlug, slug, toResolve)
