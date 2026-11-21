@@ -43,7 +43,6 @@ import * as Schema from "effect/Schema"
 
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
 import type * as Markdown from "../markdown/Markdown"
-import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
 import * as ProjectDocs from "./ProjectDocs"
@@ -198,15 +197,11 @@ const make = Effect.gen(function* () {
         const rows = candidates.filter((_, index) =>
           Option.isSome(visible[index])
         )
-        const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
-        if (healable.length > 0)
-          yield* Effect.forkDetach(
-            Effect.forEach(
-              healable,
-              (r) => bannerPlaceholders.ensure(orgSlug, r.slug, r.banner),
-              { concurrency: 2, discard: true }
-            )
-          )
+        yield* Effect.forEach(
+          rows,
+          (r) => bannerPlaceholders.heal(orgSlug, r.slug, r.banner),
+          { discard: true }
+        )
         return rows.map((r) => ({
           banner: r.banner ?? null,
           iconImage: r.iconImage ?? null,
