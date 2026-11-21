@@ -25,6 +25,7 @@ import {
 } from "@/features/tickets/lib/ticketCommandTargets"
 import { m } from "@/paraglide/messages"
 
+import { useRecentCommands } from "../hooks/useRecentCommands"
 import type { CommandPageProps } from "../lib/commandPages"
 import {
   runCommand,
@@ -33,6 +34,7 @@ import {
   type CommandContext,
   type CommandGroup
 } from "../lib/commands"
+import { recentFirst } from "../lib/recentCommands"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
 export const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
@@ -116,6 +118,7 @@ export function RootCommands({
     initialFocus: string | null
   }>) {
   const [search, setSearch] = useState(initialSearch)
+  const [recentIds, rememberCommand] = useRecentCommands()
   const { recent, found } = useTicketCommandSearch(context, search)
   const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
   const self = context.ticket
@@ -147,8 +150,18 @@ export function RootCommands({
     (command) => command.listed !== "never"
   )
   const byId = new Map(visible.map((command) => [command.id, command]))
+  const ordered = recentFirst(visible, recentIds)
   const items: ReadonlyArray<CommandFrameItem> = [
-    ...visible.map((command) => commandItem(command, context)),
+    ...ordered.recent.map((command) =>
+      search.trim() === ""
+        ? {
+            ...commandItem(command, context),
+            group: m.chrome_command_menu_group_recent(),
+            searchOnly: false
+          }
+        : commandItem(command, context)
+    ),
+    ...ordered.rest.map((command) => commandItem(command, context)),
     ...projects.map((project) => ({
       value: `${PROJECT_VALUE}${project.slug}`,
       label: project.name,
@@ -274,6 +287,7 @@ export function RootCommands({
         }
         const command = byId.get(item.value)
         if (command === undefined) return
+        rememberCommand(command.id)
         runCommand(command, context, {
           ...env,
           open: (page) => env.open(page, { search, value: item.value })
