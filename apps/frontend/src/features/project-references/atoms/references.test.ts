@@ -1,4 +1,8 @@
-import { Conflict, FixReferenceAction, type ReferenceToFix } from "@pp/shared"
+import {
+  FixReferenceAction,
+  type ReferenceToFix,
+  TicketChanged
+} from "@pp/shared"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import { expect, it, vi } from "vitest"
 
@@ -55,7 +59,7 @@ it("refreshes references after a fix fails partway through several tickets", asy
     served = [second]
     if (finish === undefined) throw new Error("Fix request did not start")
     finish(
-      Response.json(new Conflict({ reason: "ticket_updated_since_read" }), {
+      Response.json(new TicketChanged({ kind: "updated_since_read" }), {
         status: 409
       })
     )

@@ -1,6 +1,8 @@
 import * as Schema from "effect/Schema"
 
 import { JiraFailureReason, JiraReconnectReason } from "./jira/JiraMigration"
+import { BlockIssueCode } from "./tickets/blocks"
+import { TicketBodyEditFailure } from "./tickets/bodyEdits"
 
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",
@@ -24,20 +26,20 @@ export class Forbidden extends Schema.TaggedError<Forbidden>()(
   { httpApiStatus: 403 }
 ) {}
 
-// 409 — request conflicts with current state (e.g. branch already exists, repo
-// already connected). Detail in `reason` so the UI can pick the right copy.
-export class Conflict extends Schema.TaggedError<Conflict>()(
-  "Conflict",
-  { reason: Schema.String },
-  { httpApiStatus: 409 }
-) {}
+export const ValidationReason = Schema.Literals([
+  "position_is_self",
+  "split_needs_two_results",
+  "edits_with_body",
+  "invalid_cursor",
+  "remove_self",
+  "role_not_found",
+  "invalid_email"
+])
+export type ValidationReason = typeof ValidationReason.Type
 
-// 400 — caller-supplied input violates a domain invariant the schema can't
-// express on its own (cross-field constraints like `endsAt >= startsAt`).
-// Use `reason` to disambiguate (`invalid_interval`, ...).
 export class Validation extends Schema.TaggedError<Validation>()(
   "Validation",
-  { reason: Schema.String },
+  { reason: ValidationReason },
   { httpApiStatus: 400 }
 ) {}
 
@@ -359,3 +361,349 @@ export class JiraMigrationUnavailable extends Schema.TaggedError<JiraMigrationUn
   { reason: Schema.Literals(["worker_unavailable", "storage_unavailable"]) },
   { httpApiStatus: 503 }
 ) {}
+
+export class UnknownType extends Schema.TaggedError<UnknownType>()(
+  "UnknownType",
+  { key: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
+export class UnknownStatus extends Schema.TaggedError<UnknownStatus>()(
+  "UnknownStatus",
+  { status: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
+export class UnknownTags extends Schema.TaggedError<UnknownTags>()(
+  "UnknownTags",
+  { tags: Schema.Array(Schema.String) },
+  { httpApiStatus: 400 }
+) {}
+
+export class NonMemberAssignees extends Schema.TaggedError<NonMemberAssignees>()(
+  "NonMemberAssignees",
+  { userIds: Schema.Array(Schema.String) },
+  { httpApiStatus: 400 }
+) {}
+
+export class EstimationOff extends Schema.TaggedError<EstimationOff>()(
+  "EstimationOff",
+  {},
+  { httpApiStatus: 400 }
+) {}
+
+export class EstimateUnitMismatch extends Schema.TaggedError<EstimateUnitMismatch>()(
+  "EstimateUnitMismatch",
+  { unit: Schema.String, estimation: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
+export const HierarchyInvalidKind = Schema.Literals([
+  "epic_in_sprint",
+  "epic_with_parent",
+  "invalid_parent",
+  "epic_has_tickets",
+  "ticket_has_sub_tickets"
+])
+
+export class HierarchyInvalid extends Schema.TaggedError<HierarchyInvalid>()(
+  "HierarchyInvalid",
+  { kind: HierarchyInvalidKind },
+  { httpApiStatus: 400 }
+) {}
+
+export const RelationInvalidKind = Schema.Literals([
+  "relation_self",
+  "unknown_tickets",
+  "blocking_cycle",
+  "duplicate_of_duplicate",
+  "has_duplicates"
+])
+export type RelationInvalidKind = typeof RelationInvalidKind.Type
+
+export class RelationInvalid extends Schema.TaggedError<RelationInvalid>()(
+  "RelationInvalid",
+  { kind: RelationInvalidKind, ids: Schema.Array(Schema.String) },
+  { httpApiStatus: 400 }
+) {}
+
+export class InvalidBlocks extends Schema.TaggedError<InvalidBlocks>()(
+  "InvalidBlocks",
+  { code: BlockIssueCode, line: Schema.Int, source: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
+export class LibraryContentRejected extends Schema.TaggedError<LibraryContentRejected>()(
+  "LibraryContentRejected",
+  { kind: Schema.Literals(["attachments_not_allowed", "blocks_not_allowed"]) },
+  { httpApiStatus: 400 }
+) {}
+
+export class BodyEditFailed extends Schema.TaggedError<BodyEditFailed>()(
+  "BodyEditFailed",
+  { index: Schema.Int, failure: TicketBodyEditFailure },
+  { httpApiStatus: 400 }
+) {}
+
+export class TicketMoveRejected extends Schema.TaggedError<TicketMoveRejected>()(
+  "TicketMoveRejected",
+  {
+    kind: Schema.Literals([
+      "same_project",
+      "epic_has_tickets",
+      "destination_no_statuses"
+    ])
+  },
+  { httpApiStatus: 400 }
+) {}
+
+export class SprintInvalid extends Schema.TaggedError<SprintInvalid>()(
+  "SprintInvalid",
+  {
+    kind: Schema.Literals([
+      "invalid_interval",
+      "completed_in_future",
+      "completed_before_start",
+      "destination_is_source",
+      "destination_not_sprint",
+      "not_a_sprint"
+    ])
+  },
+  { httpApiStatus: 400 }
+) {}
+
+export const ProjectImportInvalidKind = Schema.Literals([
+  "archive_too_large",
+  "attachment_size_mismatch",
+  "entry_too_large",
+  "invalid_archive",
+  "invalid_manifest",
+  "invalid_type_definition",
+  "linked_user_not_in_org",
+  "manifest_must_come_first",
+  "markdown_too_large",
+  "missing_manifest",
+  "unexpected_attachment",
+  "unexpected_entry",
+  "unsafe_path",
+  "upload_interrupted"
+])
+export type ProjectImportInvalidKind = typeof ProjectImportInvalidKind.Type
+
+export class ProjectImportInvalid extends Schema.TaggedError<ProjectImportInvalid>()(
+  "ProjectImportInvalid",
+  { kind: ProjectImportInvalidKind },
+  { httpApiStatus: 400 }
+) {}
+
+export class ProjectImportStateConflict extends Schema.TaggedError<ProjectImportStateConflict>()(
+  "ProjectImportStateConflict",
+  { kind: Schema.Literals(["not_cancellable", "not_ready"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export const CommentBodyInvalidKind = Schema.Literals([
+  "empty",
+  "contains_marker_pattern"
+])
+export type CommentBodyInvalidKind = typeof CommentBodyInvalidKind.Type
+
+export class CommentBodyInvalid extends Schema.TaggedError<CommentBodyInvalid>()(
+  "CommentBodyInvalid",
+  { kind: CommentBodyInvalidKind },
+  { httpApiStatus: 400 }
+) {}
+
+export class CommentThreadResolved extends Schema.TaggedError<CommentThreadResolved>()(
+  "CommentThreadResolved",
+  {},
+  { httpApiStatus: 409 }
+) {}
+
+export class JiraMigrationRejected extends Schema.TaggedError<JiraMigrationRejected>()(
+  "JiraMigrationRejected",
+  {
+    kind: Schema.Literals([
+      "not_configurable",
+      "scan_incomplete",
+      "run_not_allowed",
+      "rescan_not_allowed",
+      "cancel_not_allowed",
+      "discard_not_allowed",
+      "cleanup_failed"
+    ])
+  },
+  { httpApiStatus: 400 }
+) {}
+
+export class JiraMigrationChanged extends Schema.TaggedError<JiraMigrationChanged>()(
+  "JiraMigrationChanged",
+  { kind: Schema.Literals(["revision", "request"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export class FeedbackRejected extends Schema.TaggedError<FeedbackRejected>()(
+  "FeedbackRejected",
+  {
+    kind: Schema.Literals([
+      "attachment_already_sent",
+      "duplicate_attachment",
+      "empty_attachment",
+      "unknown_attachment",
+      "invalid_report"
+    ])
+  },
+  { httpApiStatus: 400 }
+) {}
+
+export class FeedbackInProgress extends Schema.TaggedError<FeedbackInProgress>()(
+  "FeedbackInProgress",
+  {},
+  { httpApiStatus: 409 }
+) {}
+
+export class UploadFailed extends Schema.TaggedError<UploadFailed>()(
+  "UploadFailed",
+  { kind: Schema.Literals(["timed_out", "unreadable_body"]) },
+  { httpApiStatus: 400 }
+) {}
+
+export class AvatarSourceUnavailable extends Schema.TaggedError<AvatarSourceUnavailable>()(
+  "AvatarSourceUnavailable",
+  { source: Schema.String },
+  { httpApiStatus: 400 }
+) {}
+
+export class OAuthConsentRejected extends Schema.TaggedError<OAuthConsentRejected>()(
+  "OAuthConsentRejected",
+  {},
+  { httpApiStatus: 400 }
+) {}
+
+export class TicketChanged extends Schema.TaggedError<TicketChanged>()(
+  "TicketChanged",
+  {
+    kind: Schema.Literals([
+      "updated_since_read",
+      "body_changed",
+      "move_ticket_changed",
+      "move_id_taken",
+      "sprint_membership_changed"
+    ])
+  },
+  { httpApiStatus: 409 }
+) {}
+
+export class TicketArchiveConflict extends Schema.TaggedError<TicketArchiveConflict>()(
+  "TicketArchiveConflict",
+  { kind: Schema.Literals(["already_archived", "not_archived"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export class ProjectIdentifierTaken extends Schema.TaggedError<ProjectIdentifierTaken>()(
+  "ProjectIdentifierTaken",
+  { kind: Schema.Literals(["key", "slug"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export class TagExists extends Schema.TaggedError<TagExists>()(
+  "TagExists",
+  {},
+  { httpApiStatus: 409 }
+) {}
+
+export class LibraryConflict extends Schema.TaggedError<LibraryConflict>()(
+  "LibraryConflict",
+  { kind: Schema.Literals(["key_taken", "customized"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export class StatusChangeRejected extends Schema.TaggedError<StatusChangeRejected>()(
+  "StatusChangeRejected",
+  {
+    kind: Schema.Literals([
+      "baseline_order",
+      "invalid_label",
+      "reassign_required",
+      "reassign_target_invalid",
+      "reassign_target_missing",
+      "reserved_slug",
+      "slug_exists"
+    ])
+  },
+  { httpApiStatus: 409 }
+) {}
+
+export const OrgConflictKind = Schema.Literals([
+  "already_member",
+  "already_invited",
+  "last_owner",
+  "last_owner_removal",
+  "membership_limit",
+  "invitation_limit",
+  "inviter_left",
+  "slug_taken"
+])
+export type OrgConflictKind = typeof OrgConflictKind.Type
+
+export class OrgConflict extends Schema.TaggedError<OrgConflict>()(
+  "OrgConflict",
+  { kind: OrgConflictKind },
+  { httpApiStatus: 409 }
+) {}
+
+export class OrgRestoreRejected extends Schema.TaggedError<OrgRestoreRejected>()(
+  "OrgRestoreRejected",
+  { kind: Schema.Literals(["grace_expired", "not_deleted"]) },
+  { httpApiStatus: 409 }
+) {}
+
+export class GitHubConnectionConflict extends Schema.TaggedError<GitHubConnectionConflict>()(
+  "GitHubConnectionConflict",
+  {
+    kind: Schema.Literals([
+      "installation_connected_elsewhere",
+      "installation_not_available",
+      "repo_already_connected",
+      "no_connection"
+    ])
+  },
+  { httpApiStatus: 409 }
+) {}
+
+export class BranchLinkConflict extends Schema.TaggedError<BranchLinkConflict>()(
+  "BranchLinkConflict",
+  {
+    kind: Schema.Literals([
+      "already_on_ticket",
+      "on_other_ticket",
+      "not_stacked",
+      "no_branch"
+    ])
+  },
+  { httpApiStatus: 409 }
+) {}
+
+export class SlackConnectionConflict extends Schema.TaggedError<SlackConnectionConflict>()(
+  "SlackConnectionConflict",
+  {
+    kind: Schema.Literals([
+      "disconnect_first",
+      "identity_connected",
+      "workspace_connected"
+    ])
+  },
+  { httpApiStatus: 409 }
+) {}
+
+export const TicketFieldErrors = [
+  Validation,
+  UnknownType,
+  UnknownStatus,
+  UnknownTags,
+  NonMemberAssignees,
+  EstimationOff,
+  EstimateUnitMismatch,
+  HierarchyInvalid,
+  RelationInvalid
+] as const

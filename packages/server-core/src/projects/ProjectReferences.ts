@@ -2,15 +2,11 @@ import { Db } from "@pp/db"
 import { projectImport, projectImportReference } from "@pp/db/schema"
 import {
   type ActivityActor,
-  type Conflict,
   type FixReferenceInput,
-  type Forbidden,
-  type MentionInvalid,
   type NotFound,
   ProjectScope,
   type ReferencesToFix,
-  type ReferenceToFix,
-  Validation
+  type ReferenceToFix
 } from "@pp/shared"
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import * as Arr from "effect/Array"
@@ -24,7 +20,6 @@ import type * as Markdown from "../markdown/Markdown"
 import * as TicketCommands from "../tickets/TicketCommands"
 import * as TicketDocs from "../tickets/TicketDocs"
 import type * as TicketIndex from "../tickets/TicketIndex"
-import type { TicketReadError } from "../tickets/ticketPresentation"
 import type * as Users from "../users/Users"
 import {
   forEachImportReferenceBatch,
@@ -48,12 +43,10 @@ export class ProjectReferences extends Context.Service<
     ) => Effect.Effect<
       ReferencesToFix,
       | Markdown.MarkdownError
-      | Forbidden
       | NotFound
-      | Validation
-      | MentionInvalid
-      | Conflict
-      | TicketReadError,
+      | Effect.Error<
+          ReturnType<TicketCommands.TicketCommands["Service"]["update"]>
+        >,
       ProjectScope | ActivityActor
     >
   }>
@@ -228,17 +221,10 @@ const make = Effect.gen(function* () {
       )
       const body = applyReferenceFix(document.body, input, input.action)
       if (body === document.body) continue
-      yield* commands
-        .update(ticketId, { body }, undefined, {
-          body: document.body,
-          updatedAt: document.updatedAt
-        })
-        .pipe(
-          Effect.catchTag(
-            "SprintCompletedImmutable",
-            () => new Validation({ reason: "sprint_completed_immutable" })
-          )
-        )
+      yield* commands.update(ticketId, { body }, undefined, {
+        body: document.body,
+        updatedAt: document.updatedAt
+      })
       yield* db
         .delete(projectImportReference)
         .where(

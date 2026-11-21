@@ -1,7 +1,6 @@
 import {
   type AttachBranchInput,
   BranchNotFound,
-  Conflict,
   type CreateBranchInput,
   type GitHubError,
   type GitHubScopeInsufficient,
@@ -20,7 +19,9 @@ import {
   type BranchProtected,
   type NotFound,
   type OpenPrResult,
-  type TicketDetail
+  type TicketDetail,
+  BranchLinkConflict,
+  GitHubConnectionConflict
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -229,7 +230,8 @@ export class TicketGit extends Context.Service<
     ) => Effect.Effect<
       TicketDetail,
       | TicketReadError
-      | Conflict
+      | BranchLinkConflict
+      | GitHubConnectionConflict
       | BranchExists
       | BranchProtected
       | GitHubFailure,
@@ -240,7 +242,11 @@ export class TicketGit extends Context.Service<
       input: AttachBranchInput
     ) => Effect.Effect<
       TicketDetail,
-      TicketReadError | Conflict | BranchNotFound | GitHubFailure,
+      | TicketReadError
+      | BranchLinkConflict
+      | GitHubConnectionConflict
+      | BranchNotFound
+      | GitHubFailure,
       ProjectScope | ActivityActor
     >
     openPr: (
@@ -248,7 +254,11 @@ export class TicketGit extends Context.Service<
       input: OpenPrInput
     ) => Effect.Effect<
       OpenPrResult,
-      TicketReadError | Conflict | BranchProtected | GitHubFailure,
+      | TicketReadError
+      | BranchLinkConflict
+      | GitHubConnectionConflict
+      | BranchProtected
+      | GitHubFailure,
       ProjectScope | ActivityActor
     >
     clearBranch: (
@@ -263,7 +273,11 @@ export class TicketGit extends Context.Service<
       input: AttachBranchInput
     ) => Effect.Effect<
       TicketDetail,
-      TicketReadError | Conflict | BranchNotFound | GitHubFailure,
+      | TicketReadError
+      | BranchLinkConflict
+      | GitHubConnectionConflict
+      | BranchNotFound
+      | GitHubFailure,
       ProjectScope | ActivityActor
     >
     unstackBranch: (
@@ -271,7 +285,7 @@ export class TicketGit extends Context.Service<
       input: AttachBranchInput
     ) => Effect.Effect<
       TicketDetail,
-      TicketReadError | Conflict,
+      TicketReadError | BranchLinkConflict | GitHubConnectionConflict,
       ProjectScope | ActivityActor
     >
     getGitState: (
@@ -365,7 +379,7 @@ const make = Effect.gen(function* () {
           : current
         : ProjectGithub.integrationForRepo(integrations, requested)
     if (!repository) {
-      return yield* new Conflict({ reason: "no_github_connection" })
+      return yield* new GitHubConnectionConflict({ kind: "no_connection" })
     }
     return { repository, moved: current?.repoId !== repository.repoId }
   })
@@ -378,7 +392,7 @@ const make = Effect.gen(function* () {
       ticket.repo
     )
     if (!repository) {
-      return yield* new Conflict({ reason: "no_github_connection" })
+      return yield* new GitHubConnectionConflict({ kind: "no_connection" })
     }
     return repository
   })
@@ -448,7 +462,7 @@ const make = Effect.gen(function* () {
           !moved &&
           (ticket.stack ?? []).some((layer) => layer.branch === input.name)
         ) {
-          return yield* new Conflict({ reason: "branch_already_on_ticket" })
+          return yield* new BranchLinkConflict({ kind: "already_on_ticket" })
         }
 
         const exists = yield* github.branchExistsInstallation(
@@ -472,9 +486,7 @@ const make = Effect.gen(function* () {
                 true
               ))
             ) {
-              return yield* new Conflict({
-                reason: "branch_on_other_ticket"
-              })
+              return yield* new BranchLinkConflict({ kind: "on_other_ticket" })
             }
             return yield* writeGitFields(scope, ticket, {
               repo: projectGithub.repoId,
@@ -509,7 +521,7 @@ const make = Effect.gen(function* () {
         const ticket = yield* readTicket(scope, id)
         const projectGithub = yield* ticketRepository(ticket)
         if (!ticket.branch) {
-          return yield* new Conflict({ reason: "no_branch_on_ticket" })
+          return yield* new BranchLinkConflict({ kind: "no_branch" })
         }
 
         const base = projectGithub.defaultBaseBranch
@@ -588,10 +600,10 @@ const make = Effect.gen(function* () {
         const ticket = yield* readTicket(scope, id)
         const projectGithub = yield* ticketRepository(ticket)
         if (!ticket.branch) {
-          return yield* new Conflict({ reason: "no_branch_on_ticket" })
+          return yield* new BranchLinkConflict({ kind: "no_branch" })
         }
         if (ticketBranches(ticket).has(input.name)) {
-          return yield* new Conflict({ reason: "branch_already_on_ticket" })
+          return yield* new BranchLinkConflict({ kind: "already_on_ticket" })
         }
         const exists = yield* github.branchExistsInstallation(
           projectGithub.installationId,
@@ -629,9 +641,7 @@ const make = Effect.gen(function* () {
                 input.name
               )
             ) {
-              return yield* new Conflict({
-                reason: "branch_on_other_ticket"
-              })
+              return yield* new BranchLinkConflict({ kind: "on_other_ticket" })
             }
             return yield* writeGitFields(scope, ticket, {
               stack: [...(ticket.stack ?? []), layer],
@@ -658,7 +668,7 @@ const make = Effect.gen(function* () {
         const ticket = yield* readTicket(scope, id)
         const stack = ticket.stack ?? []
         if (!stack.some((layer) => layer.branch === input.name)) {
-          return yield* new Conflict({ reason: "branch_not_stacked" })
+          return yield* new BranchLinkConflict({ kind: "not_stacked" })
         }
         const next = yield* writeGitFields(scope, ticket, {
           stack: stack.filter((layer) => layer.branch !== input.name),

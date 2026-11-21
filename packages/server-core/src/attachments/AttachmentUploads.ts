@@ -18,7 +18,7 @@ import {
   StorageError,
   TicketId,
   Unauthorized,
-  Validation
+  UploadFailed
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Config from "effect/Config"
@@ -52,14 +52,14 @@ export class AttachmentUploads extends Context.Service<
     receive: (
       token: string,
       contentType: string,
-      body: Stream.Stream<Uint8Array, Validation>
+      body: Stream.Stream<Uint8Array, UploadFailed>
     ) => Effect.Effect<
       Pick<Attachment, "id" | "url" | "filename" | "contentType">,
       | Forbidden
       | Attachments.AttachmentUploadError
       | AttachmentNotUploaded
       | Unauthorized
-      | Validation
+      | UploadFailed
     >
   }>
 >()("@pp/server-core/attachments/AttachmentUploads") {}
@@ -293,12 +293,7 @@ const make = Effect.gen(function* () {
     },
     Effect.timeout("60 seconds"),
     Effect.catchTag("TimeoutError", () =>
-      Effect.fail(
-        new Validation({
-          reason:
-            "Upload timed out. Retry the upload URL, or prepare a new upload if it expired."
-        })
-      )
+      Effect.fail(new UploadFailed({ kind: "timed_out" }))
     )
   )
 

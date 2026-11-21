@@ -199,8 +199,8 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
             expect(conflict).toMatchObject({
               _tag: "Failure",
               failure: {
-                _tag: "Conflict",
-                reason: "jira_migration_request_conflict"
+                _tag: "JiraMigrationChanged",
+                kind: "request"
               }
             })
             const repeated = yield* Effect.all(

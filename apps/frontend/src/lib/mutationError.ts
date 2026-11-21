@@ -1,8 +1,8 @@
 import {
-  Conflict,
   Forbidden,
   NotFound,
   SlackAuthInvalid,
+  SlackConnectionConflict,
   SlackError,
   SlackNotConnected,
   SlackRateLimited,
@@ -25,7 +25,7 @@ import type {
   transferOwnership,
   updateMemberRole
 } from "@/features/organizations/atoms/orgs"
-import { errorMessage, isValidationDetail } from "@/lib/errorMessage"
+import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export const mutationFailure = <E, T>(
@@ -51,7 +51,7 @@ export const mutationErrorText = <E>(
 type Tagged = Readonly<{ _tag: string }>
 
 export const isUnknownTemplate = (error: Tagged) =>
-  isValidationDetail(error) && error.reason.startsWith("unknown_type")
+  Predicate.isTagged(error, "UnknownType")
 
 export const failedOnUnknownTemplate = (exit: Exit.Exit<unknown, Tagged>) =>
   Exit.isFailure(exit) &&
@@ -64,7 +64,7 @@ export const ticketCreateErrorMessage = (error: Tagged) =>
 
 const isExpectedSlackError = Schema.is(
   Schema.Union([
-    Conflict,
+    SlackConnectionConflict,
     Forbidden,
     NotFound,
     Unauthorized,
@@ -100,16 +100,16 @@ export const orgActionError = (error: OrgMutationFailure) => {
       message: m.org_members_last_project_pm_blocked(),
       projectSlugs
     })),
-    Match.when({ _tag: "Conflict", reason: "already_member" }, () => ({
+    Match.when({ _tag: "OrgConflict", kind: "already_member" }, () => ({
       message: m.org_members_error_already_member()
     })),
-    Match.when({ _tag: "Conflict", reason: "already_invited" }, () => ({
+    Match.when({ _tag: "OrgConflict", kind: "already_invited" }, () => ({
       message: m.org_members_error_already_invited()
     })),
-    Match.when({ _tag: "Conflict", reason: "last_owner_removal" }, () => ({
+    Match.when({ _tag: "OrgConflict", kind: "last_owner_removal" }, () => ({
       message: m.org_members_error_last_owner()
     })),
-    Match.when({ _tag: "Conflict", reason: "last_owner" }, () => ({
+    Match.when({ _tag: "OrgConflict", kind: "last_owner" }, () => ({
       message: m.org_members_error_only_owner_leave()
     })),
     Match.when({ _tag: "Validation", reason: "role_not_found" }, () => ({

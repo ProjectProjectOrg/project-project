@@ -3,7 +3,9 @@ import * as Org from "@pp/server-core/organizations/Org"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import {
   AppApi,
-  Conflict,
+  OrgConflict,
+  type OrgConflictKind,
+  type ValidationReason,
   CurrentUser,
   Forbidden,
   NotFound,
@@ -66,7 +68,7 @@ const MISSING_CODES = new Set([
   "NO_ACTIVE_ORGANIZATION"
 ])
 
-const CONFLICTING_CODES = new Map([
+const CONFLICTING_CODES = new Map<string, OrgConflictKind>([
   ["USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION", "already_member"],
   ["USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION", "already_invited"],
   ["LAST_ORG_OWNER_BLOCKED", "last_owner_removal"],
@@ -78,7 +80,7 @@ const CONFLICTING_CODES = new Map([
   ["INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION", "inviter_left"]
 ])
 
-const INVALID_CODES = new Map([
+const INVALID_CODES = new Map<string, ValidationReason>([
   ["ROLE_NOT_FOUND", "role_not_found"],
   ["INVALID_EMAIL", "invalid_email"]
 ])
@@ -108,7 +110,7 @@ export const memberErrorToFailure = (error: BetterAuth.BetterAuthError) =>
     if (FORBIDDING_CODES.has(code)) return yield* new Forbidden()
     if (MISSING_CODES.has(code)) return yield* new NotFound()
     const conflict = CONFLICTING_CODES.get(code)
-    if (conflict) return yield* new Conflict({ reason: conflict })
+    if (conflict) return yield* new OrgConflict({ kind: conflict })
     const invalid = INVALID_CODES.get(code)
     if (invalid) return yield* new Validation({ reason: invalid })
     return yield* Effect.die(error)
@@ -118,7 +120,7 @@ export const opaqueErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
       Forbidden: () => new NotFound(),
-      Conflict: () => new NotFound(),
+      OrgConflict: () => new NotFound(),
       Validation: () => new NotFound()
     })
   )
@@ -126,7 +128,7 @@ export const opaqueErrorToFailure = (error: BetterAuth.BetterAuthError) =>
 export const memberAccessErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
-      Conflict: () => new Forbidden(),
+      OrgConflict: () => new Forbidden(),
       Validation: () => new Forbidden()
     })
   )
@@ -173,7 +175,7 @@ export const leaveErrorToFailure = (error: BetterAuth.BetterAuthError) =>
 
 export const transferErrorToFailure = (error: BetterAuth.BetterAuthError) =>
   memberErrorToFailure(error).pipe(
-    Effect.catchTags({ Conflict: () => new Forbidden() })
+    Effect.catchTags({ OrgConflict: () => new Forbidden() })
   )
 
 const webRequest = Effect.gen(function* () {

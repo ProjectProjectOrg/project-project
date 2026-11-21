@@ -124,7 +124,6 @@
   "github_chip_choose_account": "Choose a GitHub account or organization",
   "github_chip_connect_failed_error": "Couldn't connect repo.",
   "github_chip_connect_installation_unavailable_error": "That GitHub installation isn't available to this project.",
-  "github_chip_connect_no_app_error": "This organization has no GitHub App yet.",
   "github_chip_connect_repo_button": "Add repository",
   "github_chip_connect_repo_taken_error": "Another project already uses this repo.",
   "github_chip_connect_scope_insufficient_error": "Insufficient scope on GitHub token.",

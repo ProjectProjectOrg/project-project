@@ -14,7 +14,6 @@ import {
   userSlackIntegration
 } from "@pp/db/schema"
 import {
-  Conflict,
   ConnectSlackInput,
   NotFound,
   OrgScope,
@@ -25,7 +24,8 @@ import {
   SlackNotConnected,
   type SlackOrgStatus,
   type SlackProjectStatus,
-  type SaveSlackProjectInput
+  type SaveSlackProjectInput,
+  SlackConnectionConflict
 } from "@pp/shared"
 import { and, eq, gt, isNull, sql } from "drizzle-orm"
 import * as Config from "effect/Config"
@@ -230,14 +230,18 @@ export const makeSlackIntegrations = Effect.gen(function* () {
               previous.appId !== appId ||
               previous.clientId !== input.clientId)
           )
-            return yield* new Conflict({ reason: "slack_disconnect_first" })
+            return yield* new SlackConnectionConflict({
+              kind: "disconnect_first"
+            })
           const [other] = yield* db
             .select()
             .from(organizationSlackIntegration)
             .where(eq(organizationSlackIntegration.teamId, identity.team_id))
             .limit(1)
           if (other && other.organizationIntegrationId !== previous?.id)
-            return yield* new Conflict({ reason: "slack_workspace_connected" })
+            return yield* new SlackConnectionConflict({
+              kind: "workspace_connected"
+            })
           const [parent] = previous
             ? [{ id: previous.id }]
             : yield* db
@@ -660,7 +664,9 @@ export const makeSlackIntegrations = Effect.gen(function* () {
         .limit(1)
         .pipe(Effect.orDie)
       if (!existing)
-        return yield* new Conflict({ reason: "slack_identity_connected" })
+        return yield* new SlackConnectionConflict({
+          kind: "identity_connected"
+        })
     }
   })
   return {

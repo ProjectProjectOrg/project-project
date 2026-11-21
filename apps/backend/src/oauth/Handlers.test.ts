@@ -6,17 +6,14 @@ import { expect } from "vitest"
 
 import { consentErrorToFailure } from "./Handlers"
 
-it.effect(
-  "preserves the OAuth error code for invalid or expired consent queries",
-  () =>
-    Effect.gen(function* () {
-      const error = new BetterAuth.BetterAuthError({
-        cause: new APIError("BAD_REQUEST", { error: "invalid_signature" })
-      })
-      const result = yield* consentErrorToFailure(error).pipe(Effect.flip)
-      expect(result).toMatchObject({
-        _tag: "Validation",
-        reason: "invalid_signature"
-      })
+it.effect("rejects invalid or expired consent queries", () =>
+  Effect.gen(function* () {
+    const error = new BetterAuth.BetterAuthError({
+      cause: new APIError("BAD_REQUEST", { error: "invalid_signature" })
     })
+    const result = yield* consentErrorToFailure(error).pipe(Effect.flip)
+    expect(result).toMatchObject({
+      _tag: "OAuthConsentRejected"
+    })
+  })
 )

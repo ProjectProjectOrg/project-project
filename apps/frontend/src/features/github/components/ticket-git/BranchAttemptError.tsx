@@ -79,12 +79,12 @@ function attachErrorText(state: AttachState, name: string) {
           m.git_github_scope_insufficient_error()
         ),
         Match.tag("RepoGone", () => m.git_repo_gone_error()),
-        Match.tag("Conflict", ({ reason }) =>
-          Match.value(reason).pipe(
-            Match.when("branch_on_other_ticket", () =>
+        Match.tag("BranchLinkConflict", ({ kind }) =>
+          Match.value(kind).pipe(
+            Match.when("on_other_ticket", () =>
               m.git_stack_branch_on_other_ticket_error()
             ),
-            Match.when("branch_already_on_ticket", () =>
+            Match.when("already_on_ticket", () =>
               m.git_stack_branch_already_on_ticket_error()
             ),
             Match.orElse(() => m.git_attach_branch_error())

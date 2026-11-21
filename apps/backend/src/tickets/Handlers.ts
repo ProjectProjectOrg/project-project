@@ -3,7 +3,7 @@
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { AppApi, Validation } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
@@ -101,7 +101,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("update", ({ params, payload, query }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.update(params.id, payload, query.sort)
-        ).pipe(dieOnMarkdown, Effect.catchTag("Conflict", Effect.die))
+        ).pipe(dieOnMarkdown, Effect.catchTag("TicketChanged", Effect.die))
       )
       .handle("bulkUpdate", ({ payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
@@ -111,12 +111,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("bulkArchive", ({ payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.bulkArchive(payload)
-        ).pipe(
-          Effect.catchTag("InvalidCommentBody", (error) =>
-            Effect.fail(new Validation({ reason: error.reason }))
-          ),
-          dieOnMarkdown
-        )
+        ).pipe(dieOnMarkdown)
       )
       .handle("bulkDelete", ({ payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
@@ -146,12 +141,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("archive", ({ params, payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.archive(params.id, payload)
-        ).pipe(
-          Effect.catchTag("InvalidCommentBody", (error) =>
-            Effect.fail(new Validation({ reason: error.reason }))
-          ),
-          dieOnMarkdown
-        )
+        ).pipe(dieOnMarkdown)
       )
       .handle("mark", ({ params, payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>

@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict } from "../errors"
+import { UnknownStatus } from "../errors"
 import { ProjectPath } from "../http/paths"
 import { GitAutomation, UpdateGitAutomationInput } from "./GitAutomation"
 
@@ -21,7 +21,7 @@ export const GitAutomationGroup = HttpApiGroup.make("gitAutomation")
         params: ProjectPath,
         payload: UpdateGitAutomationInput,
         success: GitAutomation,
-        error: Conflict
+        error: [UnknownStatus]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

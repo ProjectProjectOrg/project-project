@@ -19,7 +19,6 @@ import {
   ActivityActor,
   AppApi,
   Authentication,
-  Conflict,
   CurrentUser,
   EMPTY_LAYER,
   FeedbackIntakeGuard,
@@ -29,7 +28,8 @@ import {
   resolveLibrary,
   TypeKey,
   UserId,
-  type User
+  type User,
+  JiraMigrationChanged
 } from "@pp/shared"
 import {
   DateTime,
@@ -433,7 +433,7 @@ it.effect(
 )
 
 it.effect(
-  "resolves the authenticated source and keeps detail and Conflict HTTP contracts",
+  "resolves the authenticated source and keeps detail and JiraMigrationChanged HTTP contracts",
   () =>
     Effect.gen(function* () {
       const now = DateTime.makeUnsafe("2026-09-22T00:00:00Z")
@@ -457,9 +457,7 @@ it.effect(
             projectName: "Application"
           })
           if (requestId === "reused")
-            return Effect.fail(
-              new Conflict({ reason: "jira_migration_request_conflict" })
-            )
+            return Effect.fail(new JiraMigrationChanged({ kind: "request" }))
           return Effect.succeed({
             id: "workflow-execution-id",
             sourceCloudId: source.cloudId,
@@ -521,8 +519,8 @@ it.effect(
         expect(conflict).toMatchObject({
           _tag: "Failure",
           failure: {
-            _tag: "Conflict",
-            reason: "jira_migration_request_conflict"
+            _tag: "JiraMigrationChanged",
+            kind: "request"
           }
         })
       }).pipe(
@@ -769,9 +767,7 @@ it.effect(
               expectedRevision: 7,
               draft: configuration
             })
-            return Effect.fail(
-              new Conflict({ reason: "jira_migration_revision_conflict" })
-            )
+            return Effect.fail(new JiraMigrationChanged({ kind: "revision" }))
           }
         })
       )
@@ -791,8 +787,8 @@ it.effect(
         expect(result).toMatchObject({
           _tag: "Failure",
           failure: {
-            _tag: "Conflict",
-            reason: "jira_migration_revision_conflict"
+            _tag: "JiraMigrationChanged",
+            kind: "revision"
           }
         })
       }).pipe(
@@ -840,9 +836,7 @@ it.effect(
           destinationConflicts: unused,
           configure: (_organizationId, _userId, _migrationId, _rev, draft) => {
             saved.push(draft)
-            return Effect.fail(
-              new Conflict({ reason: "jira_migration_revision_conflict" })
-            )
+            return Effect.fail(new JiraMigrationChanged({ kind: "revision" }))
           }
         })
       )
@@ -876,11 +870,11 @@ it.effect(
           )
         expect(yield* configure(accepted)).toMatchObject({
           _tag: "Failure",
-          failure: { _tag: "Conflict" }
+          failure: { _tag: "JiraMigrationChanged" }
         })
         expect(yield* configure(unknown)).toMatchObject({
           _tag: "Failure",
-          failure: { _tag: "Validation", reason: "unknown_type:ghost" }
+          failure: { _tag: "UnknownType", key: "ghost" }
         })
         expect(saved).toEqual([accepted])
       }).pipe(

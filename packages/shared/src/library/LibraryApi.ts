@@ -4,7 +4,12 @@ import * as Schema from "effect/Schema"
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, MentionInvalid, Validation } from "../errors"
+import {
+  MentionInvalid,
+  InvalidBlocks,
+  LibraryConflict,
+  LibraryContentRejected
+} from "../errors"
 import { OrgPath, ProjectPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import {
@@ -57,7 +62,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
       params: OrgPath,
       payload: CreateBlockInput,
       success: BlockDefinition,
-      error: [Conflict, Validation, MentionInvalid]
+      error: [
+        MentionInvalid,
+        InvalidBlocks,
+        LibraryConflict,
+        LibraryContentRejected
+      ]
     })
       .annotate(RequiresOrg, { library: ["manage"] })
       .middleware(OrgAccess)
@@ -70,7 +80,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: OrgBlockPath,
         payload: UpdateBlockInput,
         success: BlockDefinition,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, InvalidBlocks, LibraryContentRejected]
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -93,7 +103,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
       params: OrgPath,
       payload: CreateTypeInput,
       success: TypeDefinition,
-      error: [Conflict, Validation, MentionInvalid]
+      error: [
+        MentionInvalid,
+        InvalidBlocks,
+        LibraryConflict,
+        LibraryContentRejected
+      ]
     })
       .annotate(RequiresOrg, { library: ["manage"] })
       .middleware(OrgAccess)
@@ -106,7 +121,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: OrgTypePath,
         payload: UpdateTypeInput,
         success: TypeDefinition,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, InvalidBlocks, LibraryContentRejected]
       }
     )
       .annotate(RequiresOrg, { library: ["manage"] })
@@ -132,7 +147,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectPath,
         payload: CreateBlockInput,
         success: BlockDefinition,
-        error: [Conflict, Validation, MentionInvalid]
+        error: [
+          MentionInvalid,
+          InvalidBlocks,
+          LibraryConflict,
+          LibraryContentRejected
+        ]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -146,7 +166,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectBlockPath,
         payload: UpdateBlockInput,
         success: BlockDefinition,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, InvalidBlocks, LibraryContentRejected]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -171,7 +191,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       {
         params: ProjectBlockPath,
         success: HttpApiSchema.NoContent,
-        error: Conflict
+        error: [LibraryConflict]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -185,7 +205,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectPath,
         payload: CreateTypeInput,
         success: TypeDefinition,
-        error: [Conflict, Validation, MentionInvalid]
+        error: [
+          MentionInvalid,
+          InvalidBlocks,
+          LibraryConflict,
+          LibraryContentRejected
+        ]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -199,7 +224,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
         params: ProjectTypePath,
         payload: UpdateTypeInput,
         success: TypeDefinition,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, InvalidBlocks, LibraryContentRejected]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })
@@ -224,7 +249,7 @@ export const LibraryGroup = HttpApiGroup.make("library")
       {
         params: ProjectTypePath,
         success: HttpApiSchema.NoContent,
-        error: Conflict
+        error: [LibraryConflict]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })

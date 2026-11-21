@@ -3,7 +3,6 @@ import {
   type ActivityActor,
   type ActivityCause,
   type CompleteSprintInput,
-  Conflict,
   type CompleteSprintOutput,
   GroupId,
   type CreateGroupInput,
@@ -19,7 +18,6 @@ import {
   type UpdateGroupInput,
   type UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
-  Validation,
   ProjectScope,
   Forbidden,
   GroupColor,
@@ -29,7 +27,10 @@ import {
   padNumericIdSort,
   sprintState,
   TAG_DEFAULT_PALETTE,
-  isEpic
+  isEpic,
+  HierarchyInvalid,
+  SprintInvalid,
+  TicketChanged
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -92,7 +93,11 @@ export class Groups extends Context.Service<
       input: CreateGroupInput
     ) => Effect.Effect<
       Group,
-      Forbidden | NotFound | Validation | Markdown.MarkdownError,
+      | Forbidden
+      | NotFound
+      | SprintInvalid
+      | HierarchyInvalid
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     update: (
@@ -100,7 +105,7 @@ export class Groups extends Context.Service<
       input: UpdateGroupInput
     ) => Effect.Effect<
       GroupDetail,
-      Forbidden | NotFound | Validation | Markdown.MarkdownError,
+      Forbidden | NotFound | SprintInvalid | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     updateTickets: (
@@ -111,7 +116,8 @@ export class Groups extends Context.Service<
       | Forbidden
       | NotFound
       | SprintCompletedImmutable
-      | Validation
+      | SprintInvalid
+      | HierarchyInvalid
       | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
@@ -123,7 +129,8 @@ export class Groups extends Context.Service<
       | Forbidden
       | NotFound
       | SprintCompletedImmutable
-      | Validation
+      | SprintInvalid
+      | HierarchyInvalid
       | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
@@ -143,7 +150,7 @@ export class Groups extends Context.Service<
       | Forbidden
       | NotFound
       | SprintCompletedImmutable
-      | Validation
+      | SprintInvalid
       | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
@@ -170,7 +177,7 @@ export class Groups extends Context.Service<
       options?: SprintMembershipOptions
     ) => Effect.Effect<
       void,
-      | Conflict
+      | TicketChanged
       | Forbidden
       | NotFound
       | SprintCompletedImmutable
@@ -387,7 +394,7 @@ const make = Effect.gen(function* () {
 
   const validateInterval = (startsAt: Date | null, endsAt: Date | null) =>
     startsAt !== null && endsAt !== null && endsAt < startsAt
-      ? Effect.fail(new Validation({ reason: "invalid_interval" }))
+      ? Effect.fail(new SprintInvalid({ kind: "invalid_interval" }))
       : Effect.void
 
   const validateCompletion = (
@@ -397,10 +404,10 @@ const make = Effect.gen(function* () {
   ) => {
     if (completedAt === null) return Effect.void
     if (completedAt > now) {
-      return Effect.fail(new Validation({ reason: "completed_in_future" }))
+      return Effect.fail(new SprintInvalid({ kind: "completed_in_future" }))
     }
     if (startsAt !== null && completedAt < startsAt) {
-      return Effect.fail(new Validation({ reason: "completed_before_start" }))
+      return Effect.fail(new SprintInvalid({ kind: "completed_before_start" }))
     }
     return Effect.void
   }
@@ -519,7 +526,7 @@ const make = Effect.gen(function* () {
 
   const rejectEpics = (tickets: ReadonlyArray<TicketDocs.TicketDocument>) =>
     tickets.some((ticket) => isEpic(ticket))
-      ? Effect.fail(new Validation({ reason: "epic_in_sprint" }))
+      ? Effect.fail(new HierarchyInvalid({ kind: "epic_in_sprint" }))
       : Effect.void
 
   const create = Effect.fn("Groups.create")(function* (
@@ -858,7 +865,7 @@ const make = Effect.gen(function* () {
         yield* requireGroupAction(source.kind, "manage")
 
         if (source.kind !== "sprint") {
-          return yield* new Validation({ reason: "not_a_sprint" })
+          return yield* new SprintInvalid({ kind: "not_a_sprint" })
         }
         if (source.completedAt !== null) {
           return yield* new SprintCompletedImmutable()
@@ -867,7 +874,7 @@ const make = Effect.gen(function* () {
         let destination: GroupId | undefined = undefined
         if (input.destination.kind === "sprint") {
           if (input.destination.groupId === source.id) {
-            return yield* new Validation({ reason: "destination_is_source" })
+            return yield* new SprintInvalid({ kind: "destination_is_source" })
           }
           const dest = yield* groupDocs.read(
             orgSlug,
@@ -875,7 +882,7 @@ const make = Effect.gen(function* () {
             input.destination.groupId
           )
           if (dest.kind !== "sprint") {
-            return yield* new Validation({ reason: "destination_not_sprint" })
+            return yield* new SprintInvalid({ kind: "destination_not_sprint" })
           }
           if (dest.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
@@ -1029,8 +1036,8 @@ const make = Effect.gen(function* () {
                     options?.from !== undefined &&
                     (document.sprint ?? null) !== options.from
                   ) {
-                    return yield* new Conflict({
-                      reason: "sprint_membership_changed"
+                    return yield* new TicketChanged({
+                      kind: "sprint_membership_changed"
                     })
                   }
                   const sprint = sprintId ?? undefined

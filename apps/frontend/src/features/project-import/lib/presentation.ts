@@ -1,4 +1,10 @@
-import type { ProjectImport } from "@pp/shared"
+import {
+  type ProjectImport,
+  ProjectIdentifierTaken,
+  ProjectImportInvalid,
+  ProjectImportStateConflict
+} from "@pp/shared"
+import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
 import { errorMessage } from "@/lib/errorMessage"
@@ -41,11 +47,20 @@ const REASON_MESSAGES = {
   import_failed: m.project_import_failed_description
 } satisfies Record<string, () => string>
 
-const isReasonError = Schema.is(
-  Schema.Struct({
-    _tag: Schema.Literals(["Validation", "Conflict"]),
-    reason: Schema.String
-  })
+const errorReason = Match.type<Readonly<{ _tag: string }>>().pipe(
+  Match.when(
+    Schema.is(Schema.Struct(ProjectImportInvalid.fields)),
+    ({ kind }) => kind
+  ),
+  Match.when(
+    Schema.is(Schema.Struct(ProjectImportStateConflict.fields)),
+    ({ kind }) => `import_${kind}`
+  ),
+  Match.when(
+    Schema.is(Schema.Struct(ProjectIdentifierTaken.fields)),
+    ({ kind }) => `project_${kind}_taken`
+  ),
+  Match.orElse(() => null)
 )
 
 const isKnownReason = (
@@ -57,9 +72,10 @@ const reasonMessage = (reason: string) =>
   isKnownReason(reason) ? REASON_MESSAGES[reason]() : undefined
 
 export const projectImportErrorMessage = (error: Readonly<{ _tag: string }>) =>
-  (isReasonError(error) ? reasonMessage(error.reason) : undefined) ??
-  errorMessage(error)
+  importFailureReasonMessage(errorReason(error)) ?? errorMessage(error)
+
+const importFailureReasonMessage = (reason: string | null) =>
+  reason === null ? undefined : reasonMessage(reason)
 
 export const importFailureMessage = (reason: string | null) =>
-  (reason === null ? undefined : reasonMessage(reason)) ??
-  m.project_import_failed_description()
+  importFailureReasonMessage(reason) ?? m.project_import_failed_description()

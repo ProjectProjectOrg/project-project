@@ -3,7 +3,11 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { SprintCompletedImmutable, Validation } from "../errors"
+import {
+  SprintCompletedImmutable,
+  HierarchyInvalid,
+  SprintInvalid
+} from "../errors"
 import { GroupPath, ProjectPath } from "../http/paths"
 import { Ticket } from "../tickets/Ticket"
 import {
@@ -29,7 +33,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
       params: ProjectPath,
       payload: CreateGroupInput,
       success: Group,
-      error: Validation
+      error: [HierarchyInvalid, SprintInvalid]
     }).annotate(RequiresProject, "membership")
   )
   .add(
@@ -56,7 +60,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupInput,
         success: GroupDetail,
-        error: Validation
+        error: [SprintInvalid]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -68,7 +72,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [SprintCompletedImmutable, Validation]
+        error: [SprintCompletedImmutable, HierarchyInvalid, SprintInvalid]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -80,7 +84,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
-        error: [SprintCompletedImmutable, Validation]
+        error: [SprintCompletedImmutable, HierarchyInvalid, SprintInvalid]
       }
     ).annotate(RequiresProject, "membership")
   )
@@ -104,7 +108,7 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         params: GroupPath,
         payload: CompleteSprintInput,
         success: CompleteSprintOutput,
-        error: [SprintCompletedImmutable, Validation]
+        error: [SprintCompletedImmutable, SprintInvalid]
       }
     ).annotate(RequiresProject, { sprint: ["manage"] })
   )

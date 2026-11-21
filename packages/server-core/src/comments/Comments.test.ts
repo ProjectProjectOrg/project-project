@@ -402,8 +402,7 @@ it.effect(
       )
 
       expect(reply).toMatchObject({
-        _tag: "Conflict",
-        reason: "thread_resolved"
+        _tag: "CommentThreadResolved"
       })
       expect(parseCommentsRegion(written?.commentsRegion ?? "")).toHaveLength(1)
     }).pipe(Effect.provide(layer))
@@ -472,8 +471,7 @@ it.effect(
         })
       )
       expect(reply).toMatchObject({
-        _tag: "Conflict",
-        reason: "thread_resolved"
+        _tag: "CommentThreadResolved"
       })
 
       const reopened = yield* comments.resolve(

@@ -20,7 +20,6 @@ import {
   ATTACHMENT_MAX_BYTES,
   resolveLibrary,
   AttachmentId,
-  Conflict,
   ImportFormatUnsupported,
   NotFound,
   OrgScope,
@@ -33,10 +32,13 @@ import {
   ProjectKey,
   StorageError,
   StorageNotConnected,
-  Validation,
   type ProjectExportManifest,
   type ProjectImport,
-  type RunProjectImportInput
+  type RunProjectImportInput,
+  ProjectIdentifierTaken,
+  ProjectImportInvalid,
+  type ProjectImportInvalidKind,
+  ProjectImportStateConflict
 } from "@pp/shared"
 import {
   and,
@@ -54,6 +56,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Schedule from "effect/Schedule"
@@ -127,7 +130,7 @@ export const ProjectImportWorkflow = Workflow.make(
 type StepError = ProjectImportFailure
 
 type UploadError =
-  | Validation
+  | ProjectImportInvalid
   | ImportFormatUnsupported
   | StorageNotConnected
   | StorageError
@@ -144,12 +147,21 @@ export class ProjectImports extends Context.Service<
       input: RunProjectImportInput
     ) => Effect.Effect<
       ProjectImport,
-      NotFound | Conflict | Validation | StorageNotConnected | StorageError,
+      | NotFound
+      | ProjectImportStateConflict
+      | ProjectIdentifierTaken
+      | ProjectImportInvalid
+      | StorageNotConnected
+      | StorageError,
       OrgScope
     >
     cancel: (
       id: string
-    ) => Effect.Effect<ProjectImport, NotFound | Conflict, OrgScope>
+    ) => Effect.Effect<
+      ProjectImport,
+      NotFound | ProjectImportStateConflict,
+      OrgScope
+    >
     expire: () => Effect.Effect<void>
     steps: Readonly<{
       ensureHidden: (
@@ -180,7 +192,8 @@ export class ProjectImports extends Context.Service<
   }>
 >()("@pp/server-core/projects/ProjectImports") {}
 
-const invalid = (reason: string) => new Validation({ reason })
+const invalid = (kind: ProjectImportInvalidKind) =>
+  new ProjectImportInvalid({ kind })
 
 const sha256 = (bytes: Uint8Array | string) =>
   createHash("sha256").update(bytes).digest("hex")
@@ -566,9 +579,10 @@ const make = Effect.gen(function* () {
               files: null,
               attachments: null,
               failureReason: Option.isSome(error)
-                ? error.value._tag === "Validation"
-                  ? error.value.reason
-                  : error.value._tag
+                ? Match.value(error.value).pipe(
+                    Match.tag("ProjectImportInvalid", ({ kind }) => kind),
+                    Match.orElse(({ _tag }) => _tag)
+                  )
                 : Cause.hasInterruptsOnly(exit.cause)
                   ? "upload_interrupted"
                   : "upload_failed",
@@ -620,7 +634,7 @@ const make = Effect.gen(function* () {
     const scope = yield* OrgScope
     const row = yield* ownRow(id)
     if (row.status !== "ready" && row.status !== "failed")
-      return yield* new Conflict({ reason: "import_not_ready" })
+      return yield* new ProjectImportStateConflict({ kind: "not_ready" })
     if (row.manifest === null) return yield* invalid("missing_manifest")
     const manifest = decodeStoredManifest(row.manifest)
 
@@ -634,7 +648,7 @@ const make = Effect.gen(function* () {
         )
       )
       .pipe(Effect.orDie)
-    if (slugTaken) return yield* new Conflict({ reason: "project_slug_taken" })
+    if (slugTaken) return yield* new ProjectIdentifierTaken({ kind: "slug" })
     const sourceProject = (row.files ?? []).find(
       (file) => file.path === "project.md"
     )
@@ -659,7 +673,7 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.orDie)
     if (keys.some((row) => row.key === input.key))
-      return yield* new Conflict({ reason: "project_key_taken" })
+      return yield* new ProjectIdentifierTaken({ kind: "key" })
     const formerKeys = sourceKeys.filter(
       (key) => key !== input.key && !keys.some((row) => row.key === key)
     )
@@ -700,7 +714,8 @@ const make = Effect.gen(function* () {
       )
       .returning()
       .pipe(Effect.orDie)
-    if (!started) return yield* new Conflict({ reason: "import_not_ready" })
+    if (!started)
+      return yield* new ProjectImportStateConflict({ kind: "not_ready" })
     yield* ProjectImportWorkflow.execute(
       { importId: id, attempt },
       { discard: true }
@@ -1035,7 +1050,7 @@ const make = Effect.gen(function* () {
     const scope = yield* OrgScope
     const row = yield* ownRow(id)
     if (row.status === "importing" || row.status === "succeeded")
-      return yield* new Conflict({ reason: "import_not_cancellable" })
+      return yield* new ProjectImportStateConflict({ kind: "not_cancellable" })
     const [claimed] = yield* db
       .update(projectImport)
       .set({ status: "cancelled" })
@@ -1049,7 +1064,7 @@ const make = Effect.gen(function* () {
       .returning()
       .pipe(Effect.orDie)
     if (!claimed)
-      return yield* new Conflict({ reason: "import_not_cancellable" })
+      return yield* new ProjectImportStateConflict({ kind: "not_cancellable" })
     yield* removeDestination(scope.orgSlug, claimed)
     yield* deleteObjects(scope.orgSlug, claimed.attachments ?? [])
     const [cancelled] = yield* db

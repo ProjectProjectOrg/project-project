@@ -606,7 +606,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       )
       expect(result).toMatchObject({
         _tag: "Failure",
-        failure: { _tag: "Conflict", reason: "slack_disconnect_first" }
+        failure: { _tag: "SlackConnectionConflict", kind: "disconnect_first" }
       })
     })
   )

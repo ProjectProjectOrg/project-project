@@ -12,7 +12,6 @@ import {
 } from "@pp/db/schema"
 import {
   BASELINE_STATUS_SEED,
-  Conflict,
   GIT_AUTOMATION_SEED,
   deriveProjectIdentity,
   Forbidden,
@@ -21,7 +20,8 @@ import {
   ProjectIcon,
   ProjectKey,
   OrgScope,
-  ProjectScope
+  ProjectScope,
+  ProjectIdentifierTaken
 } from "@pp/shared"
 import type {
   CreateProjectInput,
@@ -90,7 +90,7 @@ export class Projects extends Context.Service<
     >
     create: (
       input: CreateProjectInput
-    ) => Effect.Effect<Project, Conflict, OrgScope>
+    ) => Effect.Effect<Project, ProjectIdentifierTaken, OrgScope>
     get: () => Effect.Effect<
       ProjectDetail,
       NotFound | Markdown.MarkdownError,
@@ -281,7 +281,7 @@ const make = Effect.gen(function* () {
           )
           .pipe(Effect.orDie)
         if (existingKey) {
-          return yield* new Conflict({ reason: "project_key_taken" })
+          return yield* new ProjectIdentifierTaken({ kind: "key" })
         }
 
         const row = yield* db
@@ -307,9 +307,7 @@ const make = Effect.gen(function* () {
                       cause,
                       "project_index_organization_key_uidx"
                     )
-                      ? Effect.fail(
-                          new Conflict({ reason: "project_key_taken" })
-                        )
+                      ? Effect.fail(new ProjectIdentifierTaken({ kind: "key" }))
                       : Effect.die(cause)
                   )
                 )
@@ -325,9 +323,7 @@ const make = Effect.gen(function* () {
                 .pipe(
                   Effect.catch((cause) =>
                     uniqueConstraint(cause, "project_key_pkey")
-                      ? Effect.fail(
-                          new Conflict({ reason: "project_key_taken" })
-                        )
+                      ? Effect.fail(new ProjectIdentifierTaken({ kind: "key" }))
                       : Effect.die(cause)
                   )
                 )

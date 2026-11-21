@@ -320,7 +320,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
                 executionId: "rescan-before-settle"
               })
             )
-          ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+          ).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "JiraMigrationChanged" }
+          })
           expect(
             yield* p.claimCleanup(current, {
               mode: "discard",
@@ -709,7 +712,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
                   source: { ...source, [key]: `${source[key]}-different` }
                 })
               )
-            ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+            ).toMatchObject({
+              _tag: "Failure",
+              failure: { _tag: "JiraMigrationChanged" }
+            })
           }
         }).pipe(Effect.provide(layer))
       })
@@ -732,7 +738,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const p = yield* MigrationProjection.JiraMigrationProjection
         expect(yield* Effect.result(p.ensureCreated(input))).toMatchObject({
           _tag: "Failure",
-          failure: { _tag: "Conflict" }
+          failure: { _tag: "JiraMigrationChanged" }
         })
         expect(
           yield* Effect.result(
@@ -745,7 +751,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
               executionId: "adoption"
             })
           )
-        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "JiraMigrationChanged" }
+        })
         expect(
           (yield* p.owned(input, input.executionId)).workflowExecutionId
         ).toBeNull()
@@ -779,7 +788,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
               supersededExecutionId: "wrong-predecessor"
             })
           )
-        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "JiraMigrationChanged" }
+        })
         const rescans = yield* Effect.all(
           [p.beginRescan(next), p.beginRescan(next)],
           { concurrency: "unbounded" }
@@ -828,7 +840,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         })
         expect(
           yield* Effect.result(p.beginRescan({ ...next, executionId: "other" }))
-        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "JiraMigrationChanged" }
+        })
       }).pipe(Effect.provide(layer))
     })
   )
@@ -889,7 +904,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
                   action: "run"
                 })
               )
-            ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+            ).toMatchObject({
+              _tag: "Failure",
+              failure: { _tag: "JiraMigrationChanged" }
+            })
             expect(
               yield* p.deleteAfterCleanup(fence(current), "reset-import")
             ).toBe(false)
@@ -1113,7 +1131,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expect(yield* Effect.result(p.saveConfiguration(save))).toMatchObject(
             {
               _tag: "Failure",
-              failure: { _tag: "Conflict" }
+              failure: { _tag: "JiraMigrationChanged" }
             }
           )
           const complete = yield* p.saveConfiguration({
@@ -1180,7 +1198,10 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
                 expectedRevision: failed.revision + 1
               })
             )
-          ).toMatchObject({ _tag: "Failure", failure: { _tag: "Validation" } })
+          ).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "JiraMigrationRejected" }
+          })
           expect(
             yield* p.releaseCleanup(
               { ...fence(row), workflowAttempt: 0 },

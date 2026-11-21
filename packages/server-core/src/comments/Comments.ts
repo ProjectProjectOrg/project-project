@@ -8,7 +8,6 @@ import {
   parseTicketMentionId,
   Slug,
   Comment,
-  Conflict,
   CommentId,
   type CreateCommentInput,
   Forbidden,
@@ -18,7 +17,9 @@ import {
   ProjectScope,
   TicketId,
   type UpdateCommentInput,
-  type User
+  type User,
+  CommentBodyInvalid,
+  CommentThreadResolved
 } from "@pp/shared"
 import { eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -43,10 +44,6 @@ import {
   serializeCommentsRegion,
   validateCommentBody
 } from "./comments-region"
-
-export class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
-  readonly reason: string
-}> {}
 
 export class InvalidCommentAuthor extends Data.TaggedError(
   "InvalidCommentAuthor"
@@ -85,9 +82,9 @@ export class Comments extends Context.Service<
       input: CreateCommentInput
     ) => Effect.Effect<
       Comment,
-      | Conflict
+      | CommentThreadResolved
       | NotFound
-      | InvalidCommentBody
+      | CommentBodyInvalid
       | MentionInvalid
       | Markdown.MarkdownError
       | TicketDocs.MalformedTicketDocument,
@@ -99,7 +96,7 @@ export class Comments extends Context.Service<
     ) => Effect.Effect<
       ReadonlyArray<Comment>,
       | NotFound
-      | InvalidCommentBody
+      | CommentBodyInvalid
       | InvalidCommentAuthor
       | MentionInvalid
       | Markdown.MarkdownError
@@ -114,7 +111,7 @@ export class Comments extends Context.Service<
       Comment,
       | Forbidden
       | NotFound
-      | InvalidCommentBody
+      | CommentBodyInvalid
       | MentionInvalid
       | Markdown.MarkdownError
       | TicketDocs.MalformedTicketDocument,
@@ -354,7 +351,7 @@ const make = Effect.gen(function* () {
       const { orgSlug, slug, userId, projectId } = scope
       const validation = validateCommentBody(input.body)
       if (Result.isFailure(validation)) {
-        return yield* new InvalidCommentBody({ reason: validation.failure })
+        return yield* new CommentBodyInvalid({ kind: validation.failure })
       }
       const [, author] = yield* Effect.all(
         [
@@ -368,7 +365,7 @@ const make = Effect.gen(function* () {
           ? null
           : yield* threadOf(orgSlug, slug, ticketId, input.replyTo)
       if (root?.resolvedBy !== undefined) {
-        return yield* new Conflict({ reason: "thread_resolved" })
+        return yield* new CommentThreadResolved()
       }
       const thread = root === null ? null : decodeCommentId(root.id)
       const id = yield* newCommentId
@@ -419,7 +416,7 @@ const make = Effect.gen(function* () {
           .delete(commentIndex)
           .where(eq(commentIndex.id, id))
           .pipe(Effect.orDie)
-        return yield* new Conflict({ reason: "thread_resolved" })
+        return yield* new CommentThreadResolved()
       }
       return {
         id,
@@ -453,9 +450,7 @@ const make = Effect.gen(function* () {
           }
           const validation = validateCommentBody(comment.body)
           if (Result.isFailure(validation)) {
-            return yield* new InvalidCommentBody({
-              reason: validation.failure
-            })
+            return yield* new CommentBodyInvalid({ kind: validation.failure })
           }
           yield* validateBody(scope, comment.body)
         }),
@@ -591,7 +586,7 @@ const make = Effect.gen(function* () {
       const { orgSlug, slug } = scope
       const validation = validateCommentBody(input.body)
       if (Result.isFailure(validation)) {
-        return yield* new InvalidCommentBody({ reason: validation.failure })
+        return yield* new CommentBodyInvalid({ kind: validation.failure })
       }
       const meta = yield* authorizedComment(
         ticketId,

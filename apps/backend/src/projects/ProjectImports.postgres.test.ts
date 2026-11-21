@@ -803,8 +803,8 @@ describe.skipIf(!databaseUrl)("project import", () => {
               .pipe(asImporter)
           )
           expect(error).toMatchObject({
-            _tag: "Conflict",
-            reason: "project_key_taken"
+            _tag: "ProjectIdentifierTaken",
+            kind: "key"
           })
           expect(
             (yield* imports.get(uploaded.id).pipe(asImporter)).status
@@ -1009,8 +1009,8 @@ describe.skipIf(!databaseUrl)("project import", () => {
               imports.upload(archive).pipe(asImporter)
             )
             expect(error).toMatchObject({
-              _tag: "Validation",
-              reason: "unexpected_entry"
+              _tag: "ProjectImportInvalid",
+              kind: "unexpected_entry"
             })
           }).pipe(Effect.provide(layer()))
         })

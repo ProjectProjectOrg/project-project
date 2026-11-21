@@ -39,7 +39,7 @@ import {
   ProjectStatus,
   StatusSlug,
   BranchNotFound,
-  Conflict,
+  UnknownType,
   CurrentUser,
   GroupId,
   NotFound,
@@ -52,8 +52,9 @@ import {
   type GroupDetail,
   type TicketListQuery,
   ProjectScope,
-  Validation,
-  TypeKey
+  TypeKey,
+  TicketArchiveConflict,
+  TicketChanged
 } from "@pp/shared"
 import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as Context from "effect/Context"
@@ -679,7 +680,7 @@ describe("MCP handlers → write tools", () => {
         captured.archive = { id, ...input }
         if (id === "T-2") {
           return Effect.fail(
-            new Conflict({ reason: "ticket_already_archived" })
+            new TicketArchiveConflict({ kind: "already_archived" })
           )
         }
         return Effect.succeed({
@@ -1032,25 +1033,23 @@ describe("MCP handlers → write tools", () => {
       }).pipe(Effect.provide(WriteTestLayer))
   )
 
-  it.effect(
-    "archive_ticket reports an already archived ticket as Conflict",
-    () =>
-      Effect.gen(function* () {
-        const registered = register(yield* Effect.context<HandlerServices>())
-        yield* Effect.gen(function* () {
-          const result = yield* withFakeUser(() =>
-            registered.get("archive_ticket")!({
-              orgSlug: "acme",
-              projectSlug: "demo",
-              id: "T-2"
-            })
-          )
-          expect(result.isError).toBe(true)
-          expect(result.content[0].text).toContain(
-            "Conflict (ticket_already_archived)"
-          )
-        })
-      }).pipe(Effect.provide(WriteTestLayer))
+  it.effect("archive_ticket reports an already archived ticket", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
+          registered.get("archive_ticket")!({
+            orgSlug: "acme",
+            projectSlug: "demo",
+            id: "T-2"
+          })
+        )
+        expect(result.isError).toBe(true)
+        expect(result.content[0].text).toContain(
+          "The ticket is already archived."
+        )
+      })
+    }).pipe(Effect.provide(WriteTestLayer))
   )
 
   it.effect("attach_branch returns ticket with branch set on happy path", () =>
@@ -1158,7 +1157,7 @@ describe("MCP handlers → ticket types and edits", () => {
     Layer.mock(TicketCommands.TicketCommands, {
       create: (input) => {
         if (input.type === "nope") {
-          return Effect.fail(new Validation({ reason: "unknown_type:nope" }))
+          return Effect.fail(new UnknownType({ key: "nope" }))
         }
         state.create = input
         return Effect.succeed(
@@ -1171,14 +1170,14 @@ describe("MCP handlers → ticket types and edits", () => {
       },
       update: (_id, input, _sort, expected) => {
         if (input.type === "nope") {
-          return Effect.fail(new Validation({ reason: "unknown_type:nope" }))
+          return Effect.fail(new UnknownType({ key: "nope" }))
         }
         state.update = input
         if (
           expected?.body !== undefined &&
           state.currentBody !== expected.body
         ) {
-          return Effect.fail(new Validation({ reason: "ticket_body_changed" }))
+          return Effect.fail(new TicketChanged({ kind: "body_changed" }))
         }
         return Effect.succeed({
           ticket: makeTicketDetail({

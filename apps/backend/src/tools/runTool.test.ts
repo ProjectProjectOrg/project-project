@@ -18,13 +18,13 @@ describe("asToolFailure", () => {
       expect(
         yield* Effect.flip(
           asToolFailure(
-            Effect.fail(new Validation({ reason: "title required" }))
+            Effect.fail(new Validation({ reason: "position_is_self" }))
           )
         )
       ).toEqual(
         new ToolFailure({
           error: "Validation",
-          message: "Validation error (title required)."
+          message: "Validation error (position_is_self)."
         })
       )
     })

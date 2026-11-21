@@ -772,7 +772,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         .receive(prepared.uploadUrl, Stream.never)
         .pipe(Effect.flip, Effect.forkChild)
       yield* TestClock.adjust("60 seconds")
-      expect((yield* Fiber.join(fiber))._tag).toBe("Validation")
+      expect((yield* Fiber.join(fiber))._tag).toBe("UploadFailed")
       expect(f.writes).toHaveLength(0)
       expect(yield* f.rows).toMatchObject([{ status: "pending" }])
     }).pipe(Effect.scoped, Effect.provide(dbLayer))

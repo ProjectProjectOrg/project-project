@@ -83,8 +83,9 @@ it.effect(
           .mark("T-1", { kind: "blockedBy", target: ticketId("T-2") })
           .pipe(Effect.flip)
         expect(failure).toMatchObject({
-          _tag: "Validation",
-          reason: "blocking_cycle:T-1,T-2,T-3,T-1"
+          _tag: "RelationInvalid",
+          kind: "blocking_cycle",
+          ids: ["T-1", "T-2", "T-3", "T-1"]
         })
         expect(documents.get("T-1")?.blockedBy).toBeUndefined()
       })
@@ -106,7 +107,8 @@ it.effect("an archived link still counts towards a loop", () => {
       Effect.flip,
       Effect.map((failure) =>
         expect(failure).toMatchObject({
-          reason: "blocking_cycle:T-1,T-2,T-1"
+          kind: "blocking_cycle",
+          ids: ["T-1", "T-2", "T-1"]
         })
       )
     )
@@ -149,7 +151,10 @@ it.effect("relations on update must name tickets in the project", () => {
       .pipe(
         Effect.flip,
         Effect.map((failure) =>
-          expect(failure).toMatchObject({ reason: "unknown_tickets:T-9" })
+          expect(failure).toMatchObject({
+            kind: "unknown_tickets",
+            ids: ["T-9"]
+          })
         )
       )
   )
@@ -209,13 +214,15 @@ it.effect("duplicate chains are rejected from both ends", () => {
         .archive("T-1", { duplicateOf: ticketId("T-2") })
         .pipe(Effect.flip)
       expect(ontoDuplicate).toMatchObject({
-        reason: "duplicate_of_duplicate:T-2,T-3"
+        kind: "duplicate_of_duplicate",
+        ids: ["T-2", "T-3"]
       })
       const originalBecomesDuplicate = yield* commands
         .archive("T-3", { duplicateOf: ticketId("T-4") })
         .pipe(Effect.flip)
       expect(originalBecomesDuplicate).toMatchObject({
-        reason: "has_duplicates:T-2"
+        kind: "has_duplicates",
+        ids: ["T-2"]
       })
       expect(documents.get("T-1")?.archivedAt).toBeNull()
     })

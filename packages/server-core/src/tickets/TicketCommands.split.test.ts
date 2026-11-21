@@ -3,7 +3,6 @@ import { it } from "@effect/vitest"
 import { BUILTIN_TYPE_KEYS, EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   Forbidden,
-  Conflict,
   ActivityActor,
   GroupColor,
   GroupId,
@@ -14,7 +13,8 @@ import {
   TicketStatus,
   type User,
   UserId,
-  ProjectScope
+  ProjectScope,
+  TicketChanged
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -175,7 +175,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
         options?.from !== undefined &&
         (sprintMemberships.get(ticketId) ?? null) !== options.from
       ) {
-        return yield* new Conflict({ reason: "sprint_membership_changed" })
+        return yield* new TicketChanged({ kind: "sprint_membership_changed" })
       }
       sprintAssignmentAttempts += 1
       if (sprintAssignmentAttempts === failSprintAssignmentAt) {

@@ -330,12 +330,12 @@ it.effect(
         .pipe(Effect.flip)
 
       expect(underSubTicket).toMatchObject({
-        _tag: "Validation",
-        reason: "invalid_parent:T-3"
+        _tag: "HierarchyInvalid",
+        kind: "invalid_parent"
       })
       expect(nestedEpic).toMatchObject({
-        _tag: "Validation",
-        reason: "epic_with_parent"
+        _tag: "HierarchyInvalid",
+        kind: "epic_with_parent"
       })
     }).pipe(Effect.provide(layer))
   }
@@ -373,12 +373,12 @@ it.effect("an epic keeps its type while it has tickets", () => {
     const freed = yield* tickets.update("T-1", { type: null })
 
     expect(blocked).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_has_tickets"
+      _tag: "HierarchyInvalid",
+      kind: "epic_has_tickets"
     })
     expect(untyped).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_has_tickets"
+      _tag: "HierarchyInvalid",
+      kind: "epic_has_tickets"
     })
     expect(freed.ticket.type).toBeNull()
   }).pipe(Effect.provide(layer))
@@ -398,8 +398,8 @@ it.effect("a ticket holds sub-tickets one level deep", () => {
 
     expect(docs.documents.get(child.id)?.parent).toBe("T-2")
     expect(grandchild).toMatchObject({
-      _tag: "Validation",
-      reason: `invalid_parent:${child.id}`
+      _tag: "HierarchyInvalid",
+      kind: "invalid_parent"
     })
   }).pipe(Effect.provide(layer))
 })
@@ -426,12 +426,12 @@ it.effect(
       })
 
       expect(underTicket).toMatchObject({
-        _tag: "Validation",
-        reason: "ticket_has_sub_tickets"
+        _tag: "HierarchyInvalid",
+        kind: "ticket_has_sub_tickets"
       })
       expect(toEpic).toMatchObject({
-        _tag: "Validation",
-        reason: "ticket_has_sub_tickets"
+        _tag: "HierarchyInvalid",
+        kind: "ticket_has_sub_tickets"
       })
       expect(underEpic.ticket.parent?.id).toBe("T-1")
     }).pipe(Effect.provide(layer))
@@ -473,8 +473,8 @@ it.effect("a ticket in an open sprint can't become an epic", () => {
       .pipe(Effect.flip)
 
     expect(error).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_in_sprint"
+      _tag: "HierarchyInvalid",
+      kind: "epic_in_sprint"
     })
   }).pipe(Effect.provide(layer))
 })
@@ -694,8 +694,8 @@ it.effect(
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
-        _tag: "Validation",
-        reason: "non_member_assignees:former-1"
+        _tag: "NonMemberAssignees",
+        userIds: ["former-1"]
       })
       expect(docs.documents.get("T-1")?.assignees).toEqual(["former-1"])
       expect(docs.documents.get("T-2")?.assignees).toEqual([])
@@ -820,8 +820,8 @@ it.effect(
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
-        _tag: "Validation",
-        reason: "epic_in_sprint"
+        _tag: "HierarchyInvalid",
+        kind: "epic_in_sprint"
       })
       expect(docs.documents.get("T-1")?.type).toBeNull()
     }).pipe(Effect.provide(layer))
@@ -899,16 +899,16 @@ it.effect(
         .pipe(Effect.flip)
 
       expect(single).toMatchObject({
-        _tag: "Validation",
-        reason: "epic_in_sprint"
+        _tag: "HierarchyInvalid",
+        kind: "epic_in_sprint"
       })
       expect(moved).toMatchObject({
-        _tag: "Validation",
-        reason: "epic_in_sprint"
+        _tag: "HierarchyInvalid",
+        kind: "epic_in_sprint"
       })
       expect(planned).toMatchObject({
-        _tag: "Validation",
-        reason: "epic_in_sprint"
+        _tag: "HierarchyInvalid",
+        kind: "epic_in_sprint"
       })
     }).pipe(Effect.provide(layer))
   }
@@ -945,8 +945,8 @@ it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
       .pipe(Effect.flip)
 
     expect(error).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_in_sprint"
+      _tag: "HierarchyInvalid",
+      kind: "epic_in_sprint"
     })
     expect(docs.documents.get("T-1")?.priority).toBe("med")
     expect(docs.documents.get("T-1")?.sprint).toBeUndefined()
@@ -1066,7 +1066,7 @@ it.effect("update refuses a sprint-only change from a stale read", () => {
       })
       .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
 
-    expect(error._tag).toBe("Conflict")
+    expect(error._tag).toBe("TicketChanged")
     expect(docs.documents.get("T-1")?.sprint).toBe("G-1")
   }).pipe(Effect.provide(layer))
 })
@@ -1156,8 +1156,8 @@ it.effect(
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
-        _tag: "Validation",
-        reason: "ticket_body_changed"
+        _tag: "TicketChanged",
+        kind: "body_changed"
       })
       expect(docs.documents.get("T-1")?.body).toBe("A concurrent edit")
     }).pipe(Effect.provide(layer))
@@ -1188,8 +1188,8 @@ it.effect("rejects an update when the ticket changed after it was read", () => {
       .pipe(Effect.flip)
 
     expect(error).toMatchObject({
-      _tag: "Conflict",
-      reason: "ticket_updated_since_read"
+      _tag: "TicketChanged",
+      kind: "updated_since_read"
     })
     expect(docs.documents.get("T-1")?.body).toBe("A concurrent edit")
 
@@ -1277,8 +1277,8 @@ it.effect("rejects statuses the project doesn't have", () => {
       tickets.create({ title: "New", status: ticketStatus("bogus") }).pipe(pm)
     )
     expect([updating._tag, creating._tag]).toStrictEqual([
-      "Validation",
-      "Validation"
+      "UnknownStatus",
+      "UnknownStatus"
     ])
     expect(docs.documents.get("T-1")?.status).toBe("todo")
   }).pipe(Effect.provide(layer))
@@ -1427,7 +1427,7 @@ it.effect("only accepts estimates in the project's estimation unit", () => {
         .update("T-1", { estimate: { unit: "tshirt", value: "M" } })
         .pipe(pm)
     )
-    expect(mismatched._tag).toBe("Validation")
+    expect(mismatched._tag).toBe("EstimateUnitMismatch")
     expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
 
     yield* tickets

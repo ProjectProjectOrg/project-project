@@ -3,11 +3,11 @@ import { feedbackReceipt } from "@pp/db/schema"
 import {
   ActivityActor,
   attachmentUploadContentType,
-  Conflict,
   type FeedbackReport,
   isRasterImageContentType,
   NotFound,
-  ProjectScope
+  ProjectScope,
+  FeedbackInProgress
 } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -43,7 +43,7 @@ export class FeedbackIntake extends Context.Service<
     receive: (
       report: FeedbackReport,
       files: ReadonlyArray<Multipart.PersistedFile>
-    ) => Effect.Effect<void, NotFound | Conflict>
+    ) => Effect.Effect<void, NotFound | FeedbackInProgress>
   }>
 >()("@pp/server-core/feedback/FeedbackIntake") {}
 
@@ -259,7 +259,7 @@ const make = Effect.gen(function* () {
       return
     }
     if (ticketId === null) {
-      return yield* new Conflict({ reason: "feedback_in_progress" })
+      return yield* new FeedbackInProgress()
     }
     const scope = yield* feedbackScope(intake)
     yield* finish(scope, report, { ticketId, verbatim }, files)

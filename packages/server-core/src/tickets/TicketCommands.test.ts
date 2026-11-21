@@ -5,7 +5,6 @@ import { Slug } from "@pp/shared"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
-  Conflict,
   formatMentionHref,
   ProjectKey,
   TypeDraft,
@@ -15,7 +14,8 @@ import {
   type User,
   UserId,
   ProjectScope,
-  ActivityActor
+  ActivityActor,
+  TicketArchiveConflict
 } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -387,7 +387,7 @@ it.effect("rejects an unknown status on quickCreate", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "UnknownStatus" }
     })
   }).pipe(Effect.provide(TestLayer))
 )
@@ -513,14 +513,16 @@ it.effect(
 
       const notArchived = yield* Effect.flip(tickets.unarchive(created.id))
       expect(notArchived).toEqual(
-        new Conflict({ reason: "ticket_not_archived" })
+        new TicketArchiveConflict({ kind: "not_archived" })
       )
 
       const archived = yield* tickets.archive(created.id)
       const again = yield* Effect.flip(
         tickets.archive(created.id, { reason: "late reason" })
       )
-      expect(again).toEqual(new Conflict({ reason: "ticket_already_archived" }))
+      expect(again).toEqual(
+        new TicketArchiveConflict({ kind: "already_archived" })
+      )
       expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
       const stored = yield* queries.get(created.id)
       expect(stored.archivedAt).toEqual(archived.archivedAt)
@@ -673,16 +675,15 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("an unknown type fails with Validation naming the key", () =>
+it.effect("an unknown type fails with UnknownType naming the key", () =>
   Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const existing = yield* tickets.quickCreate({ title: "existing" })
-    const reason = "unknown_type:nope"
     expect(
       yield* Effect.flip(
         tickets.quickCreate({ title: "nope", type: typeKey("nope") })
       )
-    ).toMatchObject({ _tag: "Validation", reason })
+    ).toMatchObject({ _tag: "UnknownType", key: "nope" })
     expect(
       yield* Effect.flip(
         tickets.create({
@@ -691,10 +692,10 @@ it.effect("an unknown type fails with Validation naming the key", () =>
           type: typeKey("nope")
         })
       )
-    ).toMatchObject({ _tag: "Validation", reason })
+    ).toMatchObject({ _tag: "UnknownType", key: "nope" })
     expect(
       yield* Effect.flip(tickets.update(existing.id, { type: typeKey("nope") }))
-    ).toMatchObject({ _tag: "Validation", reason })
+    ).toMatchObject({ _tag: "UnknownType", key: "nope" })
     expect(
       yield* Effect.flip(
         tickets.bulkUpdate({
@@ -702,7 +703,7 @@ it.effect("an unknown type fails with Validation naming the key", () =>
           patch: { type: typeKey("nope") }
         })
       )
-    ).toMatchObject({ _tag: "Validation", reason })
+    ).toMatchObject({ _tag: "UnknownType", key: "nope" })
   }).pipe(Effect.provide(TestLayer))
 )
 
@@ -722,18 +723,17 @@ it.effect(
         "types",
         "chore"
       )
-      const reason = "unknown_type:chore"
 
       expect(
         yield* Effect.flip(
           tickets.quickCreate({ title: "new", type: typeKey("chore") })
         )
-      ).toMatchObject({ _tag: "Validation", reason })
+      ).toMatchObject({ _tag: "UnknownType", key: "chore" })
       expect(
         yield* Effect.flip(
           tickets.update(untyped.id, { type: typeKey("chore") })
         )
-      ).toMatchObject({ _tag: "Validation", reason })
+      ).toMatchObject({ _tag: "UnknownType", key: "chore" })
       expect(
         yield* Effect.flip(
           tickets.bulkUpdate({
@@ -741,7 +741,7 @@ it.effect(
             patch: { type: typeKey("chore") }
           })
         )
-      ).toMatchObject({ _tag: "Validation", reason })
+      ).toMatchObject({ _tag: "UnknownType", key: "chore" })
 
       const renamed = yield* tickets.update(typed.id, {
         title: "still a chore",

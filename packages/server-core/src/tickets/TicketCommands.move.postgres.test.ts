@@ -481,8 +481,8 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
           commands.move("T-1", { toProject: slug("product") })
         )
         expect(error).toMatchObject({
-          _tag: "Validation",
-          reason: "move_epic_has_tickets"
+          _tag: "TicketMoveRejected",
+          kind: "epic_has_tickets"
         })
         expect([...documents.keys()]).toEqual(["T-1", "T-2"])
       })

@@ -7,7 +7,6 @@ import {
   projectIntegrationLink
 } from "@pp/db/schema"
 import {
-  Conflict,
   NotFound,
   ProjectScope,
   RepoGone,
@@ -20,7 +19,8 @@ import {
   type GithubRepoPage,
   type ProjectDetail,
   type ProjectGithubInstallation,
-  type RateLimited
+  type RateLimited,
+  GitHubConnectionConflict
 } from "@pp/shared"
 import { and, asc, eq, exists, or } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -100,7 +100,7 @@ export class ProjectGithub extends Context.Service<
     ) => Effect.Effect<
       ProjectDetail,
       | NotFound
-      | Conflict
+      | GitHubConnectionConflict
       | GitHubTokenExpired
       | GitHubScopeInsufficient
       | RepoGone
@@ -320,8 +320,8 @@ const make = Effect.gen(function* () {
                   installation.integrationId === input.installationId
               )
         if (!orgGithub) {
-          return yield* new Conflict({
-            reason: "github_installation_not_available"
+          return yield* new GitHubConnectionConflict({
+            kind: "installation_not_available"
           })
         }
 
@@ -378,8 +378,8 @@ const make = Effect.gen(function* () {
                       "project_github_repository_active_repo_uidx"
                     )
                       ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
+                          new GitHubConnectionConflict({
+                            kind: "repo_already_connected"
                           })
                         )
                       : Effect.die(cause)

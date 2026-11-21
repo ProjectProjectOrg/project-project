@@ -1,5 +1,5 @@
 import * as Comments from "@pp/server-core/comments/Comments"
-import { AppApi, Validation } from "@pp/shared"
+import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
@@ -18,22 +18,12 @@ export const CommentsHandlerLive = HttpApiBuilder.group(
       .handle("create", ({ params, payload }) =>
         Effect.flatMap(Comments.Comments, (comments) =>
           comments.create(params.id, payload)
-        ).pipe(
-          Effect.catchTag("InvalidCommentBody", (error) =>
-            Effect.fail(new Validation({ reason: error.reason }))
-          ),
-          dieOnMarkdown
-        )
+        ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload }) =>
         Effect.flatMap(Comments.Comments, (comments) =>
           comments.edit(params.id, params.commentId, payload)
-        ).pipe(
-          Effect.catchTag("InvalidCommentBody", (error) =>
-            Effect.fail(new Validation({ reason: error.reason }))
-          ),
-          dieOnMarkdown
-        )
+        ).pipe(dieOnMarkdown)
       )
       .handle("resolve", ({ params }) =>
         Effect.flatMap(Comments.Comments, (comments) =>

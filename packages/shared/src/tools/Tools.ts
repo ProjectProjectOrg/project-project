@@ -21,7 +21,6 @@ import {
   StorageError,
   StorageNotConnected,
   BranchNotFound,
-  Conflict,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
@@ -32,7 +31,26 @@ import {
   RepoGone,
   SprintCompletedImmutable,
   Unauthorized,
-  Validation
+  Validation,
+  BodyEditFailed,
+  BranchLinkConflict,
+  CommentBodyInvalid,
+  CommentThreadResolved,
+  EstimateUnitMismatch,
+  EstimationOff,
+  GitHubConnectionConflict,
+  HierarchyInvalid,
+  InvalidBlocks,
+  NonMemberAssignees,
+  RelationInvalid,
+  SprintInvalid,
+  TicketArchiveConflict,
+  TicketChanged,
+  TicketMoveRejected,
+  UnknownStatus,
+  UnknownTags,
+  UnknownType,
+  UploadFailed
 } from "../errors"
 import { GroupFilter, TicketListQuery } from "../filters"
 import { GitAutomationEvent } from "../github/GitAutomation"
@@ -97,8 +115,9 @@ const TicketDetailWithBlocks = Schema.Struct({
 })
 
 const ESTIMATE_GUIDE =
-  "An estimate in another unit than the project's, or any estimate while " +
-  "`estimation` is `off`, fails with `Validation`."
+  "An estimate in another unit than the project's fails with " +
+  "`EstimateUnitMismatch`; any estimate while `estimation` is `off` fails " +
+  "with `EstimationOff`."
 
 const PARENT_GUIDE =
   "`parent` is the id of an epic, making the ticket one of its tickets, " +
@@ -161,8 +180,26 @@ export const ToolErrors = [
   Unauthorized,
   NotFound,
   Forbidden,
-  Conflict,
   Validation,
+  BodyEditFailed,
+  BranchLinkConflict,
+  CommentBodyInvalid,
+  CommentThreadResolved,
+  EstimateUnitMismatch,
+  EstimationOff,
+  GitHubConnectionConflict,
+  HierarchyInvalid,
+  InvalidBlocks,
+  NonMemberAssignees,
+  RelationInvalid,
+  SprintInvalid,
+  TicketArchiveConflict,
+  TicketChanged,
+  TicketMoveRejected,
+  UnknownStatus,
+  UnknownTags,
+  UnknownType,
+  UploadFailed,
   MentionInvalid,
   AttachmentTooLarge,
   AttachmentTypeRejected,
@@ -729,8 +766,8 @@ export const Tools = Toolkit.make(
       "it the type's default priority and tags unless you pass them. " +
       "With both, `body` wins and the type still supplies those " +
       "defaults. Pass `null` as `type` for a ticket without a type; an " +
-      "unknown key fails with `Validation`.\n\n" +
-      "A malformed block in `body` fails with `Validation` naming the " +
+      "unknown key fails with `UnknownType`.\n\n" +
+      "A malformed block in `body` fails with `InvalidBlocks` naming the " +
       "line. " +
       BLOCK_FORMAT_POINTER +
       " " +
@@ -780,12 +817,12 @@ export const Tools = Toolkit.make(
       '`{ kind: "replace_block", type, content }` replaces the content ' +
       "of the one named block of that type, heading included, keeping its " +
       "tags (synced blocks can't be replaced). If any edit fails, nothing " +
-      "is saved and `Validation` names the edit's index. `edits` can't be " +
+      "is saved and `BodyEditFailed` names the edit's index. `edits` can't be " +
       "combined with `body`.\n\n" +
       "For a rewrite, read the current body with `get_ticket`, edit it, " +
       "and send it back in full as `body` so nothing is lost. Fill named " +
       "blocks in rather than replacing them; a malformed block fails " +
-      "with `Validation` naming the line. " +
+      "with `InvalidBlocks` naming the line. " +
       BLOCK_FORMAT_POINTER +
       " " +
       MENTION_GUIDE +
@@ -812,7 +849,7 @@ export const Tools = Toolkit.make(
       }),
       expectedUpdatedAt: Schema.optional(Schema.DateFromString).annotate({
         description:
-          "The `updatedAt` you read; the update fails with `Conflict` if the ticket changed since."
+          "The `updatedAt` you read; the update fails with `TicketChanged` if the ticket changed since."
       })
     }),
     success: TicketDetailWithBlocks
@@ -839,7 +876,7 @@ export const Tools = Toolkit.make(
       "when the ticket repeats another one: it links the two and archives " +
       "this one in one step, and restoring it later drops the link. " +
       MENTION_GUIDE +
-      " Archiving an archived ticket fails with `Conflict`. Returns the " +
+      " Archiving an archived ticket fails with `TicketArchiveConflict`. Returns the " +
       "ticket with `archivedAt` set.",
     cli: {
       command: ["tickets", "archive"],
@@ -871,8 +908,8 @@ export const Tools = Toolkit.make(
       "(this ticket can't start until `target` is done), `blocking` (the " +
       "reverse) or `related`. The link is stored on the ticket that waits, " +
       "so `blocking` writes `target`. A blocker that would make a loop " +
-      "fails with `Validation` naming the chain, for example " +
-      "`blocking_cycle:T-1,T-2,T-1`; remove one of those links first. To " +
+      "fails with `RelationInvalid` naming the chain in `ids`; remove one " +
+      "of those links first. To " +
       "mark a duplicate, use `archive_ticket` with `duplicateOf`. Returns " +
       "the ticket with its `relations`.",
     cli: {
@@ -926,7 +963,7 @@ export const Tools = Toolkit.make(
       "boards again, with its status, description and history as they " +
       "were. Find archived tickets with `list_tickets` and `archived` set " +
       "to true, and read one with `get_ticket`. Restoring a " +
-      "ticket that isn't archived fails with `Conflict`. Returns the ticket " +
+      "ticket that isn't archived fails with `TicketArchiveConflict`. Returns the ticket " +
       "with `archivedAt` null.",
     cli: {
       command: ["tickets", "restore"],
@@ -991,7 +1028,7 @@ export const Tools = Toolkit.make(
       "work. The ticket gets a new id in the destination and keeps its " +
       "description, comments, attachments and history; its old id and URL " +
       "keep resolving to it. Sub-tickets move with it. An epic that still " +
-      "has tickets can't be moved and fails with `Validation`.\n\n" +
+      "has tickets can't be moved and fails with `TicketMoveRejected`.\n\n" +
       "What the destination doesn't have is dropped: a type it doesn't " +
       "have (an epic stays an epic), tags it doesn't " +
       "define, assignees who aren't members there, an estimate in another " +
@@ -1182,7 +1219,7 @@ export const Tools = Toolkit.make(
       "Call it once per layer above the ticket's branch, bottom to top. " +
       "The ticket needs a branch first (`attach_branch`), the branch must " +
       "exist on the connected repository (`BranchNotFound` otherwise) and " +
-      "it can't belong to another ticket (`Conflict`). A pull request " +
+      "it can't belong to another ticket (`BranchLinkConflict`). A pull request " +
       "that mentions the ticket is also stacked automatically when it " +
       "opens on a ticket that already has a branch. Pull request state " +
       "for each layer comes from GitHub. Returns the updated ticket.",
@@ -1210,7 +1247,7 @@ export const Tools = Toolkit.make(
     description:
       "Remove a branch from a ticket's stack. The branch is remembered as " +
       "ignored so it is not stacked on the ticket again automatically; " +
-      "`stack_branch` adds it back. Fails with `Conflict` when the branch " +
+      "`stack_branch` adds it back. Fails with `BranchLinkConflict` when the branch " +
       "is not stacked on the ticket. Returns the updated ticket.",
     cli: {
       command: ["branches", "unstack"],
@@ -1264,8 +1301,8 @@ export const Tools = Toolkit.make(
     },
     description:
       "Update a sprint's metadata. Targets `kind: 'sprint'` groups only — " +
-      "passing the id of an epic or milestone fails with `Validation` " +
-      "(`reason: not_a_sprint:<id>`). Every field is optional; omitted " +
+      "passing the id of an epic or milestone fails with `SprintInvalid` " +
+      "(`kind: not_a_sprint`). Every field is optional; omitted " +
       "fields are left unchanged. To complete a sprint, use " +
       "`complete_sprint` (it carries destination semantics for " +
       "carryover); this tool deliberately excludes `completedAt`. Returns " +
@@ -1298,8 +1335,8 @@ export const Tools = Toolkit.make(
     description:
       "Complete a sprint, sending any carryover (non-`done`) tickets to " +
       "the chosen destination. Targets `kind: 'sprint'` groups only — " +
-      "passing the id of an epic or milestone fails with `Validation` " +
-      "(`reason: not_a_sprint:<id>`). " +
+      "passing the id of an epic or milestone fails with `SprintInvalid` " +
+      "(`kind: not_a_sprint`). " +
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
       "Returns the now-completed sprint plus the `carried` ticket ids the " +
       "server moved to the destination.",
