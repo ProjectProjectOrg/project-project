@@ -11,3 +11,4 @@ opensrc
 .serena
 .impeccable
 *.log
+!apps/frontend/dist
