@@ -10,13 +10,14 @@ import { join } from "node:path"
 
 import { requireMcpAuth } from "@better-auth/mcp"
 import { migrationsFolder } from "@pp/db"
+import * as schema from "@pp/db/schema"
 import { cliOAuthClient } from "@pp/shared"
 import { betterAuth } from "better-auth"
 import { makeSignature } from "better-auth/crypto"
 import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { Layer, Schema } from "effect"
+import { Layer, Option, Redacted, Schema } from "effect"
 import { HttpRouter } from "effect/http"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -25,6 +26,7 @@ import {
   BuiltInOAuthClientConflict,
   builtInOAuthClient
 } from "./builtInOAuthClient"
+import { type Auth, makeAuth } from "./config"
 
 const decodeUnknownAuthorizationServerMetadataSync = Schema.decodeUnknownSync(
   Schema.Struct({
@@ -70,7 +72,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let server: Server
   let pool: Pool
   let baseUrl: string
-  let auth: typeof import("./config").auth
+  let auth: Auth
   let cookie: string
   let clientId: string | undefined
   let projectsDir: string
@@ -127,7 +129,20 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
         ["code"]
       ]
     )
-    auth = (await import("./config")).auth
+    auth = makeAuth(
+      {
+        databaseUrl: Redacted.make(databaseUrl),
+        secret: Redacted.make(secret),
+        baseUrl: Option.some(baseUrl),
+        resourceOrigin: baseUrl,
+        github: Option.none(),
+        google: Option.none(),
+        microsoft: Option.none(),
+        microsoftTenantId: "common",
+        appVersion: "dev"
+      },
+      drizzle({ client: pool, relations: schema.relations })
+    )
     const { McpLive } = await import("../mcp/Mcp")
     const { BackendServicesLive, BackendInfrastructureLive } =
       await import("../runtime")

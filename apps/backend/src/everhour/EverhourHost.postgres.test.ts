@@ -33,7 +33,6 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { EverhourHostLive } from "./HostLive"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
-const encryptionKey = process.env.USER_SECRET_ENCRYPTION_KEY
 
 const noProviderRequests: typeof globalThis.fetch = Object.assign(
   () => Promise.reject(new Error("Unexpected Everhour request")),
@@ -52,19 +51,10 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
     )
       throw new Error("Isolated local database required")
     pool = new Pool({ connectionString: databaseUrl })
-    process.env.USER_SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString(
-      "base64"
-    )
   })
 
   afterAll(async () => {
-    try {
-      await pool.end()
-    } finally {
-      if (encryptionKey === undefined)
-        delete process.env.USER_SECRET_ENCRYPTION_KEY
-      else process.env.USER_SECRET_ENCRYPTION_KEY = encryptionKey
-    }
+    await pool.end()
   })
 
   it.effect(
@@ -140,7 +130,8 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({
               PROJECTS_DIR: root,
-              BETTER_AUTH_URL: "https://pp.example.test"
+              BETTER_AUTH_URL: "https://pp.example.test",
+              USER_SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64")
             })
           )
         )

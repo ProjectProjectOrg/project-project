@@ -28,7 +28,7 @@ import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 
 import { toWebHeaders } from "../http/toWebHeaders"
-import { signInProviders } from "./signInProviders"
+import { AuthInstance } from "./config"
 
 export const AuthHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -59,6 +59,8 @@ export const PublicAuthHandlerLive = HttpApiBuilder.group(
   "publicAuth",
   (handlers) =>
     handlers.handle("signInProviders", () =>
-      Effect.succeed({ providers: signInProviders })
+      Effect.map(AuthInstance, ({ signInProviders }) => ({
+        providers: signInProviders
+      }))
     )
 )

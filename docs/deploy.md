@@ -76,9 +76,9 @@ Edit `.env` and fill in:
 
 - `IMAGE_OWNER` — your GitHub username/org (lowercase).
 - `POSTGRES_PASSWORD` — a strong random string.
-- `BETTER_AUTH_SECRET` — `openssl rand -hex 32`.
+- `BETTER_AUTH_SECRET` — `openssl rand -hex 32`. Required: the backend won't start without it.
 - `BETTER_AUTH_URL` — the public HTTPS URL you'll point at this VM.
-- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app. Sign-in with GitHub is off until both are set.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, from a Google OAuth client. Redirect URI: `https://<your-public-host>/api/auth/callback/google`.
 - `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` — optional, from a Microsoft Entra ID app registration. Redirect URI (Web platform): `https://<your-public-host>/api/auth/callback/microsoft`. `MICROSOFT_TENANT_ID` defaults to `common`; set your tenant ID to allow only your organization. Under _Token configuration_, add the `xms_edov` optional ID token claim: without it Microsoft emails count as unverified, so those users can't accept invites or sign in to an account that already exists.
 - `USER_SECRET_ENCRYPTION_KEY` — `openssl rand -base64 32`. Encrypts stored credentials, including GitHub App keys.

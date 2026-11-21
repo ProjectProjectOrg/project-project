@@ -2,6 +2,7 @@
 import { randomBytes } from "node:crypto"
 
 import { it } from "@effect/vitest"
+import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Tracer from "effect/Tracer"
@@ -13,25 +14,13 @@ const withEncryptionKey = <A, E, R>(
   value: string | undefined,
   effect: Effect.Effect<A, E, R>
 ) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const previous = process.env.USER_SECRET_ENCRYPTION_KEY
-      if (value === undefined) {
-        delete process.env.USER_SECRET_ENCRYPTION_KEY
-      } else {
-        process.env.USER_SECRET_ENCRYPTION_KEY = value
-      }
-      return previous
-    }),
-    () => effect,
-    (previous) =>
-      Effect.sync(() => {
-        if (previous === undefined) {
-          delete process.env.USER_SECRET_ENCRYPTION_KEY
-        } else {
-          process.env.USER_SECRET_ENCRYPTION_KEY = previous
-        }
-      })
+  effect.pipe(
+    Effect.provideService(
+      ConfigProvider.ConfigProvider,
+      ConfigProvider.fromUnknown(
+        value === undefined ? {} : { USER_SECRET_ENCRYPTION_KEY: value }
+      )
+    )
   )
 
 const withRandomKey = <A, E, R>(effect: Effect.Effect<A, E, R>) =>

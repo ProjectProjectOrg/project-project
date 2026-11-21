@@ -5,7 +5,7 @@ import { HttpClient, HttpRouter, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
-import { toolsResource } from "../auth/config"
+import { AuthInstance } from "../auth/config"
 import { findRelease, findTaggedRelease, installWrapper } from "./releases"
 
 const lookupFor = (build: string) =>
@@ -43,6 +43,7 @@ export const CliInstallRouteLive = Layer.unwrap(
           "10 minutes"
         )
     })
+    const { toolsResource } = yield* AuthInstance
     const origin = new URL(toolsResource).origin
     return Layer.mergeAll(
       HttpRouter.add(

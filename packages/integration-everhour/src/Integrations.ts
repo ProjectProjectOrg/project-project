@@ -33,6 +33,7 @@ import {
   or,
   sql as sqlText
 } from "drizzle-orm"
+import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
@@ -139,8 +140,8 @@ const emptySummary = () => ({
   errors: []
 })
 
-const publicBaseUrl = Effect.sync(
-  () => process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
+const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
+  Config.withDefault("http://localhost:5173")
 )
 
 export const workTypeTaskName = (sprintName: string, workTypeLabel: string) =>
@@ -883,7 +884,7 @@ const make = Effect.gen(function* () {
         })
         .pipe(Effect.orDie)
       if (row?.webhookId) return
-      const base = yield* publicBaseUrl
+      const base = yield* publicBaseUrl.pipe(Effect.orDie)
       const secret = Base64Url.encode(
         yield* crypto.randomBytes(24).pipe(Effect.orDie)
       )

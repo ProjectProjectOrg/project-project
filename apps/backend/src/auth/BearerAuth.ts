@@ -14,7 +14,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import type { Caller } from "../tools/ToolCaller"
-import { auth } from "./config"
+import { AuthInstance } from "./config"
 import { proofUrl } from "./proofUrl"
 
 export class TokenRejected extends Data.TaggedError("TokenRejected")<
@@ -40,6 +40,7 @@ const decodeClaims = Schema.decodeUnknownEffect(AccessTokenClaims)
 export const bearerVerifier = (resource: string) =>
   Effect.gen(function* () {
     const db = yield* Db
+    const { auth } = yield* AuthInstance
     const { baseURL, internalAdapter } = yield* Effect.promise(
       () => auth.$context
     )
