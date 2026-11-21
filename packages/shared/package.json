@@ -8,17 +8,13 @@
     "./tickets/testing": "./src/tickets/testing.ts"
   },
   "scripts": {
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "bun run --bun vitest run",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "@pp/access": "workspace:*",
     "effect": "4.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.5",
-    "vitest": "5.0.5"
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4"
   }
 }

@@ -19,6 +19,7 @@ import { authClient } from "@/services/AuthClient"
 
 import { createSessionCache } from "./sessionCache"
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/services/AuthClient", () => ({ authClient: { signOut: vi.fn() } }))
 
 const fetchStub = stubFetch()

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -5,6 +6,7 @@ import { useJiraMigrationPolling } from "./useJiraMigrationPolling"
 
 const state = vi.hoisted(() => ({ refresh: vi.fn(), invalidate: vi.fn() }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@effect/atom-react", () => ({
   useAtomRefresh: (atom: string) =>
     atom === "migration:org/migration" ? state.refresh : undefined,
@@ -12,6 +14,7 @@ vi.mock("@effect/atom-react", () => ({
     atom === "invalidate:org" ? state.invalidate : undefined
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/features/jira/atoms/jiraMigration", () => ({
   invalidateAfterImport: (req: { params: { orgSlug: string } }) =>
     `invalidate:${req.params.orgSlug}`,

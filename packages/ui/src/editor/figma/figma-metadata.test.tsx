@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { TicketId, type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
 import { act, cleanup, renderHook } from "@testing-library/react"
 import * as Schema from "effect/Schema"

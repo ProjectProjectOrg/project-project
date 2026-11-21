@@ -9,15 +9,9 @@
     "./policies": "./src/policies/index.ts"
   },
   "scripts": {
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "bun run --bun vitest run",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "effect": "4.0.5"
-  },
-  "devDependencies": {
-    "vitest": "5.0.5"
   }
 }

@@ -15,7 +15,7 @@ const CREATE_ORG = "__create-org"
 export function OrgSwitcher({ trigger }: Readonly<{ trigger: ReactElement }>) {
   const orgsResult = useAtomValue(userOrgs())
   const viewer = useAtomValue(me())
-  const params = useParams({ strict: false }) as { orgSlug?: string }
+  const params = useParams({ strict: false })
   const setActive = useAtomSet(setActiveOrganization)
   const navigate = useNavigate()
 

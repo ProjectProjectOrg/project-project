@@ -9,32 +9,6 @@ import { defineConfig } from "vite"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const domTests = [
-  "src/features/*/hooks/**/*.test.{ts,tsx}",
-  "src/features/attachments/atoms/attachments.test.ts",
-  "src/features/editor/components/LexicalEditor.test.ts",
-  "src/features/editor/lexical/**/*.test.ts",
-  "src/features/everhour/components/RunningTimerIndicator.test.ts",
-  "src/features/github/hooks/useTicketGit.test.tsx",
-  "src/features/projects/forms/project-icon/useIconDraft.test.ts",
-  "src/features/projects/lib/bannerRenderCache.test.ts",
-  "src/features/projects/lib/imageCompression.test.ts",
-  "src/features/projects/lib/imagePreload.test.ts",
-  "src/features/sprints/lib/boardKeyboard.test.ts",
-  "src/features/tickets/components/ticket-list/search.test.tsx",
-  "src/lib/keyCapHighlight.test.ts",
-  "src/features/tickets/components/command-pages/useTicketMutation.test.tsx",
-  "src/features/tickets/components/ticket-list/sectionCollapse.test.ts",
-  "src/features/tickets/components/ticket-list/toolbar/counts.test.tsx",
-  "src/features/tickets/components/ticket-list/useTicketPreview.test.ts",
-  "src/features/tickets/components/ticket-page/descriptionTemplates.test.ts",
-  "src/features/tickets/components/ticket-page/useTemplateSwap.test.ts",
-  "src/hooks/**/*.test.{ts,tsx}",
-  "src/lib/form.test.ts",
-  "src/lib/keepInPlace.test.ts",
-  "src/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/-routeReads.test.ts"
-]
-
 const packages = (names: ReadonlyArray<string>) =>
   new RegExp(
     `[\\\\/]node_modules[\\\\/](?:${names.map((name) => name.replace("/", "[\\\\/]")).join("|")})[\\\\/]`
@@ -64,10 +38,6 @@ export default defineConfig(({ mode }) => ({
   root: __dirname,
   resolve: {
     alias: {
-      "@/paraglide": path.resolve(
-        __dirname,
-        mode === "test" ? ".cache/paraglide/test" : "src/paraglide"
-      ),
       "@": path.resolve(__dirname, "src")
     }
   },
@@ -82,57 +52,18 @@ export default defineConfig(({ mode }) => ({
     }
   },
   plugins: [
-    ...(mode === "test"
-      ? []
-      : [
-          tanstackRouter({
-            target: "react",
-            autoCodeSplitting: true,
-            routeFileIgnorePattern:
-              mode === "production" ? "^dev\\." : undefined
-          })
-        ]),
-    react({ compiler: mode === "test" ? false : { target: "19" } }),
-    ...(mode === "test" ? [] : [tailwindcss()]),
+    tanstackRouter({
+      target: "react",
+      autoCodeSplitting: true,
+      routeFileIgnorePattern: mode === "production" ? "^dev\\." : undefined
+    }),
+    react({ compiler: { target: "19" } }),
+    tailwindcss(),
     paraglideVitePlugin({
       project: path.resolve(__dirname, "project.inlang"),
-      outdir: path.resolve(
-        __dirname,
-        mode === "test" ? ".cache/paraglide/test" : "src/paraglide"
-      )
+      outdir: path.resolve(__dirname, "src/paraglide")
     })
   ],
-  test: {
-    name: "frontend",
-    maxWorkers: 4,
-    projects: [
-      {
-        test: {
-          name: "node",
-          include: ["src/**/*.test.{ts,tsx}"],
-          exclude: domTests,
-          environment: "node",
-          isolate: true,
-          // Scritto (TextSwap) imports its own CSS from its JS.
-          server: { deps: { inline: [/@scritto\//] } }
-        }
-      },
-      {
-        test: {
-          name: "dom",
-          include: domTests,
-          environment: "jsdom",
-          pool: "forks",
-          isolate: true,
-          execArgv: ["--no-experimental-webstorage"],
-          environmentOptions: { jsdom: { url: "http://localhost/" } },
-          // Scritto (TextSwap) imports its own CSS from its JS; let Vite
-          // transform it instead of handing a .css import to Node.
-          server: { deps: { inline: [/@scritto\//] } }
-        }
-      }
-    ]
-  },
   server: {
     port: 5173,
     allowedHosts: process.env.AGENT_PUBLIC_URL

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { TypeKey } from "@pp/shared"
 import { act, renderHook } from "@testing-library/react"
 import * as Exit from "effect/Exit"

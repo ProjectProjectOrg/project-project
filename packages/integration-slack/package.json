@@ -8,9 +8,7 @@
   },
   "scripts": {
     "test": "bun test src",
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "@pp/db": "workspace:*",

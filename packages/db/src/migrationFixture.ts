@@ -2,6 +2,7 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Context from "effect/Context"
+import * as Crypto from "effect/Crypto"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -51,7 +52,9 @@ export const migratedDatabase = (
           "Migration tests require an isolated local test database"
         )
       }
-      const name = `${url.pathname.slice(1)}_${migration.slice(0, 14)}`
+      const crypto = yield* Crypto.Crypto
+      const suffix = yield* crypto.randomUUIDv4().pipe(Effect.orDie)
+      const name = `${url.pathname.slice(1)}_${suffix.slice(0, 8)}`
       const admin = yield* pool(url.toString())
       yield* Effect.acquireRelease(
         Effect.promise(async () => {

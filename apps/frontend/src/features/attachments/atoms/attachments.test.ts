@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { TicketId } from "@pp/shared"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -55,12 +56,12 @@ it("sends a markdown upload with a matching content type when the browser leaves
       if (name === "content-type") uploadedContentType = value
     }
   )
-  vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(
-    function (this: XMLHttpRequest) {
-      Object.defineProperty(this, "status", { value: 200 })
-      this.dispatchEvent(new Event("load"))
-    }
-  )
+  vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(function (
+    this: XMLHttpRequest
+  ) {
+    Object.defineProperty(this, "status", { value: 200 })
+    this.dispatchEvent(new Event("load"))
+  })
 
   const registry = Registry.make()
   const upload = uploadAttachment(
@@ -128,12 +129,12 @@ it("refreshes the org inventory and summary only after upload commit succeeds", 
       })
     throw new Error(`Unexpected request: ${path}`)
   })
-  vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(
-    function (this: XMLHttpRequest) {
-      Object.defineProperty(this, "status", { value: 200 })
-      this.dispatchEvent(new Event("load"))
-    }
-  )
+  vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(function (
+    this: XMLHttpRequest
+  ) {
+    Object.defineProperty(this, "status", { value: 200 })
+    this.dispatchEvent(new Event("load"))
+  })
 
   const registry = Registry.make()
   const req = orgAttachmentsRequest("org", { page: 1 })

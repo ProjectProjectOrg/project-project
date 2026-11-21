@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { RegistryContext } from "@effect/atom-react"
 import { type StackLayerState } from "@pp/shared"
 import { makeTicketDetail } from "@pp/shared/tickets/testing"

@@ -339,8 +339,8 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
         yield* Effect.gen(function* () {
           const references = yield* ProjectReferences.ProjectReferences
           expect((yield* references.list()).items).toEqual([])
-          yield* Effect.promise(() =>
-            expect
+          yield* Effect.promise(async () => {
+            await expect
               .poll(async () => {
                 const { rows } = await pool.query<{
                   references_scanned: boolean
@@ -351,7 +351,7 @@ describe.skipIf(!databaseUrl)("ProjectReferences", () => {
                 return rows[0]?.references_scanned
               })
               .toBe(true)
-          )
+          })
           expect((yield* references.list()).items).toEqual([])
           expect(listings()).toBe(1)
           expect(reads).toEqual(["PP-1"])

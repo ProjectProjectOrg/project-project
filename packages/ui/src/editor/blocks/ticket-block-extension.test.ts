@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { CodeNode } from "@lexical/code"
 import { ListItemNode, ListNode } from "@lexical/list"
 import {

@@ -44,7 +44,7 @@ test("checks construction while allowing assertion patterns", () => {
 			rules: { "anti-slop-effect/no-manual-tagged-construction": "warn" },
 		}));
 		writeFileSync(fixture, cases.map(({ source }) => source).join("\n"));
-		const result = spawnSync(join(root, "node_modules/.bin/oxlint"), ["--config", config, "--format", "json", fixture], {
+		const result = spawnSync(process.execPath, ["lint", "--no-script", "--config", config, "--format", "json", fixture], {
 			cwd: root,
 			encoding: "utf8",
 		});

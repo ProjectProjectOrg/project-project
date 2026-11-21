@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { Project } from "@pp/access/roles"
 import { ProjectDetail, TicketListQuery, User } from "@pp/shared"
 import type { AnyRoute } from "@tanstack/react-router"

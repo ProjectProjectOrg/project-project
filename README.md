@@ -50,7 +50,7 @@ version when prompted.
 ```bash
 bun run dev           # Postgres, then backend + frontend in parallel
 bun run check         # Format, lint, and typecheck
-bun run test          # Backend, frontend, and shared suites
+bun run test          # Every test file, in parallel, each worker with its own database
 bun run build         # Frontend production build
 ```
 
@@ -73,21 +73,24 @@ Bun, Turborepo, and the standalone frontend tools split the work:
 | Backend runtime and watcher              | Bun (`bun --watch src/main.ts`)                  |
 | Script running, filtering, caching       | Turborepo                                        |
 | Dev server and production build          | Vite                                             |
-| Tests                                    | Vitest 4.1.11                                    |
-| Lint and format                          | Oxlint and Oxfmt                                 |
+| Tests                                    | `bun test` (pinned Bun canary)                   |
+| Lint and format                          | `bun lint` and `bun fmt` (pinned Bun canary)     |
 | Typecheck                                | TypeScript 7 patched with `@effect/tsgo`         |
 
-`turbo.json` owns the task graph and cache policy. Root `vitest.config.ts`
-owns the test projects (`apps/*/vite.config.ts` and
-`packages/*/vite.config.ts`, four workers). `.oxlintrc.json` and
-`.oxfmtrc.json` own lint and format policy. Each workspace's `vite.config.ts`
-owns its root, plugins, build, and named test project. The workspace-only lint
-rule lives in `tools/oxlint/plugin-workspace.js`.
+`turbo.json` owns the task graph and cache policy. `bunfig.toml` and
+`tools/test/preload.ts` own test discovery and setup; `scripts/test-isolated.ts`
+creates the per-worker databases and runs `bun test` with `--isolate`,
+`--parallel` and `--randomize`. `.oxlintrc.json` and `.oxfmtrc.json` own lint
+and format policy. The workspace-only lint rule lives in
+`tools/oxlint/plugin-workspace.js`.
 
-Run one suite with `bunx vitest run --project backend` (or `db`,
-`server-core`, `frontend`, or `shared`), and
-`bun run --cwd apps/backend test:watch` for backend watch mode.
-`bun run lint:fix` and `bun run format` apply fixes.
+The `bun` devDependency pins a canary: `bun lint`, `bun fmt`, the built-in
+`"vitest"` module and `@vitest-environment` docblocks exist only there. Test
+files import from `"vitest"` and `"@effect/vitest"`; the second is an npm alias
+for `@voila.dev/effect-bun-test`, and `bun-types/vitest` types the first.
+
+Run some files with `bun run test <files>` (add `-t "<name>"` to filter).
+`bun run lint:fix` and `bun run fmt` apply fixes.
 
 Lint severities: `correctness` is an error, `suspicious` and `perf` warn, and
 the React compiler rules (`refs`, `set-state-in-effect`, `immutability`,
@@ -97,16 +100,16 @@ the React compiler rules (`refs`, `set-state-in-effect`, `immutability`,
 Turborepo runs one `effect-tsgo tsrs --noEmit` per workspace: tsrs, the Rust
 port of TypeScript, with the Effect diagnostics configured in
 `tsconfig.base.json`. Oxlint's type-aware rules run on tsrs too. The
-frontend's typecheck compiles Paraglide messages first, and the Paraglide Vite plugin does the same for dev, build, and test.
+frontend's typecheck compiles Paraglide messages first, and the Paraglide Vite plugin does the same for dev and build.
 
-Every Effect package, `@effect/vitest` included, is pinned to
-`4.0.5`, which requires Vitest 5. Upgrade them together and rerun the full suite.
+Every Effect package is pinned to `4.0.5`. Upgrade them together and rerun
+the full suite.
 
-Frontend tests run in forked workers with Node's native web storage disabled,
-so jsdom supplies browser-local storage.
+Tests that need a DOM say so with a `// @vitest-environment jsdom` docblock.
 
-CI installs Node and Bun explicitly, then runs `bun install --frozen-lockfile`
-followed by `bun run check`, `test`, and `build`. The Docker images build on
+CI runs format, lint and migration checks, typecheck, build and four test
+shards as parallel jobs. Shards are balanced by the file times main records,
+and each shard fails if it didn't run exactly the files assigned to it. The Docker images build on
 `node:24.15.0-bookworm-slim` with the Bun binary copied in for installs; the
 backend runtime image is `oven/bun:1.4.4-slim`.
 

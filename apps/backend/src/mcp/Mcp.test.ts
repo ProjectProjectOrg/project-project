@@ -34,14 +34,16 @@ const httpFetch = globalThis.fetch.bind(globalThis)
 const readJson = async (response: Response) => JSON.parse(await response.text())
 
 describe.skipIf(!databaseUrl)("MCP endpoint", () => {
-  const userIds = [randomUUID(), randomUUID()]
+  const userIds: Array<string> = []
   const tokens: Array<string> = []
   const cliTokens: Array<string> = []
-  const cliConsentIds = [randomUUID(), randomUUID()]
   let toolsResource: string
-  const consentIds = [randomUUID(), randomUUID()]
   const clientId = randomUUID()
+  const clientIds = [clientId]
   const orgId = randomUUID()
+  const orgIds = [orgId]
+  let auth: (typeof import("../auth/config"))["auth"]
+  let baseUrl: string
   let expiredToken: string
   let resource: string
   let server: Server
@@ -110,6 +112,64 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     }
   }
 
+  const createUser = async () => {
+    const id = randomUUID()
+    userIds.push(id)
+    await pool.query(
+      'INSERT INTO "user" (id,name,email,email_verified,created_at,updated_at) VALUES ($1,$2,$3,true,now(),now())',
+      [id, "MCP test", `${id}@example.test`]
+    )
+    return id
+  }
+
+  const createClient = async () => {
+    const id = randomUUID()
+    clientIds.push(id)
+    await pool.query(
+      "INSERT INTO oauth_client (id,client_id,name,redirect_uris,created_at) VALUES ($1,$1,$2,ARRAY['http://localhost/callback'],now())",
+      [id, "Stateless test"]
+    )
+    return id
+  }
+
+  const createOrg = async () => {
+    const id = randomUUID()
+    orgIds.push(id)
+    await pool.query(
+      "INSERT INTO organization (id,name,slug,created_at) VALUES ($1,$2,$1,now())",
+      [id, "Private organization"]
+    )
+    return id
+  }
+
+  const grant = async (
+    userId: string,
+    client: string = clientId,
+    audience = resource,
+    expiresInSeconds = 3600
+  ) => {
+    const consentId = randomUUID()
+    await pool.query(
+      "INSERT INTO oauth_provider_consent (id,client_id,user_id,scopes,created_at,updated_at) VALUES ($1,$2,$3,ARRAY['openid'],now(),now())",
+      [consentId, client, userId]
+    )
+    const { token } = await auth.api.signJWT({
+      body: {
+        payload: {
+          sub: userId,
+          client_id: client,
+          pp_consent_ids: [consentId],
+          aud: audience,
+          iss: `${baseUrl}/api/auth`,
+          exp:
+            Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) +
+            expiresInSeconds
+        }
+      }
+    })
+    return { consentId, token }
+  }
+
   const callTool = (
     token: string,
     name: string,
@@ -139,7 +199,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     const address = server.address()
     if (!address || typeof address === "string")
       throw new Error("Missing test server address")
-    const baseUrl = `http://127.0.0.1:${address.port}`
+    baseUrl = `http://127.0.0.1:${address.port}`
     resource = `${baseUrl}/mcp`
     for (const [key, value] of Object.entries({
       DATABASE_URL: databaseUrl,
@@ -161,70 +221,16 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
       "INSERT INTO organization (id,name,slug,created_at) VALUES ($1,$2,$1,now())",
       [orgId, "Private organization"]
     )
-    const { auth } = await import("../auth/config")
+    auth = (await import("../auth/config")).auth
     await auth.$context
     toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
     server.on("request", toNodeHandler(auth))
-    for (const [index, id] of userIds.entries()) {
-      await pool.query(
-        'INSERT INTO "user" (id,name,email,email_verified,created_at,updated_at) VALUES ($1,$2,$3,true,now(),now())',
-        [id, "MCP test", `${id}@example.test`]
-      )
-      await pool.query(
-        "INSERT INTO oauth_provider_consent (id,client_id,user_id,scopes,created_at,updated_at) VALUES ($1,$2,$3,ARRAY['openid'],now(),now())",
-        [consentIds[index], clientId, id]
-      )
-      const signed = await auth.api.signJWT({
-        body: {
-          payload: {
-            sub: id,
-            client_id: clientId,
-            pp_consent_ids: [consentIds[index]],
-            aud: resource,
-            iss: `${baseUrl}/api/auth`,
-            exp:
-              Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) + 3600
-          }
-        }
-      })
-      tokens.push(signed.token)
-      await pool.query(
-        "INSERT INTO oauth_provider_consent (id,client_id,user_id,scopes,created_at,updated_at) VALUES ($1,$2,$3,ARRAY['openid'],now(),now())",
-        [cliConsentIds[index], cliOAuthClient.id, id]
-      )
-      const cliSigned = await auth.api.signJWT({
-        body: {
-          payload: {
-            sub: id,
-            client_id: cliOAuthClient.id,
-            pp_consent_ids: [cliConsentIds[index]],
-            aud: toolsResource,
-            iss: `${baseUrl}/api/auth`,
-            exp:
-              Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) + 3600
-          }
-        }
-      })
-      cliTokens.push(cliSigned.token)
-      if (index === 0) {
-        expiredToken = (
-          await auth.api.signJWT({
-            body: {
-              payload: {
-                sub: id,
-                client_id: clientId,
-                pp_consent_ids: [consentIds[index]],
-                aud: resource,
-                iss: `${baseUrl}/api/auth`,
-                exp:
-                  Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) -
-                  3600
-              }
-            }
-          })
-        ).token
-      }
+    for (let index = 0; index < 2; index++) {
+      const id = await createUser()
+      tokens.push((await grant(id)).token)
+      cliTokens.push((await grant(id, cliOAuthClient.id, toolsResource)).token)
     }
+    expiredToken = (await grant(userIds[0], clientId, resource, -3600)).token
     const { McpLive } = await import("./Mcp")
     const { ToolsRouteLive } = await import("../tools/http")
     const { CliInstallRouteLive } = await import("../cli/InstallRoutes")
@@ -254,11 +260,11 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     await dispose?.()
     if (projectsDir) await rm(projectsDir, { recursive: true, force: true })
     if (pool) {
-      await pool.query("DELETE FROM oauth_client WHERE client_id=$1", [
-        clientId
+      await pool.query("DELETE FROM oauth_client WHERE client_id=ANY($1)", [
+        clientIds
       ])
       await pool.query('DELETE FROM "user" WHERE id=ANY($1)', [userIds])
-      await pool.query("DELETE FROM organization WHERE id=$1", [orgId])
+      await pool.query("DELETE FROM organization WHERE id=ANY($1)", [orgIds])
       await pool.end()
     }
     if (server)
@@ -367,20 +373,23 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   })
 
   it("modern: a soft-deleted org is not found", async () => {
+    const userId = await createUser()
+    const { token } = await grant(userId)
+    const deletedOrgId = await createOrg()
     await pool.query(
       "INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$3,'owner',now())",
-      [randomUUID(), orgId, userIds[1]]
+      [randomUUID(), deletedOrgId, userId]
     )
-    const live = await callTool(tokens[1], "get_org", { orgSlug: orgId })
+    const live = await callTool(token, "get_org", { orgSlug: deletedOrgId })
     expect(live.body.result.isError).toBe(false)
     await pool.query("UPDATE organization SET deleted_at=now() WHERE id=$1", [
-      orgId
+      deletedOrgId
     ])
-    const deleted = await callTool(tokens[1], "get_org", { orgSlug: orgId })
+    const deleted = await callTool(token, "get_org", { orgSlug: deletedOrgId })
     expect(deleted.body.result.isError).toBe(true)
     expect(deleted.body.result.content[0].text).toBe("Not found.")
-    const listed = await callTool(tokens[1], "list_orgs")
-    expect(listed.body.result.content[0].text).not.toContain(orgId)
+    const listed = await callTool(token, "list_orgs")
+    expect(listed.body.result.content[0].text).not.toContain(deletedOrgId)
   })
 
   const httpTool = async (
@@ -569,11 +578,16 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   })
 
   it("http: revoking the CLI's consent signs it out", async () => {
-    expect((await httpTool(cliTokens[1], "me")).status).toBe(200)
+    const cli = await grant(
+      await createUser(),
+      cliOAuthClient.id,
+      toolsResource
+    )
+    expect((await httpTool(cli.token, "me")).status).toBe(200)
     await pool.query("DELETE FROM oauth_provider_consent WHERE id=$1", [
-      cliConsentIds[1]
+      cli.consentId
     ])
-    const http = await httpTool(cliTokens[1], "me")
+    const http = await httpTool(cli.token, "me")
     expect(http.status).toBe(401)
     expect(http.body.message).toContain("pp login")
   })
@@ -678,10 +692,11 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
 
   describe("after consent revocation", () => {
     it("auth: revoking consent locks the token out", async () => {
+      const revoked = await grant(await createUser())
       await pool.query("DELETE FROM oauth_provider_consent WHERE id=$1", [
-        consentIds[0]
+        revoked.consentId
       ])
-      const { status } = await modern(tokens[0], "tools/list")
+      const { status } = await modern(revoked.token, "tools/list")
       expect(status).toBe(401)
       const other = await callTool(tokens[1], "me")
       expect(other.body.result.content[0].text).toContain(userIds[1])
@@ -690,35 +705,41 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
 
   describe("after the client is disabled", () => {
     it("auth: disabling the OAuth client locks its tokens out", async () => {
+      const client = await createClient()
+      const { token } = await grant(await createUser(), client)
       await pool.query(
         "UPDATE oauth_client SET disabled=true WHERE client_id=$1",
-        [clientId]
+        [client]
       )
-      expect((await modern(tokens[1], "tools/list")).status).toBe(401)
+      expect((await modern(token, "tools/list")).status).toBe(401)
       await pool.query(
         "UPDATE oauth_client SET disabled=false WHERE client_id=$1",
-        [clientId]
+        [client]
       )
-      expect((await modern(tokens[1], "tools/list")).status).toBe(200)
+      expect((await modern(token, "tools/list")).status).toBe(200)
     })
   })
 
   describe("after a ban", () => {
     it("auth: an expired ban lets the token through", async () => {
+      const userId = await createUser()
+      const { token } = await grant(userId)
       await pool.query(
         "UPDATE \"user\" SET banned=true, ban_expires=now() - interval '1 day' WHERE id=$1",
-        [userIds[1]]
+        [userId]
       )
-      const { status } = await modern(tokens[1], "tools/list")
+      const { status } = await modern(token, "tools/list")
       expect(status).toBe(200)
     })
 
     it("auth: banning a user locks their token out", async () => {
+      const userId = await createUser()
+      const { token } = await grant(userId)
       await pool.query(
         'UPDATE "user" SET banned=true, ban_expires=NULL WHERE id=$1',
-        [userIds[1]]
+        [userId]
       )
-      const { status } = await modern(tokens[1], "tools/list")
+      const { status } = await modern(token, "tools/list")
       expect(status).toBe(403)
     })
   })

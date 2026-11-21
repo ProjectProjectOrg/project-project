@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { CodeNode, $createCodeNode } from "@lexical/code"
 import { HorizontalRuleNode } from "@lexical/extension"
 import { createEmptyHistoryState, registerHistory } from "@lexical/history"

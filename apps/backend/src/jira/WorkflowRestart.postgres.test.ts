@@ -16,7 +16,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted, Schedule } from "effect"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, describe, expect, vi } from "vitest"
 
 import {
   makeScanTestLayer,
@@ -24,6 +24,12 @@ import {
   scanFixtureResponse
 } from "./ScanTestSupport"
 import { JiraWorkflowsLive } from "./WorkflowRuntime"
+
+// Read when effect/cluster loads: stopping the first runner should interrupt
+// the scan without waiting the default 15 seconds first.
+vi.hoisted(() => {
+  process.env.ENTITY_TERMINATION_TIMEOUT = "1 second"
+})
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -52,6 +58,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
       await pool.query('delete from "user" where id = $1', [owner.userId])
     }
     await pool.end()
+    delete process.env.ENTITY_TERMINATION_TIMEOUT
   })
 
   it.live.each(["interrupted request", "rate limit sleep"] as const)(

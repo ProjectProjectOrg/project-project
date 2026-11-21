@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { RegistryContext } from "@effect/atom-react"
 import { cleanup, renderHook, waitFor, act } from "@testing-library/react"
 import * as Registry from "effect/reactivity/AtomRegistry"

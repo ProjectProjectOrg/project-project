@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { act, cleanup, renderHook } from "@testing-library/react"
 import * as Schema from "effect/Schema"
 import { afterEach, expect, it } from "vitest"

@@ -29,10 +29,11 @@ INSERT INTO "figma_link_index" (id, organization_id, org_slug, project_slug, fil
 INSERT INTO "figma_reference" (link_id, org_slug, project_slug, ticket_id) VALUES ('f1', 'igne', 'web', 'WEB-1');
 `
 
+const database = () =>
+  migratedDatabase(databaseUrl, projectIdentityMigration, fixture)
+
 describe.skipIf(!databaseUrl)("project identity migration", () => {
-  layer(migratedDatabase(databaseUrl, projectIdentityMigration, fixture), {
-    timeout: "60 seconds"
-  })((it) => {
+  layer(database(), { timeout: "60 seconds" })((it) => {
     it.effect("points every reference at the project id", () =>
       Effect.gen(function* () {
         const database = yield* MigratedDatabase
@@ -73,7 +74,9 @@ describe.skipIf(!databaseUrl)("project identity migration", () => {
           ])
         })
     )
+  })
 
+  layer(database(), { timeout: "60 seconds" })((it) => {
     it.effect("lets two orgs use the same project slug", () =>
       Effect.gen(function* () {
         const database = yield* MigratedDatabase
@@ -91,7 +94,9 @@ describe.skipIf(!databaseUrl)("project identity migration", () => {
         expect(error.message).toContain("project_index_organization_slug_uidx")
       })
     )
+  })
 
+  layer(database(), { timeout: "60 seconds" })((it) => {
     it.effect(
       "cascades project deletion to references and keeps attachments org-owned",
       () =>

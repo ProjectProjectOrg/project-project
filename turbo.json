@@ -8,8 +8,7 @@
     ".oxlintrc.json",
     "bunfig.toml",
     "tools/oxlint/**",
-    "tsconfig.base.json",
-    "vitest.config.ts"
+    "tsconfig.base.json"
   ],
   "tasks": {
     "build": {
@@ -21,32 +20,6 @@
       "persistent": true,
       "cache": false,
       "interactive": true
-    },
-    "lint": {
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
-      "outputLogs": "new-only"
-    },
-    "lint:fix": {
-      "cache": false
-    },
-    "//#lint:root": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/**", "!packages/**", "!**/*.md"],
-      "outputLogs": "new-only"
-    },
-    "//#lint:root:fix": {
-      "cache": false
-    },
-    "test": {
-      "cache": false,
-      "dependsOn": ["^build"],
-      "env": ["BETTER_AUTH_SECRET", "PROJECTPROJECT_TEST_DATABASE_URL"],
-      "passThroughEnv": [
-        "PROJECTPROJECT_TEST_S3_ACCESS_KEY",
-        "PROJECTPROJECT_TEST_S3_ENDPOINT",
-        "PROJECTPROJECT_TEST_S3_SECRET_KEY"
-      ],
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
-      "outputLogs": "new-only"
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],

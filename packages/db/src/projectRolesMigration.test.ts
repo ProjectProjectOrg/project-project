@@ -59,10 +59,11 @@ const projectMembers = `
   ORDER BY 1, 2
 `
 
+const database = () =>
+  migratedDatabase(databaseUrl, projectRolesMigration, fixture)
+
 describe.skipIf(!databaseUrl)("project roles migration", () => {
-  layer(migratedDatabase(databaseUrl, projectRolesMigration, fixture), {
-    timeout: "60 seconds"
-  })((it) => {
+  layer(database(), { timeout: "60 seconds" })((it) => {
     it.effect(
       "folds comma roles and collapses duplicate memberships to the highest role",
       () =>
@@ -170,7 +171,9 @@ describe.skipIf(!databaseUrl)("project roles migration", () => {
         expect(error.message).toContain("null value")
       })
     )
+  })
 
+  layer(database(), { timeout: "60 seconds" })((it) => {
     it.effect("removes project memberships when the org membership goes", () =>
       Effect.gen(function* () {
         const database = yield* MigratedDatabase

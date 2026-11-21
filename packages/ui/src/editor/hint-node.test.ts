@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { ListItemNode, ListNode } from "@lexical/list"
 import {
   $convertFromMarkdownString,

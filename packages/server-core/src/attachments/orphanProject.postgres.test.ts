@@ -14,7 +14,7 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as Access from "../access/Access"
 import * as OrgStorage from "../storage/OrgStorage"
@@ -29,10 +29,11 @@ class RemovalFailed extends Schema.TaggedError<RemovalFailed>()(
 ) {}
 
 describe.skipIf(!databaseUrl)("orphanProject", () => {
-  const organizationId = randomUUID()
-  const orgSlug = `orphan-${organizationId.slice(0, 8)}`
-  const doomed = randomUUID()
-  const survivor = randomUUID()
+  const organizationIds: Array<string> = []
+  let organizationId = ""
+  let orgSlug = ""
+  let doomed = ""
+  let survivor = ""
   const objects = new Set<string>()
   let pool: Pool
   let layer: Layer.Layer<Attachments.Attachments | Db>
@@ -72,37 +73,6 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
-    await pool.query(
-      "INSERT INTO organization (id, name, slug, created_at) VALUES ($1, $1, $2, now())",
-      [organizationId, orgSlug]
-    )
-    for (const [id, slug, key] of [
-      [doomed, "doomed", "DOOM"],
-      [survivor, "survivor", "SURV"]
-    ]) {
-      await pool.query(
-        "INSERT INTO project_index (id, slug, organization_id, key, name, icon, color, created_by) VALUES ($1, $2, $3, $4, $2, 'x', '#000000', 'user-1')",
-        [id, slug, organizationId, key]
-      )
-    }
-    for (const [id, projectId] of [
-      ["a1", doomed],
-      ["a2", doomed],
-      ["a3", survivor],
-      ["a4", survivor],
-      ["a5", doomed]
-    ]) {
-      await insertLive(`${organizationId}-${id}`, projectId)
-    }
-    await pool.query(
-      "INSERT INTO project_image_reference (project_id, attachment_id, slot) VALUES ($1, $2, 'banner')",
-      [doomed, `${organizationId}-a2`]
-    )
-    await pool.query(
-      "INSERT INTO attachment_reference (attachment_id, project_id, ticket_id) VALUES ($1, $2, 'DOOM-1'), ($3, $2, 'DOOM-1'), ($3, $4, 'SURV-1')",
-      [`${organizationId}-a3`, doomed, `${organizationId}-a4`, survivor]
-    )
-
     const db = DbLive.pipe(
       Layer.provideMerge(
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
@@ -134,10 +104,48 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     )
   })
 
+  beforeEach(async () => {
+    organizationId = randomUUID()
+    organizationIds.push(organizationId)
+    orgSlug = `orphan-${organizationId.slice(0, 8)}`
+    doomed = randomUUID()
+    survivor = randomUUID()
+    await pool.query(
+      "INSERT INTO organization (id, name, slug, created_at) VALUES ($1, $1, $2, now())",
+      [organizationId, orgSlug]
+    )
+    for (const [id, slug, key] of [
+      [doomed, "doomed", "DOOM"],
+      [survivor, "survivor", "SURV"]
+    ]) {
+      await pool.query(
+        "INSERT INTO project_index (id, slug, organization_id, key, name, icon, color, created_by) VALUES ($1, $2, $3, $4, $2, 'x', '#000000', 'user-1')",
+        [id, slug, organizationId, key]
+      )
+    }
+    for (const [id, projectId] of [
+      ["a1", doomed],
+      ["a2", doomed],
+      ["a3", survivor],
+      ["a4", survivor],
+      ["a5", doomed]
+    ]) {
+      await insertLive(`${organizationId}-${id}`, projectId)
+    }
+    await pool.query(
+      "INSERT INTO project_image_reference (project_id, attachment_id, slot) VALUES ($1, $2, 'banner')",
+      [doomed, `${organizationId}-a2`]
+    )
+    await pool.query(
+      "INSERT INTO attachment_reference (attachment_id, project_id, ticket_id) VALUES ($1, $2, 'DOOM-1'), ($3, $2, 'DOOM-1'), ($3, $4, 'SURV-1')",
+      [`${organizationId}-a3`, doomed, `${organizationId}-a4`, survivor]
+    )
+  })
+
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM organization WHERE id = $1", [
-        organizationId
+      await pool.query("DELETE FROM organization WHERE id = ANY($1)", [
+        organizationIds
       ])
       await pool.end()
     }

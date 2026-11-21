@@ -5,10 +5,12 @@ import { getTestInstance } from "better-auth/test"
 import * as DateTime from "effect/DateTime"
 import { describe, expect, it, vi } from "vitest"
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("drizzle-orm/node-postgres", () => ({
   drizzle: vi.fn(() => ({ query: {} }))
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("better-auth", async () => {
   const actual =
     await vi.importActual<typeof import("better-auth")>("better-auth")

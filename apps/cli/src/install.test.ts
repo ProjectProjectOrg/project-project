@@ -177,7 +177,10 @@ describe("runInstaller", () => {
         }),
         false
       )
-      expect(result).toEqual({ code: 0, output: "installing v2026.10.29\n" })
+      expect(result).toEqual({
+        code: ChildProcessSpawner.ExitCode(0),
+        output: "installing v2026.10.29\n"
+      })
     })
   )
 
@@ -187,7 +190,7 @@ describe("runInstaller", () => {
         runInstaller("https://pp.example.com/install.sh", {}),
         true
       )
-      expect(result.code).toBe(1)
+      expect(result.code).toBe(ChildProcessSpawner.ExitCode(1))
       expect(result.output).toContain(
         "couldn't download the installer from https://pp.example.com/install.sh"
       )

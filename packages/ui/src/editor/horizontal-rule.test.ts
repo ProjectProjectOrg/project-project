@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { HorizontalRuleNode } from "@lexical/extension"
 import {
   $convertFromMarkdownString,

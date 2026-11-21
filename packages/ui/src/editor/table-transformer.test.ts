@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { LinkNode } from "@lexical/link"
 import {
   $convertFromMarkdownString,

@@ -27,6 +27,7 @@ const { authenticate, fetch } = vi.hoisted(() => ({
   fetch: vi.fn<typeof globalThis.fetch>()
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("./clients", () => ({
   octokitFor: (token: string) =>
     new Octokit({

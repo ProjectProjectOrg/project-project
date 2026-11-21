@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { CodeNode } from "@lexical/code"
 import { createEmptyHistoryState, registerHistory } from "@lexical/history"
 import { LinkNode } from "@lexical/link"

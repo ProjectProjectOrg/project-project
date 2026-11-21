@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { DateTime, Effect, Layer, Redacted } from "effect"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import { Db } from "./Db"
 import { DbLive } from "./live"
@@ -19,7 +19,8 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 describe.skipIf(!databaseUrl)(
   "Promise and Effect database compatibility",
   () => {
-    const id = randomUUID()
+    const ids: Array<string> = []
+    let id = ""
     let pool: Pool
     const dbLayer = DbLive.pipe(
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
@@ -42,9 +43,14 @@ describe.skipIf(!databaseUrl)(
       })
     })
 
+    beforeEach(() => {
+      id = randomUUID()
+      ids.push(id)
+    })
+
     afterAll(async () => {
       if (pool) {
-        await pool.query('DELETE FROM "user" WHERE id = $1', [id])
+        await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [ids])
         await pool.end()
       }
     })
@@ -80,6 +86,12 @@ describe.skipIf(!databaseUrl)(
       "reads Effect updates through the Promise driver and rolls back failed transactions",
       () =>
         Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            pool.query(
+              'INSERT INTO "user" (id, name, email) VALUES ($1, $2, $3)',
+              [id, "Driver compatibility", `${id}@example.test`]
+            )
+          )
           yield* Effect.gen(function* () {
             const db = yield* Db
             yield* db

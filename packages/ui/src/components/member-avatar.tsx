@@ -164,36 +164,35 @@ export function AvatarStack({
           +{overflow}
         </AvatarGroupCount>
       )}
-      {overflow > 0 &&
-        countTooltip && (
-          // The count names the people it stands for on hover and focus.
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <AvatarGroupCount
-                  className="focus-ring"
-                  style={{
-                    width: size,
-                    height: size,
-                    fontSize: Math.max(10, Math.round(size * 0.42))
-                  }}
-                />
-              }
-            >
-              +{overflow}
-            </TooltipTrigger>
-            <TooltipContent>
-              <ul className="grid gap-1 py-0.5">
-                {subjects.slice(max).map((subject) => (
-                  <li key={subject.id} className="flex items-center gap-1.5">
-                    <MemberAvatar member={subject} size={16} />
-                    {subject.name ?? subject.email}
-                  </li>
-                ))}
-              </ul>
-            </TooltipContent>
-          </Tooltip>
-        )}
+      {overflow > 0 && countTooltip && (
+        // The count names the people it stands for on hover and focus.
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <AvatarGroupCount
+                className="focus-ring"
+                style={{
+                  width: size,
+                  height: size,
+                  fontSize: Math.max(10, Math.round(size * 0.42))
+                }}
+              />
+            }
+          >
+            +{overflow}
+          </TooltipTrigger>
+          <TooltipContent>
+            <ul className="grid gap-1 py-0.5">
+              {subjects.slice(max).map((subject) => (
+                <li key={subject.id} className="flex items-center gap-1.5">
+                  <MemberAvatar member={subject} size={16} />
+                  {subject.name ?? subject.email}
+                </li>
+              ))}
+            </ul>
+          </TooltipContent>
+        </Tooltip>
+      )}
     </AvatarGroup>
   )
 }
