@@ -1,41 +1,15 @@
 # Frontend image — nginx serving the Vite build, proxying /api to the
 # backend container.
 #
-# Two stages: `build` runs Vite, `runtime` is plain nginx with the dist
-# folder copied in plus our nginx config that handles SPA fallback and
-# the /api/* proxy.
+# CI's Build job already runs Vite, so this image copies its output from
+# apps/frontend/dist instead of building again. Build it locally with
+# `bun run --cwd apps/frontend build` first.
 
-FROM oven/bun:1.4.4-slim AS bun
-
-FROM node:24.15.0-bookworm-slim AS prune
-COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
-WORKDIR /app
-COPY . .
-RUN bun x turbo@2.10.9 prune @pp/frontend --docker
-
-FROM node:24.15.0-bookworm-slim AS build
-COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
-WORKDIR /app
-
-COPY --from=prune /app/out/json/ ./
-RUN bun install --frozen-lockfile
-
-COPY --from=prune /app/out/full/ ./
-COPY tsconfig.base.json ./
-
-# Vite reads `import.meta.env.*` at build time. The frontend itself talks
-# to a same-origin /api, so no API-URL env is needed. Note the flag order:
-# `bun run --cwd <dir> <script>` runs the script in that workspace;
-# `bun --cwd <dir> run <script>` is a different command that just lists
-# scripts. We learned this the noisy way.
-RUN bun run --cwd apps/frontend build
-
-RUN find apps/frontend/dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \
+FROM nginx:1.30.7-alpine
+COPY apps/frontend/dist /usr/share/nginx/html
+RUN find /usr/share/nginx/html -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \
       -o -name '*.svg' -o -name '*.json' -o -name '*.webmanifest' \) -size +1k \
       -exec gzip -9 -k {} +
-
-FROM nginx:1.30.7-alpine AS runtime
-COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx.locations /etc/nginx/app.locations
 
