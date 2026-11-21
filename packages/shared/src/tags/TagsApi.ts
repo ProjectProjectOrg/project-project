@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict } from "../errors"
+import { TagExists } from "../errors"
 import { ProjectPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./Tag"
@@ -40,7 +40,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
       params: ProjectPath,
       payload: CreateTagInput,
       success: Tag,
-      error: Conflict
+      error: [TagExists]
     }).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .add(
@@ -51,7 +51,7 @@ export const TagsGroup = HttpApiGroup.make("tags")
         params: ProjectTagPath,
         payload: UpdateTagInput,
         success: Tag,
-        error: Conflict
+        error: [TagExists]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

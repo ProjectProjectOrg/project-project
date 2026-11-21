@@ -1,5 +1,10 @@
 import { it } from "@effect/vitest"
-import { BranchNotFound, Conflict, RateLimited, ProjectScope } from "@pp/shared"
+import {
+  BranchNotFound,
+  RateLimited,
+  ProjectScope,
+  BranchLinkConflict
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
@@ -1651,7 +1656,7 @@ it.effect("attachBranch refuses a branch already stacked on the ticket", () => {
     )
 
     expect(failure).toEqual(
-      new Conflict({ reason: "branch_already_on_ticket" })
+      new BranchLinkConflict({ kind: "already_on_ticket" })
     )
     expect(docs.documents.get("T-1")).toMatchObject({ branch: "feat/T-1" })
   }).pipe(Effect.provide(stackLayer(docs)))
@@ -1670,7 +1675,7 @@ it.effect("attachBranch rejects a branch stacked on another ticket", () => {
     const git = yield* TicketGit.TicketGit
     expect(
       yield* Effect.flip(git.attachBranch("T-2", { name: "shared-ui" }))
-    ).toEqual(new Conflict({ reason: "branch_on_other_ticket" }))
+    ).toEqual(new BranchLinkConflict({ kind: "on_other_ticket" }))
     expect(docs.documents.get("T-2")?.branch).toBeNull()
   }).pipe(Effect.provide(stackLayer(docs)))
 })
@@ -1699,11 +1704,11 @@ it.effect("stackBranch refuses branches that can't be stacked", () => {
     )
 
     expect(failures).toEqual([
-      new Conflict({ reason: "no_branch_on_ticket" }),
-      new Conflict({ reason: "branch_already_on_ticket" }),
-      new Conflict({ reason: "branch_already_on_ticket" }),
+      new BranchLinkConflict({ kind: "no_branch" }),
+      new BranchLinkConflict({ kind: "already_on_ticket" }),
+      new BranchLinkConflict({ kind: "already_on_ticket" }),
       new BranchNotFound({ name: "missing" }),
-      new Conflict({ reason: "branch_on_other_ticket" })
+      new BranchLinkConflict({ kind: "on_other_ticket" })
     ])
   }).pipe(Effect.provide(stackLayer(docs)))
 })
@@ -1730,7 +1735,7 @@ it.effect(
         stack: [{ branch: "feat/T-1-docs" }],
         ignoredBranches: ["feat/T-1-ui"]
       })
-      expect(missing).toEqual(new Conflict({ reason: "branch_not_stacked" }))
+      expect(missing).toEqual(new BranchLinkConflict({ kind: "not_stacked" }))
     }).pipe(Effect.provide(stackLayer(docs)))
   }
 )
@@ -1976,8 +1981,8 @@ it.effect("createBranch creates the branch in the repository asked for", () => {
     expect(docs.documents.get("T-1")?.repo).toBe("repo-2")
     expect(fallback.repoId).toBe("repo-1")
     expect(unknown).toMatchObject({
-      _tag: "Conflict",
-      reason: "no_github_connection"
+      _tag: "GitHubConnectionConflict",
+      kind: "no_connection"
     })
   }).pipe(Effect.provide(layer))
 })
@@ -2023,8 +2028,8 @@ it.effect.each(["createBranch", "attachBranch"] as const)(
               git.attachBranch("T-1", { name: "feat/T-1-new" })
             )
       expect(error).toMatchObject({
-        _tag: "Conflict",
-        reason: "no_github_connection"
+        _tag: "GitHubConnectionConflict",
+        kind: "no_connection"
       })
       expect(requested).toEqual([])
       expect(docs.documents.get("T-1")).toEqual(original)

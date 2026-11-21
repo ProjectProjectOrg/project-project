@@ -321,7 +321,7 @@ describe("built-in entries", () => {
           origin: "org",
           shadows: "builtin"
         })
-        expect(again).toBe("Conflict")
+        expect(again).toBe("LibraryConflict")
         expect(project).toMatchObject({
           name: "Project defect",
           origin: "project",
@@ -465,7 +465,7 @@ describe("built-in entries", () => {
           yield* library
             .expandForCreate("acme", "web", typeKey("bug"))
             .pipe(Effect.flip)
-        ).toMatchObject({ _tag: "Validation", reason: "unknown_type:bug" })
+        ).toMatchObject({ _tag: "UnknownType", key: "bug" })
 
         yield* library.removeType("bug").pipe(asProject("project-admin"))
         const shown = yield* library.projectLibrary().pipe(asProject("member"))
@@ -516,7 +516,7 @@ describe("keys per layer", () => {
           .pipe(asProject("project-admin"))
 
         expect(org.shadows).toBeNull()
-        expect(again).toBe("Conflict")
+        expect(again).toBe("LibraryConflict")
         expect(project.origin).toBe("project")
         expect(project.shadows).toBe("org")
         expect(project.name).toBe("Project context")
@@ -655,7 +655,10 @@ describe("keys per layer", () => {
         const created = yield* library
           .createOrgBlock(blockInput())
           .pipe(asOrg("org-admin"), Effect.flip)
-        expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
+        expect(created).toMatchObject({
+          _tag: "LibraryConflict",
+          kind: "key_taken"
+        })
 
         updateLayer(world, "acme", null, (layer) => ({
           ...layer,
@@ -664,7 +667,10 @@ describe("keys per layer", () => {
         const hidden = yield* library
           .hideBlock("background")
           .pipe(asProject("project-admin"), Effect.flip)
-        expect(hidden).toMatchObject({ _tag: "Conflict", reason: "customized" })
+        expect(hidden).toMatchObject({
+          _tag: "LibraryConflict",
+          kind: "customized"
+        })
         expect(world.layers.get("acme/web")).toBeUndefined()
       }),
       world
@@ -680,7 +686,10 @@ describe("keys per layer", () => {
         const created = yield* library
           .createType(typeInput())
           .pipe(asProject("project-admin"), Effect.flip)
-        expect(created).toMatchObject({ _tag: "Conflict", reason: "key_taken" })
+        expect(created).toMatchObject({
+          _tag: "LibraryConflict",
+          kind: "key_taken"
+        })
         expect(world.layers.get("acme/web")).toBeUndefined()
       }),
       world
@@ -704,8 +713,8 @@ describe("keys per layer", () => {
           .pipe(asProject("member"))
 
         expect(refused).toMatchObject({
-          _tag: "Conflict",
-          reason: "customized"
+          _tag: "LibraryConflict",
+          kind: "customized"
         })
         expect(
           project.blocks.find((block) => block.key === "background")?.content
@@ -716,20 +725,12 @@ describe("keys per layer", () => {
 })
 
 describe("content validation", () => {
-  const reason = <A, E extends { _tag: string }>(
-    effect: Effect.Effect<A, E, Library.Library>
-  ) =>
-    effect.pipe(
-      Effect.flip,
-      Effect.map((error) => ("reason" in error ? error.reason : error._tag))
-    )
-
   it.effect("rejects block markup inside a block definition", () =>
     run(
       Effect.gen(function* () {
         const library = yield* Library.Library
         expect(
-          yield* reason(
+          yield* Effect.flip(
             library
               .createOrgBlock(
                 blockInput({
@@ -738,7 +739,10 @@ describe("content validation", () => {
               )
               .pipe(asOrg("org-admin"))
           )
-        ).toBe("blocks_not_allowed")
+        ).toMatchObject({
+          _tag: "LibraryContentRejected",
+          kind: "blocks_not_allowed"
+        })
       })
     )
   )
@@ -748,7 +752,7 @@ describe("content validation", () => {
       Effect.gen(function* () {
         const library = yield* Library.Library
         expect(
-          yield* reason(
+          yield* Effect.flip(
             library
               .createOrgType(
                 typeInput({
@@ -757,7 +761,7 @@ describe("content validation", () => {
               )
               .pipe(asOrg("org-admin"))
           )
-        ).toBe("invalid_blocks:nested:3")
+        ).toMatchObject({ _tag: "InvalidBlocks", code: "nested", line: 3 })
       })
     )
   )
@@ -767,7 +771,7 @@ describe("content validation", () => {
       Effect.gen(function* () {
         const library = yield* Library.Library
         expect(
-          yield* reason(
+          yield* Effect.flip(
             library
               .createOrgBlock(
                 blockInput({
@@ -777,7 +781,10 @@ describe("content validation", () => {
               )
               .pipe(asOrg("org-admin"))
           )
-        ).toBe("attachments_not_allowed")
+        ).toMatchObject({
+          _tag: "LibraryContentRejected",
+          kind: "attachments_not_allowed"
+        })
       })
     )
   )
@@ -945,12 +952,12 @@ describe("expandForCreate", () => {
           .pipe(Effect.flip)
 
         expect(unadopted).toMatchObject({
-          _tag: "Validation",
-          reason: "unknown_type:incident"
+          _tag: "UnknownType",
+          key: "incident"
         })
         expect(hidden).toMatchObject({
-          _tag: "Validation",
-          reason: "unknown_type:spike"
+          _tag: "UnknownType",
+          key: "spike"
         })
       }),
       world

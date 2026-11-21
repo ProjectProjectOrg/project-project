@@ -7,7 +7,13 @@ import {
   type BulkTicketsResult,
   type BulkUpdateTicketsInput,
   type GroupId,
-  Conflict,
+  UnknownStatus,
+  UnknownTags,
+  UnknownType,
+  NonMemberAssignees,
+  EstimateUnitMismatch,
+  RelationInvalid,
+  CommentBodyInvalid,
   DEFAULT_TICKET_SORT,
   isStaleEstimate,
   listEditAdds,
@@ -53,7 +59,12 @@ import {
   type MoveMentionContext,
   type MoveTicketInput,
   type MoveTicketResult,
-  isEpic
+  isEpic,
+  EstimationOff,
+  HierarchyInvalid,
+  TicketArchiveConflict,
+  TicketChanged,
+  TicketMoveRejected
 } from "@pp/shared"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -68,7 +79,6 @@ import { ticketChanges } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Attachments from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
-import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
@@ -149,6 +159,17 @@ export type TicketUpdateExpectation = Readonly<{
   updatedAt?: Date
 }>
 
+type TicketFieldError =
+  | Validation
+  | UnknownType
+  | UnknownStatus
+  | UnknownTags
+  | NonMemberAssignees
+  | EstimationOff
+  | EstimateUnitMismatch
+  | HierarchyInvalid
+  | RelationInvalid
+
 export class TicketCommands extends Context.Service<
   TicketCommands,
   Readonly<{
@@ -158,7 +179,7 @@ export class TicketCommands extends Context.Service<
       TicketDetail,
       | Forbidden
       | NotFound
-      | Validation
+      | TicketFieldError
       | MentionInvalid
       | Markdown.MarkdownError,
       ProjectScope
@@ -169,7 +190,7 @@ export class TicketCommands extends Context.Service<
       TicketDetail,
       | Forbidden
       | NotFound
-      | Validation
+      | TicketFieldError
       | MentionInvalid
       | Markdown.MarkdownError,
       ProjectScope
@@ -183,9 +204,9 @@ export class TicketCommands extends Context.Service<
       TicketUpdateResult,
       | Forbidden
       | TicketReadError
-      | Validation
+      | TicketFieldError
       | MentionInvalid
-      | Conflict
+      | TicketChanged
       | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
@@ -199,10 +220,10 @@ export class TicketCommands extends Context.Service<
       input: SplitTicketInput
     ) => Effect.Effect<
       SplitTicketResult,
-      | Conflict
+      | TicketChanged
       | Forbidden
       | TicketReadError
-      | Validation
+      | TicketFieldError
       | MentionInvalid
       | SprintCompletedImmutable,
       ProjectScope | ActivityActor
@@ -211,7 +232,7 @@ export class TicketCommands extends Context.Service<
       input: BulkUpdateTicketsInput
     ) => Effect.Effect<
       BulkUpdateTicketsResult,
-      TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
+      TicketReadError | TicketFieldError | Forbidden | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
     bulkArchive: (
@@ -219,11 +240,11 @@ export class TicketCommands extends Context.Service<
     ) => Effect.Effect<
       BulkTicketsResult,
       | Forbidden
-      | Conflict
-      | Validation
+      | TicketArchiveConflict
+      | RelationInvalid
       | TicketReadError
       | MentionInvalid
-      | Comments.InvalidCommentBody,
+      | CommentBodyInvalid,
       ProjectScope | ActivityActor
     >
     bulkDelete: (
@@ -238,7 +259,11 @@ export class TicketCommands extends Context.Service<
       input: MoveTicketInput
     ) => Effect.Effect<
       MoveTicketResult,
-      Conflict | Forbidden | TicketReadError | Validation,
+      | TicketChanged
+      | TicketMoveRejected
+      | UnknownStatus
+      | Forbidden
+      | TicketReadError,
       ProjectScope | ActivityActor | CurrentUser
     >
     remove: (
@@ -255,11 +280,11 @@ export class TicketCommands extends Context.Service<
     ) => Effect.Effect<
       TicketDetail,
       | Forbidden
-      | Conflict
-      | Validation
+      | TicketArchiveConflict
+      | RelationInvalid
       | TicketReadError
       | MentionInvalid
-      | Comments.InvalidCommentBody,
+      | CommentBodyInvalid,
       ProjectScope | ActivityActor
     >
     mark: (
@@ -267,7 +292,7 @@ export class TicketCommands extends Context.Service<
       input: MarkTicketInput
     ) => Effect.Effect<
       TicketDetail,
-      Forbidden | Validation | TicketReadError,
+      Forbidden | RelationInvalid | TicketReadError,
       ProjectScope | ActivityActor
     >
     unmark: (
@@ -282,7 +307,7 @@ export class TicketCommands extends Context.Service<
       id: string
     ) => Effect.Effect<
       TicketDetail,
-      Forbidden | Conflict | TicketReadError,
+      Forbidden | TicketArchiveConflict | TicketReadError,
       ProjectScope | ActivityActor
     >
   }>
@@ -374,9 +399,7 @@ const make = Effect.gen(function* () {
       const known = new Set<string>(rows.map((r) => r.name))
       const missing = requested.filter((name) => !known.has(name))
       if (missing.length > 0) {
-        return yield* new Validation({
-          reason: `unknown_tags:${missing.join(",")}`
-        })
+        return yield* new UnknownTags({ tags: missing })
       }
     })
 
@@ -390,9 +413,7 @@ const make = Effect.gen(function* () {
         .pipe(Effect.orDie)
       const known = new Set<string>(rows.map((r) => r.slug))
       if (!known.has(requested)) {
-        return yield* new Validation({
-          reason: `unknown_status:${requested}`
-        })
+        return yield* new UnknownStatus({ status: requested })
       }
     })
 
@@ -407,11 +428,12 @@ const make = Effect.gen(function* () {
       project: scope
     })
     if (estimation === "off") {
-      return yield* new Validation({ reason: "estimation_off" })
+      return yield* new EstimationOff()
     }
     if (estimate.unit !== estimation) {
-      return yield* new Validation({
-        reason: `estimate_unit_mismatch:${estimate.unit}:${estimation}`
+      return yield* new EstimateUnitMismatch({
+        unit: estimate.unit,
+        estimation
       })
     }
   })
@@ -436,9 +458,7 @@ const make = Effect.gen(function* () {
       const members = yield* projectMembers.memberIds()
       const invalid = assignees.filter((id) => !members.has(id))
       if (invalid.length > 0) {
-        return yield* new Validation({
-          reason: `non_member_assignees:${invalid.join(",")}`
-        })
+        return yield* new NonMemberAssignees({ userIds: invalid })
       }
     })
 
@@ -650,7 +670,7 @@ const make = Effect.gen(function* () {
         const unknown = wanted.find((type) => !known.has(type))
         return unknown === undefined
           ? Effect.void
-          : Effect.fail(new Validation({ reason: `unknown_type:${unknown}` }))
+          : Effect.fail(new UnknownType({ key: unknown }))
       })
     )
   }
@@ -877,14 +897,14 @@ const make = Effect.gen(function* () {
             expected?.updatedAt !== undefined &&
             existing.updatedAt.getTime() !== expected.updatedAt.getTime()
           ) {
-            return yield* new Conflict({ reason: "ticket_updated_since_read" })
+            return yield* new TicketChanged({ kind: "updated_since_read" })
           }
           if (
             expected?.body !== undefined &&
             (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
               expected.body
           ) {
-            return yield* new Validation({ reason: "ticket_body_changed" })
+            return yield* new TicketChanged({ kind: "body_changed" })
           }
         })
         const write = (sprints: SprintFiles | null) =>
@@ -918,7 +938,9 @@ const make = Effect.gen(function* () {
                     sprints !== null &&
                     breaksEpicSprintRule(existing, next, sprints)
                   ) {
-                    return yield* new Validation({ reason: "epic_in_sprint" })
+                    return yield* new HierarchyInvalid({
+                      kind: "epic_in_sprint"
+                    })
                   }
                   return next
                 }
@@ -960,7 +982,7 @@ const make = Effect.gen(function* () {
                   sprints !== null &&
                   breaksEpicSprintRule(existing, next, sprints)
                 ) {
-                  return yield* new Validation({ reason: "epic_in_sprint" })
+                  return yield* new HierarchyInvalid({ kind: "epic_in_sprint" })
                 }
                 return next
               }),
@@ -1189,7 +1211,7 @@ const make = Effect.gen(function* () {
     if (
       input.results.some((result) => isEpic(result) && result.sprintId !== null)
     ) {
-      return yield* new Validation({ reason: "epic_in_sprint" })
+      return yield* new HierarchyInvalid({ kind: "epic_in_sprint" })
     }
     const originalSprintId = openSprintOf(
       new Map(
@@ -1750,7 +1772,7 @@ const make = Effect.gen(function* () {
     const source = yield* ProjectScope
     const { orgSlug, userId } = source
     if (input.toProject === source.slug) {
-      return yield* new Validation({ reason: "move_same_project" })
+      return yield* new TicketMoveRejected({ kind: "same_project" })
     }
     const destination = yield* access.project(orgSlug, input.toProject)
     if (!destination.permissions.can({ ticket: ["create"] })) {
@@ -1761,19 +1783,17 @@ const make = Effect.gen(function* () {
       destination
     )
     if (plan.statuses.length === 0) {
-      return yield* new Validation({ reason: "move_destination_no_statuses" })
+      return yield* new TicketMoveRejected({ kind: "destination_no_statuses" })
     }
     if (input.status !== undefined && !plan.statuses.includes(input.status)) {
-      return yield* new Validation({
-        reason: `unknown_status:${input.status}`
-      })
+      return yield* new UnknownStatus({ status: input.status })
     }
 
     const rootId = makeTicketId(id)
     const root = yield* readTicket(source, id)
     const children = yield* childIds(source, userId, id)
     if (isEpic(root) && children.length > 0) {
-      return yield* new Validation({ reason: "move_epic_has_tickets" })
+      return yield* new TicketMoveRejected({ kind: "epic_has_tickets" })
     }
     const sourceIds = [rootId, ...children.map((child) => makeTicketId(child))]
 
@@ -1791,10 +1811,10 @@ const make = Effect.gen(function* () {
             childrenNow.length !== children.length ||
             childrenNow.some((child) => !children.includes(child))
           ) {
-            return yield* new Conflict({ reason: "move_ticket_changed" })
+            return yield* new TicketChanged({ kind: "move_ticket_changed" })
           }
           if (isEpic(originals[0]) && children.length > 0) {
-            return yield* new Validation({ reason: "move_epic_has_tickets" })
+            return yield* new TicketMoveRejected({ kind: "epic_has_tickets" })
           }
           const fieldsOf = originals.map((original) =>
             planTicketMove(
@@ -1904,7 +1924,7 @@ const make = Effect.gen(function* () {
                 )
                 .pipe(
                   Effect.catchTag("TicketIdTaken", () =>
-                    Effect.fail(new Conflict({ reason: "move_id_taken" }))
+                    Effect.fail(new TicketChanged({ kind: "move_id_taken" }))
                   )
                 ),
             { discard: true }
@@ -2216,7 +2236,7 @@ const make = Effect.gen(function* () {
             sprints !== null &&
             breaksEpicSprintRule(existing, patched[index], sprints)
           ) {
-            return yield* new Validation({ reason: "epic_in_sprint" })
+            return yield* new HierarchyInvalid({ kind: "epic_in_sprint" })
           }
         }
         const nexts = originals.map((existing, index) => {
@@ -2350,7 +2370,7 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const current = yield* readTicket(scope, id)
         if (current.archivedAt !== null) {
-          return yield* new Conflict({ reason: "ticket_already_archived" })
+          return yield* new TicketArchiveConflict({ kind: "already_archived" })
         }
         if (original !== undefined) {
           yield* validateRelationTargets(scope, current.id, [original])
@@ -2395,8 +2415,8 @@ const make = Effect.gen(function* () {
     const archived = yield* Effect.forEach([...new Set(input.tickets)], (id) =>
       archive(id, { reason: input.reason }).pipe(
         Effect.as([id]),
-        Effect.catchTag("Conflict", (error) =>
-          error.reason === "ticket_already_archived"
+        Effect.catchTag("TicketArchiveConflict", (error) =>
+          error.kind === "already_archived"
             ? Effect.succeed([])
             : Effect.fail(error)
         )
@@ -2432,7 +2452,7 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const current = yield* readTicket(scope, id)
         if (current.archivedAt === null) {
-          return yield* new Conflict({ reason: "ticket_not_archived" })
+          return yield* new TicketArchiveConflict({ kind: "not_archived" })
         }
         const next = yield* ticketDocs.update(
           orgSlug,

@@ -4,11 +4,12 @@ import * as Schema from "effect/Schema"
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
-  Conflict,
   ImportFormatUnsupported,
   StorageError,
   StorageNotConnected,
-  Validation
+  ProjectIdentifierTaken,
+  ProjectImportInvalid,
+  ProjectImportStateConflict
 } from "../errors"
 import { OrgPath } from "../http/paths"
 import { Slug } from "./Project"
@@ -22,7 +23,7 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
       params: OrgPath,
       success: ProjectImport,
       error: [
-        Validation,
+        ProjectImportInvalid,
         ImportFormatUnsupported,
         StorageNotConnected,
         StorageError
@@ -47,7 +48,13 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
         params: ImportPath,
         payload: RunProjectImportInput,
         success: ProjectImport,
-        error: [Conflict, Validation, StorageNotConnected, StorageError]
+        error: [
+          StorageNotConnected,
+          StorageError,
+          ProjectIdentifierTaken,
+          ProjectImportInvalid,
+          ProjectImportStateConflict
+        ]
       }
     )
       .annotate(RequiresOrg, { project: ["create"] })
@@ -60,7 +67,7 @@ export const ProjectImportsGroup = HttpApiGroup.make("projectImports")
       {
         params: ImportPath,
         success: ProjectImport,
-        error: Conflict
+        error: [ProjectImportStateConflict]
       }
     )
       .annotate(RequiresOrg, { project: ["create"] })

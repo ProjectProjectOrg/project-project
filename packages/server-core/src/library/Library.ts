@@ -1,7 +1,7 @@
 import { Db } from "@pp/db"
 import {
   type BlockDefinition,
-  Conflict,
+  InvalidBlocks,
   type CreateBlockInput,
   type CreateTypeInput,
   type Library as LibraryValue,
@@ -13,7 +13,7 @@ import {
   type TicketPriority,
   type UpdateBlockInput,
   type UpdateTypeInput,
-  Validation,
+  UnknownType,
   OrgScope,
   ProjectScope,
   BASE_LAYER,
@@ -36,7 +36,9 @@ import {
   type Layer as LibraryLayer,
   type LibraryLayers,
   type TypeDraft,
-  TicketBlockSegment
+  TicketBlockSegment,
+  LibraryConflict,
+  LibraryContentRejected
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -55,7 +57,11 @@ export type TypeExpansion = Readonly<{
   tags: ReadonlyArray<TagName>
 }>
 
-type OrgEditError = Validation | MentionInvalid | Markdown.MarkdownError
+type OrgEditError =
+  | LibraryContentRejected
+  | InvalidBlocks
+  | MentionInvalid
+  | Markdown.MarkdownError
 
 type ProjectEditError = NotFound | OrgEditError
 
@@ -74,7 +80,11 @@ export class Library extends Context.Service<
     >
     createOrgBlock: (
       input: CreateBlockInput
-    ) => Effect.Effect<BlockDefinition, OrgEditError | Conflict, OrgScope>
+    ) => Effect.Effect<
+      BlockDefinition,
+      OrgEditError | LibraryConflict,
+      OrgScope
+    >
     updateOrgBlock: (
       key: string,
       input: UpdateBlockInput
@@ -84,7 +94,7 @@ export class Library extends Context.Service<
     ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, OrgScope>
     createOrgType: (
       input: CreateTypeInput
-    ) => Effect.Effect<TypeDefinition, OrgEditError | Conflict, OrgScope>
+    ) => Effect.Effect<TypeDefinition, OrgEditError | LibraryConflict, OrgScope>
     updateOrgType: (
       key: string,
       input: UpdateTypeInput
@@ -96,7 +106,7 @@ export class Library extends Context.Service<
       input: CreateBlockInput
     ) => Effect.Effect<
       BlockDefinition,
-      ProjectEditError | Conflict,
+      ProjectEditError | LibraryConflict,
       ProjectScope
     >
     updateBlock: (
@@ -110,14 +120,14 @@ export class Library extends Context.Service<
       key: string
     ) => Effect.Effect<
       void,
-      NotFound | Conflict | Markdown.MarkdownError,
+      NotFound | LibraryConflict | Markdown.MarkdownError,
       ProjectScope
     >
     createType: (
       input: CreateTypeInput
     ) => Effect.Effect<
       TypeDefinition,
-      ProjectEditError | Conflict,
+      ProjectEditError | LibraryConflict,
       ProjectScope
     >
     updateType: (
@@ -131,7 +141,7 @@ export class Library extends Context.Service<
       key: string
     ) => Effect.Effect<
       void,
-      NotFound | Conflict | Markdown.MarkdownError,
+      NotFound | LibraryConflict | Markdown.MarkdownError,
       ProjectScope
     >
     expandForCreate: (
@@ -140,7 +150,7 @@ export class Library extends Context.Service<
       key: TypeKey
     ) => Effect.Effect<
       TypeExpansion,
-      NotFound | Validation | Markdown.MarkdownError
+      NotFound | UnknownType | Markdown.MarkdownError
     >
     typeKeys: (
       orgSlug: string,
@@ -253,13 +263,11 @@ const withOwnLayer = (layers: LibraryLayers, layer: LibraryLayer) =>
 
 const contentIssue = (content: string, allowsBlocks: boolean) => {
   if (extractAttachmentRefs(content).length > 0)
-    return new Validation({ reason: "attachments_not_allowed" })
+    return new LibraryContentRejected({ kind: "attachments_not_allowed" })
   if (!allowsBlocks && BLOCK_TAG.test(content))
-    return new Validation({ reason: "blocks_not_allowed" })
+    return new LibraryContentRejected({ kind: "blocks_not_allowed" })
   const [issue] = validateTicketBlocks(content)
-  return issue === undefined
-    ? null
-    : new Validation({ reason: `invalid_blocks:${issue.code}:${issue.line}` })
+  return issue === undefined ? null : new InvalidBlocks(issue)
 }
 
 const plainMention = (label: string, href: string) => {
@@ -537,7 +545,7 @@ const make = Effect.gen(function* () {
         Effect.gen(function* () {
           const layers = yield* layersFor(orgSlug, slug)
           if (yield* keyTaken(ops, orgSlug, slug, layers, draft.key))
-            return yield* new Conflict({ reason: "key_taken" })
+            return yield* new LibraryConflict({ kind: "key_taken" })
           return yield* saveDraft(ops, write, orgSlug, slug, layers, draft)
         })
       )
@@ -621,11 +629,13 @@ const make = Effect.gen(function* () {
           const customized = ops
             .definitions(ownLayer(layers))
             .some((definition) => definition.key === key)
-          if (customized) return yield* new Conflict({ reason: "customized" })
+          if (customized)
+            return yield* new LibraryConflict({ kind: "customized" })
           const unreadable =
             !ops.hidden(ownLayer(layers)).includes(key) &&
             (yield* docs.hasFile(orgSlug, slug, ops.kind, key))
-          if (unreadable) return yield* new Conflict({ reason: "customized" })
+          if (unreadable)
+            return yield* new LibraryConflict({ kind: "customized" })
           yield* docs.writeTombstone(orgSlug, slug, ops.kind, key)
         })
       )
@@ -654,8 +664,7 @@ const make = Effect.gen(function* () {
   ) {
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     const definition = typeFor(library, key)
-    if (definition === null)
-      return yield* new Validation({ reason: `unknown_type:${key}` })
+    if (definition === null) return yield* new UnknownType({ key })
     const [body, known] = yield* Effect.all(
       [
         sanitizeMentions(

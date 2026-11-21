@@ -13,7 +13,6 @@ import {
   projectIntegrationLink
 } from "@pp/db/schema"
 import {
-  Conflict,
   Forbidden,
   GitHubError,
   type GitHubInstallationAccount,
@@ -27,7 +26,8 @@ import {
   type Slug,
   type StartGithubAppManifestInput,
   type StartGithubAppManifestResponse,
-  type UpdateGithubInstallationInput
+  type UpdateGithubInstallationInput,
+  GitHubConnectionConflict
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -101,7 +101,7 @@ export class GitHubIntegrations extends Context.Service<
       installationId: string | null
     ) => Effect.Effect<
       Readonly<{ redirectUrl: string }>,
-      NotFound | Forbidden | Conflict | GitHubError,
+      NotFound | Forbidden | GitHubConnectionConflict | GitHubError,
       OrgScope
     >
     listRepos: (
@@ -680,8 +680,8 @@ const make = Effect.gen(function* () {
         [installationId]
       )
       if (elsewhere.has(installationId)) {
-        return yield* new Conflict({
-          reason: "installation_connected_elsewhere"
+        return yield* new GitHubConnectionConflict({
+          kind: "installation_connected_elsewhere"
         })
       }
       return yield* connectInstallation(session, app.id, account)

@@ -50,8 +50,8 @@ it.effect("rejects oversized project exports before sending their bytes", () =>
       uploadProjectArchive({ orgSlug: "acme", file })
     )
     expect(error).toMatchObject({
-      _tag: "Validation",
-      reason: "archive_too_large"
+      _tag: "ProjectImportInvalid",
+      kind: "archive_too_large"
     })
     expect(handler).not.toHaveBeenCalled()
   })

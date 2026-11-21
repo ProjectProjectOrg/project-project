@@ -4,7 +4,8 @@ import * as Schema from "effect/Schema"
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
-  Conflict,
+  JiraMigrationChanged,
+  JiraMigrationRejected,
   JiraAccessDenied,
   JiraError,
   JiraMigrationUnavailable,
@@ -12,7 +13,7 @@ import {
   JiraRateLimited,
   JiraReconnectRequired,
   JiraResourceNotFound,
-  Validation
+  UnknownType
 } from "../errors"
 import { OrgPath } from "../http/paths"
 import { Slug } from "../projects/Project"
@@ -77,8 +78,9 @@ const JiraMigrationReadErrors = [JiraError, JiraMigrationUnavailable] as const
 
 const JiraMigrationWriteErrors = [
   ...JiraMigrationReadErrors,
-  Validation,
-  Conflict,
+  JiraMigrationRejected,
+  JiraMigrationChanged,
+  UnknownType,
   JiraNotConnected,
   JiraReconnectRequired,
   JiraAccessDenied,

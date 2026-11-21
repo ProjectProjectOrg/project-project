@@ -1,5 +1,5 @@
 import {
-  Conflict,
+  UnknownStatus,
   StatusSlug,
   UpdateGitAutomationInput,
   type GitAutomation
@@ -60,8 +60,8 @@ const setup = async () => {
         },
         fail: () =>
           resolve(
-            Response.json(new Conflict({ reason: "status_not_found" }), {
-              status: 409
+            Response.json(new UnknownStatus({ status: "archived" }), {
+              status: 400
             })
           )
       })

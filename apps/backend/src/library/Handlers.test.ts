@@ -11,7 +11,6 @@ import {
   AppApi,
   Authentication,
   BUILTIN_BLOCKS,
-  Conflict,
   CurrentUser,
   NotFound,
   type BlockDefinition,
@@ -22,7 +21,8 @@ import {
   UserId,
   TypeKey,
   OrgScope,
-  ProjectScope
+  ProjectScope,
+  LibraryConflict
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -112,7 +112,7 @@ const fakeLibrary: Library.Library["Service"] = {
       "createOrgBlock",
       args,
       args[0].key === "taken"
-        ? Effect.fail(new Conflict({ reason: "key_taken" }))
+        ? Effect.fail(new LibraryConflict({ kind: "key_taken" }))
         : Effect.succeed(block)
     ),
   updateOrgBlock: (...args) =>
@@ -336,8 +336,8 @@ it.effect("maps service failures to their HTTP statuses", () =>
     )
     expect(taken.status).toBe(409)
     expect(yield* json(taken)).toEqual({
-      _tag: "Conflict",
-      reason: "key_taken"
+      _tag: "LibraryConflict",
+      kind: "key_taken"
     })
     const broken = yield* send(
       "POST",

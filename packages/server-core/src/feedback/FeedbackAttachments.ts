@@ -10,7 +10,7 @@ import {
   isAllowedAttachmentContentType,
   OrgScope,
   StorageError,
-  Validation
+  FeedbackRejected
 } from "@pp/shared"
 import { and, eq, inArray, isNull, lt } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -66,7 +66,7 @@ const makeFeedbackAttachments = Effect.gen(function* () {
     }
     const bytes = yield* fs.readFile(file.path).pipe(Effect.orDie)
     if (bytes.byteLength === 0) {
-      return yield* new Validation({ reason: "empty_attachment" })
+      return yield* new FeedbackRejected({ kind: "empty_attachment" })
     }
     if (bytes.byteLength > FEEDBACK_ATTACHMENT_MAX_BYTES) {
       return yield* new AttachmentTooLarge({
@@ -105,7 +105,7 @@ const makeFeedbackAttachments = Effect.gen(function* () {
   ) {
     if (ids.length === 0) return []
     if (new Set(ids).size !== ids.length) {
-      return yield* new Validation({ reason: "duplicate_attachment" })
+      return yield* new FeedbackRejected({ kind: "duplicate_attachment" })
     }
     const { organizationId, userId } = yield* OrgScope
     const rows = yield* db
@@ -121,7 +121,7 @@ const makeFeedbackAttachments = Effect.gen(function* () {
       )
       .pipe(Effect.orDie)
     if (rows.length !== ids.length) {
-      return yield* new Validation({ reason: "unknown_attachment" })
+      return yield* new FeedbackRejected({ kind: "unknown_attachment" })
     }
     return rows
   })
@@ -143,7 +143,7 @@ const makeFeedbackAttachments = Effect.gen(function* () {
       .returning({ id: feedbackAttachment.id })
       .pipe(Effect.orDie)
     if (claimed.length !== ids.length) {
-      return yield* new Validation({ reason: "attachment_already_sent" })
+      return yield* new FeedbackRejected({ kind: "attachment_already_sent" })
     }
   })
 

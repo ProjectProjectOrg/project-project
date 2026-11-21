@@ -61,8 +61,8 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
     const failure = Cause.findErrorOption(exit.cause)
     const graceExpired =
       Option.isSome(failure) &&
-      Predicate.isTagged(failure.value, "Conflict") &&
-      failure.value.reason === "grace_expired"
+      Predicate.isTagged(failure.value, "OrgRestoreRejected") &&
+      failure.value.kind === "grace_expired"
     setError(
       graceExpired
         ? m.org_deleted_restore_grace_expired()

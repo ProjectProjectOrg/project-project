@@ -2,7 +2,6 @@ import { Db } from "@pp/db"
 import { projectStatus } from "@pp/db/schema"
 import {
   type ActivityActor,
-  Conflict,
   type CreateStatusInput,
   type DeleteStatusInput,
   Forbidden,
@@ -19,7 +18,8 @@ import {
   pickStatusColor,
   ProjectScope,
   type ReorderStatusInput,
-  type UpdateStatusInput
+  type UpdateStatusInput,
+  StatusChangeRejected
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -38,25 +38,29 @@ export class ProjectStatuses extends Context.Service<
     list: () => Effect.Effect<ReadonlyArray<ProjectStatus>, never, ProjectScope>
     create: (
       input: CreateStatusInput
-    ) => Effect.Effect<ProjectStatus, Conflict, ProjectScope>
+    ) => Effect.Effect<ProjectStatus, StatusChangeRejected, ProjectScope>
     update: (
       statusSlug: string,
       input: UpdateStatusInput
     ) => Effect.Effect<
       ProjectStatus,
-      Forbidden | NotFound | Conflict | Markdown.MarkdownError,
+      Forbidden | NotFound | StatusChangeRejected | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     reorder: (
       statusSlug: string,
       input: ReorderStatusInput
-    ) => Effect.Effect<ProjectStatus, NotFound | Conflict, ProjectScope>
+    ) => Effect.Effect<
+      ProjectStatus,
+      NotFound | StatusChangeRejected,
+      ProjectScope
+    >
     remove: (
       statusSlug: string,
       input: DeleteStatusInput
     ) => Effect.Effect<
       void,
-      Forbidden | NotFound | Conflict | Markdown.MarkdownError,
+      Forbidden | NotFound | StatusChangeRejected | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
   }>
@@ -105,9 +109,9 @@ const make = Effect.gen(function* () {
 
     const derived = deriveStatusSlug(input.label)
     if (derived.length === 0)
-      return yield* new Conflict({ reason: "invalid_label" })
+      return yield* new StatusChangeRejected({ kind: "invalid_label" })
     if (isReservedStatusSlug(derived))
-      return yield* new Conflict({ reason: "reserved_slug" })
+      return yield* new StatusChangeRejected({ kind: "reserved_slug" })
 
     const existing = yield* db.query.projectStatus
       .findMany({
@@ -119,7 +123,7 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie)
 
     if (existing.some((s) => s.slug === derived))
-      return yield* new Conflict({ reason: "slug_exists" })
+      return yield* new StatusChangeRejected({ kind: "slug_exists" })
 
     const nextKey = generateKeyBetween(
       ...phaseEndNeighbors(existing, input.phase ?? "started")
@@ -176,11 +180,11 @@ const make = Effect.gen(function* () {
     const newSlug = input.label ? deriveStatusSlug(input.label) : current.slug
 
     if (newSlug.length === 0)
-      return yield* new Conflict({ reason: "invalid_label" })
+      return yield* new StatusChangeRejected({ kind: "invalid_label" })
 
     if (newSlug !== current.slug) {
       if (isReservedStatusSlug(newSlug))
-        return yield* new Conflict({ reason: "reserved_slug" })
+        return yield* new StatusChangeRejected({ kind: "reserved_slug" })
       const collision = yield* db.query.projectStatus
         .findFirst({
           where: {
@@ -192,7 +196,8 @@ const make = Effect.gen(function* () {
           }
         })
         .pipe(Effect.orDie)
-      if (collision) return yield* new Conflict({ reason: "slug_exists" })
+      if (collision)
+        return yield* new StatusChangeRejected({ kind: "slug_exists" })
     }
 
     const cosmetic = newSlug === current.slug
@@ -261,7 +266,7 @@ const make = Effect.gen(function* () {
       s.slug === statusSlug ? { ...s, orderKey: input.orderKey } : s
     )
     if (hasBaselineOrder(existing) && !hasBaselineOrder(reordered))
-      return yield* new Conflict({ reason: "baseline_order" })
+      return yield* new StatusChangeRejected({ kind: "baseline_order" })
     const updated = yield* db
       .update(projectStatus)
       .set({ orderKey: input.orderKey })
@@ -304,9 +309,11 @@ const make = Effect.gen(function* () {
     )
     if (affectedIds.length > 0) {
       if (!input.reassignTo)
-        return yield* new Conflict({ reason: "reassign_required" })
+        return yield* new StatusChangeRejected({ kind: "reassign_required" })
       if (input.reassignTo === statusSlug)
-        return yield* new Conflict({ reason: "reassign_target_invalid" })
+        return yield* new StatusChangeRejected({
+          kind: "reassign_target_invalid"
+        })
       const reassignTo = input.reassignTo
       const target = yield* db.query.projectStatus
         .findFirst({
@@ -320,7 +327,9 @@ const make = Effect.gen(function* () {
         })
         .pipe(Effect.orDie)
       if (!target)
-        return yield* new Conflict({ reason: "reassign_target_missing" })
+        return yield* new StatusChangeRejected({
+          kind: "reassign_target_missing"
+        })
 
       yield* rewrites.moveToStatus(
         orgSlug,

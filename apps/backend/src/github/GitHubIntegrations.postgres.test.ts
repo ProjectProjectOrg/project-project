@@ -486,8 +486,8 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           integrations.chooseInstallation(fixture.state, fixture.installationId)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer), Effect.flip)
       expect(error).toMatchObject({
-        _tag: "Conflict",
-        reason: "installation_connected_elsewhere"
+        _tag: "GitHubConnectionConflict",
+        kind: "installation_connected_elsewhere"
       })
     }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
   )

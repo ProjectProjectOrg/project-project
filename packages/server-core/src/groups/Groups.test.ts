@@ -464,7 +464,7 @@ it.effect("create rejects endsAt before startsAt", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "SprintInvalid" }
     })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
@@ -484,7 +484,7 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "SprintInvalid" }
     })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
@@ -503,7 +503,7 @@ it.effect("update rejects completedAt in the future", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "SprintInvalid" }
     })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
@@ -523,7 +523,7 @@ it.effect("update rejects completedAt before startsAt", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "SprintInvalid" }
     })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
@@ -838,7 +838,7 @@ it.effect(
     }).pipe(Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "pm" })))
 )
 
-it.effect("complete fails with Validation when source is not a sprint", () =>
+it.effect("complete fails with SprintInvalid when source is not a sprint", () =>
   Effect.gen(function* () {
     const groups = yield* Groups.Groups
     const epic = yield* groups.create({
@@ -854,13 +854,13 @@ it.effect("complete fails with Validation when source is not a sprint", () =>
 
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "Validation" }
+      failure: { _tag: "SprintInvalid" }
     })
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
 
 it.effect(
-  "complete fails with Validation when destination is not a sprint",
+  "complete fails with SprintInvalid when destination is not a sprint",
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups.Groups
@@ -883,7 +883,7 @@ it.effect(
 
       expect(result).toMatchObject({
         _tag: "Failure",
-        failure: { _tag: "Validation" }
+        failure: { _tag: "SprintInvalid" }
       })
     }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "pm" })))
 )
@@ -1118,12 +1118,12 @@ it.effect("epics can't be planned in a sprint", () =>
     })
 
     expect(added).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_in_sprint"
+      _tag: "HierarchyInvalid",
+      kind: "epic_in_sprint"
     })
     expect(created).toMatchObject({
-      _tag: "Validation",
-      reason: "epic_in_sprint"
+      _tag: "HierarchyInvalid",
+      kind: "epic_in_sprint"
     })
     expect(plainGroup.tickets).toEqual(["T-1"])
   }).pipe(
@@ -1427,7 +1427,7 @@ it.effect(
       const error = yield* Effect.flip(
         groups.setSprintMembership(ticketId("T-1"), planned.id, { from: null })
       )
-      expect(error._tag).toBe("Conflict")
+      expect(error._tag).toBe("TicketChanged")
       expect((yield* groups.get(other.id)).tickets).toEqual(["T-1"])
 
       yield* groups.setSprintMembership(ticketId("T-1"), planned.id, {

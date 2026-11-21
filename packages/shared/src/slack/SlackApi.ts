@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema"
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict } from "../errors"
+import { SlackConnectionConflict } from "../errors"
 import { OrgPath, ProjectPath } from "../http/paths"
 import {
   ConnectSlackInput,
@@ -24,7 +24,7 @@ const SlackErrors = [
   SlackAuthInvalid,
   SlackRateLimited,
   SlackError,
-  Conflict
+  SlackConnectionConflict
 ] as const
 
 export const SlackGroup = HttpApiGroup.make("slack")

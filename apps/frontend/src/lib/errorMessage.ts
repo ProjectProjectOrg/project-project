@@ -1,5 +1,4 @@
 import type {
-  Conflict,
   Forbidden,
   NotFound,
   SlackAuthInvalid,
@@ -54,7 +53,47 @@ import type {
   StorageNotConnected,
   Validation
 } from "@pp/shared"
-import { EmailFailureReason, InvitationNotAcceptableReason } from "@pp/shared"
+import type {
+  BodyEditFailed,
+  BranchLinkConflict,
+  CommentBodyInvalid,
+  CommentThreadResolved,
+  EstimateUnitMismatch,
+  EstimationOff,
+  FeedbackInProgress,
+  FeedbackRejected,
+  NonMemberAssignees,
+  OAuthConsentRejected,
+  OrgConflict,
+  OrgRestoreRejected,
+  ProjectImportInvalid,
+  ProjectImportStateConflict,
+  SprintInvalid,
+  StatusChangeRejected,
+  TagExists,
+  UnknownStatus,
+  UnknownTags,
+  UploadFailed,
+  AvatarSourceUnavailable
+} from "@pp/shared"
+import {
+  EmailFailureReason,
+  HierarchyInvalid,
+  RelationInvalid,
+  TicketMoveRejected,
+  InvalidBlocks,
+  LibraryContentRejected,
+  UnknownType,
+  JiraMigrationRejected,
+  TicketChanged,
+  ProjectIdentifierTaken,
+  LibraryConflict,
+  SlackConnectionConflict,
+  TicketArchiveConflict,
+  GitHubConnectionConflict,
+  JiraMigrationChanged,
+  InvitationNotAcceptableReason
+} from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Match from "effect/Match"
 import type * as Atom from "effect/reactivity/Atom"
@@ -74,7 +113,41 @@ export type AppError =
   | Unauthorized
   | NotFound
   | Forbidden
-  | Conflict
+  | BodyEditFailed
+  | BranchLinkConflict
+  | CommentBodyInvalid
+  | CommentThreadResolved
+  | EstimateUnitMismatch
+  | EstimationOff
+  | FeedbackInProgress
+  | FeedbackRejected
+  | GitHubConnectionConflict
+  | HierarchyInvalid
+  | InvalidBlocks
+  | JiraMigrationChanged
+  | JiraMigrationRejected
+  | LibraryConflict
+  | LibraryContentRejected
+  | NonMemberAssignees
+  | OAuthConsentRejected
+  | OrgConflict
+  | OrgRestoreRejected
+  | ProjectIdentifierTaken
+  | ProjectImportInvalid
+  | ProjectImportStateConflict
+  | RelationInvalid
+  | SlackConnectionConflict
+  | SprintInvalid
+  | StatusChangeRejected
+  | TagExists
+  | TicketArchiveConflict
+  | TicketChanged
+  | TicketMoveRejected
+  | UnknownStatus
+  | UnknownTags
+  | UnknownType
+  | UploadFailed
+  | AvatarSourceUnavailable
   | EverhourApiKeyMissing
   | EverhourAuthInvalid
   | EverhourConfigMissing
@@ -143,281 +216,198 @@ const BLOCK_ISSUE_MESSAGES = {
   (inputs: Readonly<{ line: string }>) => string
 >
 
-const isBlockIssueCode = (code: string): code is BlockIssueCode =>
-  Object.hasOwn(BLOCK_ISSUE_MESSAGES, code)
+const RELATION_MESSAGES = {
+  relation_self: () => m.tickets_error_relation_self(),
+  unknown_tickets: (ids) =>
+    m.tickets_error_unknown_tickets({ ids: ids.join(", ") }),
+  blocking_cycle: (ids) =>
+    m.tickets_error_blocking_cycle({ chain: ids.join(" → ") }),
+  duplicate_of_duplicate: ([ticket = "", original = ""]) =>
+    m.tickets_error_duplicate_of_duplicate({ ticket, original }),
+  has_duplicates: (ids) =>
+    m.tickets_error_has_duplicates({ ids: ids.join(", ") })
+} satisfies Record<
+  RelationInvalid["kind"],
+  (ids: RelationInvalid["ids"]) => string
+>
 
-const invalidBlocksMessage = (detail: string) => {
-  const [code = "", line = "?"] = detail.split(":")
-  return isBlockIssueCode(code)
-    ? BLOCK_ISSUE_MESSAGES[code]({ line })
-    : m.templates_error_invalid_blocks({ line })
-}
-
-const validationMessage = (reason: string) => {
-  const separator = reason.indexOf(":")
-  const kind = separator === -1 ? reason : reason.slice(0, separator)
-  const detail = separator === -1 ? "" : reason.slice(separator + 1)
-  switch (kind) {
-    case "attachments_not_allowed":
-      return m.templates_error_attachments_not_allowed()
-    case "blocks_not_allowed":
-      return m.templates_error_blocks_not_allowed()
-    case "epic_in_sprint":
-      return m.tickets_error_epic_in_sprint()
-    case "epic_has_tickets":
-      return m.tickets_error_epic_has_tickets()
-    case "epic_with_parent":
-      return m.tickets_error_epic_with_parent()
-    case "invalid_parent":
-      return m.tickets_error_invalid_parent()
-    case "ticket_has_sub_tickets":
-      return m.tickets_error_ticket_has_sub_tickets()
-    case "move_epic_has_tickets":
-      return m.tickets_move_error_epic_has_tickets()
-    case "move_same_project":
-      return m.tickets_move_error_same_project()
-    case "move_destination_no_statuses":
-      return m.tickets_move_error_no_statuses()
-    case "invalid_blocks":
-      return invalidBlocksMessage(detail)
-    case "relation_self":
-      return m.tickets_error_relation_self()
-    case "unknown_tickets":
-      return m.tickets_error_unknown_tickets({
-        ids: detail.replaceAll(",", ", ")
-      })
-    case "blocking_cycle":
-      return m.tickets_error_blocking_cycle({
-        chain: detail.replaceAll(",", " → ")
-      })
-    case "duplicate_of_duplicate": {
-      const [ticket = "", original = ""] = detail.split(",")
-      return m.tickets_error_duplicate_of_duplicate({ ticket, original })
-    }
-    case "has_duplicates":
-      return m.tickets_error_has_duplicates({
-        ids: detail.replaceAll(",", ", ")
-      })
-    case "unknown_template":
-    case "unknown_type":
-      return m.templates_error_unknown_template({ key: detail })
-    case "jira_migration_not_configurable":
-    case "jira_migration_run_not_allowed":
-    case "jira_migration_rescan_not_allowed":
-    case "jira_migration_cancel_not_allowed":
-    case "jira_migration_discard_not_allowed":
-    case "jira_migration_scan_incomplete":
-      return m.jira_import_error_moved_on()
-    default:
-      return m.error_unknown()
-  }
-}
-
-const conflictMessage = (reason: string) => {
+const slackMessage = ({ reason }: SlackError) => {
   switch (reason) {
-    case "move_ticket_changed":
-    case "move_id_taken":
-      return m.tickets_move_error_changed()
-    case "project_key_taken":
-      return m.projects_create_key_taken_error()
-    case "key_taken":
-      return m.templates_error_key_taken()
-    case "slack_disconnect_first":
-      return m.slack_error_disconnect_first()
-    case "slack_workspace_connected":
-      return m.slack_error_workspace_connected()
-    case "ticket_already_archived":
-      return m.tickets_archive_error_already_archived()
-    case "ticket_not_archived":
-      return m.tickets_unarchive_error_not_archived()
-    case "github_installation_not_available":
-      return m.github_chip_connect_installation_unavailable_error()
-    case "no_github_app":
-      return m.github_chip_connect_no_app_error()
-    case "jira_migration_revision_conflict":
-    case "jira_migration_request_conflict":
-      return m.jira_import_error_changed_elsewhere()
+    case "encryption":
+      return m.slack_error_encryption()
+    case "not_in_channel":
+      return m.slack_error_channel()
+    case "app_mismatch":
+      return m.slack_error_app_mismatch()
     default:
-      return m.error_unknown()
+      return m.slack_error_generic()
   }
 }
 
-const isInvitationNotAcceptableDetail = Schema.is(
-  Schema.TaggedStruct("InvitationNotAcceptable", {
-    reason: InvitationNotAcceptableReason
-  })
-)
-const isConflictDetail = Schema.is(
-  Schema.TaggedStruct("Conflict", { reason: Schema.String })
-)
-const isEverhourRateLimitedDetail = Schema.is(
-  Schema.TaggedStruct("EverhourRateLimited", {
-    retryAfterSeconds: Schema.Finite
-  })
-)
-const isEverhourErrorDetail = Schema.is(
-  Schema.TaggedStruct("EverhourError", { message: Schema.String })
-)
-const isOrgEmailErrorDetail = Schema.is(
-  Schema.TaggedStruct("OrgEmailError", { reason: EmailFailureReason })
-)
-const isJiraRateLimitedDetail = Schema.is(
-  Schema.TaggedStruct("JiraRateLimited", { retryAfterSeconds: Schema.Finite })
-)
-export const isJiraUnavailableDetail = Schema.is(
-  Schema.TaggedStruct("JiraMigrationUnavailable", {
-    reason: Schema.Literals(["worker_unavailable", "storage_unavailable"])
-  })
-)
-const isSlackRateLimitedDetail = Schema.is(
-  Schema.TaggedStruct("SlackRateLimited", { retryAfterSeconds: Schema.Finite })
-)
-const isAttachmentTooLargeDetail = Schema.is(
-  Schema.TaggedStruct("AttachmentTooLarge", { maxBytes: Schema.Finite })
-)
-const isSlackErrorDetail = Schema.is(
-  Schema.TaggedStruct("SlackError", { reason: Schema.String })
-)
-export const isValidationDetail = Schema.is(
-  Schema.TaggedStruct("Validation", { reason: Schema.String })
-)
+type Messages = {
+  readonly [K in AppError["_tag"]]: (
+    error: Extract<AppError, Readonly<{ _tag: K }>>
+  ) => string
+}
 
-export const errorMessage = Match.type<unknown>()
-  .pipe(
-    Match.when(isInvitationNotAcceptableDetail, (error) =>
-      invitationNotAcceptableMessage(error.reason)
-    ),
-    Match.when({ _tag: "InviteExpired" }, () =>
-      m.auth_invites_accept_error_expired()
-    ),
-    Match.when({ _tag: "InviteNotFound" }, () =>
-      m.auth_invites_accept_error_not_found()
-    ),
-    Match.when({ _tag: "InviteNotRecipient" }, () =>
-      m.auth_invites_accept_error_not_recipient()
-    ),
-    Match.when({ _tag: "InviteEmailVerificationRequired" }, () =>
-      m.auth_invites_accept_error_email_verification_required()
-    ),
-    Match.when({ _tag: "InviteAcceptFailed" }, () =>
-      m.auth_invites_accept_row_error()
-    ),
-    Match.when({ _tag: "SprintCompletedImmutable" }, () =>
-      m.error_sprint_completed_immutable()
-    ),
-    Match.when(isConflictDetail, (error) => conflictMessage(error.reason)),
-    Match.when({ _tag: "MentionInvalid" }, () => m.error_mention_invalid()),
-    Match.when({ _tag: "EverhourApiKeyMissing" }, () =>
-      m.error_everhour_api_key_missing()
-    ),
-    Match.when({ _tag: "EverhourAuthInvalid" }, () =>
-      m.error_everhour_auth_invalid()
-    ),
-    Match.when({ _tag: "EverhourConfigMissing" }, () =>
-      m.error_everhour_config_missing()
-    ),
-    Match.when({ _tag: "EverhourProjectAccessDenied" }, () =>
-      m.error_everhour_project_access_denied()
-    ),
-    Match.when(isEverhourRateLimitedDetail, (error) =>
-      m.error_everhour_rate_limited({
-        seconds: String(error.retryAfterSeconds)
-      })
-    ),
-    Match.when({ _tag: "EverhourRateLimited" }, () =>
-      m.error_everhour_rate_limited({ seconds: "60" })
-    ),
-    Match.when(isEverhourErrorDetail, (error) =>
-      m.error_everhour_upstream({ message: error.message })
-    ),
-    Match.when({ _tag: "RateLimited" }, () => m.error_github_rate_limited()),
-    Match.when({ _tag: "Forbidden" }, () => m.error_forbidden()),
-    Match.when({ _tag: "LastProjectPmBlocked" }, () =>
-      m.members_last_pm_error()
-    ),
-    Match.when({ _tag: "Unauthorized" }, () => m.error_unknown())
-  )
-  .pipe(
-    Match.when({ _tag: "StorageAuthInvalid" }, () => m.storage_error_auth()),
-    Match.when(isOrgEmailErrorDetail, (error) =>
-      emailFailureMessage(error.reason)
-    ),
-    Match.when({ _tag: "StorageConfigMissing" }, () =>
-      m.storage_error_config()
-    ),
-    Match.when({ _tag: "StorageError" }, () => m.storage_error_unreachable()),
-    Match.when({ _tag: "StorageNotConnected" }, () =>
-      m.storage_error_unreachable()
-    ),
-    Match.when(isAttachmentTooLargeDetail, ({ maxBytes }) =>
-      m.editor_attachment_too_large({
-        limit: Math.round(maxBytes / (1024 * 1024))
-      })
-    ),
-    Match.when({ _tag: "AttachmentTypeRejected" }, () =>
-      m.editor_attachment_type_rejected()
-    ),
-    Match.when({ _tag: "AttachmentNotUploaded" }, () =>
-      m.editor_attachment_upload_failed()
-    ),
-    Match.when({ _tag: "SlackAuthInvalid" }, () => m.slack_error_auth()),
-    Match.when({ _tag: "SlackNotConnected" }, () =>
-      m.slack_error_not_connected()
-    ),
-    Match.when(isSlackRateLimitedDetail, ({ retryAfterSeconds }) =>
-      m.slack_error_rate_limited({ seconds: String(retryAfterSeconds) })
-    ),
-    Match.when(isSlackErrorDetail, ({ reason }) =>
-      Match.value(reason).pipe(
-        Match.when("encryption", () => m.slack_error_encryption()),
-        Match.when("not_in_channel", () => m.slack_error_channel()),
-        Match.when("app_mismatch", () => m.slack_error_app_mismatch()),
-        Match.orElse(() => m.slack_error_generic())
-      )
-    ),
-    Match.when({ _tag: "FigmaNotConnected" }, () =>
-      m.figma_error_not_connected()
-    ),
-    Match.when({ _tag: "FigmaAuthInvalid" }, () =>
-      m.figma_error_auth_invalid()
-    ),
-    Match.when({ _tag: "FigmaRateLimited" }, () =>
-      m.figma_error_rate_limited()
-    ),
-    Match.when({ _tag: "FigmaFileNotFound" }, () =>
-      m.figma_error_file_not_found()
-    ),
-    Match.when({ _tag: "FigmaError" }, () => m.figma_error_generic())
-  )
-  .pipe(
-    Match.when({ _tag: "JiraNotConnected" }, m.jira_import_error_not_connected),
-    Match.when(
-      { _tag: "JiraReconnectRequired" },
-      m.jira_import_error_reconnect
-    ),
-    Match.when({ _tag: "JiraAccessDenied" }, m.jira_import_error_access_denied),
-    Match.when({ _tag: "JiraResourceNotFound" }, m.jira_import_error_not_found),
-    Match.when(isJiraRateLimitedDetail, ({ retryAfterSeconds }) =>
-      m.jira_import_error_rate_limited({
-        seconds: String(Math.max(1, Math.ceil(retryAfterSeconds)))
-      })
-    ),
-    Match.when({ _tag: "JiraError" }, () => m.jira_import_error_unreachable()),
-    Match.when(isJiraUnavailableDetail, ({ reason }) =>
-      reason === "storage_unavailable"
-        ? m.jira_import_error_storage()
-        : m.jira_import_error_worker()
-    ),
-    Match.when(Schema.is(ImportFormatUnsupported), (error) =>
-      m.project_import_error_format_unsupported({
-        fileVersion: String(error.fileVersion),
-        supportedVersion: String(error.supportedVersion)
-      })
-    ),
-    Match.when({ _tag: "InvalidRequest" }, () => m.error_invalid_request()),
-    Match.when(isValidationDetail, (error) => validationMessage(error.reason)),
-    Match.orElse(() => m.error_unknown())
-  )
+const messages: Messages = {
+  Unauthorized: () => m.error_unknown(),
+  Forbidden: () => m.error_forbidden(),
+  NotFound: () => m.error_unknown(),
+  InvalidRequest: () => m.error_invalid_request(),
+  Validation: () => m.error_unknown(),
+  InvitationNotAcceptable: ({ reason }) =>
+    invitationNotAcceptableMessage(reason),
+  InviteExpired: () => m.auth_invites_accept_error_expired(),
+  InviteNotFound: () => m.auth_invites_accept_error_not_found(),
+  InviteNotRecipient: () => m.auth_invites_accept_error_not_recipient(),
+  InviteEmailVerificationRequired: () =>
+    m.auth_invites_accept_error_email_verification_required(),
+  InviteAcceptFailed: () => m.auth_invites_accept_row_error(),
+  LastProjectPmBlocked: () => m.members_last_pm_error(),
+  OrgConflict: () => m.error_unknown(),
+  OrgRestoreRejected: ({ kind }) =>
+    kind === "grace_expired"
+      ? m.org_deleted_restore_grace_expired()
+      : m.org_deleted_restore_error(),
+  OrgEmailError: ({ reason }) => emailFailureMessage(reason),
+  OAuthConsentRejected: () => m.auth_oauth_consent_error_invalid_link(),
+  AvatarSourceUnavailable: () => m.error_unknown(),
+  SprintCompletedImmutable: () => m.error_sprint_completed_immutable(),
+  SprintInvalid: () => m.error_unknown(),
+  MentionInvalid: () => m.error_mention_invalid(),
+  HierarchyInvalid: ({ kind }) =>
+    ({
+      epic_in_sprint: m.tickets_error_epic_in_sprint,
+      epic_has_tickets: m.tickets_error_epic_has_tickets,
+      epic_with_parent: m.tickets_error_epic_with_parent,
+      invalid_parent: m.tickets_error_invalid_parent,
+      ticket_has_sub_tickets: m.tickets_error_ticket_has_sub_tickets
+    })[kind](),
+  RelationInvalid: ({ kind, ids }) => RELATION_MESSAGES[kind](ids),
+  TicketMoveRejected: ({ kind }) =>
+    ({
+      same_project: m.tickets_move_error_same_project,
+      epic_has_tickets: m.tickets_move_error_epic_has_tickets,
+      destination_no_statuses: m.tickets_move_error_no_statuses
+    })[kind](),
+  TicketChanged: ({ kind }) =>
+    kind === "move_ticket_changed" || kind === "move_id_taken"
+      ? m.tickets_move_error_changed()
+      : m.error_unknown(),
+  TicketArchiveConflict: ({ kind }) =>
+    kind === "already_archived"
+      ? m.tickets_archive_error_already_archived()
+      : m.tickets_unarchive_error_not_archived(),
+  UnknownType: ({ key }) => m.templates_error_unknown_template({ key }),
+  UnknownStatus: () => m.error_unknown(),
+  UnknownTags: () => m.error_unknown(),
+  NonMemberAssignees: () => m.error_unknown(),
+  EstimationOff: () => m.error_unknown(),
+  EstimateUnitMismatch: () => m.error_unknown(),
+  BodyEditFailed: () => m.error_unknown(),
+  CommentBodyInvalid: () => m.error_unknown(),
+  CommentThreadResolved: () => m.error_unknown(),
+  InvalidBlocks: ({ code, line }) =>
+    BLOCK_ISSUE_MESSAGES[code]({ line: String(line) }),
+  LibraryContentRejected: ({ kind }) =>
+    kind === "attachments_not_allowed"
+      ? m.templates_error_attachments_not_allowed()
+      : m.templates_error_blocks_not_allowed(),
+  LibraryConflict: ({ kind }) =>
+    kind === "key_taken" ? m.templates_error_key_taken() : m.error_unknown(),
+  StatusChangeRejected: () => m.error_unknown(),
+  TagExists: () => m.error_unknown(),
+  ProjectIdentifierTaken: ({ kind }) =>
+    kind === "key" ? m.projects_create_key_taken_error() : m.error_unknown(),
+  ProjectImportInvalid: () => m.error_unknown(),
+  ProjectImportStateConflict: () => m.error_unknown(),
+  ImportFormatUnsupported: ({ fileVersion, supportedVersion }) =>
+    m.project_import_error_format_unsupported({
+      fileVersion: String(fileVersion),
+      supportedVersion: String(supportedVersion)
+    }),
+  FeedbackRejected: () => m.error_unknown(),
+  FeedbackInProgress: () => m.error_unknown(),
+  UploadFailed: () => m.error_unknown(),
+  StorageAuthInvalid: () => m.storage_error_auth(),
+  StorageConfigMissing: () => m.storage_error_config(),
+  StorageError: () => m.storage_error_unreachable(),
+  StorageNotConnected: () => m.storage_error_unreachable(),
+  AttachmentTooLarge: ({ maxBytes }) =>
+    m.editor_attachment_too_large({
+      limit: Math.round(maxBytes / (1024 * 1024))
+    }),
+  AttachmentTypeRejected: () => m.editor_attachment_type_rejected(),
+  AttachmentNotUploaded: () => m.editor_attachment_upload_failed(),
+  GitHubConnectionConflict: ({ kind }) =>
+    kind === "installation_not_available"
+      ? m.github_chip_connect_installation_unavailable_error()
+      : m.error_unknown(),
+  BranchLinkConflict: () => m.error_unknown(),
+  GitHubTokenExpired: () => m.error_unknown(),
+  GitHubScopeInsufficient: () => m.error_unknown(),
+  RepoGone: () => m.error_unknown(),
+  BranchExists: () => m.error_unknown(),
+  BranchProtected: () => m.error_unknown(),
+  BranchNotFound: () => m.error_unknown(),
+  RateLimited: () => m.error_github_rate_limited(),
+  GitHubError: () => m.error_unknown(),
+  SlackAuthInvalid: () => m.slack_error_auth(),
+  SlackNotConnected: () => m.slack_error_not_connected(),
+  SlackRateLimited: ({ retryAfterSeconds }) =>
+    m.slack_error_rate_limited({ seconds: String(retryAfterSeconds) }),
+  SlackError: slackMessage,
+  SlackConnectionConflict: ({ kind }) =>
+    ({
+      disconnect_first: m.slack_error_disconnect_first,
+      workspace_connected: m.slack_error_workspace_connected,
+      identity_connected: m.error_unknown
+    })[kind](),
+  EverhourApiKeyMissing: () => m.error_everhour_api_key_missing(),
+  EverhourAuthInvalid: () => m.error_everhour_auth_invalid(),
+  EverhourConfigMissing: () => m.error_everhour_config_missing(),
+  EverhourProjectAccessDenied: () => m.error_everhour_project_access_denied(),
+  EverhourRateLimited: ({ retryAfterSeconds }) =>
+    m.error_everhour_rate_limited({ seconds: String(retryAfterSeconds) }),
+  EverhourError: ({ message }) => m.error_everhour_upstream({ message }),
+  FigmaNotConnected: () => m.figma_error_not_connected(),
+  FigmaAuthInvalid: () => m.figma_error_auth_invalid(),
+  FigmaRateLimited: () => m.figma_error_rate_limited(),
+  FigmaFileNotFound: () => m.figma_error_file_not_found(),
+  FigmaError: () => m.figma_error_generic(),
+  JiraNotConnected: () => m.jira_import_error_not_connected(),
+  JiraReconnectRequired: () => m.jira_import_error_reconnect(),
+  JiraAccessDenied: () => m.jira_import_error_access_denied(),
+  JiraResourceNotFound: () => m.jira_import_error_not_found(),
+  JiraRateLimited: ({ retryAfterSeconds }) =>
+    m.jira_import_error_rate_limited({
+      seconds: String(Math.max(1, Math.ceil(retryAfterSeconds)))
+    }),
+  JiraError: () => m.jira_import_error_unreachable(),
+  JiraMigrationUnavailable: ({ reason }) =>
+    reason === "storage_unavailable"
+      ? m.jira_import_error_storage()
+      : m.jira_import_error_worker(),
+  JiraMigrationRejected: ({ kind }) =>
+    kind === "cleanup_failed"
+      ? m.error_unknown()
+      : m.jira_import_error_moved_on(),
+  JiraMigrationChanged: () => m.jira_import_error_changed_elsewhere()
+}
+
+const isTagged = Schema.is(Schema.Struct({ _tag: Schema.String }))
+
+const isAppError = (error: unknown): error is AppError =>
+  isTagged(error) && Object.hasOwn(messages, error._tag)
+
+export const appErrorMessage = (error: AppError) =>
+  Match.valueTags(error, messages)
+
+export const errorMessage = Match.type<unknown>().pipe(
+  Match.when(isAppError, appErrorMessage),
+  Match.orElse(() => m.error_unknown())
+)
 
 export const figmaStatusErrorMessage = (reason: string) => {
   const error: AppError = (() => {
@@ -445,8 +435,8 @@ export const statusSaveErrorMessage = (
   fallback: () => string = m.tickets_status_create_error_fallback
 ) =>
   Match.value(error).pipe(
-    Match.tag("Conflict", ({ reason }) => {
-      switch (reason) {
+    Match.tag("StatusChangeRejected", ({ kind }) => {
+      switch (kind) {
         case "reserved_slug":
           return m.tickets_status_validation_reserved()
         case "slug_exists":
@@ -462,7 +452,9 @@ export const statusSaveErrorMessage = (
 
 export const oauthConsentErrorMessage = (error: OAuthConsentFailure) =>
   Match.value(error).pipe(
-    Match.tag("Validation", () => m.auth_oauth_consent_error_invalid_link()),
+    Match.tag("OAuthConsentRejected", () =>
+      m.auth_oauth_consent_error_invalid_link()
+    ),
     Match.tag("Unauthorized", () => m.auth_oauth_consent_error_session()),
     Match.orElse(() => m.auth_oauth_consent_error_retry())
   )

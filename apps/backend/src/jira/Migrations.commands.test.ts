@@ -25,7 +25,7 @@ import {
 import {
   JiraMigrationConfiguration,
   JiraMigrationRequirements,
-  Conflict,
+  JiraMigrationChanged,
   JiraError,
   TypeKey
 } from "@pp/shared"
@@ -518,7 +518,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               )
             ).toMatchObject({
               _tag: "Failure",
-              failure: { _tag: "Validation" }
+              failure: { _tag: "JiraMigrationRejected" }
             })
             const complete = {
               ...configuration,
@@ -561,7 +561,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ])
               expect(yield* Effect.result(stale)).toMatchObject({
                 _tag: "Failure",
-                failure: { _tag: "Conflict" }
+                failure: { _tag: "JiraMigrationChanged" }
               })
             expect((yield* p.owned(owner, created.id)).revision).toBe(
               ready.revision
@@ -789,7 +789,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               )
             ).toMatchObject({
               _tag: "Failure",
-              failure: { _tag: "Validation" }
+              failure: { _tag: "JiraMigrationRejected" }
             })
             const corrected = {
               ...configuration,
@@ -925,7 +925,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 )
               ).toMatchObject({
                 _tag: "Failure",
-                failure: { _tag: "Validation" }
+                failure: { _tag: "JiraMigrationRejected" }
               })
             expect((yield* p.owned(owner, created.id)).configuration).toEqual(
               accepted
@@ -977,7 +977,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 }
                 const accepted = yield* p.claimCleanup(input, claim)
                 if (!accepted)
-                  return yield* new Conflict({ reason: "lost_cleanup" })
+                  return yield* new JiraMigrationChanged({ kind: "revision" })
                 return yield* new JiraError({ reason: "server_error" })
               }),
             awaitReset: unexpectedCleanup.awaitReset
@@ -996,8 +996,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ).toMatchObject({
               _tag: "Failure",
               failure: {
-                _tag: "Validation",
-                reason: "jira_migration_cleanup_failed"
+                _tag: "JiraMigrationRejected",
+                kind: "cleanup_failed"
               }
             })
             const retained = yield* p.owned(owner, created.id)
@@ -1010,8 +1010,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ).toMatchObject({
               _tag: "Failure",
               failure: {
-                _tag: "Validation",
-                reason: "jira_migration_discard_not_allowed"
+                _tag: "JiraMigrationRejected",
+                kind: "discard_not_allowed"
               }
             })
           }).pipe(
@@ -1093,7 +1093,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 expect(input.mode).toBe("reset_import")
                 const executionId = `reset:${input.migrationId}:${input.expectedRevision + 1}`
                 if (!(yield* p.claimCleanup(input, { ...input, executionId })))
-                  return yield* new Conflict({ reason: "lost_reset" })
+                  return yield* new JiraMigrationChanged({ kind: "revision" })
                 yield* Deferred.succeed(cleanupStarted, undefined)
                 return executionId
               }),
@@ -1227,7 +1227,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               )
             ).toMatchObject({
               _tag: "Failure",
-              failure: { _tag: "Validation" }
+              failure: { _tag: "JiraMigrationRejected" }
             })
             expect(
               yield* Effect.result(
@@ -1236,8 +1236,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ).toMatchObject({
               _tag: "Failure",
               failure: {
-                _tag: "Validation",
-                reason: "jira_migration_discard_not_allowed"
+                _tag: "JiraMigrationRejected",
+                kind: "discard_not_allowed"
               }
             })
             yield* Deferred.succeed(removeHidden, undefined)
@@ -1295,7 +1295,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     executionId: "reset-race"
                   }))
                 )
-                  return yield* new Conflict({ reason: "lost_reset" })
+                  return yield* new JiraMigrationChanged({ kind: "revision" })
                 return "reset-race"
               }),
             awaitReset: (input) =>
@@ -1358,7 +1358,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   failed.revision
                 )
               )
-            ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+            ).toMatchObject({
+              _tag: "Failure",
+              failure: { _tag: "JiraMigrationChanged" }
+            })
             const current = yield* p.owned(owner, created.id)
             expect(current).toMatchObject({
               workflowExecutionId: running.workflowExecutionId,
@@ -1464,7 +1467,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             yield* Deferred.succeed(releaseLookup, undefined)
             expect(yield* Fiber.join(pending)).toMatchObject({
               _tag: "Failure",
-              failure: { _tag: "Conflict" }
+              failure: { _tag: "JiraMigrationChanged" }
             })
             const current = yield* p.owned(owner, created.id)
             expect(current).toMatchObject({
@@ -1658,7 +1661,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     executionId: "discard-race"
                   }))
                 )
-                  return yield* new Conflict({ reason: "lost_discard" })
+                  return yield* new JiraMigrationChanged({ kind: "revision" })
                 return "discard-race"
               }),
             awaitReset: unexpectedCleanup.awaitReset
@@ -1769,8 +1772,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               expect(yield* Fiber.join(discard)).toMatchObject({
                 _tag: "Failure",
                 failure: {
-                  _tag: "Validation",
-                  reason: "jira_migration_discard_not_allowed"
+                  _tag: "JiraMigrationRejected",
+                  kind: "discard_not_allowed"
                 }
               })
               yield* Deferred.await(retried).pipe(
@@ -1797,7 +1800,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               yield* Deferred.succeed(allowRun, undefined)
               expect(yield* Fiber.join(retry)).toMatchObject({
                 _tag: "Failure",
-                failure: { _tag: "Conflict" }
+                failure: { _tag: "JiraMigrationChanged" }
               })
               expect(yield* Deferred.isDone(retried)).toBe(false)
             }
@@ -1909,8 +1912,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               expect(yield* Fiber.join(cancel)).toMatchObject({
                 _tag: "Failure",
                 failure: {
-                  _tag: "Validation",
-                  reason: "jira_migration_cancel_not_allowed"
+                  _tag: "JiraMigrationRejected",
+                  kind: "cancel_not_allowed"
                 }
               })
             }
@@ -1997,7 +2000,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   yield* Migrations.submitJiraMigrationRun(input)
                   yield* Deferred.succeed(submitted, undefined)
                   yield* Deferred.await(rollback)
-                  return yield* new Conflict({ reason: "force_rollback" })
+                  return yield* new JiraMigrationChanged({ kind: "revision" })
                 })
               )
               .pipe(Effect.result, Effect.forkChild)
@@ -2027,7 +2030,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             expect((yield* p.owned(owner, id)).status).toBe("migrating")
             expect(
               yield* Effect.result(Migrations.submitJiraMigrationRun(input))
-            ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
+            ).toMatchObject({
+              _tag: "Failure",
+              failure: { _tag: "JiraMigrationChanged" }
+            })
           }).pipe(Effect.provide(workflow))
         }).pipe(Effect.provide(commandTestLayer()), Effect.scoped)
       }),

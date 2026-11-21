@@ -2,6 +2,7 @@ import { it } from "@effect/vitest"
 import {
   type ToolError,
   Forbidden,
+  InvalidBlocks,
   NotFound,
   Unauthorized,
   Validation
@@ -31,30 +32,31 @@ describe("toolErrorMessage", () => {
   })
 
   it("maps Validation with reason", () => {
-    expect(toolErrorMessage(new Validation({ reason: "bad_input" }))).toBe(
-      "Validation error (bad_input)."
-    )
+    expect(
+      toolErrorMessage(new Validation({ reason: "position_is_self" }))
+    ).toBe("Validation error (position_is_self).")
   })
 
-  it("maps a block_markup Validation reason to the formatted issue text", () => {
+  it("maps InvalidBlocks to the formatted issue text", () => {
     const text = toolErrorMessage(
-      new Validation({
-        reason:
-          'block_markup:line 3: <block type="foo"> is not a valid block ' +
-          'opener; write <block type="key"> or <block type="key" sync>'
+      new InvalidBlocks({
+        code: "malformed_open",
+        line: 3,
+        source: '<block type="foo">'
       })
     )
     expect(text).toContain("Invalid block markup")
     expect(text).toContain("line 3:")
     expect(text).toContain("list_blocks")
-    expect(text).not.toContain("Validation error (")
   })
 
   it("ends the block issue as a sentence before pointing at list_blocks", () => {
     expect(
       toolErrorMessage(
-        new Validation({
-          reason: 'block_markup:line 2: <block type="notes"> is never closed'
+        new InvalidBlocks({
+          code: "unclosed",
+          line: 2,
+          source: '<block type="notes">'
         })
       )
     ).toBe(

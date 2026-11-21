@@ -20,7 +20,7 @@ import {
   PersonalGithub,
   UserInvitation,
   UserSettings,
-  Validation,
+  AvatarSourceUnavailable,
   defaultChipColors,
   defaultEditorPreference,
   type OrgAssignableRole,
@@ -397,9 +397,7 @@ export const BetterAuthLive = Layer.effect(
               (option) => option.source === avatarSource
             )
       if (avatarSource !== undefined && chosen === undefined) {
-        return yield* new Validation({
-          reason: `No ${avatarSource} account is linked`
-        })
+        return yield* new AvatarSourceUnavailable({ source: avatarSource })
       }
       const changes = {
         ...(input.avatarSource === undefined

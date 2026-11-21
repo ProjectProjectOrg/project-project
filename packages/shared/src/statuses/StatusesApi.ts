@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict } from "../errors"
+import { StatusChangeRejected } from "../errors"
 import { ProjectPath } from "../http/paths"
 import {
   CreateStatusInput,
@@ -30,7 +30,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
       params: ProjectPath,
       payload: CreateStatusInput,
       success: ProjectStatus,
-      error: Conflict
+      error: [StatusChangeRejected]
     }).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .add(
@@ -41,7 +41,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: UpdateStatusInput,
         success: ProjectStatus,
-        error: Conflict
+        error: [StatusChangeRejected]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
@@ -53,7 +53,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         payload: ReorderStatusInput,
         success: ProjectStatus,
-        error: Conflict
+        error: [StatusChangeRejected]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
@@ -65,7 +65,7 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
         params: ProjectStatusPath,
         query: Schema.Struct({ reassignTo: Schema.optional(StatusSlug) }),
         success: HttpApiSchema.NoContent,
-        error: Conflict
+        error: [StatusChangeRejected]
       }
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )

@@ -1,11 +1,10 @@
-import * as Data from "effect/Data"
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 
 import {
   advanceFence,
+  BlockIssue,
   findTicketBlockEnd,
-  formatBlockIssue,
   normalizeLineEndings,
   TICKET_BLOCK_OPEN,
   TICKET_BLOCK_TYPE_PATTERN,
@@ -48,16 +47,18 @@ export const TicketBodyEdits = Schema.Array(TicketBodyEdit).pipe(
   Schema.check(Schema.isMaxLength(TICKET_BODY_EDITS_MAX))
 )
 
-export type TicketBodyEditFailure = Data.TaggedEnum<{
-  NoMatch: {}
-  MultipleMatches: Readonly<{ count: number }>
-  BlockNotFound: {}
-  BlockAmbiguous: Readonly<{ count: number }>
-  BlockSynced: {}
-  BlockMarkup: Readonly<{ issue: string }>
-}>
+export const TicketBodyEditFailure = Schema.TaggedUnion({
+  NoMatch: {},
+  MultipleMatches: { count: Schema.Int },
+  BlockNotFound: {},
+  BlockAmbiguous: { count: Schema.Int },
+  BlockSynced: {},
+  BlockMarkup: { issue: BlockIssue }
+})
+export type TicketBodyEditFailure = typeof TicketBodyEditFailure.Type
 
-export const TicketBodyEditFailure = Data.taggedEnum<TicketBodyEditFailure>()
+const { NoMatch, MultipleMatches, BlockNotFound, BlockAmbiguous, BlockSynced } =
+  TicketBodyEditFailure.cases
 
 const failEdit = (failure: TicketBodyEditFailure) => Result.fail(failure)
 
@@ -81,9 +82,9 @@ const replaceText = (body: string, edit: typeof ReplaceTextEdit.Type) => {
   const oldText = normalizeLineEndings(edit.oldText)
   const newText = normalizeLineEndings(edit.newText)
   const count = countOccurrences(body, oldText)
-  if (count === 0) return failEdit(TicketBodyEditFailure.NoMatch())
+  if (count === 0) return failEdit(NoMatch.make({}))
   if (count > 1 && edit.replaceAll !== true)
-    return failEdit(TicketBodyEditFailure.MultipleMatches({ count }))
+    return failEdit(MultipleMatches.make({ count }))
   return Result.succeed(body.split(oldText).join(newText))
 }
 
@@ -112,14 +113,11 @@ const blockSpans = (lines: ReadonlyArray<string>) => {
 const replaceBlock = (body: string, edit: typeof ReplaceBlockEdit.Type) => {
   const lines = body.split("\n")
   const matches = blockSpans(lines).filter((span) => span.type === edit.type)
-  if (matches.length === 0)
-    return failEdit(TicketBodyEditFailure.BlockNotFound())
+  if (matches.length === 0) return failEdit(BlockNotFound.make({}))
   if (matches.length > 1)
-    return failEdit(
-      TicketBodyEditFailure.BlockAmbiguous({ count: matches.length })
-    )
+    return failEdit(BlockAmbiguous.make({ count: matches.length }))
   const [span] = matches
-  if (span.sync) return failEdit(TicketBodyEditFailure.BlockSynced())
+  if (span.sync) return failEdit(BlockSynced.make({}))
   const content = trimBlankLines(normalizeLineEndings(edit.content))
   const inner = content === "" ? [""] : ["", ...content.split("\n"), ""]
   return Result.succeed(
@@ -151,21 +149,10 @@ export const applyTicketBodyEdits = (
     if (Result.isFailure(outcome)) return failAt(index, outcome.failure)
     const [issue] = checkMarkup ? validateTicketBlocks(outcome.success) : []
     if (issue !== undefined) {
-      const failure = TicketBodyEditFailure.BlockMarkup({
-        issue: formatBlockIssue(issue)
-      })
+      const failure = TicketBodyEditFailure.cases.BlockMarkup.make({ issue })
       return failAt(index, failure)
     }
     current = outcome.success
   }
   return Result.succeed(current)
 }
-
-export const formatTicketBodyEditFailure = TicketBodyEditFailure.$match({
-  NoMatch: () => "no_match",
-  MultipleMatches: ({ count }) => `multiple_matches:${count}`,
-  BlockNotFound: () => "block_not_found",
-  BlockAmbiguous: ({ count }) => `block_ambiguous:${count}`,
-  BlockSynced: () => "block_synced",
-  BlockMarkup: ({ issue }) => `block_markup:${issue}`
-})

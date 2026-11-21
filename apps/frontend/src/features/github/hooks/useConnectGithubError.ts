@@ -20,16 +20,13 @@ export function useConnectGithubError(orgSlug: string, slug: string) {
           m.github_chip_connect_scope_insufficient_error()
         ),
         Match.tag("RepoGone", () => m.git_repo_gone_error()),
-        Match.tag("Conflict", ({ reason }) =>
-          Match.value(reason).pipe(
-            Match.when("github_repo_already_connected", () =>
+        Match.tag("GitHubConnectionConflict", ({ kind }) =>
+          Match.value(kind).pipe(
+            Match.when("repo_already_connected", () =>
               m.github_chip_connect_repo_taken_error()
             ),
-            Match.when("github_installation_not_available", () =>
+            Match.when("installation_not_available", () =>
               m.github_chip_connect_installation_unavailable_error()
-            ),
-            Match.when("no_github_app", () =>
-              m.github_chip_connect_no_app_error()
             ),
             Match.orElse(() => m.github_chip_connect_failed_error())
           )

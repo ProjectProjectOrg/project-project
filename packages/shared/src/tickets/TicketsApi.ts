@@ -9,7 +9,6 @@ import {
   BranchExists,
   BranchNotFound,
   BranchProtected,
-  Conflict,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -17,6 +16,15 @@ import {
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
+  BranchLinkConflict,
+  CommentBodyInvalid,
+  GitHubConnectionConflict,
+  RelationInvalid,
+  TicketArchiveConflict,
+  TicketChanged,
+  TicketFieldErrors,
+  TicketMoveRejected,
+  UnknownStatus,
   Validation
 } from "../errors"
 import { ClearStaleEstimatesResult } from "../estimates/Estimate"
@@ -159,7 +167,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: BulkUpdateTicketsInput,
         success: BulkUpdateTicketsResult,
-        error: [Validation, SprintCompletedImmutable]
+        error: [SprintCompletedImmutable, ...TicketFieldErrors]
       }
     )
       .annotate(RequiresProject, "membership")
@@ -173,7 +181,12 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: BulkArchiveTicketsInput,
         success: BulkTicketsResult,
-        error: [Conflict, Validation, MentionInvalid]
+        error: [
+          MentionInvalid,
+          CommentBodyInvalid,
+          RelationInvalid,
+          TicketArchiveConflict
+        ]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -286,7 +299,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: QuickCreateTicketInput,
         success: TicketDetail,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, ...TicketFieldErrors]
       }
     )
       .annotate(RequiresProject, { ticket: ["create"] })
@@ -297,7 +310,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       params: ProjectPath,
       payload: CreateTicketInput,
       success: TicketDetail,
-      error: [Validation, MentionInvalid]
+      error: [MentionInvalid, ...TicketFieldErrors]
     })
       .annotate(RequiresProject, { ticket: ["create"] })
       .middleware(ProjectAccess)
@@ -346,7 +359,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
         success: TicketUpdateResult,
-        error: [Validation, MentionInvalid, SprintCompletedImmutable]
+        error: [MentionInvalid, SprintCompletedImmutable, ...TicketFieldErrors]
       }
     )
       .annotate(RequiresProject, "membership")
@@ -372,7 +385,12 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: ArchiveTicketInput,
         success: TicketDetail,
-        error: [Conflict, Validation, MentionInvalid]
+        error: [
+          MentionInvalid,
+          CommentBodyInvalid,
+          RelationInvalid,
+          TicketArchiveConflict
+        ]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -385,7 +403,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         success: TicketDetail,
-        error: Conflict
+        error: [TicketArchiveConflict]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -399,7 +417,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: MarkTicketInput,
         success: TicketDetail,
-        error: Validation
+        error: [RelationInvalid]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -427,14 +445,15 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: CreateBranchInput,
         success: TicketDetail,
         error: [
-          Conflict,
           BranchExists,
           BranchProtected,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
           RateLimited,
-          GitHubError
+          GitHubError,
+          BranchLinkConflict,
+          GitHubConnectionConflict
         ]
       }
     )
@@ -450,13 +469,14 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: OpenPrInput,
         success: OpenPrResult,
         error: [
-          Conflict,
           BranchProtected,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
           RateLimited,
-          GitHubError
+          GitHubError,
+          BranchLinkConflict,
+          GitHubConnectionConflict
         ]
       }
     )
@@ -483,7 +503,12 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: SplitTicketInput,
         success: SplitTicketResult,
-        error: [Conflict, Validation, MentionInvalid, SprintCompletedImmutable]
+        error: [
+          MentionInvalid,
+          SprintCompletedImmutable,
+          ...TicketFieldErrors,
+          TicketChanged
+        ]
       }
     )
       .annotate(RequiresProject, { ticket: ["create"] })
@@ -497,7 +522,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: MoveTicketInput,
         success: MoveTicketResult,
-        error: [Conflict, Validation]
+        error: [TicketChanged, TicketMoveRejected, UnknownStatus]
       }
     )
       .annotate(RequiresProject, { ticket: ["delete"] })
@@ -524,13 +549,14 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: AttachBranchInput,
         success: TicketDetail,
         error: [
-          Conflict,
           BranchNotFound,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
           RateLimited,
-          GitHubError
+          GitHubError,
+          BranchLinkConflict,
+          GitHubConnectionConflict
         ]
       }
     )
@@ -545,7 +571,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: AttachBranchInput,
         success: TicketDetail,
-        error: Conflict
+        error: [BranchLinkConflict, GitHubConnectionConflict]
       }
     )
       .annotate(RequiresProject, { github: ["write"] })
@@ -560,13 +586,14 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         payload: AttachBranchInput,
         success: TicketDetail,
         error: [
-          Conflict,
           BranchNotFound,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
           RateLimited,
-          GitHubError
+          GitHubError,
+          BranchLinkConflict,
+          GitHubConnectionConflict
         ]
       }
     )
@@ -584,7 +611,7 @@ export const TicketActivityGroup = HttpApiGroup.make("ticketActivity")
         params: TicketPath,
         query: Schema.Struct({ cursor: Schema.optional(Schema.String) }),
         success: TicketActivityPage,
-        error: Validation
+        error: [Validation]
       }
     ).annotate(RequiresProject, { ticket: ["read"] })
   )

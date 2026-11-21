@@ -1,12 +1,12 @@
 import { Db } from "@pp/db"
 import { member, organization } from "@pp/db/schema"
 import {
-  Conflict,
   ORG_DELETE_GRACE_DAYS,
   type Org as OrgSummary,
   type OrgDetail,
   OrgRole,
-  OrgScope
+  OrgScope,
+  OrgRestoreRejected
 } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -21,7 +21,7 @@ export class Org extends Context.Service<
     myOrgs: (userId: string) => Effect.Effect<ReadonlyArray<OrgSummary>>
     get: () => Effect.Effect<OrgDetail, never, OrgScope>
     softDelete: () => Effect.Effect<OrgDetail, never, OrgScope>
-    restore: () => Effect.Effect<OrgDetail, Conflict, OrgScope>
+    restore: () => Effect.Effect<OrgDetail, OrgRestoreRejected, OrgScope>
   }>
 >()("@pp/server-core/organizations/Org") {}
 
@@ -103,11 +103,11 @@ const make = Effect.gen(function* () {
   const restore = Effect.fn("Org.restore")(function* () {
     const scope = yield* OrgScope
     if (!scope.deletedAt) {
-      return yield* new Conflict({ reason: "not_deleted" })
+      return yield* new OrgRestoreRejected({ kind: "not_deleted" })
     }
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now)
     if (nowMs > purgeAtFor(scope.deletedAt).getTime()) {
-      return yield* new Conflict({ reason: "grace_expired" })
+      return yield* new OrgRestoreRejected({ kind: "grace_expired" })
     }
     yield* db
       .update(organization)

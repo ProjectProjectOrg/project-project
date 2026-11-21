@@ -3,7 +3,11 @@ import * as Schema from "effect/Schema"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, MentionInvalid, Validation } from "../errors"
+import {
+  MentionInvalid,
+  CommentBodyInvalid,
+  CommentThreadResolved
+} from "../errors"
 import { TicketPath } from "../http/paths"
 import { Slug } from "../projects/Project"
 import { TicketId } from "../tickets/Ticket"
@@ -36,7 +40,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         params: TicketPath,
         payload: CreateCommentInput,
         success: Comment,
-        error: [Validation, MentionInvalid, Conflict]
+        error: [MentionInvalid, CommentBodyInvalid, CommentThreadResolved]
       }
     ).annotate(RequiresProject, { comment: ["create"] })
   )
@@ -48,7 +52,7 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
         params: TicketCommentPath,
         payload: UpdateCommentInput,
         success: Comment,
-        error: [Validation, MentionInvalid]
+        error: [MentionInvalid, CommentBodyInvalid]
       }
     ).annotate(RequiresProject, "membership")
   )

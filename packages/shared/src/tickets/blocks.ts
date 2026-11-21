@@ -1,4 +1,5 @@
 import * as Data from "effect/Data"
+import * as Schema from "effect/Schema"
 
 export type TicketBlockSegment = Data.TaggedEnum<{
   markdown: Readonly<{ text: string }>
@@ -157,18 +158,21 @@ export const flattenTicketBlocks = (markdown: string) =>
     .filter((text) => text !== "")
     .join("\n\n")
 
-export type BlockIssueCode =
-  | "unclosed"
-  | "stray_close"
-  | "nested"
-  | "malformed_open"
-  | "invalid_type"
+export const BlockIssueCode = Schema.Literals([
+  "unclosed",
+  "stray_close",
+  "nested",
+  "malformed_open",
+  "invalid_type"
+])
+export type BlockIssueCode = typeof BlockIssueCode.Type
 
-export type BlockIssue = Readonly<{
-  line: number
-  code: BlockIssueCode
-  source: string
-}>
+export const BlockIssue = Schema.Struct({
+  line: Schema.Int,
+  code: BlockIssueCode,
+  source: Schema.String
+})
+export type BlockIssue = typeof BlockIssue.Type
 
 const LOOKS_LIKE_BLOCK_OPEN = /^ {0,3}<block\b/
 

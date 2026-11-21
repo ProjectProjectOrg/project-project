@@ -8,7 +8,8 @@ import {
   StorageError,
   StorageNotConnected,
   Unauthorized,
-  Validation
+  Validation,
+  ProjectImportInvalid
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
@@ -37,7 +38,7 @@ const decodeUploadError = Schema.decodeUnknownEffect(UploadError)
 export const uploadProjectArchive = Effect.fn("Api.uploadProjectArchive")(
   function* ({ orgSlug, file }: Readonly<{ orgSlug: string; file: File }>) {
     if (file.size > PROJECT_IMPORT_MAX_BYTES) {
-      return yield* new Validation({ reason: "archive_too_large" })
+      return yield* new ProjectImportInvalid({ kind: "archive_too_large" })
     }
     const fetch = yield* FetchHttpClient.Fetch
     const response = yield* Effect.promise(() =>

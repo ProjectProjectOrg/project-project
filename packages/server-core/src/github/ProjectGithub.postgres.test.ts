@@ -421,8 +421,8 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
           )
         )
         expect(refused).toMatchObject({
-          _tag: "Conflict",
-          reason: "github_installation_not_available"
+          _tag: "GitHubConnectionConflict",
+          kind: "installation_not_available"
         })
         const hidden = yield* Effect.flip(
           run((github) => github.repos(restrictedIntegrationId, undefined, 1))
@@ -452,8 +452,8 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
           run((github) => github.connect(repo("private")))
         )
         expect(ambiguous).toMatchObject({
-          _tag: "Conflict",
-          reason: "github_installation_not_available"
+          _tag: "GitHubConnectionConflict",
+          kind: "installation_not_available"
         })
         yield* run((github) =>
           github.connect({

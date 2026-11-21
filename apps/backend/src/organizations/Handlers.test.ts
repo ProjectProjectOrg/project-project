@@ -154,7 +154,7 @@ it.effect("maps duplicate-member refusals to Conflict", () =>
       const result = yield* failureOf(
         memberErrorToFailure(orgError("BAD_REQUEST", code))
       )
-      expect(result, code).toMatchObject({ _tag: "Conflict" })
+      expect(result, code).toMatchObject({ _tag: "OrgConflict" })
     }
   })
 )
@@ -178,7 +178,7 @@ it.effect("reports the last-owner refusal as Conflict on leave", () =>
         )
       )
     )
-    expect(result).toMatchObject({ _tag: "Conflict", reason: "last_owner" })
+    expect(result).toMatchObject({ _tag: "OrgConflict", kind: "last_owner" })
   })
 )
 
@@ -194,8 +194,8 @@ it.effect(
           memberChangeErrorToFailure(orgError("BAD_REQUEST", code))
         )
         expect(result, code).toMatchObject({
-          _tag: "Conflict",
-          reason: "last_owner"
+          _tag: "OrgConflict",
+          kind: "last_owner"
         })
       }
     })
@@ -224,14 +224,14 @@ it.effect(
         )
       )
       expect(removing).toMatchObject({
-        _tag: "Conflict",
-        reason: "last_owner_removal"
+        _tag: "OrgConflict",
+        kind: "last_owner_removal"
       })
       expect(demoting).toMatchObject({
-        _tag: "Conflict",
-        reason: "last_owner_removal"
+        _tag: "OrgConflict",
+        kind: "last_owner_removal"
       })
-      expect(leaving).toMatchObject({ _tag: "Conflict", reason: "last_owner" })
+      expect(leaving).toMatchObject({ _tag: "OrgConflict", kind: "last_owner" })
     })
 )
 
