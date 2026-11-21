@@ -1888,7 +1888,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 running.revision
               )
               .pipe(Effect.result, Effect.forkChild)
-            yield* Deferred.await(cancelRead)
+            yield* Effect.raceFirst(
+              Deferred.await(cancelRead),
+              Fiber.join(cancel).pipe(Effect.flatMap(Effect.die))
+            )
             const publish = yield* Effect.gen(function* () {
               const current = yield* p.owned(owner, created.id)
               yield* Deferred.succeed(publishRead, undefined)
@@ -1898,20 +1901,30 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 phase: "complete"
               })
             }).pipe(Effect.forkChild)
-            yield* Deferred.await(publishRead)
+            yield* Effect.raceFirst(
+              Deferred.await(publishRead),
+              Fiber.join(publish).pipe(Effect.flatMap(Effect.die))
+            )
+            const settled = <A, E>(fiber: Fiber.Fiber<A, E>, name: string) =>
+              Fiber.join(fiber).pipe(
+                Effect.timeoutOrElse({
+                  duration: "5 seconds",
+                  orElse: () => Effect.die(`${name} did not finish`)
+                })
+              )
             if (winner === "cancel") {
               yield* Deferred.succeed(allowCancel, undefined)
-              expect(yield* Fiber.join(cancel)).toMatchObject({
+              expect(yield* settled(cancel, "cancel")).toMatchObject({
                 _tag: "Success",
                 success: { status: "cancelled" }
               })
               yield* Deferred.succeed(allowPublish, undefined)
-              expect(yield* Fiber.join(publish)).toBe(false)
+              expect(yield* settled(publish, "publish")).toBe(false)
             } else {
               yield* Deferred.succeed(allowPublish, undefined)
-              expect(yield* Fiber.join(publish)).toBe(true)
+              expect(yield* settled(publish, "publish")).toBe(true)
               yield* Deferred.succeed(allowCancel, undefined)
-              expect(yield* Fiber.join(cancel)).toMatchObject({
+              expect(yield* settled(cancel, "cancel")).toMatchObject({
                 _tag: "Failure",
                 failure: {
                   _tag: "Validation",
