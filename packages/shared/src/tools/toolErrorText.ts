@@ -1,5 +1,8 @@
 import * as Match from "effect/Match"
 
+import type { RelationInvalid } from "../errors"
+import { formatBlockIssue } from "../tickets/blocks"
+import { TicketBodyEditFailure } from "../tickets/bodyEdits"
 import type { ToolError } from "./Tools"
 
 type Messages<E extends Readonly<{ _tag: string }>> = {
@@ -13,76 +16,85 @@ const asSentence = (text: string) => {
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
 
-const editFailureMessage = (failure: string) => {
-  const [code, count] = failure.split(":")
-  const markup = failure.match(/^block_markup:(.*)$/s)
-  if (markup) {
-    return `it leaves invalid block markup: ${asSentence(markup[1] ?? "")}`
-  }
-  switch (code) {
-    case "no_match":
-      return "oldText doesn't appear in the current description; read it again with get_ticket and copy the text exactly."
-    case "multiple_matches":
-      return `oldText appears ${count} times; include more surrounding text so it matches once, or set replaceAll.`
-    case "block_not_found":
-      return "the description has no block of that type; see blocks in get_ticket."
-    case "block_ambiguous":
-      return `the description has ${count} blocks of that type; use a replace edit on the exact text instead.`
-    case "block_synced":
-      return "that block is synced and managed centrally; only tick or untick its checkboxes with a replace edit."
-    default:
-      return `${failure}.`
-  }
-}
+const editFailureMessage = TicketBodyEditFailure.match({
+  NoMatch: () =>
+    "oldText doesn't appear in the current description; read it again with get_ticket and copy the text exactly.",
+  MultipleMatches: ({ count }) =>
+    `oldText appears ${count} times; include more surrounding text so it matches once, or set replaceAll.`,
+  BlockNotFound: () =>
+    "the description has no block of that type; see blocks in get_ticket.",
+  BlockAmbiguous: ({ count }) =>
+    `the description has ${count} blocks of that type; use a replace edit on the exact text instead.`,
+  BlockSynced: () =>
+    "that block is synced and managed centrally; only tick or untick its checkboxes with a replace edit.",
+  BlockMarkup: ({ issue }) =>
+    `it leaves invalid block markup: ${asSentence(formatBlockIssue(issue))}`
+})
+
+const RELATION_MESSAGES = {
+  relation_self: ([ticket]) => `${ticket} can't be linked to itself.`,
+  unknown_tickets: (ids) =>
+    `No ticket ${ids.join(", ")} in this project; check the ids with list_tickets.`,
+  blocking_cycle: (ids) =>
+    `That would make a blocking loop (${ids.join(" → ")}). Remove one of those links first, or link the tickets as related instead.`,
+  duplicate_of_duplicate: ([ticket, original]) =>
+    `${ticket} is itself a duplicate of ${original}; mark this ticket a duplicate of ${original} instead.`,
+  has_duplicates: (ids) =>
+    `${ids.join(", ")} ${ids.length === 1 ? "is a duplicate" : "are duplicates"} of this ticket. Archive them as duplicates of the new original first.`
+} satisfies Record<
+  RelationInvalid["kind"],
+  (ids: RelationInvalid["ids"]) => string
+>
 
 const messages: Messages<ToolError> = {
   Unauthorized: () => "Unauthorized.",
   Forbidden: () => "Forbidden.",
   NotFound: () => "Not found.",
-  Conflict: ({ reason }) => (reason ? `Conflict (${reason}).` : "Conflict."),
-  Validation: ({ reason }) => {
-    const blockMarkup = reason?.match(/^block_markup:(.*)$/s)
-    if (blockMarkup) {
-      return (
-        `Invalid block markup: ${asSentence(blockMarkup[1] ?? "")} Discover ` +
-        "valid block types via list_blocks, and see the create_ticket/" +
-        "update_ticket descriptions for the format."
-      )
-    }
-    const unknownType = reason?.match(/^unknown_type:(.*)$/s)
-    if (unknownType) {
-      return (
-        `Unknown type "${unknownType[1]}". Discover the project's type ` +
-        "keys via list_types, or pass null for no type."
-      )
-    }
-    const editFailed = reason?.match(/^edit_failed:(\d+):(.*)$/s)
-    if (editFailed) {
-      return `edits[${editFailed[1]}] failed: ${editFailureMessage(editFailed[2] ?? "")} Nothing was saved.`
-    }
-    const relation = reason?.match(
-      /^(relation_self|unknown_tickets|blocking_cycle|duplicate_of_duplicate|has_duplicates):(.*)$/s
-    )
-    if (relation) {
-      const ids = (relation[2] ?? "").split(",")
-      switch (relation[1]) {
-        case "relation_self":
-          return `${ids[0]} can't be linked to itself.`
-        case "unknown_tickets":
-          return `No ticket ${ids.join(", ")} in this project; check the ids with list_tickets.`
-        case "blocking_cycle":
-          return `That would make a blocking loop (${ids.join(" → ")}). Remove one of those links first, or link the tickets as related instead.`
-        case "duplicate_of_duplicate":
-          return `${ids[0]} is itself a duplicate of ${ids[1]}; mark this ticket a duplicate of ${ids[1]} instead.`
-        case "has_duplicates":
-          return `${ids.join(", ")} ${ids.length === 1 ? "is a duplicate" : "are duplicates"} of this ticket. Archive them as duplicates of the new original first.`
-      }
-    }
-    if (reason === "edits_with_body") {
-      return "Pass edits on its own: it can't be combined with body in one update_ticket call."
-    }
-    return reason ? `Validation error (${reason}).` : "Validation error."
-  },
+  Validation: ({ reason }) =>
+    reason === "edits_with_body"
+      ? "Pass edits on its own: it can't be combined with body in one update_ticket call."
+      : `Validation error (${reason}).`,
+  UnknownType: ({ key }) =>
+    `Unknown type "${key}". Discover the project's type keys via list_types, or pass null for no type.`,
+  UnknownStatus: ({ status }) =>
+    `Unknown status "${status}". Discover the project's statuses via list_statuses.`,
+  UnknownTags: ({ tags }) =>
+    `Unknown tags: ${tags.join(", ")}. Discover the project's tags via list_tags.`,
+  NonMemberAssignees: ({ userIds }) =>
+    `${userIds.join(", ")} ${userIds.length === 1 ? "isn't a member" : "aren't members"} of this project; discover members via list_members.`,
+  EstimationOff: () =>
+    "Estimation is off in this project, so tickets can't take an estimate.",
+  EstimateUnitMismatch: ({ unit, estimation }) =>
+    `The estimate is in ${unit} but this project estimates in ${estimation}.`,
+  HierarchyInvalid: ({ kind }) => `Invalid ticket hierarchy (${kind}).`,
+  RelationInvalid: ({ kind, ids }) => RELATION_MESSAGES[kind](ids),
+  InvalidBlocks: (issue) =>
+    `Invalid block markup: ${asSentence(formatBlockIssue(issue))} Discover ` +
+    "valid block types via list_blocks, and see the create_ticket/" +
+    "update_ticket descriptions for the format.",
+  BodyEditFailed: ({ index, failure }) =>
+    `edits[${index}] failed: ${editFailureMessage(failure)} Nothing was saved.`,
+  TicketMoveRejected: ({ kind }) => `The ticket can't be moved (${kind}).`,
+  SprintInvalid: ({ kind }) => `Invalid sprint (${kind}).`,
+  TicketChanged: ({ kind }) =>
+    `The ticket changed since you read it (${kind}); read it again and retry.`,
+  TicketArchiveConflict: ({ kind }) =>
+    kind === "already_archived"
+      ? "The ticket is already archived."
+      : "The ticket isn't archived.",
+  BranchLinkConflict: ({ kind }) => `Branch link conflict (${kind}).`,
+  GitHubConnectionConflict: ({ kind }) =>
+    `GitHub connection conflict (${kind}).`,
+  CommentBodyInvalid: ({ kind }) =>
+    kind === "empty"
+      ? "The comment is empty."
+      : "The comment can't contain comment marker syntax (<!-- comment: -->).",
+  CommentThreadResolved: () =>
+    "That thread is resolved; reopen it before replying.",
+  UploadFailed: ({ kind }) =>
+    kind === "timed_out"
+      ? "Upload timed out. Retry the upload URL, or prepare a new upload if it expired."
+      : "Could not read upload body.",
   MentionInvalid: ({ kind, href }) => {
     const detail = kind && href ? `${kind}: ${href}` : (kind ?? href ?? "")
     return detail

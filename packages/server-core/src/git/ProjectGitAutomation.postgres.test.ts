@@ -5,7 +5,7 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
 import {
-  Conflict,
+  UnknownStatus,
   ProjectScope,
   StatusSlug,
   type GitAutomation
@@ -178,62 +178,60 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
             forwardOnly: true
           })
         )
-        expect(failure).toEqual(new Conflict({ reason: "status_not_found" }))
+        expect(failure).toEqual(new UnknownStatus({ status: "archived" }))
       })
     )
   )
-  it.effect(
-    "returns a typed conflict when a concurrent deletion removes the target status",
-    () =>
-      Effect.gen(function* () {
+  it.effect("rejects a rule whose status a concurrent deletion removed", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() =>
+        pool.query(
+          "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'race','Race','Circle','#a3a3a3','a3',$2)",
+          [id, id]
+        )
+      )
+      const client = yield* Effect.promise(() => pool.connect())
+      try {
+        yield* Effect.promise(() => client.query("BEGIN"))
+        const pid = yield* Effect.promise(() =>
+          client.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")
+        )
         yield* Effect.promise(() =>
-          pool.query(
-            "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'race','Race','Circle','#a3a3a3','a3',$2)",
-            [id, id]
+          client.query(
+            "DELETE FROM project_status WHERE project_id = $1 AND slug = 'race'",
+            [id]
           )
         )
-        const client = yield* Effect.promise(() => pool.connect())
+        const pending = yield* run(
+          Effect.flatMap(
+            ProjectGitAutomation.ProjectGitAutomation,
+            (automation) =>
+              automation.update({ rules: { pr_closed: slug("race") } })
+          )
+        ).pipe(Effect.flip, Effect.forkChild)
         try {
-          yield* Effect.promise(() => client.query("BEGIN"))
-          const pid = yield* Effect.promise(() =>
-            client.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")
-          )
-          yield* Effect.promise(() =>
-            client.query(
-              "DELETE FROM project_status WHERE project_id = $1 AND slug = 'race'",
-              [id]
-            )
-          )
-          const pending = yield* run(
-            Effect.flatMap(
-              ProjectGitAutomation.ProjectGitAutomation,
-              (automation) =>
-                automation.update({ rules: { pr_closed: slug("race") } })
-            )
-          ).pipe(Effect.flip, Effect.forkChild)
-          try {
-            yield* Effect.promise(async () => {
-              await expect
-                .poll(async () => {
-                  const result = await pool.query<{ blocked: boolean }>(
-                    "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
-                    [pid.rows[0]?.pid]
-                  )
-                  return result.rows[0]?.blocked
-                })
-                .toBe(true)
-            })
-          } finally {
-            yield* Effect.promise(() => client.query("COMMIT"))
-          }
-          expect(yield* Fiber.join(pending)).toEqual(
-            new Conflict({ reason: "status_not_found" })
-          )
+          yield* Effect.promise(async () => {
+            await expect
+              .poll(async () => {
+                const result = await pool.query<{ blocked: boolean }>(
+                  "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
+                  [pid.rows[0]?.pid]
+                )
+                return result.rows[0]?.blocked
+              })
+              .toBe(true)
+          })
         } finally {
-          yield* Effect.promise(() => client.query("ROLLBACK"))
-          client.release()
+          yield* Effect.promise(() => client.query("COMMIT"))
         }
-      })
+        expect(yield* Fiber.join(pending)).toEqual(
+          new UnknownStatus({ status: "race" })
+        )
+      } finally {
+        yield* Effect.promise(() => client.query("ROLLBACK"))
+        client.release()
+      }
+    })
   )
 
   const recordSpans = () => {

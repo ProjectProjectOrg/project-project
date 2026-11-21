@@ -1,7 +1,6 @@
 import { Db } from "@pp/db"
 import { jiraMigration } from "@pp/db/schema"
 import {
-  Conflict,
   JiraError,
   JiraMigrationConfiguration,
   JiraMigrationDetail,
@@ -10,9 +9,10 @@ import {
   JiraMigrationResult,
   JiraMigrationScanSummary,
   NotFound,
-  Validation,
   type JiraMigrationActions,
-  type JiraMigrationSummary
+  type JiraMigrationSummary,
+  JiraMigrationChanged,
+  JiraMigrationRejected
 } from "@pp/shared"
 import {
   and,
@@ -644,8 +644,7 @@ const scanProgressDone = (
   return done
 }
 const withoutRemoteWrites = sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) - 'remoteWritesMayStillCommit'`
-const conflict = () =>
-  new Conflict({ reason: "jira_migration_revision_conflict" })
+const conflict = () => new JiraMigrationChanged({ kind: "revision" })
 const databaseError = () => new JiraError({ reason: "server_error" })
 const cleanupStatuses = ["failed", "cancelled"] as const
 const cleanupStatusesFor = (mode: JiraMigrationCleanupMode) =>
@@ -683,7 +682,7 @@ export class JiraMigrationProjection extends Context.Service<
     ) => Effect.Effect<boolean, JiraError>
     unresolvedFailedAttachments: (
       input: AttemptFence & Readonly<{ expectedRevision: number }>
-    ) => Effect.Effect<ReadonlyArray<string>, Conflict | JiraError>
+    ) => Effect.Effect<ReadonlyArray<string>, JiraMigrationChanged | JiraError>
     finalizeInterrupted: (
       fence: AttemptFence
     ) => Effect.Effect<boolean, JiraError>
@@ -737,10 +736,13 @@ export class JiraMigrationProjection extends Context.Service<
 
     ensureCreated: (
       input: EnsureCreatedInput
-    ) => Effect.Effect<JiraMigrationRow, Conflict | JiraError>
+    ) => Effect.Effect<JiraMigrationRow, JiraMigrationChanged | JiraError>
     beginRescan: (
       input: BeginRescanInput
-    ) => Effect.Effect<BeginRescanResult, Conflict | Validation | JiraError>
+    ) => Effect.Effect<
+      BeginRescanResult,
+      JiraMigrationChanged | JiraMigrationRejected | JiraError
+    >
     advance: (
       fence: AttemptFence,
       patch: ProjectionPatch
@@ -1060,9 +1062,7 @@ const make = Effect.gen(function* () {
         row.workflowExecutionId === null ||
         !matchesSource(row, source)
       )
-        return yield* new Conflict({
-          reason: "jira_migration_request_conflict"
-        })
+        return yield* new JiraMigrationChanged({ kind: "request" })
       return row
     }
   )
@@ -1096,9 +1096,7 @@ const make = Effect.gen(function* () {
       if ((yield* decodeCheckpoint(row.checkpoint)).remoteWritesMayStillCommit)
         return yield* conflict()
       if (!actionsFor(row).canRescan)
-        return yield* new Validation({
-          reason: "jira_migration_rescan_not_allowed"
-        })
+        return yield* new JiraMigrationRejected({ kind: "rescan_not_allowed" })
       const now = yield* DateTime.nowAsDate
       const updated = yield* db
         .update(jiraMigration)
@@ -1628,14 +1626,10 @@ const make = Effect.gen(function* () {
     const row = yield* owned(input.owner, input.migrationId)
     if (row.revision !== input.expectedRevision) return yield* conflict()
     if (!actionsFor(row).canConfigure)
-      return yield* new Validation({
-        reason: "jira_migration_not_configurable"
-      })
+      return yield* new JiraMigrationRejected({ kind: "not_configurable" })
     const checkpoint = yield* decodeCheckpoint(row.checkpoint)
     if (!checkpoint.scan)
-      return yield* new Validation({
-        reason: "jira_migration_scan_incomplete"
-      })
+      return yield* new JiraMigrationRejected({ kind: "scan_incomplete" })
     if (row.destinationProjectId !== null) {
       const accepted = checkpoint.acceptedConfiguration?.configuration
       if (
@@ -1646,9 +1640,7 @@ const make = Effect.gen(function* () {
           input.unresolvedFailedAttachmentIds ?? []
         )
       )
-        return yield* new Validation({
-          reason: "jira_migration_not_configurable"
-        })
+        return yield* new JiraMigrationRejected({ kind: "not_configurable" })
     }
     const complete = isCompleteJiraConfiguration(
       input.configuration,
@@ -1672,9 +1664,7 @@ const make = Effect.gen(function* () {
       return yield* conflict()
     if (input.action === "run") {
       if (!actionsFor(row).canRun)
-        return yield* new Validation({
-          reason: "jira_migration_run_not_allowed"
-        })
+        return yield* new JiraMigrationRejected({ kind: "run_not_allowed" })
       const checkpoint = yield* decodeCheckpoint(row.checkpoint)
       const gate = checkpoint.currentGate
       const scanRetry =
@@ -1689,9 +1679,7 @@ const make = Effect.gen(function* () {
             checkpoint.scan.requirements
           ))
       )
-        return yield* new Validation({
-          reason: "jira_migration_run_not_allowed"
-        })
+        return yield* new JiraMigrationRejected({ kind: "run_not_allowed" })
       const acceptedConfiguration = scanRetry
         ? checkpoint.acceptedConfiguration
         : checkpoint.acceptedConfiguration &&
@@ -1723,9 +1711,7 @@ const make = Effect.gen(function* () {
     return yield* Effect.gen(function* () {
       const current = yield* owned(input.owner, input.migrationId)
       if (!actionsFor(current).canCancel)
-        return yield* new Validation({
-          reason: "jira_migration_cancel_not_allowed"
-        })
+        return yield* new JiraMigrationRejected({ kind: "cancel_not_allowed" })
       const active = ["scanning", "migrating", "cancelling"].includes(
         current.status
       )
@@ -1741,7 +1727,7 @@ const make = Effect.gen(function* () {
       })
     }).pipe(
       Effect.retry({
-        while: (error) => Predicate.isTagged(error, "Conflict"),
+        while: (error) => Predicate.isTagged(error, "JiraMigrationChanged"),
         times: 10
       })
     )

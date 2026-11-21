@@ -24,8 +24,9 @@ import {
   expandTypeKeepingHints,
   applyTicketBodyEdits,
   formatAttachmentMarkdown,
-  formatBlockIssue,
-  formatTicketBodyEditFailure,
+  BodyEditFailed,
+  InvalidBlocks,
+  SprintInvalid,
   GIT_AUTOMATION_EVENTS,
   isRasterImageContentType,
   parseTicketBlocks,
@@ -70,9 +71,7 @@ const sanitizeMcpBody = (body: string) =>
   Effect.gen(function* () {
     const [firstIssue] = validateTicketBlocks(body)
     if (firstIssue !== undefined) {
-      return yield* new Validation({
-        reason: `block_markup:${formatBlockIssue(firstIssue)}`
-      })
+      return yield* new InvalidBlocks(firstIssue)
     }
     const segments = parseTicketBlocks(body)
     if (!segments.some(TicketBlockSegment.$is("block"))) return body
@@ -367,9 +366,7 @@ const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
     const result = applyTicketBodyEdits(ticket.body, edits)
     if (Result.isFailure(result)) {
       const { index, failure } = result.failure
-      return yield* new Validation({
-        reason: `edit_failed:${index}:${formatTicketBodyEditFailure(failure)}`
-      })
+      return yield* new BodyEditFailed({ index, failure })
     }
     return {
       body: yield* sanitizeMcpBody(result.success),
@@ -421,8 +418,8 @@ const update_ticket = (
           Effect.retry({
             times: 2,
             while: (error) =>
-              Predicate.isTagged(error, "Validation") &&
-              error.reason === "ticket_body_changed"
+              Predicate.isTagged(error, "TicketChanged") &&
+              error.kind === "body_changed"
           })
         )
     return withBlocks(updated.ticket)
@@ -436,11 +433,7 @@ const archive_ticket = (
       reason: input.reason,
       duplicateOf: input.duplicateOf
     })
-  ).pipe(
-    Effect.catchTag("InvalidCommentBody", (error) =>
-      Effect.fail(new Validation({ reason: error.reason }))
-    )
-  )
+  ).pipe()
 
 const mark_ticket = (input: Tool.Parameters<typeof Tools.tools.mark_ticket>) =>
   Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
@@ -518,11 +511,7 @@ const create_comment = (
 ) =>
   Effect.flatMap(Comments.Comments, (comments) =>
     comments.create(input.ticketId, input)
-  ).pipe(
-    Effect.catchTag("InvalidCommentBody", (error) =>
-      Effect.fail(new Validation({ reason: error.reason }))
-    )
-  )
+  ).pipe()
 
 const resolve_comment = (
   input: typeof Tools.tools.resolve_comment.parametersSchema.Type
@@ -583,7 +572,7 @@ const requireSprintKind = (id: GroupId) =>
     const groups = yield* Groups.Groups
     const group = yield* groups.get(id)
     if (group.kind !== "sprint") {
-      return yield* new Validation({ reason: `not_a_sprint:${id}` })
+      return yield* new SprintInvalid({ kind: "not_a_sprint" })
     }
     return group
   })

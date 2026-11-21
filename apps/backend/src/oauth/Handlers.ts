@@ -1,6 +1,6 @@
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as OAuthApplications from "@pp/server-core/oauth/OAuthApplications"
-import { AppApi, CurrentUser, Validation } from "@pp/shared"
+import { AppApi, CurrentUser, OAuthConsentRejected } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest } from "effect/http"
@@ -15,16 +15,13 @@ export const consentErrorToFailure = (error: BetterAuth.BetterAuthError) => {
 
   const body = cause.body
   const oauthError: unknown = body?.error
-  const reason =
-    body?.message ??
-    body?.code ??
-    (typeof oauthError === "string" ? oauthError : "consent_failed")
 
   return Effect.logWarning("OAuth consent rejected", {
     status: cause.statusCode,
     code: body?.code,
+    message: body?.message,
     oauthError: typeof oauthError === "string" ? oauthError : undefined
-  }).pipe(Effect.andThen(Effect.fail(new Validation({ reason }))))
+  }).pipe(Effect.andThen(Effect.fail(new OAuthConsentRejected())))
 }
 
 export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(

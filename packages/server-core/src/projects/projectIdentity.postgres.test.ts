@@ -146,8 +146,8 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
         ).pipe(Effect.provide(layer))
         const error = yield* Effect.flip(create(0, "Legacy", "OLD"))
         expect(error).toMatchObject({
-          _tag: "Conflict",
-          reason: "project_key_taken"
+          _tag: "ProjectIdentifierTaken",
+          kind: "key"
         })
       })
   )

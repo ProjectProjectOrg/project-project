@@ -1,7 +1,11 @@
 import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
 import * as Schema from "effect/Schema"
 
-import { NotFound, Validation } from "../errors"
+import {
+  NotFound,
+  AvatarSourceUnavailable,
+  OAuthConsentRejected
+} from "../errors"
 import { Authentication } from "./Authentication"
 import { OAuthApplication } from "./OAuthApplication"
 import { SignInProvider } from "./SignInProvider"
@@ -17,7 +21,7 @@ export const AuthGroup = HttpApiGroup.make("auth")
     HttpApiEndpoint.patch("updateSettings", "/me/settings", {
       payload: UpdateUserSettingsInput,
       success: UserSettings,
-      error: Validation
+      error: [AvatarSourceUnavailable]
     })
   )
   .middleware(Authentication)
@@ -48,7 +52,7 @@ export const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
         oauth_query: Schema.String
       }),
       success: Schema.Struct({ redirectURI: Schema.String }),
-      error: Validation
+      error: [OAuthConsentRejected]
     })
   )
   .middleware(Authentication)

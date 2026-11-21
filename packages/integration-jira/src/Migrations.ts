@@ -1,12 +1,12 @@
 import {
-  Conflict,
   JiraError,
   JiraMigrationConfiguration,
   JiraMigrationDetail,
   NotFound,
-  Validation,
   type JiraMigrationSummary,
-  type JiraMigrationDestinationConflict
+  type JiraMigrationDestinationConflict,
+  JiraMigrationChanged,
+  JiraMigrationRejected
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -59,8 +59,8 @@ export type JiraMigrationSource = Readonly<{
 
 export type JiraMigrationMutationError =
   | NotFound
-  | Validation
-  | Conflict
+  | JiraMigrationRejected
+  | JiraMigrationChanged
   | JiraError
 
 export class JiraMigrations extends Context.Service<
@@ -75,7 +75,7 @@ export class JiraMigrations extends Context.Service<
       userId: string,
       requestId: string,
       source: JiraMigrationSource
-    ) => Effect.Effect<JiraMigrationDetail, Conflict | JiraError>
+    ) => Effect.Effect<JiraMigrationDetail, JiraMigrationChanged | JiraError>
     get: (
       organizationId: string,
       userId: string,
@@ -120,7 +120,7 @@ export class JiraMigrations extends Context.Service<
       organizationId: string,
       userId: string,
       migrationId: string
-    ) => Effect.Effect<void, NotFound | Validation>
+    ) => Effect.Effect<void, NotFound | JiraMigrationRejected>
   }>
 >()("@pp/integration-jira/Migrations/JiraMigrations") {}
 
@@ -174,9 +174,7 @@ const makeWorkflow = (
             )
           )
         if (!MigrationProjection.matchesSource(row, source))
-          return yield* new Conflict({
-            reason: "jira_migration_request_conflict"
-          })
+          return yield* new JiraMigrationChanged({ kind: "request" })
         return yield* projection.toDetail(row)
       },
       Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
@@ -194,17 +192,15 @@ const makeWorkflow = (
           row.revision !== expectedRevision ||
           !MigrationProjection.fenceFor(row)
         )
-          return yield* new Conflict({
-            reason: "jira_migration_revision_conflict"
-          })
+          return yield* new JiraMigrationChanged({ kind: "revision" })
         if (!MigrationProjection.actionsFor(row).canRescan)
-          return yield* new Validation({
-            reason: "jira_migration_rescan_not_allowed"
+          return yield* new JiraMigrationRejected({
+            kind: "rescan_not_allowed"
           })
         if (row.destinationProjectId !== null) {
           if (!prepareRescan)
-            return yield* new Validation({
-              reason: "jira_migration_rescan_not_allowed"
+            return yield* new JiraMigrationRejected({
+              kind: "rescan_not_allowed"
             })
           row = yield* prepareRescan(row)
         }
@@ -370,9 +366,7 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
             row.revision !== input.expectedRevision ||
             !MigrationProjection.fenceFor(row)
           )
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
+            return yield* new JiraMigrationChanged({ kind: "revision" })
           const checkpoint = yield* MigrationProjection.decodeCheckpoint(
             row.checkpoint
           )
@@ -383,9 +377,7 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
               ? gate.scanRevision !== row.scanRevision
               : gate.failureSequence !== row.failureSequence)
           )
-            return yield* new Validation({
-              reason: "jira_migration_run_not_allowed"
-            })
+            return yield* new JiraMigrationRejected({ kind: "run_not_allowed" })
           const accepted = yield* projection.transition({
             ...input,
             action: "run"
@@ -477,10 +469,7 @@ const make = (
       const owner = { organizationId, userId }
       const row = yield* projection.owned(owner, migrationId)
       const fence = MigrationProjection.fenceFor(row)
-      if (!fence)
-        return yield* new Conflict({
-          reason: "jira_migration_revision_conflict"
-        })
+      if (!fence) return yield* new JiraMigrationChanged({ kind: "revision" })
       yield* projection.transition({
         owner,
         migrationId,
@@ -503,8 +492,8 @@ const make = (
         )
         const fence = MigrationProjection.fenceFor(row)
         if (!fence || !projection.actionsFor(row).canDiscard)
-          return yield* new Validation({
-            reason: "jira_migration_discard_not_allowed"
+          return yield* new JiraMigrationRejected({
+            kind: "discard_not_allowed"
           })
         yield* cleanup.start({
           ...fence,
@@ -512,19 +501,15 @@ const make = (
           mode: "discard"
         })
       },
-      Effect.catchTag("Conflict", () =>
-        Effect.fail(
-          new Validation({ reason: "jira_migration_discard_not_allowed" })
-        )
+      Effect.catchTag("JiraMigrationChanged", () =>
+        Effect.fail(new JiraMigrationRejected({ kind: "discard_not_allowed" }))
       ),
       Effect.catchTag("JiraError", (error) =>
         Effect.logError("Jira migration cleanup submission failed", {
           reason: error.reason
         }).pipe(
           Effect.andThen(
-            Effect.fail(
-              new Validation({ reason: "jira_migration_cleanup_failed" })
-            )
+            Effect.fail(new JiraMigrationRejected({ kind: "cleanup_failed" }))
           )
         )
       )
@@ -533,10 +518,7 @@ const make = (
       row: MigrationProjection.JiraMigrationRow
     ) {
       const fence = MigrationProjection.fenceFor(row)
-      if (!fence)
-        return yield* new Conflict({
-          reason: "jira_migration_revision_conflict"
-        })
+      if (!fence) return yield* new JiraMigrationChanged({ kind: "revision" })
       const command = {
         ...fence,
         expectedRevision: row.revision,
@@ -559,9 +541,7 @@ const make = (
         current.destinationProjectId !== null ||
         current.cleanupExecutionId !== null
       )
-        return yield* new Conflict({
-          reason: "jira_migration_revision_conflict"
-        })
+        return yield* new JiraMigrationChanged({ kind: "revision" })
       return current
     })
     const configure: JiraMigrations["Service"]["configure"] = Effect.fn(
@@ -578,9 +558,7 @@ const make = (
         const row = yield* projection.owned(owner, migrationId)
         const fence = MigrationProjection.fenceFor(row)
         if (!fence || row.revision !== expectedRevision)
-          return yield* new Conflict({
-            reason: "jira_migration_revision_conflict"
-          })
+          return yield* new JiraMigrationChanged({ kind: "revision" })
         const unresolvedFailedAttachmentIds =
           row.destinationProjectId === null
             ? undefined
@@ -611,9 +589,7 @@ const make = (
             migrationId
           )
           if (row.revision !== expectedRevision)
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
+            return yield* new JiraMigrationChanged({ kind: "revision" })
           const checkpoint = yield* MigrationProjection.decodeCheckpoint(
             row.checkpoint
           )
@@ -621,8 +597,8 @@ const make = (
             row.configuration
           )
           if (!configuration || !checkpoint.scan?.manifest)
-            return yield* new Validation({
-              reason: "jira_migration_not_configurable"
+            return yield* new JiraMigrationRejected({
+              kind: "not_configurable"
             })
           const manifest = yield* artifacts
             .readJson(

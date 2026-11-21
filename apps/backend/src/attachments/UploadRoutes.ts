@@ -1,5 +1,5 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
-import { Validation } from "@pp/shared"
+import { UploadFailed } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Option from "effect/Option"
@@ -35,9 +35,7 @@ export const attachmentUploadRoute = Effect.gen(function* () {
     Option.isSome(query) ? query.value.token : "",
     request.headers["content-type"] ?? "",
     request.stream.pipe(
-      Stream.mapError(
-        () => new Validation({ reason: "Could not read upload body." })
-      )
+      Stream.mapError(() => new UploadFailed({ kind: "unreadable_body" }))
     )
   )
   return HttpServerResponse.jsonUnsafe(attachment, {
@@ -63,7 +61,7 @@ export const attachmentUploadRoute = Effect.gen(function* () {
     StorageNotConnected: (error) => Effect.succeed(failure(error, 409)),
     StorageConfigMissing: (error) => Effect.succeed(failure(error, 503)),
     StorageError: (error) => Effect.succeed(failure(error, 502)),
-    Validation: (error) => Effect.succeed(failure(error, 400))
+    UploadFailed: (error) => Effect.succeed(failure(error, 400))
   }),
   Effect.catchDefect(() =>
     Effect.succeed(

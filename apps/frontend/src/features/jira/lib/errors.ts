@@ -1,27 +1,17 @@
+import { JiraMigrationUnavailable } from "@pp/shared"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
-
-import { isJiraUnavailableDetail } from "@/lib/errorMessage"
 
 type TaggedError = Readonly<{ _tag: string }>
 
-const isReconnectRequired = Schema.is(
-  Schema.TaggedStruct("JiraReconnectRequired", {})
-)
-const isNotConnected = Schema.is(Schema.TaggedStruct("JiraNotConnected", {}))
-const isRevisionConflictDetail = Schema.is(
-  Schema.TaggedStruct("Conflict", {
-    reason: Schema.Literals([
-      "jira_migration_revision_conflict",
-      "jira_migration_request_conflict"
-    ])
-  })
-)
+const isUnavailable = Schema.is(Schema.Struct(JiraMigrationUnavailable.fields))
 
 export const isJiraStorageUnavailable = (error: TaggedError) =>
-  isJiraUnavailableDetail(error) && error.reason === "storage_unavailable"
+  isUnavailable(error) && error.reason === "storage_unavailable"
 
 export const isJiraReconnectError = (error: TaggedError) =>
-  isReconnectRequired(error) || isNotConnected(error)
+  Predicate.isTagged(error, "JiraReconnectRequired") ||
+  Predicate.isTagged(error, "JiraNotConnected")
 
 export const isRevisionConflict = (error: TaggedError) =>
-  isRevisionConflictDetail(error)
+  Predicate.isTagged(error, "JiraMigrationChanged")

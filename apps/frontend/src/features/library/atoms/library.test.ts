@@ -3,14 +3,14 @@ import {
   GALLERY_BLOCKS,
   BlockDefinition,
   BlockKey,
-  Conflict,
   EMPTY_LAYER,
   Library,
   TypeDefinition,
   resolveLibrary,
   typeFor,
   type BlockDraft,
-  type Layer
+  type Layer,
+  LibraryConflict
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
@@ -38,7 +38,7 @@ const projectReq = projectLibraryRequest("acme", "web")
 const encodeLibrary = Schema.encodeSync(Library)
 const encodeBlock = Schema.encodeSync(BlockDefinition)
 const encodeType = Schema.encodeSync(TypeDefinition)
-const encodeConflict = Schema.encodeSync(Conflict)
+const encodeConflict = Schema.encodeSync(LibraryConflict)
 const blockKey = Schema.decodeSync(BlockKey)
 
 const contextBlock = GALLERY_BLOCKS.find((block) => block.key === "context")!
@@ -340,7 +340,7 @@ describe("library atoms", () => {
         respond: () =>
           Promise.resolve(
             Response.json(
-              encodeConflict(new Conflict({ reason: "key_taken" })),
+              encodeConflict(new LibraryConflict({ kind: "key_taken" })),
               { status: 409 }
             )
           )

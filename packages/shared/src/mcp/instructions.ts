@@ -83,7 +83,7 @@ export const agentGuide = {
     '(`<block type="key" sync>`) is a shared, managed definition such ' +
     "as a definition of done: leave its text alone and only tick or " +
     "untick its checkboxes. Malformed block markup is rejected with a " +
-    "`Validation` error naming the line and the fix.",
+    "`InvalidBlocks` error naming the line and the fix.",
   attachments:
     "Attachments: call `prepare_ticket_attachment`, POST the file bytes " +
     "to its `uploadUrl` from your file environment, then add the " +

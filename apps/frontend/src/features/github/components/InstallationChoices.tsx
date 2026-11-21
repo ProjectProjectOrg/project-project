@@ -38,7 +38,7 @@ export function InstallationChoices({
         chooseState,
         (error) =>
           Match.value(error).pipe(
-            Match.tag("Conflict", () =>
+            Match.tag("GitHubConnectionConflict", () =>
               m.org_integrations_github_choice_conflict_error()
             ),
             Match.tag("NotFound", () =>

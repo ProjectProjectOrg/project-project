@@ -2,7 +2,12 @@ import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
 
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
-import { Conflict, MentionInvalid, Validation } from "../errors"
+import {
+  MentionInvalid,
+  SprintCompletedImmutable,
+  TicketChanged,
+  TicketFieldErrors
+} from "../errors"
 import { ProjectPath } from "../http/paths"
 import { FixReferenceInput, ReferencesToFix } from "./ProjectReferences"
 
@@ -23,7 +28,12 @@ export const ProjectReferencesGroup = HttpApiGroup.make("projectReferences")
         params: ProjectPath,
         payload: FixReferenceInput,
         success: ReferencesToFix,
-        error: [Validation, MentionInvalid, Conflict]
+        error: [
+          MentionInvalid,
+          ...TicketFieldErrors,
+          SprintCompletedImmutable,
+          TicketChanged
+        ]
       }
     )
       .annotate(RequiresProject, { settings: ["manage"] })

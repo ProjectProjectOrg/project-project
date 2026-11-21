@@ -8,7 +8,7 @@ import {
   ActivityActor,
   DEFAULT_TICKET_SORT,
   ProjectScope,
-  Validation
+  EstimateUnitMismatch
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -184,7 +184,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
           tickets.update("T-1", { estimate: { unit: "points", value: 3 } })
         )
         expect(rejected).toEqual(
-          new Validation({ reason: "estimate_unit_mismatch:points:tshirt" })
+          new EstimateUnitMismatch({ unit: "points", estimation: "tshirt" })
         )
         expect(
           (yield* queries.list({

@@ -1,7 +1,7 @@
 import {
   EMPTY_TICKET_RELATIONS,
   type MarkTicketInput,
-  Validation,
+  RelationInvalid,
   type LinkedTicket,
   type TicketId,
   type TicketRelations
@@ -78,22 +78,17 @@ export const blockingCycle = (
   return walk(blocker, [ticket, blocker])
 }
 
-export const relationValidation = (
-  reason: string,
-  ids: ReadonlyArray<string>
-) => new Validation({ reason: `${reason}:${ids.join(",")}` })
-
 export const relationTargetFailure = (
   ticket: TicketId | null,
   targets: ReadonlyArray<TicketId>,
   existing: ReadonlySet<string>
 ) => {
   if (ticket !== null && targets.includes(ticket)) {
-    return relationValidation("relation_self", [ticket])
+    return new RelationInvalid({ kind: "relation_self", ids: [ticket] })
   }
   const unknown = targets.filter((target) => !existing.has(target))
   return unknown.length > 0
-    ? relationValidation("unknown_tickets", unknown)
+    ? new RelationInvalid({ kind: "unknown_tickets", ids: unknown })
     : null
 }
 
@@ -103,13 +98,14 @@ export const validateBlockers = (
   blockers: ReadonlyArray<TicketId>
 ) => {
   if (blockers.includes(ticket))
-    return relationValidation("relation_self", [ticket])
+    return new RelationInvalid({ kind: "relation_self", ids: [ticket] })
   const others = edges.filter(
     (edge) => !(edge.kind === "blocked_by" && edge.from === ticket)
   )
   for (const blocker of blockers) {
     const cycle = blockingCycle(others, ticket, blocker)
-    if (cycle !== null) return relationValidation("blocking_cycle", cycle)
+    if (cycle !== null)
+      return new RelationInvalid({ kind: "blocking_cycle", ids: cycle })
   }
   return null
 }
@@ -119,21 +115,22 @@ export const validateDuplicate = (
   ticket: TicketId,
   original: TicketId
 ) => {
-  if (ticket === original) return relationValidation("relation_self", [ticket])
+  if (ticket === original)
+    return new RelationInvalid({ kind: "relation_self", ids: [ticket] })
   const originalOf = edges.find(
     (edge) => edge.kind === "duplicate_of" && edge.from === original
   )
   if (originalOf !== undefined) {
-    return relationValidation("duplicate_of_duplicate", [
-      original,
-      originalOf.to
-    ])
+    return new RelationInvalid({
+      kind: "duplicate_of_duplicate",
+      ids: [original, originalOf.to]
+    })
   }
   const duplicates = edges.flatMap((edge) =>
     edge.kind === "duplicate_of" && edge.to === ticket ? [edge.from] : []
   )
   if (duplicates.length > 0) {
-    return relationValidation("has_duplicates", duplicates)
+    return new RelationInvalid({ kind: "has_duplicates", ids: duplicates })
   }
   return null
 }

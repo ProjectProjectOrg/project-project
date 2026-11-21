@@ -21,7 +21,7 @@ import {
   JiraResourceNotFound,
   NotFound,
   OrgScope,
-  Validation,
+  UnknownType,
   type JiraMigrationConfiguration
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -47,8 +47,7 @@ const requireOrgTypes = Effect.fn("JiraMigrations.requireOrgTypes")(function* (
   const { types } = yield* dieOnMarkdown(library.orgLibrary())
   const known = new Set(types.map(({ key }) => key))
   const unknown = custom.find((key) => !known.has(key))
-  if (unknown !== undefined)
-    return yield* new Validation({ reason: `unknown_type:${unknown}` })
+  if (unknown !== undefined) return yield* new UnknownType({ key: unknown })
 })
 
 const context = Effect.gen(function* () {

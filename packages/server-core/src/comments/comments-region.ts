@@ -1,4 +1,8 @@
-import { type CommentOrigin, ImportedAuthor } from "@pp/shared"
+import {
+  type CommentBodyInvalidKind,
+  type CommentOrigin,
+  ImportedAuthor
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
@@ -123,7 +127,7 @@ const blockAuthor = (author: (typeof CommentBlockData.Type)["author"]) => {
 const decodeUnknownCommentBlockDataOption =
   Schema.decodeUnknownOption(CommentBlockData)
 
-const invalidBody = (reason: string) => Result.fail(reason)
+const invalidBody = (kind: CommentBodyInvalidKind) => Result.fail(kind)
 
 export function validateCommentBody(body: string) {
   if (!body.trim()) return invalidBody("empty")

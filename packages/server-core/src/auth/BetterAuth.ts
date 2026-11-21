@@ -14,7 +14,7 @@ import type {
   UserIdentity,
   UserInvitation,
   UserSettings,
-  Validation
+  AvatarSourceUnavailable
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -76,7 +76,7 @@ export class BetterAuth extends Context.Service<
     updateSettings: (
       userId: string,
       input: UpdateUserSettingsInput
-    ) => Effect.Effect<UserSettings, BetterAuthError | Validation>
+    ) => Effect.Effect<UserSettings, BetterAuthError | AvatarSourceUnavailable>
     listOrganizations: (
       userId: string
     ) => Effect.Effect<

@@ -1,14 +1,17 @@
 import {
-  Conflict,
   Forbidden,
+  InvalidBlocks,
+  OAuthConsentRejected,
   InvalidRequest,
   NotFound,
   Unauthorized,
-  Validation
+  UnknownType,
+  LibraryConflict,
+  LibraryContentRejected,
+  StatusChangeRejected
 } from "@pp/shared"
 import { HttpClientError, TransportError } from "effect/http/HttpClientError"
 import * as HttpClientRequest from "effect/http/HttpClientRequest"
-import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -21,26 +24,32 @@ import {
 describe("statusSaveErrorMessage", () => {
   it("maps a reserved-slug conflict to the reserved-name message", () => {
     expect(
-      statusSaveErrorMessage(new Conflict({ reason: "reserved_slug" }))
+      statusSaveErrorMessage(
+        new StatusChangeRejected({ kind: "reserved_slug" })
+      )
     ).toBe("That name is reserved by a built-in status.")
   })
 
   it("maps a duplicate-slug conflict to the already-exists message", () => {
     expect(
-      statusSaveErrorMessage(new Conflict({ reason: "slug_exists" }))
+      statusSaveErrorMessage(new StatusChangeRejected({ kind: "slug_exists" }))
     ).toBe("A status with this name already exists.")
   })
 
   it("maps an invalid-label conflict to the invalid-name message", () => {
     expect(
-      statusSaveErrorMessage(new Conflict({ reason: "invalid_label" }))
+      statusSaveErrorMessage(
+        new StatusChangeRejected({ kind: "invalid_label" })
+      )
     ).toBe("Pick a name with at least one letter or digit.")
   })
 
-  it("falls back for an unknown conflict reason", () => {
-    expect(statusSaveErrorMessage(new Conflict({ reason: "whatever" }))).toBe(
-      "Couldn't add this status. Try again."
-    )
+  it("falls back for a status rejection without its own message", () => {
+    expect(
+      statusSaveErrorMessage(
+        new StatusChangeRejected({ kind: "baseline_order" })
+      )
+    ).toBe("Couldn't add this status. Try again.")
   })
 
   it("falls back for non-conflict errors", () => {
@@ -66,9 +75,7 @@ describe("figmaStatusErrorMessage", () => {
 
 describe("oauthConsentErrorMessage", () => {
   it("explains how to recover from an invalid or expired consent link", () => {
-    expect(
-      oauthConsentErrorMessage(new Validation({ reason: "invalid_signature" }))
-    ).toBe(
+    expect(oauthConsentErrorMessage(new OAuthConsentRejected())).toBe(
       "This authorization link has expired or is invalid. Start a new connection from your agent and try again."
     )
   })
@@ -95,44 +102,26 @@ describe("oauthConsentErrorMessage", () => {
 
 describe("library error messages", () => {
   it("maps library validation reasons and the key conflict", () => {
-    expect(errorMessage(new Conflict({ reason: "key_taken" }))).toBe(
+    expect(errorMessage(new LibraryConflict({ kind: "key_taken" }))).toBe(
       "That key is already used here. Pick another key."
     )
     expect(
-      errorMessage(new Validation({ reason: "attachments_not_allowed" }))
+      errorMessage(
+        new LibraryContentRejected({ kind: "attachments_not_allowed" })
+      )
     ).toBe(
       "Blocks and templates can't contain attachments yet. Remove the attachment and try again."
     )
-    expect(errorMessage(new Validation({ reason: "blocks_not_allowed" }))).toBe(
-      "A block can't contain other blocks."
-    )
     expect(
-      errorMessage(new Validation({ reason: "invalid_blocks:unclosed:4" }))
+      errorMessage(new LibraryContentRejected({ kind: "blocks_not_allowed" }))
+    ).toBe("A block can't contain other blocks.")
+    expect(
+      errorMessage(
+        new InvalidBlocks({ code: "unclosed", line: 4, source: "<block>" })
+      )
     ).toBe("The block opened on line 4 is never closed.")
-    expect(
-      errorMessage(new Validation({ reason: "invalid_blocks:mystery:2" }))
-    ).toBe("The block markup on line 2 isn't valid.")
-    expect(
-      errorMessage(new Validation({ reason: "unknown_template:bug-report" }))
-    ).toBe('The template "bug-report" doesn\'t exist anymore.')
-    expect(errorMessage(new Validation({ reason: "other" }))).toBe(
-      "Something went wrong."
-    )
-  })
-})
-
-const decodeErrorPayload = Schema.decodeSync(
-  Schema.fromJsonString(Schema.Unknown)
-)
-
-describe("unexpected error details", () => {
-  it.each([
-    '{"_tag":"Validation","reason":42}',
-    '{"_tag":"InvitationNotAcceptable","reason":"unrecognized"}',
-    '{"_tag":"OrgEmailError","reason":"unrecognized"}'
-  ])("returns the generic message for %s", (payload) => {
-    expect(errorMessage(decodeErrorPayload(payload))).toBe(
-      "Something went wrong."
+    expect(errorMessage(new UnknownType({ key: "bug-report" }))).toBe(
+      'The template "bug-report" doesn\'t exist anymore.'
     )
   })
 })

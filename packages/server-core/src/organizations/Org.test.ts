@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { Conflict, OrgScope, type OrgRole } from "@pp/shared"
+import { OrgScope, type OrgRole, OrgRestoreRejected } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -159,21 +159,23 @@ it.effect(
   }
 )
 
-it.effect("restore rejects a past-grace org with Conflict", () =>
+it.effect("restore rejects a past-grace org", () =>
   Effect.gen(function* () {
     yield* setNow
     const org = yield* Org.Org
     const error = yield* Effect.flip(org.restore())
-    expect(error).toStrictEqual(new Conflict({ reason: "grace_expired" }))
+    expect(error).toStrictEqual(
+      new OrgRestoreRejected({ kind: "grace_expired" })
+    )
   }).pipe(inScope(makeState(), "owner", daysBefore(20)))
 )
 
-it.effect("restore rejects a live org with Conflict", () =>
+it.effect("restore rejects a live org", () =>
   Effect.gen(function* () {
     yield* setNow
     const org = yield* Org.Org
     const error = yield* Effect.flip(org.restore())
-    expect(error).toStrictEqual(new Conflict({ reason: "not_deleted" }))
+    expect(error).toStrictEqual(new OrgRestoreRejected({ kind: "not_deleted" }))
   }).pipe(inScope(makeState(), "owner"))
 )
 

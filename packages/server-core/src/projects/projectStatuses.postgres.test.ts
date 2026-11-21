@@ -6,12 +6,12 @@ import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder } from "@pp/db"
 import {
   ActivityActor,
-  Conflict,
   Forbidden,
   OrderKey,
   ProjectScope,
   StatusColor,
-  StatusLabel
+  StatusLabel,
+  StatusChangeRejected
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -200,7 +200,9 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
         const error = yield* Effect.flip(
           statuses.reorder("done", { orderKey: OrderKey.make("a1V") })
         )
-        expect(error).toEqual(new Conflict({ reason: "baseline_order" }))
+        expect(error).toEqual(
+          new StatusChangeRejected({ kind: "baseline_order" })
+        )
 
         const moved = yield* statuses.reorder("todo", {
           orderKey: OrderKey.make("a1V")

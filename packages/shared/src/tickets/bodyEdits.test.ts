@@ -43,7 +43,10 @@ describe("applyTicketBodyEdits", () => {
         { kind: "replace", oldText: "Missing", newText: "x" }
       ])
     ).toEqual(
-      Result.fail({ index: 0, failure: TicketBodyEditFailure.NoMatch() })
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.cases.NoMatch.make({})
+      })
     )
   })
 
@@ -57,7 +60,7 @@ describe("applyTicketBodyEdits", () => {
     expect(applyTicketBodyEdits(BODY, [edit])).toEqual(
       Result.fail({
         index: 0,
-        failure: TicketBodyEditFailure.MultipleMatches({ count: 3 })
+        failure: TicketBodyEditFailure.cases.MultipleMatches.make({ count: 3 })
       })
     )
     expect(applyTicketBodyEdits(BODY, [{ ...edit, replaceAll: true }])).toEqual(
@@ -100,15 +103,21 @@ describe("applyTicketBodyEdits", () => {
     const twice = `${BODY}\n\n<block type="acceptance-criteria">\n\nAgain\n\n</block>`
 
     expect(replace("definition-of-done")).toEqual(
-      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockSynced() })
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.cases.BlockSynced.make({})
+      })
     )
     expect(replace("context")).toEqual(
-      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockNotFound() })
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.cases.BlockNotFound.make({})
+      })
     )
     expect(replace("acceptance-criteria", twice)).toEqual(
       Result.fail({
         index: 0,
-        failure: TicketBodyEditFailure.BlockAmbiguous({ count: 2 })
+        failure: TicketBodyEditFailure.cases.BlockAmbiguous.make({ count: 2 })
       })
     )
   })
@@ -129,7 +138,10 @@ describe("applyTicketBodyEdits", () => {
         { kind: "replace_block", type: "context", content: "x" }
       ])
     ).toEqual(
-      Result.fail({ index: 0, failure: TicketBodyEditFailure.BlockNotFound() })
+      Result.fail({
+        index: 0,
+        failure: TicketBodyEditFailure.cases.BlockNotFound.make({})
+      })
     )
   })
 
@@ -147,7 +159,10 @@ describe("applyTicketBodyEdits", () => {
         { kind: "replace", oldText: "Intro.", newText: "Again." }
       ])
     ).toEqual(
-      Result.fail({ index: 2, failure: TicketBodyEditFailure.NoMatch() })
+      Result.fail({
+        index: 2,
+        failure: TicketBodyEditFailure.cases.NoMatch.make({})
+      })
     )
   })
 

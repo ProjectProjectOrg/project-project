@@ -21,7 +21,7 @@ import {
   type User,
   ProjectScope,
   StatusSlug,
-  Validation,
+  UnknownType,
   BUILTIN_TYPE_KEYS,
   isBuiltinTypeKey,
   isEpic,
@@ -1047,7 +1047,7 @@ export const PassthroughLibrary = Layer.mock(Library.Library, {
   expandForCreate: (_orgSlug, _slug, key) =>
     isBuiltinTypeKey(key)
       ? Effect.succeed({ body: "", priority: null, tags: [] })
-      : Effect.fail(new Validation({ reason: `unknown_type:${key}` }))
+      : Effect.fail(new UnknownType({ key }))
 })
 
 export type TicketsLayerOptions = Readonly<{

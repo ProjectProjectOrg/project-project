@@ -1,6 +1,6 @@
 import { Db } from "@pp/db"
 import { jiraMigration } from "@pp/db/schema"
-import { Conflict, JiraError } from "@pp/shared"
+import { JiraError, JiraMigrationChanged } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -167,9 +167,7 @@ export const makeJiraCleanupCommands = Effect.gen(function* () {
         JiraMigrationCleanupWorkflow.execute(payload, { discard: true })
       )
       if (executionId !== input.cleanupExecutionId)
-        return yield* new Conflict({
-          reason: "jira_migration_revision_conflict"
-        })
+        return yield* new JiraMigrationChanged({ kind: "revision" })
       yield* provideEngine(JiraMigrationCleanupWorkflow.execute(payload)).pipe(
         Effect.mapError(() => new JiraError({ reason: "server_error" }))
       )
@@ -189,9 +187,7 @@ export const makeJiraCleanupCommands = Effect.gen(function* () {
         row.destinationProjectId !== null ||
         row.revision < payload.cleanupGeneration + 1
       )
-        return yield* new Conflict({
-          reason: "jira_migration_revision_conflict"
-        })
+        return yield* new JiraMigrationChanged({ kind: "revision" })
       return { fence, revision: row.revision }
     })
   return { start, awaitReset } satisfies Migrations.JiraMigrationCleanupCommands

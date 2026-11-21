@@ -4,10 +4,11 @@ import * as Schema from "effect/Schema"
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { Authentication } from "../auth/Authentication"
 import {
-  Conflict,
   InvitationNotAcceptable,
   LastProjectPmBlocked,
   NotFound,
+  OrgConflict,
+  OrgRestoreRejected,
   Validation
 } from "../errors"
 import { OrgPath } from "../http/paths"
@@ -62,7 +63,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("restore", "/orgs/:orgSlug/restore", {
       params: OrgPath,
       success: OrgDetail,
-      error: Conflict
+      error: [OrgRestoreRejected]
     })
       .annotate(RequiresOrg, { organization: ["delete"] })
       .annotate(IncludeDeletedOrg, true)
@@ -90,7 +91,7 @@ export const OrgGroup = HttpApiGroup.make("org")
       params: OrgPath,
       payload: InviteMemberInput,
       success: OrgInvitation,
-      error: [Validation, Conflict]
+      error: [OrgConflict, Validation]
     })
       .annotate(RequiresOrg, { invitation: ["create"] })
       .middleware(OrgAccess)
@@ -103,7 +104,7 @@ export const OrgGroup = HttpApiGroup.make("org")
         params: OrgMemberPath,
         payload: UpdateMemberRoleInput,
         success: OrgMember,
-        error: Conflict
+        error: [OrgConflict]
       }
     )
       .annotate(RequiresOrg, { member: ["update"] })
@@ -113,7 +114,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
       params: OrgMemberPath,
       success: HttpApiSchema.NoContent,
-      error: [Conflict, LastProjectPmBlocked]
+      error: [LastProjectPmBlocked, OrgConflict]
     })
       .annotate(RequiresOrg, { member: ["delete"] })
       .middleware(OrgAccess)
@@ -138,7 +139,7 @@ export const OrgGroup = HttpApiGroup.make("org")
         params: OrgPath,
         payload: TransferOrgOwnershipInput,
         success: OrgMembers,
-        error: Validation
+        error: [Validation]
       }
     )
       .annotate(RequiresOrg, { organization: ["transfer"] })
@@ -156,7 +157,7 @@ export const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
       params: OrgPath,
       success: HttpApiSchema.NoContent,
-      error: [Conflict, LastProjectPmBlocked]
+      error: [LastProjectPmBlocked, OrgConflict]
     })
       .annotate(RequiresOrg, "membership")
       .middleware(OrgAccess)

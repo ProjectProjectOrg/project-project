@@ -5,7 +5,6 @@ import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import {
-  Conflict,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -13,6 +12,8 @@ import {
   RateLimited,
   RepoGone,
   StorageError,
+  GitHubConnectionConflict,
+  ProjectIdentifierTaken,
   Validation
 } from "../errors"
 import { BranchListResponse, GitStatesResponse } from "../github/GitState"
@@ -66,7 +67,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       params: OrgPath,
       payload: CreateProjectInput,
       success: Project,
-      error: Conflict
+      error: [ProjectIdentifierTaken]
     })
       .annotate(RequiresOrg, { project: ["create"] })
       .middleware(OrgAccess)
@@ -223,7 +224,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         params: OrgPath,
         payload: ChooseGithubInstallationInput,
         success: ChooseGithubInstallationResponse,
-        error: [Conflict, GitHubError]
+        error: [GitHubError, GitHubConnectionConflict]
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -283,7 +284,7 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       {
         params: ProjectMemberPath,
         success: ProjectDetail,
-        error: [Validation, LastProjectPmBlocked]
+        error: [LastProjectPmBlocked, Validation]
       }
     )
       .annotate(RequiresProject, { members: ["manage"] })
@@ -319,12 +320,12 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         payload: ConnectGithubInput,
         success: ProjectDetail,
         error: [
-          Conflict,
           GitHubTokenExpired,
           GitHubScopeInsufficient,
           RepoGone,
           RateLimited,
-          GitHubError
+          GitHubError,
+          GitHubConnectionConflict
         ]
       }
     )

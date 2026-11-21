@@ -1,5 +1,7 @@
 import {
-  Conflict,
+  OrgConflict,
+  TagExists,
+  UnknownType,
   Forbidden,
   LastProjectPmBlocked,
   MentionInvalid,
@@ -66,15 +68,13 @@ describe("ticketCreateErrorMessage", () => {
       errorMessage(new MentionInvalid({ kind: "unknown_user", href: "x" }))
     )
     expect(
-      ticketCreateErrorMessage(
-        new Validation({ reason: "unknown_type:bug-report" })
-      )
+      ticketCreateErrorMessage(new UnknownType({ key: "bug-report" }))
     ).toBe('The template "bug-report" doesn\'t exist anymore.')
   })
 
   it("falls back for other failures", () => {
     expect(ticketCreateErrorMessage(new Forbidden())).toBe(
-      ticketCreateErrorMessage(new Conflict({ reason: "x" }))
+      ticketCreateErrorMessage(new TagExists())
     )
   })
 })
@@ -93,10 +93,10 @@ describe("orgActionError", () => {
   it("maps the tagged errors the org endpoints return", () => {
     const generic = orgActionError(new Forbidden()).message
     const messages = [
-      orgActionError(new Conflict({ reason: "already_member" })).message,
-      orgActionError(new Conflict({ reason: "already_invited" })).message,
-      orgActionError(new Conflict({ reason: "last_owner" })).message,
-      orgActionError(new Conflict({ reason: "last_owner_removal" })).message,
+      orgActionError(new OrgConflict({ kind: "already_member" })).message,
+      orgActionError(new OrgConflict({ kind: "already_invited" })).message,
+      orgActionError(new OrgConflict({ kind: "last_owner" })).message,
+      orgActionError(new OrgConflict({ kind: "last_owner_removal" })).message,
       orgActionError(new Validation({ reason: "role_not_found" })).message
     ]
     expect(new Set(messages).size).toBe(messages.length)

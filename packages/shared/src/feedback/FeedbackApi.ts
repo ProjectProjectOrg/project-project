@@ -10,13 +10,13 @@ import { Authentication } from "../auth/Authentication"
 import {
   AttachmentTooLarge,
   AttachmentTypeRejected,
-  Conflict,
   NotFound,
   RateLimited,
   StorageConfigMissing,
   StorageError,
   StorageNotConnected,
-  Validation
+  FeedbackInProgress,
+  FeedbackRejected
 } from "../errors"
 import { OrgPath } from "../http/paths"
 import {
@@ -45,7 +45,7 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
         StorageNotConnected,
         StorageConfigMissing,
         StorageError,
-        Validation
+        FeedbackRejected
       ]
     }).annotate(RequiresOrg, "membership")
   )
@@ -54,7 +54,7 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
       params: OrgPath,
       payload: SubmitFeedbackInput,
       success: HttpApiSchema.NoContent,
-      error: Validation
+      error: [FeedbackRejected]
     }).annotate(RequiresOrg, "membership")
   )
   .middleware(OrgAccess)
@@ -70,7 +70,7 @@ export const FeedbackIntakeGroup = HttpApiGroup.make("feedbackIntake")
     HttpApiEndpoint.post("receive", "/feedback/intake", {
       payload: FeedbackIntakePayload,
       success: HttpApiSchema.NoContent,
-      error: Conflict
+      error: [FeedbackInProgress]
     })
   )
   .middleware(FeedbackIntakeGuard)

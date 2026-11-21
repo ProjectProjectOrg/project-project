@@ -5,12 +5,12 @@ import {
   projectStatus
 } from "@pp/db/schema"
 import {
-  Conflict,
   GIT_AUTOMATION_EVENTS,
   GitAutomationRules,
   ProjectScope,
   type GitAutomation,
-  type UpdateGitAutomationInput
+  type UpdateGitAutomationInput,
+  UnknownStatus
 } from "@pp/shared"
 import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -27,7 +27,7 @@ export class ProjectGitAutomation extends Context.Service<
     configFor: (projectId: string) => Effect.Effect<GitAutomationConfig>
     update: (
       input: UpdateGitAutomationInput
-    ) => Effect.Effect<GitAutomation, Conflict, ProjectScope>
+    ) => Effect.Effect<GitAutomation, UnknownStatus, ProjectScope>
   }>
 >()("@pp/server-core/git/ProjectGitAutomation") {}
 
@@ -117,12 +117,11 @@ const make = Effect.gen(function* () {
             .where(eq(projectStatus.projectId, projectId))
             .for("share")
           const known = new Set(statuses.map((status) => status.slug))
-          if (
-            changes.some(
-              ({ statusSlug }) => statusSlug !== null && !known.has(statusSlug)
-            )
-          ) {
-            return yield* new Conflict({ reason: "status_not_found" })
+          const unknown = changes.find(
+            ({ statusSlug }) => statusSlug !== null && !known.has(statusSlug)
+          )?.statusSlug
+          if (unknown) {
+            return yield* new UnknownStatus({ status: unknown })
           }
           for (const { event, statusSlug } of changes) {
             yield* db

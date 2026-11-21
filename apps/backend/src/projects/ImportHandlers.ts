@@ -1,5 +1,5 @@
 import * as ProjectImports from "@pp/server-core/projects/ProjectImports"
-import { AppApi, ProjectImport, Validation } from "@pp/shared"
+import { AppApi, ProjectImport, ProjectImportInvalid } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
@@ -20,7 +20,7 @@ export const ProjectImportsHandlerLive = HttpApiBuilder.group(
           const imported = yield* imports.upload(
             request.stream.pipe(
               Stream.mapError(
-                () => new Validation({ reason: "upload_interrupted" })
+                () => new ProjectImportInvalid({ kind: "upload_interrupted" })
               )
             )
           )

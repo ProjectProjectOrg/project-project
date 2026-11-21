@@ -461,7 +461,12 @@ export const makeProjectionMigrationActivities = <R>(
         }),
         Effect.mapError((error) =>
           JiraMigrationWorkflowFailure.make({
-            reason: error.reason,
+            reason: Match.valueTags(error, {
+              JiraError: ({ reason }) => reason,
+              JiraMigrationChanged: ({ kind }) =>
+                `jira_migration_${kind}_conflict`,
+              JiraMigrationRejected: ({ kind }) => `jira_migration_${kind}`
+            }),
             retryable: false
           })
         )

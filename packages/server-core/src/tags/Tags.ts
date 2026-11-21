@@ -2,7 +2,6 @@ import { Db } from "@pp/db"
 import { projectTag } from "@pp/db/schema"
 import {
   type ActivityActor,
-  Conflict,
   type CreateTagInput,
   type CursorPayload,
   NotFound,
@@ -12,7 +11,8 @@ import {
   TagColor,
   TagName,
   TAG_DEFAULT_PALETTE,
-  type UpdateTagInput
+  type UpdateTagInput,
+  TagExists
 } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -37,13 +37,13 @@ export class Tags extends Context.Service<
     >
     create: (
       input: CreateTagInput
-    ) => Effect.Effect<Tag, NotFound | Conflict, ProjectScope>
+    ) => Effect.Effect<Tag, NotFound | TagExists, ProjectScope>
     update: (
       name: string,
       patch: UpdateTagInput
     ) => Effect.Effect<
       Tag,
-      NotFound | Conflict | Markdown.MarkdownError,
+      NotFound | TagExists | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     remove: (
@@ -116,7 +116,7 @@ const make = Effect.gen(function* () {
       })
       .pipe(Effect.orDie)
     if (existing.some((tag) => tag.name === input.name)) {
-      return yield* new Conflict({ reason: "tag_exists" })
+      return yield* new TagExists()
     }
 
     const color = input.color ?? pickColor(existing.map((e) => e.color))
@@ -176,7 +176,7 @@ const make = Effect.gen(function* () {
           }
         })
         .pipe(Effect.orDie)
-      if (collision) return yield* new Conflict({ reason: "tag_exists" })
+      if (collision) return yield* new TagExists()
     }
 
     yield* db
