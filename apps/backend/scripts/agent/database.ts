@@ -64,18 +64,20 @@ const decodeMarker = Schema.decodeUnknownSync(
 )
 
 export async function server(root: string, create: boolean) {
-  const names = await command(
-    [
-      "docker",
-      "ps",
-      "-a",
-      "--filter",
-      `name=^/${container}$`,
-      "--format",
-      "{{.Names}}"
-    ],
-    root
-  )
+  const containerNames = () =>
+    command(
+      [
+        "docker",
+        "ps",
+        "-a",
+        "--filter",
+        `name=^/${container}$`,
+        "--format",
+        "{{.Names}}"
+      ],
+      root
+    )
+  const names = await containerNames()
   const volumes = await command(
     [
       "docker",
@@ -110,29 +112,33 @@ export async function server(root: string, create: boolean) {
       ["docker", "volume", "create", "--label", label, volume],
       root
     )
-    await command(
-      [
-        "docker",
-        "run",
-        "-d",
-        "--name",
-        container,
-        "--label",
-        label,
-        "-e",
-        "POSTGRES_USER=pp_agent_admin",
-        "-e",
-        `POSTGRES_PASSWORD=${adminPassword}`,
-        "-e",
-        "POSTGRES_DB=postgres",
-        "-p",
-        "127.0.0.1::5432",
-        "-v",
-        `${volume}:/var/lib/postgresql/data`,
-        "postgres:16-alpine"
-      ],
-      root
-    )
+    try {
+      await command(
+        [
+          "docker",
+          "run",
+          "-d",
+          "--name",
+          container,
+          "--label",
+          label,
+          "-e",
+          "POSTGRES_USER=pp_agent_admin",
+          "-e",
+          `POSTGRES_PASSWORD=${adminPassword}`,
+          "-e",
+          "POSTGRES_DB=postgres",
+          "-p",
+          "127.0.0.1::5432",
+          "-v",
+          `${volume}:/var/lib/postgresql/data`,
+          "postgres:16-alpine"
+        ],
+        root
+      )
+    } catch (error) {
+      if (!(await containerNames())) throw error
+    }
   }
   const [info] = decodeContainer(
     JSON.parse(await command(["docker", "inspect", container], root))
@@ -170,11 +176,12 @@ export function adminUrl(port: string, database: string) {
   return `postgres://pp_agent_admin:${adminPassword}@127.0.0.1:${port}/${database}`
 }
 
+export function pool(url: string) {
+  return new Pool({ connectionString: url, connectionTimeoutMillis: 2000 })
+}
+
 export function adminPool(port: string) {
-  return new Pool({
-    connectionString: adminUrl(port, "postgres"),
-    connectionTimeoutMillis: 2000
-  })
+  return pool(adminUrl(port, "postgres"))
 }
 
 export async function waitForDatabase(pool: Pool) {

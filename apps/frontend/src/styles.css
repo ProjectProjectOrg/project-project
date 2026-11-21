@@ -65,8 +65,10 @@
   > .ticket-block-icon {
   left: calc(
     -1 *
-      (var(--ticket-comment-pad) + var(--block-rail-gap) +
-        var(--block-rail-size) / 2)
+      (
+        var(--ticket-comment-pad) + var(--block-rail-gap) +
+          var(--block-rail-size) / 2
+      )
   );
 }
 [data-template-preview] .prose-md .ticket-block > .ticket-block-icon {

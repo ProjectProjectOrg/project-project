@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { BANNER_PLACEHOLDER_BUDGET } from "@pp/shared"
 import { afterEach, describe, expect, it, vi } from "vitest"
 

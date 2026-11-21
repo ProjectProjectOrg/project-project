@@ -42,7 +42,7 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const decodeBlock = Schema.decodeUnknownSync(BlockDraft)
@@ -52,7 +52,8 @@ const decodeKey = Schema.decodeSync(CreatableProjectKey)
 describe.skipIf(!databaseUrl)("project import", () => {
   const suffix = randomUUID().slice(0, 8)
   const source = { id: `src-${suffix}`, slug: `src-${suffix}` }
-  const target = { id: `dst-${suffix}`, slug: `dst-${suffix}` }
+  const targets: Array<string> = []
+  let target = { id: "", slug: "" }
   const importer = `importer-${suffix}`
   const ada = `ada-${suffix}`
   const bob = `bob-${suffix}`
@@ -177,17 +178,13 @@ describe.skipIf(!databaseUrl)("project import", () => {
         [id, name, `${id}@example.test`]
       )
     }
-    for (const org of [source, target]) {
-      await pool.query(
-        "INSERT INTO organization (id, name, slug, created_at) VALUES ($1, $1, $2, now())",
-        [org.id, org.slug]
-      )
-    }
+    await pool.query(
+      "INSERT INTO organization (id, name, slug, created_at) VALUES ($1, $1, $2, now())",
+      [source.id, source.slug]
+    )
     for (const [org, userId] of [
       [source.id, ada],
-      [source.id, bob],
-      [target.id, importer],
-      [target.id, ada]
+      [source.id, bob]
     ]) {
       await pool.query(
         "INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES ($1, $2, $3, 'member', now())",
@@ -228,10 +225,26 @@ describe.skipIf(!databaseUrl)("project import", () => {
     objects.set("source-object", new TextEncoder().encode("bytes"))
   })
 
+  beforeEach(async () => {
+    const id = `dst-${suffix}-${targets.length}`
+    targets.push(id)
+    target = { id, slug: id }
+    await pool.query(
+      "INSERT INTO organization (id, name, slug, created_at) VALUES ($1, $1, $2, now())",
+      [target.id, target.slug]
+    )
+    for (const userId of [importer, ada]) {
+      await pool.query(
+        "INSERT INTO member (id, organization_id, user_id, role, created_at) VALUES ($1, $2, $3, 'member', now())",
+        [randomUUID(), target.id, userId]
+      )
+    }
+  })
+
   afterAll(async () => {
     if (pool) {
       await pool.query("DELETE FROM organization WHERE id = ANY($1)", [
-        [source.id, target.id]
+        [source.id, ...targets]
       ])
       await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [
         [importer, ada, bob]
@@ -367,14 +380,16 @@ describe.skipIf(!databaseUrl)("project import", () => {
     return archive.stream
   })
 
-  const asImporter = Effect.provideService(
-    OrgScope,
-    orgScope("member", {
-      userId: importer,
-      organizationId: target.id,
-      orgSlug: target.slug
-    })
-  )
+  const asImporter = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provideService(
+      effect,
+      OrgScope,
+      orgScope("member", {
+        userId: importer,
+        organizationId: target.id,
+        orgSlug: target.slug
+      })
+    )
 
   it.live(
     "moves a project into another org under a new key, linking the people chosen and keeping the rest as imported authors",
@@ -1005,22 +1020,28 @@ describe.skipIf(!databaseUrl)("project import", () => {
   it.live(
     "refuses a file from a newer export format, naming both versions",
     () =>
-      Effect.gen(function* () {
-        const imports = yield* ProjectImports.ProjectImports
-        const archive = tarGz(
-          Stream.make({
-            name: "manifest.json",
-            bytes: new TextEncoder().encode('{"formatVersion":99}')
-          })
-        )
-        const error = yield* Effect.flip(
-          imports.upload(archive).pipe(asImporter)
-        )
-        expect(error).toMatchObject({
-          _tag: "ImportFormatUnsupported",
-          fileVersion: 99,
-          supportedVersion: 1
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          root = yield* fs.makeTempDirectoryScoped({ prefix: "pp-import-" })
+          yield* Effect.gen(function* () {
+            const imports = yield* ProjectImports.ProjectImports
+            const archive = tarGz(
+              Stream.make({
+                name: "manifest.json",
+                bytes: new TextEncoder().encode('{"formatVersion":99}')
+              })
+            )
+            const error = yield* Effect.flip(
+              imports.upload(archive).pipe(asImporter)
+            )
+            expect(error).toMatchObject({
+              _tag: "ImportFormatUnsupported",
+              fileVersion: 99,
+              supportedVersion: 1
+            })
+          }).pipe(Effect.provide(layer()))
         })
-      }).pipe(Effect.provide(layer()))
+      ).pipe(Effect.provide(BunServices.layer))
   )
 })

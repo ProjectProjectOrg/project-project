@@ -11,16 +11,15 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as GitSyncSchedule from "./GitSyncSchedule"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
-  const organizationId = `sync-${randomUUID()}`
-  const projectIds = [randomUUID(), randomUUID()]
-  const linkId = randomUUID()
+  const organizationIds: Array<string> = []
+  let projectIds: Array<string> = []
   let pool: Pool
   let layer: Layer.Layer<GitSyncSchedule.GitSyncSchedule>
 
@@ -45,6 +44,13 @@ describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
       ),
       Layer.orDie
     )
+  })
+
+  beforeEach(async () => {
+    const organizationId = `sync-${randomUUID()}`
+    const linkId = randomUUID()
+    projectIds = [randomUUID(), randomUUID()]
+    organizationIds.push(organizationId)
     await pool.query(
       "INSERT INTO organization (id, name, slug, created_at) VALUES ($1,$1,$1,now())",
       [organizationId]
@@ -65,8 +71,8 @@ describe.skipIf(!databaseUrl)("GitSyncSchedule", () => {
 
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM organization WHERE id = $1", [
-        organizationId
+      await pool.query("DELETE FROM organization WHERE id = ANY($1)", [
+        organizationIds
       ])
       await pool.end()
     }

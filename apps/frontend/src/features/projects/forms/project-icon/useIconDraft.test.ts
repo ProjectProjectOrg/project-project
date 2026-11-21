@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
@@ -13,6 +14,7 @@ const deferred = <T>() => {
 
 const built = vi.hoisted(() => ({ calls: 0 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/features/projects/lib/iconDraft", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/features/projects/lib/iconDraft")>()

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it } from "vitest"
 
 import { railLeft } from "./block-rail"

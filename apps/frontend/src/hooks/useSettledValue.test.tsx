@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { cleanup, renderHook } from "@testing-library/react"
 import * as Result from "effect/reactivity/AsyncResult"
 import { afterEach, expect, it } from "vitest"

@@ -22,7 +22,7 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import * as TicketIndex from "../tickets/TicketIndex"
@@ -33,14 +33,8 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const label = Schema.decodeSync(StatusLabel)
 
 describe.skipIf(!databaseUrl)("project statuses", () => {
-  const id = randomUUID()
-  const scope = projectScope("member", "pm", {
-    userId: id,
-    organizationId: id,
-    projectId: id,
-    orgSlug: id,
-    slug: "project"
-  })
+  const ids: Array<string> = []
+  let id = ""
   let pool: Pool
   let layer: Layer.Layer<ProjectStatuses.ProjectStatuses>
 
@@ -55,6 +49,21 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
+    layer = ProjectStatuses.layer.pipe(
+      Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
+      Layer.provide(Layer.mock(TicketRewrites.TicketRewrites, {})),
+      Layer.provide(
+        DbLive.pipe(
+          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
+        )
+      ),
+      Layer.orDie
+    )
+  })
+
+  beforeEach(async () => {
+    id = randomUUID()
+    ids.push(id)
     await pool.query(
       'INSERT INTO "user" (id,name,email,created_at,updated_at) VALUES ($1,$1,$2,now(),now())',
       [id, `${id}@example.test`]
@@ -71,22 +80,12 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','a3',$2)",
       [id, id]
     )
-    layer = ProjectStatuses.layer.pipe(
-      Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
-      Layer.provide(Layer.mock(TicketRewrites.TicketRewrites, {})),
-      Layer.provide(
-        DbLive.pipe(
-          Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
-        )
-      ),
-      Layer.orDie
-    )
   })
 
   afterAll(async () => {
     if (!pool) return
-    await pool.query("DELETE FROM organization WHERE id = $1", [id])
-    await pool.query('DELETE FROM "user" WHERE id = $1', [id])
+    await pool.query("DELETE FROM organization WHERE id = ANY($1)", [ids])
+    await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [ids])
     await pool.end()
   })
 
@@ -98,7 +97,16 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
     >
   ) =>
     effect.pipe(
-      Effect.provideService(ProjectScope, scope),
+      Effect.provideService(
+        ProjectScope,
+        projectScope("member", "pm", {
+          userId: id,
+          organizationId: id,
+          projectId: id,
+          orgSlug: id,
+          slug: "project"
+        })
+      ),
       Effect.provideService(ActivityActor, ActivityActor.user(id)),
       Effect.provide(layer)
     )

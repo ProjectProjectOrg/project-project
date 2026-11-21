@@ -1,2 +1,9 @@
 [test]
 root = "."
+preload = ["./tools/test/preload.ts"]
+pathIgnorePatterns = [
+  "opensrc/**",
+  ".*/**",
+  "**/dist/**",
+  "apps/frontend/src/paraglide/**"
+]

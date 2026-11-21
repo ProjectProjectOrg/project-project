@@ -7,10 +7,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "vitest run --no-file-parallelism",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1124.0",
@@ -30,11 +27,10 @@
   },
   "devDependencies": {
     "@effect/platform-bun": "4.0.5",
-    "@effect/vitest": "4.0.5",
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
     "@types/bun": "latest",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.20.0",
-    "pg": "^8.20.0",
-    "vitest": "5.0.5"
+    "pg": "^8.20.0"
   }
 }

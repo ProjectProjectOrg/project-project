@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   oauth2Consent: vi.fn()
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("drizzle-orm/node-postgres", () => ({
   drizzle: vi.fn(() => ({
     query: {
@@ -20,6 +21,7 @@ vi.mock("drizzle-orm/node-postgres", () => ({
   }))
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("./config", () => ({
   auth: {
     handler: vi.fn(),

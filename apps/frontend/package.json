@@ -9,9 +9,6 @@
     "preview": "vite preview",
     "paraglide:compile": "paraglide-js compile --project ./project.inlang --silent",
     "typecheck": "bun run paraglide:compile --outdir ./.cache/paraglide/typecheck && effect-tsgo tsrs --noEmit -p tsconfig.typecheck.json",
-    "test": "bun run --bun vitest run --project node && vitest run --project dom",
-    "lint": "../../node_modules/.bin/oxlint . --max-warnings=481",
-    "lint:fix": "../../node_modules/.bin/oxlint . --fix",
     "favicons": "bun scripts/generate-favicons.ts"
   },
   "dependencies": {
@@ -68,7 +65,7 @@
     "unified": "^11.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.5",
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/router-plugin": "1.167.35",
     "@testing-library/dom": "^10.4.1",
@@ -84,7 +81,6 @@
     "png-to-ico": "^3.0.1",
     "sharp": "^0.35.5",
     "tailwindcss": "^4.2.4",
-    "vite": "8.1.5",
-    "vitest": "5.0.5"
+    "vite": "8.1.5"
   }
 }

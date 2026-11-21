@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { cleanup, renderHook } from "@testing-library/react"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -8,6 +9,7 @@ import type { ViewCountsSource } from "@/features/tickets/atoms/viewCounts"
 
 import { useViewTicketCounts } from "./counts"
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/features/projects/atoms/projectStatuses", async () => {
   const Atom = await import("effect/reactivity/Atom")
   const AsyncResult = await import("effect/reactivity/AsyncResult")
@@ -25,6 +27,7 @@ vi.mock("@/features/projects/atoms/projectStatuses", async () => {
   }
 })
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/features/tickets/atoms/viewCounts", async () => {
   const Atom = await import("effect/reactivity/Atom")
   const AsyncResult = await import("effect/reactivity/AsyncResult")

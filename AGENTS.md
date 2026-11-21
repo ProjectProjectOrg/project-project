@@ -208,9 +208,9 @@ The `effect-atom-optimistic-updates` skill has worked examples.
 
 ## Verifying
 
-- While you iterate, run only the tests beside your change from the owning package with its own runner: `bunx vitest run <files>` (add `-t "<name>"` for big files), or `bun test <files>` where the package script uses `bun test`. Postgres-backed tests skip without `PROJECTPROJECT_TEST_DATABASE_URL`; `check:changed` provides it.
-- Before you push, run `bun run check:changed`: a repo-wide format check, then lint, typecheck and tests for affected packages, plus the lint-rule and agent-script tests.
-- Do not run repo-wide checks (`bun run test`, `test:all`, `check`, `typecheck`) unless asked. CI owns the full suite.
+- While you iterate, run only the tests beside your change: `bun run test <files>` (add `-t "<name>"` for big files). It provides the test database.
+- Before you push, run `bun run check:changed`: format, lint, typecheck for affected packages, and the full test suite.
+- Do not run repo-wide checks (`check`, `typecheck`) unless asked. CI owns them.
 
 ## Test scope
 

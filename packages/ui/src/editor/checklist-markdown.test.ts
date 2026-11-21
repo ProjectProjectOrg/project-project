@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { buildEditorFromExtensions } from "@lexical/extension"
 import { HistoryExtension } from "@lexical/history"
 import { $isListNode, ListExtension } from "@lexical/list"

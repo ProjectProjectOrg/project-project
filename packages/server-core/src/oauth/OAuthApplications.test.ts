@@ -9,7 +9,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { DateTime, Effect, Layer, Option, Redacted, Tracer } from "effect"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as OAuthApplications from "./OAuthApplications"
 
@@ -18,15 +18,11 @@ const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 const utcTimestamp = (value: string) => date(value).toISOString()
 
 describe.skipIf(!databaseUrl)("OAuth application service", () => {
-  const userA = randomUUID()
-  const userB = randomUUID()
-  const clientRowId = randomUUID()
-  const clientId = `oauth-client-${randomUUID()}`
-  const consentA1 = randomUUID()
-  const consentA2 = randomUUID()
-  const consentB = randomUUID()
-  const accessA = randomUUID()
-  const refreshA = randomUUID()
+  const userIds: Array<string> = []
+  const clientRowIds: Array<string> = []
+  let userA = ""
+  let userB = ""
+  let clientRowId = ""
   const dbLayer = OAuthApplications.layer.pipe(
     Layer.provide(
       DbLive.pipe(
@@ -51,7 +47,20 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
     await migrate(drizzle({ client: pool }), {
       migrationsFolder
     })
+  })
 
+  beforeEach(async () => {
+    userA = randomUUID()
+    userB = randomUUID()
+    clientRowId = randomUUID()
+    userIds.push(userA, userB)
+    clientRowIds.push(clientRowId)
+    const clientId = `oauth-client-${randomUUID()}`
+    const consentA1 = randomUUID()
+    const consentA2 = randomUUID()
+    const consentB = randomUUID()
+    const accessA = randomUUID()
+    const refreshA = randomUUID()
     const now = utcTimestamp("2026-09-07T12:00:00.000Z")
     await pool.query(
       `INSERT INTO "user" (id, name, email, created_at, updated_at)
@@ -114,11 +123,10 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
 
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM oauth_client WHERE id = $1", [clientRowId])
-      await pool.query('DELETE FROM "user" WHERE id IN ($1, $2)', [
-        userA,
-        userB
+      await pool.query("DELETE FROM oauth_client WHERE id = ANY($1)", [
+        clientRowIds
       ])
+      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [userIds])
       await pool.end()
     }
   })

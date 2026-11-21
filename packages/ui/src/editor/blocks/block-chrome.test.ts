@@ -1,6 +1,10 @@
+// @vitest-environment jsdom
+
 import { EMPTY_LAYER, resolveLibrary } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
+import { editorMessages } from "../../../docs/editor/messages"
+import { provideEditorMessages } from "../messages"
 import {
   BUILTIN_LIBRARY,
   blankBlockHeading,
@@ -8,6 +12,8 @@ import {
   blockTooltip,
   lookupFor
 } from "./block-chrome"
+
+provideEditorMessages(editorMessages)
 
 describe("blankBlockHeading", () => {
   it("returns the heading of a block with nothing under it", () => {

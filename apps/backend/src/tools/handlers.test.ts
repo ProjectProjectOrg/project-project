@@ -356,7 +356,7 @@ describe("MCP handlers → list_tickets", () => {
       const text = result.content[0].text
       const payload = parseJson(text)
       expect(capturedListLimits).toEqual([10])
-      expect(capturedListQueries[0].status).toEqual(["todo"])
+      expect(capturedListQueries[0].status).toEqual([StatusSlug.make("todo")])
       expect(payload.items).toHaveLength(10)
       expect(payload.items[0].id).toBe("T-1")
       expect(payload.nextCursor).toBe("cursor-next")
@@ -1899,7 +1899,7 @@ describe("MCP ticket discovery and history", () => {
             Layer.mock(Comments.Comments, {
               list: (id) =>
                 Effect.gen(function* () {
-                  expect(id).toBe("T-1")
+                  expect(id).toBe(decodeTicketId("T-1"))
                   expect((yield* ProjectScope).slug).toBe("demo")
                   return [
                     {
@@ -1956,7 +1956,7 @@ describe("MCP ticket discovery and history", () => {
             Layer.mock(TicketActivityFeed.TicketActivityFeed, {
               list: (id, cursor) =>
                 Effect.gen(function* () {
-                  expect(id).toBe("T-1")
+                  expect(id).toBe(decodeTicketId("T-1"))
                   expect(cursor).toBe("older-page")
                   expect((yield* ProjectScope).slug).toBe("demo")
                   return {

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import type { Library } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 

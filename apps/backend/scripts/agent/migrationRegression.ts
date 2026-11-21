@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test"
+import { expect } from "bun:test"
 import { randomBytes } from "node:crypto"
 import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises"
 import os from "node:os"
@@ -6,7 +6,6 @@ import path from "node:path"
 
 import {
   adminPool,
-  checkHistory,
   migrateDatabase,
   migrationHistory,
   provision,
@@ -26,7 +25,7 @@ import { childEnvironment } from "./runtime"
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../../..")
 
-async function fixture(
+export async function fixture(
   sql: string,
   verify: (
     input: Readonly<{
@@ -125,29 +124,3 @@ async function fixture(
     }
   }
 }
-
-test("server startup failure preserves the newly applied migration history", async () => {
-  await fixture(
-    "CREATE TABLE agent_migration_regression (id integer);",
-    async ({ registry, before, after, failure }) => {
-      expect(failure).toContain("Portless assigns the frontend port")
-      const [environment] = await registry.read()
-      expect(environment.migrations).toEqual(after)
-      expect(() => checkHistory(environment.migrations, before)).toThrow(
-        "Migration history diverged"
-      )
-    }
-  )
-}, 60_000)
-
-test("failed migrations leave the environment blocked for explicit recovery", async () => {
-  await fixture(
-    "SELECT agent_intentionally_missing_function();",
-    async ({ registry, before, failure }) => {
-      expect(failure).toContain("agent_intentionally_missing_function")
-      const [environment] = await registry.read()
-      expect(environment.state).toBe("provisioning")
-      expect(environment.migrations).toEqual(before)
-    }
-  )
-}, 60_000)

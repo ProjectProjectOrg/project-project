@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { CodeExtension } from "@lexical/code"
 import {
   HorizontalRuleExtension,
@@ -35,7 +37,9 @@ import {
 } from "lexical"
 import { describe, expect, it, vi } from "vitest"
 
+import { editorMessages } from "../../../docs/editor/messages"
 import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { provideEditorMessages } from "../messages"
 import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
 import {
   $blankBlockAtCaret,
@@ -60,6 +64,8 @@ import {
 } from "./synced-block-node"
 import { TicketBlockExtension } from "./ticket-block-extension"
 import { $isTicketBlockNode } from "./ticket-block-node"
+
+provideEditorMessages(editorMessages)
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 

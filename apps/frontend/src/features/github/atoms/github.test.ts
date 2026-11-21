@@ -31,6 +31,7 @@ const { listAccounts, unlinkAccount } = vi.hoisted(() => ({
   unlinkAccount: vi.fn()
 }))
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("@/services/AuthClient", () => ({
   authClient: { listAccounts, unlinkAccount }
 }))

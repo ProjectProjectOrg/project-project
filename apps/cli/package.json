@@ -10,10 +10,7 @@
     "pp": "bun src/main.ts",
     "build": "bun build src/main.ts --compile --minify --outfile dist/pp",
     "build:release": "sh ../../.github/scripts/build-cli.sh",
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "bun run --bun vitest run",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.5",
@@ -21,8 +18,7 @@
     "effect": "4.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.5",
-    "@types/bun": "latest",
-    "vitest": "5.0.5"
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
+    "@types/bun": "latest"
   }
 }

@@ -7,10 +7,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "test": "vitest run --no-file-parallelism",
-    "typecheck": "effect-tsgo tsrs --noEmit",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix"
+    "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
     "@octokit/auth-app": "^8.2.0",
@@ -22,8 +19,7 @@
     "octokit": "^5.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.5",
-    "@types/bun": "latest",
-    "vitest": "5.0.5"
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
+    "@types/bun": "latest"
   }
 }

@@ -467,6 +467,19 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           const publishedAttachment = `published-attachment-${randomUUID()}`
           const hiddenAttachment = `hidden-attachment-${randomUUID()}`
           const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
+          const library = Effect.provide(
+            Attachments.layer.pipe(
+              Layer.provide(dbLayer()),
+              Layer.provide(access()),
+              Layer.provide(storage),
+              Layer.provide(Layer.mock(S3Storage.S3Storage, {}))
+            )
+          )
+          const before = yield* Attachments.Attachments.pipe(
+            Effect.flatMap((service) => service.summarizeForOrg()),
+            Effect.provideService(OrgScope, ownerScope),
+            library
+          )
           yield* Effect.promise(() =>
             insertAttachment(publishedAttachment, publishedId)
           )
@@ -490,14 +503,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               })
             ),
             Effect.provideService(OrgScope, ownerScope),
-            Effect.provide(
-              Attachments.layer.pipe(
-                Layer.provide(dbLayer()),
-                Layer.provide(access()),
-                Layer.provide(storage),
-                Layer.provide(Layer.mock(S3Storage.S3Storage, {}))
-              )
-            )
+            library
           )
           const ids = result.page.items.map((item) => item.id)
           expect(ids).toContain(publishedAttachment)
@@ -507,7 +513,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             result.page.items.find((item) => item.id === publishedAttachment)
               ?.tickets
           ).toEqual([{ projectSlug: "published", ticketId: "T-1" }])
-          expect(result.summary.count).toBe(3)
+          expect(result.summary.count).toBe(before.count + 2)
         })
     )
 

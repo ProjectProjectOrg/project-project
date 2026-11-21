@@ -8,10 +8,6 @@
     "start": "bun --cwd ../.. --env-file=.env \"$PWD/src/main.ts\"",
     "typecheck": "effect-tsgo tsrs --noEmit && bun run typecheck:scripts",
     "typecheck:scripts": "effect-tsgo tsrs --noEmit -p tsconfig.scripts.json",
-    "test": "bun run --bun vitest run --no-file-parallelism",
-    "test:watch": "vitest",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix",
     "bootstrap:org": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/bootstrap-org.ts\"",
     "migrate:relayout": "bun --cwd ../.. --env-file=.env \"$PWD/scripts/relayout-data.ts\"",
     "benchmark:ticket-storage": "bun scripts/benchmark-ticket-storage.ts",
@@ -50,12 +46,11 @@
     "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.5",
+    "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
     "ajv": "^8.20.0",
-    "vitest": "5.0.5",
     "zod": "4.6.5"
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { testUser } from "@pp/server-core/access/testing"
-import { ActivityActor, CurrentUser } from "@pp/shared"
+import { ActivityActor, CurrentUser, UserId } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -32,7 +32,7 @@ describe("withToolCaller", () => {
           })
         )
       )
-      expect(current.id).toBe("u-1")
+      expect(current.id).toBe(UserId.make("u-1"))
       expect(actor).toEqual(
         ActivityActor.agent("u-1", { id: "c-1", name: "PP CLI" })
       )

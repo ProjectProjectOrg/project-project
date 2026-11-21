@@ -374,11 +374,10 @@ export function SelectionBarField({
                 </span>
               </motion.span>
             )}
-            {shortcut !== undefined &&
-              value !== undefined && (
-                // The keys never fold: folded, a field is its icon and key.
-                <span className="ml-1.5 flex shrink-0">{shortcut}</span>
-              )}
+            {shortcut !== undefined && value !== undefined && (
+              // The keys never fold: folded, a field is its icon and key.
+              <span className="ml-1.5 flex shrink-0">{shortcut}</span>
+            )}
           </>
         )
       }

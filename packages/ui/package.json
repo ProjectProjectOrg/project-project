@@ -71,9 +71,6 @@
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "bun run --bun vitest run",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix",
     "dev": "vite --config gallery/vite.config.ts",
     "gallery": "vite --config gallery/vite.config.ts",
     "build-gallery": "vite build --config gallery/vite.config.ts"
@@ -140,8 +137,7 @@
     "react-dom": "^19.2.0",
     "remark-gfm": "4.0.1",
     "tailwindcss": "^4.2.4",
-    "vite": "8.1.5",
-    "vitest": "5.0.5"
+    "vite": "8.1.5"
   },
   "peerDependencies": {
     "react": "^19.2.0",

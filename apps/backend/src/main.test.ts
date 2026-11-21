@@ -47,6 +47,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { afterAll, expect, vi } from "vitest"
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("./auth/config", () => ({
   auth: {},
   mcpResource: "http://localhost:3000/mcp",

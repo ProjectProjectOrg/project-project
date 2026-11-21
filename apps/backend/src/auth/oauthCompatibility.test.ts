@@ -45,6 +45,7 @@ const decodeUnknownClientMetadataSupportSync = Schema.decodeUnknownSync(
   Schema.Struct({ client_id_metadata_document_supported: Schema.Boolean })
 )
 
+// oxlint-disable-next-line typescript/no-floating-promises -- bun hoists vi.mock above the imports, where it cannot be awaited
 vi.mock("./cimdTransport", () => ({
   fetchClientMetadataResource: vi.fn()
 }))

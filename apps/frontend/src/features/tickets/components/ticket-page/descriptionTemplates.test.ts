@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { CodeExtension } from "@lexical/code"
 import {
   HorizontalRuleExtension,

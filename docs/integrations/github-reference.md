@@ -15,9 +15,8 @@ git clone --depth 1 https://github.com/pingdotgg/t3code.git opensrc/repos/github
 
 Do not install its dependencies or run its scripts as part of ProjectProject.
 `opensrc/` is excluded from Git, Docker build contexts, lint, and formatting.
-Workspace discovery and Vitest projects are scoped to `packages/*`; package
-TypeScript projects include only `src`. Bun's native test discovery is also
-scoped to `packages/`. The supported project test command remains `bun run test`.
+Workspace discovery is scoped to `packages/*`; package TypeScript projects
+include only `src`. `bunfig.toml` keeps `opensrc/` out of test discovery. The supported project test command remains `bun run test`.
 
 ## Patterns used
 

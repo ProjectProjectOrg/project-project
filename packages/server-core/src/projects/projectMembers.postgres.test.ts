@@ -21,7 +21,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
@@ -57,15 +57,17 @@ type PendingInvitationRow = Readonly<{ role: string; grants: number }>
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 describe.skipIf(!databaseUrl)("project members", () => {
-  const organizationId = randomUUID()
-  const orgSlug = `members-${organizationId}`
-  const projectId = randomUUID()
-  const slug = decodeSlugSync(`members-${projectId}`)
-  const pm = randomUUID()
-  const second = randomUUID()
-  const developer = randomUUID()
-  const users = [pm, second, developer]
-  const admin = randomUUID()
+  const organizationIds: Array<string> = []
+  const userIds: Array<string> = []
+  let organizationId = ""
+  let orgSlug = ""
+  let projectId = ""
+  let slug = decodeSlugSync("members")
+  let pm = ""
+  let second = ""
+  let developer = ""
+  let users: Array<string> = []
+  let admin = ""
   let pool: Pool
   let projectsLayer: Layer.Layer<
     | Projects.Projects
@@ -102,7 +104,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
         Effect.provide(layer())
       )
 
-  const run = runIn(slug)
+  const run = (as: string) => runIn(slug)(as)
 
   const createProject = (key: string) =>
     Effect.promise(async () => {
@@ -137,6 +139,23 @@ describe.skipIf(!databaseUrl)("project members", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
+  })
+
+  beforeEach(async () => {
+    organizationId = randomUUID()
+    orgSlug = `members-${organizationId}`
+    projectId = randomUUID()
+    slug = decodeSlugSync(`members-${projectId}`)
+    pm = randomUUID()
+    second = randomUUID()
+    developer = randomUUID()
+    users = [pm, second, developer]
+    admin = randomUUID()
+    organizationIds.push(organizationId)
+    userIds.push(...users, admin)
+    unassignAttempts.length = 0
+    unassignedProjects.length = 0
+    ticketFiles.length = 0
     for (const id of [...users, admin]) {
       await pool.query(
         'INSERT INTO "user" (id,name,email,created_at,updated_at) VALUES ($1,$1,$2,now(),now())',
@@ -165,7 +184,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
       [projectId, organizationId, pm]
     )
 
-    projectsLayer = projectsOnPostgres(databaseUrl, [...users, admin], {
+    projectsLayer = projectsOnPostgres(databaseUrl!, [...users, admin], {
       listIds: () => Effect.succeed([...ticketFiles]),
       update: (orgSlug, projectSlug, ticketId) =>
         Effect.suspend(() => {
@@ -189,13 +208,28 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM organization WHERE id=$1", [organizationId])
-      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [
-        [...users, admin]
+      await pool.query("DELETE FROM organization WHERE id = ANY($1)", [
+        organizationIds
       ])
+      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [userIds])
       await pool.end()
     }
   })
+
+  const addDeveloper = () =>
+    run(pm)((projects) =>
+      projects.addMember({
+        email: `${developer}@example.test`,
+        role: "developer"
+      })
+    )
+
+  const addSecondPm = () =>
+    run(pm)((projects) =>
+      projects.addMember({ email: `${second}@example.test`, role: "developer" })
+    ).pipe(
+      Effect.andThen(run(pm)((projects) => projects.updateMember(second, "pm")))
+    )
 
   it.effect("traces a member change on its ProjectMembers span", () =>
     Effect.gen(function* () {
@@ -268,6 +302,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     "lets an org admin without a project role read the project and manage its members",
     () =>
       Effect.gen(function* () {
+        yield* addDeveloper()
         const detail = yield* run(admin)((projects) => projects.get())
         expect(detail.members.map((member) => member.id)).not.toContain(admin)
         expect(detail.permissions).toMatchObject({
@@ -278,14 +313,12 @@ describe.skipIf(!databaseUrl)("project members", () => {
           projects.updateMember(developer, "client")
         )
         expect((yield* roles())[developer]).toBe("client")
-        yield* run(admin)((projects) =>
-          projects.updateMember(developer, "developer")
-        )
       })
   )
 
   it.effect("lets a developer edit the project docs but not its settings", () =>
     Effect.gen(function* () {
+      yield* addDeveloper()
       const edited = yield* run(developer)((projects) =>
         projects.update({ body: "# About\n\nWritten by a developer.\n" })
       )
@@ -323,13 +356,11 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("hides GitHub from a client's project detail", () =>
     Effect.gen(function* () {
+      yield* addDeveloper()
       yield* run(pm)((projects) => projects.updateMember(developer, "client"))
       const detail = yield* run(developer)((projects) => projects.get())
       expect(detail.github).toBeNull()
       expect(detail.permissions.github).toBeUndefined()
-      yield* run(pm)((projects) =>
-        projects.updateMember(developer, "developer")
-      )
     })
   )
 
@@ -409,6 +440,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     "lets a pm cancel the project's invitations and hides invitees from non-managers",
     () =>
       Effect.gen(function* () {
+        yield* addDeveloper()
         const client = outsider()
         const dev = outsider()
         yield* run(pm)((projects) =>
@@ -442,6 +474,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("lets a pm step down while another pm remains", () =>
     Effect.gen(function* () {
+      yield* addSecondPm()
       const stepped = yield* run(pm)((projects) =>
         projects.updateMember(pm, "developer")
       )
@@ -469,6 +502,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("sends removing yourself through leave", () =>
     Effect.gen(function* () {
+      yield* addDeveloper()
       const refused = yield* Effect.flip(
         run(developer)((projects) => projects.removeMember(developer))
       )
@@ -490,30 +524,18 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("finishes leaving when a ticket can't be unassigned", () =>
     Effect.gen(function* () {
+      yield* addDeveloper()
       yield* Effect.promise(() =>
         pool.query(
           "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,rank,assignees,created_by,created_at,updated_at) VALUES ($1,$2,'MEM-901','Broken','todo','feat','med','a0',ARRAY[$3],$3,now(),now()), ($1,$2,'MEM-902','Fine','todo','feat','med','a0',ARRAY[$3],$3,now(),now())",
           [organizationId, projectId, developer]
         )
       )
-      unassignAttempts.length = 0
       ticketFiles.push(decodeTicketId("MEM-901"), decodeTicketId("MEM-902"))
       yield* run(developer)((projects) => projects.leave())
       ticketFiles.length = 0
       expect((yield* roles())[developer]).toBeUndefined()
       expect(unassignAttempts).toContain("MEM-901")
-      yield* run(pm)((projects) =>
-        projects.addMember({
-          email: `${developer}@example.test`,
-          role: "developer"
-        })
-      )
-      yield* Effect.promise(() =>
-        pool.query(
-          "DELETE FROM ticket_index WHERE project_id = $1 AND ticket_id IN ('MEM-901','MEM-902')",
-          [projectId]
-        )
-      )
     })
   )
 
@@ -521,6 +543,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     "unassigns someone leaving the org across its published projects",
     () =>
       Effect.gen(function* () {
+        yield* addDeveloper()
         const other = yield* createProject("OTH")
         const hidden = yield* createProject("HID")
         yield* Effect.promise(() =>
@@ -782,6 +805,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
 
   it.effect("ends project access when the org membership goes", () =>
     Effect.gen(function* () {
+      yield* addDeveloper()
       yield* run(developer)((projects) => projects.key())
       yield* Effect.promise(() =>
         pool.query(

@@ -26,9 +26,9 @@ type Browsing = Readonly<{
 
 const browsing = (answer: Browsing["answer"]) => ({
   answer,
-  landed: [],
-  saved: [],
-  savedWhenLanded: []
+  landed: new Array<string>(),
+  saved: new Array<SavedServer>(),
+  savedWhenLanded: new Array<number>()
 })
 
 const services = (world: Browsing) => {

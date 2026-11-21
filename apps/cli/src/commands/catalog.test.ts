@@ -27,9 +27,9 @@ const entry = (name: string) => {
 
 describe("generated commands", () => {
   it("cover every tool in the catalog, each under its own command", () => {
-    expect(catalogEntries.map((e) => e.name).toSorted()).toEqual(
-      Object.keys(Tools.tools).toSorted()
-    )
+    expect<ReadonlyArray<string>>(
+      catalogEntries.map((e) => e.name).toSorted()
+    ).toEqual(Object.keys(Tools.tools).toSorted())
     const commands = catalogEntries.map((e) => e.command.join(" "))
     expect(new Set(commands).size).toBe(commands.length)
   })

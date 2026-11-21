@@ -22,7 +22,7 @@ This file describes the system as it is. Keep it current in the same PR as the c
 | Frontend           | React SPA on TanStack Router (Vite plugin), `@effect/atom-react`, TanStack Form |
 | UI                 | shadcn/ui on Base UI, Fluid Functionalism components, Tailwind         |
 | Editor             | Lexical with CommonMark/GFM import and markdown export                  |
-| Tests              | Vitest with `@effect/vitest`                                           |
+| Tests              | `bun test` with `@effect/vitest` (aliased to `@voila.dev/effect-bun-test`) |
 | Delivery           | Docker images on ghcr.io, nightly and stable release channels          |
 
 ---

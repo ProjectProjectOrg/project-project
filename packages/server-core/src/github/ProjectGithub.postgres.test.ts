@@ -10,7 +10,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
@@ -30,15 +30,17 @@ const repo = (name: string) => ({
 })
 
 describe.skipIf(!databaseUrl)("project GitHub connection", () => {
-  const organizationId = randomUUID()
-  const userId = randomUUID()
-  const projectId = randomUUID()
-  const integrationId = randomUUID()
-  const installationId = `installation-${integrationId}`
-  const restrictedIntegrationId = randomUUID()
-  const restrictedInstallationId = `installation-${restrictedIntegrationId}`
-  const ticketDocs = makeFakeTicketDocs([])
-  const slug = `github-${projectId}`
+  const organizationIds: Array<string> = []
+  const userIds: Array<string> = []
+  let organizationId = ""
+  let userId = ""
+  let projectId = ""
+  let integrationId = ""
+  let installationId = ""
+  let restrictedIntegrationId = ""
+  let restrictedInstallationId = ""
+  let ticketDocs = makeFakeTicketDocs([])
+  let slug = ""
   const repoCalls: Array<[string, string | undefined, number]> = []
   const branchCalls: Array<ReadonlyArray<unknown>> = []
   const writtenConnections: Array<GithubConnection | null> = []
@@ -72,6 +74,23 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
+  })
+
+  beforeEach(async () => {
+    organizationId = randomUUID()
+    userId = randomUUID()
+    projectId = randomUUID()
+    integrationId = randomUUID()
+    installationId = `installation-${integrationId}`
+    restrictedIntegrationId = randomUUID()
+    restrictedInstallationId = `installation-${restrictedIntegrationId}`
+    ticketDocs = makeFakeTicketDocs([])
+    slug = `github-${projectId}`
+    organizationIds.push(organizationId)
+    userIds.push(userId)
+    repoCalls.length = 0
+    branchCalls.length = 0
+    writtenConnections.length = 0
     await pool.query(
       'INSERT INTO "user" (id,name,email,created_at,updated_at) VALUES ($1,$1,$2,now(),now())',
       [userId, `${userId}@example.test`]
@@ -132,7 +151,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
       readRaw: unused
     })
     layer = projectsOnPostgres(
-      databaseUrl,
+      databaseUrl!,
       [userId],
       ticketDocs.service,
       projectDocs,
@@ -160,11 +179,22 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM organization WHERE id=$1", [organizationId])
-      await pool.query('DELETE FROM "user" WHERE id=$1', [userId])
+      await pool.query("DELETE FROM organization WHERE id=ANY($1)", [
+        organizationIds
+      ])
+      await pool.query('DELETE FROM "user" WHERE id=ANY($1)', [userIds])
       await pool.end()
     }
   })
+
+  const connect = (...names: ReadonlyArray<string>) =>
+    Effect.forEach(
+      names,
+      (name) => run((github) => github.connect(repo(name))),
+      {
+        discard: true
+      }
+    )
 
   it.effect("lists repositories from the org's GitHub installation", () =>
     Effect.gen(function* () {
@@ -186,7 +216,6 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("connects a repository and writes it into the project file", () =>
     Effect.gen(function* () {
-      writtenConnections.length = 0
       const detail = yield* run((github) => github.connect(repo("app")))
       const connection = {
         repoId: "app-repo",
@@ -208,6 +237,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("lists branches of the connected repository", () =>
     Effect.gen(function* () {
+      yield* connect("app")
       const branches = yield* run((github) =>
         github.branches(undefined, "feat", 20, "cursor")
       )
@@ -220,6 +250,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("refuses a repository whose id no longer matches", () =>
     Effect.gen(function* () {
+      yield* connect("app")
       const error = yield* Effect.flip(
         run((github) =>
           github.connect({ ...repo("other"), repoId: "stale-repo" })
@@ -234,6 +265,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("changes the base branch of the connected repository", () =>
     Effect.gen(function* () {
+      yield* connect("app")
       const detail = yield* run((github) =>
         github.connect({ ...repo("app"), defaultBaseBranch: "develop" })
       )
@@ -243,6 +275,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("adds a second repository and keeps the first as the default", () =>
     Effect.gen(function* () {
+      yield* connect("app")
       ticketDocs.documents.set(
         "GH-1",
         makeTicketDocument("GH-1", { branch: "feat/GH-1" })
@@ -279,6 +312,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("lists branches of the repository that was asked for", () =>
     Effect.gen(function* () {
+      yield* connect("app", "api")
       branchCalls.length = 0
       yield* run((github) => github.branches("api-repo", "feat", 20, undefined))
       expect(branchCalls).toEqual([
@@ -291,6 +325,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
     "preserves a legacy ticket's broken repository before connecting another",
     () =>
       Effect.gen(function* () {
+        yield* connect("app")
         ticketDocs.documents.set(
           "GH-9",
           makeTicketDocument("GH-9", { branch: "feat/GH-9" })
@@ -307,24 +342,12 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
         })
         yield* run((github) => github.connect(repo("temporary")))
         expect(ticketDocs.documents.get("GH-9")?.repo).toBe("app-repo")
-      }).pipe(
-        Effect.ensuring(
-          Effect.promise(async () => {
-            await pool.query(
-              "UPDATE project_integration_link SET status=CASE WHEN id IN (SELECT project_integration_link_id FROM project_github_repository WHERE repo_id='app-repo') THEN 'active' ELSE 'disconnected' END WHERE project_id=$1 AND id IN (SELECT project_integration_link_id FROM project_github_repository WHERE repo_id IN ('app-repo','temporary-repo'))",
-              [projectId]
-            )
-            await pool.query(
-              "UPDATE project_github_repository SET status=CASE WHEN repo_id='app-repo' THEN 'active' ELSE 'disconnected' END WHERE organization_id=$1 AND repo_id IN ('app-repo','temporary-repo')",
-              [organizationId]
-            )
-          })
-        )
-      )
+      })
   )
 
   it.effect("disconnects one repository and leaves the other connected", () =>
     Effect.gen(function* () {
+      yield* connect("app", "api")
       const missing = yield* Effect.flip(
         run((github) => github.disconnect("missing-repo"))
       )
@@ -344,6 +367,8 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("disconnects and clears the project file's repository", () =>
     Effect.gen(function* () {
+      yield* connect("app", "api")
+      yield* run((github) => github.disconnect("app-repo"))
       ticketDocs.documents.set(
         "GH-3",
         makeTicketDocument("GH-3", { branch: "feat/GH-3" })
@@ -362,7 +387,6 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
         )
       )
       expect(indexed.rows).toEqual([{ repo_id: "api-repo" }])
-      yield* run((github) => github.disconnect("replacement-repo"))
     })
   )
 

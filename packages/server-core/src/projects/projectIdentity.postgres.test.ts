@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { Pool } from "pg"
-import { afterAll, beforeAll, describe, expect } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest"
 
 import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
@@ -27,9 +27,10 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const projectKey = Schema.decodeSync(CreatableProjectKey)
 
 describe.skipIf(!databaseUrl)("project identity per org", () => {
-  const suffix = randomUUID().slice(0, 8)
-  const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
-  const users = [randomUUID(), randomUUID()]
+  const allOrgs: Array<string> = []
+  const allUsers: Array<string> = []
+  let orgs: Array<string> = []
+  let users: Array<string> = []
   let pool: Pool
   let layer: Layer.Layer<
     Projects.Projects | TicketIndex.TicketIndex | Access.Access
@@ -67,6 +68,14 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
+  })
+
+  beforeEach(async () => {
+    const suffix = randomUUID().slice(0, 8)
+    orgs = [`alpha-${suffix}`, `beta-${suffix}`]
+    users = [randomUUID(), randomUUID()]
+    allOrgs.push(...orgs)
+    allUsers.push(...users)
     for (const [index, org] of orgs.entries()) {
       await pool.query(
         'INSERT INTO "user" (id,name,email,created_at,updated_at) VALUES ($1,$1,$2,now(),now())',
@@ -81,29 +90,32 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
         [randomUUID(), org, users[index]]
       )
     }
-    layer = projectsOnPostgres(databaseUrl, users)
+    layer = projectsOnPostgres(databaseUrl!, users)
   })
 
   afterAll(async () => {
     if (pool) {
-      await pool.query("DELETE FROM organization WHERE id = ANY($1)", [orgs])
-      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [users])
+      await pool.query("DELETE FROM organization WHERE id = ANY($1)", [allOrgs])
+      await pool.query('DELETE FROM "user" WHERE id = ANY($1)', [allUsers])
       await pool.end()
     }
   })
+
+  const websites = () =>
+    Effect.all([create(0, "Website", "WEB"), create(1, "Website", "WEB")])
 
   it.effect(
     "gives two orgs the same slug for a project with the same name",
     () =>
       Effect.gen(function* () {
-        const alpha = yield* create(0, "Website", "WEB")
-        const beta = yield* create(1, "Website", "WEB")
+        const [alpha, beta] = yield* websites()
         expect([alpha.slug, beta.slug]).toStrictEqual(["website", "website"])
       })
   )
 
   it.effect("keeps slugs unique within an org", () =>
     Effect.gen(function* () {
+      yield* create(0, "Website", "WEB")
       const again = yield* create(0, "Website", "SITE")
       expect(again.slug).toBe("website-2")
     })
@@ -111,8 +123,9 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("records synced former keys next to the current key", () =>
     Effect.gen(function* () {
+      const { slug } = yield* create(0, "Site", "SITE")
       const index = yield* TicketIndex.TicketIndex
-      const site = yield* index.projectFor(orgs[0], "website-2")
+      const site = yield* index.projectFor(orgs[0], slug)
       yield* index.syncFormerKeys(site, ["OLD"])
       expect(yield* index.projectKeys(site)).toStrictEqual({
         current: "SITE",
@@ -125,6 +138,12 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     "refuses a new project whose key is another project's former key",
     () =>
       Effect.gen(function* () {
+        const { slug } = yield* create(0, "Site", "SITE")
+        yield* Effect.flatMap(TicketIndex.TicketIndex, (index) =>
+          Effect.flatMap(index.projectFor(orgs[0], slug), (site) =>
+            index.syncFormerKeys(site, ["OLD"])
+          )
+        ).pipe(Effect.provide(layer))
         const error = yield* Effect.flip(create(0, "Legacy", "OLD"))
         expect(error).toMatchObject({
           _tag: "Conflict",
@@ -135,6 +154,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("resolves each org's own project", () =>
     Effect.gen(function* () {
+      yield* websites()
       const projects = yield* Projects.Projects
       const index = yield* TicketIndex.TicketIndex
       const alpha = yield* projects.get().pipe(inProject(0, 0, "website"))
@@ -150,6 +170,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("keeps people out of the other org's project", () =>
     Effect.gen(function* () {
+      yield* websites()
       const projects = yield* Projects.Projects
       const error = yield* Effect.flip(
         projects.get().pipe(inProject(0, 1, "website"))
@@ -160,6 +181,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("deletes one org's project without touching the other", () =>
     Effect.gen(function* () {
+      yield* websites()
       const projects = yield* Projects.Projects
       yield* projects.remove().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))

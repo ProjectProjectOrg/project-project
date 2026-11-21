@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { $getHtmlContent } from "@lexical/clipboard"
 import { CodeNode } from "@lexical/code"
 import { HorizontalRuleNode } from "@lexical/extension"

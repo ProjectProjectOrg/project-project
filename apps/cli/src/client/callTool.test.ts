@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest"
+import { beforeEach, describe, expect, it } from "@effect/vitest"
 import { toolInputVersions } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -49,6 +49,10 @@ const answering = (status: number, body: unknown) =>
   )
 
 describe("callTool", () => {
+  beforeEach(() => {
+    saved.length = 0
+  })
+
   it.effect("returns the tool's output", () =>
     Effect.gen(function* () {
       expect(yield* callTool(server, "me", {})).toEqual({ ok: true })
@@ -183,7 +187,6 @@ describe("callTool", () => {
             return Response.json({ ok: true })
           })
         )
-        saved.length = 0
         yield* callTool(server, "me", {}).pipe(Effect.provide(layer))
         yield* callTool(server, "me", {}).pipe(Effect.provide(layer))
         expect(seen).toEqual([

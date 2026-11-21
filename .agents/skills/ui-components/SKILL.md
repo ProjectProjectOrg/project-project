@@ -168,8 +168,9 @@ Set during the polish passes; a component that breaks one is not done.
 ## Checks
 
 ```sh
-cd packages/ui && bun run typecheck && bun run lint && bun run test && bun run build-gallery
-cd apps/frontend && bun run typecheck && bun run lint
+bun run --cwd packages/ui typecheck && bun run --cwd packages/ui build-gallery
+bun run --cwd apps/frontend typecheck
+bun run lint && bun run test packages/ui
 ```
 
 A changed prop usually breaks app call sites. Fix them in the same change with the app's Paraglide messages, never by adding a default.
