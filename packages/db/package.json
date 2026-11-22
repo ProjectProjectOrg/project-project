@@ -29,7 +29,7 @@
     "@effect/platform-bun": "4.0.5",
     "@effect/vitest": "npm:@voila.dev/effect-bun-test@4.0.4",
     "@types/pg": "^8.20.0",
-    "better-auth": "1.7.3",
+    "better-auth": "1.7.17",
     "dotenv": "^17.4.2",
     "drizzle-kit": "1.0.0-rc.5"
   }
