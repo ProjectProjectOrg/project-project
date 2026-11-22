@@ -7,7 +7,6 @@ import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Input } from "@pp/ui/input"
 import { PopoverClose } from "@pp/ui/popover"
 import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -48,7 +47,6 @@ import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintFi
 import { startText } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
-import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -57,6 +55,7 @@ import {
   ticketFieldsPayload,
   type TicketFields
 } from "./TicketFieldChips"
+import { Submission, useCreateSubmission } from "./useCreateSubmission"
 
 const RELATED_LABELS: Readonly<
   Record<RelatedKind, (args: { id: string }) => string>
@@ -114,13 +113,9 @@ export function CreateTicketForm({
   const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)
   const registry = useContext(RegistryContext)
-  const [failure, setFailure] = useState<string | null>(null)
-  const [created, setCreated] = useState<TicketId | null>(null)
-  const [pending, setPending] = useState(false)
   const create = useAtomSet(createTicketInProject, { mode: "promiseExit" })
   const trimmed = title.trim()
   const body = description.trim()
-  const canSubmit = slug !== null && trimmed !== "" && !pending
 
   const createTicket = async () => {
     const exit = await create({
@@ -136,34 +131,20 @@ export function CreateTicketForm({
       }
     })
     creatorType.settle(exit)
-    if (Exit.isSuccess(exit)) return exit.value.id
-    setFailure(errorMessage(Cause.squash(exit.cause)))
-    return null
+    return Exit.map(exit, (ticket) => ticket.id)
   }
 
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault()
-    if (!canSubmit) return
-    setFailure(null)
-    setPending(true)
-    const id = created ?? (await createTicket())
-    if (id === null) {
-      setPending(false)
-      return
-    }
-    setCreated(id)
-    if (related?.kind === "blockedBy") {
-      const marked = await fireMutation(
-        registry,
-        markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
-        { kind: "blockedBy", target: id }
-      )
-      if (Result.isFailure(marked)) {
-        setPending(false)
-        setFailure(errorMessage(Cause.squash(marked.cause)))
-        return
-      }
-    }
+  const link = async (id: TicketId) => {
+    if (related?.kind !== "blockedBy") return Exit.void
+    const marked = await fireMutation(
+      registry,
+      markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
+      { kind: "blockedBy", target: id }
+    )
+    return Result.isFailure(marked) ? Exit.failCause(marked.cause) : Exit.void
+  }
+
+  const done = (id: TicketId) => {
     if (sprint !== null && !isEpicType(creatorType.type)) {
       assignTicketToSprint(
         registry,
@@ -184,26 +165,40 @@ export function CreateTicketForm({
     })
   }
 
+  const {
+    submission,
+    locked,
+    submit: submitCreate,
+    clearFailure
+  } = useCreateSubmission({ create: createTicket, link, done })
+  const linkFailed = Submission.$is("linkFailed")(submission)
+  const canSubmit = slug !== null && trimmed !== "" && (!locked || linkFailed)
+
+  const submit = (event?: FormEvent) => {
+    event?.preventDefault()
+    if (canSubmit) void submitCreate()
+  }
+
   const onSubmitShortcut = (event: KeyboardEvent) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
-      void submit()
+      submit()
     }
   }
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="flex flex-col">
+    <form onSubmit={submit} className="flex flex-col">
       {inCommandMenu ? (
         <Composer.Header>
           <ProjectSelect
             orgSlug={orgSlug}
             projects={projects}
             value={slug}
+            readOnly={locked}
             onChange={(next) => {
               setPicked(next)
               creatorType.reset()
               setFields(DEFAULT_TICKET_FIELDS)
-              setCreated(null)
               setSprint(null)
             }}
           />
@@ -238,10 +233,11 @@ export function CreateTicketForm({
           placeholder={m.tickets_create_dialog_title_placeholder()}
           value={title}
           maxLength={200}
+          readOnly={locked}
           onKeyDown={onSubmitShortcut}
           onChange={(event) => {
             setTitle(event.target.value)
-            setFailure(null)
+            clearFailure()
           }}
           ref={titleInput}
         />
@@ -250,29 +246,40 @@ export function CreateTicketForm({
         <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
           <LexicalEditor
             markdown={request.body ?? ""}
+            editable={!locked}
             onDraftChange={setDescription}
             placeholder={m.tickets_create_dialog_description_placeholder()}
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Error>{failure}</Composer.Error>
+      <Composer.Error>
+        {Submission.$match(submission, {
+          editing: ({ failure }) => failure,
+          creating: () => null,
+          linking: () => null,
+          linkFailed: ({ id, failure }) =>
+            m.tickets_create_link_failed({ id, error: failure })
+        })}
+      </Composer.Error>
       <Composer.Tray>
         {slug === null ? null : (
           <Composer.Fields>
             <ProjectScope orgSlug={orgSlug} slug={slug}>
-              <TicketFieldChips
-                key={slug}
-                orgSlug={orgSlug}
-                slug={slug}
-                creatorType={creatorType}
-                value={fields}
-                onChange={(patch) =>
-                  setFields((current) => ({ ...current, ...patch }))
-                }
-              />
-              {!isEpicType(creatorType.type) && (
-                <SprintSelect value={sprint} onChange={setSprint} />
-              )}
+              <fieldset disabled={locked} className="contents">
+                <TicketFieldChips
+                  key={slug}
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  creatorType={creatorType}
+                  value={fields}
+                  onChange={(patch) =>
+                    setFields((current) => ({ ...current, ...patch }))
+                  }
+                />
+                {!isEpicType(creatorType.type) && (
+                  <SprintSelect value={sprint} onChange={setSprint} />
+                )}
+              </fieldset>
             </ProjectScope>
           </Composer.Fields>
         )}
@@ -293,7 +300,9 @@ export function CreateTicketForm({
               </PopoverClose>
             )}
             <Button type="submit" size="sm" disabled={!canSubmit}>
-              {m.tickets_create_dialog_submit()}
+              {linkFailed
+                ? m.tickets_create_retry_link()
+                : m.tickets_create_dialog_submit()}
             </Button>
           </Composer.Actions>
         </Composer.Footer>

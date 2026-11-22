@@ -649,6 +649,8 @@
   "tickets_create_dialog_title_placeholder": "Ticket title",
   "tickets_create_dialog_description_placeholder": "Add a description…",
   "tickets_create_dialog_submit": "Create ticket",
+  "tickets_create_link_failed": "{id} was created, but linking it failed: {error}",
+  "tickets_create_retry_link": "Retry linking",
   "tickets_command_move_to_sprint": "Move to sprint",
   "tickets_command_sprint_placeholder": "Move to sprint…",
   "tickets_command_remove_from_sprint": "Remove from sprint",
