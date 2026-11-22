@@ -30,6 +30,7 @@ import {
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
@@ -742,6 +743,53 @@ describe.skipIf(!databaseUrl)("project import", () => {
             Effect.timeout("2 seconds")
           )
           yield* Fiber.interrupt(upload)
+          expect(staged.some((key) => objects.has(key))).toBe(false)
+        }).pipe(Effect.provide(layer()))
+      })
+    ).pipe(Effect.provide(BunServices.layer))
+  )
+
+  it.live("keeps an import cancelled while its upload finishes", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        root = yield* fs.makeTempDirectoryScoped({
+          prefix: "pp-import-cancel-upload-"
+        })
+        yield* Effect.gen(function* () {
+          yield* writeSource
+          const imports = yield* ProjectImports.ProjectImports
+          const before = new Set(objects.keys())
+          const finish = yield* Deferred.make<void>()
+          const upload = yield* Effect.forkScoped(
+            imports
+              .upload(
+                Stream.concat(
+                  yield* exported,
+                  Stream.fromEffectDrain(Deferred.await(finish))
+                )
+              )
+              .pipe(asImporter)
+          )
+          const staged = yield* Effect.sync(() =>
+            [...objects.keys()].filter((key) => !before.has(key))
+          ).pipe(
+            Effect.repeat({
+              while: (keys) => keys.length === 0,
+              schedule: Schedule.spaced("20 millis")
+            }),
+            Effect.timeout("2 seconds")
+          )
+          const id = staged[0]!.split("/imports/")[1]!.split("/")[0]!
+          yield* imports.cancel(id).pipe(asImporter)
+          yield* Deferred.succeed(finish, undefined)
+          expect(yield* Effect.flip(Fiber.join(upload))).toMatchObject({
+            _tag: "ProjectImportInvalid",
+            kind: "upload_interrupted"
+          })
+          expect((yield* imports.get(id).pipe(asImporter)).status).toBe(
+            "cancelled"
+          )
           expect(staged.some((key) => objects.has(key))).toBe(false)
         }).pipe(Effect.provide(layer()))
       })
