@@ -562,9 +562,12 @@ const make = Effect.gen(function* () {
           attachments: staged,
           updatedAt: yield* DateTime.nowAsDate
         })
-        .where(eq(projectImport.id, id))
+        .where(
+          and(eq(projectImport.id, id), eq(projectImport.status, "uploading"))
+        )
         .returning()
         .pipe(Effect.orDie)
+      if (!row) return yield* invalid("upload_interrupted")
       return yield* present(row)
     }).pipe(
       Effect.onExit((exit) => {
@@ -588,7 +591,12 @@ const make = Effect.gen(function* () {
                   : "upload_failed",
               updatedAt: yield* DateTime.nowAsDate
             })
-            .where(eq(projectImport.id, id))
+            .where(
+              and(
+                eq(projectImport.id, id),
+                inArray(projectImport.status, ["uploading", "ready"])
+              )
+            )
             .pipe(Effect.orDie)
         })
       })
