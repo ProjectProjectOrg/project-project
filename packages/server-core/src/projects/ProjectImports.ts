@@ -594,7 +594,7 @@ const make = Effect.gen(function* () {
             .where(
               and(
                 eq(projectImport.id, id),
-                eq(projectImport.status, "uploading")
+                inArray(projectImport.status, ["uploading", "ready"])
               )
             )
             .pipe(Effect.orDie)
