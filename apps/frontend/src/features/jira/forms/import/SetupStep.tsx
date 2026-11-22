@@ -18,6 +18,7 @@ import {
   jiraDestinationConflictsRequest
 } from "@/features/jira/atoms/jiraMigration"
 import { StepFrame } from "@/features/jira/components/StepFrame"
+import { useContinueWhenSaved } from "@/features/jira/hooks/useContinueWhenSaved"
 import type { JiraImportDraftSave } from "@/features/jira/hooks/useJiraImportDraft"
 import { useSyncDraftOnOpen } from "@/features/jira/hooks/useSyncDraftOnOpen"
 import { conflictingFields } from "@/features/jira/lib/destination"
@@ -139,11 +140,7 @@ export function SetupStep({
         ...(focusSection === undefined ? [] : [focusSection])
       ])
   )
-  const [continueWhenSaved, setContinueWhenSaved] = useState(false)
-  const { saving, failure } = draft
-  useEffect(() => {
-    if (continueWhenSaved && !saving && failure === null) onContinue()
-  }, [continueWhenSaved, saving, failure, onContinue])
+  const continueWhenSaved = useContinueWhenSaved(draft, onContinue)
   const [initialFocus] = useState(focusSection)
   useEffect(() => {
     if (initialFocus !== undefined) scrollToSection(initialFocus)
@@ -184,7 +181,7 @@ export function SetupStep({
       validators={[validateStep(validator)]}
       onSubmit={() => {
         if (counts.destination.attention > 0) revealAttention()
-        else setContinueWhenSaved(true)
+        else continueWhenSaved.request()
       }}
       onSubmitInvalid={revealAttention}
     >
@@ -207,7 +204,7 @@ export function SetupStep({
               />
               <Button
                 disabled={draft.failure !== null}
-                loading={continueWhenSaved}
+                loading={continueWhenSaved.pending}
                 onClick={() => void group.handleSubmit()}
               >
                 {m.jira_import_action_to_review()}
