@@ -515,6 +515,35 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
   )
 
+  it.effect("moveForDeletedBranch leaves tickets with a merged PR alone", () =>
+    Effect.gen(function* () {
+      const docs = makeFakeDocs([
+        baseDocument({
+          status: ticketStatus("done"),
+          pr: 7,
+          prState: "merged"
+        })
+      ])
+      const deps = {
+        ticketDocs: docs.shape,
+        ticketIndex: makeFakeIndex().shape,
+        ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+        gitAutomation: gitAutomationTestService({
+          ...DEFAULT_GIT_AUTOMATION_CONFIG,
+          rules: {
+            ...DEFAULT_GIT_AUTOMATION_CONFIG.rules,
+            branch_deleted: ticketStatus("cancelled")
+          },
+          forwardOnly: false
+        })
+      }
+
+      yield* moveForDeletedBranch(deps, baseMatch())
+
+      expect(docs.writes).toEqual([])
+    })
+  )
+
   const project = {
     orgSlug: "org",
     organizationId: "org-1",
