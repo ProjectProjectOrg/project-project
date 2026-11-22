@@ -529,7 +529,8 @@ export const Tools = Toolkit.make(
       "ready to start or finished. `setBy` lists the git events that move " +
       "a ticket into the status on their own: `branch_linked`, " +
       "`pr_draft_opened`, `pr_opened`, `pr_merged` (every pull request on " +
-      "the ticket merged), `pr_closed` and `branch_deleted`. Automation " +
+      "the ticket merged), `pr_closed` and `branch_deleted` (only before " +
+      "the ticket's pull requests merge). Automation " +
       "runs only while the project has a GitHub repository connected " +
       "(`get_project`), and when `automationForwardOnly` is true it never " +
       "moves a ticket backwards. Don't set a status by hand that " +

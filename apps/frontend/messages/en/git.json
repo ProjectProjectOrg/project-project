@@ -4,7 +4,7 @@
   "git_automation_description": "Move a ticket when something happens to its branch or pull request. GitHub shows as the one who moved it in the ticket's activity.",
   "git_automation_dont_move": "Don't move",
   "git_automation_event_branch_deleted": "Branch deleted",
-  "git_automation_event_branch_deleted_hint": "Deleted on GitHub",
+  "git_automation_event_branch_deleted_hint": "Deleted on GitHub without merging",
   "git_automation_event_branch_linked": "Branch linked",
   "git_automation_event_branch_linked_hint": "Created, attached or linked automatically",
   "git_automation_event_pr_closed": "Pull request closed",

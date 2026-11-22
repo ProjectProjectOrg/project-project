@@ -6,7 +6,11 @@ import type * as TicketDocs from "../tickets/TicketDocs"
 import type { TicketDocumentLock } from "../tickets/ticketDocumentLock"
 import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
-import { gitAutomationEvent, planGitAutomation } from "./automation"
+import {
+  gitAutomationEvent,
+  planGitAutomation,
+  ticketPullRequestState
+} from "./automation"
 import type * as ProjectGitAutomation from "./ProjectGitAutomation"
 import type { BranchRepository } from "./TicketBranchIndex"
 
@@ -71,6 +75,8 @@ export const moveForDeletedBranch = (
           match,
           ticket,
           ticket.branch === match.branch &&
+            ticketPullRequestState(ticket) !== "merged" &&
+            ticketPullRequestState(ticket) !== "landed" &&
             (ticket.repo === undefined
               ? match.isDefault
               : ticket.repo === match.repoId)
