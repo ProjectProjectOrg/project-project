@@ -17,7 +17,7 @@ export const TICKET_BLOCK_TYPE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
 export const TICKET_BLOCK_OPEN =
   /^ {0,3}<block\s+type="([a-z0-9]+(?:-[a-z0-9]+)*)"(\s+sync)?\s*>\s*$/
 
-const TICKET_BLOCK_CLOSE = /^ {0,3}<\/block>\s*$/
+export const TICKET_BLOCK_CLOSE = /^ {0,3}<\/block>\s*$/
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/
 

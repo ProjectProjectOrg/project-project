@@ -19,9 +19,8 @@ export const referencesRequest = (orgSlug: string, slug: string) =>
 const referencesQuery = (req: ReferencesRequest) =>
   query("projectReferences", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [
-      Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
+      Keys.ticketLists(projectScope(req.params.orgSlug, req.params.slug))
     ]
   })
 
@@ -48,11 +47,11 @@ export const fixReference = Atom.family(({ req }: FixReferenceKey) => {
           Effect.tapError(() =>
             Reactivity.invalidate([
               Keys.ticketUpdatedQuery(scope),
-              Keys.ticketsIn(scope)
+              Keys.ticketLists(scope)
             ])
           )
         ),
     confirm: replaceWith,
-    publish: () => [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
+    publish: () => [Keys.ticketUpdatedQuery(scope), Keys.ticketLists(scope)]
   }).pipe(Atom.setIdleTTL("1 minute"))
 })

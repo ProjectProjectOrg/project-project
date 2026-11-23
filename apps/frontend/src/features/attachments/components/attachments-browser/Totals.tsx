@@ -13,7 +13,7 @@ export function Totals({ summary }: { summary: AttachmentSummary }) {
   const byStatus = new Map(summary.byStatus.map((row) => [row.status, row]))
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-lg border border-border bg-background px-4 py-3">
+    <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-lg border border-border surface-background px-4 py-3">
       <Total
         label={m.attachments_totals_all()}
         count={summary.count}

@@ -28,7 +28,6 @@ export const orgRequest = (orgSlug: string) => ({
 })
 
 const userOrgsQuery = query("org", "myOrgs", {
-  timeToLive: "1 minute",
   reactivityKeys: [Keys.orgs()]
 })
 
@@ -39,7 +38,6 @@ export const userOrgs = () => userOrgsAtom
 const orgDetailQuery = (req: OrgRequest) =>
   query("org", "get", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.org(req.params.orgSlug)]
   })
 
@@ -59,7 +57,6 @@ export const orgActor = Atom.family((req: OrgRequest) =>
 const orgMembersQuery = (req: OrgRequest) =>
   query("org", "members", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.orgMembers(req.params.orgSlug)]
   })
 

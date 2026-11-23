@@ -767,9 +767,9 @@ describe("isPristineTypeBody", () => {
   const expanded = expandType(type, lookup)
 
   it("is true for the untouched expansion, even reformatted", () => {
-    expect(isPristineTypeBody(expanded, type, lookup)).toBe(true)
+    expect(isPristineTypeBody(expanded, expanded)).toBe(true)
     expect(
-      isPristineTypeBody(`${expanded.replaceAll("\n\n", "\n")}\n`, type, lookup)
+      isPristineTypeBody(`${expanded.replaceAll("\n\n", "\n")}\n`, expanded)
     ).toBe(true)
   })
 
@@ -777,17 +777,15 @@ describe("isPristineTypeBody", () => {
     expect(
       isPristineTypeBody(
         expanded.replace("## Context", "## Context\n\nWhy"),
-        type,
-        lookup
+        expanded
       )
     ).toBe(false)
     expect(
       isPristineTypeBody(
         expanded.replace("- [ ] Reviewed", "- [x] Reviewed"),
-        type,
-        lookup
+        expanded
       )
     ).toBe(false)
-    expect(isPristineTypeBody("", type, lookup)).toBe(false)
+    expect(isPristineTypeBody("", expanded)).toBe(false)
   })
 })

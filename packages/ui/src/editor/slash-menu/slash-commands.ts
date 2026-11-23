@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import {
   formatTicketBlock,
   stripHints,
@@ -45,7 +44,6 @@ export function $runSlashItem(
   editor: LexicalEditor,
   item: SlashItem,
   context: Readonly<{
-    transformers: ReadonlyArray<Transformer>
     lookup: BlockLookup
     detach: boolean
     mode?: EditorBlocksMode
@@ -55,7 +53,6 @@ export function $runSlashItem(
     block: ({ definition }) =>
       $insertBlocksAt(
         blockMarkdown(definition, context.detach, context.mode ?? "ticket"),
-        context.transformers,
         context.lookup
       ),
     basic: ({ basic }) =>

@@ -45,7 +45,7 @@ export function Row({
   return (
     <tr
       className={cn(
-        "group/reveal border-b border-border transition-colors hover:bg-hover",
+        "group/reveal border-b border-border transition-colors hover:surface-lit",
         only && "cursor-pointer"
       )}
       onClick={only ? () => void openTicket(only) : undefined}

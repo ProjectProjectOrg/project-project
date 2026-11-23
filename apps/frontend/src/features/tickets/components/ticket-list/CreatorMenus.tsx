@@ -3,7 +3,7 @@ import { Button } from "@pp/ui/button"
 import { CircleDashed } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import { useRef, type ComponentProps, type RefObject } from "react"
+import { useRef, type RefObject } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
@@ -22,17 +22,17 @@ import { m } from "@/paraglide/messages"
 import { CreatorChip } from "./CreatorChip"
 import { typeActionItems, typeMenuItems } from "./TypeField"
 
-type OnOpenChange = NonNullable<ComponentProps<typeof Select>["onOpenChange"]>
-type CloseReason = Parameters<OnOpenChange>[1]["reason"]
-
 type CreatorMenuProps = Readonly<{
   expanded: boolean
   inputRef: RefObject<HTMLElement | null>
 }>
 
 function useCreatorMenuFocus(inputRef: RefObject<HTMLElement | null>) {
-  const closeReason = useRef<CloseReason | null>(null)
-  const handleOpenChange: OnOpenChange = (open, details) => {
+  const closeReason = useRef<string | null>(null)
+  const handleOpenChange = (
+    open: boolean,
+    details: Readonly<{ reason: string }>
+  ) => {
     closeReason.current = open ? null : details.reason
   }
   const finalFocus = () => {

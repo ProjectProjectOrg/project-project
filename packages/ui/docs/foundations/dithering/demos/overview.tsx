@@ -19,7 +19,7 @@ function Cell({
 }: Readonly<{ label: string; note: string; children: ReactNode }>) {
   return (
     <figure className="flex min-w-0 flex-col gap-2.5">
-      <div className="flex min-h-36 items-center justify-center rounded-[18px] bg-page p-4 corner-squircle">
+      <div className="flex min-h-36 items-center justify-center rounded-[18px] surface-page p-4 corner-squircle">
         {children}
       </div>
       <figcaption className="flex flex-col">

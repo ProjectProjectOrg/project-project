@@ -16,8 +16,6 @@ import {
 import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 import { BlockIconGlyph } from "@pp/ui/editor/blocks/block-icon-glyph"
 import { GripVertical, Plus, Text, X } from "@pp/ui/icons"
-import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
-import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import { Reorder, useDragControls } from "motion/react"
 import { useMemo, useRef, useState, type ReactNode } from "react"
@@ -302,15 +300,14 @@ function RowCard({
   handle?: ReactNode
   onRemove?: () => void
 }>) {
-  const substrate = useSurface()
   return (
     <div
       data-starting-row={view.sectionKey ?? "text"}
       className={cn(
-        "relative flex min-h-14 items-center gap-2 rounded-lg border border-border bg-card py-2 pr-2",
+        "relative flex min-h-14 items-center gap-2 rounded-lg border border-border surface-card py-2 pr-2",
         handle === undefined ? "pl-3" : "pl-1",
-        view.sectionKey !== null && "transition-colors hover:bg-hover",
-        dragging && cn(SURFACE_BG[Math.min(substrate + 1, 8)], "shadow-md")
+        view.sectionKey !== null && "transition-colors hover:surface-lit",
+        dragging && "surface-2 shadow-md"
       )}
     >
       {view.sectionKey === null ? null : (

@@ -82,7 +82,7 @@ const WEIGHTS = [
 function Faces() {
   return (
     <div className="grid gap-4 @2xl:grid-cols-2">
-      <div className="flex flex-col gap-2 rounded-[18px] bg-card p-4 corner-squircle">
+      <div className="flex flex-col gap-2 rounded-[18px] surface-card p-4 corner-squircle">
         <span className="text-caption text-muted-foreground">
           Allo, roundness 0: everything
         </span>
@@ -95,7 +95,7 @@ function Faces() {
           </p>
         ))}
       </div>
-      <div className="flex flex-col gap-2 rounded-[18px] bg-card p-4 corner-squircle">
+      <div className="flex flex-col gap-2 rounded-[18px] surface-card p-4 corner-squircle">
         <span className="text-caption text-muted-foreground">
           Allo, tabular figures: keys, branches, hashes
         </span>

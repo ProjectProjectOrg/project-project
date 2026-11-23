@@ -28,7 +28,6 @@ export const slackOrg = Atom.family((req: SlackOrgRequest) =>
   Atom.optimistic(
     query("slack", "orgStatus", {
       params: req.params,
-      timeToLive: "30 seconds",
       reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
     })
   )
@@ -36,8 +35,7 @@ export const slackOrg = Atom.family((req: SlackOrgRequest) =>
 export const slackManifest = Atom.family((req: SlackOrgRequest) =>
   Atom.optimistic(
     query("slack", "manifest", {
-      params: req.params,
-      timeToLive: "5 minutes"
+      params: req.params
     })
   )
 )
@@ -68,7 +66,6 @@ export const slackProject = Atom.family((req: SlackProjectRequest) =>
   Atom.optimistic(
     query("slack", "projectStatus", {
       params: req.params,
-      timeToLive: "30 seconds",
       reactivityKeys: [
         Keys.slackProject(projectScope(req.params.orgSlug, req.params.slug)),
         Keys.slackOrg(req.params.orgSlug)
@@ -79,7 +76,6 @@ export const slackProject = Atom.family((req: SlackProjectRequest) =>
 export const slackChannels = Atom.family((req: SlackProjectRequest) =>
   query("slack", "channels", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
   })
 )
@@ -120,7 +116,6 @@ export const slackProfiles = Atom.family(
   (_req: Readonly<Record<string, never>>) =>
     Atom.optimistic(
       query("slack", "profiles", {
-        timeToLive: "30 seconds",
         reactivityKeys: [Keys.slackProfiles()]
       })
     )

@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import type { Library } from "@pp/shared"
 import {
@@ -18,14 +17,9 @@ import { SyncedChip, SyncedChipAction } from "./synced-block"
 import { $revertToReference } from "./template-blocks"
 import { $isTicketBlockNode } from "./ticket-block-node"
 
-export function DefinitionModePlugin({
-  transformers
-}: Readonly<{ transformers: ReadonlyArray<Transformer> }>) {
+export function DefinitionModePlugin() {
   const [editor] = useLexicalComposerContext()
-  useEffect(
-    () => registerNoNestedBlocks(editor, transformers),
-    [editor, transformers]
-  )
+  useEffect(() => registerNoNestedBlocks(editor), [editor])
   return null
 }
 

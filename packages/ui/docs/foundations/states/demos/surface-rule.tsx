@@ -53,7 +53,7 @@ function Controls({ kind }: Readonly<{ kind: SurfaceKind }>) {
       <span className="text-caption text-muted-foreground">Select</span>
       {COLUMNS.map((column) => (
         <Button key={column.name} variant="field" data-force={column.field}>
-          Sprint
+          <span>Sprint</span>
           <ChevronDown className="size-4" strokeWidth={1.75} />
         </Button>
       ))}
@@ -91,7 +91,7 @@ function Controls({ kind }: Readonly<{ kind: SurfaceKind }>) {
 // press them too.
 export default function SurfaceRule() {
   return (
-    <div className="flex w-full flex-col gap-3 rounded-[22px] bg-background p-3 [corner-shape:var(--button-corner)]">
+    <div className="flex w-full flex-col gap-3 rounded-[22px] surface-background p-3 [corner-shape:var(--button-corner)]">
       {SURFACES.map((surface) => (
         <Surface key={surface.kind} kind={surface.kind} className="p-3">
           <div className="mb-2 flex items-baseline gap-2">

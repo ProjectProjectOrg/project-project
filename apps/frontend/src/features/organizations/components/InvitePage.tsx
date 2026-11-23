@@ -185,7 +185,7 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
       </div>
       <div
         className={cn(
-          "flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-4",
+          "flex items-center gap-4 rounded-xl border border-border surface-background px-4 py-4",
           busy && "animate-pulse"
         )}
       >
@@ -306,7 +306,7 @@ function InviteSkeleton() {
         <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
         <div className="h-4 w-3/5 animate-pulse rounded-md bg-muted" />
       </div>
-      <div className="flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-4">
+      <div className="flex items-center gap-4 rounded-xl border border-border surface-background px-4 py-4">
         <div className="size-11 shrink-0 animate-pulse rounded-md bg-muted" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="h-4 w-40 animate-pulse rounded-md bg-muted" />

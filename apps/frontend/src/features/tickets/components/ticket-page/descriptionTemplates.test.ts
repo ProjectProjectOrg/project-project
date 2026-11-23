@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { CodeExtension } from "@lexical/code"
+import { CodeExtension } from "@lexical/code-core"
 import {
   HorizontalRuleExtension,
   buildEditorFromExtensions
@@ -10,7 +10,7 @@ import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
+} from "@lexical/mdast"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import {
@@ -26,7 +26,8 @@ import { BUILTIN_LIBRARY, lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { SyncedBlockExtension } from "@pp/ui/editor/blocks/synced-block-node"
 import { registerSyncedBlocks } from "@pp/ui/editor/blocks/synced-blocks"
 import { TicketBlockExtension } from "@pp/ui/editor/blocks/ticket-block-extension"
-import { MARKDOWN_TRANSFORMERS } from "@pp/ui/editor/editor-transformers"
+import { TicketBlockMarkdownExtension } from "@pp/ui/editor/blocks/ticket-block-markdown"
+import { MarkdownExtension } from "@pp/ui/editor/markdown-extension"
 import {
   HISTORY_PUSH_TAG,
   UNDO_COMMAND,
@@ -43,7 +44,7 @@ import {
 } from "./descriptionTemplates"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
-const context = { transformers: MARKDOWN_TRANSFORMERS, lookup }
+const context = { lookup }
 
 const template = (key: string) => {
   const found = BUILTIN_LIBRARY.types.find((entry) => entry.key === key)
@@ -67,10 +68,12 @@ function editorWith(markdown: string) {
         HorizontalRuleExtension,
         TableExtension,
         TicketBlockExtension,
-        SyncedBlockExtension
+        SyncedBlockExtension,
+        MarkdownExtension,
+        TicketBlockMarkdownExtension
       ],
       $initialEditorState: () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(markdown)
       },
       onError: (error) => {
         throw error
@@ -82,9 +85,7 @@ function editorWith(markdown: string) {
 }
 
 const bodyOf = (editor: LexicalEditor) =>
-  editor
-    .getEditorState()
-    .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  editor.read(() => $convertToMarkdownString())
 
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true, tag: HISTORY_PUSH_TAG })
@@ -152,6 +153,28 @@ describe("templateSwap", () => {
     ).toBeNull()
   })
 
+  it("swaps an untouched body whose template has a compact table", () => {
+    const spike = {
+      ...template("spike"),
+      body: "## Plan\n\n| Step | Owner |\n| --- | ---: |\n| One | Two |"
+    }
+    const library: Library = {
+      ...BUILTIN_LIBRARY,
+      types: BUILTIN_LIBRARY.types.map((entry) =>
+        entry.key === spike.key ? spike : entry
+      )
+    }
+    const editor = editorWith(expandType(spike, lookupFor(library)))
+    expect(
+      templateSwap({
+        library,
+        body: bodyOf(editor),
+        from: TypeKey.make("spike"),
+        to: TypeKey.make("feat")
+      })?.key
+    ).toBe("feat")
+  })
+
   it("follows a project's own copy of a type", () => {
     const library: Library = {
       ...BUILTIN_LIBRARY,
@@ -211,7 +234,7 @@ describe("$replaceWithTemplate and $restoreBody", () => {
         to: TypeKey.make("bug")
       })?.key
     ).toBe("bug")
-    run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
+    run(editor, () => $restoreBody(previous))
     expect(bodyOf(editor).trimEnd()).toBe(previous.trimEnd())
     editor.dispatchCommand(UNDO_COMMAND, undefined)
     await Promise.resolve()
@@ -243,13 +266,12 @@ const chainLibrary: Library = {
 }
 const chainLookup = lookupFor(chainLibrary)
 const chainContext = {
-  transformers: MARKDOWN_TRANSFORMERS,
   lookup: chainLookup
 }
 
 function liveEditor(markdown: string) {
   const editor = editorWith(markdown)
-  registerSyncedBlocks(editor, chainLookup, MARKDOWN_TRANSFORMERS, () => {})
+  registerSyncedBlocks(editor, chainLookup, () => {})
   editor.update(() => {}, { discrete: true })
   return editor
 }
@@ -307,7 +329,7 @@ describe("type swap across repeated changes", () => {
     const editor = liveEditor(defaultBody("feat"))
     const previous = bodyOf(editor)
     changeType(editor, "feat", "bug")
-    run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
+    run(editor, () => $restoreBody(previous))
     expect(changeType(editor, "bug", "chore")).toBe("chore")
     expect(changeType(editor, "chore", "feat")).toBe("feat")
   })
@@ -316,7 +338,7 @@ describe("type swap across repeated changes", () => {
     const editor = liveEditor(defaultBody("feat"))
     const previous = bodyOf(editor)
     changeType(editor, "feat", "bug")
-    run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
+    run(editor, () => $restoreBody(previous))
     expect(changeType(editor, "bug", "feat")).toBeNull()
     expect(bodyOf(editor).trimEnd()).toBe(previous.trimEnd())
   })

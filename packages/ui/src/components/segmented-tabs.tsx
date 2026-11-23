@@ -6,8 +6,6 @@ import {
   type ReactNode
 } from "react"
 
-import { SURFACE_BG } from "../lib/surfaceClasses"
-import { useSurface } from "../lib/surfaceContext"
 import { cn } from "../lib/utils"
 import { Badge } from "./badge"
 import { CollapsingLabel } from "./collapsing-label"
@@ -117,8 +115,6 @@ export function SegmentedTabs<K extends string>({
   "aria-label": ariaLabel
 }: SegmentedTabsProps<K>) {
   const v = VARIANTS[variant]
-  const surface = useSurface()
-  const pillLevel = Math.min(surface + (variant === "rail" ? 7 : 4), 8)
   const subtle = variant === "subtle"
   const [hovered, setHovered] = useState<K | null>(null)
   const hoveringOther = hovered !== null && hovered !== value
@@ -139,7 +135,7 @@ export function SegmentedTabs<K extends string>({
         "relative",
         v.container,
         fill && "flex w-full",
-        !BARE_VARIANTS.has(variant) && SURFACE_BG[Math.min(surface + 2, 8)],
+        !BARE_VARIANTS.has(variant) && "surface-3",
         className
       )}
     >
@@ -147,7 +143,10 @@ export function SegmentedTabs<K extends string>({
         activeIndex={items.findIndex((item) => item.key === value)}
         className={cn(
           (variant === "inline" || variant === "rail") &&
-            cn(SURFACE_BG[pillLevel], segmentLineClass),
+            cn(
+              variant === "rail" ? "surface-8" : "surface-5",
+              segmentLineClass
+            ),
           subtle &&
             cn(
               "bg-selected/50 transition-opacity duration-150 dark:bg-accent/40",

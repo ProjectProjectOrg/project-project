@@ -19,8 +19,8 @@ export function ProjectRow({
       to="/orgs/$orgSlug/projects/$slug"
       params={{ orgSlug, slug: project.slug }}
       className={cn(
-        "group relative isolate flex items-center gap-3 overflow-hidden rounded-lg border border-border bg-card px-3 py-2.5 transition-colors",
-        "hover:bg-hover"
+        "group relative isolate flex items-center gap-3 overflow-hidden rounded-lg border border-border surface-card px-3 py-2.5 transition-colors",
+        "hover:surface-lit"
       )}
     >
       <ProjectBanner

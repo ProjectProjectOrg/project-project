@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type {
   Estimate,
   LinkedTicket,
@@ -19,8 +19,9 @@ import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
-import { lazy, Suspense } from "react"
+import { use, useEffect } from "react"
 
+import { Markdown } from "@/features/editor/components/Markdown"
 import {
   projectEstimation,
   projectRequest
@@ -31,6 +32,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { BoardCardGit } from "@/features/sprints/components/BoardCardGit"
+import { fillTicketContent } from "@/features/tickets/atoms/ticketContentFill"
 import {
   ticketDetail,
   ticketRequest
@@ -51,20 +53,6 @@ import {
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
-
-type MarkdownModule = typeof import("@pp/ui/editor/markdown")
-
-let loadedMarkdown: MarkdownModule | null = null
-
-export const loadMarkdown = () =>
-  import("@pp/ui/editor/markdown").then((mod) => {
-    loadedMarkdown = mod
-    return mod
-  })
-
-const LazyMarkdown = lazy(() =>
-  loadMarkdown().then((mod) => ({ default: mod.Markdown }))
-)
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
@@ -125,6 +113,12 @@ export function TicketPreviewBody({
   shortcut?: HotkeyChord
 }) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
+  const registry = use(RegistryContext)
+  useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   const result = useAtomValue(ticketDetail(req))
   const statusesReq = statusesRequest(scope.orgSlug, scope.slug)
   const statusesResult = useAtomValue(statusesFor(statusesReq))
@@ -141,7 +135,6 @@ export function TicketPreviewBody({
     onSuccess: ({ value: ticket }) => {
       const body = ticket.body.trim()
       const isOverflowing = previewOverflows(body)
-      const Markdown = loadedMarkdown?.Markdown ?? LazyMarkdown
       return (
         <div className="space-y-2">
           <div className="flex items-start gap-2">
@@ -167,14 +160,12 @@ export function TicketPreviewBody({
           />
           {body.length > 0 && (
             <div className="relative">
-              <Suspense fallback={null}>
-                <Markdown
-                  className="line-clamp-6 text-caption leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
-                  blocks="flat"
-                >
-                  {body}
-                </Markdown>
-              </Suspense>
+              <Markdown
+                className="line-clamp-6 text-caption leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
+                blocks="flat"
+              >
+                {body}
+              </Markdown>
               {isOverflowing && interactive && (
                 <>
                   <div

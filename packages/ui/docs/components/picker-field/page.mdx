@@ -1,0 +1,113 @@
+export const meta = {
+  title: "Picker field",
+  group: "Primitives",
+  description:
+    "A value you can change and also go to: a ticket's sprint and epic. The value opens a picker that only picks; going there is a chevron that comes in beside it on hover or focus.",
+  sources: [
+    {
+      kind: "own",
+      name: "PickerField",
+      note: "on Button and Tooltip, with a filterable Dropdown menu"
+    }
+  ]
+}
+
+## Overview
+
+Hover a field for its chevron, click the value for its picker. Under it, each state pinned.
+
+<Demo name="overview" title="Sprint and epic fields" />
+
+## Usage
+
+The field holds the trigger and the chevron; the picker is a filterable `DropdownMenu` the app fills.
+
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuInput,
+  DropdownMenuList,
+  DropdownMenuRadioGroup,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { menuItemDetailClass } from "@pp/ui/menu-styles"
+import {
+  PickerField,
+  PickerFieldOpen,
+  PickerFieldValue
+} from "@pp/ui/picker-field"
+
+<PickerField>
+  <DropdownMenu filterable={{ value: query, onValueChange: setQuery }}>
+    <DropdownMenuTrigger
+      render={
+        <PickerFieldValue empty={epic === null} aria-label={m.tickets_epic_change_aria_label()}>
+          <Layers className="size-3.5" strokeWidth={1.75} />
+          <span className="max-w-[24ch] truncate">{epic.title}</span>
+        </PickerFieldValue>
+      }
+    />
+    <DropdownMenuContent align="start" sideOffset={6} className="w-max max-w-80 min-w-60">
+      <DropdownMenuInput
+        placeholder={m.tickets_epic_search_placeholder()}
+        shortcut={<KbdShortcut keys={appHotkeys["tickets.parent"].defaultHotkey} keyLabels={keyLabels()} aria-hidden />}
+      />
+      <DropdownMenuList>
+        <DropdownMenuRadioGroup value={epic?.id ?? NO_EPIC} onValueChange={pick} items={items} />
+      </DropdownMenuList>
+    </DropdownMenuContent>
+  </DropdownMenu>
+  {epic && (
+    <PickerFieldOpen
+      label={m.tickets_epic_open_action()}
+      render={<Link to="/orgs/$orgSlug/projects/$slug/tickets/$id" params={{ orgSlug, slug, id: epic.id }} />}
+    />
+  )}
+</PickerField>
+```
+
+A row's detail goes in `<span data-menu-meta className={menuItemDetailClass}>` after its name.
+
+| Part | Prop | Type |
+| --- | --- | --- |
+| `PickerField` | `children` | the trigger's menu and the chevron |
+| `PickerFieldValue` | `empty` | `boolean`: no value yet, so the label is muted |
+| | `tone` | Button's tone, for a field that reports a problem (`"error"`); otherwise from `empty` |
+| | Button's props | it's a ghost Button, used as the menu's trigger |
+| `PickerFieldOpen` | `label` | `string`: tooltip and accessible name ("Open epic") |
+| | `render` | `ReactElement`: a link to the value |
+| | `onClick` | `() => void`: instead of a link |
+| `DropdownMenuInput` | `shortcut` | `ReactNode`: the keys that open this picker, at the search's end |
+
+## Rules
+
+### Pick in the menu, open beside it
+
+A field like this does two jobs: change the value, and go to it. The picker does only the first (find, the choices, the empty choice), so it opens on the current value instead of on "Open epic" and "Remove from epic". Going there is the chevron after the value. Removing is picking "No sprint" or "No epic", like any other value.
+
+### Hover lights the field, then the target
+
+Hovering anywhere on the field lights the value with the hover fill and brings in the chevron at 45% of it, so it reads as "also here" rather than as what a click hits. On the chevron itself it takes the full fill, and the value stays lit, so the field reads as one thing. The chevron hides, and stops taking the pointer, while the picker is open.
+
+### The empty choice first
+
+"No sprint" and "No epic" lead the list, so the way out is always in the same place, whatever the project holds.
+
+### Details line up
+
+Each choice ends in what tells it apart, quieter: a sprint's dates and state, an epic's progress. `menuItemDetailClass` right-aligns it before the number key, so the details form one column whatever the names' lengths, and the name truncates before it does. It brightens with its row to keep its contrast on the highlight.
+
+### Number keys pick while the search is empty
+
+Rows are numbered like any radio menu. In a filterable menu a digit picks while the search is empty and searches once you've typed (see Dropdown menu).
+
+### The search shows its key
+
+The search field ends in the shortcut that opens this picker from anywhere on the ticket (⇧S for the sprint, ⇧P for the parent), so it's learnt where it's used.
+
+## Examples
+
+<Demo name="sprint-menu" title="Sprint picker" />
+
+<Demo name="epic-menu" title="Epic picker" />

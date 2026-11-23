@@ -201,19 +201,25 @@ A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled t
 - **Accent** (`oklch(0.93 0 0)` / `oklch(0.269 0 0)` dark): the active item in a rail or sidebar. Not a hover fill — hover uses the overlays below.
 - **Selected** (`oklch(0.885 0 0)` / `oklch(0.4 0 0)` dark): opaque selection fill for places that still need one. Menus mark their checked row with `--active` and segmented controls use a raised pill instead (see Surface context).
 
-### Interaction overlays
+### Surface fills
 
-Hover, pressed, and the secondary button are **translucent overlays**, not opaque greys, so they read correctly on any surface — the page, a settings group, a board card, a menu. `--overlay` direction flips per theme: black on light, white on dark.
+Hover, pressed, tint, label chips and the secondary and tertiary buttons are **solid, worked out from the surface they sit on**: the surface mixed toward `--ink` (black on light, white on dark) by the theme's `--mix-*` amount. On a flat surface that is exactly what the old see-through overlays looked like; over a project banner or any image, nothing shows through.
 
-- **Hover** (`--hover`, 4.5% black / 6% white; pressed `--active` 7.9% / 12%): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
+Every element that paints a background is a surface and paints with `surface-<colour>` (`surface-page`, `surface-card`, `surface-3`, `surface-(--tooltip)`), never a bare `bg-card`: the utility sets `--surface` and works out every fill inside it from that colour. With nothing declared, `--surface` is the page.
+
+A container that holds controls and lights up on hover uses `surface-lit` instead of `bg-hover`: its resting surface's hover fill becomes its own surface, so a button or chip inside a hovered row still steps up from the row instead of matching it. A row under the gliding highlight (`data-hover-highlight`, a fluid sidebar row) is lit the same way, with the highlight doing the painting.
+
+The gliding fluid highlight is the one see-through fill (`--hover-overlay`, `--active-overlay`): it glides across checked rows and selections, which must still show through it.
+
+- **Hover** (`--hover`, 4.5% ink / 6% white; pressed `--active` 7.9% / 12%): `bg-hover` for leaf hover fills — ghost and tertiary buttons, select triggers, inline links. Containers with controls in them use `surface-lit`.
 - **Label chips** (`--chip-label` 5.5% ink / 5% white, `--chip-label-hover` 10% / 9%, with `--chip-sheen` (a top light) and `--chip-edge` (the `--kbd-glow` bottom edge) on top): the filled pill behind name chips (epic, tags, "+N") on cards and rows, via `<Chip kind="label">`. Data chips (icon and value) stay unfilled and light up the same way on hover. Corners at half the height in `--button-corner`, like the Badge.
 - **Guide scrim** (`--guide-scrim`, 14% near-black / 40% black, under a 3px blur): what a Guide lays over everything but its spotlight; the spotlight gets the 2px `--ring`.
 - **Flag wash** (`--flag-wash`): the warning tone, relative in oklch (lifted in light, chroma-boosted in dark) at 28% / 16%, fading from a flagged card's top edge to clear by 64px, over its fill.
 - **Active** (`--active`, 7.9% / 12%): `bg-active` for pressed states and a menu's checked row.
-- **Fields step from their surface** (`--field`, `--field-hover`, `--field-focus`, `--field-line`, and the menu highlight `--menu-hover`, `--menu-active`): worked out from `--surface`, a fixed lightness step away, so a field reads the same on the page, a settings group and a popup. In dark a field sits 0.04 below its surface (never above 0.23), its hover 0.06 above the field (never above 0.26), focus 0.025 above; light fields sit 0.02 above their surface (never above 0.995) and step darker. `--surface` is the page; a surface that holds fields declares its own with the `surface` class (`popupSurfaceClass`, settings groups). The rule and its demo are on the gallery's Interaction states page.
+- **Fields step from their surface** (`--field`, `--field-hover`, `--field-focus`, `--field-line`, and the menu highlight `--menu-hover`, `--menu-active`): worked out from `--surface`, a fixed lightness step away, so a field reads the same on the page, a settings group and a popup. In dark a field sits 0.04 below its surface (never above 0.23), its hover 0.06 above the field (never above 0.26), focus 0.025 above; light fields sit 0.02 above their surface (never above 0.995) and step darker. They step from the same `--surface` as the fills above. The rule and its demo are on the gallery's Interaction states page.
 - **Comment bubble** (`--comment-bubble`: `--page` mixed 4.5% / 5% toward `--foreground`): a comment's bubble on the ticket timeline, lifted off the page in both themes (the old `--card` was darker than the dark page, so comments sank into it).
 - **Bare field placeholder** (`--placeholder-hover`, `--placeholder-focus`: `--muted-foreground` mixed 18% and 30% toward `--foreground`): bare fields in running text (composer titles and descriptions, the ticket title and description, in-place names) have no fill in any state; only the placeholder steps up on hover and again while focused, staying in the placeholder range.
-- **Tint** (`--tint` 9% / 14%, `--tint-hover` 7.2% / 11%): the see-through secondary button fill.
+- **Tint** (`--tint` 9% / 14%, `--tint-hover` 7.2% / 11%): the segmented track and other quiet filled wells.
 
 Never use `--muted` or `--accent` as a hover fill: on a raised surface they land at the surface's own tone and the hover disappears.
 - **Border** (`oklch(0.9 0 0)` / `oklch(1 0 0 / 10%)` dark): hairline dividers and input strokes.
@@ -313,16 +319,17 @@ Use the ladder when a surface must sit on another surface — board columns and 
 
 `--shadow-1` is `0 0 0 1px` at 7% black with no offset and no blur: it is a **hairline drawn as a ring**, not a lift. Preferring it over a real `border` keeps the element borderless in layout terms — no box-sizing shift, no extra px in a dense row — which is why board cards use it.
 
-### Surface context
+### Elevated pieces
 
-Components that **elevate** read the surface level they sit on instead of hard-coding one (`useSurface()` / `SurfaceProvider` from `lib/surfaceContext`, class lookups from `lib/surfaceClasses`, both from `@fluid`). The page is level 1; a container that raises itself re-provides its own level so anything inside keeps stepping up.
+Things that **elevate** paint a fixed rung of the ladder with `surface-N`, so the fills inside step from it like any other surface. There is no surface-level context: every container that holds them sits at the bottom of the ladder.
 
-- **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a near-white card (`0.99`): a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
+- **`SettingsGroup`** uses `--card` and is a `tertiary-tiles` group. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a near-white card (`0.99`): a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
-- **Dragged list row:** substrate + 1 while it is being dragged.
+- **Segmented track and pills:** the track is `surface-3`; the inline pill `surface-5`, the rail pill `surface-8`.
+- **Dragged list row:** `surface-2` while it is being dragged.
 - **Popovers and menus** use the tooltip's raised skin (`popupSurfaceClass`: `--tooltip`, `--tooltip-edge`), like hover cards, so everything that floats reads as one family. A popup opened from inside another (a select in View options) steps up to `--tooltip-raised` (`oklch(0.33 0 0)` in dark, `oklch(0.996 0 0)` in light), so it floats above its parent instead of reading as a cut-out of it. It's a surface, so fields inside (a menu's search, View options' selects) and the menu highlight step from the popup's fill.
 
-Everything that only changes state on hover or press uses the overlays instead and needs no surface level.
+Everything that only changes state on hover or press uses the surface fills instead and needs no surface level.
 
 ### Named Rules
 
@@ -341,8 +348,8 @@ The single primitive lives in `packages/ui/src/components/button.tsx`, exposing 
 Filled variants (primary, secondary, destructive) share `.button-fill` in the theme: a faint vertical sheen made from the fill's own colour with `color-mix(in oklab)` (`--button-sheen-top` / `--button-sheen-bottom`), shown at rest, gone on hover, a little stronger on press. An optional edge in the fill's colour (`--button-edge`) is off. No borders, no shadows.
 
 - **Primary:** foreground fill, background text; hover mixes 10% background in, press 18%.
-- **Secondary:** see-through `--button-secondary` (5% black / 11% white), stronger on hover and press. It takes on whatever surface it sits on.
-- **Tertiary:** a tile one step up the surface ladder (`surface + 2`), no border, foreground text; hover and press lay `--hover` / `--active` over it. For row actions in settings groups (Disconnect, Change, Refresh). Directly on the page (no `SurfaceProvider`) that step is too faint, so it takes `--button-tertiary`, half of secondary's tint (2.5% / 5%).
+- **Secondary:** `--button-secondary`, the surface it sits on mixed 5.5% toward black / 11% toward white, stronger on hover and press. Solid, so it reads the same over a banner as on the page.
+- **Tertiary:** `--button-tertiary`, half of secondary's tint (2.75% / 5%), worked out from the surface like secondary. In a `tertiary-tiles` group (settings groups, appearance cards) the tint is too faint on the recessed well, so it is a flat `--surface-3` tile instead, no border, foreground text, with hover and press stepped from the tile. For row actions there (Disconnect, Change, Refresh).
 - **Ghost:** transparent, no fill at rest; `bg-hover` on hover. `tone="muted"` (default) has `muted-foreground` text that turns full foreground on hover — default for icon-only chrome and page chrome like Back. `tone="strong"` has full foreground text — for inline triggers that show a value, such as ticket fields (status, sprint, assignee). Fields switch to muted while they are empty. At `md` ghost uses 10px padding (8px on the icon side), tighter than filled buttons. A ghost with `aria-pressed` shows the pressed state (`bg-active`, full foreground text), which covers toggles.
 - **Destructive:** tonal — `--destructive` text on `--destructive-light`, deepening by 10% / 16% on hover / press; reserved for delete and irreversible-action confirms.
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.
@@ -457,7 +464,7 @@ It never appears on functional controls.
 
 **The Hover Asymmetry Rule.** Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes are **instant on enter** and **ease out at ~150ms on exit**. Implemented as a single global rule in `styles.css`. Hover-affected elements must declare a `transition-colors` / `transition-opacity` class — without it, both directions snap.
 
-**The Relative States Rule.** Hover, pressed, and secondary fills are overlays (`bg-hover`, `bg-active`, `bg-tint`); only things that elevate read the surface level. A fixed grey for a state is wrong the moment the control lands on a different surface.
+**The Relative States Rule.** Hover, pressed, and secondary fills are worked out from `--surface` (`bg-hover`, `bg-active`, `bg-tint`, `surface-lit`); only things that elevate read the surface level. A fixed grey for a state is wrong the moment the control lands on a different surface, and a see-through one is wrong the moment it lands on an image. Anything that paints a background paints it with `surface-*`, so the fills inside know what they sit on.
 
 **The Variant-Over-Local Rule.** When a one-off styled version of an existing component appears at a callsite, the response is to add a variant to the primitive, not to re-skin the component locally. Local styles compound; typed variant props keep the design language singular.
 

@@ -44,6 +44,7 @@ import * as Schema from "effect/Schema"
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
 import type * as Markdown from "../markdown/Markdown"
 import * as BannerPlaceholders from "./BannerPlaceholders"
+import { notifyProjectChange } from "./projectChange"
 import * as ProjectDetails from "./ProjectDetails"
 import * as ProjectDocs from "./ProjectDocs"
 import {
@@ -569,6 +570,16 @@ const make = Effect.gen(function* () {
           estimation: nextEstimation,
           links: nextLinks
         })
+        if (nextBody !== file.body || links !== undefined)
+          yield* db
+            .execute(
+              notifyProjectChange(indexRow.id, { kind: "project", id: null })
+            )
+            .pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning("project change notification failed", cause)
+              )
+            )
 
         return ProjectDetails.presentDetail(scope, {
           org: orgSlug,

@@ -1,7 +1,12 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
 import { BreadcrumbItem, Breadcrumbs as Trail } from "@pp/ui/breadcrumbs"
-import { Link, useMatches, useSearch } from "@tanstack/react-router"
+import {
+  Link,
+  useMatches,
+  useRouterState,
+  useSearch
+} from "@tanstack/react-router"
 import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -265,22 +270,26 @@ function TicketCrumb({
   id
 }: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const stepped = useAtomValue(steppedTicket)
-  if (stepped?.urlId === id) {
-    return <TicketCrumbText id={stepped.id} title={stepped.title} />
-  }
-  return <LoadedTicketCrumb orgSlug={orgSlug} slug={slug} id={id} />
-}
-
-function LoadedTicketCrumb({
-  orgSlug,
-  slug,
-  id
-}: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
+  const titleHint = useRouterState({
+    select: (state) => state.location.state.ticketTitle
+  })
+  if (stepped?.urlId === id) {
+    return (
+      <TicketCrumbText id={stepped.id} title={stepped.title} animate={false} />
+    )
+  }
   return (
     <TicketCrumbText
       id={id}
-      title={Result.isSuccess(result) ? result.value.title : null}
+      title={
+        Result.isSuccess(result)
+          ? result.value.title
+          : Result.isInitial(result)
+            ? (titleHint ?? null)
+            : null
+      }
+      animate
     />
   )
 }
@@ -288,12 +297,14 @@ function LoadedTicketCrumb({
 // The ticket is always the last crumb: the page, so it never links.
 function TicketCrumbText({
   id,
-  title
-}: Readonly<{ id: TicketId; title: string | null }>) {
+  title,
+  animate
+}: Readonly<{ id: TicketId; title: string | null; animate: boolean }>) {
   return (
     <BreadcrumbItem
       prefix={id}
       label={title}
+      animate={animate}
       loadingWidth="16ch"
       loadingLabel={m.nav_crumb_loading({ slug: id })}
     />

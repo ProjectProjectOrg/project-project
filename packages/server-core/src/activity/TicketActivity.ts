@@ -32,6 +32,7 @@ import { applyInbox, lockTickets, removeTicketInbox } from "../inbox/inboxRows"
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import { removeTicketPins } from "../pins/pinRows"
+import { notifyProjectChange } from "../projects/projectChange"
 import type { SubscriptionIntent } from "../subscriptions/intents"
 import {
   applySubscriptions,
@@ -63,6 +64,7 @@ export type RecordEffects = Readonly<{
   finished?: ReadonlySet<string> | null
   statusBefore?: string
   touched?: boolean
+  commentsChanged?: boolean
   settleLater?: boolean
 }>
 
@@ -309,6 +311,24 @@ const make = Effect.gen(function* () {
   ) {
     const projectId = yield* projectIdOf(orgSlug, slug)
     if (projectId === null) return yield* write
+    const change: Parameters<typeof notifyProjectChange>[1] | null =
+      document.kind === "group"
+        ? { kind: "sprints", id: document.id }
+        : effects.commentsChanged === true
+          ? { kind: "comments", id: document.id }
+          : null
+    const written =
+      change === null
+        ? write
+        : Effect.tap(write, () =>
+            db
+              .execute(notifyProjectChange(projectId, change))
+              .pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logWarning("project change notification failed", cause)
+                )
+              )
+          )
     const [, subscriptions] = yield* Effect.all(
       [
         settlePending(orgSlug, slug, projectId, document),
@@ -354,7 +374,7 @@ const make = Effect.gen(function* () {
       notices.length === 0 &&
       effects.touched !== true
     )
-      return yield* write
+      return yield* written
     const actor = yield* ActivityActor
     const occurredAt = DateTime.formatIso(yield* DateTime.now)
     const inbox =
@@ -415,7 +435,7 @@ const make = Effect.gen(function* () {
       })
       .pipe(Effect.orDie)
     return yield* Effect.gen(function* () {
-      const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
+      const result = yield* written.pipe(Effect.onError(() => discard(batchId)))
       if (effects.settleLater === true) return result
       yield* commit(
         batchId,

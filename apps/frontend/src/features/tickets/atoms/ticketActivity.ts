@@ -5,6 +5,8 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 
+import { ticketContentKey } from "../lib/ticketContent"
+
 export type TicketActivityRequest = Readonly<{
   params: Readonly<{
     orgSlug: string
@@ -31,12 +33,17 @@ const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
   query("ticketActivity", "list", {
     params: req.params,
     query: cursor === null ? {} : { cursor },
-    timeToLive: "5 minutes",
+    serializationKey:
+      cursor === null ? ticketContentKey(req.params) : undefined,
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticket(scopeOf(req), req.params.id),
+      Keys.projectResync(scopeOf(req)),
       Keys.sprintMembership(scopeOf(req))
     ]
   })
+
+export const ticketActivityFirstPage = (req: TicketActivityRequest) =>
+  pageQuery(req, null)
 
 export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
   Atom.readable(

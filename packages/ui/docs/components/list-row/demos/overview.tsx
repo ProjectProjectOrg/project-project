@@ -32,7 +32,7 @@ export default function Overview() {
     })
   return (
     <div
-      className="@container w-full rounded-xl bg-page p-3"
+      className="@container w-full rounded-xl surface-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
       <ListHoverScope>

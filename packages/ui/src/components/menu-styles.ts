@@ -9,7 +9,7 @@ import { createContext, use } from "react"
 // layer above the content: as the popup's own inset shadow, a tinted child
 // (the composer's tray, cmd+k's list) would paint over it.
 export const popupSurfaceClass =
-  "relative isolate origin-[var(--transform-origin)] rounded-[19px] bg-(color:--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+  "relative isolate origin-[var(--transform-origin)] rounded-[19px] surface-(--tooltip) text-foreground outline-none [corner-shape:var(--button-corner)] after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:var(--button-corner)]"
 
 // Whether content sits inside a popup. Every popup provides it, and a popup
 // opened from inside one takes the raised fill (--tooltip-raised).
@@ -55,3 +55,6 @@ export const menuChoiceIndicatorClass =
 
 export const menuItemMetaClass =
   "ml-auto text-micro text-muted-foreground tabular-nums"
+
+export const menuItemDetailClass =
+  "ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-right text-muted-foreground tabular-nums [:is([data-highlighted],[data-menu-held],[data-menu-resting])_&]:text-foreground"

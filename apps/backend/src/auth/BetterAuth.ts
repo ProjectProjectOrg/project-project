@@ -475,10 +475,17 @@ export const BetterAuthLive = Layer.effect(
       me,
       updateSettings,
       getSession: Effect.fn("BetterAuth.getSession")(function* (
-        headers: Headers
+        headers: Headers,
+        options?: Parameters<BetterAuth.BetterAuth["Service"]["getSession"]>[1]
       ) {
         return yield* Effect.tryPromise({
-          try: () => auth.api.getSession({ headers }),
+          try: () =>
+            auth.api.getSession({
+              headers,
+              query: options?.revalidate
+                ? { disableCookieCache: true, disableRefresh: true }
+                : undefined
+            }),
           catch: (cause) => new BetterAuth.BetterAuthError({ cause })
         })
       }),

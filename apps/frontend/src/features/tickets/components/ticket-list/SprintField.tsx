@@ -5,7 +5,13 @@ import { Button } from "@pp/ui/button"
 import { Chip } from "@pp/ui/chip"
 import { CircleDashed, Plus, Zap } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+import {
+  PickerField,
+  PickerFieldOpen,
+  PickerFieldValue
+} from "@pp/ui/picker-field"
 import { TextSwap } from "@pp/ui/text-swap"
+import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useState } from "react"
 
@@ -238,42 +244,50 @@ export function SprintBadgeTrigger({
   if (!hasAnyEligible) return null
 
   return (
-    <fieldset disabled={current !== null && !canMove} className="contents">
-      <SprintAssignMenu
-        open={open}
-        onOpenChange={setOpen}
-        sprints={sprints}
-        selectedId={current?.id ?? null}
-        onSelect={(s) => {
-          if (s !== null) addTickets({ groupId: s.id })
-          else if (current) void removeTickets({ groupId: current.id })
-        }}
-        trigger={
-          <Button
-            type="button"
-            variant="ghost"
-            tone={failed ? "error" : current ? "strong" : "muted"}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={
-              failed ? label : m.tickets_sprint_chip_aria({ name: label })
-            }
-            className={className}
-          >
-            <TextSwap
-              className="max-w-[14ch] gap-1.5"
-              icon={
-                current ? (
-                  <SprintStateIcon sprint={current} size="sm" />
-                ) : (
-                  <CircleDashed className="size-3.5" strokeWidth={1.75} />
-                )
+    <PickerField>
+      <fieldset disabled={current !== null && !canMove} className="contents">
+        <SprintAssignMenu
+          open={open}
+          onOpenChange={setOpen}
+          sprints={sprints}
+          selectedId={current?.id ?? null}
+          tooltip={label}
+          onSelect={(s) => {
+            if (s !== null) addTickets({ groupId: s.id })
+            else if (current) void removeTickets({ groupId: current.id })
+          }}
+          trigger={
+            <PickerFieldValue
+              empty={current === null}
+              tone={failed ? "error" : undefined}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={
+                failed ? label : m.tickets_sprint_chip_aria({ name: label })
               }
+              className={className}
             >
-              {label}
-            </TextSwap>
-          </Button>
-        }
-      />
-    </fieldset>
+              {current ? (
+                <SprintStateIcon sprint={current} size="sm" />
+              ) : (
+                <CircleDashed className="size-3.5" strokeWidth={1.75} />
+              )}
+              <span className="max-w-[24ch] truncate">{label}</span>
+            </PickerFieldValue>
+          }
+        />
+      </fieldset>
+      {current !== null && (
+        <PickerFieldOpen
+          label={m.tickets_sprint_open_action()}
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+              params={{ orgSlug, slug, groupId: current.id }}
+              preload="intent"
+            />
+          }
+        />
+      )}
+    </PickerField>
   )
 }

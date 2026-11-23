@@ -46,7 +46,7 @@ export default function InTheApp() {
   return (
     <div className="@container grid w-full gap-8 @2xl:grid-cols-[repeat(3,minmax(0,1fr))]">
       <Case caption="Ticket › Sub-tickets: the + button (AddChildTicketButton)">
-        <div className="flex items-center justify-between rounded-xl bg-card px-3 py-1.5">
+        <div className="flex items-center justify-between rounded-xl surface-card px-3 py-1.5">
           <span className="text-subtitle font-semibold">Sub-tickets</span>
           <ContextMenu>
             <ContextMenuTrigger

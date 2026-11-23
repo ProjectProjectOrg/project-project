@@ -19,7 +19,7 @@ export default function InTheApp() {
   const [result, setResult] = useState<SelectionBarResult | undefined>()
   const next = status === "progress" ? STATUS.review : undefined
   return (
-    <div className="flex min-h-40 w-full flex-col justify-end rounded-xl bg-page p-2">
+    <div className="flex min-h-40 w-full flex-col justify-end rounded-xl surface-page p-2">
       <SelectionBar
         label="Actions for 4 selected tickets"
         count="4 selected"

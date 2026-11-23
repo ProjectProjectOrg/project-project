@@ -11,7 +11,7 @@ import {
 // A board card's hovers: the same chips as on a row, in the card's order.
 export default function OnACard() {
   return (
-    <div className="mx-auto w-full max-w-80 rounded-[22px] bg-surface-1 p-2 [corner-shape:var(--button-corner)]">
+    <div className="mx-auto w-full max-w-80 rounded-[22px] surface-1 p-2 [corner-shape:var(--button-corner)]">
       <BoardCard
         link={
           <ItemLink

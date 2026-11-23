@@ -68,12 +68,13 @@ export function urlCommitDelay(
 export function warmWindow(
   tickets: ReadonlyArray<TicketSequenceEntry>,
   shown: TicketId,
-  direction: StepDirection
+  direction: StepDirection,
+  reach = WARM_AHEAD
 ) {
   const index = tickets.findIndex((ticket) => ticket.id === shown)
   if (index === -1) return []
-  const ahead = direction === 1 ? WARM_AHEAD : WARM_BEHIND
-  const behind = direction === 1 ? WARM_BEHIND : WARM_AHEAD
+  const ahead = direction === 1 ? reach : WARM_BEHIND
+  const behind = direction === 1 ? WARM_BEHIND : reach
   return tickets
     .slice(Math.max(0, index - behind), index + ahead + 1)
     .map((ticket) => ticket.id)

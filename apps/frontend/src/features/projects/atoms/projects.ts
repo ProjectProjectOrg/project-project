@@ -83,7 +83,6 @@ const projectsQuery = (req: ProjectsRequest) =>
   Atom.map(
     query("projects", "list", {
       params: req.params,
-      timeToLive: "1 minute",
       reactivityKeys: [Keys.projects(req.params.orgSlug)]
     }),
     (result) => {
@@ -104,7 +103,6 @@ export const confirmedProject = (req: ProjectRequest) =>
   Atom.map(
     query("projects", "get", {
       params: req.params,
-      timeToLive: "2 minutes",
       reactivityKeys: [
         Keys.project(scopeOf(req)),
         Keys.orgMembers(req.params.orgSlug),
@@ -193,7 +191,7 @@ export const deleteProject = Atom.family((req: ProjectRequest) =>
       yield* Reactivity.invalidate([
         Keys.project(scopeOf(req)),
         Keys.projects(req.params.orgSlug),
-        Keys.ticketsIn(scopeOf(req))
+        Keys.ticketLists(scopeOf(req))
       ])
     })
   )
@@ -428,7 +426,7 @@ export const createProject = Atom.family((req: ProjectsRequest) =>
       yield* Reactivity.invalidate([
         Keys.projects(req.params.orgSlug),
         Keys.project(projectScope(req.params.orgSlug, created.slug)),
-        Keys.ticketsIn(projectScope(req.params.orgSlug, created.slug))
+        Keys.ticketLists(projectScope(req.params.orgSlug, created.slug))
       ])
       return created
     })

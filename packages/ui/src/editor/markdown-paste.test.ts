@@ -1,18 +1,13 @@
 // @vitest-environment jsdom
-import { CodeNode, $createCodeNode } from "@lexical/code"
-import { HorizontalRuleNode } from "@lexical/extension"
+import { $createCodeNode } from "@lexical/code-core"
+import { buildEditorFromExtensions } from "@lexical/extension"
 import { createEmptyHistoryState, registerHistory } from "@lexical/history"
-import { LinkNode } from "@lexical/link"
-import { ListNode, ListItemNode } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
-import { HeadingNode, QuoteNode, registerRichText } from "@lexical/rich-text"
-import { TableNode, TableRowNode, TableCellNode } from "@lexical/table"
-import { TicketId } from "@pp/shared"
+} from "@lexical/mdast"
+import { RichTextExtension } from "@lexical/rich-text"
 import * as Match from "effect/Match"
-import * as Schema from "effect/Schema"
 import {
   $createParagraphNode,
   $createTextNode,
@@ -22,7 +17,7 @@ import {
   $nodesOfType,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
-  createEditor,
+  defineExtension,
   PASTE_COMMAND,
   SELECTION_INSERT_CLIPBOARD_NODES_COMMAND,
   UNDO_COMMAND,
@@ -38,24 +33,17 @@ import {
   vi
 } from "vitest"
 
-import { ImageNode } from "../editor/image-node"
 import { registerMarkdownPaste } from "../editor/markdown-paste"
+import { AttachmentExtension } from "./attachments/attachment-extension"
 import { AttachmentNode } from "./attachments/attachment-node"
-import { transformersForAttachments } from "./editor-transformers"
-import { MentionNode } from "./mentions/mention-node"
+import { MarkdownExtension } from "./markdown-extension"
+import { MentionExtension } from "./mentions/mention-extension"
 
 beforeAll(() => {
   vi.stubGlobal("ClipboardEvent", class ClipboardEvent extends Event {})
   vi.stubGlobal("DragEvent", class DragEvent extends Event {})
 })
 afterAll(() => vi.unstubAllGlobals())
-
-const transformers = transformersForAttachments({
-  orgSlug: "acme",
-  slug: "web",
-  ticketId: Schema.decodeUnknownSync(TicketId)("T-1"),
-  uploadsEnabled: true
-})
 
 function pasteEvent(text: string, html = "", files: File[] = []) {
   const event = new ClipboardEvent("paste", { cancelable: true })
@@ -75,33 +63,27 @@ function pasteEvent(text: string, html = "", files: File[] = []) {
 }
 
 function createPasteEditor(text = "", code = false) {
-  const editor = createEditor({
-    nodes: [
-      ImageNode,
-      TableNode,
-      TableRowNode,
-      TableCellNode,
-      CodeNode,
-      HeadingNode,
-      QuoteNode,
-      ListNode,
-      ListItemNode,
-      LinkNode,
-      HorizontalRuleNode,
-      MentionNode,
-      AttachmentNode
-    ],
-    onError: (error) => {
-      throw error
-    }
-  })
-  onTestFinished(registerRichText(editor))
-  onTestFinished(registerMarkdownPaste(editor, transformers))
+  const editor = buildEditorFromExtensions(
+    defineExtension({
+      name: "markdown-paste-test",
+      dependencies: [
+        RichTextExtension,
+        MarkdownExtension,
+        MentionExtension,
+        AttachmentExtension
+      ],
+      onError: (error) => {
+        throw error
+      }
+    })
+  )
+  onTestFinished(registerMarkdownPaste(editor))
   onTestFinished(registerHistory(editor, createEmptyHistoryState(), 1000))
   editor.update(
     () => {
       const block = code ? $createCodeNode() : $createParagraphNode()
       $getRoot()
+        .clear()
         .append(block.append($createTextNode(text)))
         .selectEnd()
     },
@@ -120,9 +102,7 @@ function paste(editor: LexicalEditor, event: ClipboardEvent) {
 }
 
 function markdown(editor: LexicalEditor) {
-  return editor
-    .getEditorState()
-    .read(() => $convertToMarkdownString(transformers))
+  return editor.read(() => $convertToMarkdownString())
 }
 
 describe("Markdown paste", () => {
@@ -152,7 +132,7 @@ describe("Markdown paste", () => {
     const loaded = createPasteEditor()
     loaded.update(
       () => {
-        $convertFromMarkdownString(source, transformers)
+        $convertFromMarkdownString(source)
       },
       { discrete: true }
     )
@@ -160,9 +140,7 @@ describe("Markdown paste", () => {
       loaded.getEditorState().toJSON()
     )
     if (source.includes("/api/attachments/"))
-      expect(
-        pasted.getEditorState().read(() => $nodesOfType(AttachmentNode))
-      ).toHaveLength(1)
+      expect(pasted.read(() => $nodesOfType(AttachmentNode))).toHaveLength(1)
   })
 
   it("continues typing with the pasted text's formatting", () => {
@@ -209,11 +187,9 @@ describe("Markdown paste", () => {
   it("keeps Markdown literal inside code blocks", () => {
     const editor = createPasteEditor("", true)
     paste(editor, pasteEvent("**bold**"))
+    expect(editor.read(() => $getRoot().getTextContent())).toBe("**bold**")
     expect(
-      editor.getEditorState().read(() => $getRoot().getTextContent())
-    ).toBe("**bold**")
-    expect(
-      editor.getEditorState().read(() =>
+      editor.read(() =>
         $getRoot()
           .getAllTextNodes()
           .some((node) => node.hasFormat("bold"))

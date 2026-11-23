@@ -18,6 +18,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
+import { childTickets, childTicketsRequest } from "./childTickets"
 import {
   loadMoreMyTickets,
   myTicketBoard,
@@ -453,6 +454,54 @@ describe("updateMyTicket", () => {
         })
       )
       expect(statusOf("web")).toBe("in_progress")
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("updateMyTicket on a sub-ticket", () => {
+  it("refreshes its parent's sub-tickets", async () => {
+    const calls: Array<string> = []
+    const parent = TicketId.make("WEB-9")
+    serve(
+      {
+        mine: [row("web", "WEB-1", "todo")],
+        nextCursor: null,
+        recent: []
+      },
+      calls,
+      () =>
+        Promise.resolve(
+          Response.json(
+            encodeUpdate({
+              ticket: makeTicketDetail({
+                ...ticketOf("WEB-1", "done"),
+                parent: { id: parent, title: "Parent", type: null }
+              }),
+              orderKey: null
+            })
+          )
+        )
+    )
+    const registry = AtomRegistry.make()
+    const children = childTickets(childTicketsRequest("acme", "web", parent))
+    const mutation = updateMyTicket({
+      req,
+      viewerId: "user-1",
+      projectSlug: "web",
+      id: webTicketId
+    })
+    const childReads = () =>
+      calls.filter((call) => call === "GET /api/orgs/acme/projects/web/tickets")
+        .length
+    registry.mount(myTickets(req))
+    registry.mount(children)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() => expect(childReads()).toBe(1))
+      registry.set(mutation, { status: Ticket.fields.status.make("done") })
+      await vi.waitFor(() => expect(childReads()).toBe(2))
     } finally {
       registry.dispose()
     }

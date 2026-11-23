@@ -208,20 +208,20 @@ function useMentionChipDeletion(editor: LexicalEditor) {
       target.remove()
       return true
     }
-    const removeBackspace = editor.registerCommand<KeyboardEvent | null>(
+    const removeBackspace = editor.registerCommand(
       KEY_BACKSPACE_COMMAND,
       (e) => {
         const removed = removeMention(adjacentNode("previous"))
-        if (removed) e?.preventDefault()
+        if (removed) e.preventDefault()
         return removed
       },
       COMMAND_PRIORITY_LOW
     )
-    const removeDelete = editor.registerCommand<KeyboardEvent | null>(
+    const removeDelete = editor.registerCommand(
       KEY_DELETE_COMMAND,
       (e) => {
         const removed = removeMention(adjacentNode("next"))
-        if (removed) e?.preventDefault()
+        if (removed) e.preventDefault()
         return removed
       },
       COMMAND_PRIORITY_LOW

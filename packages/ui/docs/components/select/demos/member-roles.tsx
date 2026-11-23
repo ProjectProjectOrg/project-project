@@ -42,7 +42,7 @@ export default function MemberRoles() {
     Object.fromEntries(PEOPLE.map((person) => [person.id, person.role]))
   )
   return (
-    <ul className="w-full max-w-md divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <ul className="w-full max-w-md divide-y divide-border overflow-hidden rounded-lg border border-border surface-card">
       {PEOPLE.map((person) => {
         const role = roles[person.id] ?? "developer"
         const { label, icon: Icon } = ROLES[role]

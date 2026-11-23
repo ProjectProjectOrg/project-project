@@ -243,6 +243,7 @@ type BreadcrumbItemProps = Readonly<{
   // The link to render (a router Link). The last crumb is the current page
   // and never links.
   render?: useRender.RenderProp
+  animate?: boolean
 }>
 
 function BreadcrumbItem({
@@ -251,7 +252,8 @@ function BreadcrumbItem({
   loadingWidth = "8ch",
   prefix,
   detail,
-  render
+  render,
+  animate = true
 }: BreadcrumbItemProps) {
   const position = use(PositionContext)
   const index = position?.index ?? 0
@@ -274,6 +276,7 @@ function BreadcrumbItem({
     <span className="flex shrink-0 items-baseline">
       {/* Always mounted, so a prefix that comes or goes rolls in or out. */}
       <TextSwap
+        animate={animate}
         className={cn(
           "shrink-0 text-caption/[var(--lh-body)] text-muted-foreground tabular-nums transition-[margin] duration-260",
           prefix && label !== undefined ? "mr-1.5" : "mr-0"
@@ -284,7 +287,10 @@ function BreadcrumbItem({
       {label === undefined ? null : (
         // Remounted once when the first name arrives, so it appears at its
         // width instead of rolling in from nothing.
-        <TextSwap key={shownLabel === null ? "empty" : "named"}>
+        <TextSwap
+          key={shownLabel === null ? "empty" : "named"}
+          animate={animate}
+        >
           {shownLabel ?? ""}
         </TextSwap>
       )}

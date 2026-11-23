@@ -302,7 +302,6 @@ describe("project member mutations", () => {
     const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "orgMembers" },
-      timeToLive: "2 minutes",
       reactivityKeys: [Keys.orgMembers("acme")]
     })
     fetchStub.set((_input, init) => {
@@ -375,7 +374,6 @@ describe("project member mutations", () => {
     const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "orgMembers" },
-      timeToLive: "2 minutes",
       reactivityKeys: [Keys.orgMembers("acme")]
     })
     fetchStub.set((_input, init) => {
@@ -422,7 +420,6 @@ describe("leaving a project", () => {
     const probe = query("tickets", "count", {
       params: { orgSlug: "acme", slug: "web" },
       query: { q: "projects" },
-      timeToLive: "2 minutes",
       reactivityKeys: [Keys.projects("acme")]
     })
     fetchStub.set((input, init) => {

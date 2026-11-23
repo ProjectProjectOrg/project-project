@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { mergeRegister } from "@lexical/utils"
@@ -68,12 +67,10 @@ const LANDING_MS = 1500
 const NO_LANDING: ReadonlyMap<NodeKey, number> = new Map()
 
 export function BlockGutterPlugin({
-  blocks,
-  transformers
+  blocks
 }: Readonly<{
   blocks: Pick<EditorBlocks, "library" | "canEdit" | "onMakeDefinition"> &
     Partial<Pick<EditorBlocks, "mode">>
-  transformers: ReadonlyArray<Transformer>
 }>) {
   const [editor] = useLexicalComposerContext()
   const editable = useLexicalEditable()
@@ -122,12 +119,11 @@ export function BlockGutterPlugin({
       setMenu(
         $blockMenuModel(node, {
           lookup,
-          transformers,
           blocks: { canEdit, onMakeDefinition, mode }
         })
       )
     },
-    [canEdit, editor, lookup, mode, onMakeDefinition, transformers]
+    [canEdit, editor, lookup, mode, onMakeDefinition]
   )
 
   useEffect(
@@ -150,7 +146,6 @@ export function BlockGutterPlugin({
           COMMAND_PRIORITY_LOW
         ),
         registerBlockKeyboard(editor, {
-          transformers,
           onMoved: announceMoved,
           onRemoved: (blockType) =>
             announce(
@@ -161,7 +156,7 @@ export function BlockGutterPlugin({
           onOpenMenu: $openMenu
         })
       ),
-    [$openMenu, announce, announceMoved, editor, lookup, transformers]
+    [$openMenu, announce, announceMoved, editor, lookup]
   )
 
   useEffect(() => {
@@ -331,12 +326,12 @@ export function BlockGutterPlugin({
               announce(m.editor_block_announce_reverted({ name }))
               return
             }
-            $resetBlock(node, definition, transformers)
+            $resetBlock(node, definition)
             announce(m.editor_block_announce_reset({ name }))
             return
           }
           case "unwrap":
-            $unwrapBlock(node, model.content, transformers)
+            $unwrapBlock(node, model.content)
             announce(m.editor_block_announce_unwrapped({ name }))
             return
           case "remove":

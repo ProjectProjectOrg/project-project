@@ -42,7 +42,8 @@ import {
  * menu, the reply editor, and every string.
  */
 
-const surfaceClass = "bg-(--comment-bubble) [corner-shape:var(--button-corner)]"
+const surfaceClass =
+  "surface-(--comment-bubble) [corner-shape:var(--button-corner)]"
 
 export function CommentThread({ className, ...props }: ComponentProps<"div">) {
   return (

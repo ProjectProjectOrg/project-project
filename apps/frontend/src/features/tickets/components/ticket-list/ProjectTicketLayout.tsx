@@ -118,9 +118,18 @@ export function ProjectTicketLayout({
   const isBoard = view === "board"
   const scopeFilters: ReadonlyArray<FilterDimension> = groupId
     ? isBoard
-      ? ["flagged", "blocked", "type", "assignee", "tags"]
-      : ["flagged", "blocked", "archived", "type", "assignee", "tags"]
-    : ["flagged", "blocked", "archived", "type", "assignee", "sprint", "tags"]
+      ? ["flagged", "blocked", "type", "assignee", "epic", "tags"]
+      : ["flagged", "blocked", "archived", "type", "assignee", "epic", "tags"]
+    : [
+        "flagged",
+        "blocked",
+        "archived",
+        "type",
+        "assignee",
+        "sprint",
+        "epic",
+        "tags"
+      ]
   const filterDimensions: ReadonlyArray<FilterDimension> =
     project.estimation === "off" ? scopeFilters : [...scopeFilters, "estimate"]
   const countsSource = {

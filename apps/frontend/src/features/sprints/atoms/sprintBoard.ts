@@ -43,9 +43,8 @@ export type BoardValue = Readonly<{
 const ticketsQuery = (req: BoardRequest) =>
   query("groups", "listTickets", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.sprintMembership(scopeOf(req), req.params.id),
       Keys.orgMembers(req.params.orgSlug)
     ]

@@ -26,9 +26,7 @@ const meAtom = Atom.optimistic(meQuery)
 
 export const me = () => meAtom
 
-export const signInProviders = query("publicAuth", "signInProviders", {
-  timeToLive: "5 minutes"
-})
+export const signInProviders = query("publicAuth", "signInProviders", {})
 
 export const currentUserId = Atom.make((get) => {
   const viewer = get(meAtom)

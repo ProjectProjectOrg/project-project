@@ -5,6 +5,7 @@ export type FilterDimension =
   | "assignee"
   | "tags"
   | "sprint"
+  | "epic"
   | "estimate"
   | "archived"
   | "blocked"
@@ -15,6 +16,7 @@ const FILTER_KEYS: Readonly<Record<FilterDimension, keyof TicketFilter>> = {
   assignee: "assignee",
   tags: "tags",
   sprint: "groupId",
+  epic: "parent",
   estimate: "estimate",
   archived: "archived",
   blocked: "blocked",

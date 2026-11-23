@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { $convertToMarkdownString } from "@lexical/markdown"
+import { $convertToMarkdownString } from "@lexical/mdast"
 import {
   expandType,
   typeFor,
@@ -10,10 +10,7 @@ import {
 import { AttachmentAvailabilityProvider } from "@pp/ui/editor/attachments/availability"
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { $selectFirstHint } from "@pp/ui/editor/blocks/block-commands"
-import {
-  attachmentsForDescription,
-  transformersForAttachments
-} from "@pp/ui/editor/editor-transformers"
+import { attachmentsForDescription } from "@pp/ui/editor/editor-transformers"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { type SaveStatus } from "@pp/ui/editor/save-queue"
@@ -112,7 +109,6 @@ export function DescriptionField({
     ticketId: ticket.id,
     storageActive
   })
-  const transformers = transformersForAttachments(attachments)
   const editorRef = useRef<LexicalEditorType | null>(null)
   const involved = useTicketParticipants(ticket.id)
   const library = blocks?.library ?? null
@@ -136,15 +132,12 @@ export function DescriptionField({
     startEditing()
     if (key !== ticket.type) onStartType(key)
     else if (editor !== null && definition !== null)
-      startFromTemplate(editor, expandType(definition, lookup), {
-        transformers,
-        lookup
-      })
+      startFromTemplate(editor, expandType(definition, lookup), { lookup })
   }
 
   useImperativeHandle(ref, () => {
     const markdownOf = (editor: LexicalEditorType) =>
-      editor.getEditorState().read(() => $convertToMarkdownString(transformers))
+      editor.read(() => $convertToMarkdownString())
     return {
       swapTemplate: (from, to) => {
         const editor = editorRef.current
@@ -152,10 +145,7 @@ export function DescriptionField({
         const body = markdownOf(editor)
         const template = templateSwap({ library, body, from, to })
         if (template === null) return null
-        replaceWithTemplate(editor, expandType(template, lookup), {
-          transformers,
-          lookup
-        })
+        replaceWithTemplate(editor, expandType(template, lookup), { lookup })
         return {
           name: template.name,
           previous: body,
@@ -164,7 +154,7 @@ export function DescriptionField({
       },
       restore: (markdown) => {
         const editor = editorRef.current
-        if (editor !== null) restoreBody(editor, markdown, transformers)
+        if (editor !== null) restoreBody(editor, markdown)
       },
       matches: (markdown) => {
         const editor = editorRef.current
@@ -182,7 +172,7 @@ export function DescriptionField({
         )
       }
     }
-  }, [library, lookup, transformers, startEditing])
+  }, [library, lookup, startEditing])
 
   const landedRef = useRef(false)
   useEffect(() => {

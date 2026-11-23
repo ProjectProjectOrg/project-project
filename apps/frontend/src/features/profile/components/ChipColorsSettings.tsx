@@ -114,7 +114,7 @@ function ChipColorsPreview({ rich }: Readonly<{ rich: boolean }>) {
       <div
         className={cn(
           listGridClassName,
-          "grid-cols-[auto_auto_auto_auto_minmax(0,1fr)_auto_auto_auto] rounded-xl bg-page p-1"
+          "grid-cols-[auto_auto_auto_auto_minmax(0,1fr)_auto_auto_auto] rounded-xl surface-page p-1"
         )}
         style={{ "--ticket-key-width": "5ch" }}
       >

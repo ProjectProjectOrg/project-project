@@ -128,7 +128,7 @@ export function TicketPage({
           template={{ ticket, body: bodyDraft ?? ticket.body }}
           onDeleted={goToProject}
         >
-          <aside className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pl-5">
+          <aside className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5">
             <fieldset disabled={!canEdit} className="contents">
               <MetaRow
                 inset="control"

@@ -37,7 +37,7 @@ export default function EditorOverview() {
     <EditorKit>
       <div className="@container w-full">
         <div className="grid gap-4 @4xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="min-w-0 rounded-[18px] bg-card p-5 corner-squircle">
+          <div className="min-w-0 rounded-[18px] surface-card p-5 corner-squircle">
             <LexicalEditor
               markdown={START}
               onDraftChange={setMarkdown}

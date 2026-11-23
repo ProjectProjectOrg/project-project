@@ -1,4 +1,4 @@
-import { CodeExtension } from "@lexical/code"
+import { CodeExtension } from "@lexical/code-core"
 import { AutoFocusExtension, HorizontalRuleExtension } from "@lexical/extension"
 import { HistoryExtension } from "@lexical/history"
 import {
@@ -9,13 +9,13 @@ import {
 import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
-  $convertToMarkdownString
-} from "@lexical/markdown"
+  $convertToMarkdownString,
+  MdastShortcutsExtension
+} from "@lexical/mdast"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin"
 import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer"
-import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
@@ -41,14 +41,14 @@ import {
 
 import { ChecklistClickExtension } from "../editor/checklist-click-extension"
 import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
+import { CodeHighlightExtension } from "../editor/code-highlight"
 import { FormattingToolbarPlugin } from "../editor/formatting-toolbar"
-import { HorizontalRuleEnterExtension } from "../editor/horizontal-rule"
-import { ImageNode } from "../editor/image-node"
+import { HorizontalRuleShortcutExtension } from "../editor/horizontal-rule"
 import { LinePlaceholderPlugin } from "../editor/line-placeholder-plugin"
 import { ListTabExtension } from "../editor/list-tab-extension"
 import { registerMarkdownPaste } from "../editor/markdown-paste"
 import { SubmitShortcutPlugin } from "../editor/submit-shortcut-plugin"
-import { CodeHighlightExtension, editorTheme } from "../editor/theme"
+import { editorTheme } from "../editor/theme"
 import { cn } from "../lib/utils"
 import { AttachmentExtension } from "./attachments/attachment-extension"
 import { AttachmentsPlugin } from "./attachments/attachments-plugin"
@@ -57,11 +57,11 @@ import { hasBlockGutter, type EditorBlocks } from "./blocks/editor-blocks"
 import { EditorBlocksProvider } from "./blocks/editor-blocks-context"
 import { SyncedBlockExtension } from "./blocks/synced-block-node"
 import { TicketBlockExtension } from "./blocks/ticket-block-extension"
+import { TicketBlockMarkdownExtension } from "./blocks/ticket-block-markdown"
 import { TicketBlocksPlugins } from "./blocks/ticket-blocks-plugins"
 import { CodeLanguagePlugin } from "./code-language-plugin"
 import {
   AUTO_LINK_MATCHERS,
-  transformersForMode,
   type AttachmentsTarget
 } from "./editor-transformers"
 import { FigmaExtension } from "./figma/figma-extension"
@@ -69,6 +69,7 @@ import { FigmaPlugin } from "./figma/figma-plugin"
 import { formattingToolbarLabels } from "./formatting-toolbar-labels"
 import { LinkFaviconsPlugin } from "./links/link-favicons-plugin"
 import type { MarkdownSize } from "./markdown"
+import { MarkdownExtension } from "./markdown-extension"
 import { MentionExtension } from "./mentions/mention-extension"
 import { MentionsPlugin } from "./mentions/mentions-plugin"
 import { m } from "./messages"
@@ -158,26 +159,20 @@ export function LexicalEditor({
   editorRef,
   editable = true
 }: LexicalEditorProps) {
-  const [transformers] = useState(() =>
-    transformersForMode(blocks?.mode, attachments)
-  )
-  const [hintNodesEnabled] = useState(() => blocks?.mode === "definition")
-  const [attachmentNodesEnabled] = useState(() => attachments !== undefined)
   const [extension] = useState(() => {
     const initialMarkdown = markdown
     const initialAutoFocus = autoFocus
+    const mode = blocks?.mode
     return defineExtension({
       name: "@pp/body-editor",
       namespace: "ProjectBody",
       theme: editorTheme,
-      nodes: [ImageNode],
-      register: (editor: LexicalEditorType) =>
-        registerMarkdownPaste(editor, transformers),
+      register: registerMarkdownPaste,
       onError: (error) => {
         Effect.runFork(Effect.logError("[Lexical]", error))
       },
       $initialEditorState: () => {
-        $convertFromMarkdownString(initialMarkdown, transformers)
+        $convertFromMarkdownString(initialMarkdown)
         const root = $getRoot()
         const last = root.getLastChild()
         if (!last || last.getType() !== "paragraph") {
@@ -185,6 +180,7 @@ export function LexicalEditor({
         }
       },
       dependencies: [
+        MarkdownExtension,
         RichTextExtension,
         configExtension(TableExtension, {
           hasCellMerge: false,
@@ -196,6 +192,7 @@ export function LexicalEditor({
         CheckListExtension,
         ChecklistClickExtension,
         ChecklistShortcutExtension,
+        MdastShortcutsExtension,
         ListTabExtension,
         LinkExtension,
         configExtension(ClickableLinkExtension, {
@@ -208,14 +205,18 @@ export function LexicalEditor({
         CodeExtension,
         CodeHighlightExtension,
         HorizontalRuleExtension,
-        HorizontalRuleEnterExtension,
+        HorizontalRuleShortcutExtension,
         MentionExtension,
         FigmaExtension,
         PaperExtension,
         TicketBlockExtension,
         SyncedBlockExtension,
-        ...(attachmentNodesEnabled ? [AttachmentExtension] : []),
-        ...(hintNodesEnabled ? [HintExtension] : []),
+        mode === "definition"
+          ? HintExtension
+          : configExtension(TicketBlockMarkdownExtension, {
+              emptyAsReference: mode === "template"
+            }),
+        ...(attachments === undefined ? [] : [AttachmentExtension]),
         configExtension(AutoFocusExtension, {
           defaultSelection:
             initialAutoFocus === "start" ? "rootStart" : "rootEnd",
@@ -335,7 +336,7 @@ export function LexicalEditor({
         className
       )}
     >
-      <EditorBlocksProvider blocks={blocks} transformers={transformers}>
+      <EditorBlocksProvider blocks={blocks}>
         <LexicalExtensionComposer
           extension={extension}
           contentEditable={contentEditable}
@@ -372,28 +373,29 @@ export function LexicalEditor({
             <LinePlaceholderPlugin placeholder={m.editor_line_placeholder()} />
           )}
           {blocks !== undefined ? (
-            <TicketBlocksPlugins blocks={blocks} transformers={transformers} />
+            <TicketBlocksPlugins blocks={blocks} />
           ) : (
             <SlashMenuPlugin
               library={NO_LIBRARY}
               ticketType={null}
-              transformers={transformers}
               mode="basic"
             />
           )}
-          <MarkdownShortcutPlugin transformers={transformers} />
           <OnChangePlugin
-            onChange={(editorState) => {
-              editorState.read(() => {
-                const next = $convertToMarkdownString(transformers)
-                const changed = nextMarkdownChange(liveRef.current, next)
-                if (changed === null) return
-                liveRef.current = changed
-                onDraftChange?.(next)
-                saveQueue.enqueue(changed)
-                setStatus("dirty")
-                scheduleRef.current()
-              })
+            onChange={(editorState, editor) => {
+              editorState.read(
+                () => {
+                  const next = $convertToMarkdownString()
+                  const changed = nextMarkdownChange(liveRef.current, next)
+                  if (changed === null) return
+                  liveRef.current = changed
+                  onDraftChange?.(next)
+                  saveQueue.enqueue(changed)
+                  setStatus("dirty")
+                  scheduleRef.current()
+                },
+                { editor }
+              )
             }}
             ignoreSelectionChange
           />

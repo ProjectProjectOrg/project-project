@@ -1,7 +1,6 @@
-import Prism from "prismjs"
 import { useMemo } from "react"
 
-import "../lib/prismLangs"
+import { highlightCode, type CodeToken } from "../lib/highlight"
 import { cn } from "../lib/utils"
 import { CopyButton } from "./copy-button"
 
@@ -18,19 +17,40 @@ export function CodeSnippet({
   copiedLabel: string
   className?: string
 }>) {
-  const html = useMemo(() => {
-    const grammar = Prism.languages[language] ?? Prism.languages.plain
-    return Prism.highlight(code, grammar, language)
+  const tokens = useMemo(() => {
+    const lines = highlightCode(code, language) ?? [
+      [{ text: code, kind: null }]
+    ]
+    const newline: CodeToken = { text: "\n", kind: null }
+    return lines
+      .flatMap((line, index) => (index === 0 ? line : [newline].concat(line)))
+      .reduce<Array<CodeToken & Readonly<{ offset: number }>>>(
+        (placed, { text, kind }) => {
+          placed.push({
+            text,
+            kind,
+            offset: (placed.at(-1)?.offset ?? 0) + text.length
+          })
+          return placed
+        },
+        []
+      )
   }, [code, language])
 
   return (
     <div className={cn("group relative", className)}>
       <div className="prose-md">
         <pre className={`language-${language} !my-0 !pr-10`}>
-          <code
-            className={`language-${language}`}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          <code className={`language-${language}`}>
+            {tokens.map(({ text, kind, offset }) => (
+              <span
+                key={offset}
+                className={kind === null ? undefined : `token ${kind}`}
+              >
+                {text}
+              </span>
+            ))}
+          </code>
         </pre>
       </div>
       <CopyButton

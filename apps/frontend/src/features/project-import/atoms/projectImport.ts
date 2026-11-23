@@ -25,7 +25,6 @@ export const projectImportRequest = (orgSlug: string, importId: string) =>
 const projectImportQuery = (req: ProjectImportRequest) =>
   query("projectImports", "get", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.projects(req.params.orgSlug)]
   })
 

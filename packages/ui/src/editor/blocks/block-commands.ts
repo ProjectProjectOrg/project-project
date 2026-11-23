@@ -2,8 +2,8 @@ import { $isListNode } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
-  type Transformer
-} from "@lexical/markdown"
+  $generateNodesFromMarkdownString
+} from "@lexical/mdast"
 import { $isHeadingNode } from "@lexical/rich-text"
 import { $findMatchingParent } from "@lexical/utils"
 import {
@@ -30,9 +30,7 @@ import {
   $isRangeSelection,
   $isRootNode,
   $isTextNode,
-  $setSelection,
   createCommand,
-  type ElementNode,
   type LexicalCommand,
   type LexicalNode,
   type NodeKey,
@@ -117,30 +115,6 @@ function $insertionPoint() {
   return block === null
     ? $splitAtCaret(selection)
     : ({ after: block, leftovers: [] } satisfies InsertionPoint)
-}
-
-type ImportedMarkdown = Readonly<{
-  container: ElementNode
-  nodes: ReadonlyArray<LexicalNode>
-}>
-
-function $markdownNodes(
-  markdown: string,
-  transformers: ReadonlyArray<Transformer>
-) {
-  const selection = $getSelection()
-  const saved = selection === null ? null : selection.clone()
-  const container = $createParagraphNode()
-  $getRoot().append(container)
-  try {
-    $convertFromMarkdownString(markdown, [...transformers], container)
-  } finally {
-    $setSelection(saved)
-  }
-  return {
-    container,
-    nodes: container.getChildren()
-  } satisfies ImportedMarkdown
 }
 
 const isHintOnlyParagraph = (text: string) =>
@@ -235,20 +209,15 @@ function $placeCaretAfterInsert(
   line.select()
 }
 
-export function $insertBlocksAt(
-  markdown: string,
-  transformers: ReadonlyArray<Transformer>,
-  lookup: BlockLookup
-) {
+export function $insertBlocksAt(markdown: string, lookup: BlockLookup) {
   const point = $insertionPoint()
   if (point === null) return []
-  const { container, nodes } = $markdownNodes(markdown, transformers)
+  const nodes = $generateNodesFromMarkdownString(markdown)
   let previous = point.after
   for (const node of nodes) {
     previous.insertAfter(node)
     previous = node
   }
-  container.remove()
   for (const leftover of point.leftovers)
     if (leftover.isAttached() && $isBlankParagraph(leftover)) leftover.remove()
   $placeCaretAfterInsert(nodes, lookup)
@@ -274,17 +243,13 @@ export const missingBlocksMarkdown = (
   return serializeTicketBlocks(missing)
 }
 
-export function $applyTemplate(
-  expanded: string,
-  transformers: ReadonlyArray<Transformer>,
-  lookup: BlockLookup
-) {
-  const body = $convertToMarkdownString([...transformers])
+export function $applyTemplate(expanded: string, lookup: BlockLookup) {
+  const body = $convertToMarkdownString()
   const merge = mergeTypeInto(body, expanded)
   const markdown =
     body.trim() === "" ? expanded : missingBlocksMarkdown(expanded, merge.added)
   if (markdown.trim() === "") return []
-  $insertBlocksAt(markdown, transformers, lookup)
+  $insertBlocksAt(markdown, lookup)
   return merge.added
 }
 
@@ -363,13 +328,9 @@ export function $removeBlock(node: TopLevelBlockNode) {
   }
 }
 
-export function $unwrapBlock(
-  node: TopLevelBlockNode,
-  content: string,
-  transformers: ReadonlyArray<Transformer>
-) {
+export function $unwrapBlock(node: TopLevelBlockNode, content: string) {
   const block = $isSyncedBlockNode(node)
-    ? $detachSyncedBlock(node, content, transformers)
+    ? $detachSyncedBlock(node, content)
     : node
   const children = block.getChildren()
   for (const child of children) block.insertBefore(child)
@@ -377,23 +338,15 @@ export function $unwrapBlock(
   return children
 }
 
-export function $blockMarkdown(
-  node: TicketBlockNode,
-  transformers: ReadonlyArray<Transformer>
-) {
-  return $convertToMarkdownString([...transformers], node)
+export function $blockMarkdown(node: TicketBlockNode) {
+  return $convertToMarkdownString(node)
 }
 
 export function $resetBlock(
   node: TicketBlockNode,
-  definition: BlockDefinition,
-  transformers: ReadonlyArray<Transformer>
+  definition: BlockDefinition
 ) {
-  $convertFromMarkdownString(
-    stripHints(definition.content),
-    [...transformers],
-    node
-  )
+  $convertFromMarkdownString(stripHints(definition.content), node)
   if (node.isEmpty()) node.append($createParagraphNode())
   $materializeHintLines(node, definition.content)
   const target = hintSlots(definition.content)
@@ -414,13 +367,11 @@ const $isAtBlockStart = (block: TicketBlockNode, selection: RangeSelection) => {
   )
 }
 
-export function $blankBlockAtCaret(transformers: ReadonlyArray<Transformer>) {
+export function $blankBlockAtCaret() {
   const selection = $getSelection()
   if (!$isRangeSelection(selection)) return null
   const block = $findBlockAtSelection()
   if (!$isTicketBlockNode(block) || !$isAtBlockStart(block, selection))
     return null
-  return blankBlockHeading($blockMarkdown(block, transformers)) === null
-    ? null
-    : block
+  return blankBlockHeading($blockMarkdown(block)) === null ? null : block
 }

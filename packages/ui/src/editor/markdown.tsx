@@ -19,15 +19,14 @@ import {
   type ReactNode
 } from "react"
 import ReactMarkdown from "react-markdown"
-import rehypePrismPlus from "rehype-prism-plus/common"
 
-import "../lib/prismLangs"
 import { AttachmentChip } from "../components/attachment-chip"
 import { Checkbox } from "../components/checkbox"
 import {
   ATTACHMENT_IMAGE_CLASS,
   attachmentWidthStyle
 } from "../editor/attachment-image-style"
+import { rehypeHighlight } from "../editor/markdown-highlight"
 import { markdownPlugins } from "../editor/markdown-parser"
 import { cn } from "../lib/utils"
 import {
@@ -63,13 +62,6 @@ import { m } from "./messages"
 import { PaperChip } from "./paper/paper-chip"
 import { isPaperDesignUrl } from "./paper/paper-url"
 import type { TicketTarget } from "./services"
-
-const prismPlugin = [
-  rehypePrismPlus,
-  { ignoreMissing: true, showLineNumbers: true }
-] satisfies NonNullable<
-  Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]
->[number]
 
 const linkedAttachmentContent: (
   children: ReactNode,
@@ -246,7 +238,7 @@ export function MarkdownSegment({
   return (
     <ReactMarkdown
       remarkPlugins={markdownPlugins}
-      rehypePlugins={[prismPlugin]}
+      rehypePlugins={[rehypeHighlight]}
       urlTransform={allowMentionUrls}
       components={{
         li: ({ node, ...rest }) => {

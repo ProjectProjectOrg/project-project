@@ -10,7 +10,6 @@ export type InvitationRequest = Readonly<{
 }>
 
 const invitationsQuery = query("invitations", "list", {
-  timeToLive: "30 seconds",
   reactivityKeys: [Keys.invitations()]
 })
 

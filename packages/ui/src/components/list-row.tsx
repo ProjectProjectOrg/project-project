@@ -112,6 +112,8 @@ export function ListHoverScope({
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
   const sessionRef = useRef(0)
+  const targetRow = useRef<HTMLElement | null>(null)
+  const targetRect = useRef<ItemRect | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
@@ -120,13 +122,23 @@ export function ListHoverScope({
     const container = ref.current
     const at = point.current
     if (!container) return
-    const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
+    const paused =
+      container.closest("[data-scroll-root]")?.hasAttribute("data-scrolling") ??
+      false
+    const row = paused
+      ? null
+      : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
+    if (!paused && at && !row) {
+      const under = document.elementFromPoint(at.x, at.y)
+      if (!under || !container.contains(under)) point.current = null
+    }
+    targetRow.current = row
     if (litRow.current !== row) {
       litRow.current?.removeAttribute("data-hover-highlight")
-      row?.setAttribute("data-hover-highlight", "")
-      litRow.current = row
+      litRow.current = null
     }
     if (!row) {
+      targetRect.current = null
       setHovered(null)
       return
     }
@@ -149,7 +161,18 @@ export function ListHoverScope({
         height: r.height / scale
       }
     }
+    targetRect.current = next.rect
     setHovered((current) => (sameHovered(current, next) ? current : next))
+  }, [])
+
+  const arrive = useCallback((rect: ItemRect) => {
+    const row = targetRow.current
+    const target = targetRect.current
+    if (!row || !target || litRow.current === row) return
+    // Only the highlight heading for the target counts, not one fading out.
+    if (rect.top !== target.top || rect.left !== target.left) return
+    row.setAttribute("data-hover-highlight", "")
+    litRow.current = row
   }, [])
 
   const schedule = useCallback(() => {
@@ -158,11 +181,25 @@ export function ListHoverScope({
 
   useEffect(() => {
     const container = ref.current
-    const root = container?.closest("[data-scroll-root]") ?? window
+    const scrollRoot = container?.closest("[data-scroll-root]")
+    const root = scrollRoot ?? window
     const onScroll = () => {
       if (point.current) schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
+    const scrolling = new MutationObserver(() => {
+      if (scrollRoot?.hasAttribute("data-scrolling")) sessionRef.current += 1
+      schedule()
+    })
+    if (scrollRoot) {
+      scrolling.observe(scrollRoot, { attributeFilter: ["data-scrolling"] })
+    }
+    // Content ignores the pointer while scrolling, so follow it from the document.
+    const onPausedMove = (event: MouseEvent) => {
+      if (scrollRoot?.hasAttribute("data-scrolling"))
+        point.current = { x: event.clientX, y: event.clientY }
+    }
+    document.addEventListener("mousemove", onPausedMove, { passive: true })
     const popups = new MutationObserver(schedule)
     if (container) {
       popups.observe(container, {
@@ -172,6 +209,8 @@ export function ListHoverScope({
     }
     return () => {
       root.removeEventListener("scroll", onScroll)
+      scrolling.disconnect()
+      document.removeEventListener("mousemove", onPausedMove)
       popups.disconnect()
       cancelAnimationFrame(frame.current)
       litRow.current?.removeAttribute("data-hover-highlight")
@@ -206,7 +245,9 @@ export function ListHoverScope({
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
-      onMouseLeave={() => {
+      onMouseLeave={(event) => {
+        // Content dropping pointer events while scrolling reads as leaving.
+        if (event.currentTarget.closest("[data-scrolling]")) return
         point.current = null
         schedule()
       }}
@@ -214,7 +255,8 @@ export function ListHoverScope({
     >
       <FluidHoverHighlight
         hover={hover}
-        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
+        onArrive={arrive}
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scrolling:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
@@ -267,8 +309,8 @@ export function ListRow({
   const inHoverScope = use(InHoverScopeContext)
   const ticketColumns = priority !== undefined || ticketKey !== undefined
   const ownHover = inHoverScope
-    ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:bg-hover in-data-keyboard-navigation:not-data-selected:data-[popup-open]:bg-hover"
-    : "not-in-data-keyboard-navigation:hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover not-data-selected:data-[popup-open]:bg-hover"
+    ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:surface-lit in-data-keyboard-navigation:not-data-selected:data-[popup-open]:surface-lit"
+    : "not-in-data-keyboard-navigation:hover:surface-lit not-data-selected:has-[[data-popup-open]]:surface-lit not-data-selected:data-[popup-open]:surface-lit"
   return (
     // Every hover in it opens below, tooltips and cards alike.
     <HoverSide side="bottom">
@@ -282,7 +324,7 @@ export function ListRow({
           itemSurfaceClass,
           variant === "standalone" && ownHover,
           variant === "standalone" &&
-            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover data-selected:bg-foreground/6",
+            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:surface-lit data-selected:bg-foreground/6",
           // The link reaches into the gap between rows, so the rows have no
           // dead strip between them.
           "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",

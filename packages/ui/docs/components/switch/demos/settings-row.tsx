@@ -110,7 +110,7 @@ function Row({
 
 export default function SettingsRow() {
   return (
-    <div className="w-full max-w-md divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <div className="w-full max-w-md divide-y divide-border overflow-hidden rounded-lg border border-border surface-card">
       <Row
         label="Only move forward"
         description="A branch event never moves a ticket back to an earlier status."

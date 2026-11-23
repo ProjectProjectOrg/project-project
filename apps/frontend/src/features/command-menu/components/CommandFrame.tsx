@@ -322,7 +322,7 @@ export function CommandFrame({
         <motion.div
           style={peek.style}
           className={cn(
-            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-(color:--tooltip)",
+            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col surface-(--tooltip)",
             peek.mounted && "border-r border-(--segment-line)"
           )}
         >

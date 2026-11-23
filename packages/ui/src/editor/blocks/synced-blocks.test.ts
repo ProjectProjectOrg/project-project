@@ -1,35 +1,31 @@
 // @vitest-environment jsdom
-import { CodeNode } from "@lexical/code"
+import { buildEditorFromExtensions } from "@lexical/extension"
 import { createEmptyHistoryState, registerHistory } from "@lexical/history"
-import { LinkNode } from "@lexical/link"
-import { ListItemNode, ListNode } from "@lexical/list"
 import {
   $convertFromMarkdownString,
-  $convertToMarkdownString,
-  type Transformer
-} from "@lexical/markdown"
-import { HeadingNode, QuoteNode } from "@lexical/rich-text"
+  $convertToMarkdownString
+} from "@lexical/mdast"
 import { blockLookupFor, formatTicketBlock, type Library } from "@pp/shared"
 import {
   $getRoot,
   UNDO_COMMAND,
-  createEditor,
+  configExtension,
+  defineExtension,
   type LexicalEditor,
   type NodeKey
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { MarkdownExtension } from "../markdown-extension"
 import { BUILTIN_LIBRARY } from "./block-chrome"
 import {
   $isSyncedBlockNode,
-  DETACH_SYNCED_BLOCK_COMMAND,
-  SyncedBlockNode
+  DETACH_SYNCED_BLOCK_COMMAND
 } from "./synced-block-node"
 import { registerSyncedBlocks } from "./synced-blocks"
 import { toggleTaskAtLine } from "./synced-content"
-import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
-import { createTicketBlockTransformer } from "./ticket-block-transformer"
+import { TicketBlockMarkdownExtension } from "./ticket-block-markdown"
+import { $isTicketBlockNode } from "./ticket-block-node"
 
 const DOD = "definition-of-done"
 
@@ -60,62 +56,47 @@ const WITHOUT_DOD = withBlocks((blocks) =>
   blocks.filter((block) => block.key !== DOD)
 )
 
-function makeEditor() {
-  return createEditor({
-    namespace: "synced-blocks-test",
-    nodes: [
-      CodeNode,
-      HeadingNode,
-      QuoteNode,
-      LinkNode,
-      ListNode,
-      ListItemNode,
-      TicketBlockNode,
-      SyncedBlockNode
-    ],
-    onError: (error) => {
-      throw error
-    }
-  })
+function makeEditor(emptyAsReference = false) {
+  return buildEditorFromExtensions(
+    defineExtension({
+      name: "synced-blocks-test",
+      dependencies: [
+        MarkdownExtension,
+        configExtension(TicketBlockMarkdownExtension, { emptyAsReference })
+      ],
+      onError: (error) => {
+        throw error
+      }
+    })
+  )
 }
 
-const load = (
-  editor: LexicalEditor,
-  markdown: string,
-  transformers: Array<Transformer> = MARKDOWN_TRANSFORMERS
-) =>
-  editor.update(() => $convertFromMarkdownString(markdown, transformers), {
-    discrete: true
-  })
+const load = (editor: LexicalEditor, markdown: string) =>
+  editor.update(() => $convertFromMarkdownString(markdown), { discrete: true })
 
 const flush = (editor: LexicalEditor) =>
   editor.update(() => {}, { discrete: true })
 
-const exported = (
-  editor: LexicalEditor,
-  transformers: Array<Transformer> = MARKDOWN_TRANSFORMERS
-) => editor.getEditorState().read(() => $convertToMarkdownString(transformers))
+const exported = (editor: LexicalEditor) =>
+  editor.read(() => $convertToMarkdownString())
 
 const syncedKey = (editor: LexicalEditor) =>
-  editor
-    .getEditorState()
-    .read(
-      () => $getRoot().getChildren().find($isSyncedBlockNode)?.getKey() ?? null
-    )
+  editor.read(
+    () => $getRoot().getChildren().find($isSyncedBlockNode)?.getKey() ?? null
+  )
 
 const syncWith = (editor: LexicalEditor, library: Library) => {
   const removed: Array<NodeKey> = []
   const unregister = registerSyncedBlocks(
     editor,
     blockLookupFor(library),
-    MARKDOWN_TRANSFORMERS,
     (key) => removed.push(key)
   )
   flush(editor)
   return { removed, unregister }
 }
 
-describe("synced block transformer", () => {
+describe("synced block markdown", () => {
   it("imports a sync opener as a synced node and round trips it", () => {
     const editor = makeEditor()
     const body = syncedBody(DEFINITION)
@@ -127,7 +108,7 @@ describe("synced block transformer", () => {
   it("keeps plain blocks as editable ticket blocks", () => {
     const editor = makeEditor()
     load(editor, formatTicketBlock("notes", "## Notes\n\nText"))
-    const kinds = editor.getEditorState().read(() =>
+    const kinds = editor.read(() =>
       $getRoot()
         .getChildren()
         .map((node) => node.getType())
@@ -136,28 +117,19 @@ describe("synced block transformer", () => {
   })
 
   it("imports empty blocks as references in template mode and exports them empty", () => {
-    const content = createTicketBlockTransformer(MARKDOWN_TRANSFORMERS.slice(1))
-    const template = [
-      createTicketBlockTransformer(MARKDOWN_TRANSFORMERS.slice(1), {
-        emptyAsReference: true
-      }),
-      ...MARKDOWN_TRANSFORMERS.slice(1)
-    ]
-    const editor = makeEditor()
+    const editor = makeEditor(true)
     const body = [
       formatTicketBlock("context", ""),
       formatTicketBlock("notes", "## Notes\n\nCustom")
     ].join("\n\n")
-    load(editor, body, template)
-    const modes = editor.getEditorState().read(() =>
+    load(editor, body)
+    const modes = editor.read(() =>
       $getRoot()
         .getChildren()
         .map((node) => ($isSyncedBlockNode(node) ? node.getMode() : "copy"))
     )
     expect(modes).toEqual(["reference", "copy"])
-    expect(exported(editor, [content, ...MARKDOWN_TRANSFORMERS.slice(1)])).toBe(
-      body
-    )
+    expect(exported(editor)).toBe(body)
   })
 })
 
@@ -218,7 +190,7 @@ describe("synced blocks against the library", () => {
     const editor = makeEditor()
     load(editor, syncedBody(STALE_SNAPSHOT))
     const { removed } = syncWith(editor, WITHOUT_DOD)
-    const kinds = editor.getEditorState().read(() =>
+    const kinds = editor.read(() =>
       $getRoot()
         .getChildren()
         .map((node) => node.getType())
@@ -239,7 +211,7 @@ describe("synced blocks against the library", () => {
     const before = exported(editor)
     const key = syncedKey(editor)
     if (key === null) throw new Error("no synced block")
-    const content = editor.getEditorState().read(() => {
+    const content = editor.read(() => {
       const node = $getRoot().getChildren().find($isSyncedBlockNode)
       return toggleTaskAtLine(node?.getSnapshot() ?? "", 3)
     })
@@ -249,9 +221,9 @@ describe("synced blocks against the library", () => {
       },
       { discrete: true }
     )
-    const detached = editor
-      .getEditorState()
-      .read(() => $getRoot().getChildren().filter($isTicketBlockNode).length)
+    const detached = editor.read(
+      () => $getRoot().getChildren().filter($isTicketBlockNode).length
+    )
     expect(detached).toBe(1)
     expect(exported(editor)).toBe(
       `Intro.\n\n${formatTicketBlock(DOD, content)}`

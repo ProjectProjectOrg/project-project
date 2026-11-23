@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import {
   finishedStatusSlugs,
   type Member,
@@ -9,8 +9,9 @@ import {
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react"
+import { use, useEffect, useState, type ReactNode } from "react"
 
+import { loadMarkdown, Markdown } from "@/features/editor/components/Markdown"
 import {
   projectEstimation,
   projectRequest
@@ -25,6 +26,7 @@ import {
   childTickets,
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
+import { fillTicketContent } from "@/features/tickets/atoms/ticketContentFill"
 import {
   ticketDetail,
   ticketRequest
@@ -46,12 +48,6 @@ import {
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
-const loadMarkdown = () => import("@pp/ui/editor/markdown")
-
-const Markdown = lazy(() =>
-  loadMarkdown().then((mod) => ({ default: mod.Markdown }))
-)
-
 const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export type TicketPeekScope = Readonly<{
@@ -69,6 +65,12 @@ export function TicketPeek({
   scope: TicketPeekScope
   prefetch: ReadonlyArray<TicketId>
 }>) {
+  const registry = use(RegistryContext)
+  useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   const result = useAtomValue(
     ticketDetail(ticketRequest(scope.orgSlug, scope.slug, ticketId))
   )
@@ -170,15 +172,13 @@ export function TicketPeek({
             {m.tickets_peek_no_description()}
           </p>
         ) : (
-          <Suspense fallback={null}>
-            <Markdown
-              className="text-muted-foreground"
-              blocks="flat"
-              size="compact"
-            >
-              {body}
-            </Markdown>
-          </Suspense>
+          <Markdown
+            className="text-muted-foreground"
+            blocks="flat"
+            size="compact"
+          >
+            {body}
+          </Markdown>
         )}
       </div>
       {(ticket.subTicketCount ?? 0) > 0 && (
@@ -202,10 +202,13 @@ export function TicketPrefetch({
   ticketId,
   scope
 }: Readonly<{ ticketId: TicketId; scope: Omit<TicketPeekScope, "members"> }>) {
-  useAtomValue(ticketDetail(ticketRequest(scope.orgSlug, scope.slug, ticketId)))
+  const registry = use(RegistryContext)
   useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
     void loadMarkdown()
-  }, [])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   return null
 }
 

@@ -102,7 +102,7 @@ export function WelcomeInviteList({
           {m.auth_invites_body()}
         </p>
       </div>
-      <ul className="overflow-hidden rounded-xl border border-border bg-background">
+      <ul className="overflow-hidden rounded-xl border border-border surface-background">
         {invites.map((invite) => (
           <InviteRow
             key={invite.id}
@@ -194,7 +194,7 @@ function InviteRow({
   return (
     <li
       className={cn(
-        "group flex items-start gap-3 border-b border-border px-4 py-3.5 transition-colors last:border-b-0 hover:bg-hover sm:items-center sm:gap-4",
+        "group flex items-start gap-3 border-b border-border px-4 py-3.5 transition-colors last:border-b-0 hover:surface-lit sm:items-center sm:gap-4",
         (accepting || declining) && "animate-pulse"
       )}
     >

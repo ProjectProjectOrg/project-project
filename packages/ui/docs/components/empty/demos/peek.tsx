@@ -53,7 +53,7 @@ function PeekFrame() {
               </EmptyHeader>
             </Empty>
           </aside>
-          <div className="relative z-10 flex min-h-0 w-[42%] min-w-0 shrink-0 flex-col border-r border-(--segment-line) bg-(color:--tooltip)">
+          <div className="relative z-10 flex min-h-0 w-[42%] min-w-0 shrink-0 flex-col border-r border-(--segment-line) surface-(--tooltip)">
             <CommandMenuList
               aria-label="Tickets"
               renderItem={(item) => (

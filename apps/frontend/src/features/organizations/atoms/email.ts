@@ -14,7 +14,6 @@ export const emailRequest = (orgSlug: string) => ({
 const emailQuery = (req: EmailRequest) =>
   query("orgEmail", "get", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.orgEmail(req.params.orgSlug)]
   })
 export const orgEmail = Atom.family((req: EmailRequest) =>

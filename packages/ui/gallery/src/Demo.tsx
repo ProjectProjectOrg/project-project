@@ -30,11 +30,11 @@ export function Demo({
     )
 
   return (
-    <figure className="my-8 rounded-[20px] bg-surface-2 p-1.5 corner-squircle">
+    <figure className="my-8 rounded-[20px] surface-2 p-1.5 corner-squircle">
       <div
         ref={canvasRef}
         className={cn(
-          "grid min-h-44 place-items-center rounded-[14px] bg-page p-10 corner-squircle",
+          "grid min-h-44 place-items-center rounded-[14px] surface-page p-10 corner-squircle",
           className
         )}
       >
@@ -44,7 +44,7 @@ export function Demo({
           </Loaded>
         </Suspense>
       </div>
-      <figcaption className="mt-1.5 flex h-10 items-center gap-2 rounded-[14px] bg-surface-4 pr-1.5 pl-3.5 corner-squircle">
+      <figcaption className="mt-1.5 flex h-10 items-center gap-2 rounded-[14px] surface-4 pr-1.5 pl-3.5 corner-squircle">
         <span className="text-caption font-semibold">{title}</span>
         <AccessibilityBadge target={canvasRef} />
         <div className="ml-auto flex items-center gap-1">
@@ -93,7 +93,7 @@ export function Demo({
                 {(source) => (
                   <CodeView
                     source={source}
-                    className="mt-1.5 max-h-[28rem] overflow-y-auto rounded-[14px] bg-surface-3 corner-squircle"
+                    className="mt-1.5 max-h-[28rem] overflow-y-auto rounded-[14px] surface-3 corner-squircle"
                   />
                 )}
               </Loaded>

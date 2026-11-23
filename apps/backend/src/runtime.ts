@@ -88,6 +88,7 @@ import { JiraDestinationQueriesLive } from "./jira/DestinationQueriesLive"
 import { JiraHostLive } from "./jira/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { SlackHostLive } from "./slack/HostLive"
+import * as TicketEvents from "./tickets/TicketEvents"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
@@ -259,6 +260,7 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
 ) =>
   Layer.mergeAll(
     AuthenticationLive,
+    TicketEvents.layer,
     OrgAccessLive,
     ProjectAccessLive,
     RequestValidationLive,

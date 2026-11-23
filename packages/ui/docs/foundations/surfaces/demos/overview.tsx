@@ -11,7 +11,7 @@ function Cell({
 }: Readonly<{ label: string; note: string; children: ReactNode }>) {
   return (
     <figure className="flex flex-col items-center gap-3">
-      <div className="flex h-28 w-full items-center justify-center rounded-[18px] bg-page corner-squircle">
+      <div className="flex h-28 w-full items-center justify-center rounded-[18px] surface-page corner-squircle">
         {children}
       </div>
       <figcaption className="flex flex-col items-center text-center">
@@ -30,13 +30,13 @@ function Edges() {
   return (
     <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 @2xl:grid-cols-[repeat(4,minmax(0,1fr))]">
       <Cell label="Tone" note="A step of lightness">
-        <div className={`${tile} bg-card`} />
+        <div className={`${tile} surface-card`} />
       </Cell>
       <Cell label="Hairline" note="--shadow-1, a ring, no lift">
-        <div className={`${tile} bg-card shadow-(--shadow-1)`} />
+        <div className={`${tile} surface-card shadow-(--shadow-1)`} />
       </Cell>
       <Cell label="Lit edge" note="Avatars, tiles, attachments">
-        <div className={`${tile} relative bg-card ${avatarEdgeClass}`} />
+        <div className={`${tile} relative surface-card ${avatarEdgeClass}`} />
       </Cell>
       <Cell label="Popup" note="Card and a 60% hairline">
         <div
@@ -53,7 +53,7 @@ function Edges() {
 function Ladder() {
   const steps = [1, 2, 3, 4, 5, 6, 7, 8] as const
   return (
-    <div className="flex flex-col gap-2 rounded-[18px] bg-page p-3 corner-squircle">
+    <div className="flex flex-col gap-2 rounded-[18px] surface-page p-3 corner-squircle">
       <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2 @xl:grid-cols-[repeat(8,minmax(0,1fr))]">
         {steps.map((step) => (
           <div
@@ -80,7 +80,7 @@ function Ladder() {
 // Filled controls carry a faint sheen made from their own colour.
 function Sheen() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 rounded-[18px] bg-page p-6 corner-squircle">
+    <div className="flex flex-wrap items-center justify-center gap-3 rounded-[18px] surface-page p-6 corner-squircle">
       <Button>Primary</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="destructive">Delete</Button>

@@ -26,7 +26,7 @@ export type CreateTicketRequest = Readonly<{
   from?: "inline"
 }>
 
-export type RelatedKind = MarkKind | "subTicket"
+export type RelatedKind = MarkKind | "subTicket" | "epicOf"
 
 export type RelatedTo = Readonly<{ kind: RelatedKind; ticketId: TicketId }>
 
@@ -36,7 +36,8 @@ const RELATED_PAYLOADS: Readonly<
   subTicket: (id) => ({ parent: id }),
   blocking: (id) => ({ blockedBy: [id] }),
   related: (id) => ({ relatedTo: [id] }),
-  blockedBy: () => ({})
+  blockedBy: () => ({}),
+  epicOf: () => ({})
 }
 
 export const relatedPayload = (related: RelatedTo | null) =>
@@ -74,14 +75,13 @@ export const createTicketInProject = Api.runtime.fn(
       })
     )
     const scope = projectScope(input.orgSlug, input.slug)
-    yield* Reactivity.invalidate(
-      input.payload.fromComment === undefined
-        ? Keys.ticketsChanged(scope)
-        : [
-            ...Keys.ticketsChanged(scope),
-            Keys.comments(scope, input.payload.fromComment.ticketId)
-          ]
-    )
+    yield* Reactivity.invalidate([
+      ...Keys.ticketChanged(scope, created.id),
+      ...(created.parent ? [Keys.ticket(scope, created.parent.id)] : []),
+      ...(input.payload.fromComment
+        ? [Keys.comments(scope, input.payload.fromComment.ticketId)]
+        : [])
+    ])
     return created
   })
 )

@@ -16,7 +16,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import pg from "pg"
-import { describe, expect } from "vitest"
+import { describe, expect, vi } from "vitest"
 
 import { contentHash, markdownFileContent } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
@@ -262,6 +262,51 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
         yield* release("discard")
         expect(yield* page).toHaveLength(2)
         expect(yield* outboxCount(project.projectId)).toBe(0)
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live(
+    "tells open projects about a write that only changes a ticket's comments",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        const listener = new Client({ connectionString: databaseUrl })
+        yield* Effect.acquireRelease(
+          Effect.promise(() => listener.connect()),
+          () => Effect.promise(() => listener.end())
+        )
+        const heard: Array<unknown> = []
+        listener.on("notification", ({ payload }) => {
+          if (payload !== undefined) heard.push(JSON.parse(payload))
+        })
+        yield* Effect.promise(() => listener.query("LISTEN project_sync"))
+        const activity = yield* TicketActivity.TicketActivity
+        yield* activity
+          .record(
+            project.orgSlug,
+            project.slug,
+            { kind: "ticket", id: "T-1", content: "resolved" },
+            [],
+            null,
+            writeTicketFile(project.orgSlug, project.slug, "Resolved"),
+            [],
+            { touched: true, commentsChanged: true }
+          )
+          .pipe(
+            Effect.provideService(
+              ActivityActor,
+              ActivityActor.user(project.userId)
+            )
+          )
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(heard).toContainEqual({
+              project: project.projectId,
+              kind: "comments",
+              id: "T-1"
+            })
+          )
+        )
       }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 

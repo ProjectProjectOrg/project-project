@@ -156,7 +156,7 @@ export default function Explore() {
 
       <div className="grid grid-cols-[minmax(0,1fr)] justify-items-center gap-6 @md:grid-cols-[repeat(2,minmax(0,1fr))]">
         <Format caption="Next to a name">
-          <span className="inline-flex max-w-full items-center gap-2 rounded-full bg-surface-2 py-1 pr-3 pl-1 text-body">
+          <span className="inline-flex max-w-full items-center gap-2 rounded-full surface-2 py-1 pr-3 pl-1 text-body">
             <DissolveAvatar member={member} size={20} />
             <span className="truncate">
               <TextSwap>{trimmed === "" ? "No name" : trimmed}</TextSwap>

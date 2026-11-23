@@ -27,7 +27,7 @@ export default function SettingsField() {
   }
 
   return (
-    <div className="w-full max-w-lg divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <div className="w-full max-w-lg divide-y divide-border overflow-hidden rounded-lg border border-border surface-card">
       <div className="flex min-h-14 items-center gap-x-4 px-4 py-3">
         <div className="min-w-0 flex-1">
           <p

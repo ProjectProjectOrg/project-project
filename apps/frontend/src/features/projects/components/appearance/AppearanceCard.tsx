@@ -1,6 +1,5 @@
 import { Button } from "@pp/ui/button"
 import { transitions } from "@pp/ui/lib/springs"
-import { SurfaceProvider } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, type ReactNode } from "react"
@@ -20,16 +19,14 @@ export function AppearanceCard({
   className?: string
 }) {
   return (
-    <SurfaceProvider value={1}>
-      <div
-        className={cn(
-          "relative rounded-lg border border-border bg-card",
-          className
-        )}
-      >
-        {children}
-      </div>
-    </SurfaceProvider>
+    <div
+      className={cn(
+        "tertiary-tiles relative rounded-lg border border-border surface-card",
+        className
+      )}
+    >
+      {children}
+    </div>
   )
 }
 

@@ -6,6 +6,7 @@ import {
   GroupId,
   sprintClaims,
   TICKET_LIST_LIMIT,
+  TicketId,
   type TicketListQuery,
   TypeKey,
   TicketRank
@@ -265,6 +266,33 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+it.effect("prepareDetails reads each ticket as get does", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      pr: 80,
+      prState: "merged",
+      status: ticketStatus("done")
+    })
+  )
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+
+  return Effect.gen(function* () {
+    const queries = yield* TicketQueries.TicketQueries
+    const read = yield* queries.prepareDetails(["T-1", "T-2"])
+    for (const id of ["T-1", "T-2"]) {
+      expect(yield* read(TicketId.make(id))).toEqual(yield* queries.get(id))
+    }
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("list reads ticket index rows", () => {
   const docs = makeFakeTicketDocs(["T-1"])

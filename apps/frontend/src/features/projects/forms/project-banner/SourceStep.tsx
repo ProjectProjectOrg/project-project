@@ -87,7 +87,7 @@ export function BannerSourceStep({
                   )}
                   onSuccess={({ value }) =>
                     value.status !== "active" ? (
-                      <div className="flex gap-3 rounded-md bg-muted p-3">
+                      <div className="flex gap-3 rounded-md surface-muted p-3">
                         <Database
                           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                           strokeWidth={1.75}

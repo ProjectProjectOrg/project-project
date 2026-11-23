@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { isEpic, type TicketDetail } from "@pp/shared"
-import { Button } from "@pp/ui/button"
+import { Chip } from "@pp/ui/chip"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
@@ -44,7 +44,7 @@ export function SubTicketOf({
           Result.isSuccess(statuses) ? statuses.value : []
         )
   return (
-    <span className="flex min-w-0 items-center pl-2 text-body text-muted-foreground [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]">
+    <span className="flex min-w-0 items-center gap-1 pl-2 text-body text-muted-foreground [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]">
       <span className="shrink-0">
         {isEpic(parent)
           ? m.tickets_header_in_epic()
@@ -53,10 +53,9 @@ export function SubTicketOf({
       <TicketPreviewTrigger
         preview={TicketPreview.ticket({ id: parent.id })}
         render={
-          <Button
-            variant="ghost"
-            size="compact"
-            className="min-w-0"
+          <Chip
+            interaction="hover"
+            className="max-w-none shrink"
             render={
               <Link
                 to="/orgs/$orgSlug/projects/$slug/tickets/$id"

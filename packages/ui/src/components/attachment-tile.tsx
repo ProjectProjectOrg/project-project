@@ -35,7 +35,7 @@ export const ATTACHMENT_TILE_FOOTER_HEIGHT = 32
 // light along the top), with no border, so a placeholder turning into its
 // tile changes what's inside, not the shape.
 export const attachmentSurfaceClass = cn(
-  "relative rounded-[18px] bg-card corner-squircle",
+  "relative rounded-[18px] surface-card corner-squircle",
   avatarEdgeClass
 )
 

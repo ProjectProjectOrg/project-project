@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import { IS_APPLE, mergeRegister } from "@lexical/utils"
 import {
   COMMAND_PRIORITY_HIGH,
@@ -21,7 +20,6 @@ import {
 } from "./block-commands"
 
 export type BlockKeyboardHandlers = Readonly<{
-  transformers: ReadonlyArray<Transformer>
   onMoved: (
     node: TopLevelBlockNode,
     neighbour: LexicalNode | null,
@@ -84,7 +82,7 @@ export function registerBlockKeyboard(
     editor.registerCommand(
       KEY_BACKSPACE_COMMAND,
       (event) => {
-        const block = $blankBlockAtCaret(handlers.transformers)
+        const block = $blankBlockAtCaret()
         if (block === null) return false
         event?.preventDefault()
         const blockType = block.getBlockType()

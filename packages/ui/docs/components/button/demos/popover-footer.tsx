@@ -4,7 +4,7 @@ import { Button } from "@pp/ui/button"
 // Cancel, then the destructive action on the end.
 export default function PopoverFooter() {
   return (
-    <div className="w-72 rounded-xl border border-border/60 bg-card p-3">
+    <div className="w-72 rounded-xl border border-border/60 surface-card p-3">
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <p className="text-subtitle font-semibold">Delete this sprint?</p>

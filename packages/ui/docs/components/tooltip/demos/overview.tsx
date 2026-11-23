@@ -79,7 +79,7 @@ export default function Overview() {
       {/* Live: hover or Tab along the toolbar; one tooltip glides along. */}
       <div className="flex justify-center pt-10">
         <TooltipGroup sideOffset={10}>
-          <div className="flex gap-0.5 rounded-xl bg-card p-1">
+          <div className="flex gap-0.5 rounded-xl surface-card p-1">
             {TOOLS.map(({ label, shortcut, icon: Icon }) => (
               <TooltipGroupTrigger
                 key={label}

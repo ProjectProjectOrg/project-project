@@ -45,6 +45,7 @@ import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useShownTicket } from "@/features/tickets/hooks/useShownTicket"
 import { sharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
@@ -92,6 +93,7 @@ function RowImpl({
 }: RowProps) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
+  useShownTicket(orgSlug, slug, pending ? null : ticket.id, from)
   const patchRow = useAtomSet(update(ticket.id))
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
@@ -163,6 +165,7 @@ function RowImpl({
                       to="/orgs/$orgSlug/projects/$slug/tickets/$id"
                       params={{ orgSlug, slug, id: ticket.id }}
                       search={from ?? {}}
+                      state={{ ticketTitle: ticket.title }}
                       preload="intent"
                     />
                   }
@@ -224,6 +227,7 @@ function RowImpl({
                     to="/orgs/$orgSlug/projects/$slug/tickets/$id"
                     params={{ orgSlug, slug, id: ticket.id }}
                     search={from ?? {}}
+                    state={{ ticketTitle: ticket.title }}
                     preload="intent"
                     draggable={false}
                     tabIndex={-1}

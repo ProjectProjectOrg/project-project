@@ -68,7 +68,7 @@ export default function Overview() {
   const next = lab.nextStatus
   return (
     <div
-      className="w-full rounded-xl bg-page p-3"
+      className="w-full rounded-xl surface-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
       <div className="mb-2 flex px-1">

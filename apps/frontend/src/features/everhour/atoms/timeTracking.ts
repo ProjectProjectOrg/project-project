@@ -82,7 +82,6 @@ const fallbackGroupId = Schema.decodeSync(GroupId)("G-1")
 const activeTimerQuery = (req: ActiveTimerRequest) =>
   query("everhour", "currentTimer", {
     params: req.params,
-    timeToLive: "15 seconds",
     reactivityKeys: [Keys.activeTimer(req.params.orgSlug)]
   })
 
@@ -93,7 +92,6 @@ export const activeTimerAtom = Atom.family((req: ActiveTimerRequest) =>
 const workTypesQuery = (req: TicketTimeRequest) =>
   query("everhour", "ticketWorkTypes", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [Keys.workTypes(scopeOf(req))]
   })
 
@@ -104,7 +102,6 @@ export const workTypesForTicketAtom = Atom.family((req: TicketTimeRequest) =>
 const ticketTimeQuery = (req: TicketTimeRequest) =>
   query("everhour", "ticketTime", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.ticketTime(scopeOf(req), req.params.id)]
   })
 
@@ -115,7 +112,6 @@ export const ticketTimeAtom = Atom.family((req: TicketTimeRequest) =>
 export const sprintTimeAtom = Atom.family((req: SprintTimerRequest) =>
   query("everhour", "sprintTime", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.sprintTime(scopeOf(req), req.params.id)]
   })
 )

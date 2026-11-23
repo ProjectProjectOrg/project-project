@@ -38,7 +38,7 @@ export default function FormattingToolbarOverview() {
   }, [])
   return (
     <EditorKit>
-      <div className="w-full max-w-2xl self-start rounded-[18px] bg-card px-6 pt-16 pb-6 corner-squircle">
+      <div className="w-full max-w-2xl self-start rounded-[18px] surface-card px-6 pt-16 pb-6 corner-squircle">
         <LexicalEditor markdown={TEXT} editorRef={editorRef} />
       </div>
     </EditorKit>

@@ -5,7 +5,6 @@ import {
   CheckListExtension,
   type ListItemNode
 } from "@lexical/list"
-import { CHECK_LIST, type ElementTransformer } from "@lexical/markdown"
 import {
   $copyNode,
   $getNodeByKey,
@@ -15,32 +14,11 @@ import {
   COLLABORATION_TAG,
   HISTORIC_TAG,
   defineExtension,
-  type ElementNode,
   type LexicalEditor,
   type LexicalNode
 } from "lexical"
 
-const TASK_MARKER = /^\[[ xX]?\](?=\s|$)/
-
 const TYPED_TASK_MARKER = /^\[([ xX])?\]\s$/
-
-const escapeTaskMarker =
-  (exportChildren: (node: ElementNode) => string) => (node: ElementNode) => {
-    const text = exportChildren(node)
-    const list = node.getParent()
-    return $isListItemNode(node) &&
-      $isListNode(list) &&
-      list.getListType() !== "check" &&
-      TASK_MARKER.test(text)
-      ? `\\${text}`
-      : text
-  }
-
-export const ESCAPED_CHECK_LIST: ElementTransformer = {
-  ...CHECK_LIST,
-  export: (node, exportChildren) =>
-    CHECK_LIST.export(node, escapeTaskMarker(exportChildren))
-}
 
 const $isNestedListHolder = (node: LexicalNode | null): node is ListItemNode =>
   $isListItemNode(node) &&

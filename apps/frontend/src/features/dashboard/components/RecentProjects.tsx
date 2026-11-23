@@ -86,11 +86,11 @@ function NewProjectTile({
       params={{ orgSlug }}
       className={cn(
         "group flex flex-col gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 transition-colors",
-        "hover:border-border hover:bg-hover",
+        "hover:border-border hover:surface-lit",
         compact ? "min-h-[8rem] items-center justify-center text-center" : ""
       )}
     >
-      <div className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-background group-hover:text-foreground">
+      <div className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:surface-background group-hover:text-foreground">
         <Plus className="size-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">

@@ -8,8 +8,6 @@ import {
   StatusColor
 } from "@pp/shared"
 import { GripVertical } from "@pp/ui/icons"
-import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
-import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import { Reveal } from "@pp/ui/reveal"
 import * as Cause from "effect/Cause"
@@ -97,7 +95,6 @@ export function StatusRow({
   const reorderState = useAtomValue(reorderMutation)
   const dataWaiting = updateState.waiting || reorderState.waiting
   const controls = useDragControls()
-  const substrate = useSurface()
   const [isDragging, setIsDragging] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -182,7 +179,7 @@ export function StatusRow({
         <div
           className={cn(
             "group/reveal flex min-h-14 items-center gap-1 py-2 pr-2 pl-1 transition-colors duration-150",
-            isDragging && SURFACE_BG[Math.min(substrate + 1, 8)]
+            isDragging && "surface-2"
           )}
         >
           {isPinnedStatus(status.slug) || !canManage ? (

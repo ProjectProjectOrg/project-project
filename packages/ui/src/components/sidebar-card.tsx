@@ -41,10 +41,10 @@ function SidebarCard({
           data-slot="sidebar-card"
           aria-label={title}
           className={cn(
-            "group/sidebar-card relative isolate mx-2 mb-2 shrink-0 rounded-[18px] bg-surface-3 p-1.5 text-foreground shadow-surface-1 [corner-shape:var(--button-corner)]",
+            "group/sidebar-card relative isolate mx-2 mb-2 shrink-0 rounded-[18px] surface-3 p-1.5 text-foreground shadow-surface-1 [corner-shape:var(--button-corner)]",
             // A linked card is a board card: it lifts on hover and focus.
             link !== undefined &&
-              "transition hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0",
+              "transition hover:surface-4 hover:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0",
             itemSurfaceClass,
             className
           )}

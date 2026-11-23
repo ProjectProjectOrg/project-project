@@ -3,7 +3,8 @@ import {
   type BulkArchiveTicketsInput,
   type BulkDeleteTicketsInput,
   type BulkUpdateTicketsInput,
-  type TicketId
+  type TicketId,
+  type TicketParent
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
@@ -26,13 +27,26 @@ export const bulkChangedKeys = (
 ) => {
   const scope = projectScope(req.orgSlug, req.slug)
   return [
-    ...Keys.ticketsChanged(scope),
+    Keys.ticketLists(scope),
+    Keys.ticketPages(scope),
+    Keys.ticketTitleQuery(scope),
+    Keys.ticketUpdatedQuery(scope),
     Keys.sprintMembership(scope),
     ...(sprintChanged ? [Keys.sprints(scope)] : []),
     ...tickets.map((id) => Keys.ticket(scope, id)),
     Keys.pins(req.orgSlug)
   ] satisfies ReadonlyArray<ReactivityKey>
 }
+
+export const parentKeys = (
+  scope: string,
+  tickets: ReadonlyArray<Readonly<{ parent: TicketParent | null }>>
+) =>
+  [
+    ...new Set(
+      tickets.flatMap(({ parent }) => (parent === null ? [] : [parent.id]))
+    )
+  ].map((id) => Keys.ticket(scope, id))
 
 export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
   Api.runtime.fn(
@@ -45,6 +59,14 @@ export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
           })
         )
       ).pipe(
+        Effect.tap((results) =>
+          Reactivity.invalidate(
+            parentKeys(
+              projectScope(req.orgSlug, req.slug),
+              results.flatMap((result) => result.tickets)
+            )
+          )
+        ),
         Effect.ensuring(
           Reactivity.invalidate(
             bulkChangedKeys(

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { CodeExtension } from "@lexical/code"
+import { CodeExtension } from "@lexical/code-core"
 import {
   HorizontalRuleExtension,
   buildEditorFromExtensions
@@ -11,7 +11,7 @@ import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
+} from "@lexical/mdast"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import { IS_APPLE } from "@lexical/utils"
@@ -38,7 +38,7 @@ import {
 import { describe, expect, it, vi } from "vitest"
 
 import { editorMessages } from "../../../docs/editor/messages"
-import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { MarkdownExtension } from "../markdown-extension"
 import { provideEditorMessages } from "../messages"
 import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
 import {
@@ -63,6 +63,7 @@ import {
   SyncedBlockExtension
 } from "./synced-block-node"
 import { TicketBlockExtension } from "./ticket-block-extension"
+import { TicketBlockMarkdownExtension } from "./ticket-block-markdown"
 import { $isTicketBlockNode } from "./ticket-block-node"
 
 provideEditorMessages(editorMessages)
@@ -98,11 +99,13 @@ function editorWith(markdown: string) {
         LinkExtension,
         HorizontalRuleExtension,
         TableExtension,
+        MarkdownExtension,
         TicketBlockExtension,
+        TicketBlockMarkdownExtension,
         SyncedBlockExtension
       ],
       $initialEditorState: () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(markdown)
       },
       onError: (error) => {
         throw error
@@ -117,9 +120,7 @@ const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true, tag: HISTORY_PUSH_TAG })
 
 const markdown = (editor: LexicalEditor) =>
-  editor
-    .getEditorState()
-    .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  editor.read(() => $convertToMarkdownString())
 
 const describeNode = (node: LexicalNode) =>
   $isTicketBlockNode(node) || $isSyncedBlockNode(node)
@@ -129,7 +130,7 @@ const describeNode = (node: LexicalNode) =>
       : `text:${node.getTextContent()}`
 
 const outline = (editor: LexicalEditor) =>
-  editor.getEditorState().read(() => $getRoot().getChildren().map(describeNode))
+  editor.read(() => $getRoot().getChildren().map(describeNode))
 
 const $blockOf = (key: string) => {
   const node = $topLevelBlocks().find(
@@ -224,9 +225,9 @@ describe("block edits", () => {
     run(editor, () => {
       $duplicateBlock($blockOf("definition-of-done"))
     })
-    const kinds = editor
-      .getEditorState()
-      .read(() => $topLevelBlocks().map((node) => node.getType()))
+    const kinds = editor.read(() =>
+      $topLevelBlocks().map((node) => node.getType())
+    )
     expect(kinds).toEqual(["synced-block", "synced-block"])
   })
 
@@ -237,7 +238,7 @@ describe("block edits", () => {
       $removeBlock($blockOf("notes"))
     })
     expect(outline(editor)).not.toContain("block:notes")
-    const caret = editor.getEditorState().read(() => {
+    const caret = editor.read(() => {
       const selection = $getSelection()
       return $isRangeSelection(selection)
         ? selection.anchor.getNode().getTextContent()
@@ -250,7 +251,7 @@ describe("block edits", () => {
     const editor = editorWith(BODY)
     run(editor, () => {
       const notes = $blockOf("notes")
-      $unwrapBlock(notes, "", MARKDOWN_TRANSFORMERS)
+      $unwrapBlock(notes, "")
     })
     expect(outline(editor)).not.toContain("block:notes")
     expect(markdown(editor)).toContain("## Notes\n\nSome notes.")
@@ -263,11 +264,7 @@ describe("block edits", () => {
       formatTicketBlock("definition-of-done", content, { sync: true })
     )
     run(editor, () => {
-      $unwrapBlock(
-        $blockOf("definition-of-done"),
-        content,
-        MARKDOWN_TRANSFORMERS
-      )
+      $unwrapBlock($blockOf("definition-of-done"), content)
     })
     expect(outline(editor)).not.toContain("block:definition-of-done")
     expect(markdown(editor)).toContain("## Definition of done")
@@ -278,14 +275,11 @@ describe("block edits", () => {
     const editor = editorWith(BODY)
     run(editor, () => {
       const notes = $blockOf("notes")
-      if ($isTicketBlockNode(notes))
-        $resetBlock(notes, definition, MARKDOWN_TRANSFORMERS)
+      if ($isTicketBlockNode(notes)) $resetBlock(notes, definition)
     })
-    const content = editor.getEditorState().read(() => {
+    const content = editor.read(() => {
       const notes = $blockOf("notes")
-      return $isTicketBlockNode(notes)
-        ? $blockMarkdown(notes, MARKDOWN_TRANSFORMERS)
-        : ""
+      return $isTicketBlockNode(notes) ? $blockMarkdown(notes) : ""
     })
     expect(blockMatchesDefinition(content, definition)).toBe(true)
     expect(markdown(editor)).not.toContain("Some notes.")
@@ -308,15 +302,14 @@ describe("block edits", () => {
     [
       "unwrap",
       () => {
-        $unwrapBlock($blockOf("notes"), "", MARKDOWN_TRANSFORMERS)
+        $unwrapBlock($blockOf("notes"), "")
       }
     ],
     [
       "reset",
       () => {
         const notes = $blockOf("notes")
-        if ($isTicketBlockNode(notes))
-          $resetBlock(notes, definitionOf("notes"), MARKDOWN_TRANSFORMERS)
+        if ($isTicketBlockNode(notes)) $resetBlock(notes, definitionOf("notes"))
       }
     ]
   ])("undoes %s in a single step", async (_name, action) => {
@@ -355,7 +348,6 @@ const dispatch = <P>(
 const keyboardEditor = (markdownBody: string) => {
   const editor = editorWith(markdownBody)
   const handlers = {
-    transformers: MARKDOWN_TRANSFORMERS,
     onMoved: vi.fn<BlockKeyboardHandlers["onMoved"]>(),
     onRemoved: vi.fn<BlockKeyboardHandlers["onRemoved"]>(),
     onOpenMenu: vi.fn<BlockKeyboardHandlers["onOpenMenu"]>()
@@ -436,9 +428,7 @@ describe("registerBlockKeyboard", () => {
     )
     const removable = (select: () => void) => {
       run(editor, select)
-      return editor
-        .getEditorState()
-        .read(() => $blankBlockAtCaret(MARKDOWN_TRANSFORMERS) !== null)
+      return editor.read(() => $blankBlockAtCaret() !== null)
     }
     expect(removable(() => $caretAtStartOf("notes"))).toBe(false)
     expect(removable(() => $caretAtStartOf("release-notes"))).toBe(true)
@@ -448,10 +438,9 @@ describe("registerBlockKeyboard", () => {
 
 describe("$blockMenuModel", () => {
   const modelFor = (editor: LexicalEditor, key: string, canEdit = false) =>
-    editor.getEditorState().read(() =>
+    editor.read(() =>
       $blockMenuModel($blockOf(key), {
         lookup,
-        transformers: MARKDOWN_TRANSFORMERS,
         blocks: {
           canEdit: { org: canEdit, project: canEdit },
           onMakeDefinition: () => {}
@@ -468,10 +457,9 @@ describe("$blockMenuModel", () => {
 
   it("resets to the definition in a ticket and to a reference in a template", () => {
     const editor = editorWith(BODY)
-    const template = editor.getEditorState().read(() =>
+    const template = editor.read(() =>
       $blockMenuModel($blockOf("notes"), {
         lookup,
-        transformers: MARKDOWN_TRANSFORMERS,
         blocks: { canEdit: { org: false, project: false }, mode: "template" }
       })
     )
@@ -495,13 +483,11 @@ describe("$blockMenuModel", () => {
 
 describe("making a ticket block the definition", () => {
   const exported = (markdown: string, key: string) =>
-    editorWith(markdown)
-      .getEditorState()
-      .read(() => {
-        const node = $blockOf(key)
-        if (!$isTicketBlockNode(node)) throw new Error(`no copy ${key}`)
-        return $blockMarkdown(node, MARKDOWN_TRANSFORMERS)
-      })
+    editorWith(markdown).read(() => {
+      const node = $blockOf(key)
+      if (!$isTicketBlockNode(node)) throw new Error(`no copy ${key}`)
+      return $blockMarkdown(node)
+    })
 
   it("keeps every hint of a block the ticket left untouched", () => {
     for (const definition of GALLERY_BLOCKS.filter((draft) => !draft.sync)) {

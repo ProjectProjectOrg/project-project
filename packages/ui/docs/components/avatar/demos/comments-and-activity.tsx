@@ -7,7 +7,7 @@ export default function CommentsAndActivity() {
   const [ada, sam] = PEOPLE
   return (
     <div className="grid w-full max-w-xl gap-4">
-      <div className="rounded-xl bg-surface-3 shadow-surface-1 corner-squircle">
+      <div className="rounded-xl surface-3 shadow-surface-1 corner-squircle">
         {/* The avatar sits 12px from the top and left edges alike. */}
         <header className="flex items-center gap-2 pt-2 pr-1.5 pl-3 text-body">
           <span className="flex min-h-7 items-center gap-2">

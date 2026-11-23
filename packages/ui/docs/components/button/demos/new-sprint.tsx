@@ -5,7 +5,7 @@ const sprints = ["Sprint 14", "Sprint 13", "Sprint 12"]
 
 export default function NewSprint() {
   return (
-    <div className="flex w-60 flex-col gap-0.5 rounded-[20px] bg-background p-2 corner-squircle">
+    <div className="flex w-60 flex-col gap-0.5 rounded-[20px] surface-background p-2 corner-squircle">
       {sprints.map((name) => (
         <p key={name} className="px-2 py-1.5 text-body text-muted-foreground">
           {name}

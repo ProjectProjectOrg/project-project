@@ -34,6 +34,7 @@ import {
   type TicketEpicSection,
   type TicketParent,
   type TicketEpicSections,
+  type TicketId,
   TICKET_LIST_LIMIT,
   type TicketListPage,
   type TicketListQuery,
@@ -298,6 +299,13 @@ export class TicketQueries extends Context.Service<
     get: (
       id: string
     ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
+    prepareDetails: (
+      ids: ReadonlyArray<string>
+    ) => Effect.Effect<
+      (id: TicketId) => Effect.Effect<TicketDetail, TicketReadError>,
+      never,
+      ProjectScope
+    >
     movedTo: (
       id: string
     ) => Effect.Effect<
@@ -1230,31 +1238,66 @@ const make = Effect.gen(function* () {
     return yield* childSequence(ticketId)
   })
 
-  const get = Effect.fn("TicketQueries.get")(function* (id: string) {
-    const scope = yield* ProjectScope
+  const readDetail = Effect.fn("TicketQueries.readDetail")(function* (
+    scope: ProjectScope["Service"],
+    id: string,
+    view: Effect.Effect<Effect.Success<typeof gitView>>,
+    counts: Effect.Effect<
+      | Pick<
+          TicketIndex.TicketIndexEntry,
+          "subTicketCount" | "subTicketDoneCount"
+        >
+      | undefined
+    >
+  ) {
     const { orgSlug, slug } = scope
-    const [view, ticket, branchDeletedAt] = yield* Effect.all(
+    const [git, ticket, branchDeletedAt, entry] = yield* Effect.all(
       [
-        gitView,
+        view,
         readTicket(scope, id),
-        ticketBranchIndex.getBranchDeletedAt(scope, id)
+        ticketBranchIndex.getBranchDeletedAt(scope, id),
+        counts
       ],
       { concurrency: "unbounded" }
     )
-    const [body, entries, detail] = yield* Effect.all(
+    const [body, detail] = yield* Effect.all(
       [
         library.resolveSynced(orgSlug, slug, ticket.body),
-        ticketIndex.list(scope, [ticket.id]),
-        detailOf(ticket, view, branchDeletedAt)
+        detailOf(ticket, git, branchDeletedAt).pipe(
+          Effect.provideService(ProjectScope, scope)
+        )
       ],
       { concurrency: "unbounded" }
     )
     return yield* withMissingAttachments(orgSlug, {
       ...detail,
       body,
-      subTicketCount: entries[0]?.subTicketCount ?? 0,
-      subTicketDoneCount: entries[0]?.subTicketDoneCount ?? 0
+      subTicketCount: entry?.subTicketCount ?? 0,
+      subTicketDoneCount: entry?.subTicketDoneCount ?? 0
     })
+  })
+
+  const get = Effect.fn("TicketQueries.get")(function* (id: string) {
+    const scope = yield* ProjectScope
+    return yield* readDetail(
+      scope,
+      id,
+      gitViewOf(scope),
+      ticketIndex.list(scope, [id]).pipe(Effect.map(([entry]) => entry))
+    )
+  })
+
+  const prepareDetails = Effect.fn("TicketQueries.prepareDetails")(function* (
+    ids: ReadonlyArray<string>
+  ) {
+    const scope = yield* ProjectScope
+    const [view, entries] = yield* Effect.all(
+      [gitViewOf(scope), ticketIndex.list(scope, ids)],
+      { concurrency: "unbounded" }
+    )
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    return (id: TicketId) =>
+      readDetail(scope, id, Effect.succeed(view), Effect.succeed(byId.get(id)))
   })
 
   const movedTo = Effect.fn("TicketQueries.movedTo")(function* (id: string) {
@@ -1288,6 +1331,7 @@ const make = Effect.gen(function* () {
     textSearch,
     listInGroup,
     tagUsageCounts,
+    prepareDetails,
     get
   })
 })

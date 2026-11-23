@@ -328,7 +328,7 @@ function Capsule({
     >
       <div
         className={cn(
-          "confirm-capsule relative flex h-8 items-center justify-end gap-1 rounded-[16px] bg-(color:--tooltip) pe-1 whitespace-nowrap shadow-(--tooltip-edge) [corner-shape:var(--button-corner)] *:shrink-0",
+          "confirm-capsule relative flex h-8 items-center justify-end gap-1 rounded-[16px] surface-(--tooltip) pe-1 whitespace-nowrap shadow-(--tooltip-edge) [corner-shape:var(--button-corner)] *:shrink-0",
           className
         )}
       >
