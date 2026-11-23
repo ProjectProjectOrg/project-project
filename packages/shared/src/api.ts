@@ -13,6 +13,7 @@ import {
   PublicAuthGroup,
   PublicOAuthGroup
 } from "./auth/AuthApi"
+import { Changelog } from "./changelog/Changelog"
 import { TicketCommentsGroup } from "./comments/CommentsApi"
 import { EverhourGroup } from "./everhour/EverhourApi"
 import { FeedbackGroup, FeedbackIntakeGroup } from "./feedback/FeedbackApi"
@@ -47,11 +48,17 @@ const HealthResponse = Schema.Struct({
 
 export type HealthResponse = typeof HealthResponse.Type
 
-const HealthGroup = HttpApiGroup.make("health").add(
-  HttpApiEndpoint.get("get", "/health", {
-    success: HealthResponse
-  })
-)
+const HealthGroup = HttpApiGroup.make("health")
+  .add(
+    HttpApiEndpoint.get("get", "/health", {
+      success: HealthResponse
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("changelog", "/changelog", {
+      success: Changelog
+    })
+  )
 
 const DbPingResponse = Schema.Struct({
   projectCount: Schema.Finite

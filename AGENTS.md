@@ -26,6 +26,10 @@ This is the firm rule. **Do not make architectural decisions unilaterally.** Tha
 
 When you hit one of these, **stop and ask**. Present the options with tradeoffs; let the human pick. Implementation details inside an already-agreed shape are fine to just do.
 
+### Changesets
+
+Every pull request adds at least one changeset: `.changeset/<short-name>.md`, in the format `.changeset/README.md` describes. Write it yourself as part of the change. User-facing changes use `features`, `improvements` or `fixes`, an `area`, and one line in the app user's words that says one thing (agent, `pp` and self-hosting changes count as user-facing); changes nobody using the app can see use `kind: internal`. When a change is a headline feature, mark it `highlight: true` with a body, say `where` to find it, and make its video (a Remotion composition in `apps/videos`, or a compressed screen recording) as the README describes; something people must act on before updating is `notice: true` with a body. When your pull request finishes, fixes, replaces or polishes a change no stable release has shipped yet, or is groundwork nobody can use yet, follow the README's "Follow-ups, replacements, polish and groundwork". Release notes, the sidebar's "What's new" card and the changelog page are built from these files; the `changeset` workflow fails a pull request without a valid one, and a stable release fails its release check (`bun run changelog:check`) until the set is ready.
+
 ### Tone
 
 - Short, direct, peer-level. No teaching voice unless asked for one.

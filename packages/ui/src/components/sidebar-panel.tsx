@@ -21,6 +21,8 @@ type SidebarPanelProps = Readonly<{
   // The panel's SidebarPanelHeader, drawn above the content and moving as one
   // piece with the content. A sub-page such as settings has none.
   header?: ReactNode
+  // Stays put below the content while the content swaps (a SidebarCard).
+  footer?: ReactNode
   transition?: SidebarPanelTransition
   children: ReactNode
   className?: string
@@ -84,6 +86,7 @@ function SidebarPanel({
   panelKey,
   transition = "none",
   header,
+  footer,
   children,
   className
 }: SidebarPanelProps) {
@@ -111,6 +114,7 @@ function SidebarPanel({
           {children}
         </motion.div>
       </AnimatePresence>
+      {footer}
     </div>
   )
 }

@@ -76,6 +76,58 @@
   "profile_avatar_option_google": "Google",
   "profile_avatar_title": "Avatar",
   "profile_avatar_update_error": "Couldn't update your avatar.",
+  "profile_changelog_also": "Also in this release",
+  "profile_changelog_area_agents": "Agents",
+  "profile_changelog_area_appearance": "Appearance",
+  "profile_changelog_area_comments": "Comments",
+  "profile_changelog_area_editor": "Editor",
+  "profile_changelog_area_integrations": "Integrations",
+  "profile_changelog_area_lists": "Lists",
+  "profile_changelog_area_navigation": "Navigation",
+  "profile_changelog_area_other": "Other",
+  "profile_changelog_area_people": "People",
+  "profile_changelog_area_projects": "Projects",
+  "profile_changelog_area_self_hosting": "Self-hosting",
+  "profile_changelog_area_sprints": "Sprints",
+  "profile_changelog_area_tickets": "Tickets",
+  "profile_changelog_changes": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} change",
+        "countPlural=*": "{count} changes"
+      }
+    }
+  ],
+  "profile_changelog_copy_link": "Copy link to {section}",
+  "profile_changelog_count_features": "{count} new",
+  "profile_changelog_count_fixes": "{count} fixed",
+  "profile_changelog_count_highlights": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} highlight",
+        "countPlural=*": "{count} highlights"
+      }
+    }
+  ],
+  "profile_changelog_count_improvements": "{count} improved",
+  "profile_changelog_earlier": "Earlier releases",
+  "profile_changelog_empty": "No release notes yet. They show up here after the first release.",
+  "profile_changelog_highlight_eyebrow": "Highlight {rank} of {total}",
+  "profile_changelog_highlight_single": "Highlight",
+  "profile_changelog_highlights": "Highlights",
+  "profile_changelog_in_release": "In this release",
+  "profile_changelog_index_label": "On this page",
+  "profile_changelog_latest": "Latest release",
+  "profile_changelog_link_copied": "Link copied",
+  "profile_changelog_nightly": "Nightly",
+  "profile_changelog_notices": "Before you update",
+  "profile_changelog_on_github": "On GitHub",
+  "profile_changelog_pr": "Pull request {number}",
+  "profile_changelog_where": "Where",
   "profile_chip_colors_description": "How tags and pull requests look on tickets.",
   "profile_chip_colors_option_flat": "Flat",
   "profile_chip_colors_option_rich": "Rich",

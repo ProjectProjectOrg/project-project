@@ -22,6 +22,7 @@ import {
   SidebarScope
 } from "@/components/shell/sidebar/sidebarRoute"
 import { usePanelTransition } from "@/components/shell/sidebar/usePanelTransition"
+import { WhatsNewCard } from "@/features/instance/components/WhatsNewCard"
 import { ProjectBannerWarmup } from "@/features/projects/components/ProjectBannerWarmup"
 import { useScopedProject } from "@/features/projects/hooks/useScopedProject"
 
@@ -94,6 +95,7 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
       <SidebarPanel
         panelKey={panelKey}
         transition={transition}
+        footer={<WhatsNewCard />}
         header={
           inSettings ? undefined : (
             <PanelHeader orgSlug={orgSlug} project={project} />

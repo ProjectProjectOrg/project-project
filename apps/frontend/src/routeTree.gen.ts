@@ -13,6 +13,7 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as AuthedChangelogRouteImport } from './routes/_authed/changelog'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as AuthedSettingsRouteRouteImport } from './routes/_authed/settings/route'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
@@ -99,6 +100,11 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedChangelogRoute = AuthedChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => AuthedRouteRoute,
 } as any)
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
@@ -509,6 +515,7 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/login': typeof publicLoginRoute
+  '/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/settings/profile': typeof AuthedSettingsProfileRouteRouteWithChildren
@@ -578,6 +585,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
+  '/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
   '/cli/sign-in-failed': typeof publicCliSignInFailedRoute
@@ -639,6 +647,7 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/_authed/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/(public)/login': typeof publicLoginRoute
+  '/_authed/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
@@ -714,6 +723,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/settings'
     | '/login'
+    | '/changelog'
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
     | '/settings/profile'
@@ -783,6 +793,7 @@ export interface FileRouteTypes {
   to:
     | '/welcome'
     | '/login'
+    | '/changelog'
     | '/invite/$invitationId'
     | '/'
     | '/cli/sign-in-failed'
@@ -843,6 +854,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/_authed/settings'
     | '/(public)/login'
+    | '/_authed/changelog'
     | '/invite/$invitationId'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
@@ -951,6 +963,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$invitationId'
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/changelog': {
+      id: '/_authed/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof AuthedChangelogRouteImport
+      parentRoute: typeof AuthedRouteRoute
     }
     '/(public)/login': {
       id: '/(public)/login'
@@ -1766,12 +1785,14 @@ const AuthedOrgsOrgSlugRouteRouteWithChildren =
 
 interface AuthedRouteRouteChildren {
   AuthedSettingsRouteRoute: typeof AuthedSettingsRouteRouteWithChildren
+  AuthedChangelogRoute: typeof AuthedChangelogRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedOrgsOrgSlugRouteRoute: typeof AuthedOrgsOrgSlugRouteRouteWithChildren
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
   AuthedSettingsRouteRoute: AuthedSettingsRouteRouteWithChildren,
+  AuthedChangelogRoute: AuthedChangelogRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedOrgsOrgSlugRouteRoute: AuthedOrgsOrgSlugRouteRouteWithChildren,
 }

@@ -223,17 +223,26 @@ release so the previous tag can always run against the current database.
   `NIGHTLY_MIN_GAP_HOURS`. Set the variable to `0` for a nightly per push.
   Run it with `force` to publish regardless of the gap. The version is the
   build date in Amsterdam time plus the run number, as
-  `vYYYY.MM.DD-nightly.<run>`, published as a GitHub prerelease with generated
-  notes.
+  `vYYYY.MM.DD-nightly.<run>`, published as a GitHub prerelease whose notes
+  are the merged pull request titles, grouped by their `feat`/`perf`/`fix`
+  prefix (other prefixes are left out).
 - **Stable** (`.github/workflows/stable.yml`) is a manual dispatch from `main`.
   It takes the newest nightly older than `STABLE_MIN_SOAK_HOURS` (default 2),
   promotes that nightly's images as `vYYYY.MM.DD`, `stable` and `latest`, and
-  publishes a GitHub Release with notes since the previous stable. The version
+  publishes a GitHub Release whose notes are the changesets (`.changeset/`)
+  added since the previous stable. The version
   is the nightly's build date, not the promotion date, so the nightly you
   tested and the stable you ship carry the same date. A second stable from the
   same build day gets `.2`, then `.3`. Pass `ref` to ship an explicit commit as
   a hotfix; it is versioned by its commit date. The workflow refuses a release
   that is not ahead of the previous stable or would sort before it.
+- **Changelog in the app.** Both channels run `.github/scripts/changelog.ts`,
+  which writes `changelog.json` (this release plus the channel's last 29),
+  bakes it into the app image at `/app/changelog.json` and attaches it to the
+  release, where the next release of the channel picks it up. The backend
+  serves it at `/api/changelog` (`CHANGELOG_PATH` overrides the path), and the
+  sidebar's "What's new" card shows the releases since the one a person last
+  dismissed.
 - Point the homelab at `IMAGE_TAG=nightly` and production at `IMAGE_TAG=stable`.
   A box that should follow every merge uses `IMAGE_TAG=main`.
 - **The `pp` CLI** ships with both channels. The nightly builds `pp` for macOS

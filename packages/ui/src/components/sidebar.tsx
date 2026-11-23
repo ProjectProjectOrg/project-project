@@ -17,6 +17,7 @@ import {
 import { cn } from "../lib/utils"
 import { FluidHoverHighlight } from "./fluid-hover-highlight"
 import { ChevronRight } from "./icons"
+import { SidebarCard, type SidebarCardProps } from "./sidebar-card"
 import {
   SidebarBack,
   SidebarPanel,
@@ -113,7 +114,12 @@ function SidebarPanelBody({
     <Root
       aria-label={label}
       data-slot="sidebar-panel-body"
-      className={cn("min-h-0 flex-1 overflow-y-auto px-2 py-1", className)}
+      // Rows fade out at an edge they scroll past (the card below, the
+      // header above); the fade only shows when there is more to scroll.
+      className={cn(
+        "scroll-fade min-h-0 flex-1 overflow-y-auto px-2 py-1 ![--scroll-fade-size:32px]",
+        className
+      )}
     >
       {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- the gliding highlight's pointer handlers; keyboard users reach the rows themselves */}
       <div
@@ -333,6 +339,7 @@ function SidebarSubRows({
 
 export {
   SidebarBack,
+  SidebarCard,
   SidebarRowGroup,
   SidebarRail,
   SidebarRailItem,
@@ -348,6 +355,7 @@ export {
 }
 export type {
   SidebarBackProps,
+  SidebarCardProps,
   SidebarPanelTransition,
   SidebarRowGroupProps,
   SidebarRailProps,

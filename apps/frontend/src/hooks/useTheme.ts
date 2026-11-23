@@ -1,7 +1,7 @@
 import { Monitor, Moon, Sun } from "@pp/ui/icons"
 import type { SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Schema from "effect/Schema"
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useSyncExternalStore } from "react"
 
 import {
   createLocalStorageStringCodec,
@@ -37,6 +37,30 @@ function applyResolved(pref: ThemePreference) {
   document.documentElement.classList.toggle("dark", next === "dark")
 }
 
+const subscribeToThemeClass = (onChange: () => void) => {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"]
+  })
+  return () => observer.disconnect()
+}
+
+const appliedTheme = () =>
+  (document.documentElement.classList.contains("dark")
+    ? "dark"
+    : "light") satisfies ResolvedTheme
+
+// The theme on screen right now: follows the `dark` class, so it changes when
+// the page does, after the reveal.
+export function useResolvedTheme() {
+  return useSyncExternalStore(
+    subscribeToThemeClass,
+    appliedTheme,
+    () => "light" as const
+  )
+}
+
 // The theme switcher's pill slides for 280ms. The page-wide reveal waits most
 // of that out: the reveal snapshots the page, so a slide running inside it
 // would be hidden until the circle passed, and the old tab would seem to
@@ -56,7 +80,7 @@ export function useTheme() {
 
   useEffect(() => {
     if (!reveal.pending) applyResolved(preference)
-    if (preference !== "system") return
+    if (preference !== "system") return undefined
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     const onChange = () => applyResolved("system")
     mq.addEventListener("change", onChange)

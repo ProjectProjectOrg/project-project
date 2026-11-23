@@ -98,6 +98,11 @@ import { attachmentRoutes } from "./attachments/Routes"
 import { attachmentUploadRoute } from "./attachments/UploadRoutes"
 import { AuthHandlerLive, PublicAuthHandlerLive } from "./auth/Handlers"
 import { isClosedAuthPath } from "./auth/orgAccess"
+import {
+  CHANGELOG_MEDIA_PREFIX,
+  changelogMediaRoute
+} from "./changelog/mediaRoute"
+import { readChangelog } from "./changelog/readChangelog"
 import { CliInstallRouteLive } from "./cli/InstallRoutes"
 import { CommentsHandlerLive } from "./comments/Handlers"
 import { EverhourHandlerLive } from "./everhour/Handlers"
@@ -144,14 +149,16 @@ export const HealthHandlerLive = HttpApiBuilder.group(
   AppApi,
   "health",
   (handlers) =>
-    handlers.handle("get", () =>
-      Effect.gen(function* () {
-        const version = yield* Config.String("APP_VERSION").pipe(
-          Config.withDefault("")
-        )
-        return { status: "ok" as const, version: version || "dev" }
-      }).pipe(Effect.orDie)
-    )
+    handlers
+      .handle("get", () =>
+        Effect.gen(function* () {
+          const version = yield* Config.String("APP_VERSION").pipe(
+            Config.withDefault("")
+          )
+          return { status: "ok" as const, version: version || "dev" }
+        }).pipe(Effect.orDie)
+      )
+      .handle("changelog", () => readChangelog)
 )
 
 export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
@@ -540,6 +547,7 @@ export const RouteLive = Layer.mergeAll(
     attachmentRoutes
   ),
   HttpRouter.add("POST", "/api/attachment-uploads", attachmentUploadRoute),
+  HttpRouter.add("GET", `${CHANGELOG_MEDIA_PREFIX}:name`, changelogMediaRoute),
   McpLive,
   ToolsRouteLive,
   CliInstallRouteLive,
