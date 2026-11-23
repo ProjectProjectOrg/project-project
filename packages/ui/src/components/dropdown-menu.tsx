@@ -262,7 +262,16 @@ const MENU_SELECTOR =
 function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
   if (!/^[0-9]$/.test(event.key)) return
-  if (event.target instanceof HTMLInputElement) return
+  // A menu's search takes digits once you've typed in it; while it's
+  // empty they pick, as the numbered rows promise. Other fields always type.
+  if (
+    event.target instanceof HTMLInputElement &&
+    !(
+      event.target.dataset.slot === "dropdown-menu-input" &&
+      event.target.value === ""
+    )
+  )
+    return
   const numbered = (menu: Element) =>
     Array.from(
       menu.querySelectorAll<HTMLElement>(`[data-number="${event.key}"]`)
@@ -734,7 +743,7 @@ function DropdownMenuRadioItem({
           data-number={number}
           aria-hidden
           size="sm"
-          className="mr-px ml-auto"
+          className="mr-px ml-auto [[data-menu-meta]+&]:ml-0"
         />
       )}
     </MenuPrimitive.RadioItem>
@@ -749,22 +758,39 @@ function DropdownMenuRadioItem({
   )
 }
 
+// The search at the top of a filterable menu. `shortcut` shows the keys
+// that open this menu (a KbdShortcut) at the field's end.
 function DropdownMenuInput({
   className,
+  shortcut,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.Input>) {
+}: React.ComponentProps<typeof MenuPrimitive.Input> &
+  Readonly<{ shortcut?: React.ReactNode }>) {
+  const input = (
+    <MenuPrimitive.Input
+      data-slot="dropdown-menu-input"
+      className={cn(
+        "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
+        "text-body",
+        fieldTouchClass,
+        shortcut !== undefined && "pr-16",
+        className
+      )}
+      {...props}
+    />
+  )
   return (
     <>
-      <MenuPrimitive.Input
-        data-slot="dropdown-menu-input"
-        className={cn(
-          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
-          "text-body",
-          fieldTouchClass,
-          className
-        )}
-        {...props}
-      />
+      {shortcut === undefined ? (
+        input
+      ) : (
+        <div className="relative flex items-center">
+          {input}
+          <span className="pointer-events-none absolute right-2 flex">
+            {shortcut}
+          </span>
+        </div>
+      )}
       <DropdownMenuSeparator />
     </>
   )

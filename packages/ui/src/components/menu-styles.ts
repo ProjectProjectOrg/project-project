@@ -55,3 +55,11 @@ export const menuChoiceIndicatorClass =
 
 export const menuItemMetaClass =
   "ml-auto text-micro text-muted-foreground tabular-nums"
+
+// A quieter detail at a picker row's end, in the row's own size: a
+// sprint's dates, an epic's progress. Right-aligned so the details line up
+// in one column whatever the names' lengths, and it brightens with its row
+// to keep its contrast on the highlight. Pair it with data-menu-meta, so a
+// number key after it sits beside it.
+export const menuItemDetailClass =
+  "ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-right text-muted-foreground tabular-nums [:is([data-highlighted],[data-menu-held],[data-menu-resting])_&]:text-foreground"
