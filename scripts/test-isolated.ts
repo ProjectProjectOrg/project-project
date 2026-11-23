@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { mkdtemp, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
@@ -34,12 +35,12 @@ const explicit = forwarded.some((arg) => !arg.startsWith("-"))
 const testFiles =
   // .github/scripts tests run in the changeset workflow; bunfig skips dot folders.
   (
-    await Bun.$`git ls-files -- '*.test.ts' '*.test.tsx' ':!.github/**'`
+    await Bun.$`git ls-files --cached --others --exclude-standard -- '*.test.ts' '*.test.tsx' ':!.github/**'`
       .cwd(root)
       .text()
   )
     .split("\n")
-    .filter(Boolean)
+    .filter((file) => file !== "" && existsSync(path.join(root, file)))
 
 const timingsDir = path.join(root, ".cache/test-timings")
 const recorded: Record<string, number> = {}
