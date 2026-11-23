@@ -18,12 +18,10 @@ import { cn } from "../lib/utils"
  * has keyboard focus or an open popup, while the row is selected, and while
  * a child is checked or just copied. Touch screens have no hover, so there
  * they always show. During keyboard navigation the pointer's hover is
- * ignored. It shows and hides at once, never fading, so sweeping the
- * pointer over rows never leaves a trail of them lit. In a ListHoverScope it
- * shows as the list's highlight lands on the row, not before.
+ * ignored and the change is instant.
  */
 const revealClass = cn(
-  "inline-flex shrink-0 opacity-0",
+  "inline-flex shrink-0 opacity-0 transition-opacity in-data-keyboard-navigation:duration-0 in-data-[slot=list-hover-scope]:transition-none motion-safe:duration-80",
   "not-in-data-keyboard-navigation:row-hover:opacity-100",
   "in-data-[row-selected]:opacity-100",
   "group-has-[:focus-visible]/reveal:opacity-100 has-[:focus-visible]:opacity-100",

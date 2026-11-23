@@ -77,7 +77,6 @@ function Shell({ user }: { user: User }) {
                   aria-hidden
                   className="pointer-events-none absolute inset-x-0 top-0 -z-10"
                 />
-                {/* No hover while the page scrolls under a still pointer. */}
                 <div
                   data-scroll-content
                   className="flex min-h-full flex-col p-6 pt-3 in-data-scrolling:pointer-events-none"

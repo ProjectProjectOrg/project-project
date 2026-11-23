@@ -20,19 +20,12 @@ export type FluidHoverHighlightProps = Readonly<{
   hidden?: boolean
   instant?: boolean
   fullWidth?: boolean
-  // Called every frame the highlight is landing on its row (within a
-  // quarter of its height), so whatever lights with the row eases in as the
-  // highlight settles instead of running ahead of it.
-  // It gets the row's box, so a highlight still fading out from an earlier
-  // session can be told apart from the one landing now.
   onArrive?: (rect: ItemRect) => void
   className?: string
 }>
 
 const fade: Transition = { duration: 0.08 }
 
-// Close enough to the row to count as landing, as a share of its height:
-// what lights with it starts easing in as the spring settles, not after.
 const ARRIVING = 0.25
 
 const near = (value: number, target: number, reach: number) =>

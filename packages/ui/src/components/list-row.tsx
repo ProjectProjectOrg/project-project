@@ -98,13 +98,7 @@ const openPopupRow = (container: HTMLElement) =>
  * inside it drop their own hover fill. It hides during arrow-key
  * navigation, where the focused row shows instead. While a row has a menu
  * or preview card open, the highlight stays on it when the pointer leaves
- * for the popup, so the row is never lit twice. A row lights up (its
- * reveals show) when the highlight lands on it, not when the pointer gets
- * there, so a quick sweep lights nothing until the pointer rests, and
- * leaving puts a row out at once. While its scroll root
- * carries `data-scrolling` (trackScrolling) no row is lit: the highlight
- * and the row's reveals come back together on the row under the pointer
- * once scrolling settles.
+ * for the popup, so the row is never lit twice.
  * Only the row under the pointer is found and measured, at most once a
  * frame, so rows mounting as a virtual list scrolls cost nothing here.
  */
@@ -118,8 +112,6 @@ export function ListHoverScope({
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
   const sessionRef = useRef(0)
-  // The row under the pointer, which the highlight is heading for, and the
-  // row it has landed on, which carries data-hover-highlight.
   const targetRow = useRef<HTMLElement | null>(null)
   const targetRect = useRef<ItemRect | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
@@ -136,8 +128,6 @@ export function ListHoverScope({
     const row = paused
       ? null
       : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
-    // A position followed from the document during a pause may be outside
-    // the list; past the pause, only a pointer in the list is tracked.
     if (!paused && at && !row) {
       const under = document.elementFromPoint(at.x, at.y)
       if (!under || !container.contains(under)) point.current = null
@@ -198,18 +188,13 @@ export function ListHoverScope({
     }
     root.addEventListener("scroll", onScroll, { passive: true })
     const scrolling = new MutationObserver(() => {
-      // A new session, so the highlight comes back where it is instead of
-      // gliding there from the row it left.
       if (scrollRoot?.hasAttribute("data-scrolling")) sessionRef.current += 1
       schedule()
     })
     if (scrollRoot) {
       scrolling.observe(scrollRoot, { attributeFilter: ["data-scrolling"] })
     }
-    // While the content drops pointer events the scope hears no moves, so
-    // follow the pointer from the document until scrolling settles, even
-    // from outside the list; the row it lands on is then the one under it,
-    // or none if it isn't over the list.
+    // Content ignores the pointer while scrolling, so follow it from the document.
     const onPausedMove = (event: MouseEvent) => {
       if (scrollRoot?.hasAttribute("data-scrolling"))
         point.current = { x: event.clientX, y: event.clientY }
@@ -261,8 +246,7 @@ export function ListHoverScope({
         schedule()
       }}
       onMouseLeave={(event) => {
-        // Content drops pointer events while it scrolls, which reads as
-        // leaving; the document follows the pointer until it settles.
+        // Content dropping pointer events while scrolling reads as leaving.
         if (event.currentTarget.closest("[data-scrolling]")) return
         point.current = null
         schedule()
