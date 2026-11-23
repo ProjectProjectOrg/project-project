@@ -20,7 +20,7 @@ import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
-import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { usePreloadRouteCode } from "@/hooks/usePreloadRouteCode"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
 export function AuthedLayout() {
@@ -52,6 +52,7 @@ export function AuthedLayout() {
 
 function Shell({ user }: { user: User }) {
   const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
+  usePreloadRouteCode()
   return (
     <div className="h-full">
       <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden surface-background lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-1">
@@ -93,7 +94,6 @@ function Shell({ user }: { user: User }) {
       {user.activeOrgSlug ? (
         <CommandMenuHost orgSlug={user.activeOrgSlug} />
       ) : null}
-      <TicketPreviewRoot />
     </div>
   )
 }

@@ -1,10 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import { type TicketFlag } from "@pp/shared"
-import { Markdown } from "@pp/ui/editor/markdown"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
 
+import { Markdown } from "@/features/editor/components/Markdown"
 import { project } from "@/features/projects/atoms/projects"
 import {
   useProjectRequest,

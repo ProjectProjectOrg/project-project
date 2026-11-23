@@ -145,6 +145,7 @@ export async function runServers(
   environment: Environment,
   env: Record<string, string>,
   fresh: boolean,
+  production: boolean,
   ready: () => Promise<void>
 ) {
   const resources = registry.resources(environment)
@@ -201,26 +202,42 @@ export async function runServers(
       throw new Error(
         "Start through dev:agent so Portless assigns the frontend port"
       )
+    const vite = path.join(
+      environment.worktree,
+      "node_modules/vite/bin/vite.js"
+    )
+    const frontendOptions = {
+      cwd: path.join(environment.worktree, "apps/frontend"),
+      env: {
+        ...env,
+        AGENT_API_TARGET: target,
+        AGENT_PUBLIC_URL: env.BETTER_AUTH_URL
+      },
+      stdout: "inherit",
+      stderr: "inherit"
+    } as const
+    if (production) {
+      const build = Bun.spawn(["node", vite, "build"], {
+        ...frontendOptions,
+        env: { ...frontendOptions.env, NODE_ENV: "production" },
+        signal: shutdown.signal
+      })
+      const built = (await build.exited) === 0
+      if (shutdown.signal.aborted) return
+      if (!built) throw new Error("The frontend production build failed")
+    }
     frontend = Bun.spawn(
       [
         "node",
-        path.join(environment.worktree, "node_modules/vite/bin/vite.js"),
+        vite,
+        ...(production ? ["preview"] : []),
         "--host",
         "127.0.0.1",
         "--port",
         frontendPort,
         "--strictPort"
       ],
-      {
-        cwd: path.join(environment.worktree, "apps/frontend"),
-        env: {
-          ...env,
-          AGENT_API_TARGET: target,
-          AGENT_PUBLIC_URL: env.BETTER_AUTH_URL
-        },
-        stdout: "inherit",
-        stderr: "inherit"
-      }
+      frontendOptions
     )
     const galleryPort = await freePort()
     gallery = Bun.spawn(

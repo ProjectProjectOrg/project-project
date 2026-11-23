@@ -9,8 +9,9 @@ import {
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
-import { lazy, Suspense, use, useEffect, useState, type ReactNode } from "react"
+import { use, useEffect, useState, type ReactNode } from "react"
 
+import { loadMarkdown, Markdown } from "@/features/editor/components/Markdown"
 import {
   projectEstimation,
   projectRequest
@@ -46,12 +47,6 @@ import {
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
-
-const loadMarkdown = () => import("@pp/ui/editor/markdown")
-
-const Markdown = lazy(() =>
-  loadMarkdown().then((mod) => ({ default: mod.Markdown }))
-)
 
 const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 
@@ -177,15 +172,13 @@ export function TicketPeek({
             {m.tickets_peek_no_description()}
           </p>
         ) : (
-          <Suspense fallback={null}>
-            <Markdown
-              className="text-muted-foreground"
-              blocks="flat"
-              size="compact"
-            >
-              {body}
-            </Markdown>
-          </Suspense>
+          <Markdown
+            className="text-muted-foreground"
+            blocks="flat"
+            size="compact"
+          >
+            {body}
+          </Markdown>
         )}
       </div>
       {(ticket.subTicketCount ?? 0) > 0 && (

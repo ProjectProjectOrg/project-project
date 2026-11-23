@@ -15,7 +15,7 @@ import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import { useContext, useEffect, type ComponentProps } from "react"
+import { useContext, type ComponentProps } from "react"
 
 import {
   ProjectContext,
@@ -36,10 +36,7 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import {
-  loadMarkdown,
-  TicketPreviewBody
-} from "@/features/tickets/components/TicketHoverCard"
+import { TicketPreviewBody } from "@/features/tickets/components/TicketHoverCard"
 import { type RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 
@@ -134,15 +131,6 @@ function useWarmPreview() {
     if (loaded === null) return
     void Effect.runPromise(Effect.ignore(loaded))
   }
-}
-
-// Loads the Markdown renderer ahead of the first ticket preview. (The
-// previews themselves render where their triggers are.)
-export function TicketPreviewRoot() {
-  useEffect(() => {
-    void loadMarkdown()
-  }, [])
-  return null
 }
 
 const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["_tag"], string>> = {

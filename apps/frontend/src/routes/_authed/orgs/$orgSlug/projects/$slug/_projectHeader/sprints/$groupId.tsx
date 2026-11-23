@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
 import { Crumb } from "@/components/shell/Breadcrumbs"
+import { loadEditableMarkdown } from "@/features/editor/components/DeferredEditableMarkdown"
 import {
   statusesFor,
   statusesRequest
@@ -48,8 +49,8 @@ export const Route = createFileRoute(
       registry.mount(sprintBoard(boardRequest(orgSlug, slug, id)))()
     }
 
-    return {
+    return loadEditableMarkdown().then(() => ({
       crumb: Crumb.sprint({ orgSlug, slug, groupId: id })
-    }
+    }))
   }
 })

@@ -207,7 +207,7 @@ it.each(["board", "list", "description"] as const)(
   "starts only the %s view's ticket read without awaiting responses",
   async (view) => {
     expect(
-      load(SprintRoute.options.loader, {
+      await load(SprintRoute.options.loader, {
         ...loaderDefaults(SprintRoute),
         context: { registry },
         params,

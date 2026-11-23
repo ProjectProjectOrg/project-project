@@ -43,6 +43,7 @@ import {
 const { root, directory } = await location()
 const registry = new AgentRegistry(directory)
 const operation = process.argv[2] ?? "start"
+const production = process.argv.includes("--prod")
 const decodeStorageOwner = Schema.decodeUnknownSync(
   Schema.Struct({ id: Schema.String })
 )
@@ -181,7 +182,8 @@ async function start() {
       process.execPath,
       "--no-env-file",
       "apps/backend/scripts/dev-agent.ts",
-      "serve"
+      "serve",
+      ...(production ? ["--prod"] : [])
     ],
     {
       cwd: root,
@@ -265,18 +267,25 @@ async function serve() {
       await pool.end()
     }
     const ready = Promise.withResolvers<void>()
-    running = runServers(registry, environment, env, fresh, async () => {
-      await registry.save(
-        (await registry.read()).map((entry) =>
-          entry.id === environment.id
-            ? Object.assign({}, entry, {
-                state: "ready" satisfies Environment["state"]
-              })
-            : entry
+    running = runServers(
+      registry,
+      environment,
+      env,
+      fresh,
+      production,
+      async () => {
+        await registry.save(
+          (await registry.read()).map((entry) =>
+            entry.id === environment.id
+              ? Object.assign({}, entry, {
+                  state: "ready" satisfies Environment["state"]
+                })
+              : entry
+          )
         )
-      )
-      ready.resolve()
-    })
+        ready.resolve()
+      }
+    )
     await Promise.race([running, ready.promise])
   })
   await running

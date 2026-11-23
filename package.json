@@ -29,6 +29,7 @@
     "check": "bun run fmt:check && bun run lint && bun run typecheck",
     "check:changed": "bun run fmt:check && bun run lint && bun run typecheck --affected && bun run test",
     "dev:agent": "bun --no-env-file apps/backend/scripts/dev-agent.ts",
+    "dev:agent:prod": "bun --no-env-file apps/backend/scripts/dev-agent.ts start --prod",
     "dev:login": "bun --no-env-file apps/backend/scripts/dev-agent.ts login",
     "dev:agent:clean": "bun --no-env-file apps/backend/scripts/dev-agent.ts clean",
     "dev:agent:prune": "bun --no-env-file apps/backend/scripts/dev-agent.ts prune",

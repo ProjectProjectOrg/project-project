@@ -4,7 +4,7 @@ import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 
-import { EditableMarkdown } from "@/features/editor/components/EditableMarkdown"
+import { EditableMarkdown } from "@/features/editor/components/DeferredEditableMarkdown"
 import {
   useProject,
   useProjectRoute
