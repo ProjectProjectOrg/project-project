@@ -270,21 +270,15 @@ function TicketCrumb({
   id
 }: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const stepped = useAtomValue(steppedTicket)
-  if (stepped?.urlId === id) {
-    return <TicketCrumbText id={stepped.id} title={stepped.title} />
-  }
-  return <LoadedTicketCrumb orgSlug={orgSlug} slug={slug} id={id} />
-}
-
-function LoadedTicketCrumb({
-  orgSlug,
-  slug,
-  id
-}: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
   const titleHint = useRouterState({
     select: (state) => state.location.state.ticketTitle
   })
+  if (stepped?.urlId === id) {
+    return (
+      <TicketCrumbText id={stepped.id} title={stepped.title} animate={false} />
+    )
+  }
   return (
     <TicketCrumbText
       id={id}
@@ -295,6 +289,7 @@ function LoadedTicketCrumb({
             ? (titleHint ?? null)
             : null
       }
+      animate
     />
   )
 }
@@ -302,12 +297,14 @@ function LoadedTicketCrumb({
 // The ticket is always the last crumb: the page, so it never links.
 function TicketCrumbText({
   id,
-  title
-}: Readonly<{ id: TicketId; title: string | null }>) {
+  title,
+  animate
+}: Readonly<{ id: TicketId; title: string | null; animate: boolean }>) {
   return (
     <BreadcrumbItem
       prefix={id}
       label={title}
+      animate={animate}
       loadingWidth="16ch"
       loadingLabel={m.nav_crumb_loading({ slug: id })}
     />
