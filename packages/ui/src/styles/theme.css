@@ -436,26 +436,8 @@
   --switch-thumb-off: oklch(1 0 0 / 45%);
 }
 
-/* Surfaces. Everything that paints a background is a surface: it paints
-   with `surface-<colour>` (surface-page, surface-card, surface-3,
-   surface-(--x)), which sets --surface and works out every fill inside it
-   from that colour. Hover, press, tint, the secondary and tertiary buttons
-   and label chips are solid: the surface mixed toward --ink by the theme's
-   --mix-* amount, so they look like the old translucent overlays on a flat
-   surface but never let a banner or image show through. Fields and the
-   menu highlight step a fixed amount of lightness instead.
-
-   surface-lit paints an element as hovered: its resting surface's hover
-   fill becomes its own --surface, so a button or chip inside a hovered row
-   still steps up from the row instead of matching it. Use it instead of
-   bg-hover on anything that holds controls. A row lit by a gliding
-   highlight underneath takes the surface but leaves the paint to the
-   highlight (the rule after the utilities). */
 @utility on-surface {
   --hover: color-mix(in srgb, var(--surface), var(--ink) var(--mix-hover));
-  /* The same hover and press as see-through ink, for the one thing that
-     glides across other fills: the fluid hover highlight, over checked
-     rows and selections. Over the bare surface it lands on --hover. */
   --hover-overlay: color-mix(in srgb, var(--ink) var(--mix-hover), transparent);
   --active-overlay: color-mix(
     in srgb,
@@ -547,13 +529,19 @@
   background-color: var(--surface);
   @apply on-surface;
 }
-/* A row a gliding highlight sits under: lit, but the highlight paints. */
-[data-hover-highlight]:not([data-selected]),
+[data-hover-highlight]:not([data-selected], [data-keyboard-navigation] *),
 [data-fluid-hover-active] > .pp-sidebar-row {
   @apply surface-lit;
   background-color: transparent;
 }
-/* Nothing declared: the page. */
+@layer base {
+  /* --field-fill, not --field: on-surface redeclares --field from this. */
+  :where([data-slot="input-group"]) > * {
+    --surface-rest: var(--field-fill);
+    --surface: var(--surface-rest);
+    @apply on-surface;
+  }
+}
 :root {
   --surface-rest: var(--page);
   --surface: var(--surface-rest);
@@ -1036,8 +1024,6 @@
 .button-secondary:not(:disabled):active {
   --button-fill: var(--button-secondary-active);
 }
-/* Tertiary: half of secondary's tint. Its label colour is a utility in
-   button.tsx, so a destructive tone can turn it red. */
 .button-tertiary {
   --button-fill: var(--button-tertiary);
 }
@@ -1047,9 +1033,6 @@
 .button-tertiary:not(:disabled):active {
   --button-fill: var(--button-tertiary-active);
 }
-/* In a settings group or appearance card (`tertiary-tiles`), where the tint
-   would be too faint on the recessed well, tertiary is a flat tile two steps
-   up the surface ladder instead, with hover and press stepped from it. */
 .tertiary-tiles .button-tertiary {
   --button-fill: var(--surface-3);
   --button-sheen: 0;

@@ -51,8 +51,6 @@ const buttonVariants = cva(
         primary: "button-fill button-primary",
         secondary: "button-fill button-secondary",
         destructive: "button-fill button-destructive",
-        // The tint, one step quieter than secondary; a raised tile inside a
-        // tertiary-tiles group (theme.css).
         tertiary: "button-fill button-tertiary text-foreground",
         ghost:
           "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",

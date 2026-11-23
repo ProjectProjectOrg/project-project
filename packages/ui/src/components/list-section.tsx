@@ -126,7 +126,7 @@ export function ListSectionHeader({
         data-creating={creating || undefined}
         onClick={creating ? undefined : (event) => toggle(event.currentTarget)}
         className={cn(
-          "sticky top-[var(--list-sticky-top,0px)] z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] bg-muted pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
+          "sticky top-[var(--list-sticky-top,0px)] z-10 flex h-10 items-center gap-(--list-lead-gap) rounded-[20px] pr-2 pl-(--list-pad-start) transition-[background-color,box-shadow] duration-150 ease-standard [corner-shape:var(--button-corner)]",
           // Pinned to the top: a soft lift, so rows read as passing under it.
           "data-stuck:shadow-surface-3",
           creating
