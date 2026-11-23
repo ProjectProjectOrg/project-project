@@ -1270,6 +1270,42 @@
   }
 }
 
+@keyframes board-pop-in {
+  0% {
+    opacity: 0;
+    scale: 0.8;
+  }
+  55% {
+    opacity: 1;
+    scale: 1.05;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+[data-slot="board-insert-plus"] {
+  opacity: 0;
+  scale: 0.9;
+  transition:
+    opacity 150ms var(--ease-standard),
+    scale 150ms var(--ease-standard);
+}
+.group\/insert:hover [data-slot="board-insert-plus"] {
+  opacity: 1;
+  scale: 1;
+  transition-duration: 0ms;
+  animation: board-pop-in 380ms var(--ease-spring) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .group\/insert:hover [data-slot="board-insert-plus"] {
+    animation: none;
+  }
+  [data-slot="board-insert-plus"] {
+    scale: 1;
+  }
+}
+
 /* ColorPicker: the honeycomb grows out of the trigger. Each dot travels
    from near the centre to its place on the standard curve (no overshoot),
    ring by ring

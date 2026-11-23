@@ -17,12 +17,18 @@
   "sprints_add_tickets_in_other_sprint": "in {name}",
   "sprints_add_tickets_placeholder": "Add tickets to {name}…",
   "sprints_back_to_tickets": "Back to tickets",
+  "sprints_board_add_ticket": "New ticket",
   "sprints_board_all_hidden_description": "Every status column is hidden in View options.",
   "sprints_board_all_hidden_show_all": "Show all columns",
   "sprints_board_all_hidden_title": "All columns hidden",
   "sprints_board_column_collapse": "Collapse {status}",
   "sprints_board_column_expand": "Expand {status}",
   "sprints_board_column_reorder": "Move {status}",
+  "sprints_board_draft_elsewhere": "Added “{title}”, outside this view",
+  "sprints_board_draft_failed": "Couldn't add “{title}”: {reason}",
+  "sprints_board_draft_label": "New ticket title",
+  "sprints_board_draft_placeholder": "What needs to be done?",
+  "sprints_board_insert_ticket": "New ticket here",
   "sprints_capacity_basis": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

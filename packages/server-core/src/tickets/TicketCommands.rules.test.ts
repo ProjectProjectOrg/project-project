@@ -236,6 +236,35 @@ it.effect("update with a position moves the ticket next to its anchor", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("quickCreate with a position puts the new ticket in that gap", () => {
+  const { layer, manualOrder } = makeRankedFixture([
+    ["T-1", "a0"],
+    ["T-2", "a1"],
+    ["T-3", "a2"]
+  ])
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const after = yield* tickets.quickCreate({
+      title: "After",
+      position: { after: ticketId("T-1") }
+    })
+    const before = yield* tickets.quickCreate({
+      title: "Before",
+      position: { before: ticketId("T-3") }
+    })
+    const top = yield* tickets.quickCreate({ title: "Top" })
+
+    expect(manualOrder()).toStrictEqual([
+      top.id,
+      "T-1",
+      after.id,
+      "T-2",
+      before.id,
+      "T-3"
+    ])
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "bulkUpdate with a position places the tickets together in that gap, in their current order",
   () => {

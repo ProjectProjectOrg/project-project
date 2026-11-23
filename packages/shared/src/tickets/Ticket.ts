@@ -220,7 +220,11 @@ export const QuickCreateTicketInput = Schema.Struct({
   ),
   type: Schema.optional(Schema.NullOr(TypeKey)),
   status: Schema.optional(TicketStatus),
-  parent: Schema.optional(TicketId)
+  parent: Schema.optional(TicketId),
+  position: Schema.optional(TicketPosition).annotate({
+    description:
+      "Where the new ticket goes in the project's manual order: `{ after: id }` right below that ticket, `{ before: id }` right above it. Defaults to the top."
+  })
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 

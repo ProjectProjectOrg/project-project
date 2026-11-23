@@ -602,14 +602,18 @@ const make = Effect.gen(function* () {
       .topRank(project)
       .pipe(Effect.map((upper) => rankBetween({ lower: null, upper })))
 
-  const writeAtTop = (
+  const writeAt = (
     project: TicketProject,
     projectKey: ProjectKey,
+    position: TicketPosition | undefined,
     buildDocument: (id: TicketId, rank: TicketRank) => TicketDocs.TicketDocument
   ) =>
     withRanksLock(
       project,
-      rankAtTop(project).pipe(
+      (position === undefined
+        ? rankAtTop(project)
+        : rankAt(project, "", position)
+      ).pipe(
         Effect.flatMap((rank) =>
           writeWithIdAllocation(project, projectKey, (id) =>
             buildDocument(id, rank)
@@ -726,28 +730,33 @@ const make = Effect.gen(function* () {
       { concurrency: "unbounded", discard: true }
     )
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeAtTop(scope, projectKey, (id, rank) => ({
-      id,
-      title: input.title,
-      status: input.status ?? DEFAULT_STATUS,
-      type,
-      priority: expansion?.priority ?? "med",
-      rank,
-      tags: [...tags],
-      branch: null,
-      pr: null,
-      prState: null,
-      lastTransitionedPr: null,
-      assignees: [],
-      parent: input.parent,
-      archivedAt: null,
-      createdBy: ownerId,
-      createdAt: now,
-      updatedBy: ownerId,
-      updatedAt: now,
-      body,
-      commentsRegion: ""
-    }))
+    const document = yield* writeAt(
+      scope,
+      projectKey,
+      input.position,
+      (id, rank) => ({
+        id,
+        title: input.title,
+        status: input.status ?? DEFAULT_STATUS,
+        type,
+        priority: expansion?.priority ?? "med",
+        rank,
+        tags: [...tags],
+        branch: null,
+        pr: null,
+        prState: null,
+        lastTransitionedPr: null,
+        assignees: [],
+        parent: input.parent,
+        archivedAt: null,
+        createdBy: ownerId,
+        createdAt: now,
+        updatedBy: ownerId,
+        updatedAt: now,
+        body,
+        commentsRegion: ""
+      })
+    )
     return yield* detailOf(document, view)
   })
 
@@ -801,35 +810,40 @@ const make = Effect.gen(function* () {
       { concurrency: "unbounded" }
     )
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeAtTop(scope, projectKey, (id, rank) => ({
-      id,
-      title: input.title,
-      status: input.status ?? DEFAULT_STATUS,
-      type,
-      priority: input.priority ?? expansion?.priority ?? "med",
-      rank,
-      ...(input.estimate ? { estimate: input.estimate } : {}),
-      tags: [...tags],
-      branch: null,
-      pr: null,
-      prState: null,
-      lastTransitionedPr: null,
-      assignees: input.assignees !== undefined ? [...input.assignees] : [],
-      parent: input.parent,
-      blockedBy: input.blockedBy?.length
-        ? [...new Set(input.blockedBy)]
-        : undefined,
-      relatedTo: input.relatedTo?.length
-        ? [...new Set(input.relatedTo)]
-        : undefined,
-      archivedAt: null,
-      createdBy: ownerId,
-      createdAt: now,
-      updatedBy: ownerId,
-      updatedAt: now,
-      body,
-      commentsRegion: ""
-    }))
+    const document = yield* writeAt(
+      scope,
+      projectKey,
+      undefined,
+      (id, rank) => ({
+        id,
+        title: input.title,
+        status: input.status ?? DEFAULT_STATUS,
+        type,
+        priority: input.priority ?? expansion?.priority ?? "med",
+        rank,
+        ...(input.estimate ? { estimate: input.estimate } : {}),
+        tags: [...tags],
+        branch: null,
+        pr: null,
+        prState: null,
+        lastTransitionedPr: null,
+        assignees: input.assignees !== undefined ? [...input.assignees] : [],
+        parent: input.parent,
+        blockedBy: input.blockedBy?.length
+          ? [...new Set(input.blockedBy)]
+          : undefined,
+        relatedTo: input.relatedTo?.length
+          ? [...new Set(input.relatedTo)]
+          : undefined,
+        archivedAt: null,
+        createdBy: ownerId,
+        createdAt: now,
+        updatedBy: ownerId,
+        updatedAt: now,
+        body,
+        commentsRegion: ""
+      })
+    )
     return yield* detailOf(document, view)
   })
 

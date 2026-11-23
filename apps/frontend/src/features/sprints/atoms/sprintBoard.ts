@@ -1,15 +1,28 @@
-import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import {
+  TicketStatus,
+  type GroupId,
+  type Ticket,
+  type TicketId
+} from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation } from "@/api/viewMutation"
+import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
-import { compareByRank } from "@/features/tickets/lib/ticketRank"
+import { compareByRank, predictRank } from "@/features/tickets/lib/ticketRank"
+import {
+  placeholderId,
+  predictedTicket,
+  quickCreatePayload,
+  type QuickCreateInput
+} from "@/features/tickets/lib/ticketRows"
 
 import { sprintQuery, sprintRequest } from "./sprintDetail"
+import { createInSprint, sprintAssignmentKeys } from "./sprintList"
 
 export type BoardRequest = ReturnType<typeof boardRequest>
 
@@ -97,3 +110,73 @@ export const updateBoardTicket = Atom.family(
 )
 
 export const boardTicketUpdates = bindRowMutation(updateBoardTicket)
+
+const predictedIdOf = (value: BoardValue, input: QuickCreateInput) =>
+  placeholderId(
+    value.tickets.map((ticket) => ({
+      ticket,
+      key: ticket.id,
+      orderKey: null,
+      pending: false
+    })),
+    input.prediction.projectPrefix
+  )
+
+const predictedIds = new Map<string, TicketId>()
+const cardKeys = new Map<TicketId, string>()
+
+export const boardCardKey = (ticket: Ticket) =>
+  cardKeys.get(ticket.id) ?? ticket.id
+
+const insertPredicted = (value: BoardValue, input: QuickCreateInput) => {
+  const position = input.payload.position
+  const id = predictedIdOf(value, input)
+  predictedIds.set(input.prediction.clientId, id)
+  cardKeys.set(id, input.prediction.clientId)
+  const ticket = predictedTicket(
+    input,
+    id,
+    input.payload.status ?? TicketStatus.make("todo"),
+    DateTime.toDate(DateTime.nowUnsafe())
+  )
+  const rank =
+    position === undefined ? null : predictRank(value.tickets, id, position)
+  return {
+    ...value,
+    tickets: [
+      ...value.tickets,
+      rank === null ? ticket : { ...ticket, rank }
+    ].toSorted(compareByRank)
+  }
+}
+
+export const quickCreateBoardTicket = Atom.family((req: BoardRequest) =>
+  viewMutation(sprintBoard(req), {
+    name: "quickCreateBoardTicket",
+    predict: insertPredicted,
+    call: (_client, input: QuickCreateInput) =>
+      createInSprint(
+        { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        quickCreatePayload(input),
+        req.params.id
+      ),
+    confirm: (value, created, input) => {
+      const predicted = predictedIds.get(input.prediction.clientId)
+      predictedIds.delete(input.prediction.clientId)
+      cardKeys.set(created.id, input.prediction.clientId)
+      return {
+        ...value,
+        tickets: value.tickets
+          .filter(
+            (ticket) => ticket.id !== created.id && ticket.id !== predicted
+          )
+          .concat(created.sprintAssignmentFailed ? [] : [created])
+          .toSorted(compareByRank)
+      }
+    },
+    publish: () => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      ...sprintAssignmentKeys(scopeOf(req), req.params.id)
+    ]
+  })
+)

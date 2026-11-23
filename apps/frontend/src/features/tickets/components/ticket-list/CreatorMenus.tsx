@@ -24,10 +24,10 @@ import { typeActionItems, typeMenuItems } from "./TypeField"
 
 type CreatorMenuProps = Readonly<{
   expanded: boolean
-  inputRef: RefObject<HTMLInputElement | null>
+  inputRef: RefObject<HTMLElement | null>
 }>
 
-function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
+function useCreatorMenuFocus(inputRef: RefObject<HTMLElement | null>) {
   const closeReason = useRef<string | null>(null)
   const handleOpenChange = (
     open: boolean,

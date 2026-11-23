@@ -21,9 +21,14 @@ import {
   createInSprint,
   sprintAssignmentKeys
 } from "@/features/sprints/atoms/sprintList"
+import {
+  createdRowInPlace,
+  filtersBySprint
+} from "@/features/sprints/lib/inlineCreate"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
+  placeCreatedRow,
   patchTicketRow,
   placeholderRow,
   toRow,
@@ -314,10 +319,6 @@ export const bulkMoveBacklogTickets = Atom.family((req: BacklogRequest) =>
   })
 )
 
-const filtersBySprint = (req: BacklogRequest) =>
-  (req.query.groupId?.length ?? 0) > 0 &&
-  !req.query.groupId?.includes("ungrouped")
-
 const insertCreated = (
   req: BacklogRequest,
   value: BacklogValue,
@@ -338,7 +339,7 @@ const insertCreated = (
       undefined,
       input.prediction.estimation
     ) ||
-    filtersBySprint(req)
+    filtersBySprint(req.query)
   )
     return value
   return {
@@ -351,7 +352,15 @@ const insertCreated = (
     },
     sections: {
       ...value.sections,
-      [status]: { ...section, items: [row, ...section.items] }
+      [status]: {
+        ...section,
+        items: placeCreatedRow(
+          section.items,
+          row,
+          input.payload.position,
+          req.query.sort
+        )
+      }
     }
   }
 }
@@ -390,7 +399,13 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
               get,
               scopeOf(req),
               created.id,
-              input.prediction.clientId
+              input.prediction.clientId,
+              input.inPlace !== true ||
+                !createdRowInPlace(
+                  req.query,
+                  input,
+                  DateTime.toDate(DateTime.nowUnsafe())
+                )
             )
           )
         )

@@ -22,6 +22,7 @@ import { Button } from "@pp/ui/button"
 import { DitherShell } from "@pp/ui/dither-shell"
 import { cn } from "@pp/ui/lib/utils"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
+import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { useContext, useEffect, useMemo, useRef } from "react"
@@ -38,6 +39,7 @@ import {
   SprintBoardColumn
 } from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardColumns } from "@/features/sprints/hooks/useBoardColumns"
+import { useBoardDraft } from "@/features/sprints/hooks/useBoardDraft"
 import {
   BoardKeyboardContext,
   useBoardKeyboardNavigation
@@ -54,11 +56,17 @@ import {
   isDropData
 } from "@/features/sprints/lib/boardUtils"
 import {
+  createdRowInPlace,
+  onlySprint,
+  placesInManualOrder
+} from "@/features/sprints/lib/inlineCreate"
+import {
   backlogRequest,
   loadMoreBacklog,
   updateBacklogTicket,
   type BacklogRequest,
   backlogTicketUpdates,
+  quickCreateBacklogTicket,
   encodeTicketListQuery,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
@@ -121,6 +129,25 @@ function BacklogBoardContent({
     query.sort.key === "manual" &&
     TicketPolicy.canChange(actor, { content: true })
   const canDrag = canMove || manual
+  const draft = useBoardDraft()
+  const createTicket = useAtomSet(quickCreateBacklogTicket(req), {
+    mode: "promiseExit"
+  })
+  const canCreate = actor.call("tickets", "quickCreate")
+  const columnCreate = (status: ProjectStatus["slug"]) =>
+    canCreate && (status === "todo" || canMove)
+      ? draft.forColumn(status, {
+          submit: createTicket,
+          insertable: placesInManualOrder(req.query),
+          sprint: onlySprint(req.query),
+          showsInPlace: (input) =>
+            createdRowInPlace(
+              req.query,
+              input,
+              DateTime.toDate(DateTime.nowUnsafe())
+            )
+        })
+      : undefined
   const reorderMode = reorder?.reorderMode ?? false
   const dragOrder = reorder?.dragOrder ?? null
   const { height, hasRightOverflow } = useBoardViewport(ref)
@@ -230,6 +257,8 @@ function BacklogBoardContent({
                     reorder={columnReorder(reorder, order, status)}
                     collapsed={layout.collapsed.includes(status)}
                     onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                    create={columnCreate(status)}
+                    keyOf={column?.keyOf}
                     footer={(nearEnd) =>
                       column?.nextCursor != null ? (
                         <ColumnLoadMore
@@ -258,6 +287,7 @@ type BoardColumn = Readonly<{
   status: string
   rows: ReadonlyArray<TicketRow>
   tickets: ReadonlyArray<Ticket>
+  keyOf: (ticket: Ticket) => string
   count: number
   nextCursor: string | null
 }>
@@ -269,10 +299,12 @@ function buildColumns(
   return statusSlugs.map((status) => {
     const page = snapshot.sections[status]
     const rows = page?.items ?? []
+    const keys = new Map(rows.map((row) => [row.ticket.id, row.key]))
     return {
       status,
       rows,
       tickets: rows.map((row) => row.ticket),
+      keyOf: (ticket: Ticket) => keys.get(ticket.id) ?? ticket.id,
       count: snapshot.counts.byStatus[status] ?? 0,
       nextCursor: page?.nextCursor ?? null
     } satisfies BoardColumn
