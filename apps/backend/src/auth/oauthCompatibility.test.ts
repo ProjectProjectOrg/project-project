@@ -602,40 +602,41 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
 
   it("won't take over an oauth_client it didn't create, and keeps the CLI to the tools resource", async () => {
     const toolsResource = `${baseUrl}${cliOAuthClient.resourcePath}`
+    const client = { ...cliOAuthClient, id: randomUUID() }
     const register = () =>
       builtInOAuthClient({
         db: drizzle({ client: pool }),
-        client: cliOAuthClient,
-        resource: { identifier: toolsResource, name: cliOAuthClient.name }
+        client,
+        resource: { identifier: toolsResource, name: client.name }
       }).init()
-    await pool.query(
-      "INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at) VALUES ($1, $2, $3, now())",
-      [randomUUID(), cliOAuthClient.id, `${baseUrl}/mcp`]
-    )
-    await register()
-    const links = await pool.query(
-      "SELECT resource_id FROM oauth_client_resource WHERE client_id=$1",
-      [cliOAuthClient.id]
-    )
-    expect(links.rows).toEqual([{ resource_id: toolsResource }])
-    await pool.query(
-      "UPDATE oauth_client SET client_secret='not-ours' WHERE client_id=$1",
-      [cliOAuthClient.id]
-    )
     try {
+      await register()
+      await pool.query(
+        "INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at) VALUES ($1, $2, $3, now())",
+        [randomUUID(), client.id, `${baseUrl}/mcp`]
+      )
+      await register()
+      const links = await pool.query(
+        "SELECT resource_id FROM oauth_client_resource WHERE client_id=$1",
+        [client.id]
+      )
+      expect(links.rows).toEqual([{ resource_id: toolsResource }])
+      await pool.query(
+        "UPDATE oauth_client SET client_secret='not-ours' WHERE client_id=$1",
+        [client.id]
+      )
       await expect(register()).rejects.toBeInstanceOf(
         BuiltInOAuthClientConflict
       )
       const kept = await pool.query(
         "SELECT client_secret FROM oauth_client WHERE client_id=$1",
-        [cliOAuthClient.id]
+        [client.id]
       )
       expect(kept.rows).toEqual([{ client_secret: "not-ours" }])
     } finally {
-      await pool.query(
-        "UPDATE oauth_client SET client_secret=NULL WHERE client_id=$1",
-        [cliOAuthClient.id]
-      )
+      await pool.query("DELETE FROM oauth_client WHERE client_id=$1", [
+        client.id
+      ])
     }
   })
 
