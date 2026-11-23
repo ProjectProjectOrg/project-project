@@ -171,6 +171,23 @@ Keep response buffering disabled for `/api/orgs/:orgSlug/projects/:slug/tickets/
 
 Project imports upload one archive of up to 2 GiB to `/api/orgs/<org>/project-imports`. The image's nginx allows that on this route only; if a proxy in front (NPM or another) caps request bodies, raise its limit for this host too, for example `client_max_body_size 2g;` in the Proxy Host's custom nginx configuration.
 
+### Optional: the component gallery
+
+The `gallery` service serves the design system's component gallery
+(`packages/ui/gallery`) as a public static site. It has no backend and no
+login, and it follows the `main` tag whatever `IMAGE_TAG` says, so it always
+shows the latest components. Watchtower updates it like `web`.
+
+1. Start it: `docker compose up -d gallery`. It listens on `GALLERY_PORT`
+   (default `8081`).
+2. Add an NPM Proxy Host for its own hostname, for example
+   `ui.example.com`, forwarding to the VM's IP on `8081`, with a
+   Let's Encrypt cert and SSL forced. The gallery expects to sit at the root
+   of a hostname, not under a path.
+
+Each page is also served as Markdown (`/components/badge.md`), indexed by
+`/llms.txt`, so AI tools can read the design system from the same host.
+
 ### 7. Verify auto-redeploy
 
 Push any change to `main` (e.g. a comment in a README). Within 5–10

@@ -12,3 +12,4 @@ opensrc
 .impeccable
 *.log
 !apps/frontend/dist
+!packages/ui/gallery/dist

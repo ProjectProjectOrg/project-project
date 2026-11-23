@@ -174,8 +174,20 @@ jobs:
         target:
           - { name: app, dockerfile: docker/Dockerfile.backend }
           - { name: web, dockerfile: docker/Dockerfile.frontend }
+          - { name: gallery, dockerfile: docker/Dockerfile.gallery }
     steps:
       - uses: actions/checkout@v4
+
+      - if: matrix.target.name == 'gallery'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - if: matrix.target.name == 'gallery'
+        name: Build gallery
+        run: |
+          bun install --frozen-lockfile
+          bun run --cwd packages/ui build-gallery
 
       - if: matrix.target.name == 'web'
         uses: actions/download-artifact@v4
