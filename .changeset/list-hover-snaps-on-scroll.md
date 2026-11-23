@@ -1,4 +1,4 @@
 ---
 kind: internal
 ---
-The list hover hides while the list scrolls and comes back on the row under the pointer
+Hover pauses while a page scrolls under a still pointer and comes back on the row under it
