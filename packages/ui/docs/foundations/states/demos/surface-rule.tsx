@@ -53,7 +53,7 @@ function Controls({ kind }: Readonly<{ kind: SurfaceKind }>) {
       <span className="text-caption text-muted-foreground">Select</span>
       {COLUMNS.map((column) => (
         <Button key={column.name} variant="field" data-force={column.field}>
-          Sprint
+          <span>Sprint</span>
           <ChevronDown className="size-4" strokeWidth={1.75} />
         </Button>
       ))}
