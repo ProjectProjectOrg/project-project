@@ -26,7 +26,7 @@ const revealClass = cn(
   "inline-flex shrink-0 opacity-0",
   "not-in-data-keyboard-navigation:row-hover:opacity-100",
   "in-data-[row-selected]:opacity-100",
-  "group-has-[:focus-visible]/reveal:opacity-100 focus-within:opacity-100",
+  "group-has-[:focus-visible]/reveal:opacity-100 has-[:focus-visible]:opacity-100",
   "group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100",
   "has-[[data-checked]]:opacity-100 has-[[data-copied]]:opacity-100",
   "pointer-coarse:opacity-100"
