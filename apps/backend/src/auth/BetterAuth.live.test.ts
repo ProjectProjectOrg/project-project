@@ -611,4 +611,50 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
         expect(rows).toStrictEqual([{ role: "owner" }])
       })
   )
+
+  it.live(
+    "names the signed-in user in a readable cookie and clears it on sign-out",
+    () =>
+      Effect.promise(async () => {
+        let signInUrl = ""
+        const writeSpy = vi
+          .spyOn(process.stdout, "write")
+          .mockImplementation((chunk: string | Uint8Array) => {
+            const text = String(chunk)
+            if (text.includes("[magic-link]")) signInUrl = text
+            return true
+          })
+        try {
+          await auth.api.signInMagicLink({
+            body: { email: ownerEmail },
+            headers: new Headers({ origin: "http://localhost:15999" })
+          })
+          const url = signInUrl.match(/url=(?<url>\S+)/)?.groups?.url
+          const signedIn = (
+            await auth.handler(new Request(url!))
+          ).headers.getSetCookie()
+          expect(signedIn).toContainEqual(
+            expect.stringMatching(
+              new RegExp(
+                `^pp-viewer=${ownerId}; Max-Age=\\d+; Path=/; SameSite=Lax$`
+              )
+            )
+          )
+          const signedOut = await auth.handler(
+            new Request("http://localhost:15999/api/auth/sign-out", {
+              method: "POST",
+              headers: {
+                origin: "http://localhost:15999",
+                cookie: signedIn.map((value) => value.split(";")[0]).join("; ")
+              }
+            })
+          )
+          expect(signedOut.headers.getSetCookie()).toContainEqual(
+            expect.stringMatching(/^pp-viewer=; Max-Age=0;/)
+          )
+        } finally {
+          writeSpy.mockRestore()
+        }
+      })
+  )
 })

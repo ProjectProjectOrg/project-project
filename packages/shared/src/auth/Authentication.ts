@@ -60,6 +60,8 @@ export class CurrentUser extends Context.Service<CurrentUser, UserIdentity>()(
   "@pp/shared/auth/Authentication/CurrentUser"
 ) {}
 
+export const viewerCookieName = "pp-viewer"
+
 const sessionCookie = HttpApiSecurity.apiKey({
   in: "cookie",
   key: "better-auth.session_token"

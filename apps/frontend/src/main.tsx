@@ -11,7 +11,9 @@ import ReactDOM from "react-dom/client"
 
 import { m } from "@/paraglide/messages"
 
+import { SNAPSHOT_STORAGE_KEY } from "./api/querySnapshot"
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { signedInViewer } from "./features/auth/lib/viewerCookie"
 import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { routeTree } from "./routeTree.gen"
@@ -23,21 +25,32 @@ import "./styles.css"
 provideEditorMessages(m)
 
 const history = createBrowserHistory()
-const sessions = createSessionCache((registry) =>
-  createRouter({
-    routeTree,
-    history,
-    parseSearch,
-    stringifySearch,
-    defaultPreload: "intent",
-    scrollRestoration: true,
-    scrollToTopSelectors: ["[data-scroll-root]"],
-    context: { registry }
-  })
+const sessions = createSessionCache(
+  (registry) =>
+    createRouter({
+      routeTree,
+      history,
+      parseSearch,
+      stringifySearch,
+      defaultPreload: "intent",
+      scrollRestoration: true,
+      scrollToTopSelectors: ["[data-scroll-root]"],
+      context: { registry }
+    }),
+  import.meta.env.BUILD_ID,
+  signedInViewer()
 )
 
 authClient.$store.atoms.$sessionSignal.listen(sessions.refreshIdentity)
 window.addEventListener("focus", sessions.refreshIdentity)
+window.addEventListener("pagehide", sessions.persist)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") sessions.persist()
+})
+window.addEventListener("storage", (event) => {
+  const cleared = event.key === null || event.key === SNAPSHOT_STORAGE_KEY
+  if (cleared && event.newValue === null) sessions.distrust()
+})
 
 function App() {
   const session = useSyncExternalStore(sessions.subscribe, sessions.getSnapshot)

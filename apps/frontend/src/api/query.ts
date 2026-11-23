@@ -34,6 +34,7 @@ const keepLoadedWhenUnreachable = <A, E>(
 
 const revalidating = new WeakMap<object, unknown>()
 const sources = new WeakMap<object, Atom.Atom<unknown>>()
+const querySources = new WeakSet<Atom.Atom<unknown>>()
 
 export const query = ((
   ...[group, endpoint, request]: Parameters<typeof Api.query>
@@ -54,8 +55,12 @@ export const query = ((
   const wrapped = revalidate(source).pipe(Atom.map(keepLoadedWhenUnreachable))
   revalidating.set(source, wrapped)
   sources.set(wrapped, source)
+  querySources.add(source)
   return wrapped
 }) as unknown as typeof Api.query
+
+export const isQuerySource = (atom: Atom.Atom<unknown>) =>
+  querySources.has(atom)
 
 export const preloadKey = (atom: Atom.Atom<unknown>) => {
   const source = sources.get(atom)

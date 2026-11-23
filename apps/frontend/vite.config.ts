@@ -42,6 +42,12 @@ export default defineConfig(({ mode }) => ({
     }
   },
   publicDir: path.resolve(__dirname, "src/public"),
+  define: {
+    "import.meta.env.BUILD_ID":
+      mode === "production"
+        ? JSON.stringify(Date.now().toString(36))
+        : "undefined"
+  },
   build: {
     chunkImportMap: true,
     rolldownOptions: {
