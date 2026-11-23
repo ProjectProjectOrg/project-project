@@ -5,21 +5,6 @@ import { Button } from "./button"
 import { ChevronRight } from "./icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
-/*
- * A field whose value you can change and also go to: a ticket's sprint or
- * epic. The value is a ghost button that opens a picker (the picker only
- * picks), and going there is a second button, a chevron that comes in
- * beside the value while the field is hovered or focused.
- *
- *   <PickerField>
- *     <DropdownMenu>
- *       <DropdownMenuTrigger render={<PickerFieldValue empty={!epic} />}>…</DropdownMenuTrigger>
- *       …
- *     </DropdownMenu>
- *     {epic && <PickerFieldOpen label={m.open_epic()} render={<Link … />} />}
- *   </PickerField>
- */
-
 export function PickerField({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
@@ -33,8 +18,6 @@ export function PickerField({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-// The value, and the picker's trigger. It stays lit while anything in the
-// field is hovered, so the value and its chevron read as one thing.
 export function PickerFieldValue({
   empty = false,
   tone,
@@ -55,18 +38,13 @@ export function PickerFieldValue({
   )
 }
 
-// Goes to the value. Hidden until the field is hovered or focused, at a
-// fainter fill than the hover until the pointer is on it, and out of reach
-// while the value's picker is open.
 export function PickerFieldOpen({
   label,
   render,
   onClick,
   className
 }: Readonly<{
-  // Its tooltip and accessible name: "Open epic".
   label: string
-  // A link to the value; otherwise onClick.
   render?: ReactElement
   onClick?: () => void
   className?: string

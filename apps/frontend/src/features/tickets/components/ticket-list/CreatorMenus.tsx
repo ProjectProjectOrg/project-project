@@ -28,7 +28,6 @@ type CreatorMenuProps = Readonly<{
 }>
 
 function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
-  // Takes a Select's and a menu's open change alike: only the reason matters.
   const closeReason = useRef<string | null>(null)
   const handleOpenChange = (
     open: boolean,

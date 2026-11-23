@@ -33,9 +33,6 @@ import { m } from "@/paraglide/messages"
 
 const NO_EPIC = "__no-epic"
 
-// The ticket's epic: the value opens a picker that only picks ("No epic"
-// first, each epic with its progress), and the chevron beside it opens
-// the epic.
 export function EpicField({
   ticket,
   editable,
@@ -72,34 +69,36 @@ export function EpicField({
       </>
     )
   }
-  const items = [
-    none,
-    ...epics.map((epic) => {
-      const done = epic.subTicketDoneCount ?? 0
-      const total = epic.subTicketCount ?? 0
-      return {
-        value: epic.id,
-        textValue: `${epic.id} ${epic.title}`,
-        closeOnClick: true,
-        label: (
-          <>
-            <Layers className="size-4 shrink-0" strokeWidth={1.75} />
-            <span className="min-w-0 truncate">{epic.title}</span>
-            {total > 0 && (
-              <span data-menu-meta className={menuItemDetailClass}>
-                <ProgressCount
-                  done={done}
-                  total={total}
-                  label={m.tickets_sub_tickets_progress({ done, total })}
-                  tone="inherit"
-                />
-              </span>
-            )}
-          </>
-        )
-      }
-    })
-  ]
+  const items = !Result.isSuccess(result)
+    ? []
+    : [
+        none,
+        ...epics.map((epic) => {
+          const done = epic.subTicketDoneCount ?? 0
+          const total = epic.subTicketCount ?? 0
+          return {
+            value: epic.id,
+            textValue: `${epic.id} ${epic.title}`,
+            closeOnClick: true,
+            label: (
+              <>
+                <Layers className="size-4 shrink-0" strokeWidth={1.75} />
+                <span className="min-w-0 truncate">{epic.title}</span>
+                {total > 0 && (
+                  <span data-menu-meta className={menuItemDetailClass}>
+                    <ProgressCount
+                      done={done}
+                      total={total}
+                      label={m.tickets_sub_tickets_progress({ done, total })}
+                      tone="inherit"
+                    />
+                  </span>
+                )}
+              </>
+            )
+          }
+        })
+      ]
 
   return (
     <PickerField>

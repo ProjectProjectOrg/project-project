@@ -5,7 +5,6 @@ import { EpicField } from "./parts/field"
 
 const ignore = () => undefined
 
-// The epic picker, held open: it only picks.
 export default function EpicMenu() {
   const [value, setValue] = useState<string | null>(START.epic)
   return (

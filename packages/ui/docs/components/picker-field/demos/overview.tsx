@@ -5,8 +5,6 @@ import { EpicField, PlanningSection, SprintField } from "./parts/field"
 
 const ignore = () => undefined
 
-// Live on top: hover a field for its open button, click the value for the
-// picker. Under it, each state pinned.
 export default function Overview() {
   const [sprintId, setSprintId] = useState<string | null>(START.sprint)
   const [epicId, setEpicId] = useState<string | null>(START.epic)

@@ -427,8 +427,6 @@ export function TicketParentPage({
       ]}
       onSelect={(item) => {
         if (item.value === NEW_EPIC) {
-          // The composer with the type set to epic; once the epic exists
-          // this ticket moves into it.
           env.registry.set(newTicketRequest, {
             orgSlug: ticket.orgSlug,
             projectSlug: ticket.slug,

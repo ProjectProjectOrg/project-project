@@ -1,13 +1,8 @@
-// Sample sprints and epics for the Planning exploration. "Today" is
-// Monday 23 November, so Sprint 14 is halfway.
-
 export type DemoSprint = Readonly<{
   id: string
   name: string
   state: "active" | "planned"
-  // Short dates, or null for a sprint without dates.
   range: string | null
-  // Where it stands: "8 days left", "Starts Dec 1".
   when: string
   day: number
   days: number
@@ -87,5 +82,4 @@ export const sprintById = (id: string | null) =>
 export const epicById = (id: string | null) =>
   EPICS.find((epic) => epic.id === id) ?? null
 
-// Holds a ticket's sprint and epic, as the ticket page would.
 export const START = { sprint: "s14", epic: "T-301" } as const

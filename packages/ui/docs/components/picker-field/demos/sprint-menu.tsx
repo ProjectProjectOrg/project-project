@@ -5,7 +5,6 @@ import { SprintField } from "./parts/field"
 
 const ignore = () => undefined
 
-// The sprint picker, held open: it only picks.
 export default function SprintMenu() {
   const [value, setValue] = useState<string | null>(START.sprint)
   return (

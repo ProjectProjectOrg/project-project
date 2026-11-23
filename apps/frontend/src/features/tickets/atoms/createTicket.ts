@@ -26,8 +26,6 @@ export type CreateTicketRequest = Readonly<{
   from?: "inline"
 }>
 
-// "epicOf": the new ticket is an epic, and the ticket it came from moves
-// into it once it exists.
 export type RelatedKind = MarkKind | "subTicket" | "epicOf"
 
 export type RelatedTo = Readonly<{ kind: RelatedKind; ticketId: TicketId }>

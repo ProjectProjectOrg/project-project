@@ -262,8 +262,6 @@ const MENU_SELECTOR =
 function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
   if (!/^[0-9]$/.test(event.key)) return
-  // A menu's search takes digits once you've typed in it; while it's
-  // empty they pick, as the numbered rows promise. Other fields always type.
   if (
     event.target instanceof HTMLInputElement &&
     !(
@@ -758,8 +756,6 @@ function DropdownMenuRadioItem({
   )
 }
 
-// The search at the top of a filterable menu. `shortcut` shows the keys
-// that open this menu (a KbdShortcut) at the field's end.
 function DropdownMenuInput({
   className,
   shortcut,

@@ -101,8 +101,6 @@ export function CreateTicketForm({
       ? request.related
       : null
 
-  // "New epic for AV-2": the epic is what's made, in that ticket's project,
-  // so neither the type nor the project can change.
   const makingEpic = related?.kind === "epicOf"
 
   const titleInput = useRef<HTMLInputElement>(null)
@@ -218,8 +216,6 @@ export function CreateTicketForm({
             }}
           />
           {makingEpic ? (
-            // The epic is what's made here, so the header says so in one
-            // phrase instead of "New ticket · …".
             <h2 className="truncate text-body font-normal text-muted-foreground">
               <TicketIdText id={related.ticketId}>
                 {m.tickets_create_epic_for({ id: related.ticketId })}

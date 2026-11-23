@@ -43,8 +43,6 @@ function rangeText(s: Group) {
   return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
 }
 
-// A sprint's dates and whether it's running or upcoming: "Nov 17 – Nov 30
-// · Active", or just the state for a sprint without dates.
 function sprintDetail(s: Group) {
   const range = rangeText(s)
   const state = sprintStateLabel(sprintState(s))
@@ -62,8 +60,6 @@ export type SprintAssignMenuProps = {
   open?: boolean
   onOpenChange?: MenuProps["onOpenChange"]
   finalFocus?: ContentProps["finalFocus"]
-  // Shown on hover with the sprint shortcut: the full sprint name, for a
-  // trigger that may truncate it.
   tooltip?: string
 }
 
@@ -91,10 +87,6 @@ export const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
     })
 }
 
-// Picks a sprint, and only that: find, "No sprint" first, the open sprints
-// with their dates and state at the row's end, and New sprint when the
-// caller can make one. Going to the sprint lives beside the trigger
-// (PickerFieldOpen), not in here.
 export function SprintAssignMenu({
   trigger,
   sprints,

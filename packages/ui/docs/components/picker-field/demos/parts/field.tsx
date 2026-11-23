@@ -21,9 +21,6 @@ import { useState, type ReactNode } from "react"
 
 import { EPICS, SPRINTS, type DemoSprint } from "./data"
 
-// A ticket's sprint and epic, as the ticket page builds them from
-// PickerField and a filterable DropdownMenu.
-
 const KEY_LABELS: KeyLabels = {
   ctrl: "Ctrl",
   meta: "Win",
@@ -52,7 +49,6 @@ type FieldProps = Readonly<{
   onChange: (id: string | null) => void
   onOpen: (name: string) => void
   defaultOpen?: boolean
-  // Pins the hover look, for the state grid.
   hovered?: boolean
 }>
 
@@ -237,7 +233,6 @@ export function EpicField(props: FieldProps) {
   )
 }
 
-// The ticket aside's Planning section, as the app lays it out.
 export function PlanningSection({
   children
 }: Readonly<{ children: ReactNode }>) {
