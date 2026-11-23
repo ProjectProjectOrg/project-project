@@ -107,20 +107,19 @@ export const railPoints = (root: HTMLElement) => {
   const lead = leading === -1 ? 0 : leading
   const points: Array<RailPoint> = marks.map((mark) => mark.at)
   const origins = new Map<HTMLElement, RailPoint>()
-  for (let index = lead + 1; index < marks.length; index++) {
+  const place = (index: number, beside: number) => {
     const { at, clip, open } = marks[index]
-    const prev = points[index - 1]
-    if (clip === null) continue
-    const origin = origins.get(clip) ?? prev
+    const near = points[beside]
+    if (clip === null) return
+    const origin = origins.get(clip) ?? near
     origins.set(clip, origin)
     points[index] = {
       x: toward(origin, at, open).x,
-      y: toward(prev, at, open).y
+      y: toward(near, at, open).y
     }
   }
-  for (let index = lead - 1; index >= 0; index--) {
-    const { at, open } = marks[index]
-    points[index] = toward(points[index + 1], at, open)
-  }
+  for (let index = lead + 1; index < marks.length; index++)
+    place(index, index - 1)
+  for (let index = lead - 1; index >= 0; index--) place(index, index + 1)
   return points
 }

@@ -129,4 +129,25 @@ describe("railPoints", () => {
 
     expect(railPoints(root)[0]).toEqual({ x: 10, y: 50 })
   })
+
+  it("keeps a leading fold's marks in one column while it opens", () => {
+    const root = box(0, 300)
+    const fold = box(0, 60, 120)
+    fold.dataset.railClip = ""
+    for (const top of [0, 40]) {
+      const mark = box(top, 20)
+      mark.getBoundingClientRect = () =>
+        DOMRect.fromRect({ x: 22, y: top, width: 20, height: 20 })
+      mark.dataset.railNode = ""
+      fold.append(mark)
+    }
+    const after = box(120, 20)
+    after.dataset.railNode = ""
+    root.append(fold, after)
+
+    const xs = railPoints(root)
+      .slice(0, 2)
+      .map((point) => point.x)
+    expect(new Set(xs)).toEqual(new Set([21]))
+  })
 })
