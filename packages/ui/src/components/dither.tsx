@@ -80,7 +80,6 @@ const FRAG_SRC = `#version 300 es
 precision highp float;
 
 uniform vec2 u_resolution;
-uniform float u_pixelRatio;
 uniform float u_time;
 
 uniform float u_speed;
@@ -230,8 +229,8 @@ float fbm(vec3 p) {
 }
 
 void main() {
-  float pxSize = max(0.5, u_pxSize * u_pixelRatio);
-  vec2 pxSnap = (floor(gl_FragCoord.xy / pxSize) + 0.5) * pxSize;
+  float pxSize = u_pxSize;
+  vec2 pxSnap = (floor(gl_FragCoord.xy) + 0.5) * pxSize;
 
   vec2 uv = pxSnap / u_resolution;
   uv -= 0.5;
@@ -287,7 +286,7 @@ void main() {
 
   if (u_cardActive > 0.5) {
     float cardSdf = roundedBoxSdf(
-      gl_FragCoord.xy - u_cardCenter,
+      pxSnap - u_cardCenter,
       u_cardHalfSize,
       u_cardRadius
     );
@@ -556,7 +555,6 @@ function DitherCanvas({
 
     const uniforms = {
       u_resolution: gl.getUniformLocation(program, "u_resolution"),
-      u_pixelRatio: gl.getUniformLocation(program, "u_pixelRatio"),
       u_time: gl.getUniformLocation(program, "u_time"),
       u_speed: gl.getUniformLocation(program, "u_speed"),
       u_octaves: gl.getUniformLocation(program, "u_octaves"),
@@ -610,18 +608,32 @@ function DitherCanvas({
     const ripplePositions = new Float32Array(MAX_RIPPLES * 2)
     const rippleAges = new Float32Array(MAX_RIPPLES)
 
-    const resize = () => {
+    const host = canvas.parentElement ?? canvas
+    let cell = 1
+    let hostW = 1
+    let hostH = 1
+    let sizedFor = propsRef.current.pixelSize
+    const fit = () => {
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
-      const rect = canvas.getBoundingClientRect()
-      const w = Math.max(1, Math.round(rect.width * dpr))
-      const h = Math.max(1, Math.round(rect.height * dpr))
+      const rect = host.getBoundingClientRect()
+      sizedFor = propsRef.current.pixelSize
+      cell = Math.max(1, sizedFor * dpr)
+      hostW = Math.max(1, Math.round(rect.width * dpr))
+      hostH = Math.max(1, Math.round(rect.height * dpr))
+      const w = Math.ceil(hostW / cell)
+      const h = Math.ceil(hostH / cell)
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w
         canvas.height = h
         gl.viewport(0, 0, w, h)
       }
-      gl.uniform2f(uniforms.u_resolution, canvas.width, canvas.height)
-      gl.uniform1f(uniforms.u_pixelRatio, dpr)
+      canvas.style.width = `${(w * cell) / dpr}px`
+      canvas.style.height = `${(h * cell) / dpr}px`
+      gl.uniform2f(uniforms.u_resolution, hostW, hostH)
+      gl.uniform1f(uniforms.u_pxSize, cell)
+    }
+    const resize = () => {
+      fit()
       requestRender()
     }
     const findClickEmitter = (zones: ReadonlyArray<TimeWarpZone>) => {
@@ -635,7 +647,7 @@ function DitherCanvas({
       if (prefersReducedMotion) return
       const cur = propsRef.current
       if (!findClickEmitter(cur.timeWarpZones)) return
-      const rect = canvas.getBoundingClientRect()
+      const rect = host.getBoundingClientRect()
       if (
         e.clientX < rect.left ||
         e.clientX > rect.right ||
@@ -697,6 +709,7 @@ function DitherCanvas({
     ) => {
       const fg = parsedColorsRef.current.front
       const bg = parsedColorsRef.current.back
+      if (cur.pixelSize !== sizedFor) fit()
       gl.uniform1f(uniforms.u_reveal, reveal)
       gl.uniform1f(uniforms.u_time, elapsed * 0.001)
       gl.uniform1f(uniforms.u_speed, effectiveSpeed)
@@ -711,7 +724,6 @@ function DitherCanvas({
       gl.uniform1f(uniforms.u_seed, cur.seed)
       gl.uniform4f(uniforms.u_colorFront, fg[0], fg[1], fg[2], fg[3])
       gl.uniform4f(uniforms.u_colorBack, bg[0], bg[1], bg[2], bg[3])
-      gl.uniform1f(uniforms.u_pxSize, cur.pixelSize)
       gl.uniform1i(uniforms.u_ditherType, DITHER_TYPE_TO_INT[cur.ditherType])
       const zones = cur.timeWarpZones
       warpCenters.fill(0)
@@ -726,8 +738,8 @@ function DitherCanvas({
           continue
         }
         if (staticZoneCount >= MAX_TIME_WARP_ZONES) break
-        const px = canvas.width * zone.anchor.x
-        const py = canvas.height * (1 - zone.anchor.y)
+        const px = hostW * zone.anchor.x
+        const py = hostH * (1 - zone.anchor.y)
         warpCenters[staticZoneCount * 2] = px
         warpCenters[staticZoneCount * 2 + 1] = py
         warpRadii[staticZoneCount] = zone.radius
@@ -762,16 +774,15 @@ function DitherCanvas({
       const cardEl = cur.cardRef?.current
       if (cardEl && cur.cardWellEnabled) {
         const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
-        const canvasRect = canvas.getBoundingClientRect()
+        const hostRect = host.getBoundingClientRect()
         const cardRect = cardEl.getBoundingClientRect()
         const cardCssCenterX =
-          cardRect.left + cardRect.width / 2 - canvasRect.left
-        const cardCssCenterY =
-          cardRect.top + cardRect.height / 2 - canvasRect.top
+          cardRect.left + cardRect.width / 2 - hostRect.left
+        const cardCssCenterY = cardRect.top + cardRect.height / 2 - hostRect.top
         gl.uniform2f(
           uniforms.u_cardCenter,
           cardCssCenterX * dpr,
-          canvas.height - cardCssCenterY * dpr
+          hostH - cardCssCenterY * dpr
         )
         gl.uniform2f(
           uniforms.u_cardHalfSize,
@@ -792,7 +803,7 @@ function DitherCanvas({
 
     resize()
     const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
+    ro.observe(host)
     window.addEventListener("pointerdown", handlePointerDown)
 
     const handleVisibility = () => {
@@ -824,7 +835,13 @@ function DitherCanvas({
     <canvas
       ref={canvasRef}
       className={className}
-      style={{ display: "block", width: "100%", height: "100%", ...style }}
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        imageRendering: "pixelated",
+        ...style
+      }}
     />
   )
 }
@@ -858,7 +875,14 @@ export function Dither({ className, style, ...props }: DitherProps) {
     <div
       ref={ref}
       className={className}
-      style={{ display: "block", width: "100%", height: "100%", ...style }}
+      style={{
+        display: "block",
+        position: "relative",
+        overflow: "hidden",
+        width: "100%",
+        height: "100%",
+        ...style
+      }}
     >
       {near ? <DitherCanvas {...props} /> : null}
     </div>
