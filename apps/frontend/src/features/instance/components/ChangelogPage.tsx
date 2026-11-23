@@ -33,6 +33,7 @@ import { Highlights, Notices } from "./ReleaseHighlights"
 import { ReleaseIndex } from "./ReleaseIndex"
 
 const SCROLL_AFTER_MS = 120
+const HERO_SPEED = 0.08
 
 const HERO_WARP_ZONES: TimeWarpZone[] = [
   { anchor: TimeWarpAnchor.click(), radius: 0.6, strength: 3.2, falloff: 3.5 }
@@ -269,12 +270,12 @@ function ReleaseHero({
       : m.profile_changelog_count_fixes({ count: counts.fixes })
   ].filter((part) => part !== null)
   return (
-    // oxlint-disable-next-line shadcn/no-arbitrary-values -- the hero's well sits a step off the page so the dither reads against it
-    <header className="@container/hero relative isolate flex min-h-[15rem] items-center justify-center overflow-hidden rounded-3xl bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6 [corner-shape:var(--button-corner)]">
+    <header className="@container/hero relative isolate flex min-h-[15rem] items-center justify-center overflow-hidden rounded-3xl bg-(--dither-back) p-6 [corner-shape:var(--button-corner)]">
       <div aria-hidden className="absolute inset-0">
         <Dither
           disableAnimation={reduce}
-          speed={reduce ? 0 : 0.08}
+          speed={reduce ? 0 : HERO_SPEED}
+          introSpeed={HERO_SPEED}
           octaves={5}
           frequency={1.4}
           amplitude={0.55}
