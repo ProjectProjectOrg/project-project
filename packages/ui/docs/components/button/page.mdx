@@ -65,7 +65,7 @@ Every other prop goes to the rendered `button`.
 
 ### A leading icon or avatar sits closer to the edge
 
-The icon side gets about three quarters of the text side's padding, because an icon or avatar carries less weight than a word. `leadingIcon` and `trailingIcon` get it, and so does an icon or avatar passed as the first child with more after it (a member's avatar and name in a ghost trigger), through the `lead` variant in `theme.css`. A button that holds only an icon takes an icon size, which has no padding to shift.
+The icon side gets about three quarters of the text side's padding, because an icon or avatar carries less weight than a word. `leadingIcon` and `trailingIcon` get it, and so does an icon or avatar passed as the first child with more after it (a member's avatar and name in a ghost trigger), through the `lead` variant in `theme.css`. A button that holds only an icon takes an icon size, which has no padding to shift. CSS can't see bare text, so a label followed by an icon (`Sprint <ChevronDown />`) goes in a `<span>` or uses `trailingIcon`; otherwise the icon reads as the first child.
 
 ### Loading swaps in place
 
