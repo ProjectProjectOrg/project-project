@@ -2,6 +2,7 @@ import type {
   AssigneeFilter,
   EstimateFilterValue,
   GroupIdFilter,
+  ParentFilter,
   TagName,
   TicketFilter,
   TypeFilter
@@ -16,6 +17,7 @@ export type FilterChoice =
   | Readonly<{ dimension: "type"; value: TypeFilter }>
   | Readonly<{ dimension: "assignee"; value: AssigneeFilter }>
   | Readonly<{ dimension: "sprint"; value: GroupIdFilter }>
+  | Readonly<{ dimension: "epic"; value: ParentFilter }>
   | Readonly<{ dimension: "estimate"; value: EstimateFilterValue }>
   | Readonly<{ dimension: "tags"; value: TagName }>
 
@@ -40,6 +42,8 @@ export const isChosen = (filter: TicketFilter, choice: FilterChoice) => {
       return filter.assignee?.includes(choice.value) === true
     case "sprint":
       return filter.groupId?.includes(choice.value) === true
+    case "epic":
+      return filter.parent?.includes(choice.value) === true
     case "estimate":
       return filter.estimate?.includes(choice.value) === true
     case "tags":
@@ -61,6 +65,8 @@ export const toggleChoice = (filter: TicketFilter, choice: FilterChoice) => {
       return { assignee: toggled(filter.assignee, choice.value) }
     case "sprint":
       return { groupId: toggled(filter.groupId, choice.value) }
+    case "epic":
+      return { parent: toggled(filter.parent, choice.value) }
     case "estimate":
       return { estimate: toggled(filter.estimate, choice.value) }
     case "tags":
