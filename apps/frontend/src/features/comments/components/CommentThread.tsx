@@ -40,8 +40,6 @@ export function CommentThread({
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set())
   const [replying, setReplying] = useState(false)
   const [sent, setSent] = useState(0)
-  // From the first Reply on, the fold keeps what it folded then, so a reply
-  // you send never pulls the ones above it into the fold.
   const [held, setHeld] = useState<number | null>(null)
   const resolved = root.comment.resolution !== null
   const { foldable, open } = threadFold({
@@ -81,8 +79,6 @@ export function CommentThread({
         onEditingChange={trackEditing(entry.comment.id)}
       />
     )
-  // Reply shows while the comment is still sending, so the thread doesn't
-  // grow again when it's saved; it works once the comment has an id.
   const mayReply = canReply && root.failed === null && !resolved
 
   return (

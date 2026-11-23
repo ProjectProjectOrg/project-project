@@ -20,8 +20,6 @@ export const threadFold = <R extends Reply>({
   manual: boolean | null
   target: string
   editing: ReadonlySet<string>
-  // At most this many fold (what folded when you started replying), until
-  // the thread is resolved.
   held: number | null
 }>) => {
   const folds = resolved

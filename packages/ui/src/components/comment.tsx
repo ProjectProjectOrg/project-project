@@ -112,7 +112,7 @@ export function Comment({
           className={cn(
             "rounded-[4px_14px_14px_14px] px-3 pt-2 pb-2.5 transition-shadow duration-300 in-data-targeted:shadow-[0_0_0_2px_var(--ring)]",
             surfaceClass,
-            pending && "animate-pulse",
+            pending && "animate-pulse [animation-delay:400ms]",
             failed &&
               "shadow-[inset_0_0_0_1px_oklch(from_var(--destructive)_l_calc(c*0.8)_h)]"
           )}
@@ -253,9 +253,8 @@ export function CommentReplyAction({
 // Reply and the reply box in one place: pressing Reply collapses the link
 // while the box eases open in its place (so the thread only grows). Under a
 // comment with no replies yet the box starts the indent, so the rail's bend
-// eases out with it; among replies it only lengthens the line. Clipped, not scrolled: the editor takes focus while it opens. Each
-// reply `sent` from the box takes its place at once, and a fresh box eases
-// open under it, so you can keep replying.
+// eases out with it; among replies it only lengthens the line. Clipped, not
+// scrolled: the editor takes focus while it opens.
 export function CommentReplySwap({
   open,
   sent = 0,
@@ -278,10 +277,6 @@ export function CommentReplySwap({
     shown.current = { open, sent }
     follow(seconds * 1000 + 80)
   }, [open, sent, follow, seconds])
-  // Each opening is a fresh box, so reopening while one is still closing
-  // gets an editor that takes focus. The box that opened eases open itself;
-  // each fresh one after a send eases open inside it, while the sent one is
-  // gone in the same frame.
   const [opening, setOpening] = useState({ open, count: 0, sent })
   if (opening.open !== open)
     setOpening({
@@ -339,8 +334,7 @@ export function CommentReplySwap({
 // the editor under it and the send button at its end. The editor has 4px
 // above and below, so one line is as tall as the button and level with its
 // label; longer replies grow down from the same first line, and the button
-// stays level with the last. Under the heading, the text sits where the
-// comment it becomes will show it, so sending doesn't nudge it.
+// stays level with the last.
 export function CommentReplyBox({
   mark,
   author,

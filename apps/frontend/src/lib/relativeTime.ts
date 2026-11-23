@@ -15,8 +15,7 @@ const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 const nowMillis = () => DateTime.toEpochMillis(DateTime.nowUnsafe())
 
-// Anything within a minute either way (the server's clock may run a little
-// fast) is "just now": counting seconds only makes the label jitter.
+// Within a minute either way, since the server's clock may run a little fast.
 export function formatRelative(date: Date, now = nowMillis()) {
   const diff = (date.getTime() - now) / 1000
   if (Math.abs(diff) < 60) return m.common_time_just_now()
@@ -29,8 +28,6 @@ export function formatRelative(date: Date, now = nowMillis()) {
   return m.common_time_just_now()
 }
 
-// One clock for every relative time on the page, so labels move on a steady
-// beat together instead of whenever something happens to re-render them.
 const TICK_MS = 30_000
 let now = nowMillis()
 const listeners = new Set<() => void>()

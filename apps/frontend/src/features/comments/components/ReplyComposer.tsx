@@ -18,7 +18,6 @@ type ReplyProps = Readonly<{
   replyTo: CommentId
   // Leaving the box empty closes it again.
   onClose: () => void
-  // A reply was sent: it takes the box's place, and a fresh box opens under it.
   onSent: () => void
 }>
 
@@ -68,7 +67,7 @@ function ReadyReplyComposer({
         onDraftChange={setBody}
         onSubmit={submit}
         placeholder={m.comments_reply_placeholder()}
-        // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click on Reply that opened the box; a sent box hands it to the fresh one
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click on Reply that opened the box
         autoFocus={editorKey === 0}
         compact
       />

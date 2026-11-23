@@ -54,15 +54,11 @@ export const railPath = (points: ReadonlyArray<RailPoint>) =>
     .join(" ")
 
 // Where each mark sits on the rail, relative to the rail's box. A mark
-// inside a fold or a box that is opening (data-rail-clip) travels with it,
-// as far as the fold is open: down from the mark before it, and across from
-// the point before the fold, so an indent eases in with it and the fold's
-// marks share one column. Closed, it sits on the mark before it, so the rail
-// is exactly what it was without it; open, it's where it belongs. Nothing
-// jumps when a fold mounts or unmounts. When clips nest (a reply box closing
-// around a fresh one still opening), the most closed one leads. Clipped
-// marks with nothing before them (a new comment at the top, newest first)
-// travel from the mark after them instead.
+// inside a fold or a box that is opening (data-rail-clip) travels with it:
+// from the point before the fold to its own place, as far as the most
+// closed fold around it is open. Closed, it sits on the mark before it (or
+// after it, when nothing comes before), so the rail is exactly what it was
+// without it; open, it's where it belongs.
 const openOf = (clip: HTMLElement) =>
   clip.scrollHeight > 0
     ? Math.min(1, clip.getBoundingClientRect().height / clip.scrollHeight)

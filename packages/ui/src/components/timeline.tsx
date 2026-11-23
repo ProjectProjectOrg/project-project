@@ -208,10 +208,8 @@ export function TimelineFold({
 }
 
 // Something that arrives while you watch (a comment you just placed): its
-// space eases open, pushing what's below down, and the rail follows it. It
-// doesn't fade or slide: it's already where it belongs, so only the room
-// for it opens. Only what mounts with `appear` animates; what was already
-// there shows as it is.
+// space eases open and the rail follows it down. Only what mounts with
+// `appear` animates; what was already there shows as it is.
 export function TimelineAppear({
   appear,
   className,
@@ -344,7 +342,6 @@ export function TimelineRun({
 }
 
 // A slot in the timeline for something that isn't an event: a comment.
-// `appear` when it was just placed: its room, padding and all, eases open.
 export function TimelineEntry({
   appear = false,
   className,

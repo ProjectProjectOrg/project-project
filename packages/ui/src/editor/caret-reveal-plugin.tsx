@@ -1,17 +1,9 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useEffect } from "react"
 
-// Brings the editor into view only as far as it has to, with room around
-// it: the whole editor when it fits (a reply box, so its bubble and send
-// button show too), else the caret. Chrome centres a caret that is out of
-// view on each keystroke, which throws the page to its end when the editor
-// sits low on it; before the frame paints, this puts the scroll back where
-// the editor just shows instead. Focusing it (a reply box that just opened)
-// glides there instead of jumping.
+// Chrome centres an off-screen caret on each keystroke; reveal only as far as needed.
 const ROOM = 32
 
-// The nearest ancestor that scrolls, or that can once the editor's box has
-// opened (a page that only just fits).
 const scrollerOf = (element: HTMLElement) => {
   let canScroll: HTMLElement | null = null
   for (
@@ -37,8 +29,6 @@ const caretRect = () => {
   return element?.getBoundingClientRect() ?? null
 }
 
-// Where the scroller should sit to show the editor, measured as if it were
-// still at `from`.
 const revealFrom = (root: HTMLElement, scroller: HTMLElement, from: number) => {
   const view = scroller.getBoundingClientRect()
   const editor = root.getBoundingClientRect()
@@ -79,8 +69,7 @@ const glideOnFocus = (event: Event) => {
   })
 }
 
-// Lexical breaks lines from keydown, so Enter never reaches beforeinput.
-// Cmd or Ctrl+Enter sends instead.
+// Lexical breaks lines on keydown, so Enter never reaches beforeinput.
 const revealOnEnter = (event: KeyboardEvent) => {
   if (event.key === "Enter" && !event.metaKey && !event.ctrlKey)
     revealOnType(event)
