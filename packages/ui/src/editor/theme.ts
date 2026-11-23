@@ -1,13 +1,9 @@
-import { CodeExtension } from "@lexical/code-core"
-import { PrismTokenizer, registerCodeHighlighting } from "@lexical/code-prism"
-import { defineExtension, type LexicalEditor } from "lexical"
-
-import "../lib/prismLangs"
+import { CODE_TOKEN_KINDS } from "../lib/highlight"
 
 /*
  * The editor's Lexical theme: the class names its nodes render with, which
- * prose.css styles under `.prose-md`. Plus code highlighting (Prism) for
- * code blocks.
+ * prose.css styles under `.prose-md`. Code highlighting (code-highlight.ts)
+ * gives each token one of the CODE_TOKEN_KINDS colours.
  */
 
 export const editorTheme = {
@@ -44,62 +40,7 @@ export const editorTheme = {
     underline: "lexical-underline"
   },
   code: "lexical-code",
-  codeHighlight: {
-    atrule: "token atrule",
-    attr: "token attr-name",
-    boolean: "token boolean",
-    builtin: "token builtin",
-    cdata: "token cdata",
-    char: "token char",
-    "class-name": "token class-name",
-    comment: "token comment",
-    constant: "token constant",
-    deleted: "token deleted",
-    doctype: "token doctype",
-    entity: "token entity",
-    function: "token function",
-    important: "token important",
-    inserted: "token inserted",
-    keyword: "token keyword",
-    namespace: "token namespace",
-    number: "token number",
-    operator: "token operator",
-    prolog: "token prolog",
-    property: "token property",
-    punctuation: "token punctuation",
-    regex: "token regex",
-    selector: "token selector",
-    string: "token string",
-    symbol: "token symbol",
-    tag: "token tag",
-    url: "token url",
-    variable: "token variable",
-    "deleted-sign": "token deleted-sign",
-    "deleted-arrow": "token deleted-arrow",
-    "inserted-sign": "token inserted-sign",
-    "inserted-arrow": "token inserted-arrow",
-    unchanged: "token unchanged",
-    diff: "token diff",
-    coord: "token coord",
-    line: "token line",
-    prefix: "token prefix"
-  }
+  codeHighlight: Object.fromEntries(
+    CODE_TOKEN_KINDS.map((kind) => [kind, `token ${kind}`])
+  )
 }
-
-// Lexical's tokenizer, with "plain" as the default language: a block without
-// one stays unhighlighted (Prism has no "plain" grammar) instead of becoming
-// JavaScript, and saves as a bare fence (CODE_BLOCK in
-// editor-transformers.ts). It can't be empty: Lexical stores "" as no
-// language and would keep re-applying the default until it gave up.
-export const PLAIN_CODE_LANGUAGE = "plain"
-const plainByDefault = {
-  ...PrismTokenizer,
-  defaultLanguage: PLAIN_CODE_LANGUAGE
-}
-
-export const CodeHighlightExtension = defineExtension({
-  name: "@pp/code-highlight",
-  dependencies: [CodeExtension],
-  register: (editor: LexicalEditor) =>
-    registerCodeHighlighting(editor, plainByDefault)
-})

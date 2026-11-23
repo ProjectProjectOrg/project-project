@@ -55,8 +55,8 @@ import type {
   Text
 } from "mdast"
 
+import { PLAIN_CODE_LANGUAGE } from "./code-highlight"
 import { $createImageNode, ImageNode } from "./image-node"
-import { PLAIN_CODE_LANGUAGE } from "./theme"
 
 const sourceOf = (node: MdastNode, context: MdastImportContext) =>
   node.position?.start.offset === undefined

@@ -24,7 +24,7 @@ import { m } from "./messages"
 
 const PLAIN = "plain"
 
-// The languages the app highlights (lib/prismLangs), by their fence name.
+// The languages the picker offers, by their fence name.
 const LANGUAGES = [
   ["typescript", "TypeScript"],
   ["tsx", "TSX"],
