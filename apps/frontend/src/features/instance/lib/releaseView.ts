@@ -51,8 +51,6 @@ export const SECTION_IDS = {
   earlier: "earlier-releases"
 } as const
 
-export const releaseId = (version: string) => `release-${version}`
-
 export const highlightId = (rank: number) => `highlight-${rank}`
 
 const RELEASE_HASH = /^#release-(.+)$/

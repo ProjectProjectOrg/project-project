@@ -3,9 +3,9 @@ import type { ChangelogEntry } from "@pp/shared"
 import { Dither, TimeWarpAnchor, type TimeWarpZone } from "@pp/ui/dither"
 import { ArrowUpRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { useLocation } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useReducedMotion } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
@@ -55,34 +55,78 @@ export function ChangelogPage() {
               {m.profile_changelog_empty()}
             </p>
           )
-        return <Changelog latest={latest} earlier={earlier} />
+        return <LatestRelease latest={latest} earlier={earlier} />
       }}
     />
   )
 }
 
-function Changelog({
+// One release on its own page: an earlier release, opened from the list.
+export function ReleasePage({ version }: Readonly<{ version: string }>) {
+  const changelog = useAtomValue(instanceChangelog)
+  const refresh = useAtomRefresh(instanceChangelog)
+  return (
+    <AsyncView
+      result={changelog}
+      contained
+      reset={refresh}
+      onInitial={() => <SettingsSkeleton rows={3} />}
+      onSuccess={({ value }) => {
+        const entry = value.entries.find(
+          (candidate) => candidate.version === version
+        )
+        if (entry === undefined)
+          return (
+            <p className="text-body text-muted-foreground">
+              {m.profile_changelog_release_missing()}
+            </p>
+          )
+        return <Release entry={entry} earlier={[]} latest={false} />
+      }}
+    />
+  )
+}
+
+function LatestRelease({
   latest,
   earlier
 }: Readonly<{
   latest: ChangelogEntry
   earlier: ReadonlyArray<ChangelogEntry>
 }>) {
-  const reduce = useReducedMotion() ?? false
   const hash = useLocation({ select: (location) => location.hash })
+  const navigate = useNavigate()
   const { lastSeen, markSeen } = useWhatsNewSeen()
-  const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(
-    () => new Map()
-  )
-  // A release opened by its link stays open when the hash moves on.
-  const fromHash = releaseFromHash(`#${hash}`)
-  if (fromHash !== null && !toggled.has(fromHash))
-    setToggled(new Map(toggled).set(fromHash, true))
-  const isOpen = (version: string) => toggled.get(version) ?? false
 
   useEffect(() => {
     if (lastSeen !== latest.version) markSeen(latest.version)
   }, [lastSeen, latest.version, markSeen])
+
+  // Links from before releases had pages pointed at #release-<version>.
+  const fromHash = releaseFromHash(`#${hash}`)
+  useEffect(() => {
+    if (fromHash !== null)
+      void navigate({
+        to: "/changelog/$version",
+        params: { version: fromHash },
+        replace: true
+      })
+  }, [fromHash, navigate])
+
+  return <Release entry={latest} earlier={earlier} latest />
+}
+
+function Release({
+  entry: latest,
+  earlier,
+  latest: isLatest
+}: Readonly<{
+  entry: ChangelogEntry
+  earlier: ReadonlyArray<ChangelogEntry>
+  latest: boolean
+}>) {
+  const reduce = useReducedMotion() ?? false
+  const hash = useLocation({ select: (location) => location.hash })
 
   useEffect(() => {
     if (hash === "") return undefined
@@ -101,9 +145,6 @@ function Changelog({
       .getElementById(id)
       ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" })
   }
-
-  const toggle = (version: string) =>
-    setToggled((current) => new Map(current).set(version, !isOpen(version)))
 
   const index = indexItems(
     latest,
@@ -125,7 +166,7 @@ function Changelog({
 
   return (
     <div className="@container mx-auto flex w-full max-w-[56rem] flex-col gap-14 pb-24">
-      <ReleaseHero entry={latest} />
+      <ReleaseHero entry={latest} latest={isLatest} />
       <div className="grid gap-12 @[52rem]:grid-cols-[minmax(0,42rem)_11rem] @[52rem]:justify-between">
         <div className="mx-auto flex w-full max-w-[42rem] min-w-0 flex-col gap-24 @[52rem]:mx-0">
           {latest.highlights.length === 0 ? null : (
@@ -181,13 +222,7 @@ function Changelog({
               </div>
             </div>
           )}
-          {earlier.length === 0 ? null : (
-            <EarlierReleases
-              entries={earlier}
-              isOpen={isOpen}
-              onToggle={toggle}
-            />
-          )}
+          {earlier.length === 0 ? null : <EarlierReleases entries={earlier} />}
         </div>
         <aside className="hidden @[52rem]:block">
           <div className="sticky top-6">
@@ -199,7 +234,10 @@ function Changelog({
   )
 }
 
-function ReleaseHero({ entry }: Readonly<{ entry: ChangelogEntry }>) {
+function ReleaseHero({
+  entry,
+  latest
+}: Readonly<{ entry: ChangelogEntry; latest: boolean }>) {
   const wellRef = useRef<HTMLDivElement | null>(null)
   const reduce = useReducedMotion() ?? false
   const date = releaseDate(entry.date, "long", getLocale())
@@ -251,7 +289,9 @@ function ReleaseHero({ entry }: Readonly<{ entry: ChangelogEntry }>) {
         <p className="text-caption font-semibold text-muted-foreground">
           {entry.channel === "nightly"
             ? m.profile_changelog_nightly()
-            : m.profile_changelog_latest()}
+            : latest
+              ? m.profile_changelog_latest()
+              : m.profile_changelog_release()}
         </p>
         {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- the version number is the page's poster: it grows with the page past the top of the type scale */}
         <h1 className="mt-2 text-[clamp(2.75rem,2rem+3vw,4.25rem)] leading-none font-semibold tabular-nums">

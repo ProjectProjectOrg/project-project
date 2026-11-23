@@ -51,14 +51,21 @@ function Run({
   return (
     <div
       className={cn(
-        "grid items-baseline gap-y-2",
+        "grid items-start gap-y-2",
         density === "full"
           ? "@[32rem]:grid-cols-[6.5rem_minmax(0,1fr)] @[32rem]:gap-x-4"
           : "@[32rem]:grid-cols-[6rem_minmax(0,1fr)] @[32rem]:gap-x-3"
       )}
     >
-      <p className="flex items-baseline gap-2 text-caption font-semibold text-muted-foreground">
-        <Icon aria-hidden className="size-3.5 shrink-0 self-center" />
+      {/* As tall as a change's first line, so the label and its icon sit
+          centred on it. */}
+      <p
+        className={cn(
+          "flex items-center gap-2 text-caption font-semibold text-muted-foreground",
+          density === "full" ? "h-6" : "h-5"
+        )}
+      >
+        <Icon aria-hidden className="size-3.5 shrink-0" />
         <span>
           {run.area === null
             ? m.profile_changelog_area_other()

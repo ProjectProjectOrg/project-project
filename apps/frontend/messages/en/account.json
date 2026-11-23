@@ -127,6 +127,8 @@
   "profile_changelog_notices": "Before you update",
   "profile_changelog_on_github": "On GitHub",
   "profile_changelog_pr": "Pull request {number}",
+  "profile_changelog_release": "Release",
+  "profile_changelog_release_missing": "This release isn't in the changelog anymore. It keeps the last 30 releases.",
   "profile_changelog_where": "Where",
   "profile_chip_colors_description": "How tags and pull requests look on tickets.",
   "profile_chip_colors_option_flat": "Flat",
