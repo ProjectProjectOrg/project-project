@@ -22,6 +22,7 @@ import {
   AttachmentId,
   ImportFormatUnsupported,
   NotFound,
+  isReservedStatusSlug,
   OrgScope,
   phasesFromOrder,
   PROJECT_EXPORT_ATTACHMENTS_DIR,
@@ -1318,7 +1319,9 @@ export const importPlan = (
       project: identity,
       statuses: manifest.statuses.map((status) => ({
         ...status,
-        phase: status.phase ?? phaseFromOrder(status.slug),
+        phase:
+          (isReservedStatusSlug(status.slug) ? undefined : status.phase) ??
+          phaseFromOrder(status.slug),
         projectId,
         createdBy: mapUser(status.createdBy)
       })),
