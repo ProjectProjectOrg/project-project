@@ -29,12 +29,12 @@ function Group({
 function Layers() {
   const label = "tabular-nums text-micro text-muted-foreground"
   return (
-    <div className="rounded-[20px] bg-background p-3 corner-squircle">
+    <div className="rounded-[20px] surface-background p-3 corner-squircle">
       <p className={label}>--background · the frame</p>
-      <div className="mt-2 rounded-[16px] bg-page p-3 corner-squircle">
+      <div className="mt-2 rounded-[16px] surface-page p-3 corner-squircle">
         <p className={label}>--page · what pages sit on</p>
         <div className="mt-2 grid gap-3 @lg:grid-cols-2">
-          <div className="rounded-[14px] bg-card p-3 corner-squircle">
+          <div className="rounded-[14px] surface-card p-3 corner-squircle">
             <p className={label}>--card · cards, popups</p>
             <div className="mt-2 flex h-8 items-center rounded-[16px] bg-field px-3 corner-squircle">
               <span className={label}>--field · inputs</span>
@@ -133,11 +133,11 @@ const OVERLAYS = [
 ] as const
 
 const BASES = [
-  ["bg-background", "Frame"],
-  ["bg-page", "Page"],
-  ["bg-card", "Card"],
-  ["bg-(color:--tooltip)", "Popup"],
-  ["bg-(color:--tooltip-raised)", "Raised popup"],
+  ["surface-background", "Frame"],
+  ["surface-page", "Page"],
+  ["surface-card", "Card"],
+  ["surface-(--tooltip)", "Popup"],
+  ["surface-(--tooltip-raised)", "Raised popup"],
   ["bg-[oklch(0.7_0.16_255)]", "A colour"]
 ] as const
 

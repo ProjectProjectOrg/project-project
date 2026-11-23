@@ -7,7 +7,7 @@ import { EditorKit } from "../../kit"
 export default function MentionsInTheEditor() {
   return (
     <EditorKit>
-      <div className="w-full max-w-2xl self-start rounded-[18px] bg-card p-6 corner-squircle">
+      <div className="w-full max-w-2xl self-start rounded-[18px] surface-card p-6 corner-squircle">
         <LexicalEditor
           markdown={
             "[Jonas Berg](mention:user/jonas) can take this after [ATL-5](mention:ticket/ATL-5) lands. "

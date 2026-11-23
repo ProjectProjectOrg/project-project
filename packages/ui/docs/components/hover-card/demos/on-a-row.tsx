@@ -9,7 +9,7 @@ import { AUDIT, EVERYTHING } from "../../list-row/demos/parts/tickets"
 export default function OnARow() {
   return (
     <div
-      className="w-full rounded-xl bg-page p-3"
+      className="w-full rounded-xl surface-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
       <div className={listGridClassName}>

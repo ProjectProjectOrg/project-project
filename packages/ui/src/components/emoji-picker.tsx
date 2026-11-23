@@ -20,7 +20,7 @@ function EmojiPicker({
   return (
     <EmojiPickerPrimitive.Root
       className={cn(
-        "isolate flex h-full w-fit flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+        "isolate flex h-full w-fit flex-col overflow-hidden rounded-md surface-popover text-popover-foreground",
         variant === "embedded" && "h-[280px] w-full border border-border",
         className
       )}
@@ -37,7 +37,7 @@ function EmojiPickerSearch({
   return (
     <div
       className={cn(
-        "relative z-10 flex h-9 items-center gap-2 overflow-hidden border-b bg-popover px-3",
+        "relative z-10 flex h-9 items-center gap-2 overflow-hidden border-b surface-popover px-3",
         className
       )}
       data-slot="emoji-picker-search-wrapper"
@@ -101,7 +101,7 @@ function EmojiPickerCategoryHeader({
     <div
       {...props}
       className={cn(
-        "bg-popover px-3 pt-3.5 pb-2 text-muted-foreground",
+        "surface-popover px-3 pt-3.5 pb-2 text-muted-foreground",
         "text-caption",
         "leading-none"
       )}

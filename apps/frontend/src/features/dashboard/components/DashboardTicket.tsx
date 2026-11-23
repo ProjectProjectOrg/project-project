@@ -76,7 +76,7 @@ export function DashboardRow({
         className={cn(
           "col-span-full grid grid-cols-subgrid",
           below !== undefined &&
-            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover has-[[data-selected]]:bg-foreground/6"
+            "relative isolate rounded-lg border border-border surface-card transition-colors hover:surface-lit has-[[data-popup-open]]:surface-lit has-[[data-selected]]:bg-foreground/6"
         )}
       >
         <Row

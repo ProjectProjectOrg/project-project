@@ -27,10 +27,10 @@ export default function MarkdownOverview() {
   return (
     <EditorKit>
       <div className="@container grid w-full gap-4 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0 rounded-[18px] bg-card p-6 corner-squircle">
+        <div className="min-w-0 rounded-[18px] surface-card p-6 corner-squircle">
           <Markdown>{BODY}</Markdown>
         </div>
-        <div className="min-w-0 self-start rounded-[18px] bg-card p-4 corner-squircle">
+        <div className="min-w-0 self-start rounded-[18px] surface-card p-4 corner-squircle">
           <Markdown size="compact">
             {
               "Pushed a fix: [ATL-5](mention:ticket/ATL-5) keeps `?next=` now. **Ready for review.**"

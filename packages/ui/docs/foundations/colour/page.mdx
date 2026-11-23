@@ -3,7 +3,7 @@ export const meta = {
   group: "Design system",
   order: 2,
   description:
-    "A neutral palette in OKLCH, three layers deep, with see-through overlays for every state. Colour itself belongs to the user: tags, statuses and projects. The chrome stays grey so their colours mean something.",
+    "A neutral palette in OKLCH, three layers deep, with every state worked out from the surface it sits on. Colour itself belongs to the user: tags, statuses and projects. The chrome stays grey so their colours mean something.",
   sources: [
     { kind: "own", name: "theme.css", note: "every token, light and dark" },
     { kind: "own", name: "colors.ts", note: "@pp/shared: the user's colours" }
@@ -53,9 +53,9 @@ No brand hue. Buttons, inputs, rows, menus and the frame are greys, and the prim
 
 Frame, page, then cards and fields: `0.94 → 0.968 → 0.99` in light, `0.145 → 0.219` (cards at `0.205`) in dark. The steps are small so the eye reads structure, not boxes. Both themes layer in the same order, so a layout that works in one works in the other.
 
-### States are overlays, not greys
+### States step from their surface
 
-Hover, pressed and the secondary fill are see-through (`--hover`, `--active`, `--tint`): black over light, white over dark. The same hover reads on the frame, a page, a card or a coloured chip. A fixed grey would vanish the moment a control moved to a surface of its own tone.
+Hover, pressed and the secondary fill (`--hover`, `--active`, `--tint`) are the surface they sit on mixed toward black in light, white in dark. Every element that paints a background paints with `surface-*`, so the same hover reads on the frame, a page or a card. A fixed grey would vanish the moment a control moved to a surface of its own tone; a see-through one lets a project banner show through.
 
 ### Contrast is measured, not hoped for
 

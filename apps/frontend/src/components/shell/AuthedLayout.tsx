@@ -53,14 +53,14 @@ function Shell({ user }: { user: User }) {
   const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
   return (
     <div className="h-full">
-      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-1">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden surface-background lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-1">
         <Sidebar user={user} />
         <Topbar user={user} />
         {/* Next to the sidebar the page takes no left margin: the panel's own
             8px inset is the gap, so its rows and card sit as far from the
             page as from the rail. */}
         <main className="flex min-h-0 overflow-hidden p-2 pt-0 lg:pt-2 lg:pl-0">
-          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-page">
+          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl surface-page">
             <PageBackdropContext value={backdrop}>
               {/* layoutScroll: layout animations inside measure against the
                   page, not the viewport, so the scroll reset on navigation

@@ -367,7 +367,7 @@ const origin: Record<Side, string> = {
 // the glare of an inverted label. Squircle corners at about half the
 // height, no shadow.
 const inkClass =
-  "rounded-[9px] bg-(color:--tooltip) px-2 py-[5px] text-caption text-foreground shadow-(--tooltip-edge) [corner-shape:var(--button-corner)]"
+  "rounded-[9px] surface-(--tooltip) px-2 py-[5px] text-caption text-foreground shadow-(--tooltip-edge) [corner-shape:var(--button-corner)]"
 
 // A hover card: the tooltip's fill and edge, at a card's corners. Shared
 // with HoverCardContent and PopoverContent's "hover" surface. Its corners
@@ -375,7 +375,7 @@ const inkClass =
 // (ticket-lines.tsx). It's a surface, so the menu highlight and fields
 // inside step from the card's fill, as in a popup.
 export const hoverCardSurfaceClass =
-  "[--card-radius:14px] rounded-(--card-radius) bg-(color:--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)] surface [--surface:var(--tooltip)]"
+  "[--card-radius:14px] rounded-(--card-radius) surface-(--tooltip) text-foreground shadow-(--tooltip-edge) outline-none [corner-shape:var(--button-corner)]"
 
 export const liftedSurfaceShadowClass =
   "shadow-[shadow:var(--tooltip-edge),var(--shadow-surface-4)]"

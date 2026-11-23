@@ -13,8 +13,6 @@ import {
 import { useCountdown, type Countdown } from "../lib/countdown"
 import type { IconComponent } from "../lib/icon"
 import { transitions } from "../lib/springs"
-import { SURFACE_BG } from "../lib/surfaceClasses"
-import { useOnPage, useSurface } from "../lib/surfaceContext"
 import { cn } from "../lib/utils"
 import {
   DitherBackdrop,
@@ -53,10 +51,9 @@ const buttonVariants = cva(
         primary: "button-fill button-primary",
         secondary: "button-fill button-secondary",
         destructive: "button-fill button-destructive",
-        // A tile one step up the surface ladder, no border. On the page
-        // itself that step is too faint, so it takes half of secondary's tint.
-        tertiary:
-          "text-foreground not-disabled:hover:bg-[image:linear-gradient(var(--hover),var(--hover))] not-disabled:active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
+        // The tint, one step quieter than secondary; a raised tile inside a
+        // tertiary-tiles group (theme.css).
+        tertiary: "button-fill button-tertiary text-foreground",
         ghost:
           "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         // Ghost with a hairline ring: an empty slot waiting for a value, like
@@ -66,7 +63,7 @@ const buttonVariants = cva(
         toolbar:
           "bg-transparent text-muted-foreground not-disabled:hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
         overlay:
-          "bg-background text-muted-foreground shadow-sm not-disabled:hover:bg-[image:linear-gradient(var(--hover),var(--hover))] not-disabled:hover:text-foreground not-disabled:active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
+          "surface-background text-muted-foreground shadow-sm not-disabled:hover:bg-[image:linear-gradient(var(--hover),var(--hover))] not-disabled:hover:text-foreground not-disabled:active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         // A control that holds a value, like a select trigger: the same
         // fill, hairline and invalid state as Input, foreground text.
         field:
@@ -387,8 +384,6 @@ function Button({
         : size === "lg" || size === "icon-lg"
           ? "size-5"
           : "size-4"
-  const surface = useSurface()
-  const onPage = useOnPage()
 
   const { countdownClass, countdownStyle, handleAnimationEnd } = useCountdown(
     countdown,
@@ -404,10 +399,6 @@ function Button({
       iconLeft: !isIconOnly && !!LeadingIcon,
       iconRight: !isIconOnly && !!TrailingIcon
     }),
-    variant === "tertiary" &&
-      (onPage
-        ? "button-fill button-tertiary"
-        : SURFACE_BG[Math.min(surface + 2, 8)]),
     BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]",
     KBD_INSET[size ?? "md"],
     countdownClass,

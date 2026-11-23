@@ -35,10 +35,10 @@ import { ScrollArea, type ScrollAreaProps } from "./scroll-area"
 // cards' 14px plus the 8px they sit in from its edge. data-over rings it
 // while a card is dragged over.
 export const boardColumnClass =
-  "board-column-wash flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-[22px] bg-surface-1 [corner-shape:var(--button-corner)]"
+  "board-column-wash flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-[22px] surface-1 [corner-shape:var(--button-corner)]"
 
 export const boardCollapsedColumnClass =
-  "board-column-wash flex max-h-full w-10 shrink-0 flex-col self-start overflow-hidden rounded-[20px] bg-surface-1 [corner-shape:var(--button-corner)]"
+  "board-column-wash flex max-h-full w-10 shrink-0 flex-col self-start overflow-hidden rounded-[20px] surface-1 [corner-shape:var(--button-corner)]"
 
 // The status's colour for the wash, the count and the drop ring; any CSS
 // colour (a token or a picked #rrggbb). Without one the column is grey.

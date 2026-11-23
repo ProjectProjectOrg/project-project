@@ -17,7 +17,7 @@ import { useState } from "react"
 export default function SprintHeader() {
   const [collapsed, setCollapsed] = useState(false)
   return (
-    <div className="@container w-full rounded-xl bg-page p-3">
+    <div className="@container w-full rounded-xl surface-page p-3">
       <ListSectionHeader
         icon={
           <Flag className="size-4 text-muted-foreground" strokeWidth={1.75} />

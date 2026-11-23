@@ -429,7 +429,7 @@ export default function Overview() {
   const project = PROJECTS.find((p) => p.slug === state.scope)
   return (
     <div className="@container w-full">
-      <div className="grid h-[580px] grid-cols-[auto_minmax(0,1fr)] overflow-hidden rounded-[14px] bg-background text-foreground shadow-[var(--shadow-1)]">
+      <div className="grid h-[580px] grid-cols-[auto_minmax(0,1fr)] overflow-hidden rounded-[14px] surface-background text-foreground shadow-[var(--shadow-1)]">
         <div className="flex min-h-0">
           <Rail actions={actions} />
           <SidebarPanel
@@ -455,7 +455,7 @@ export default function Overview() {
             )}
           </SidebarPanel>
         </div>
-        <div className="m-2 ml-0 hidden min-w-0 overflow-auto rounded-[12px] bg-page px-6 pt-3 pb-6 shadow-[var(--shadow-1)] @2xl:block">
+        <div className="m-2 ml-0 hidden min-w-0 overflow-auto rounded-[12px] surface-page px-6 pt-3 pb-6 shadow-[var(--shadow-1)] @2xl:block">
           <PageView scope={state.scope} route={state.route} go={actions.go} />
         </div>
       </div>

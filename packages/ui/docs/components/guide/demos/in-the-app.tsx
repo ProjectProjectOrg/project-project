@@ -16,7 +16,7 @@ export default function InTheApp() {
   const list = useRef<HTMLDivElement>(null)
   return (
     <div
-      className="flex w-full flex-col gap-3 rounded-xl bg-page p-3"
+      className="flex w-full flex-col gap-3 rounded-xl surface-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
       <div className="px-1">

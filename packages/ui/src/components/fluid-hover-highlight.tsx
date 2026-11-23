@@ -69,7 +69,7 @@ export function FluidHoverHighlight({
           key={hover.sessionRef.current}
           data-slot="fluid-hover-highlight"
           className={cn(
-            "pointer-events-none absolute top-0 left-0 rounded-lg bg-hover",
+            "pointer-events-none absolute top-0 left-0 rounded-lg bg-hover-overlay",
             className
           )}
           style={fullWidth ? { left: rect.left, right: rect.left } : undefined}

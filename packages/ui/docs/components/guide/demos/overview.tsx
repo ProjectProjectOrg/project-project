@@ -13,11 +13,11 @@ export default function Overview() {
   const [filters, setFilters] = useState(0)
   const target = useRef<HTMLButtonElement>(null)
   return (
-    <div className="flex w-full flex-col items-center gap-6 rounded-xl bg-page p-6">
+    <div className="flex w-full flex-col items-center gap-6 rounded-xl surface-page p-6">
       <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
         Show the guide
       </Button>
-      <div className="flex items-center gap-1.5 rounded-[16px] bg-card p-1.5 shadow-(--tooltip-edge)">
+      <div className="flex items-center gap-1.5 rounded-[16px] surface-card p-1.5 shadow-(--tooltip-edge)">
         <Button size="sm" variant="ghost" leadingIcon={Plus}>
           New ticket
         </Button>

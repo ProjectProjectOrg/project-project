@@ -101,7 +101,7 @@ export const mdxComponents: MDXComponents = {
     </a>
   ),
   table: ({ className, children, ...props }) => (
-    <div className="my-6 overflow-x-auto rounded-[20px] bg-surface-2 corner-squircle">
+    <div className="my-6 overflow-x-auto rounded-[20px] surface-2 corner-squircle">
       <div>
         <table
           className={cn(
@@ -138,7 +138,7 @@ export const mdxComponents: MDXComponents = {
       source={codeOf(children)}
       language={languageOf(children)}
       overflow="wrap"
-      className="my-6 rounded-[20px] bg-surface-2 corner-squircle"
+      className="my-6 rounded-[20px] surface-2 corner-squircle"
     />
   ),
   code: InlineCode

@@ -42,7 +42,7 @@ export function SetupSection({
       id={jiraSetupSectionId(section)}
       className="scroll-mt-4 border-b border-border last:border-b-0"
     >
-      <div className="sticky top-0 z-20 -mx-3 bg-page px-3">
+      <div className="sticky top-0 z-20 -mx-3 surface-page px-3">
         <button
           type="button"
           aria-expanded={open}

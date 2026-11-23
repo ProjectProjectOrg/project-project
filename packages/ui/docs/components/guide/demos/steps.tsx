@@ -15,7 +15,7 @@ export default function Steps() {
   const part = (name: string) => () =>
     parts.current?.querySelector(`[data-guide="${name}"]`)
   return (
-    <div className="flex w-full flex-col items-center gap-6 rounded-xl bg-page p-6">
+    <div className="flex w-full flex-col items-center gap-6 rounded-xl surface-page p-6">
       <Button
         size="sm"
         variant="primary"
@@ -28,7 +28,7 @@ export default function Steps() {
       </Button>
       <div
         ref={parts}
-        className="flex w-full max-w-md items-center justify-between rounded-[16px] bg-card p-1.5 shadow-(--tooltip-edge)"
+        className="flex w-full max-w-md items-center justify-between rounded-[16px] surface-card p-1.5 shadow-(--tooltip-edge)"
       >
         <Button data-guide="new" size="sm" variant="ghost" leadingIcon={Plus}>
           New ticket

@@ -107,7 +107,7 @@ function Section({
 export default function Overview() {
   return (
     <div
-      className="@container flex w-full flex-col gap-3 rounded-xl bg-page p-3"
+      className="@container flex w-full flex-col gap-3 rounded-xl surface-page p-3"
       style={{ "--ticket-key-width": "6ch" }}
     >
       <Section

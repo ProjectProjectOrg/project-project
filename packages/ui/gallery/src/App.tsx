@@ -69,7 +69,7 @@ function Shell({ path }: Readonly<{ path: string }>) {
                   </h1>
                   <a
                     href={markdownPathOf(page.path)}
-                    className="mt-1.5 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-surface-2 px-2.5 text-caption text-muted-foreground transition-colors corner-squircle hover:text-foreground"
+                    className="mt-1.5 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg surface-2 px-2.5 text-caption text-muted-foreground transition-colors corner-squircle hover:text-foreground"
                   >
                     <FileText className="size-3.5" strokeWidth={2} />
                     View as Markdown

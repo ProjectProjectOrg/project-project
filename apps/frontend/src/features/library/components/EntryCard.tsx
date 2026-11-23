@@ -45,7 +45,7 @@ export function EntryCard({
     <li
       data-entry-card={entry.key}
       data-off={off ? "" : undefined}
-      className="group/reveal relative flex min-w-0 list-none flex-col gap-1.5 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-hover"
+      className="group/reveal relative flex min-w-0 list-none flex-col gap-1.5 rounded-lg border border-border surface-card p-3 transition-colors hover:surface-lit"
     >
       <LibraryEntryLink
         scope={scope}

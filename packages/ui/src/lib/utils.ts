@@ -7,7 +7,7 @@ const surfaceShadows = [1, 2, 3, 4, 5, 6, 7, 8].map(
   (level) => `surface-${level}`
 )
 
-const twMerge = extendTailwindMerge({
+const twMerge = extendTailwindMerge<"surface">({
   extend: {
     classGroups: {
       shadow: [
@@ -20,6 +20,7 @@ const twMerge = extendTailwindMerge({
           ]
         }
       ],
+      surface: [{ surface: [() => true] }],
       rounded: [{ rounded: ["tile"] }],
       "font-size": [
         { text: [...typeRoles, ...typeRoles.map((role) => `${role}-compact`)] }

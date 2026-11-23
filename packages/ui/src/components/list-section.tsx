@@ -133,10 +133,10 @@ export function ListSectionHeader({
             ? // Typing a ticket: the bar becomes the field it holds.
               "bg-field shadow-[inset_0_0_0_1px_var(--field-line)]"
             : cn(
-                "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)] hover:duration-0",
+                "cursor-pointer surface-muted select-none hover:duration-0 hover:[--surface:color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]",
                 // Pressed: one step darker, unless the press is on one of
                 // the header's own controls (a chip, the chevron, the "+").
-                "[&:active:not(:has(button:active,a:active,[data-popup-open],[data-section-detail]:active))]:bg-[color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
+                "[&:active:not(:has(button:active,a:active,[data-popup-open],[data-section-detail]:active))]:[--surface:color-mix(in_oklch,var(--muted)_90%,var(--foreground)_10%)]"
               )
         )}
       >

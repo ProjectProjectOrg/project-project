@@ -59,7 +59,7 @@ function Section({
 function Feel() {
   return (
     <div className="grid gap-4 @xl:grid-cols-2">
-      <div className="flex flex-col gap-1 rounded-[18px] bg-card p-2 corner-squircle">
+      <div className="flex flex-col gap-1 rounded-[18px] surface-card p-2 corner-squircle">
         {["Instant on the way in", "Eases out on the way out", "Try both"].map(
           (text) => (
             <button
@@ -72,7 +72,7 @@ function Feel() {
           )
         )}
       </div>
-      <div className="flex flex-col items-center justify-center gap-3 rounded-[18px] bg-card p-4 corner-squircle">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-[18px] surface-card p-4 corner-squircle">
         <Button size="lg">Press and hold</Button>
         <span className="text-caption text-muted-foreground">
           97%, over 100–150ms

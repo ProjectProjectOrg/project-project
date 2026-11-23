@@ -258,7 +258,7 @@ function RuleList({
               : rule.samples.map((sample, index) => (
                   <code
                     key={`${rule.id}-${index}`}
-                    className="mt-1.5 block rounded-md bg-surface-2 px-2 py-1 font-mono text-micro break-all text-muted-foreground"
+                    className="mt-1.5 block rounded-md surface-2 px-2 py-1 font-mono text-micro break-all text-muted-foreground"
                   >
                     {sample}
                   </code>

@@ -1,5 +1,4 @@
 import { useRender } from "@base-ui/react/use-render"
-import { SurfaceProvider } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import {
   createContext,
@@ -63,12 +62,12 @@ export function SettingsGroup({
     props: {
       ...props,
       className: cn(
-        "surface divide-y divide-border overflow-hidden rounded-lg border border-border bg-card [--surface:var(--card)]",
+        "tertiary-tiles divide-y divide-border overflow-hidden rounded-lg border border-border surface-card",
         className
       )
     }
   })
-  return <SurfaceProvider value={1}>{group}</SurfaceProvider>
+  return group
 }
 
 type SettingsRowIds = Readonly<{
@@ -88,7 +87,7 @@ export function useSettingsRow() {
 // is the hit area, with a hover fill to show it. Clicks on other controls in
 // the row (buttons, links, fields) keep their own behaviour.
 const ROW_SWITCH_CLASS =
-  "transition-colors has-[[data-slot=switch]:not([data-disabled],[data-loading])]:cursor-pointer has-[[data-slot=switch]:not([data-disabled],[data-loading])]:hover:bg-hover has-[[data-slot=switch]]:select-none"
+  "transition-colors has-[[data-slot=switch]:not([data-disabled],[data-loading])]:cursor-pointer has-[[data-slot=switch]:not([data-disabled],[data-loading])]:hover:surface-lit has-[[data-slot=switch]]:select-none"
 
 const ROW_CONTROLS =
   "button, a, input, textarea, select, label, [role=switch], [role=button], [role=combobox], [role=menuitem], [role=tab]"
