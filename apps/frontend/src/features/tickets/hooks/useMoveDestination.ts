@@ -5,7 +5,8 @@ import {
   type Member,
   type ProjectStatus,
   type StatusSlug,
-  type TicketDetail
+  type TicketDetail,
+  compareStatuses
 } from "@pp/shared"
 import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -26,7 +27,6 @@ import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { moveNotes } from "@/features/tickets/lib/moveNotes"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { compareByOrderKey } from "@/lib/orderKey"
 
 export type MoveDestination = Data.TaggedEnum<{
   loading: {}
@@ -77,7 +77,7 @@ export function useMoveDestination(
   ) {
     return MoveDestination.loading()
   }
-  const statuses = statusesResult.value.toSorted(compareByOrderKey)
+  const statuses = statusesResult.value.toSorted(compareStatuses)
   const slugs = statuses.map((status) => status.slug)
   const plan = planTicketMove(ticket, {
     statuses: slugs,

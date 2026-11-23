@@ -12,16 +12,15 @@ import {
   StatusLabel,
   StatusSlug,
   deriveStatusSlug,
-  hasBaselineOrder,
   isReservedStatusSlug,
-  phaseEndNeighbors,
+  lastKeyInPhase,
   pickStatusColor,
   ProjectScope,
   type ReorderStatusInput,
   type UpdateStatusInput,
   StatusChangeRejected
 } from "@pp/shared"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -76,6 +75,7 @@ const rowToStatus = (r: typeof projectStatus.$inferSelect) =>
     label: makeLabel(r.label),
     icon: r.icon,
     color: makeColor(r.color),
+    phase: r.phase,
     orderKey: OrderKey.make(r.orderKey),
     description: r.description,
     createdBy: r.createdBy,
@@ -94,7 +94,10 @@ const make = Effect.gen(function* () {
         where: {
           RAW: (table, _operators) => _operators.eq(table.projectId, projectId)
         },
-        orderBy: (table, operators) => operators.asc(table.orderKey)
+        orderBy: (table, operators) => [
+          operators.asc(table.phase),
+          operators.asc(sql`${table.orderKey} collate "C"`)
+        ]
       })
       .pipe(Effect.orDie)
     return rows.map(rowToStatus)
@@ -117,17 +120,15 @@ const make = Effect.gen(function* () {
       .findMany({
         where: {
           RAW: (table, _operators) => _operators.eq(table.projectId, projectId)
-        },
-        orderBy: (table, operators) => operators.asc(table.orderKey)
+        }
       })
       .pipe(Effect.orDie)
 
     if (existing.some((s) => s.slug === derived))
       return yield* new StatusChangeRejected({ kind: "slug_exists" })
 
-    const nextKey = generateKeyBetween(
-      ...phaseEndNeighbors(existing, input.phase ?? "started")
-    )
+    const phase = input.phase ?? "started"
+    const nextKey = generateKeyBetween(lastKeyInPhase(existing, phase), null)
 
     const color = input.color ?? pickStatusColor(existing.map((s) => s.color))
     const icon = input.icon ?? DEFAULT_ICON
@@ -141,6 +142,7 @@ const make = Effect.gen(function* () {
         icon,
         color,
         description: input.description ?? null,
+        phase,
         orderKey: nextKey,
         createdBy: userId
       })
@@ -253,23 +255,23 @@ const make = Effect.gen(function* () {
     input: ReorderStatusInput
   ) {
     const { projectId } = yield* ProjectScope
-    const existing = yield* db.query.projectStatus
-      .findMany({
+    const current = yield* db.query.projectStatus
+      .findFirst({
         where: {
-          RAW: (table, _operators) => _operators.eq(table.projectId, projectId)
+          RAW: (table, _operators) =>
+            _operators.and(
+              _operators.eq(table.projectId, projectId),
+              _operators.eq(table.slug, statusSlug)
+            )!
         }
       })
       .pipe(Effect.orDie)
-    if (!existing.some((s) => s.slug === statusSlug))
-      return yield* new NotFound()
-    const reordered = existing.map((s) =>
-      s.slug === statusSlug ? { ...s, orderKey: input.orderKey } : s
-    )
-    if (hasBaselineOrder(existing) && !hasBaselineOrder(reordered))
-      return yield* new StatusChangeRejected({ kind: "baseline_order" })
+    if (!current) return yield* new NotFound()
+    if (isReservedStatusSlug(statusSlug) && input.phase !== current.phase)
+      return yield* new StatusChangeRejected({ kind: "builtin_phase" })
     const updated = yield* db
       .update(projectStatus)
-      .set({ orderKey: input.orderKey })
+      .set({ phase: input.phase, orderKey: input.orderKey })
       .where(
         and(
           eq(projectStatus.projectId, projectId),

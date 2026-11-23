@@ -77,7 +77,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       [id, id, id]
     )
     await pool.query(
-      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','a3',$2)",
+      "INSERT INTO project_status (project_id,slug,label,icon,color,phase,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','unstarted','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','unstarted','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','started','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','finished','a3',$2)",
       [id, id]
     )
   })
@@ -176,38 +176,44 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       Effect.gen(function* () {
         const statuses = yield* ProjectStatuses.ProjectStatuses
         const review = yield* statuses.create({ label: label("Code review") })
-        expect(review.orderKey > "a2" && review.orderKey < "a3").toBe(true)
-
-        const wontDo = yield* statuses.create({
-          label: label("Won't do"),
-          phase: "finished"
-        })
-        expect(wontDo.orderKey > "a3").toBe(true)
+        expect(review.phase).toBe("started")
+        expect(review.orderKey > "a2").toBe(true)
 
         const refine = yield* statuses.create({
           label: label("Needs refinement"),
           phase: "unstarted"
         })
-        expect(refine.orderKey > "a1" && refine.orderKey < "a2").toBe(true)
+        expect(refine.phase).toBe("unstarted")
+        expect(refine.orderKey > "a1").toBe(true)
       })
     )
   )
 
-  it.effect("refuses to move a built-in status past another one", () =>
+  it.effect("keeps a built-in status in its own phase", () =>
     run(
       Effect.gen(function* () {
         const statuses = yield* ProjectStatuses.ProjectStatuses
         const error = yield* Effect.flip(
-          statuses.reorder("done", { orderKey: OrderKey.make("a1V") })
+          statuses.reorder("done", {
+            phase: "started",
+            orderKey: OrderKey.make("a1V")
+          })
         )
         expect(error).toEqual(
-          new StatusChangeRejected({ kind: "baseline_order" })
+          new StatusChangeRejected({ kind: "builtin_phase" })
         )
 
-        const moved = yield* statuses.reorder("todo", {
-          orderKey: OrderKey.make("a1V")
+        const moved = yield* statuses.reorder("in_review", {
+          phase: "finished",
+          orderKey: OrderKey.make("a0")
         })
-        expect(moved.orderKey).toBe("a1V")
+        expect([moved.phase, moved.orderKey]).toEqual(["finished", "a0"])
+        const fixture = ["todo", "in_progress", "in_review", "done"]
+        expect(
+          (yield* statuses.list())
+            .map((s) => s.slug)
+            .filter((slug) => fixture.includes(slug))
+        ).toEqual(["todo", "in_progress", "in_review", "done"])
       })
     )
   )
@@ -235,7 +241,10 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
         yield* Effect.flip(statuses.create({ label: label("Todo") }))
         yield* Effect.flip(statuses.update("missing", {}))
         yield* Effect.flip(
-          statuses.reorder("missing", { orderKey: OrderKey.make("a0") })
+          statuses.reorder("missing", {
+            phase: "started",
+            orderKey: OrderKey.make("a0")
+          })
         )
         yield* Effect.flip(statuses.remove("todo", {}))
       }).pipe(Effect.withTracer(tracer))

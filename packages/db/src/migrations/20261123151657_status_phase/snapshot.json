@@ -1,0 +1,130 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1de34c79-5017-4889-88c3-5c8976087c7d",
+  "prevIds": [
+    "2c7143ee-75a5-4134-a409-c3aefaf257ef"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "status_phase"
+      ],
+      "writes": [
+        "s|enum|public.status_phase",
+        "n|enum|public.status_phase",
+        "e|enum|public.status_phase",
+        "n|type|public.status_phase"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_status",
+        "phase"
+      ],
+      "writes": [
+        "s|col|public.project_status.phase",
+        "n|col|public.project_status.phase",
+        "e|col|public.project_status.phase"
+      ],
+      "reads": [
+        "n|tbl|public.project_status",
+        "n|sch|public",
+        "n|enum|public.status_phase"
+      ]
+    },
+    {
+      "statementType": "recreate_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_status",
+        "project_status_order_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_status_order_idx",
+        "n|idx|public.project_status_order_idx",
+        "e|idx|public.project_status_order_idx",
+        "n|rel|public.project_status_order_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_status",
+        "n|sch|public",
+        "n|col|public.project_status.project_id",
+        "n|col|public.project_status.phase"
+      ],
+      "sharedWrites": [],
+      "sqlHash": "8d1e5c9d2726679d"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "status_phase",
+        "values": [
+          "unstarted",
+          "started",
+          "finished"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_status",
+        "name": "phase",
+        "type": "status_phase",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"project_status_order_idx\"]",
+      "set": {
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "phase",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "\"order_key\" collate \"C\"",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ]
+      }
+    }
+  ]
+}

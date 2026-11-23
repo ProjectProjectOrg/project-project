@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import { CommentOrigin, ImportedSource } from "../comments/Comment"
 import { EstimationMode } from "../estimates/Estimate"
 import { GitAutomationEvent } from "../github/GitAutomation"
+import { StatusPhase } from "../statuses/Status"
 import { ActivityCause, TicketActivityChange } from "../tickets/TicketActivity"
 import { ProjectBanner, ProjectIconImage, Role } from "./Project"
 
@@ -46,6 +47,7 @@ export const ProjectExportManifest = Schema.Struct({
       label: Schema.String,
       icon: Schema.String,
       color: Schema.String,
+      phase: Schema.optional(StatusPhase),
       orderKey: Schema.String,
       description: Schema.NullOr(Schema.String),
       createdBy: Schema.String,

@@ -102,7 +102,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
       [sourceId, destinationId, orgId, userId]
     )
     await pool.query(
-      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a1',$3), ($1,'triage','Triage','Circle','#a3a3a3','a0',$3), ($2,'backlog','Backlog','Circle','#a3a3a3','a0',$3), ($2,'todo','Todo','Circle','#a3a3a3','a1',$3), ($2,'doing','Doing','Circle','#a3a3a3','a2',$3)",
+      "INSERT INTO project_status (project_id,slug,label,icon,color,phase,order_key,created_by) VALUES ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'unstarted', 'a1', $3), ($1, 'triage', 'Triage', 'Circle', '#a3a3a3', 'unstarted', 'a0', $3), ($2, 'backlog', 'Backlog', 'Circle', '#a3a3a3', 'unstarted', 'a0', $3), ($2, 'todo', 'Todo', 'Circle', '#a3a3a3', 'unstarted', 'a1', $3), ($2, 'doing', 'Doing', 'Circle', '#a3a3a3', 'unstarted', 'a2', $3)",
       [sourceId, destinationId, userId]
     )
     await pool.query(

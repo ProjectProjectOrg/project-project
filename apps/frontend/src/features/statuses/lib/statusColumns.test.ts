@@ -1,4 +1,4 @@
-import { ProjectStatus, StatusSlug } from "@pp/shared"
+import { ProjectStatus, StatusSlug, type StatusPhase } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -16,14 +16,15 @@ const slug = Schema.decodeSync(StatusSlug)
 const status = (
   statusSlug: string,
   label: string,
-  orderKey: string,
-  color = "#123456"
+  phase: StatusPhase,
+  orderKey: string
 ) =>
   decodeProjectStatusSync({
     slug: statusSlug,
     label,
     icon: "Circle",
-    color,
+    color: "#123456",
+    phase,
     orderKey,
     description: null,
     createdBy: "user-1",
@@ -31,9 +32,14 @@ const status = (
   })
 
 const baseline = (overrides: Readonly<Record<string, string>> = {}) => [
-  status("todo", overrides.todo ?? "Todo", "a0"),
-  status("in_progress", overrides.in_progress ?? "In progress", "a1"),
-  status("done", overrides.done ?? "Done", "a2")
+  status("todo", overrides.todo ?? "Todo", "unstarted", "a0"),
+  status(
+    "in_progress",
+    overrides.in_progress ?? "In progress",
+    "started",
+    "a0"
+  ),
+  status("done", overrides.done ?? "Done", "finished", "a0")
 ]
 
 const project = (
@@ -86,28 +92,59 @@ describe("mergeStatusColumns", () => {
 
   it("merges custom statuses whose labels differ only in spelling", () => {
     const merged = mergeStatusColumns([
-      project("web", [...baseline(), status("in_review", "In Review", "a1V")]),
-      project("api", [...baseline(), status("review", "in-review", "a1V")])
+      project("web", [
+        ...baseline(),
+        status("in_review", "In Review", "started", "a1")
+      ]),
+      project("api", [
+        ...baseline(),
+        status("review", "in-review", "started", "a1")
+      ])
     ])
     expect(merged.columns.map((column) => column.key)).toEqual([
       "todo",
       "in_progress",
-      "label:inreview",
+      "label:started:inreview",
       "done"
     ])
-    expect(merged.columnKeyFor("web", slug("in_review"))).toBe("label:inreview")
-    expect(merged.columnKeyFor("api", slug("review"))).toBe("label:inreview")
+    expect(merged.columnKeyFor("web", slug("in_review"))).toBe(
+      "label:started:inreview"
+    )
+    expect(merged.columnKeyFor("api", slug("review"))).toBe(
+      "label:started:inreview"
+    )
+  })
+
+  it("keeps same-named statuses in different phases apart", () => {
+    expect(
+      keys([
+        project("web", [
+          ...baseline(),
+          status("review", "Review", "started", "a1")
+        ]),
+        project("api", [
+          ...baseline(),
+          status("review", "Review", "finished", "a1")
+        ])
+      ])
+    ).toEqual([
+      "todo",
+      "in_progress",
+      "label:started:review",
+      "done",
+      "label:finished:review"
+    ])
   })
 
   it("folds a custom status into a baseline it names", () => {
     const merged = mergeStatusColumns([
       project("web", baseline({ in_progress: "Doing" })),
       project("api", [
-        status("todo", "Todo", "a0"),
-        status("doing", "Doing", "a1"),
-        status("finished", "Done!", "a3"),
-        status("in_progress", "In progress", "a2"),
-        status("done", "Done", "a4")
+        status("todo", "Todo", "unstarted", "a0"),
+        status("doing", "Doing", "started", "a0"),
+        status("finished", "Done!", "finished", "a1"),
+        status("in_progress", "In progress", "started", "a1"),
+        status("done", "Done", "finished", "a0")
       ])
     ])
     expect(merged.columnKeyFor("api", slug("doing"))).toBe("in_progress")
@@ -119,23 +156,23 @@ describe("mergeStatusColumns", () => {
     ])
   })
 
-  it("places custom statuses between the baselines they sit between", () => {
+  it("orders columns by phase, then by place within the phase", () => {
     expect(
       keys([
         project("web", [
-          status("blocked", "Blocked", "Zz"),
+          status("blocked", "Blocked", "unstarted", "Zz"),
           ...baseline(),
-          status("code_test", "Code test", "a1V"),
-          status("shipped", "Shipped", "a3")
+          status("code_test", "Code test", "started", "a1"),
+          status("shipped", "Shipped", "finished", "Zz")
         ])
       ])
     ).toEqual([
-      "label:blocked",
+      "label:unstarted:blocked",
       "todo",
       "in_progress",
-      "label:codetest",
-      "done",
-      "label:shipped"
+      "label:started:codetest",
+      "label:finished:shipped",
+      "done"
     ])
   })
 
@@ -143,28 +180,34 @@ describe("mergeStatusColumns", () => {
     expect(
       keys([
         project("web", [
-          status("todo", "Todo", "a0"),
-          status("review", "Review", "a1"),
-          status("in_progress", "In progress", "a2"),
-          status("qa", "QA", "a3"),
-          status("done", "Done", "a4")
+          ...baseline(),
+          status("review", "Review", "started", "Zz"),
+          status("qa", "QA", "started", "a1")
         ]),
         project("api", [
           ...baseline(),
-          status("review", "Review", "a1V"),
-          status("qa", "QA", "a1W")
+          status("qa", "QA", "started", "a1"),
+          status("review", "Review", "started", "a2")
         ])
       ])
-    ).toEqual(["todo", "label:review", "in_progress", "label:qa", "done"])
+    ).toEqual([
+      "todo",
+      "in_progress",
+      "label:started:review",
+      "label:started:qa",
+      "done"
+    ])
   })
 
   it("keeps statuses with no letters apart by slug", () => {
     const merged = mergeStatusColumns([
-      project("web", [...baseline(), status("rocket", "🚀", "a1V")]),
-      project("api", [...baseline(), status("fire", "🔥", "a1V")])
+      project("web", [...baseline(), status("rocket", "🚀", "started", "a1")]),
+      project("api", [...baseline(), status("fire", "🔥", "started", "a1")])
     ])
-    expect(merged.columnKeyFor("web", slug("rocket"))).toBe("slug:rocket")
-    expect(merged.columnKeyFor("api", slug("fire"))).toBe("slug:fire")
+    expect(merged.columnKeyFor("web", slug("rocket"))).toBe(
+      "slug:started:rocket"
+    )
+    expect(merged.columnKeyFor("api", slug("fire"))).toBe("slug:started:fire")
   })
 
   it("reports no column for a status it has not seen", () => {
@@ -176,8 +219,11 @@ describe("mergeStatusColumns", () => {
 
 describe("placeInColumns", () => {
   const merged = mergeStatusColumns([
-    project("web", [...baseline(), status("review", "Review", "a1V")]),
-    project("api", [...baseline(), status("qa", "QA", "a1V")])
+    project("web", [
+      ...baseline(),
+      status("review", "Review", "started", "a1")
+    ]),
+    project("api", [...baseline(), status("qa", "QA", "started", "a1")])
   ])
   const locate = (item: Readonly<{ project: string; status: string }>) =>
     [item.project, slug(item.status)] as const
@@ -195,7 +241,7 @@ describe("placeInColumns", () => {
     expect(placed.map((column) => [column.key, column.items.length])).toEqual([
       ["todo", 0],
       ["in_progress", 0],
-      ["label:review", 1],
+      ["label:started:review", 1],
       ["done", 2]
     ])
   })

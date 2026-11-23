@@ -3085,10 +3085,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
 
         yield* withClient((client) =>
           client.query(
-            `insert into project_status (project_id, slug, label, icon, color, order_key, created_by)
-               values ($1, 'done', 'Done', 'CircleCheck', '#22c55e', 'a2', $2),
-                      ($1, 'wont_do', 'Won''t do', 'Ban', '#a3a3a3', 'a3', $2),
-                      ($1, 'review', 'Review', 'Eye', '#e0a03b', 'a1V', $2)`,
+            `insert into project_status (project_id, slug, label, icon, color, phase, order_key, created_by)
+               values ($1, 'done', 'Done', 'CircleCheck', '#22c55e', 'finished', 'a2', $2),
+                      ($1, 'wont_do', 'Won''t do', 'Ban', '#a3a3a3', 'finished', 'a3', $2),
+                      ($1, 'review', 'Review', 'Eye', '#e0a03b', 'started', 'a1V', $2)`,
             [alpha.projectId, viewerId]
           )
         )
@@ -3140,9 +3140,9 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             [viewerId, `${viewerId}@example.com`]
           )
           await client.query(
-            `insert into project_status (project_id, slug, label, icon, color, order_key, created_by)
-             values ($1, 'in_progress', 'In progress', 'Circle', '#e0a03b', 'a1', $2),
-                    ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'a0', $2)`,
+            `insert into project_status (project_id, slug, label, icon, color, phase, order_key, created_by)
+             values ($1, 'in_progress', 'In progress', 'Circle', '#e0a03b', 'started', 'a1', $2),
+                    ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'unstarted', 'a0', $2)`,
             [projectId, viewerId]
           )
         })

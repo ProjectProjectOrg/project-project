@@ -1,75 +1,62 @@
-import {
-  BASELINE_STATUS_SLUGS,
-  STATUS_PHASES,
-  type BaselineStatusSlug,
-  type StatusPhase
-} from "./Status"
-
-export const PHASE_ANCHOR: Readonly<Record<StatusPhase, BaselineStatusSlug>> = {
-  unstarted: "todo",
-  started: "in_progress",
-  finished: "done"
-}
+import { BASELINE_STATUS_SEED, STATUS_PHASES, type StatusPhase } from "./Status"
 
 const BASELINE_PHASE: ReadonlyMap<string, StatusPhase> = new Map(
-  STATUS_PHASES.map((phase) => [PHASE_ANCHOR[phase], phase])
+  BASELINE_STATUS_SEED.map((status) => [status.slug, status.phase])
 )
 
-type OrderedStatus = Readonly<{ slug: string; orderKey: string }>
-
-const keyOf = (statuses: ReadonlyArray<OrderedStatus>, slug: string) =>
-  statuses.find((s) => s.slug === slug)?.orderKey
+type PhasedStatus = Readonly<{ slug: string; phase: StatusPhase }>
+type OrderedStatus = PhasedStatus & Readonly<{ orderKey: string }>
 
 export const statusPhaseOf = (
-  statuses: ReadonlyArray<OrderedStatus>,
+  statuses: ReadonlyArray<PhasedStatus>,
   slug: string
-) => {
-  const baseline = BASELINE_PHASE.get(slug)
-  if (baseline !== undefined) return baseline
-  const key = keyOf(statuses, slug)
-  if (key === undefined) return "unstarted"
-  const doneKey = keyOf(statuses, "done")
-  if (doneKey !== undefined && key > doneKey) return "finished"
-  const startedKey = keyOf(statuses, "in_progress")
-  if (startedKey !== undefined && key > startedKey) return "started"
-  return "unstarted"
-}
+) =>
+  statuses.find((s) => s.slug === slug)?.phase ??
+  BASELINE_PHASE.get(slug) ??
+  "unstarted"
 
 export type StatusPhaseOf = (slug: string) => StatusPhase
 
-export const statusPhaseLookup = (statuses: ReadonlyArray<OrderedStatus>) => {
-  const phases = new Map(
-    statuses.map((s) => [s.slug, statusPhaseOf(statuses, s.slug)])
-  )
+export const statusPhaseLookup = (statuses: ReadonlyArray<PhasedStatus>) => {
+  const phases = new Map(statuses.map((s) => [s.slug, s.phase]))
   return ((slug) =>
-    phases.get(slug) ?? statusPhaseOf(statuses, slug)) satisfies StatusPhaseOf
+    phases.get(slug) ?? statusPhaseOf([], slug)) satisfies StatusPhaseOf
 }
 
-export const finishedStatusSlugs = (statuses: ReadonlyArray<OrderedStatus>) =>
+export const finishedStatusSlugs = (statuses: ReadonlyArray<PhasedStatus>) =>
   new Set([
     "done",
-    ...statuses
-      .filter((s) => statusPhaseOf(statuses, s.slug) === "finished")
-      .map((s) => s.slug)
+    ...statuses.filter((s) => s.phase === "finished").map((s) => s.slug)
   ])
 
-export const hasBaselineOrder = (statuses: ReadonlyArray<OrderedStatus>) => {
-  const keys = BASELINE_STATUS_SLUGS.flatMap(
-    (slug) => keyOf(statuses, slug) ?? []
-  )
-  return keys.every((key, i) => i === 0 || keys[i - 1]! < key)
-}
+export const compareStatuses = (a: OrderedStatus, b: OrderedStatus) =>
+  STATUS_PHASES.indexOf(a.phase) - STATUS_PHASES.indexOf(b.phase) ||
+  (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)
 
-export const phaseEndNeighbors = (
+export const lastKeyInPhase = (
   statuses: ReadonlyArray<OrderedStatus>,
   phase: StatusPhase
-) => {
-  const sorted = [...statuses].toSorted((a, b) =>
-    a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
-  )
-  const last = sorted.findLastIndex(
-    (s) => statusPhaseOf(statuses, s.slug) === phase
-  )
-  const before = last < 0 ? null : sorted[last]!.orderKey
-  return [before, sorted[last + 1]?.orderKey ?? null] as const
+) =>
+  statuses
+    .filter((s) => s.phase === phase)
+    .map((s) => s.orderKey)
+    .toSorted()
+    .at(-1) ?? null
+
+type KeyedStatus = Readonly<{ slug: string; orderKey: string }>
+
+export const phasesFromOrder = (statuses: ReadonlyArray<KeyedStatus>) => {
+  const keyOf = (slug: string) =>
+    statuses.find((s) => s.slug === slug)?.orderKey
+  const doneKey = keyOf("done")
+  const startedKey = keyOf("in_progress")
+  return ((slug) => {
+    const baseline = BASELINE_PHASE.get(slug)
+    if (baseline !== undefined) return baseline
+    const key = keyOf(slug)
+    if (key === undefined) return "unstarted"
+    if (doneKey !== undefined && key > doneKey) return "finished"
+    if (startedKey !== undefined && key > startedKey) return "started"
+    return "unstarted"
+  }) satisfies StatusPhaseOf
 }

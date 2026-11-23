@@ -66,7 +66,7 @@ import {
   TicketChanged,
   TicketMoveRejected
 } from "@pp/shared"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -90,6 +90,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import { statusOrder } from "../projects/statusOrder"
 import { compareByRank, rankBetween, ranksBetween } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -1469,7 +1470,7 @@ const make = Effect.gen(function* () {
           .select({ slug: schema.projectStatus.slug })
           .from(schema.projectStatus)
           .where(eq(schema.projectStatus.projectId, destination.projectId))
-          .orderBy(asc(schema.projectStatus.orderKey))
+          .orderBy(...statusOrder)
           .pipe(Effect.orDie),
         library.typeKeys(destination.orgSlug, destination.slug),
         db.query.projectTag

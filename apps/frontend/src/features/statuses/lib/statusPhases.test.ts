@@ -1,10 +1,10 @@
-import { ProjectStatus, StatusSlug } from "@pp/shared"
+import { ProjectStatus, StatusSlug, type StatusPhase } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
   boardReorders,
-  keepsBaselineOrder,
+  keepsPhases,
   moveStatus,
   phaseEntries,
   placeStatus,
@@ -13,12 +13,13 @@ import {
 
 const decode = Schema.decodeSync(ProjectStatus)
 
-const status = (slug: string, orderKey: string) =>
+const status = (slug: string, phase: StatusPhase, orderKey: string) =>
   decode({
     slug,
     label: slug,
     icon: "Circle",
     color: "#123456",
+    phase,
     orderKey,
     description: null,
     createdBy: "user-1",
@@ -26,12 +27,12 @@ const status = (slug: string, orderKey: string) =>
   })
 
 const statuses = [
-  status("refine", "Zz"),
-  status("todo", "a0"),
-  status("in_progress", "a1"),
-  status("review", "a1V"),
-  status("done", "a2"),
-  status("wont_do", "a3")
+  status("refine", "unstarted", "Zz"),
+  status("todo", "unstarted", "a0"),
+  status("in_progress", "started", "a0"),
+  status("review", "started", "a1"),
+  status("done", "finished", "a0"),
+  status("wont_do", "finished", "a1")
 ]
 
 const describeEntries = (entries: ReadonlyArray<PhaseEntry>) =>
@@ -53,7 +54,7 @@ const moveTo = (slug: string, beforeIndex: number) => {
 }
 
 describe("phaseEntries", () => {
-  it("groups statuses under their phase", () => {
+  it("groups statuses under their stored phase", () => {
     expect(describeEntries(phaseEntries(statuses))).toEqual([
       "phase:unstarted",
       "refine",
@@ -73,36 +74,30 @@ describe("placeStatus", () => {
     expect(placeStatus(phaseEntries(statuses), "review")).toBeNull()
   })
 
-  it("moves a status into another phase", () => {
-    const key = placeStatus(moveTo("refine", 6), "refine")
-    expect(key! > "a1V" && key! < "a2").toBe(true)
+  it("moves a status into the phase it was dropped in", () => {
+    const placed = placeStatus(moveTo("refine", 5), "refine")
+    expect(placed?.phase).toBe("started")
+    expect(placed!.orderKey > "a0" && placed!.orderKey < "a1").toBe(true)
   })
 
-  it("keeps a dropped status after the anchor of its phase", () => {
-    const key = placeStatus(moveTo("refine", 7), "refine")
-    expect(key! > "a2" && key! < "a3").toBe(true)
+  it("places a status before done in the finished phase", () => {
+    const placed = placeStatus(moveTo("review", 7), "review")
+    expect(placed?.phase).toBe("finished")
+    expect(placed!.orderKey < "a0").toBe(true)
   })
 
-  it("keeps todo in the not started phase", () => {
-    expect(placeStatus(moveTo("todo", 6), "todo")).toBeNull()
-    const key = placeStatus(moveTo("todo", 1), "todo")
-    expect(key! < "Zz").toBe(true)
-  })
-
-  it("never moves the in progress and done anchors", () => {
-    expect(placeStatus(moveTo("done", 1), "done")).toBeNull()
+  it("reorders a built-in within its phase but never out of it", () => {
+    expect(placeStatus(moveTo("done", 9), "done")?.phase).toBe("finished")
+    expect(placeStatus(moveTo("done", 4), "done")).toBeNull()
   })
 })
 
 describe("moveStatus", () => {
-  it("moves up out of a phase past its anchor", () => {
-    const key = moveStatus(phaseEntries(statuses), "review", -1)
-    expect(key! > "a0" && key! < "a1").toBe(true)
-  })
-
-  it("moves down into the next phase after its anchor", () => {
-    const key = moveStatus(phaseEntries(statuses), "review", 1)
-    expect(key! > "a2" && key! < "a3").toBe(true)
+  it("moves a status up one place, but never a built-in out of its phase", () => {
+    expect(moveStatus(phaseEntries(statuses), "in_progress", -1)).toBeNull()
+    const placed = moveStatus(phaseEntries(statuses), "wont_do", -1)
+    expect(placed?.phase).toBe("finished")
+    expect(placed!.orderKey < "a0").toBe(true)
   })
 
   it("stops at the end of the list", () => {
@@ -110,44 +105,30 @@ describe("moveStatus", () => {
   })
 })
 
-describe("keepsBaselineOrder", () => {
-  it("allows custom statuses anywhere around the built-ins", () => {
-    expect(
-      keepsBaselineOrder(["review", "todo", "in_progress", "wont_do", "done"])
-    ).toBe(true)
-  })
-
-  it("rejects a built-in passing another", () => {
-    expect(keepsBaselineOrder(["todo", "done", "in_progress"])).toBe(false)
-  })
-})
-
 const slugs = (...values: ReadonlyArray<string>) =>
   values.map((value) => StatusSlug.make(value))
 
-describe("boardReorders", () => {
-  const board = [
-    status("todo", "a0"),
-    status("in_progress", "a1"),
-    status("done", "a2"),
-    status("review", "a3")
-  ]
-
-  it("moves only custom statuses so built-ins never pass each other", () => {
-    const updates = boardReorders(
-      slugs("review", "todo", "in_progress", "done"),
-      board
+describe("keepsPhases", () => {
+  it("rejects an order that moves a status across a phase", () => {
+    expect(keepsPhases(slugs("todo", "review", "in_progress"), statuses)).toBe(
+      true
     )
-    expect(updates.map((u) => u.statusSlug)).toEqual(["review"])
-    expect(updates[0].orderKey < "a0").toBe(true)
+    expect(keepsPhases(slugs("review", "todo", "in_progress"), statuses)).toBe(
+      false
+    )
   })
+})
 
-  it("places a custom status between the built-ins it was dropped between", () => {
+describe("boardReorders", () => {
+  it("re-keys as few statuses as it can, each within its own phase", () => {
     const updates = boardReorders(
-      slugs("todo", "review", "in_progress", "done"),
-      board
+      slugs("refine", "todo", "review", "in_progress", "wont_do", "done"),
+      statuses
     )
-    expect(updates.map((u) => u.statusSlug)).toEqual(["review"])
-    expect(updates[0].orderKey > "a0" && updates[0].orderKey < "a1").toBe(true)
+    expect(updates.map((u) => [u.statusSlug, u.phase])).toEqual([
+      ["in_progress", "started"],
+      ["done", "finished"]
+    ])
+    expect(updates.every((u) => u.orderKey > "a1")).toBe(true)
   })
 })

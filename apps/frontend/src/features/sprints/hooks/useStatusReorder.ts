@@ -10,7 +10,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import {
   boardReorders,
-  keepsBaselineOrder
+  keepsPhases
 } from "@/features/statuses/lib/statusPhases"
 
 import { boardStatusesFor } from "../lib/boardUtils"
@@ -59,10 +59,12 @@ export function useStatusReorder(
 
   const allowed = useCallback(
     (next: ReadonlyArray<StatusSlug>) => {
-      const all = Result.isSuccess(statusesResult)
-        ? boardStatusesFor(statusesResult.value)
-        : next
-      return keepsBaselineOrder(withHiddenInPlace(all, next))
+      if (!Result.isSuccess(statusesResult)) return true
+      const statuses = statusesResult.value
+      return keepsPhases(
+        withHiddenInPlace(boardStatusesFor(statuses), next),
+        statuses
+      )
     },
     [statusesResult]
   )

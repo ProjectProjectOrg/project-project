@@ -86,7 +86,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       await pool.query("DELETE FROM project_status WHERE project_id = $1", [id])
       await pool.query("DELETE FROM project_tag WHERE project_id = $1", [id])
       await pool.query(
-        "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','a3',$2)",
+        "INSERT INTO project_status (project_id,slug,label,icon,color,phase,order_key,created_by) VALUES ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'unstarted', 'a0', $2), ($1, 'in_review', 'In review', 'Eye', '#e0a03b', 'unstarted', 'a1', $2), ($1, 'in_progress', 'In progress', 'CircleDot', '#3b82f6', 'started', 'a2', $2), ($1, 'done', 'Done', 'CircleCheck', '#22c55e', 'finished', 'a3', $2)",
         [id, id]
       )
       await pool.query(

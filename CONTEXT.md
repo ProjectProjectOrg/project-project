@@ -89,7 +89,7 @@ _Avoid_: Notifications (for the rows), feed
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 
 **Status phase**:
-`unstarted`, `started` or `finished`, derived from where a status sits relative to `in_progress` and `done`. Logic that asks "is this ticket done?" asks the phase, never a status slug.
+`unstarted`, `started` or `finished`, stored on each status. `todo`, `in_progress` and `done` stay in their own phase; other statuses can sit anywhere in any phase, including before a built-in. Logic that asks "is this ticket done?" asks the phase, never a status slug.
 
 **Tag**:
 A project-scoped label with a colour from the tag wheel.
@@ -199,7 +199,7 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 > **Domain expert:** "Yes, visually. But it is a **Pending project member**, not a **Member**, because it does not grant access until the invitation is accepted."
 
 > **Dev:** "Can I check `status === 'done'` to hide finished tickets?"
-> **Domain expert:** "No. Projects add their own statuses after `done`. Ask the **status phase**."
+> **Domain expert:** "No. Projects add their own finished statuses next to `done`. Ask the **status phase**."
 
 ## Flagged Ambiguities
 

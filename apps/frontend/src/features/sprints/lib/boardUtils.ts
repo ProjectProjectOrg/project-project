@@ -3,14 +3,14 @@ import {
   TicketStatus,
   type ProjectStatus,
   type Ticket,
-  type TicketPosition
+  type TicketPosition,
+  compareStatuses
 } from "@pp/shared"
 import * as Data from "effect/Data"
 import * as Schema from "effect/Schema"
 
 import type { TicketEdit, TicketMove } from "@/features/tickets/lib/ticketPatch"
 import { predictRank } from "@/features/tickets/lib/ticketRank"
-import { compareByOrderKey } from "@/lib/orderKey"
 
 export const DragData = Schema.TaggedStruct("card", {
   id: TicketId,
@@ -40,7 +40,7 @@ export const isDropData = Schema.is(DropData)
 export const isColumnDropData = Schema.is(ColumnDropData)
 
 export function boardStatusesFor(statuses: ReadonlyArray<ProjectStatus>) {
-  return [...statuses].toSorted(compareByOrderKey).map((s) => s.slug)
+  return [...statuses].toSorted(compareStatuses).map((s) => s.slug)
 }
 
 export function groupTicketsByStatus(

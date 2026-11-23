@@ -46,6 +46,7 @@ import type * as S3Storage from "@pp/server-core/storage/S3Storage"
 import {
   BASELINE_STATUS_SEED,
   baselineStatusDescription,
+  phasesFromOrder,
   deriveProjectIdentity,
   GIT_AUTOMATION_SEED,
   JiraMigrationConfiguration,
@@ -659,10 +660,12 @@ export type JiraAtomicPublicationInput = Readonly<{
 
 const publishedIndexes = (plan: JiraPublicationPlanV1) => {
   const project = plan.indexes.project
+  const phaseFromOrder = phasesFromOrder(plan.indexes.statuses)
   return {
     project,
     statuses: plan.indexes.statuses.map((row) => ({
       ...row,
+      phase: row.phase ?? phaseFromOrder(row.slug),
       description: baselineStatusDescription(row.slug),
       createdAt: toDate(row.createdAt)
     })),

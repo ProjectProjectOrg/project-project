@@ -59,6 +59,7 @@ import type {
   InboxState,
   TypeKey
 } from "@pp/shared"
+import { STATUS_PHASES } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
 import {
   bigint,
@@ -67,6 +68,7 @@ import {
   foreignKey,
   index,
   jsonb,
+  pgEnum,
   pgTable,
   integer,
   primaryKey,
@@ -279,6 +281,8 @@ export const projectTag = pgTable(
   ]
 )
 
+export const statusPhase = pgEnum("status_phase", STATUS_PHASES)
+
 export const projectStatus = pgTable(
   "project_status",
   {
@@ -289,6 +293,7 @@ export const projectStatus = pgTable(
     label: text("label").notNull(),
     icon: text("icon").notNull(),
     color: text("color").notNull(),
+    phase: statusPhase("phase").notNull(),
     orderKey: text("order_key").notNull(),
     description: text("description"),
     createdBy: text("created_by")
@@ -301,7 +306,11 @@ export const projectStatus = pgTable(
   (t) => [
     primaryKey({ columns: [t.projectId, t.slug] }),
     index("project_status_project_idx").on(t.projectId),
-    index("project_status_order_idx").on(t.projectId, t.orderKey)
+    index("project_status_order_idx").on(
+      t.projectId,
+      t.phase,
+      sql`${t.orderKey} collate "C"`
+    )
   ]
 )
 
