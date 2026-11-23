@@ -98,7 +98,9 @@ const openPopupRow = (container: HTMLElement) =>
  * inside it drop their own hover fill. It hides during arrow-key
  * navigation, where the focused row shows instead. While a row has a menu
  * or preview card open, the highlight stays on it when the pointer leaves
- * for the popup, so the row is never lit twice.
+ * for the popup, so the row is never lit twice. While the list scrolls
+ * under a still pointer the highlight jumps to the row beneath it instead
+ * of gliding after it.
  * Only the row under the pointer is found and measured, at most once a
  * frame, so rows mounting as a virtual list scrolls cost nothing here.
  */
@@ -114,6 +116,7 @@ export function ListHoverScope({
   const sessionRef = useRef(0)
   const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
+  const [scrolling, setScrolling] = useState(false)
 
   const track = useCallback(() => {
     frame.current = 0
@@ -160,7 +163,9 @@ export function ListHoverScope({
     const container = ref.current
     const root = container?.closest("[data-scroll-root]") ?? window
     const onScroll = () => {
-      if (point.current) schedule()
+      if (!point.current) return
+      setScrolling(true)
+      schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
     const popups = new MutationObserver(schedule)
@@ -203,6 +208,11 @@ export function ListHoverScope({
           !event.currentTarget.contains(event.target)
         )
           return
+        const at = point.current
+        // A move the pointer made itself, not one the browser replays after
+        // a scroll, brings the glide back.
+        if (at?.x !== event.clientX || at.y !== event.clientY)
+          setScrolling(false)
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
@@ -214,6 +224,7 @@ export function ListHoverScope({
     >
       <FluidHoverHighlight
         hover={hover}
+        instant={scrolling}
         className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
