@@ -49,11 +49,18 @@ const presence = {
   animate: "shown",
   exit: "gone",
   variants: {
-    hidden: { opacity: 0, height: 0 },
-    shown: { opacity: 1, height: "auto", transition: transitions.layout },
+    hidden: { opacity: 0, height: 0, overflow: "hidden" },
+    shown: {
+      opacity: 1,
+      height: "auto",
+      overflow: "hidden",
+      transitionEnd: { overflow: "visible" },
+      transition: transitions.layout
+    },
     gone: {
       opacity: 0,
       height: 0,
+      overflow: "hidden",
       transition: { ...transitions.layout, duration: 0.18 }
     }
   }
@@ -100,7 +107,6 @@ function SidebarRowGroup({
             key={key}
             layout={reduce ? false : "position"}
             transition={transitions.layout}
-            className="overflow-hidden"
             {...presence}
           >
             {rows(key)}
@@ -142,7 +148,6 @@ function SidebarRowGroup({
             key={key}
             layout={reduce ? false : "position"}
             transition={transitions.layout}
-            className="overflow-hidden"
             {...presence}
           >
             {rows(key)}
@@ -234,10 +239,7 @@ function SortableRow({
       onKeyDown={onKeyDown}
       style={{ touchAction: "pan-y" }}
       data-dragging={dragging || undefined}
-      className={cn(
-        "relative",
-        dragging ? "pp-sidebar-row-dragging z-20" : "overflow-hidden"
-      )}
+      className={cn("relative", dragging && "pp-sidebar-row-dragging z-20")}
     >
       {children}
     </Reorder.Item>
