@@ -181,6 +181,7 @@ export const COMMAND_PAGES: Readonly<
   "filter:type": viewFilterDimensionPage("type"),
   "filter:assignee": viewFilterDimensionPage("assignee"),
   "filter:sprint": viewFilterDimensionPage("sprint"),
+  "filter:epic": viewFilterDimensionPage("epic"),
   "filter:estimate": viewFilterDimensionPage("estimate"),
   "filter:tags": viewFilterDimensionPage("tags"),
   sprintSchedule: sprintPage(SprintSchedulePage),

@@ -27,6 +27,7 @@ import {
   CircleDot,
   Flag,
   Gauge,
+  Layers,
   ListFilter,
   OctagonMinus,
   Shapes,
@@ -66,6 +67,7 @@ import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
+import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
@@ -213,6 +215,12 @@ export function Filters() {
           <FilterSprint
             value={value?.groupId}
             onChange={(groupId) => onChange({ groupId })}
+          />
+        )}
+        {filters.includes("epic") && (
+          <FilterEpic
+            value={value?.parent}
+            onChange={(parent) => onChange({ parent })}
           />
         )}
         {filters.includes("estimate") && (
@@ -563,6 +571,53 @@ function FilterSprint({
           })
         ]}
       />
+    </FilterSubmenu>
+  )
+}
+
+function FilterEpic({
+  value,
+  onChange
+}: Readonly<{
+  value: TicketFilter["parent"]
+  onChange: (value: TicketFilter["parent"]) => void
+}>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const result = useAtomValue(projectEpics(epicsRequest(orgSlug, slug)))
+  const epics = Result.isSuccess(result) ? result.value : []
+  return (
+    <FilterSubmenu
+      icon={Layers}
+      label={m.tickets_filters_section_epic()}
+      filterable
+      className="w-64"
+    >
+      <DropdownMenuInput
+        placeholder={m.tickets_filters_epic_search_placeholder()}
+        aria-label={m.tickets_filters_epic_search_placeholder()}
+      />
+      <DropdownMenuList className="max-h-72 overflow-y-auto">
+        <CheckboxOptions
+          selected={value}
+          onChange={onChange}
+          options={[
+            {
+              value: "none",
+              label: m.tickets_filters_epic_none(),
+              content: text(m.tickets_filters_epic_none()),
+              separated: epics.length > 0
+            },
+            ...epics.map((epic) => ({
+              value: epic.id,
+              label: `${epic.id} ${epic.title}`,
+              content: text(epic.title)
+            }))
+          ]}
+        />
+      </DropdownMenuList>
+      <DropdownMenuEmpty>
+        {m.tickets_filters_epic_search_empty()}
+      </DropdownMenuEmpty>
     </FilterSubmenu>
   )
 }

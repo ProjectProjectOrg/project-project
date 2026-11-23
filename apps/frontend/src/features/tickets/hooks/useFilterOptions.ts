@@ -5,6 +5,7 @@ import {
   Archive,
   Flag,
   Gauge,
+  Layers,
   OctagonMinus,
   Shapes,
   Tag,
@@ -26,6 +27,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import type { FilterDimension } from "@/features/tickets/components/ticket-list/toolbar/model"
 import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
@@ -62,6 +64,7 @@ export const FILTER_DIMENSION_META: Readonly<
   type: { label: m.tickets_filters_section_type, icon: Shapes },
   assignee: { label: m.tickets_filters_section_assignee, icon: UserRound },
   sprint: { label: m.tickets_filters_section_sprint, icon: Timer },
+  epic: { label: m.tickets_filters_section_epic, icon: Layers },
   estimate: { label: m.tickets_filters_section_estimate, icon: Gauge },
   tags: { label: m.tickets_filters_section_tags, icon: Tag }
 }
@@ -79,6 +82,7 @@ export function useFilterOptions(
   const sprintsResult = useAtomValue(
     sprintList(sprintListRequest(orgSlug, slug))
   )
+  const epicsResult = useAtomValue(projectEpics(epicsRequest(orgSlug, slug)))
   const types = useTicketTypes(orgSlug, slug)
   const tags = Result.isSuccess(tagsResult) ? tagsResult.value : []
   const sprints = Result.isSuccess(sprintsResult)
@@ -87,6 +91,7 @@ export function useFilterOptions(
         DateTime.toDate(DateTime.nowUnsafe())
       )
     : []
+  const epics = Result.isSuccess(epicsResult) ? epicsResult.value : []
 
   const drafts = (dimension: FilterDimension) => {
     switch (dimension) {
@@ -156,6 +161,19 @@ export function useFilterOptions(
             choice: { dimension, value: sprint.id },
             label: sprint.name,
             icon: Timer
+          }))
+        ] satisfies ReadonlyArray<Draft>
+      case "epic":
+        return [
+          {
+            choice: { dimension, value: "none" },
+            label: m.tickets_filters_epic_none(),
+            icon: Layers
+          },
+          ...epics.map((epic) => ({
+            choice: { dimension, value: epic.id },
+            label: epic.title,
+            icon: Layers
           }))
         ] satisfies ReadonlyArray<Draft>
       case "estimate":
