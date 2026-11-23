@@ -26,7 +26,7 @@ export type CreateTicketRequest = Readonly<{
   from?: "inline"
 }>
 
-export type RelatedKind = MarkKind | "subTicket"
+export type RelatedKind = MarkKind | "subTicket" | "epicOf"
 
 export type RelatedTo = Readonly<{ kind: RelatedKind; ticketId: TicketId }>
 
@@ -36,7 +36,8 @@ const RELATED_PAYLOADS: Readonly<
   subTicket: (id) => ({ parent: id }),
   blocking: (id) => ({ blockedBy: [id] }),
   related: (id) => ({ relatedTo: [id] }),
-  blockedBy: () => ({})
+  blockedBy: () => ({}),
+  epicOf: () => ({})
 }
 
 export const relatedPayload = (related: RelatedTo | null) =>

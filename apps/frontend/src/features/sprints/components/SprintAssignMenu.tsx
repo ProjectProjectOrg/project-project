@@ -4,21 +4,35 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { CircleDashed, Plus } from "@pp/ui/icons"
-import { menuItemMetaClass } from "@pp/ui/menu-styles"
-import { Select, SelectTrigger } from "@pp/ui/select"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { menuItemDetailClass } from "@pp/ui/menu-styles"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
-import type { ComponentProps, ReactElement } from "react"
+import { useState, type ComponentProps, type ReactElement } from "react"
 
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-import { SprintStateIcon } from "./SprintChip"
+import { SprintStateIcon, sprintStateLabel } from "./SprintChip"
 
-type SelectProps = ComponentProps<typeof Select>
+type MenuProps = ComponentProps<typeof DropdownMenu>
+type ContentProps = ComponentProps<typeof DropdownMenuContent>
 
 const NO_SPRINT = "__no-sprint"
-const NEW_SPRINT = "__new-sprint"
 
 function rangeText(s: Group) {
   if (!s.startsAt || !s.endsAt) return ""
@@ -27,6 +41,12 @@ function rangeText(s: Group) {
     day: "numeric"
   })
   return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
+}
+
+function sprintDetail(s: Group) {
+  const range = rangeText(s)
+  const state = sprintStateLabel(sprintState(s))
+  return range === "" ? state : m.tickets_sprint_option_detail({ range, state })
 }
 
 export type SprintAssignMenuProps = {
@@ -38,8 +58,9 @@ export type SprintAssignMenuProps = {
   onSelect: (sprint: Group | null) => void
   onRequestNewSprint?: () => void
   open?: boolean
-  onOpenChange?: SelectProps["onOpenChange"]
-  finalFocus?: NonNullable<SelectProps["contentProps"]>["finalFocus"]
+  onOpenChange?: MenuProps["onOpenChange"]
+  finalFocus?: ContentProps["finalFocus"]
+  tooltip?: string
 }
 
 export function pickDefaultSprint(
@@ -74,28 +95,16 @@ export function SprintAssignMenu({
   onRequestNewSprint,
   open,
   onOpenChange,
-  finalFocus
+  finalFocus,
+  tooltip
 }: SprintAssignMenuProps) {
+  const [query, setQuery] = useState("")
   const eligible = eligibleSprints(sprints)
-  const sprintOptions = eligible.map((s, index) => ({
-    value: s.id,
-    textValue: s.name,
-    separated: index === eligible.length - 1,
-    label: (
-      <>
-        <SprintStateIcon sprint={s} size="md" />
-        <span className="min-w-0 flex-1 truncate">{s.name}</span>
-        <span data-menu-meta className={menuItemMetaClass}>
-          {rangeText(s)}
-        </span>
-      </>
-    )
-  }))
   const noneText = m.tickets_sprint_none()
-  const noneOption = {
+  const none = {
     value: NO_SPRINT,
     textValue: noneText,
-    separated: onRequestNewSprint !== undefined,
+    closeOnClick: true,
     label: (
       <>
         <CircleDashed strokeWidth={1.75} />
@@ -103,45 +112,85 @@ export function SprintAssignMenu({
       </>
     )
   }
-  const newSprintText = m.tickets_sprint_popover_new_sprint_action()
-  const actionOptions =
-    onRequestNewSprint === undefined
-      ? []
-      : [
-          {
-            value: NEW_SPRINT,
-            textValue: newSprintText,
-            label: (
-              <>
-                <Plus strokeWidth={1.75} />
-                {newSprintText}
-              </>
-            ),
-            onAction: onRequestNewSprint
-          }
-        ]
-  const items = [...sprintOptions, noneOption, ...actionOptions]
+  const items = [
+    none,
+    ...eligible.map((s) => ({
+      value: s.id,
+      textValue: s.name,
+      closeOnClick: true,
+      label: (
+        <>
+          <SprintStateIcon sprint={s} size="md" />
+          <span className="min-w-0 truncate">{s.name}</span>
+          <span data-menu-meta className={menuItemDetailClass}>
+            {sprintDetail(s)}
+          </span>
+        </>
+      )
+    }))
+  ]
   return (
-    <Select
-      items={items}
-      value={selectedId === undefined ? null : (selectedId ?? NO_SPRINT)}
+    <DropdownMenu
       open={open}
       onOpenChange={onOpenChange}
-      onValueChange={(id) => {
-        if (id === NO_SPRINT) {
-          if (selectedId !== null) onSelect(null)
-          return
-        }
-        const next = eligible.find((s) => s.id === id)
-        if (next && id !== selectedId) onSelect(next)
-      }}
-      contentProps={{
-        align: "start",
-        className: "max-w-80",
-        finalFocus: finalFocus ?? false
+      filterable={{ value: query, onValueChange: setQuery }}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) setQuery("")
       }}
     >
-      <SelectTrigger render={trigger} />
-    </Select>
+      {tooltip === undefined ? (
+        <DropdownMenuTrigger render={trigger} />
+      ) : (
+        <ShortcutTooltip
+          hotkey={appHotkeys["tickets.sprint"]}
+          label={tooltip}
+          keyLabels={keyLabels()}
+        >
+          <DropdownMenuTrigger render={trigger} />
+        </ShortcutTooltip>
+      )}
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        finalFocus={finalFocus ?? false}
+        className="w-max max-w-[min(20rem,calc(100vw-2rem))] min-w-60"
+      >
+        <DropdownMenuInput
+          placeholder={m.tickets_sprint_search_placeholder()}
+          aria-label={m.tickets_sprint_search_placeholder()}
+          shortcut={
+            <KbdShortcut
+              keys={appHotkeys["tickets.sprint"].defaultHotkey}
+              keyLabels={keyLabels()}
+              aria-hidden
+            />
+          }
+        />
+        <DropdownMenuList className="max-h-80">
+          <DropdownMenuRadioGroup
+            value={selectedId === undefined ? null : (selectedId ?? NO_SPRINT)}
+            onValueChange={(id) => {
+              if (id === NO_SPRINT) {
+                if (selectedId !== null) onSelect(null)
+                return
+              }
+              const next = eligible.find((s) => s.id === id)
+              if (next && id !== selectedId) onSelect(next)
+            }}
+            items={items}
+          />
+          {onRequestNewSprint !== undefined && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onRequestNewSprint}>
+                <Plus strokeWidth={1.75} />
+                {m.tickets_sprint_popover_new_sprint_action()}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuList>
+        <DropdownMenuEmpty>{m.tickets_sprint_no_match()}</DropdownMenuEmpty>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

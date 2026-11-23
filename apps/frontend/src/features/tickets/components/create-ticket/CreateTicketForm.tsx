@@ -1,5 +1,5 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import { type GroupId, type TicketId, isEpicType } from "@pp/shared"
+import { EPIC_TYPE, type GroupId, type TicketId, isEpicType } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
@@ -41,12 +41,14 @@ import {
 } from "@/features/tickets/atoms/createTicket"
 import {
   markTicket,
-  ticketRequest
+  ticketRequest,
+  updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
 import { startText } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
+import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -63,7 +65,8 @@ const RELATED_LABELS: Readonly<
   subTicket: m.tickets_create_related_sub_ticket,
   blockedBy: m.tickets_create_related_blocks,
   blocking: m.tickets_create_related_blocked_by,
-  related: m.tickets_create_related_related
+  related: m.tickets_create_related_related,
+  epicOf: m.tickets_create_epic_for
 }
 
 // A ticket made from an inline field, a ticket or a comment shows up where
@@ -97,6 +100,8 @@ export function CreateTicketForm({
     request.related !== undefined && slug === request.projectSlug
       ? request.related
       : null
+
+  const makingEpic = related?.kind === "epicOf"
 
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
@@ -135,6 +140,14 @@ export function CreateTicketForm({
   }
 
   const link = async (id: TicketId) => {
+    if (related?.kind === "epicOf") {
+      const moved = await fireMutation(
+        registry,
+        updateTicketDetail(ticketRequest(orgSlug, slug, related.ticketId)),
+        { parent: parentRef({ id, title: trimmed, type: EPIC_TYPE }) }
+      )
+      return Result.isFailure(moved) ? Exit.failCause(moved.cause) : Exit.void
+    }
     if (related?.kind !== "blockedBy") return Exit.void
     const marked = await fireMutation(
       registry,
@@ -194,7 +207,7 @@ export function CreateTicketForm({
             orgSlug={orgSlug}
             projects={projects}
             value={slug}
-            readOnly={locked}
+            readOnly={locked || makingEpic}
             onChange={(next) => {
               setPicked(next)
               creatorType.reset()
@@ -202,10 +215,18 @@ export function CreateTicketForm({
               setSprint(null)
             }}
           />
-          <h2 className="text-body font-normal text-muted-foreground">
-            {m.tickets_create_dialog_title()}
-          </h2>
-          {related !== null && (
+          {makingEpic ? (
+            <h2 className="truncate text-body font-normal text-muted-foreground">
+              <TicketIdText id={related.ticketId}>
+                {m.tickets_create_epic_for({ id: related.ticketId })}
+              </TicketIdText>
+            </h2>
+          ) : (
+            <h2 className="text-body font-normal text-muted-foreground">
+              {m.tickets_create_dialog_title()}
+            </h2>
+          )}
+          {related !== null && related.kind !== "epicOf" && (
             <span className="truncate text-body text-muted-foreground">
               ·{" "}
               <TicketIdText id={related.ticketId}>
@@ -271,6 +292,7 @@ export function CreateTicketForm({
                   orgSlug={orgSlug}
                   slug={slug}
                   creatorType={creatorType}
+                  typeLocked={makingEpic}
                   value={fields}
                   onChange={(patch) =>
                     setFields((current) => ({ ...current, ...patch }))
@@ -302,7 +324,9 @@ export function CreateTicketForm({
             <Button type="submit" size="sm" disabled={!canSubmit}>
               {linkFailed
                 ? m.tickets_create_retry_link()
-                : m.tickets_create_dialog_submit()}
+                : makingEpic
+                  ? m.tickets_create_epic_submit()
+                  : m.tickets_create_dialog_submit()}
             </Button>
           </Composer.Actions>
         </Composer.Footer>

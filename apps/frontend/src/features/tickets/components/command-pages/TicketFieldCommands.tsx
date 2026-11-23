@@ -1,5 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
+import {
+  EPIC_TYPE,
+  isEpic,
+  ESTIMATE_SIZES,
+  TagName,
+  type Estimate
+} from "@pp/shared"
 import {
   CommandMenuCheck,
   CommandMenuItem,
@@ -30,6 +36,7 @@ import {
   bulkDeleteTickets,
   bulkUpdateTickets
 } from "@/features/tickets/atoms/bulkTickets"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   archiveTicket,
@@ -70,6 +77,7 @@ export type TicketPageProps = CommandPageProps &
   Readonly<{ ticket: TicketContext }>
 
 const CLEAR = "clear"
+const NEW_EPIC = "new-epic"
 const CREATE_TAG = "create-tag"
 const ARCHIVE = "archive"
 const FLAG = "flag"
@@ -372,6 +380,7 @@ export function TicketTagsPage({
 
 export function TicketParentPage({
   ticket,
+  context,
   chip,
   onBack,
   env
@@ -397,6 +406,15 @@ export function TicketParentPage({
           prefix: epic.id,
           icon: Layers
         })),
+        ...(context.tickets.create
+          ? [
+              {
+                value: NEW_EPIC,
+                label: m.tickets_command_new_epic(),
+                icon: Plus
+              }
+            ]
+          : []),
         ...(parent === null
           ? []
           : [
@@ -408,6 +426,16 @@ export function TicketParentPage({
             ])
       ]}
       onSelect={(item) => {
+        if (item.value === NEW_EPIC) {
+          env.registry.set(newTicketRequest, {
+            orgSlug: ticket.orgSlug,
+            projectSlug: ticket.slug,
+            type: EPIC_TYPE,
+            related: { kind: "epicOf", ticketId: ticket.ticketId }
+          })
+          env.open("createTicket")
+          return
+        }
         if (item.value === CLEAR) update({ parent: null })
         else {
           const epic = epics.find((candidate) => candidate.id === item.value)

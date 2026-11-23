@@ -55,3 +55,6 @@ export const menuChoiceIndicatorClass =
 
 export const menuItemMetaClass =
   "ml-auto text-micro text-muted-foreground tabular-nums"
+
+export const menuItemDetailClass =
+  "ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-right text-muted-foreground tabular-nums [:is([data-highlighted],[data-menu-held],[data-menu-resting])_&]:text-foreground"
