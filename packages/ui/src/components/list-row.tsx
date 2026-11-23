@@ -98,7 +98,10 @@ const openPopupRow = (container: HTMLElement) =>
  * inside it drop their own hover fill. It hides during arrow-key
  * navigation, where the focused row shows instead. While a row has a menu
  * or preview card open, the highlight stays on it when the pointer leaves
- * for the popup, so the row is never lit twice. While its scroll root
+ * for the popup, so the row is never lit twice. A row lights up (its
+ * reveals show) when the highlight lands on it, not when the pointer gets
+ * there, so a quick sweep lights nothing until the pointer rests, and
+ * leaving puts a row out at once. While its scroll root
  * carries `data-scrolling` (trackScrolling) no row is lit: the highlight
  * and the row's reveals come back together on the row under the pointer
  * once scrolling settles.
@@ -115,6 +118,9 @@ export function ListHoverScope({
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
   const sessionRef = useRef(0)
+  // The row under the pointer, which the highlight is heading for, and the
+  // row it has landed on, which carries data-hover-highlight.
+  const targetRow = useRef<HTMLElement | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
@@ -129,10 +135,10 @@ export function ListHoverScope({
     const row = paused
       ? null
       : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
+    targetRow.current = row
     if (litRow.current !== row) {
       litRow.current?.removeAttribute("data-hover-highlight")
-      row?.setAttribute("data-hover-highlight", "")
-      litRow.current = row
+      litRow.current = null
     }
     if (!row) {
       setHovered(null)
@@ -158,6 +164,13 @@ export function ListHoverScope({
       }
     }
     setHovered((current) => (sameHovered(current, next) ? current : next))
+  }, [])
+
+  const arrive = useCallback(() => {
+    const row = targetRow.current
+    if (!row || litRow.current === row) return
+    row.setAttribute("data-hover-highlight", "")
+    litRow.current = row
   }, [])
 
   const schedule = useCallback(() => {
@@ -236,6 +249,7 @@ export function ListHoverScope({
     >
       <FluidHoverHighlight
         hover={hover}
+        onArrive={arrive}
         className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>

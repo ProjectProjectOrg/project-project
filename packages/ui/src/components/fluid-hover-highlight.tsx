@@ -20,10 +20,20 @@ export type FluidHoverHighlightProps = Readonly<{
   hidden?: boolean
   instant?: boolean
   fullWidth?: boolean
+  // Called every frame the highlight sits on its row (within a couple of
+  // px), so whatever lights with the row waits for it to land.
+  onArrive?: () => void
   className?: string
 }>
 
 const fade: Transition = { duration: 0.08 }
+
+// Close enough to the row to count as landed: the spring's settling tail
+// is too slow to wait out.
+const ARRIVED = 2
+
+const near = (value: unknown, target: number) =>
+  typeof value === "number" && Math.abs(value - target) <= ARRIVED
 const snap: Transition = { duration: 0 }
 
 const toTarget = (rect: ItemRect, fullWidth: boolean) =>
@@ -43,6 +53,7 @@ export function FluidHoverHighlight({
   hidden = false,
   instant = false,
   fullWidth = false,
+  onArrive,
   className
 }: FluidHoverHighlightProps) {
   const rect = hidden ? null : activeRect(hover)
@@ -76,6 +87,16 @@ export function FluidHoverHighlight({
           initial={{ opacity: 0, ...toTarget(rect, fullWidth) }}
           animate={{ opacity: 1, ...toTarget(rect, fullWidth) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
+          onUpdate={
+            onArrive &&
+            ((latest) => {
+              if (
+                near(latest.y, rect.top) &&
+                (fullWidth || near(latest.x, rect.left))
+              )
+                onArrive()
+            })
+          }
           transition={{
             ...(reduceMotion || instant || sameRow ? snap : spring.fast),
             opacity: fade

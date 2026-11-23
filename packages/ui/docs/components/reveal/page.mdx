@@ -39,9 +39,9 @@ List rows, board cards, comment rows and settings rows all mark themselves `grou
 
 Hover (or the list's hover highlight), keyboard focus anywhere in the row, an open popup in the row, a selected row, and a checked or just-copied child all show it. Touch screens have no hover, so there it always shows.
 
-### At once, never fading
+### Lands with the highlight, leaves at once
 
-It shows and hides with the row, with no fade. A fade-out leaves the rows the pointer just crossed lit, so a quick sweep would light a trail of them. While the list is driven from the keyboard, the pointer's hover is ignored.
+In a list with the gliding highlight it shows as the highlight lands on the row, easing in over 100ms, so it never runs ahead of it; elsewhere it shows at once. Leaving hides it at once: a fade-out would keep the rows the pointer just crossed lit, a trail of them on a quick sweep. While the list is driven from the keyboard, the pointer's hover is ignored.
 
 ### Hide the wrapper, not the control
 
