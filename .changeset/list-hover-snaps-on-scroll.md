@@ -1,4 +1,4 @@
 ---
 kind: internal
 ---
-The list hover jumps to the row under a still pointer while the list scrolls, instead of gliding after it
+The list hover hides while the list scrolls and comes back on the row under the pointer

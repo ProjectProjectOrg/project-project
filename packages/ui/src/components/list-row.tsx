@@ -64,6 +64,9 @@ const HOVER_REACH = 6
 
 type Hovered = Readonly<{ index: number; rect: ItemRect }>
 
+// How long scrolling has to stop before the highlight comes back.
+const SCROLL_SETTLE = 150
+
 const sameHovered = (a: Hovered | null, b: Hovered | null) =>
   a === b ||
   (a !== null &&
@@ -98,9 +101,8 @@ const openPopupRow = (container: HTMLElement) =>
  * inside it drop their own hover fill. It hides during arrow-key
  * navigation, where the focused row shows instead. While a row has a menu
  * or preview card open, the highlight stays on it when the pointer leaves
- * for the popup, so the row is never lit twice. While the list scrolls
- * under a still pointer the highlight jumps to the row beneath it instead
- * of gliding after it.
+ * for the popup, so the row is never lit twice. It also hides while the
+ * list scrolls, and comes back on the row under the pointer once it stops.
  * Only the row under the pointer is found and measured, at most once a
  * frame, so rows mounting as a virtual list scrolls cost nothing here.
  */
@@ -162,9 +164,18 @@ export function ListHoverScope({
   useEffect(() => {
     const container = ref.current
     const root = container?.closest("[data-scroll-root]") ?? window
+    let settle: number | undefined
     const onScroll = () => {
       if (!point.current) return
+      // A new session, so the highlight comes back where it is instead of
+      // gliding there from the row it left.
+      if (settle === undefined) sessionRef.current += 1
+      window.clearTimeout(settle)
       setScrolling(true)
+      settle = window.setTimeout(() => {
+        settle = undefined
+        setScrolling(false)
+      }, SCROLL_SETTLE)
       schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
@@ -177,6 +188,7 @@ export function ListHoverScope({
     }
     return () => {
       root.removeEventListener("scroll", onScroll)
+      window.clearTimeout(settle)
       popups.disconnect()
       cancelAnimationFrame(frame.current)
       litRow.current?.removeAttribute("data-hover-highlight")
@@ -208,11 +220,6 @@ export function ListHoverScope({
           !event.currentTarget.contains(event.target)
         )
           return
-        const at = point.current
-        // A move the pointer made itself, not one the browser replays after
-        // a scroll, brings the glide back.
-        if (at?.x !== event.clientX || at.y !== event.clientY)
-          setScrolling(false)
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
@@ -224,7 +231,7 @@ export function ListHoverScope({
     >
       <FluidHoverHighlight
         hover={hover}
-        instant={scrolling}
+        hidden={scrolling}
         className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
