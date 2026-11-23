@@ -89,6 +89,18 @@ services:
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
+  # The component gallery (packages/ui/gallery): a static site with no
+  # backend. It follows `main` rather than IMAGE_TAG, so the public design
+  # system docs show the latest components. Optional: start it with
+  # `docker compose up -d gallery` and point an NPM host at GALLERY_PORT.
+  gallery:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER}/projectproject-gallery:${GALLERY_TAG:-main}
+    restart: unless-stopped
+    ports:
+      - "${GALLERY_PORT:-8081}:80"
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
   # Watchtower polls ghcr every 5 minutes for new tags on watched
   # containers, pulls, and recreates them. `--label-enable` makes it
   # opt-in (only services labeled above are watched).
