@@ -121,6 +121,7 @@ export function ListHoverScope({
   // The row under the pointer, which the highlight is heading for, and the
   // row it has landed on, which carries data-hover-highlight.
   const targetRow = useRef<HTMLElement | null>(null)
+  const targetRect = useRef<ItemRect | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
@@ -135,12 +136,19 @@ export function ListHoverScope({
     const row = paused
       ? null
       : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
+    // A position followed from the document during a pause may be outside
+    // the list; past the pause, only a pointer in the list is tracked.
+    if (!paused && at && !row) {
+      const under = document.elementFromPoint(at.x, at.y)
+      if (!under || !container.contains(under)) point.current = null
+    }
     targetRow.current = row
     if (litRow.current !== row) {
       litRow.current?.removeAttribute("data-hover-highlight")
       litRow.current = null
     }
     if (!row) {
+      targetRect.current = null
       setHovered(null)
       return
     }
@@ -163,12 +171,16 @@ export function ListHoverScope({
         height: r.height / scale
       }
     }
+    targetRect.current = next.rect
     setHovered((current) => (sameHovered(current, next) ? current : next))
   }, [])
 
-  const arrive = useCallback(() => {
+  const arrive = useCallback((rect: ItemRect) => {
     const row = targetRow.current
-    if (!row || litRow.current === row) return
+    const target = targetRect.current
+    if (!row || !target || litRow.current === row) return
+    // Only the highlight heading for the target counts, not one fading out.
+    if (rect.top !== target.top || rect.left !== target.left) return
     row.setAttribute("data-hover-highlight", "")
     litRow.current = row
   }, [])
@@ -194,6 +206,15 @@ export function ListHoverScope({
     if (scrollRoot) {
       scrolling.observe(scrollRoot, { attributeFilter: ["data-scrolling"] })
     }
+    // While the content drops pointer events the scope hears no moves, so
+    // follow the pointer from the document until scrolling settles, even
+    // from outside the list; the row it lands on is then the one under it,
+    // or none if it isn't over the list.
+    const onPausedMove = (event: MouseEvent) => {
+      if (scrollRoot?.hasAttribute("data-scrolling"))
+        point.current = { x: event.clientX, y: event.clientY }
+    }
+    document.addEventListener("mousemove", onPausedMove, { passive: true })
     const popups = new MutationObserver(schedule)
     if (container) {
       popups.observe(container, {
@@ -204,6 +225,7 @@ export function ListHoverScope({
     return () => {
       root.removeEventListener("scroll", onScroll)
       scrolling.disconnect()
+      document.removeEventListener("mousemove", onPausedMove)
       popups.disconnect()
       cancelAnimationFrame(frame.current)
       litRow.current?.removeAttribute("data-hover-highlight")
@@ -240,7 +262,7 @@ export function ListHoverScope({
       }}
       onMouseLeave={(event) => {
         // Content drops pointer events while it scrolls, which reads as
-        // leaving; the pointer is still where it was.
+        // leaving; the document follows the pointer until it settles.
         if (event.currentTarget.closest("[data-scrolling]")) return
         point.current = null
         schedule()
@@ -250,7 +272,7 @@ export function ListHoverScope({
       <FluidHoverHighlight
         hover={hover}
         onArrive={arrive}
-        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scrolling:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>

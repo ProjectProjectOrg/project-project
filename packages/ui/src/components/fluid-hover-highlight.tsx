@@ -23,7 +23,9 @@ export type FluidHoverHighlightProps = Readonly<{
   // Called every frame the highlight is landing on its row (within a
   // quarter of its height), so whatever lights with the row eases in as the
   // highlight settles instead of running ahead of it.
-  onArrive?: () => void
+  // It gets the row's box, so a highlight still fading out from an earlier
+  // session can be told apart from the one landing now.
+  onArrive?: (rect: ItemRect) => void
   className?: string
 }>
 
@@ -96,7 +98,7 @@ export function FluidHoverHighlight({
                 near(Number(latest.y), rect.top, reach) &&
                 (fullWidth || near(Number(latest.x), rect.left, reach))
               )
-                onArrive()
+                onArrive(rect)
             })
           }
           transition={{
