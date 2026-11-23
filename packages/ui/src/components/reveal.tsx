@@ -25,7 +25,7 @@ import { cn } from "../lib/utils"
  */
 const revealClass = cn(
   "inline-flex shrink-0 opacity-0 transition-[opacity] duration-0 ease-out",
-  "motion-safe:not-in-data-keyboard-navigation:in-data-hover-highlight:duration-100",
+  "motion-safe:not-in-data-keyboard-navigation:in-data-hover-highlight:duration-60",
   "not-in-data-keyboard-navigation:row-hover:opacity-100",
   "in-data-[row-selected]:opacity-100",
   "group-has-[:focus-visible]/reveal:opacity-100 focus-within:opacity-100",

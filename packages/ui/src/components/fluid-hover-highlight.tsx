@@ -20,20 +20,21 @@ export type FluidHoverHighlightProps = Readonly<{
   hidden?: boolean
   instant?: boolean
   fullWidth?: boolean
-  // Called every frame the highlight sits on its row (within a couple of
-  // px), so whatever lights with the row waits for it to land.
+  // Called every frame the highlight is landing on its row (within a
+  // quarter of its height), so whatever lights with the row eases in as the
+  // highlight settles instead of running ahead of it.
   onArrive?: () => void
   className?: string
 }>
 
 const fade: Transition = { duration: 0.08 }
 
-// Close enough to the row to count as landed: the spring's settling tail
-// is too slow to wait out.
-const ARRIVED = 2
+// Close enough to the row to count as landing, as a share of its height:
+// what lights with it starts easing in as the spring settles, not after.
+const ARRIVING = 0.25
 
-const near = (value: number, target: number) =>
-  Math.abs(value - target) <= ARRIVED
+const near = (value: number, target: number, reach: number) =>
+  Math.abs(value - target) <= reach
 const snap: Transition = { duration: 0 }
 
 const toTarget = (rect: ItemRect, fullWidth: boolean) =>
@@ -90,9 +91,10 @@ export function FluidHoverHighlight({
           onUpdate={
             onArrive &&
             ((latest) => {
+              const reach = rect.height * ARRIVING
               if (
-                near(Number(latest.y), rect.top) &&
-                (fullWidth || near(Number(latest.x), rect.left))
+                near(Number(latest.y), rect.top, reach) &&
+                (fullWidth || near(Number(latest.x), rect.left, reach))
               )
                 onArrive()
             })
