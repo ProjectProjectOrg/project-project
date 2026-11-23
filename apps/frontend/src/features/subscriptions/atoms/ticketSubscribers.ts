@@ -26,8 +26,8 @@ export const subscribersQuery = (req: TicketSubscribersRequest) => {
     params: req.params,
     serializationKey: ticketContentKey(req.params),
     reactivityKeys: [
-      Keys.ticketsIn(scope),
-      Keys.ticketComments(scope),
+      Keys.ticket(scope, req.params.id),
+      Keys.projectResync(scope),
       Keys.ticketSubscribers(scope, req.params.id)
     ]
   })

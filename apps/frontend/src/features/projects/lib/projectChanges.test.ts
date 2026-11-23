@@ -40,6 +40,7 @@ type Probe = Atom.Atom<AsyncResult.AsyncResult<unknown, unknown>>
 
 const probes = {
   [`${base}/tickets/T-1`]: ticketDetail(ticketRequest("org", "project", t1)),
+  [`${base}/tickets/T-2`]: ticketDetail(ticketRequest("org", "project", t2)),
   [`${base}/tickets/T-1/comments`]: comments(
     commentsRequest("org", "project", t1)
   ),
@@ -82,26 +83,36 @@ const refreshedBy = async (keys: ReturnType<typeof resyncKeys>) => {
 
 const change = (value: ProjectChange) => changeKeys(params, value)
 
+const everyTicketAndSprint = [
+  "/groups/G-1",
+  "/tickets/T-1",
+  "/tickets/T-1/comments",
+  "/tickets/T-1/subscribers",
+  "/tickets/T-2",
+  "/tickets/T-2/comments"
+]
+const everything = ["/", "/groups", ...everyTicketAndSprint].toSorted()
+
 it.each([
   [
-    "a ticket change refreshes the ticket's reads",
+    "a ticket change refreshes only that ticket's reads",
     change({ kind: "tickets", id: t1 }),
     ["/tickets/T-1", "/tickets/T-1/subscribers"]
   ],
   [
-    "a comment change refreshes that ticket's comments",
+    "a ticket change without a ticket refreshes every read in the project",
+    change({ kind: "tickets", id: null }),
+    everything
+  ],
+  [
+    "a comment change refreshes that ticket's comments and subscribers",
     change({ kind: "comments", id: t1 }),
     ["/tickets/T-1/comments", "/tickets/T-1/subscribers"]
   ],
   [
-    "a comment change without a ticket refreshes every ticket's comments",
+    "a comment change without a ticket refreshes every ticket and sprint",
     change({ kind: "comments", id: null }),
-    [
-      "/groups/G-1",
-      "/tickets/T-1/comments",
-      "/tickets/T-1/subscribers",
-      "/tickets/T-2/comments"
-    ]
+    everyTicketAndSprint
   ],
   [
     "a subscriber change refreshes that ticket's subscribers",
@@ -109,9 +120,9 @@ it.each([
     ["/tickets/T-1/subscribers"]
   ],
   [
-    "a subscriber change without a ticket refreshes every ticket's reads",
+    "a subscriber change without a ticket refreshes every ticket and sprint",
     change({ kind: "subscribers", id: null }),
-    ["/tickets/T-1", "/tickets/T-1/subscribers"]
+    everyTicketAndSprint
   ],
   [
     "a sprint change refreshes the sprint list and that sprint",
@@ -119,26 +130,20 @@ it.each([
     ["/groups", "/groups/G-1"]
   ],
   [
-    "a sprint change without a sprint refreshes the list and every sprint",
+    "a sprint change without a sprint refreshes the list, every ticket and sprint",
     change({ kind: "sprints", id: null }),
-    ["/groups", "/groups/G-1", "/tickets/T-1/comments", "/tickets/T-2/comments"]
+    ["/groups", ...everyTicketAndSprint].toSorted()
   ],
-  ...[
-    ["a project change", change({ kind: "project", id: null })] as const,
-    ["a reconnect", resyncKeys(params)] as const
-  ].map(([name, keys]) => [
-    `${name} refreshes every read in the project`,
-    keys,
-    [
-      "/",
-      "/groups",
-      "/groups/G-1",
-      "/tickets/T-1",
-      "/tickets/T-1/comments",
-      "/tickets/T-1/subscribers",
-      "/tickets/T-2/comments"
-    ]
-  ])
+  [
+    "a project change refreshes every read in the project",
+    change({ kind: "project", id: null }),
+    everything
+  ],
+  [
+    "a reconnect refreshes every read in the project",
+    resyncKeys(params),
+    everything
+  ]
 ])("%s", async (_, keys, expected) => {
   expect(await refreshedBy(keys)).toEqual(expected)
 })

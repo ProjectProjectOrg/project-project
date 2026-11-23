@@ -49,7 +49,6 @@ const tagUsageQuery = (req: TagsRequest) =>
     reactivityKeys: [
       Keys.tagUsage(scopeOf(req)),
       Keys.tags(scopeOf(req)),
-      Keys.ticketsIn(scopeOf(req)),
       Keys.ticketLists(scopeOf(req))
     ]
   })

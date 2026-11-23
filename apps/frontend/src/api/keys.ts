@@ -17,22 +17,23 @@ export const Keys = {
   orgEmail: (orgSlug: string) => key(`org-email/${orgSlug}`),
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId) => key(`ticket-content/${scope}/${id}`),
-  /** Any query whose rows are tickets in this project. */
-  ticketsIn: (scope: string) => key(`tickets/${scope}`),
   /** Any list/section/board projection of this project's tickets. */
   ticketLists: (scope: string) => key(`ticket-lists/${scope}`),
   /** Cursor pages loaded on top of a backlog section. */
   ticketPages: (scope: string) => key(`ticket-pages/${scope}`),
   /** Every ticket row, list, section and cursor page in this project. */
   ticketsChanged: (scope: string) => [
-    Keys.ticketsIn(scope),
+    Keys.projectResync(scope),
     Keys.ticketLists(scope),
     Keys.ticketPages(scope)
   ],
   /** One ticket's content plus every ticket list in its project. */
   ticketChanged: (scope: string, id: TicketId) => [
     Keys.ticket(scope, id),
-    ...Keys.ticketsChanged(scope)
+    Keys.ticketLists(scope),
+    Keys.ticketPages(scope),
+    Keys.ticketTitleQuery(scope),
+    Keys.ticketUpdatedQuery(scope)
   ],
   /** Queries whose ordering or matching depends on ticket titles. */
   ticketTitleQuery: (scope: string) => key(`ticket-title-query/${scope}`),

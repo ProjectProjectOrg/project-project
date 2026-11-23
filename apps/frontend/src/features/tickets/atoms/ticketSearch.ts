@@ -38,7 +38,6 @@ export const ticketSearch = Atom.family((req: SearchRequest) => {
     params: req.params,
     query: req.query,
     reactivityKeys: [
-      Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
       Keys.ticketTitleQuery(scope),
       Keys.orgMembers(req.params.orgSlug)
@@ -52,7 +51,7 @@ export const ticketTextSearch = Atom.family(
     return query("tickets", "textSearch", {
       params: req.params,
       query: { q: req.q },
-      reactivityKeys: [Keys.ticketsIn(scope), Keys.ticketLists(scope)]
+      reactivityKeys: [Keys.ticketLists(scope)]
     })
   }
 )
@@ -61,11 +60,7 @@ export const ticketTitles = Atom.family((params: SearchRequest["params"]) => {
   const scope = projectScope(params.orgSlug, params.slug)
   return query("tickets", "titles", {
     params,
-    reactivityKeys: [
-      Keys.ticketsIn(scope),
-      Keys.ticketLists(scope),
-      Keys.ticketTitleQuery(scope)
-    ]
+    reactivityKeys: [Keys.ticketLists(scope), Keys.ticketTitleQuery(scope)]
   })
 })
 

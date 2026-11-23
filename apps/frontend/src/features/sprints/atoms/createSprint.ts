@@ -40,7 +40,9 @@ export const createSprintInProject = Api.runtime.fn(
         : [
             Keys.sprints(scope),
             Keys.sprintMembership(scope),
-            Keys.ticketsIn(scope)
+            ...(input.payload.tickets ?? []).flatMap((id) =>
+              Keys.ticketChanged(scope, id)
+            )
           ]
     )
     return created

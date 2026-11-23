@@ -42,13 +42,14 @@ type FillRequest = Readonly<{
 }>
 
 type Preloaded = Readonly<{
-  params: ProjectParams
-  id: TicketId
+  unregister: () => void
   keys: ReadonlyArray<string>
 }>
 
 type FillState = Readonly<{
   preloaded: Map<string, Preloaded>
+  queued: Map<string, Set<TicketId>>
+  dirty: Set<string>
   pending: Set<string>
   kept: Map<string, Readonly<{ params: ProjectParams; ids: Set<TicketId> }>>
 }>
@@ -60,6 +61,8 @@ const stateOf = (registry: AtomRegistry.AtomRegistry) => {
   if (known !== undefined) return known
   const state: FillState = {
     preloaded: new Map(),
+    queued: new Map(),
+    dirty: new Set(),
     pending: new Set(),
     kept: new Map()
   }
@@ -116,27 +119,30 @@ const preloadContent = (
       )
   })
 
-const preloadWatch = Atom.family((params: ProjectParams) => {
-  const scope = projectScope(params.orgSlug, params.slug)
-  return Api.runtime
-    .atom(
-      Effect.gen(function* () {
-        const registry = yield* AtomRegistry.AtomRegistry
-        const reactivity = yield* Reactivity.Reactivity
-        const unregister = reactivity.registerUnsafe(
-          [
-            Keys.ticketsIn(scope),
-            Keys.ticketComments(scope),
-            Keys.orgLibrary(params.orgSlug),
-            Keys.projectLibrary(scope)
-          ],
-          () => refreshPreloaded(registry, params)
-        )
-        yield* Effect.addFinalizer(() => Effect.sync(unregister))
-      })
-    )
-    .pipe(Atom.keepAlive)
-})
+const preloadWatch = Atom.family(
+  ({ params, id }: Readonly<{ params: ProjectParams; id: TicketId }>) =>
+    Api.runtime
+      .atom(
+        Effect.gen(function* () {
+          const registry = yield* AtomRegistry.AtomRegistry
+          const reactivity = yield* Reactivity.Reactivity
+          const scope = projectScope(params.orgSlug, params.slug)
+          const unregister = reactivity.registerUnsafe(
+            [
+              Keys.ticket(scope, id),
+              Keys.comments(scope, id),
+              Keys.ticketSubscribers(scope, id),
+              Keys.projectResync(scope),
+              Keys.orgLibrary(params.orgSlug),
+              Keys.projectLibrary(scope)
+            ],
+            () => refreshPreloaded(registry, params, id)
+          )
+          yield* Effect.addFinalizer(() => Effect.sync(unregister))
+        })
+      )
+      .pipe(Atom.setIdleTTL(0))
+)
 
 const contentFill = Atom.family((req: FillRequest) =>
   Api.runtime.fn(
@@ -147,7 +153,6 @@ const contentFill = Atom.family((req: FillRequest) =>
           payload: { ids: req.ids, kinds: TicketContentKinds }
         })
       )
-      get.registry.get(preloadWatch(req.params))
       const { preloaded } = stateOf(get.registry)
       const loaded = new Map<TicketId, Array<string>>()
       for (const line of lines) {
@@ -164,12 +169,17 @@ const contentFill = Atom.family((req: FillRequest) =>
         loaded.set(line.id, keys)
       }
       for (const [id, keys] of loaded) {
+        const key = ticketContentKey({ ...req.params, id })
+        const unregister =
+          preloaded.get(key)?.unregister ??
+          get.registry.mount(preloadWatch({ params: req.params, id }))
         const evicted = rememberPreloaded(
           preloaded,
           ticketContentKey({ ...req.params, id }),
-          { params: req.params, id, keys },
+          { keys, unregister },
           PRELOADED_TICKET_LIMIT
         )
+        for (const entry of evicted) entry.unregister()
         for (const stale of evicted.flatMap((entry) => entry.keys))
           get.registry.preloadedSerializable.delete(stale)
       }
@@ -178,6 +188,7 @@ const contentFill = Atom.family((req: FillRequest) =>
         const key = ticketContentKey({ ...req.params, id })
         for (const stale of preloaded.get(key)?.keys ?? [])
           get.registry.preloadedSerializable.delete(stale)
+        preloaded.get(key)?.unregister()
         preloaded.delete(key)
       }
     })
@@ -203,7 +214,7 @@ const requestFill = (
   params: ProjectParams,
   ids: ReadonlyArray<TicketId>
 ) => {
-  const { pending } = stateOf(registry)
+  const { pending, dirty } = stateOf(registry)
   const wanted = ids.filter(
     (id) => !pending.has(ticketContentKey({ ...params, id }))
   )
@@ -221,6 +232,11 @@ const requestFill = (
       undefined
     ).finally(() => {
       for (const key of keys) pending.delete(key)
+      requestFill(
+        registry,
+        params,
+        batch.filter((_, i) => dirty.delete(keys[i]))
+      )
     })
   }
 }
@@ -238,26 +254,38 @@ export const fillTicketContent = (
 
 const refreshPreloaded = (
   registry: AtomRegistry.AtomRegistry,
-  params: ProjectParams
+  params: ProjectParams,
+  id: TicketId
 ) => {
   const { preloaded } = stateOf(registry)
-  const kept = keptIn(registry, params)
-  const stale: Array<TicketId> = []
-  for (const [key, entry] of preloaded) {
-    if (entry.params.orgSlug !== params.orgSlug) continue
-    if (entry.params.slug !== params.slug) continue
-    const unread = entry.keys.filter((unreadKey) =>
-      registry.preloadedSerializable.has(unreadKey)
-    )
-    if (unread.length > 0 && kept.has(entry.id)) {
-      stale.push(entry.id)
-      continue
+  const key = ticketContentKey({ ...params, id })
+  const entry = preloaded.get(key)
+  if (!entry) return
+  const unread = entry.keys.filter((item) =>
+    registry.preloadedSerializable.has(item)
+  )
+  if (unread.length && keptIn(registry, params).has(id)) {
+    const { pending, dirty, queued } = stateOf(registry)
+    if (pending.has(key)) {
+      dirty.add(key)
+      return
     }
-    preloaded.delete(key)
-    for (const unreadKey of unread)
-      registry.preloadedSerializable.delete(unreadKey)
+    const scope = projectScope(params.orgSlug, params.slug)
+    const batch = queued.get(scope)
+    if (batch) batch.add(id)
+    else {
+      const ids = new Set([id])
+      queued.set(scope, ids)
+      queueMicrotask(() => {
+        queued.delete(scope)
+        requestFill(registry, params, [...ids])
+      })
+    }
+    return
   }
-  requestFill(registry, params, stale)
+  entry.unregister()
+  preloaded.delete(key)
+  for (const item of unread) registry.preloadedSerializable.delete(item)
 }
 
 export const fillTicketWindow = (

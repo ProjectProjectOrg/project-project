@@ -8,12 +8,24 @@ import * as Result from "effect/Result"
 
 import { Api } from "./Api"
 
-const revalidate = Atom.swr({
-  staleTime: "30 seconds",
-  revalidateOnMount: true,
-  revalidateOnFocus: true,
-  focusSignal: Atom.windowFocusSignal
-})
+export const streamedKeys = Atom.make<ReadonlySet<unknown>>(new Set())
+
+const focusUnlessStreamed = (keys: ReadonlyArray<unknown>) =>
+  Atom.readable((get) => {
+    const focus = get(Atom.windowFocusSignal)
+    const streamed = get.once(streamedKeys)
+    return keys.some((key) => streamed.has(key))
+      ? Option.getOrElse(get.self<number>(), () => focus)
+      : focus
+  })
+
+const revalidate = (keys: ReadonlyArray<unknown>) =>
+  Atom.swr({
+    staleTime: "30 seconds",
+    revalidateOnMount: true,
+    revalidateOnFocus: true,
+    focusSignal: focusUnlessStreamed(keys)
+  })
 
 const unreachable = <E>(cause: Cause.Cause<E>) => {
   if (Cause.hasFails(cause)) return false
@@ -31,6 +43,15 @@ const keepLoadedWhenUnreachable = <A, E>(
   AsyncResult.isFailure(result) && unreachable(result.cause)
     ? Option.getOrElse(result.previousSuccess, () => result)
     : result
+
+const reactivityKeysOf = ({
+  reactivityKeys
+}: Readonly<{ reactivityKeys?: unknown }>) => {
+  const keys: ReadonlyArray<unknown> = Array.isArray(reactivityKeys)
+    ? reactivityKeys
+    : []
+  return keys
+}
 
 const revalidating = new WeakMap<object, unknown>()
 const sources = new WeakMap<object, Atom.Atom<unknown>>()
@@ -52,7 +73,9 @@ export const query = ((
   )
   const known = revalidating.get(source)
   if (known !== undefined) return known
-  const wrapped = revalidate(source).pipe(Atom.map(keepLoadedWhenUnreachable))
+  const wrapped = revalidate(reactivityKeysOf(request))(source).pipe(
+    Atom.map(keepLoadedWhenUnreachable)
+  )
   revalidating.set(source, wrapped)
   sources.set(wrapped, source)
   querySources.add(source)

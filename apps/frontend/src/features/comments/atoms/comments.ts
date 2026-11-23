@@ -162,7 +162,11 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
             }
           : row
       ),
-    publish: () => [Keys.ticketComments(scopeOf(key.req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(key.req)),
+      Keys.comments(scopeOf(key.req), key.req.params.id),
+      Keys.ticketSubscribers(scopeOf(key.req), key.req.params.id)
+    ]
   })
 )
 
@@ -191,7 +195,11 @@ export const editComment = Atom.family(({ req, commentId }: CommentKey) =>
           ? { ...row, comment: updated, pending: false }
           : row
       ),
-    publish: () => [Keys.ticketComments(scopeOf(req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(req)),
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.ticketSubscribers(scopeOf(req), req.params.id)
+    ]
   })
 )
 
@@ -207,7 +215,11 @@ export const deleteComment = Atom.family(({ req, commentId }: CommentKey) =>
         })
         .pipe(Effect.as(commentId)),
     confirm: keepPredicted,
-    publish: () => [Keys.ticketComments(scopeOf(req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(req)),
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.ticketSubscribers(scopeOf(req), req.params.id)
+    ]
   })
 )
 
@@ -250,7 +262,11 @@ export const resolveThread = Atom.family(
         value.map((row) =>
           row.comment.id === rootId ? { ...row, comment: root } : row
         ),
-      publish: () => [Keys.ticketComments(scopeOf(req))]
+      publish: () => [
+        Keys.ticketComments(scopeOf(req)),
+        Keys.comments(scopeOf(req), req.params.id),
+        Keys.ticketSubscribers(scopeOf(req), req.params.id)
+      ]
     })
 )
 

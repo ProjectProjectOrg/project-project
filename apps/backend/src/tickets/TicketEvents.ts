@@ -1,5 +1,5 @@
 import { PgClient } from "@effect/sql-pg"
-import { ProjectChange } from "@pp/shared"
+import { ProjectChange, TicketId } from "@pp/shared"
 import type { Done } from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Duration from "effect/Duration"
@@ -74,6 +74,33 @@ const make = Effect.gen(function* () {
   const projects = new Map<string, Set<Subscriber>>()
   const accounts = new Map<string, number>()
 
+  const expand = Effect.fn("TicketEvents.expand")(function* (
+    project: string,
+    changes: ReadonlyArray<ProjectChange>
+  ) {
+    const ids = changes.flatMap(({ kind, id }) =>
+      kind === "tickets" && id !== null ? [id] : []
+    )
+    if (ids.length === 0) return changes
+    const peers = yield* pg<{ id: string }>`
+      SELECT parent AS id FROM ticket_index
+      WHERE project_id = ${project} AND ticket_id IN ${pg.in(ids)} AND parent IS NOT NULL
+      UNION SELECT ticket_id FROM ticket_index
+      WHERE project_id = ${project} AND parent IN ${pg.in(ids)}
+      UNION SELECT to_ticket_id FROM ticket_relation_index
+      WHERE project_id = ${project} AND from_ticket_id IN ${pg.in(ids)}
+      UNION SELECT from_ticket_id FROM ticket_relation_index
+      WHERE project_id = ${project} AND to_ticket_id IN ${pg.in(ids)}
+    `
+    const known = new Set(ids)
+    const expanded = [...changes]
+    for (const row of peers) {
+      const id = TicketId.make(row.id)
+      if (!known.has(id)) expanded.push({ kind: "tickets", id })
+    }
+    return expanded
+  })
+
   const subscribe = Effect.fn("TicketEvents.subscribe")(function* (
     projectId: string,
     account: string
@@ -109,7 +136,8 @@ const make = Effect.gen(function* () {
     return Stream.fromQueue(subscriber.wake).pipe(
       Stream.mapEffect(() =>
         Effect.sleep(batchWindow).pipe(
-          Effect.andThen(Effect.sync(() => drain(subscriber)))
+          Effect.andThen(() => expand(projectId, drain(subscriber))),
+          Effect.catch(() => Effect.succeed([everything]))
         )
       ),
       Stream.filter((changes) => changes.length > 0)

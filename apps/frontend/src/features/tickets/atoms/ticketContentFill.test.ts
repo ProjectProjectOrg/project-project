@@ -79,11 +79,13 @@ it("fills the far window only when the near window has a gap", async () => {
   registry.dispose()
 })
 
-it("refetches kept tickets and drops the rest when the project changes", async () => {
+it("refreshes only the named preload", async () => {
   const far = makeTicketDetail({ id: TicketId.make("T-900") })
+  const bodies: Array<string> = []
   let title = "before"
   fetchStub.set(async (input, init) => {
     const body = await new Request(input, init).text()
+    bodies.push(body)
     return Response.json(
       encodeLines(
         [ticket, far].flatMap((found) =>
@@ -103,14 +105,16 @@ it("refetches kept tickets and drops the rest when the project changes", async (
   })
   const registry = AtomRegistry.make()
   const params = { orgSlug: "acme", slug: "edited" }
-  fillTicketWindow(registry, params, [ticket.id], [ticket.id])
-  fillTicketContent(registry, params, [far.id])
+  fillTicketWindow(registry, params, [ticket.id], [ticket.id, far.id])
   await vi.waitFor(() => expect(registry.preloadedSerializable.size).toBe(2))
+  bodies.length = 0
   title = "after"
   await fireMutation(
     registry,
     Api.runtime.fn(() =>
-      Reactivity.invalidate([Keys.ticketsIn(projectScope("acme", "edited"))])
+      Reactivity.invalidate([
+        Keys.ticket(projectScope("acme", "edited"), ticket.id)
+      ])
     ),
     undefined
   )
@@ -119,7 +123,9 @@ it("refetches kept tickets and drops the rest when the project changes", async (
       "after"
     )
   )
-  expect(registry.preloadedSerializable.size).toBe(1)
+  expect(bodies).toHaveLength(1)
+  expect(JSON.parse(bodies[0])).toMatchObject({ ids: [ticket.id] })
+  expect(registry.preloadedSerializable.size).toBe(2)
   const view = ticketDetail(ticketRequest("acme", "edited", ticket.id))
   registry.mount(view)
   expect(registry.get(view)).toMatchObject({ value: { title: "after" } })
@@ -158,7 +164,10 @@ it("shows the edit on a ticket opened while its preload refills", async () => {
   const params = { orgSlug: "acme", slug: "refilling" }
   fillTicketWindow(registry, params, [ticket.id], [ticket.id])
   await vi.waitFor(() => expect(registry.preloadedSerializable.size).toBe(1))
-  await invalidate(registry, Keys.ticketsIn(projectScope("acme", "refilling")))
+  await invalidate(
+    registry,
+    Keys.ticket(projectScope("acme", "refilling"), ticket.id)
+  )
   await vi.waitFor(() => expect(refills).toHaveLength(1))
   const view = ticketDetail(ticketRequest("acme", "refilling", ticket.id))
   registry.mount(view)
@@ -183,7 +192,10 @@ it("shows the edit on a ticket opened after its first fill raced the edit", asyn
   const registry = AtomRegistry.make()
   fillTicketContent(registry, { orgSlug: "acme", slug: "racing" }, [ticket.id])
   await vi.waitFor(() => expect(fills).toHaveLength(1))
-  await invalidate(registry, Keys.ticketsIn(projectScope("acme", "racing")))
+  await invalidate(
+    registry,
+    Keys.ticket(projectScope("acme", "racing"), ticket.id)
+  )
   fills[0]?.(Response.json(detailLine("before")))
   await vi.waitFor(() => expect(registry.preloadedSerializable.size).toBe(1))
   const view = ticketDetail(ticketRequest("acme", "racing", ticket.id))

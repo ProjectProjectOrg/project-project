@@ -65,7 +65,8 @@ export const childTicketsPage = (
         ? ticketContentKey({ ...req.params, id: req.parent })
         : undefined,
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticket(scopeOf(req), req.parent),
+      Keys.projectResync(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
     ]
   })
@@ -185,7 +186,10 @@ export const createChildTicket = Atom.family((req: ChildTicketsRequest) =>
           ? { ...row, ticket: created, pending: false }
           : row
       ),
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (created, input) => [
+      ...Keys.ticketChanged(scopeOf(req), created.id),
+      Keys.ticket(scopeOf(req), input.parent.id)
+    ]
   })
 )
 
@@ -264,7 +268,10 @@ export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
       }),
     confirm: (rows, { ticket }) =>
       rows.map((row) => (row.ticket.id === id ? { ...row, ticket } : row)),
-    publish: () => Keys.ticketChanged(scopeOf(req), id)
+    publish: () => [
+      ...Keys.ticketChanged(scopeOf(req), id),
+      Keys.ticket(scopeOf(req), req.parent)
+    ]
   })
 )
 

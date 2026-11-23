@@ -24,7 +24,6 @@ const countsQuery = (req: CountsRequest) => {
     params: req.params,
     query: req.query,
     reactivityKeys: [
-      Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
       Keys.orgMembers(req.params.orgSlug)
     ]

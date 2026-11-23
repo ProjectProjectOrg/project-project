@@ -191,7 +191,7 @@ export const deleteProject = Atom.family((req: ProjectRequest) =>
       yield* Reactivity.invalidate([
         Keys.project(scopeOf(req)),
         Keys.projects(req.params.orgSlug),
-        Keys.ticketsIn(scopeOf(req))
+        Keys.ticketLists(scopeOf(req))
       ])
     })
   )
@@ -426,7 +426,7 @@ export const createProject = Atom.family((req: ProjectsRequest) =>
       yield* Reactivity.invalidate([
         Keys.projects(req.params.orgSlug),
         Keys.project(projectScope(req.params.orgSlug, created.slug)),
-        Keys.ticketsIn(projectScope(req.params.orgSlug, created.slug))
+        Keys.ticketLists(projectScope(req.params.orgSlug, created.slug))
       ])
       return created
     })

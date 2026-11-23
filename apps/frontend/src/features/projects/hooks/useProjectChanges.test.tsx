@@ -2,6 +2,7 @@
 import { RegistryContext } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
+import * as DateTime from "effect/DateTime"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import type { ReactNode } from "react"
@@ -29,6 +30,7 @@ class FakeEventSource extends EventTarget {
 }
 
 let visibility: DocumentVisibilityState = "visible"
+let registry = Registry.make()
 
 beforeEach(() => {
   FakeEventSource.opened = []
@@ -41,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  registry.dispose()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -48,7 +51,7 @@ afterEach(() => {
 const setVisibility = (next: DocumentVisibilityState) => {
   act(() => {
     visibility = next
-    document.dispatchEvent(new Event("visibilitychange"))
+    document.dispatchEvent(new Event("visibilitychange", { bubbles: true }))
   })
 }
 
@@ -77,7 +80,7 @@ const advance = (ms: number) => {
 }
 
 const mountComments = async () => {
-  const registry = Registry.make()
+  registry = Registry.make()
   let reads = 0
   fetchStub.set((input) => {
     const url = input instanceof Request ? input.url : String(input)
@@ -120,6 +123,70 @@ it("closes while hidden and catches up on reopening", async () => {
   expect(FakeEventSource.opened).toHaveLength(2)
   open()
   await waitFor(() => expect(reads()).toBe(3))
+})
+
+it("refreshes a stale read once on returning to the tab, through the stream's catch-up", async () => {
+  const start = DateTime.toEpochMillis(
+    DateTime.makeUnsafe("2026-11-01T12:00:00.000Z")
+  )
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(start)
+  const { wrapper, reads } = await mountComments()
+  renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
+  open()
+  await waitFor(() => expect(reads()).toBe(2))
+  vi.setSystemTime(start + 31_000)
+
+  setVisibility("hidden")
+  setVisibility("visible")
+  expect(reads()).toBe(2)
+  open()
+  await waitFor(() => expect(reads()).toBe(3))
+})
+
+const followFrom = async (start: number) => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(start)
+  const { wrapper, reads } = await mountComments()
+  renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
+  open()
+  await waitFor(() => expect(reads()).toBe(2))
+  return reads
+}
+
+const returnToTab = () => {
+  setVisibility("hidden")
+  setVisibility("visible")
+}
+
+const fail = () => {
+  act(() => {
+    latest().dispatchEvent(new Event("error"))
+  })
+}
+
+it("refreshes a stale read on returning to the tab while the stream is down", async () => {
+  const start = DateTime.toEpochMillis(
+    DateTime.makeUnsafe("2026-11-01T12:00:00.000Z")
+  )
+  const reads = await followFrom(start)
+  fail()
+  vi.setSystemTime(start + 31_000)
+  returnToTab()
+  await waitFor(() => expect(reads()).toBe(3))
+})
+
+it("leaves returning to the tab to the stream again once it reconnects", async () => {
+  const start = DateTime.toEpochMillis(
+    DateTime.makeUnsafe("2026-11-01T12:00:00.000Z")
+  )
+  const reads = await followFrom(start)
+  fail()
+  open()
+  await waitFor(() => expect(reads()).toBe(3))
+  vi.setSystemTime(start + 31_000)
+  returnToTab()
+  expect(reads()).toBe(3)
 })
 
 it("reopens and catches up when the stream falls silent", async () => {

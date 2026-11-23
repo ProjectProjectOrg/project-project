@@ -5,8 +5,13 @@ import * as Schema from "effect/Schema"
 import { useEffect, useEffectEvent } from "react"
 
 import type { ReactivityKey } from "@/api/keys"
+import { streamedKeys } from "@/api/query"
 import { invalidateProjectKeys } from "@/features/projects/atoms/projectChanges"
-import { changeKeys, resyncKeys } from "@/features/projects/lib/projectChanges"
+import {
+  changeKeys,
+  resyncKeys,
+  streamedProjectKeys
+} from "@/features/projects/lib/projectChanges"
 
 const REWARM_DELAY_MS = 1000
 const REWARM_INTERVAL_MS = 10_000
@@ -22,12 +27,15 @@ export function useProjectChanges(
   rewarm: () => void
 ) {
   const invalidate = useAtomSet(invalidateProjectKeys)
+  const setStreamed = useAtomSet(streamedKeys)
   const onRewarm = useEffectEvent(rewarm)
 
   useEffect(() => {
     const params = { orgSlug, slug }
+    const streamed = new Set<unknown>(streamedProjectKeys(params))
     const url = `/api/orgs/${encodeURIComponent(orgSlug)}/projects/${encodeURIComponent(slug)}/tickets/events`
     let source: EventSource | null = null
+    let streaming = false
     let retry: number | undefined
     let silence: number | undefined
     let delay = 1000
@@ -47,6 +55,15 @@ export function useProjectChanges(
           REWARM_DELAY_MS,
           warmedAt + REWARM_INTERVAL_MS - performance.now()
         )
+      )
+    }
+    const stream = (on: boolean) => {
+      if (on === streaming) return
+      streaming = on
+      setStreamed((keys) =>
+        on
+          ? new Set([...keys, ...streamed])
+          : new Set([...keys].filter((key) => !streamed.has(key)))
       )
     }
     const apply = (keys: ReadonlyArray<ReactivityKey>) => {
@@ -70,6 +87,7 @@ export function useProjectChanges(
         heard()
         delay = 1000
         apply(resyncKeys(params))
+        stream(true)
       })
       next.addEventListener("message", (event: MessageEvent<unknown>) => {
         heard()
@@ -82,6 +100,7 @@ export function useProjectChanges(
           ])
       })
       next.addEventListener("error", () => {
+        stream(false)
         if (next.readyState !== EventSource.CLOSED) return
         source = null
         retry = window.setTimeout(open, delay)
@@ -103,6 +122,7 @@ export function useProjectChanges(
       document.removeEventListener("visibilitychange", follow)
       window.clearTimeout(warming)
       close()
+      stream(false)
     }
-  }, [orgSlug, slug, invalidate])
+  }, [orgSlug, slug, invalidate, setStreamed])
 }

@@ -5,7 +5,7 @@ import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 
 type ProjectParams = Readonly<{ orgSlug: string; slug: string }>
 
-export const resyncKeys = ({ orgSlug, slug }: ProjectParams) => {
+export const streamedProjectKeys = ({ orgSlug, slug }: ProjectParams) => {
   const scope = projectScope(orgSlug, slug)
   return [
     ...Keys.ticketsChanged(scope),
@@ -26,26 +26,34 @@ export const resyncKeys = ({ orgSlug, slug }: ProjectParams) => {
     Keys.figmaTicketLinks(scope),
     Keys.everhourProject(scope),
     Keys.slackProject(scope),
-    Keys.workTypes(scope),
-    Keys.orgMembers(orgSlug),
-    Keys.projects(orgSlug),
-    Keys.projectResync(scope)
+    Keys.workTypes(scope)
   ] satisfies ReadonlyArray<ReactivityKey>
 }
+
+export const resyncKeys = (params: ProjectParams) => [
+  ...streamedProjectKeys(params),
+  Keys.orgMembers(params.orgSlug),
+  Keys.projects(params.orgSlug)
+]
 
 export const changeKeys = (params: ProjectParams, change: ProjectChange) => {
   const scope = projectScope(params.orgSlug, params.slug)
   return Match.value(change).pipe(
     Match.withReturnType<ReadonlyArray<ReactivityKey>>(),
     Match.discriminatorsExhaustive("kind")({
-      tickets: () => [Keys.ticketsIn(scope)],
+      tickets: ({ id }) =>
+        id === null ? resyncKeys(params) : Keys.ticketChanged(scope, id),
       comments: ({ id }) =>
         id === null
           ? [Keys.ticketComments(scope), Keys.projectResync(scope)]
-          : [Keys.ticketComments(scope), Keys.comments(scope, id)],
+          : [
+              Keys.ticketComments(scope),
+              Keys.comments(scope, id),
+              Keys.ticketSubscribers(scope, id)
+            ],
       subscribers: ({ id }) =>
         id === null
-          ? [Keys.ticketsIn(scope)]
+          ? [Keys.projectResync(scope)]
           : [Keys.ticketSubscribers(scope, id)],
       sprints: ({ id }) =>
         id === null

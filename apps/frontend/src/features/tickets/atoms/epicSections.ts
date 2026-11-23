@@ -72,7 +72,7 @@ const snapshotQuery = (req: EpicSectionsRequest) =>
     params: req.params,
     query: req.query,
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
     ]
   })
@@ -96,7 +96,7 @@ const pageQuery = (
       cursor
     },
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.ticketPages(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
     ]
@@ -354,6 +354,6 @@ export const quickCreateEpicSectionsTicket = Atom.family(
           ),
       confirm: (value, created, input) =>
         confirmCreated(key, value, created, input),
-      publish: () => Keys.ticketsChanged(scopeOf(req))
+      publish: (created) => Keys.ticketChanged(scopeOf(req), created.id)
     })
 )

@@ -11,9 +11,9 @@ import type {
   StackLayerState,
   StartGithubAppManifestInput,
   StartGithubInstallInput,
-  TicketId,
   UpdateGithubInstallationInput
 } from "@pp/shared"
+import { TicketId } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -179,8 +179,16 @@ export const projectGitStatesWaiting = Atom.family((req: ProjectRequest) =>
 
 export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
   Api.runtime.fn(
-    Effect.fn("invalidateGitStateTickets")(function* (_input: void) {
-      yield* Reactivity.invalidate([Keys.ticketsIn(scopeOf(req))])
+    Effect.fn("invalidateGitStateTickets")(function* (
+      ids: ReadonlyArray<string>
+    ) {
+      yield* Reactivity.invalidate([
+        ...new Set(
+          ids.flatMap((id) =>
+            Keys.ticketChanged(scopeOf(req), TicketId.make(id))
+          )
+        )
+      ])
     })
   )
 )
@@ -531,10 +539,8 @@ const createBranchPayload = ({
     ? { name, baseBranch }
     : { name, baseBranch, repoId }) satisfies CreateBranchInput
 
-const branchKeys = (req: ProjectRequest, id: TicketId) => [
-  Keys.ticketsIn(scopeOf(req)),
-  Keys.ticket(scopeOf(req), id)
-]
+const branchKeys = (req: ProjectRequest, id: TicketId) =>
+  Keys.ticketChanged(scopeOf(req), id)
 
 export const createBranch = Atom.family(
   ({ req, id }: GitStateMutationRequest) =>

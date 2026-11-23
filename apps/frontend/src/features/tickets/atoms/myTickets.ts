@@ -116,7 +116,7 @@ const scopedOf = (
 })
 
 const listensTo = ({ req, scopes }: ScopedRequest) => [
-  ...scopes.map(Keys.ticketsIn),
+  ...scopes.map(Keys.ticketLists),
   Keys.orgMembers(req.params.orgSlug)
 ]
 

@@ -44,7 +44,6 @@ export const ticketPage = Atom.family((req: TicketPageRequest) => {
       cursor: req.cursor
     },
     reactivityKeys: [
-      Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
       Keys.ticketTitleQuery(scope),
       Keys.orgMembers(req.params.orgSlug)

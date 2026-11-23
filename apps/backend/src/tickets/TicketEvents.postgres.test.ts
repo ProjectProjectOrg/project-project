@@ -64,15 +64,16 @@ describe.skipIf(databaseUrl === undefined)("ticket event subscriptions", () => {
       Effect.gen(function* () {
         const events = yield* TicketEvents.TicketEvents
         const pg = yield* PgClient.PgClient
-        const stream = yield* events.subscribe("project", "account")
+        const batchProject = "b339c884-cae7-4a3b-ac7e-859db5fc69d9"
+        const stream = yield* events.subscribe(batchProject, "account")
         if (stream === null) throw new Error("Stream was rejected")
         const first = yield* stream.pipe(Stream.runHead, Effect.forkScoped)
         yield* pg`select pg_notify('project_sync', ${payload("other", "tickets", "T-1")})
-          union all select pg_notify('project_sync', ${payload("project", "tickets", "T-1")})
-          union all select pg_notify('project_sync', ${payload("project", "comments", "T-1")})
-          union all select pg_notify('project_sync', ${payload("project", "tickets", "T-2")})`
+          union all select pg_notify('project_sync', ${payload(batchProject, "tickets", "T-1")})
+          union all select pg_notify('project_sync', ${payload(batchProject, "comments", "T-1")})
+          union all select pg_notify('project_sync', ${payload(batchProject, "tickets", "T-2")})`
         yield* Effect.sleep("10 millis")
-        yield* pg`select pg_notify('project_sync', ${payload("project", "tickets", "T-1")})`
+        yield* pg`select pg_notify('project_sync', ${payload(batchProject, "tickets", "T-1")})`
         const batch = yield* Fiber.join(first).pipe(Effect.timeout("1 second"))
         expect(Option.getOrElse(batch, () => [])).toEqual([
           { kind: "tickets", id: "T-1" },
@@ -120,6 +121,49 @@ describe.skipIf(databaseUrl === undefined)("ticket event subscriptions", () => {
         yield* write("T-1", "First")
         yield* write("T-2", "Second")
         expect(yield* next).toEqual([{ kind: "tickets", id: "T-2" }])
+      }).pipe(Effect.scoped, Effect.provide(live))
+  )
+
+  it.live(
+    "expands a ticket edit to its parent, children and relation peers and reports removed edges",
+    () =>
+      Effect.gen(function* () {
+        const org = "ticket-dependencies"
+        const scope = "c246617a-4571-437b-97d7-1bdbb304f30d"
+        const pg = yield* PgClient.PgClient
+        yield* pg`insert into organization (id, name, slug, created_at) values (${org}, 'Dependencies', ${org}, now())`
+        yield* pg`insert into project_index (id, slug, organization_id, key, name, icon, color, created_by)
+        values (${scope}, 'dependencies', ${org}, 'T', 'Events', 'box', 'gray', 'user')`
+        yield* Effect.addFinalizer(() =>
+          Effect.all(
+            [
+              pg`delete from ticket_relation_index where project_id = ${scope}`,
+              pg`delete from ticket_index where project_id = ${scope}`,
+              pg`delete from project_index where id = ${scope}`,
+              pg`delete from organization where id = ${org}`
+            ],
+            { discard: true }
+          ).pipe(Effect.orDie)
+        )
+        yield* pg`insert into ticket_index (organization_id, project_id, ticket_id, parent, title, status, priority, rank, created_by, created_at, updated_at)
+        select ${org}, ${scope}, id, parent, id, 'todo', 'med', 'a', 'user', timestamp 'epoch', timestamp 'epoch'
+        from (values ('T-1',null),('T-2','T-1'),('T-3','T-2'),('T-4',null),('T-5',null)) as tickets(id,parent)`
+        yield* pg`insert into ticket_relation_index values (${scope}, 'T-4', 'T-2', 'related')`
+        const events = yield* TicketEvents.TicketEvents
+        const stream = yield* events.subscribe(scope, "account")
+        if (stream === null) throw new Error("Stream was rejected")
+        const batch = stream.pipe(
+          Stream.runHead,
+          Effect.timeout("2 seconds"),
+          Effect.map(
+            (result) =>
+              new Set(Option.getOrElse(result, () => []).map(({ id }) => id))
+          )
+        )
+        yield* pg`update ticket_index set title = 'Renamed' where project_id = ${scope} and ticket_id = 'T-2'`
+        expect(yield* batch).toEqual(new Set(["T-1", "T-2", "T-3", "T-4"]))
+        yield* pg`delete from ticket_relation_index where project_id = ${scope}`
+        expect(yield* batch).toEqual(new Set(["T-1", "T-2", "T-3", "T-4"]))
       }).pipe(Effect.scoped, Effect.provide(live))
   )
 

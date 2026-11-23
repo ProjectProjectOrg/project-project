@@ -36,7 +36,8 @@ const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
     serializationKey:
       cursor === null ? ticketContentKey(req.params) : undefined,
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticket(scopeOf(req), req.params.id),
+      Keys.projectResync(scopeOf(req)),
       Keys.sprintMembership(scopeOf(req))
     ]
   })

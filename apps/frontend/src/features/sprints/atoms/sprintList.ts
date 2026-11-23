@@ -123,7 +123,12 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
     publish: (_created, input) =>
       (input.tickets ?? []).length === 0
         ? []
-        : [Keys.sprintMembership(scopeOf(req)), Keys.ticketsIn(scopeOf(req))]
+        : [
+            Keys.sprintMembership(scopeOf(req)),
+            ...(input.tickets ?? []).flatMap((id) =>
+              Keys.ticketChanged(scopeOf(req), id)
+            )
+          ]
   })
 )
 
@@ -171,7 +176,7 @@ export const deleteSprint = Atom.family(({ req, groupId }: SprintKey) =>
     confirm: (sprints) => withoutSprint(sprints, groupId),
     publish: () => [
       Keys.sprintMembership(scopeOf(req)),
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.sprint(scopeOf(req), groupId),
       Keys.pins(req.params.orgSlug)
     ]
@@ -219,7 +224,7 @@ export const completeSprint = Atom.family(({ req, groupId }: SprintKey) =>
       applyCompleteSprintResult(sprints, groupId, input.destination, result),
     publish: (_result, input) => [
       Keys.sprintMembership(scopeOf(req)),
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.sprint(scopeOf(req), groupId),
       Keys.pins(req.params.orgSlug),
       ...(input.destination.kind === "sprint"
@@ -294,7 +299,6 @@ const membershipKeys = (
       Keys.sprintMembership(scope, evicted.groupId)
     ),
     ...result.evicted.map((evicted) => Keys.sprint(scope, evicted.groupId)),
-    Keys.ticketsIn(scope),
     Keys.ticketLists(scope)
   ] satisfies ReadonlyArray<ReactivityKey>
 
@@ -328,8 +332,10 @@ export const addTicketsToSprint = Atom.family(
         }),
       confirm: (sprints, result, { groupId }) =>
         confirmAddedTickets(sprints, groupId, [ticketId], result),
-      publish: (result, { groupId }) =>
-        membershipKeys(scopeOf(req), groupId, result)
+      publish: (result, { groupId }) => [
+        ...membershipKeys(scopeOf(req), groupId, result),
+        Keys.ticket(scopeOf(req), ticketId)
+      ]
     })
 )
 
@@ -376,7 +382,9 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
             Keys.sprints(scopeOf(req)),
             Keys.sprintMembership(scopeOf(req)),
             Keys.sprint(scopeOf(req), input.groupId),
-            ...Keys.ticketsChanged(scopeOf(req))
+            ...input.tickets.flatMap((id) =>
+              Keys.ticketChanged(scopeOf(req), id)
+            )
           ])
         )
       ),
@@ -393,12 +401,14 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
               ),
         sprints
       ),
-    publish: (results, input) =>
-      results.flatMap(({ sprint }) =>
+    publish: (results, input) => [
+      ...input.tickets.flatMap((id) => Keys.ticketChanged(scopeOf(req), id)),
+      ...results.flatMap(({ sprint }) =>
         sprint === null
-          ? Keys.ticketsChanged(scopeOf(req))
+          ? []
           : membershipKeys(scopeOf(req), input.groupId, sprint)
       )
+    ]
   })
 )
 
@@ -430,8 +440,10 @@ export const removeTicketsFromSprint = Atom.family(
         }),
       confirm: (sprints, result, { groupId }) =>
         confirmRemovedTicket(sprints, groupId, ticketId, result),
-      publish: (result, { groupId }) =>
-        membershipKeys(scopeOf(req), groupId, result)
+      publish: (result, { groupId }) => [
+        ...membershipKeys(scopeOf(req), groupId, result),
+        Keys.ticket(scopeOf(req), ticketId)
+      ]
     })
 )
 
@@ -482,8 +494,8 @@ export const quickCreateInSprint = Atom.family(({ req, groupId }: SprintKey) =>
               ? sprint
               : { ...sprint, tickets: [...sprint.tickets, created.id] }
           ),
-    publish: () => [
-      ...Keys.ticketsChanged(scopeOf(req)),
+    publish: (created) => [
+      ...Keys.ticketChanged(scopeOf(req), created.id),
       ...sprintAssignmentKeys(scopeOf(req), groupId)
     ]
   })

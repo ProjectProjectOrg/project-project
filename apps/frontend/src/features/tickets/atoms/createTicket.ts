@@ -75,14 +75,13 @@ export const createTicketInProject = Api.runtime.fn(
       })
     )
     const scope = projectScope(input.orgSlug, input.slug)
-    yield* Reactivity.invalidate(
-      input.payload.fromComment === undefined
-        ? Keys.ticketsChanged(scope)
-        : [
-            ...Keys.ticketsChanged(scope),
-            Keys.comments(scope, input.payload.fromComment.ticketId)
-          ]
-    )
+    yield* Reactivity.invalidate([
+      ...Keys.ticketChanged(scope, created.id),
+      ...(created.parent ? [Keys.ticket(scope, created.parent.id)] : []),
+      ...(input.payload.fromComment
+        ? [Keys.comments(scope, input.payload.fromComment.ticketId)]
+        : [])
+    ])
     return created
   })
 )

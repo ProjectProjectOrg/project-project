@@ -27,7 +27,7 @@ const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
       cursor
     },
     reactivityKeys: [
-      Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
+      Keys.ticketLists(projectScope(req.params.orgSlug, req.params.slug))
     ]
   })
 
