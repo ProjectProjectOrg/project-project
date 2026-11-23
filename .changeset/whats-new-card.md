@@ -1,7 +1,7 @@
 ---
 kind: features
 area: navigation
-highlight: true
+highlight: 3
 video: whats-new-card
 where: Bottom of the sidebar after an upgrade, and What's new at the bottom of the rail
 ---

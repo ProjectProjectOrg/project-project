@@ -1,4 +1,4 @@
-import { interpolate, spring, type SpringConfig } from "remotion"
+import { Easing, interpolate, spring, type SpringConfig } from "remotion"
 
 // Frame-driven motion helpers. Remotion renders frame by frame, so every
 // value here is a pure function of the frame: no CSS transitions.
@@ -46,3 +46,23 @@ export const press = (
   const up = springAt(frame, start + length * 0.35, POP)
   return 1 - (1 - depth) * (down - up * down)
 }
+
+// The app's own ease (`standardEase` in @pp/ui's springs, the timeline's
+// fold): fast out of the gate, a long soft landing.
+const STANDARD = Easing.bezier(0.22, 1, 0.36, 1)
+
+// An eased 0..1 over [from, to], clamped: what the app's CSS and motion
+// transitions do, as a function of the frame.
+export const ease = (frame: number, from: number, to: number) =>
+  STANDARD(progress(frame, from, to))
+
+// Seconds from the app's transition tables, as whole frames.
+export const frames = (seconds: number) => Math.round(seconds * FPS)
+
+// A move that starts and lands softly, for something big changing shape in
+// plain view (a thread folding): the app's ease leaves at full speed, which
+// reads as a jump at video size.
+const SOFT = Easing.inOut((t) => Easing.cubic(t))
+
+export const glide = (frame: number, from: number, to: number) =>
+  SOFT(progress(frame, from, to))

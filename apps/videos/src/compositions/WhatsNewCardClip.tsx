@@ -1,63 +1,108 @@
+import { ItemLink } from "@pp/ui/item-link"
+import { transitions } from "@pp/ui/lib/springs"
 import { SidebarCard } from "@pp/ui/sidebar"
-import { interpolate, useCurrentFrame, useVideoConfig } from "remotion"
+import { OffthreadVideo, Sequence, staticFile, useCurrentFrame } from "remotion"
 
+import { AppWindow, SETTLED } from "../parts/app-window"
 import { Stage, type ClipProps } from "../parts/clip"
+import { ease, frames, glide, mix } from "../parts/motion"
 
-const ROWS = ["Overview", "All projects", "Settings", "Sprint 25", "Roadmap"]
+/*
+ * The What's new card, 6 seconds: the app's own card (WhatsNewCard in
+ * apps/frontend: a SidebarCard whose media is the release's headline video)
+ * as it shows under the sidebar's rows after an upgrade.
+ *
+ *   0.6  the card rises in under the panel's rows, its video playing
+ *   1.5  the view moves in on the card
+ *   3.0  at rest on the card
+ */
+
+export const WHATS_NEW_CARD_FRAMES = 180
+
+// The release this card announces, as `releaseMeta` writes it, and its
+// highlights, which are the card's lines (`previewLines`).
+const META = "v2026.11.23 · Nov 23, 2026"
+const HEADLINE = "redesign"
+const LINES = [
+  "A new look for the whole app",
+  "Reply to a comment in a thread, and resolve the thread when it's settled",
+  "A card at the bottom of the sidebar shows what changed since your last visit"
+] as const
+
+// Beats, in frames.
+const CARD = 18
+const MOVE_IN = 44
+const MOVE_FRAMES = 46
+// The card's own entrance (SidebarCard: transitions.presence), slowed to
+// read at video size.
+const CARD_FRAMES = frames(transitions.presence.duration * 2.5)
+
+const noop = () => undefined
 
 export function WhatsNewCardClip({ theme }: ClipProps) {
   const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
-  const enter = interpolate(frame, [fps * 0.8, fps * 1.4], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp"
-  })
-  const zoom = interpolate(frame, [fps * 2.5, fps * 4], [1, 1.35], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp"
-  })
+  const enter = ease(frame, CARD, CARD + CARD_FRAMES)
+  const move = glide(frame, MOVE_IN, MOVE_IN + MOVE_FRAMES)
 
   return (
-    <Stage theme={theme} caption="What changed, at the bottom of the sidebar">
+    <Stage theme={theme}>
       <div
-        className="flex h-[520px] w-[760px] overflow-hidden rounded-[22px] bg-background shadow-(--tooltip-edge) [corner-shape:var(--button-corner)]"
-        style={{ transform: `scale(${zoom})`, transformOrigin: "18% 92%" }}
+        style={{
+          // Ends with the whole card in view, a little left of the middle.
+          scale: mix(move, 1, 1.6),
+          transformOrigin: "-18px 523px"
+        }}
       >
-        <div className="flex w-59 flex-col py-2">
-          <p className="px-4 pb-3 text-subtitle font-semibold">Acme</p>
-          {ROWS.map((row) => (
-            <p
-              key={row}
-              className="px-4 py-1.5 text-body text-muted-foreground"
+        <AppWindow
+          frame={SETTLED}
+          footer={
+            <div
+              style={{
+                opacity: enter,
+                translate: `0 ${mix(enter, 8, 0)}px`
+              }}
             >
-              {row}
-            </p>
-          ))}
-          <div
-            className="mt-auto"
-            style={{
-              opacity: enter,
-              transform: `translateY(${(1 - enter) * 8}px)`
-            }}
-          >
-            <SidebarCard
-              open
-              title="What's new"
-              meta="v2026.11.20 · Nov 20, 2026"
-              dismissLabel="Dismiss"
-              onDismiss={() => undefined}
-            >
-              <ul className="flex flex-col gap-1 text-foreground">
-                <li>A card at the bottom of the sidebar shows what changed</li>
-                <li>Long descriptions no longer jump while you type</li>
-              </ul>
-              <p className="mt-2 text-caption font-semibold text-foreground">
-                Full changelog
-              </p>
-            </SidebarCard>
-          </div>
-        </div>
-        <div className="m-2 ml-0 flex-1 rounded-[16px] bg-page" />
+              <SidebarCard
+                open
+                title="What's new"
+                meta={META}
+                media={
+                  // ChangelogVideo's frame and picture, playing the rendered
+                  // headline clip of this theme.
+                  <div className="relative overflow-hidden rounded-[inherit] [corner-shape:inherit] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-(--tooltip-edge) after:[corner-shape:inherit]">
+                    <Sequence from={CARD} layout="none">
+                      <OffthreadVideo
+                        src={staticFile(`${HEADLINE}.${theme}.mp4`)}
+                        muted
+                        className="block aspect-video w-full bg-muted object-cover"
+                      />
+                    </Sequence>
+                  </div>
+                }
+                link={<ItemLink aria-label="Full changelog" />}
+                dismissLabel="Dismiss what's new"
+                onDismiss={noop}
+              >
+                {/* WhatsNewBody, as the app writes it. */}
+                <div className="flex flex-col gap-2">
+                  <ul className="flex flex-col gap-1 text-caption text-foreground">
+                    {LINES.map((line) => (
+                      <li key={line} className="text-pretty">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                  <span
+                    aria-hidden
+                    className="text-caption font-semibold text-foreground underline-offset-2"
+                  >
+                    Full changelog
+                  </span>
+                </div>
+              </SidebarCard>
+            </div>
+          }
+        />
       </div>
     </Stage>
   )

@@ -13,6 +13,7 @@ import {
   Pencil,
   Plus
 } from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import {
@@ -20,97 +21,113 @@ import {
   menuSeparatorClass,
   menuSurfaceClass
 } from "@pp/ui/menu-styles"
-import { Timeline, TimelineEntry, TimelineEvent } from "@pp/ui/timeline"
+import {
+  Timeline,
+  TimelineEntry,
+  TimelineEvent,
+  timelineFoldSeconds
+} from "@pp/ui/timeline"
 import type { ReactNode } from "react"
 import { useCurrentFrame } from "remotion"
 
-import { Stage, type ClipProps } from "../parts/clip"
-import {
-  GLIDE,
-  LAND,
-  mix,
-  POP,
-  press,
-  progress,
-  springAt
-} from "../parts/motion"
+import { Fold, Stage, useSettledFrame, type ClipProps } from "../parts/clip"
+import { ease, frames, glide, mix, progress } from "../parts/motion"
 
 /*
- * Comment threads, 7 seconds:
+ * Comment threads, 7 seconds, on the app's own timeline and comment
+ * components:
  *
- *   0.0  a question on a ticket's timeline
- *   0.4  three replies arrive under it, one step in
- *   2.6  its "…" menu opens and "Resolve thread" is picked
- *   4.0  the replies in between fold into one row, the last one says Resolved
+ *   0.3  three replies arrive under a question, one step in
+ *   2.4  its "…" menu opens and "Resolve thread" is picked
+ *   3.3  the replies in between fold into one row; the last says Resolved
+ *   4.2  at rest
+ *
+ * Moves use the app's own curve (`ease`) over the app's own times, slowed
+ * by SLOW so a move reads at video size; the fold itself glides. Heights ease as a share of
+ * the content's own (`Fold`), so nothing is measured and nothing jumps.
  */
 
 export const COMMENT_THREADS_FRAMES = 210
+
+const SLOW = 2
+// A reply arriving and a thread folding: the timeline's fold.
+const FOLD_FRAMES = frames(timelineFoldSeconds * SLOW)
+// A menu opening and closing: the app's pop and fade.
+const POP_FRAMES = frames(transitions.pop.duration * SLOW)
+const FADE_FRAMES = frames(transitions.fade.duration * SLOW)
 
 const BRAM = { id: "u-bram", name: "Bram de Vries" }
 const CHIDI = { id: "u-chidi", name: "Chidi Okafor" }
 const ANA = { id: "u-ana", name: "Ana Ruiz" }
 
 // Beats, in frames.
-const REPLIES = [12, 34, 56] as const
-const MENU = 80
-const PICK = 112
-const FOLD = 122
+const REPLIES = [8, 26, 44] as const
+const MENU = 72
+const LIT = 84
+const PICK = 94
+const RESOLVE = 100
+// Folding a thread is the big move: a soft start and landing, a little longer.
+const RESOLVE_FRAMES = FOLD_FRAMES + 6
 
 const ZOOM = 1.65
 
-// Frozen frames: no CSS transition or animation may run between them. The
-// rail is measured in zoomed pixels, so its SVG undoes the zoom.
-const STILL = `[data-clip="threads"] *, [data-clip="threads"] *::before, [data-clip="threads"] *::after { transition: none !important; animation: none !important; }
-[data-clip="threads"] [data-slot="timeline"] > svg { zoom: ${1 / ZOOM}; }
-[data-clip="threads"] [data-slot="timeline"] > svg path { stroke-width: ${ZOOM}px; }`
+// The rail is measured in zoomed pixels, so its SVG undoes the zoom.
+const RAIL = `[data-clip-threads] [data-slot="timeline"] > svg { zoom: ${1 / ZOOM}; }
+[data-clip-threads] [data-slot="timeline"] > svg path { stroke-width: ${ZOOM}px; }`
 
 function Ago({ children }: Readonly<{ children: string }>) {
   return <time className="text-muted-foreground tabular-nums">{children}</time>
 }
 
-// Something arriving or leaving: its space eases open, it rises into place.
-function Rise({
-  t,
-  height,
+// A reply taking or giving up its place, as the app's TimelineAppear does
+// it: its space eases open and it rises into place out of a slight blur.
+// The gap under it belongs to it, so the gap opens and closes with it.
+function Reply({
+  open,
+  gap = true,
+  indent,
   children
-}: Readonly<{ t: number; height: number; children: ReactNode }>) {
-  // Gone entirely while closed, so the rail doesn't bend in to it.
-  if (t < 0.001) return null
+}: Readonly<{
+  open: number
+  gap?: boolean
+  // The first reply starts the indent, so the rail's bend eases in with it.
+  indent?: boolean
+  children: ReactNode
+}>) {
   return (
-    <div
-      className="overflow-clip"
-      style={{
-        maxHeight: mix(t, 0, height),
-        marginTop: mix(t, -10, 0),
-        opacity: Math.min(1, t * 1.4)
-      }}
-    >
+    <Fold open={open}>
       <div
+        data-rail-indent={indent ? 22 : undefined}
+        className={cn(gap && "pb-2.5")}
         style={{
-          translate: `0 ${(1 - t) * 8}px`,
-          filter: `blur(${(1 - t) * 2}px)`
+          opacity: Math.min(1, open * 1.25),
+          translate: `0 ${mix(open, 8, 0)}px`,
+          filter: open > 0.999 ? undefined : `blur(${mix(open, 2, 0)}px)`
         }}
       >
         {children}
       </div>
-    </div>
+    </Fold>
   )
 }
 
 export function CommentThreadsClip({ theme }: ClipProps) {
   const frame = useCurrentFrame()
-  const arrive = REPLIES.map((at) => springAt(frame, at, GLIDE, 14))
-  const fold = springAt(frame, FOLD, GLIDE, 16)
-  const resolved = springAt(frame, FOLD + 10, POP)
-  const menuButton = progress(frame, MENU - 14, MENU - 8)
+  useSettledFrame(frame)
+  const arrive = REPLIES.map((at) => ease(frame, at, at + FOLD_FRAMES))
+  const fold = glide(frame, RESOLVE, RESOLVE + RESOLVE_FRAMES)
+  const resolved = ease(frame, RESOLVE + 12, RESOLVE + 12 + FOLD_FRAMES)
+  const menuButton =
+    progress(frame, MENU - 10, MENU - 4) *
+    (1 - progress(frame, PICK + 4, PICK + 4 + FADE_FRAMES))
 
   return (
-    <Stage theme={theme} caption="">
-      <style>{STILL}</style>
+    <Stage theme={theme}>
+      <style>{RAIL}</style>
       <div
-        data-clip="threads"
-        className="relative h-[340px] w-[520px]"
-        style={{ zoom: ZOOM }}
+        data-clip-threads=""
+        className="relative h-[330px] w-[520px]"
+        style={{ zoom: ZOOM, translate: `0 ${fold * 44}px` }}
       >
         <Timeline>
           <TimelineEvent
@@ -134,12 +151,9 @@ export function CommentThreadsClip({ theme }: ClipProps) {
                     size="square-7"
                     tabIndex={-1}
                     data-popup-open={
-                      frame >= MENU && frame < PICK + 6 ? "" : undefined
+                      frame >= MENU && frame < PICK + 4 ? "" : undefined
                     }
-                    style={{
-                      opacity:
-                        menuButton * (1 - progress(frame, PICK + 6, PICK + 12))
-                    }}
+                    style={{ opacity: menuButton }}
                   >
                     <MoreHorizontal className="size-4" strokeWidth={1.75} />
                   </Button>
@@ -147,9 +161,9 @@ export function CommentThreadsClip({ theme }: ClipProps) {
               >
                 <p>Should the project export include archived tickets?</p>
               </Comment>
-              <CommentReplies>
-                {fold > 0.001 ? (
-                  <Rise t={fold} height={24}>
+              <CommentReplies className="gap-0">
+                <Fold open={fold}>
+                  <div className="pb-2.5" style={{ opacity: fold }}>
                     <CommentEarlier
                       label="2 comments from Chidi Okafor, Bram de Vries"
                       open={false}
@@ -157,9 +171,9 @@ export function CommentThreadsClip({ theme }: ClipProps) {
                     >
                       {null}
                     </CommentEarlier>
-                  </Rise>
-                ) : null}
-                <Rise t={arrive[0] * (1 - fold)} height={80}>
+                  </div>
+                </Fold>
+                <Reply open={arrive[0] * (1 - fold)} indent={frame < RESOLVE}>
                   <Comment
                     mark={<MemberAvatar member={CHIDI} size={20} />}
                     author={CHIDI.name}
@@ -167,8 +181,8 @@ export function CommentThreadsClip({ theme }: ClipProps) {
                   >
                     <p>Yes, with their activity. People search them.</p>
                   </Comment>
-                </Rise>
-                <Rise t={arrive[1] * (1 - fold)} height={80}>
+                </Reply>
+                <Reply open={arrive[1] * (1 - fold)}>
                   <Comment
                     mark={<MemberAvatar member={BRAM} size={20} />}
                     author={BRAM.name}
@@ -178,19 +192,20 @@ export function CommentThreadsClip({ theme }: ClipProps) {
                       Done on the branch, and the import keeps them archived.
                     </p>
                   </Comment>
-                </Rise>
-                <Rise t={arrive[2]} height={80}>
+                </Reply>
+                <Reply open={arrive[2]} gap={false}>
                   <Comment
                     mark={<MemberAvatar member={ANA} size={20} />}
                     author={ANA.name}
                     time={<Ago>just now</Ago>}
                     meta={
-                      frame >= FOLD + 8 ? (
+                      resolved > 0 ? (
+                        // The app's own resolved label (CommentRow).
                         <span
                           className="inline-flex items-center gap-1 text-caption text-state-success"
                           style={{
-                            scale: mix(resolved, 0.6, 1),
-                            opacity: Math.min(1, resolved * 2)
+                            opacity: resolved,
+                            translate: `${mix(resolved, -4, 0)}px 0`
                           }}
                         >
                           <CircleCheck className="size-3.5" strokeWidth={2} />
@@ -201,9 +216,12 @@ export function CommentThreadsClip({ theme }: ClipProps) {
                   >
                     <p>Checked it on a copy of our data. Looks right.</p>
                   </Comment>
-                </Rise>
+                </Reply>
               </CommentReplies>
             </CommentThread>
+            {/* A node that changes every frame, so the timeline measures its
+                rail on each one. */}
+            <i key={frame} hidden />
           </TimelineEntry>
         </Timeline>
         <Menu frame={frame} />
@@ -221,36 +239,45 @@ const ITEMS = [
 ] as const
 
 // The comment's menu, drawn from the menu's own classes so it can be driven
-// by the frame.
+// by the frame: it fades and grows out of its button, as the app's does.
 function Menu({ frame }: Readonly<{ frame: number }>) {
-  if (frame < MENU || frame > PICK + 8) return null
-  const open = springAt(frame, MENU, LAND)
-  const close = progress(frame, PICK + 2, PICK + 8)
-  const lit = frame >= PICK - 14
+  const open = ease(frame, MENU, MENU + POP_FRAMES)
+  const close = ease(frame, PICK + 4, PICK + 4 + FADE_FRAMES)
+  if (open <= 0 || close >= 1) return null
+  const lit = ease(frame, LIT, LIT + 4)
+  const pressed =
+    progress(frame, PICK - 3, PICK) * (1 - progress(frame, PICK, PICK + 4))
   return (
     <div
       className={cn(menuSurfaceClass, "absolute w-56")}
       style={{
         top: 78,
         right: -8,
-        opacity: Math.min(1, open * 2) * (1 - close),
+        opacity: open * (1 - close),
         scale: mix(open, 0.95, 1) * mix(close, 1, 0.97),
+        translate: `0 ${mix(open, -8, 0)}px`,
         transformOrigin: "top right"
       }}
     >
       {ITEMS.map((item, index) => {
         const Icon = item.icon
-        const picked = "pick" in item && lit
+        const picked = "pick" in item
         return (
           <div key={item.label}>
             {index === 1 || index === 2 || index === 3 ? (
               <div className={menuSeparatorClass} />
             ) : null}
             <div
-              className={cn(menuItemClass, picked && "bg-menu-active")}
-              data-highlighted={picked ? "" : undefined}
-              style={{ scale: picked ? press(frame, PICK - 4, 0.97, 8) : 1 }}
+              className={cn(menuItemClass, "relative isolate")}
+              data-highlighted={picked && lit > 0.5 ? "" : undefined}
+              style={{ scale: picked ? 1 - pressed * 0.03 : 1 }}
             >
+              {picked ? (
+                <span
+                  className="absolute inset-0 -z-10 rounded-[inherit] bg-menu-active [corner-shape:inherit]"
+                  style={{ opacity: lit }}
+                />
+              ) : null}
               <Icon className="size-4" strokeWidth={1.75} />
               {item.label}
             </div>
