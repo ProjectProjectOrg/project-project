@@ -63,6 +63,10 @@ Every other prop goes to the rendered `button`.
 
 ## Rules
 
+### A leading icon or avatar sits closer to the edge
+
+The icon side gets about three quarters of the text side's padding, because an icon or avatar carries less weight than a word. `leadingIcon` and `trailingIcon` get it, and so does an icon or avatar passed as the first child with more after it (a member's avatar and name in a ghost trigger), through the `lead` variant in `theme.css`. A button that holds only an icon takes an icon size, which has no padding to shift.
+
 ### Loading swaps in place
 
 `loading` lays the logo loader over the label instead of replacing it: the label fades and blurs out (180ms, `ease-standard`) while the loader fades in from 60% scale, and the reverse when it ends. The label stays laid out, so the button's width never changes. A button that passes `loading` at all, `true` or `false`, keeps that structure either way, so the swap can animate; buttons that never load keep their content unwrapped. With reduced motion, only the fades play.

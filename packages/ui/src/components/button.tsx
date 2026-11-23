@@ -126,12 +126,18 @@ const buttonVariants = cva(
       { size: "banner-add", className: "text-muted-foreground" },
       // Optical padding: the icon side gets 3/4 of the text side, because an
       // icon carries less visual weight than a word and icon glyphs sit
-      // inside about 1/12 of empty space.
+      // inside about 1/12 of empty space. An icon or avatar passed as the
+      // first child gets the same (lead).
       { size: "xs", iconLeft: true, className: "pl-1" },
       { size: "compact", iconLeft: true, className: "pl-1" },
       { size: "sm", iconLeft: true, className: "pl-[9px]" },
       { size: "md", iconLeft: true, className: "pl-3" },
       { size: "lg", iconLeft: true, className: "pl-[15px]" },
+      { size: "xs", className: "lead:pl-1" },
+      { size: "compact", className: "lead:pl-1" },
+      { size: "sm", className: "lead:pl-[9px]" },
+      { size: "md", className: "lead:pl-3" },
+      { size: "lg", className: "lead:pl-[15px]" },
       { size: "xs", bleed: "start", className: "-ml-1.5" },
       { size: "xs", bleed: "end", className: "-mr-1.5" },
       { size: "sm", bleed: "start", className: "-ml-3" },
@@ -171,6 +177,12 @@ const buttonVariants = cva(
       },
       { variant: "field", size: "sm", iconLeft: true, className: "pl-[7px]" },
       {
+        variant: "field",
+        size: ["md", "lg"],
+        className: "lead:pl-[9px]"
+      },
+      { variant: "field", size: "sm", className: "lead:pl-[7px]" },
+      {
         variant: "overlay",
         tone: "destructive",
         className:
@@ -179,6 +191,7 @@ const buttonVariants = cva(
       // Ghost has no fill at rest, so its label sits closer to the edge.
       { variant: "ghost", size: "md", className: "px-2.5" },
       { variant: "ghost", size: "md", iconLeft: true, className: "pl-2" },
+      { variant: "ghost", size: "md", className: "lead:pl-2" },
       { variant: "ghost", size: "md", iconRight: true, className: "pr-2" },
       {
         variant: ["ghost", "outline"],
