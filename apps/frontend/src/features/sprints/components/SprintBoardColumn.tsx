@@ -87,6 +87,7 @@ export function SprintBoardColumn({
   reorder,
   collapsed = false,
   onToggleCollapsed,
+  onCreate,
   footer
 }: {
   update: TicketUpdates
@@ -108,6 +109,7 @@ export function SprintBoardColumn({
   reorder?: ColumnReorder
   collapsed?: boolean
   onToggleCollapsed?: () => void
+  onCreate?: (status: Ticket["status"]) => void
   footer?: (nearEnd: boolean) => ReactNode
 }) {
   const keyboard = useContext(BoardKeyboardContext)
@@ -162,6 +164,8 @@ export function SprintBoardColumn({
             <BoardColumnHeader
               title={<BoardColumnTitle icon={glyph} label={meta.label} />}
               count={count}
+              onAdd={onCreate ? () => onCreate(status) : undefined}
+              addLabel={m.sprints_board_column_add({ status: meta.label })}
               onCollapse={onToggleCollapsed}
               collapseLabel={m.sprints_board_column_collapse({
                 status: meta.label

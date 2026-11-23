@@ -9,7 +9,7 @@ import {
 
 import { cn } from "../lib/utils"
 import { Button } from "./button"
-import { FoldHorizontal, GripVertical } from "./icons"
+import { FoldHorizontal, GripVertical, Plus } from "./icons"
 import { ScrollArea, type ScrollAreaProps } from "./scroll-area"
 
 /*
@@ -117,6 +117,8 @@ type BoardColumnHeaderProps = Omit<ComponentProps<"div">, "title"> &
   Readonly<{
     title: ReactNode
     count: number
+    onAdd?: () => void
+    addLabel?: string
     // Folds the column to a narrow strip; leave out where columns can't fold.
     onCollapse?: () => void
     collapseLabel?: string
@@ -131,6 +133,8 @@ type BoardColumnHeaderProps = Omit<ComponentProps<"div">, "title"> &
 export function BoardColumnHeader({
   title,
   count,
+  onAdd,
+  addLabel,
   onCollapse,
   collapseLabel,
   onReorderStart,
@@ -148,6 +152,19 @@ export function BoardColumnHeader({
       {title}
       <BoardColumnCount value={count} />
       <span className="ml-auto flex shrink-0 items-center">
+        {onAdd && addLabel ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="square-7"
+            onClick={onAdd}
+            aria-label={addLabel}
+            title={addLabel}
+            className="text-muted-foreground opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+          >
+            <Plus className="size-4" strokeWidth={1.75} />
+          </Button>
+        ) : null}
         {onCollapse && collapseLabel ? (
           <Button
             type="button"

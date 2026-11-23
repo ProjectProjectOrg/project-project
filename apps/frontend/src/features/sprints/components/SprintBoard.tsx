@@ -45,6 +45,7 @@ import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
+import { useCreateInStatus } from "@/features/tickets/hooks/useCreateInStatus"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -144,6 +145,7 @@ function SprintBoardContent({
   const actor = useProjectActor()
   const canReorder = TicketPolicy.canChange(actor, { content: true })
   const canTransition = TicketPolicy.canChange(actor, { status: true })
+  const createInStatus = useCreateInStatus(req.params.id)
   const { height, hasRightOverflow } = useBoardViewport(ref)
   useBoardAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
 
@@ -248,6 +250,7 @@ function SprintBoardContent({
                   reorder={columnReorder(reorder, order, status)}
                   collapsed={layout.collapsed.includes(status)}
                   onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                  onCreate={isCompleted ? undefined : createInStatus}
                 />
               ))}
             </BoardColumns>

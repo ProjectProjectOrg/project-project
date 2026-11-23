@@ -20,6 +20,7 @@
   "sprints_board_all_hidden_description": "Every status column is hidden in View options.",
   "sprints_board_all_hidden_show_all": "Show all columns",
   "sprints_board_all_hidden_title": "All columns hidden",
+  "sprints_board_column_add": "New ticket in {status}",
   "sprints_board_column_collapse": "Collapse {status}",
   "sprints_board_column_expand": "Expand {status}",
   "sprints_board_column_reorder": "Move {status}",

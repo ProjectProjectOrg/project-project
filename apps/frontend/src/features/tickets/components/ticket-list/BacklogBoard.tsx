@@ -62,6 +62,7 @@ import {
   encodeTicketListQuery,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
+import { useCreateInStatus } from "@/features/tickets/hooks/useCreateInStatus"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -121,6 +122,7 @@ function BacklogBoardContent({
     query.sort.key === "manual" &&
     TicketPolicy.canChange(actor, { content: true })
   const canDrag = canMove || manual
+  const createInStatus = useCreateInStatus()
   const reorderMode = reorder?.reorderMode ?? false
   const dragOrder = reorder?.dragOrder ?? null
   const { height, hasRightOverflow } = useBoardViewport(ref)
@@ -230,6 +232,7 @@ function BacklogBoardContent({
                     reorder={columnReorder(reorder, order, status)}
                     collapsed={layout.collapsed.includes(status)}
                     onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                    onCreate={createInStatus}
                     footer={(nearEnd) =>
                       column?.nextCursor != null ? (
                         <ColumnLoadMore

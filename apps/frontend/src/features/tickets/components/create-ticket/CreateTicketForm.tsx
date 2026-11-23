@@ -110,7 +110,10 @@ export function CreateTicketForm({
     epics: related?.kind !== "subTicket",
     initial: request.type
   })
-  const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
+  const [fields, setFields] = useState<TicketFields>({
+    ...DEFAULT_TICKET_FIELDS,
+    status: request.status ?? null
+  })
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)
   const registry = useContext(RegistryContext)
   const create = useAtomSet(createTicketInProject, { mode: "promiseExit" })

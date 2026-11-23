@@ -235,6 +235,8 @@ function DemoColumn({
             <BoardColumnHeader
               title={<BoardColumnTitle icon={glyph} label={column.label} />}
               count={column.tickets.length}
+              onAdd={() => {}}
+              addLabel={`Add ticket to ${column.label}`}
               onCollapse={() => onFold(true)}
               collapseLabel={`Collapse ${column.label}`}
               onReorderStart={startReorder}

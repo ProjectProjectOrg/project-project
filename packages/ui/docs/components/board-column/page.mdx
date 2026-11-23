@@ -76,7 +76,7 @@ Each card uses `useBoardCardDrag({ slot, card, id, status, enabled })`; each col
 | --- | --- | --- |
 | `BoardColumn` | `title`, `tone`, `count`, `scrollLabel` | The plain column the dashboard uses |
 | `boardColumnTone` | a CSS colour (token or `#rrggbb`), or null for grey | Sets `--column-tone` for the wash, the count chip and the drop ring |
-| `BoardColumnHeader` | `title`, `count`, `onCollapse`, `collapseLabel`, `onReorderStart`, `onReorderKey`, `reorderLabel`, plus div props | The open column's header: fold button, then the grip when `onReorderStart` is given |
+| `BoardColumnHeader` | `title`, `count`, `onAdd`, `addLabel`, `onCollapse`, `collapseLabel`, `onReorderStart`, `onReorderKey`, `reorderLabel`, plus div props | The open column's header: add button when `onAdd` is given, fold button, then the grip when `onReorderStart` is given |
 | `BoardCollapsedColumnHeader` | `icon`, `label`, `count`, `expandLabel`, `onExpand`, plus button props | The folded strip: icon, name running down, count; a click unfolds |
 | `BoardColumnTitle` | `icon`, `label` | The status's icon and name |
 | `BoardColumnCount` | `value` | The count in its tinted chip, rolling when it changes by one |
