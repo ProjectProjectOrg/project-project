@@ -37,18 +37,6 @@
     drop-shadow(0 1px 2px rgb(0 0 0/0.45));
 }
 
-/* An overlay fill (--tint, --hover) painted over the element's own
-   background colour, so it reads on any surface. */
-@utility tint-layer {
-  background-image: linear-gradient(var(--tint), var(--tint));
-}
-@utility tint-hover-layer {
-  background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
-}
-@utility hover-layer {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
 /* A control waiting on the server pulses. Callers set data-pending on any
    element or primitive instead of restyling it. */
 @media (prefers-reduced-motion: no-preference) {
@@ -233,11 +221,11 @@
   --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
-  --hover: rgb(0 0 0 / 0.045);
+  --mix-hover: 4.5%;
   /* Label chips (epic, tags, +N on cards and rows): a quiet filled pill, so
      names read as labels next to the plain icon-and-value data chips. */
-  --chip-label: oklch(0 0 0 / 5.5%);
-  --chip-label-hover: oklch(0 0 0 / 10%);
+  --mix-chip-label: 5.5%;
+  --mix-chip-label-hover: 10%;
   /* A chip's fill carries the badge's light: a top sheen and a bottom glow
      edge, over a translucent fill so it reads on hovered rows and washes. */
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 14%), transparent 55%);
@@ -267,7 +255,7 @@
   --avatar-edge: oklch(0.145 0 0 / 0.1);
   --segment-line: oklch(0 0 0 / 6%);
   --field-line: var(--segment-line);
-  --surface: var(--page);
+  --ink: black;
   --kbd-glow: oklch(1 0 0 / 70%);
   /* Filled buttons: a faint vertical sheen and an optional edge in the
      button's own colour. Tune here; 0% turns either off. */
@@ -276,15 +264,15 @@
   --button-sheen-bottom: 1%;
   --button-edge: 0%;
   --button-edge-to: black;
-  --button-secondary: oklch(0 0 0 / 5.5%);
-  --button-secondary-hover: oklch(0 0 0 / 9%);
-  --button-secondary-active: oklch(0 0 0 / 12.5%);
-  --button-tertiary: oklch(0 0 0 / 2.75%);
-  --button-tertiary-hover: oklch(0 0 0 / 5.5%);
-  --button-tertiary-active: oklch(0 0 0 / 9%);
+  --mix-button-secondary: 5.5%;
+  --mix-button-secondary-hover: 9%;
+  --mix-button-secondary-active: 12.5%;
+  --mix-button-tertiary: 2.75%;
+  --mix-button-tertiary-hover: 5.5%;
+  --mix-button-tertiary-active: 9%;
   --avatar-lit: rgb(255 255 255 / 0.55);
   --avatar-squircle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M100.00 50.00L99.95 62.79L99.79 68.06L99.52 72.08L99.14 75.44L98.66 78.35L98.06 80.93L97.35 83.25L96.53 85.36L95.59 87.27L94.54 89.01L93.35 90.60L92.04 92.04L90.60 93.35L89.01 94.54L87.27 95.59L85.36 96.53L83.25 97.35L80.93 98.06L78.35 98.66L75.44 99.14L72.08 99.52L68.06 99.79L62.79 99.95L50.00 100.00L37.21 99.95L31.94 99.79L27.92 99.52L24.56 99.14L21.65 98.66L19.07 98.06L16.75 97.35L14.64 96.53L12.73 95.59L10.99 94.54L9.40 93.35L7.96 92.04L6.65 90.60L5.46 89.01L4.41 87.27L3.47 85.36L2.65 83.25L1.94 80.93L1.34 78.35L0.86 75.44L0.48 72.08L0.21 68.06L0.05 62.79L0.00 50.00L0.05 37.21L0.21 31.94L0.48 27.92L0.86 24.56L1.34 21.65L1.94 19.07L2.65 16.75L3.47 14.64L4.41 12.73L5.46 10.99L6.65 9.40L7.96 7.96L9.40 6.65L10.99 5.46L12.73 4.41L14.64 3.47L16.75 2.65L19.07 1.94L21.65 1.34L24.56 0.86L27.92 0.48L31.94 0.21L37.21 0.05L50.00 0.00L62.79 0.05L68.06 0.21L72.08 0.48L75.44 0.86L78.35 1.34L80.93 1.94L83.25 2.65L85.36 3.47L87.27 4.41L89.01 5.46L90.60 6.65L92.04 7.96L93.35 9.40L94.54 10.99L95.59 12.73L96.53 14.64L97.35 16.75L98.06 19.07L98.66 21.65L99.14 24.56L99.52 27.92L99.79 31.94L99.95 37.21Z'/%3E%3C/svg%3E");
-  --active: rgb(0 0 0 / 0.079);
+  --mix-active: 7.9%;
   /* A bare field's placeholder: hover and focus step it toward the text
      colour, staying in the placeholder range. */
   /* A comment's bubble: the page lifted toward the text colour, so a
@@ -300,8 +288,8 @@
     var(--muted-foreground) 70%,
     var(--foreground)
   );
-  --tint: oklch(0 0 0 / 9%);
-  --tint-hover: oklch(0 0 0 / 7.2%);
+  --mix-tint: 9%;
+  --mix-tint-hover: 7.2%;
   --prose-body: oklch(0.23 0.002 265);
   --prose-quiet: oklch(0.145 0 0 / 0.6);
   --prose-code: oklch(0 0 0 / 5%);
@@ -317,7 +305,7 @@
 }
 
 .dark {
-  --surface: var(--page);
+  --ink: white;
   --background: oklch(0.145 0 0);
   --rail: oklch(0.115 0 0);
   --page: oklch(0.219 0 0);
@@ -396,9 +384,9 @@
     0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
     0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
     0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
-  --hover: rgb(255 255 255 / 0.06);
-  --chip-label: oklch(1 0 0 / 5%);
-  --chip-label-hover: oklch(1 0 0 / 9%);
+  --mix-hover: 6%;
+  --mix-chip-label: 5%;
+  --mix-chip-label-hover: 9%;
   --chip-sheen: linear-gradient(to bottom, oklch(1 0 0 / 4%), transparent 55%);
   --chip-edge: inset 0 -1px 2px var(--kbd-glow);
   --slider-line: oklch(1 0 0 / 9%);
@@ -414,14 +402,14 @@
   --segment-line: oklch(1 0 0 / 6%);
   --kbd-glow: oklch(1 0 0 / 9%);
   --button-edge-to: white;
-  --button-secondary: oklch(1 0 0 / 11%);
-  --button-secondary-hover: oklch(1 0 0 / 15%);
-  --button-secondary-active: oklch(1 0 0 / 19%);
-  --button-tertiary: oklch(1 0 0 / 5%);
-  --button-tertiary-hover: oklch(1 0 0 / 9%);
-  --button-tertiary-active: oklch(1 0 0 / 13%);
+  --mix-button-secondary: 11%;
+  --mix-button-secondary-hover: 15%;
+  --mix-button-secondary-active: 19%;
+  --mix-button-tertiary: 5%;
+  --mix-button-tertiary-hover: 9%;
+  --mix-button-tertiary-active: 13%;
   --avatar-lit: rgb(255 255 255 / 0.22);
-  --active: rgb(255 255 255 / 0.12);
+  --mix-active: 12%;
   --comment-bubble: color-mix(in oklab, var(--page), var(--foreground) 5%);
   --placeholder-hover: color-mix(
     in oklab,
@@ -433,8 +421,8 @@
     var(--muted-foreground) 70%,
     var(--foreground)
   );
-  --tint: oklch(1 0 0 / 14%);
-  --tint-hover: oklch(1 0 0 / 11%);
+  --mix-tint: 14%;
+  --mix-tint-hover: 11%;
   --prose-body: oklch(0.918 0.002 265);
   --prose-quiet: oklch(0.985 0 0 / 0.5);
   --prose-code: oklch(1 0 0 / 6%);
@@ -448,13 +436,61 @@
   --switch-thumb-off: oklch(1 0 0 / 45%);
 }
 
-/* Fields and the menu highlight step a fixed amount of lightness from the
-   surface they sit on, so they read the same on the page, a card and a
-   popup. --surface is the page; a surface that holds fields declares its
-   own with the `surface` class and --surface (popupSurfaceClass, settings
-   groups), and the tokens are worked out again there. */
-:root,
-.surface {
+@utility on-surface {
+  --hover: color-mix(in srgb, var(--surface), var(--ink) var(--mix-hover));
+  --hover-overlay: color-mix(in srgb, var(--ink) var(--mix-hover), transparent);
+  --active-overlay: color-mix(
+    in srgb,
+    var(--ink) var(--mix-active),
+    transparent
+  );
+  --active: color-mix(in srgb, var(--surface), var(--ink) var(--mix-active));
+  --tint: color-mix(in srgb, var(--surface), var(--ink) var(--mix-tint));
+  --tint-hover: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-tint-hover)
+  );
+  --chip-label: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-chip-label)
+  );
+  --chip-label-hover: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-chip-label-hover)
+  );
+  --button-secondary: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-secondary)
+  );
+  --button-secondary-hover: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-secondary-hover)
+  );
+  --button-secondary-active: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-secondary-active)
+  );
+  --button-tertiary: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-tertiary)
+  );
+  --button-tertiary-hover: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-tertiary-hover)
+  );
+  --button-tertiary-active: color-mix(
+    in srgb,
+    var(--surface),
+    var(--ink) var(--mix-button-tertiary-active)
+  );
   --field: oklch(from var(--surface) calc(min(0.995, l + 0.02)) c h);
   --field-hover: oklch(from var(--field) calc(l - 0.035) c h);
   --field-focus: oklch(from var(--field) calc(l - 0.02) c h);
@@ -463,21 +499,53 @@
   /* Composer's tray: a step down from the surface, smaller than the menu
      highlight, so the controls read as below the writing. */
   --composer-tray: oklch(from var(--surface) calc(l - 0.02) c h);
+  &:where(.dark, .dark *) {
+    /* In dark a field never gets lighter than 0.23 and its hover never
+       lighter than 0.26, so on a raised popup it stays a well and its hover
+       stays below the popup's own fill. */
+    --field: oklch(from var(--surface) calc(min(l - 0.04, 0.23)) c h);
+    --field-hover: oklch(from var(--field) calc(min(l + 0.06, 0.26)) c h);
+    --field-focus: oklch(from var(--field) calc(l + 0.025) c h);
+    /* A field's edge, a step above the surface: a white overlay on the
+       field would land on the surface's own lightness and vanish. */
+    --field-line: oklch(from var(--surface) calc(l + 0.04) c h);
+    --menu-hover: oklch(from var(--surface) calc(l + 0.06) c h);
+    --menu-active: oklch(from var(--surface) calc(l + 0.1) c h);
+    --composer-tray: oklch(from var(--surface) calc(l - 0.035) c h);
+  }
 }
-.dark,
-.dark .surface {
-  /* In dark a field never gets lighter than 0.23 and its hover never
-     lighter than 0.26, so on a raised popup it stays a well and its hover
-     stays below the popup's own fill. */
-  --field: oklch(from var(--surface) calc(min(l - 0.04, 0.23)) c h);
-  --field-hover: oklch(from var(--field) calc(min(l + 0.06, 0.26)) c h);
-  --field-focus: oklch(from var(--field) calc(l + 0.025) c h);
-  /* A field's edge, a step above the surface: a white overlay on the field
-     would land on the surface's own lightness and vanish. */
-  --field-line: oklch(from var(--surface) calc(l + 0.04) c h);
-  --menu-hover: oklch(from var(--surface) calc(l + 0.06) c h);
-  --menu-active: oklch(from var(--surface) calc(l + 0.1) c h);
-  --composer-tray: oklch(from var(--surface) calc(l - 0.035) c h);
+@utility surface-* {
+  --surface-rest: --value(--color-surface-*, --color-*, [color], [*]);
+  --surface: var(--surface-rest);
+  background-color: var(--surface);
+  @apply on-surface;
+}
+@utility surface-lit {
+  --surface: color-mix(
+    in srgb,
+    var(--surface-rest),
+    var(--ink) var(--mix-hover)
+  );
+  background-color: var(--surface);
+  @apply on-surface;
+}
+[data-hover-highlight]:not([data-selected], [data-keyboard-navigation] *),
+[data-fluid-hover-active] > .pp-sidebar-row {
+  @apply surface-lit;
+  background-color: transparent;
+}
+@layer base {
+  /* --field-fill, not --field: on-surface redeclares --field from this. */
+  :where([data-slot="input-group"]) > * {
+    --surface-rest: var(--field-fill);
+    --surface: var(--surface-rest);
+    @apply on-surface;
+  }
+}
+:root {
+  --surface-rest: var(--page);
+  --surface: var(--surface-rest);
+  @apply on-surface;
 }
 
 @theme inline {
@@ -520,6 +588,7 @@
   --text-micro-compact: var(--fs-micro-compact);
   --text-micro-compact--line-height: var(--lh-micro-compact);
   --color-hover: var(--hover);
+  --color-hover-overlay: var(--hover-overlay);
   --color-page: var(--page);
   --color-rail: var(--rail);
   --color-field: var(--field);
@@ -955,17 +1024,33 @@
 .button-secondary:not(:disabled):active {
   --button-fill: var(--button-secondary-active);
 }
-/* Tertiary directly on the page: half of secondary's tint. Inside a surface
-   it is a lifted tile instead (see button.tsx). */
 .button-tertiary {
   --button-fill: var(--button-tertiary);
-  color: var(--foreground);
 }
-.button-tertiary:not(:disabled):hover {
+.button-tertiary:not(:disabled):is(:hover, [data-popup-open]) {
   --button-fill: var(--button-tertiary-hover);
 }
 .button-tertiary:not(:disabled):active {
   --button-fill: var(--button-tertiary-active);
+}
+.tertiary-tiles .button-tertiary {
+  --button-fill: var(--surface-3);
+  --button-sheen: 0;
+}
+.tertiary-tiles .button-tertiary:not(:disabled):is(:hover, [data-popup-open]) {
+  --button-fill: color-mix(
+    in srgb,
+    var(--surface-3),
+    var(--ink) var(--mix-hover)
+  );
+}
+.tertiary-tiles .button-tertiary:not(:disabled):active {
+  --button-fill: color-mix(
+    in srgb,
+    var(--surface-3),
+    var(--ink) var(--mix-active)
+  );
+  --button-sheen: 0;
 }
 .button-destructive {
   --button-fill: var(--destructive-light);
@@ -1062,13 +1147,13 @@
   );
 }
 /* The command menu's rows glide on the fluid hover highlight; they take the
-   same fills: --hover, then --active while a row is pressed. */
+   hover overlay, then the press overlay while a row is pressed. */
 [data-slot="command-menu-list"] > [data-slot="fluid-hover-highlight"] {
   transition: background-color 80ms var(--ease-standard);
 }
 [data-slot="command-menu-list"]:has([data-slot="command-menu-item"]:active)
   > [data-slot="fluid-hover-highlight"] {
-  background-color: var(--active);
+  background-color: var(--active-overlay);
 }
 
 /* Countdown (lib/countdown.ts): the fill is the timer. --countdown-fill
@@ -1523,7 +1608,7 @@
     transition-duration: 0ms, 0ms, 120ms;
   }
   .pp-sidebar-row:not([data-fluid]):hover {
-    background-color: var(--hover);
+    @apply surface-lit;
   }
   .pp-sidebar-row:active {
     scale: 0.97;

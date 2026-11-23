@@ -77,7 +77,7 @@ export function RenderPreviews({
         waiting && "animate-pulse motion-reduce:animate-none"
       )}
     >
-      <div className="relative isolate min-h-33 overflow-hidden rounded-lg border border-border bg-card">
+      <div className="relative isolate min-h-33 overflow-hidden rounded-lg border border-border surface-card">
         <ProjectBannerSurface
           orgSlug={orgSlug}
           slug={slug}
@@ -95,7 +95,7 @@ export function RenderPreviews({
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center gap-2.5 rounded-lg border border-border surface-card p-3">
         {sidebar}
         <span className="min-w-0 flex-1 truncate text-body font-semibold">
           {name}

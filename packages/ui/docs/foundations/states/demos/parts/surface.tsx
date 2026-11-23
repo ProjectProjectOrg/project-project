@@ -5,8 +5,8 @@ import type { ReactNode } from "react"
 export type SurfaceKind = "page" | "well" | "popup" | "nested"
 
 // A surface as the app draws it. Popups wear the real popup skin (and a
-// nested one the raised fill); the page and the card well declare
-// themselves surfaces the way the page and settings groups do.
+// nested one the raised fill); the page and the card well paint with
+// surface-page and surface-card, as the app's page and settings groups do.
 export function Surface({
   kind,
   className,
@@ -17,10 +17,10 @@ export function Surface({
       className={cn(
         kind === "popup" || kind === "nested"
           ? popupSurfaceClass
-          : "surface rounded-[19px] [corner-shape:var(--button-corner)]",
+          : "rounded-[19px] [corner-shape:var(--button-corner)]",
         kind === "nested" && "[--tooltip:var(--tooltip-raised)]",
-        kind === "page" && "bg-page [--surface:var(--page)]",
-        kind === "well" && "bg-card [--surface:var(--card)]",
+        kind === "page" && "surface-page",
+        kind === "well" && "surface-card",
         "relative z-0",
         className
       )}

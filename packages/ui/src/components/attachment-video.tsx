@@ -319,7 +319,7 @@ export function AttachmentVideo({
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
             style={{ borderRadius: 16, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-surface-5 corner-squircle"
+            className="absolute inset-0 -z-10 surface-5 corner-squircle"
           />
           <AttachmentVideoControls
             filename={filename}
@@ -344,7 +344,7 @@ export function AttachmentVideo({
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
             style={{ borderRadius: 20, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-surface-5 corner-squircle"
+            className="absolute inset-0 -z-10 surface-5 corner-squircle"
           />
           <motion.span
             layoutId={`${layoutId}-filename`}

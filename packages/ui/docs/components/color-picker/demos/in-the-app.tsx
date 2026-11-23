@@ -19,7 +19,7 @@ function Row({
   action: ReactNode
 }>) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border surface-card p-3">
       {thumb}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-semibold">{title}</span>
@@ -78,7 +78,7 @@ export default function InTheApp() {
         }
       />
 
-      <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card p-2">
+      <div className="flex items-center gap-1.5 rounded-lg border border-border surface-card p-2">
         <ColorPicker
           value={tag}
           onChange={setTag}
@@ -91,7 +91,7 @@ export default function InTheApp() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+      <div className="flex items-center gap-2 rounded-lg border border-border surface-card p-2">
         <span className="text-body text-muted-foreground">Template colour</span>
         <span className="ml-auto" />
         <ColorPicker

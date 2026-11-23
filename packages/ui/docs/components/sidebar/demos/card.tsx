@@ -6,7 +6,7 @@ import { useState } from "react"
 export default function CardDemo() {
   const [open, setOpen] = useState(true)
   return (
-    <div className="flex h-72 w-59 flex-col justify-between rounded-[14px] bg-background py-2">
+    <div className="flex h-72 w-59 flex-col justify-between rounded-[14px] surface-background py-2">
       <div className="px-3">
         {open ? null : (
           <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>

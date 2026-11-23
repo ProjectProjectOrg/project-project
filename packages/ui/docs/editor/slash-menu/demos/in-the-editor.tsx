@@ -6,7 +6,7 @@ import { EditorKit, SAMPLE_BLOCKS } from "../../kit"
 export default function SlashMenuInTheEditor() {
   return (
     <EditorKit>
-      <div className="w-full max-w-2xl self-start rounded-[18px] bg-card p-5 corner-squircle">
+      <div className="w-full max-w-2xl self-start rounded-[18px] surface-card p-5 corner-squircle">
         <LexicalEditor
           markdown={"Rollout notes for the redirect fix.\n\n"}
           placeholder="Type / for sections…"

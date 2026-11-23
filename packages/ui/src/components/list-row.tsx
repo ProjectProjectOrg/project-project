@@ -267,8 +267,8 @@ export function ListRow({
   const inHoverScope = use(InHoverScopeContext)
   const ticketColumns = priority !== undefined || ticketKey !== undefined
   const ownHover = inHoverScope
-    ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:bg-hover in-data-keyboard-navigation:not-data-selected:data-[popup-open]:bg-hover"
-    : "not-in-data-keyboard-navigation:hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover not-data-selected:data-[popup-open]:bg-hover"
+    ? "in-data-keyboard-navigation:not-data-selected:has-[[data-popup-open]]:surface-lit in-data-keyboard-navigation:not-data-selected:data-[popup-open]:surface-lit"
+    : "not-in-data-keyboard-navigation:hover:surface-lit not-data-selected:has-[[data-popup-open]]:surface-lit not-data-selected:data-[popup-open]:surface-lit"
   return (
     // Every hover in it opens below, tooltips and cards alike.
     <HoverSide side="bottom">
@@ -282,7 +282,7 @@ export function ListRow({
           itemSurfaceClass,
           variant === "standalone" && ownHover,
           variant === "standalone" &&
-            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:bg-hover data-selected:bg-foreground/6",
+            "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:surface-lit data-selected:bg-foreground/6",
           // The link reaches into the gap between rows, so the rows have no
           // dead strip between them.
           "[&>[data-item-link]]:before:absolute [&>[data-item-link]]:before:inset-x-0 [&>[data-item-link]]:before:-inset-y-0.5 [&>[data-item-link]]:before:content-['']",

@@ -11,7 +11,7 @@ Background reading: https://lexical.dev/ and https://commonmark.org/ (pasted URL
 export default function EmbedsOverview() {
   return (
     <EditorKit>
-      <div className="w-full max-w-2xl self-start rounded-[18px] bg-card p-6 corner-squircle">
+      <div className="w-full max-w-2xl self-start rounded-[18px] surface-card p-6 corner-squircle">
         <LexicalEditor markdown={BODY} attachments={SAMPLE_TARGET} />
       </div>
     </EditorKit>

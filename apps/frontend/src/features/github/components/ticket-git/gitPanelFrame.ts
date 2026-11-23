@@ -12,4 +12,4 @@ export type GitPanelFrame = Readonly<{
 }>
 
 export const PANEL_CHROME =
-  "rounded-lg border border-border bg-background px-3 py-2"
+  "rounded-lg border border-border surface-background px-3 py-2"

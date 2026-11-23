@@ -36,7 +36,7 @@ function Card({ ticket }: Readonly<{ ticket: SampleTicket }>) {
 export default function OnACard() {
   return (
     <div className="@container w-full">
-      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-2 rounded-[22px] bg-surface-1 p-2 [corner-shape:var(--button-corner)] @lg:grid-cols-[repeat(2,minmax(0,1fr))]">
+      <div className="mx-auto grid max-w-2xl grid-cols-1 gap-2 rounded-[22px] surface-1 p-2 [corner-shape:var(--button-corner)] @lg:grid-cols-[repeat(2,minmax(0,1fr))]">
         <Card ticket={AUDIT} />
         <Card ticket={EVERYTHING} />
       </div>

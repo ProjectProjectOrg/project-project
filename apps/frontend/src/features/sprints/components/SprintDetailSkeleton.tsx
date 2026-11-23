@@ -16,12 +16,12 @@ export function SprintDetailSkeleton() {
       </header>
 
       <div className="flex flex-col gap-3">
-        <div className="h-10 skeleton rounded-xl border border-border bg-background" />
+        <div className="h-10 skeleton rounded-xl border border-border surface-background" />
         <div className="flex flex-col gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-12 skeleton rounded-xl border border-border bg-background"
+              className="h-12 skeleton rounded-xl border border-border surface-background"
               style={{ animationDelay: `${i * 80}ms` }}
             />
           ))}

@@ -34,7 +34,7 @@ const PROJECTS = [
 export default function Rail() {
   const [active, setActive] = useState<string>("atl")
   return (
-    <div className="h-[22rem] rounded-[14px] bg-background">
+    <div className="h-[22rem] rounded-[14px] surface-background">
       <SidebarRail
         label="Projects"
         bottom={

@@ -78,7 +78,7 @@ export default function Failed() {
   // The step after the shared status: Todo, then In progress, then Done.
   const next = STATUSES[STATUSES.findIndex((each) => each.value === status) + 1]
   return (
-    <div className="flex min-h-40 w-full flex-col justify-end rounded-xl bg-page p-2">
+    <div className="flex min-h-40 w-full flex-col justify-end rounded-xl surface-page p-2">
       <SelectionBar
         label="Actions for 3 selected tickets"
         count="3 selected"

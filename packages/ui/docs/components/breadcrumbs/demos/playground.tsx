@@ -56,7 +56,7 @@ export default function Playground() {
   const ticket = state.ticket === null ? null : TICKETS[state.ticket]
   return (
     <div className="grid w-full gap-6">
-      <div className="flex h-12 min-w-0 items-center rounded-xl bg-page px-4">
+      <div className="flex h-12 min-w-0 items-center rounded-xl surface-page px-4">
         <Breadcrumbs label="Breadcrumb">
           <BreadcrumbItem
             key={state.dashboard ? "dashboard" : "projects"}

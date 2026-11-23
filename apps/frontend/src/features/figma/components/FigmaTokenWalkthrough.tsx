@@ -96,7 +96,7 @@ export function FigmaTokenWalkthrough() {
                     <img
                       src={slide.image}
                       alt={slide.alt}
-                      className="aspect-video w-full bg-background object-contain"
+                      className="aspect-video w-full surface-background object-contain"
                     />
                   </div>
                 ))}

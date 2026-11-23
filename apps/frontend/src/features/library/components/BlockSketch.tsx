@@ -46,7 +46,7 @@ const sketchVariants = cva(
     variants: {
       frame: {
         sheet:
-          "gap-2 rounded-md bg-muted/70 px-2.5 py-2 transition-colors group-hover/reveal:bg-muted dark:bg-background/60 dark:group-hover/reveal:bg-background",
+          "gap-2 rounded-md bg-muted/70 px-2.5 py-2 transition-colors group-hover/reveal:bg-muted dark:bg-background/60 dark:group-hover/reveal:surface-background",
         bare: "gap-2"
       },
       height: {

@@ -25,7 +25,7 @@ export function MappingTable({
         {counted ? <col className="w-36" /> : null}
         <col className="w-60" />
       </colgroup>
-      <thead className="sticky top-11 z-10 bg-page">
+      <thead className="sticky top-11 z-10 surface-page">
         <tr className="h-7 text-left text-caption text-muted-foreground">
           <th aria-hidden />
           <th className="pr-3 font-normal">{sourceLabel}</th>

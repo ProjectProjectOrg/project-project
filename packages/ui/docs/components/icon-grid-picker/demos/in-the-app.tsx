@@ -16,7 +16,7 @@ export default function InTheApp() {
   const Current = ICONS[icon]
   return (
     <div className="grid w-full max-w-2xl gap-3">
-      <div className="flex min-h-14 items-center gap-2 rounded-lg border border-border bg-card py-2 pr-2 pl-1">
+      <div className="flex min-h-14 items-center gap-2 rounded-lg border border-border surface-card py-2 pr-2 pl-1">
         <span className="w-4 shrink-0" />
         <IconGridPicker
           value={icon}

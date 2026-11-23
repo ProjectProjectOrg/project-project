@@ -24,7 +24,7 @@ After a session expires, signing in again lands on the dashboard instead of the 
 export default function BlocksReadOnly() {
   return (
     <EditorKit>
-      <div className="w-full max-w-2xl self-start rounded-[18px] bg-card p-5 corner-squircle">
+      <div className="w-full max-w-2xl self-start rounded-[18px] surface-card p-5 corner-squircle">
         <Markdown>{BODY}</Markdown>
       </div>
     </EditorKit>

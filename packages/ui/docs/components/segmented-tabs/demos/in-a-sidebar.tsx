@@ -8,7 +8,7 @@ export default function InASidebar() {
   const [theme, setTheme] = useState<Theme>("light")
   const [mode, setMode] = useState<"light" | "dark">("light")
   return (
-    <div className="flex w-56 flex-col gap-3 rounded-[18px] bg-surface-1 p-3 corner-squircle">
+    <div className="flex w-56 flex-col gap-3 rounded-[18px] surface-1 p-3 corner-squircle">
       <SegmentedTabs
         aria-label="Gallery theme"
         value={mode}

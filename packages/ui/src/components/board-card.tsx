@@ -64,7 +64,7 @@ export function BoardCard({
         data-slot="board-card"
         {...props}
         className={cn(
-          "group/card group/reveal relative isolate flex flex-col rounded-(--card-radius) bg-surface-3 px-3 pt-2.5 pb-1.5 text-left shadow-surface-1 transition outline-none [--card-radius:14px] [corner-shape:var(--button-corner)] not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:bg-surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover",
+          "group/card group/reveal relative isolate flex flex-col rounded-(--card-radius) surface-3 px-3 pt-2.5 pb-1.5 text-left shadow-surface-1 transition outline-none [--card-radius:14px] [corner-shape:var(--button-corner)] not-in-data-keyboard-navigation:hover:surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:surface-4 has-[[data-item-link]:focus-visible]:shadow-surface-1-hover has-[[data-item-link]:focus-visible]:duration-0 has-[[data-popup-open]]:surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:surface-4 data-[popup-open]:shadow-surface-1-hover",
           itemSurfaceClass,
           // Over the fill as an image, so the hover's lift still shows.
           flagged &&

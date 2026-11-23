@@ -70,7 +70,7 @@ function SheetContent({
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         className={cn(
-          "fixed flex flex-col bg-background shadow-lg duration-200 outline-none data-[closed]:animate-out data-[closed]:fill-mode-forwards data-[open]:animate-in",
+          "fixed flex flex-col surface-background shadow-lg duration-200 outline-none data-[closed]:animate-out data-[closed]:fill-mode-forwards data-[open]:animate-in",
           sheetSideClasses[side],
           className
         )}

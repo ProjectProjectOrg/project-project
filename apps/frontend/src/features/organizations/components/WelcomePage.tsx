@@ -97,7 +97,7 @@ function WelcomeSkeleton() {
         <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
         <div className="h-4 w-4/5 animate-pulse rounded-md bg-muted" />
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-background">
+      <div className="overflow-hidden rounded-xl border border-border surface-background">
         {[0, 1].map((index) => (
           <div
             key={index}

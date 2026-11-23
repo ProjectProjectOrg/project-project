@@ -21,7 +21,7 @@ export default function SubTicket() {
       <div className="w-full max-w-2xl">
         <form
           onSubmit={(event) => event.preventDefault()}
-          className="flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] [corner-shape:var(--button-corner)]"
+          className="flex flex-col overflow-hidden rounded-[20px] border border-border/60 surface-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] [corner-shape:var(--button-corner)]"
         >
           <Composer.Title>
             <Input

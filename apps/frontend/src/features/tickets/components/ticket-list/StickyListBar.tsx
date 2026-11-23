@@ -43,7 +43,7 @@ export function StickyListBar({
       ref={ref}
       className={cn(
         "sticky top-0 z-20 -mx-6 -mt-3 -mb-3 flex flex-col gap-3 px-6 pt-3 pb-3",
-        "data-stuck:bg-page",
+        "data-stuck:surface-page",
         "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-linear-to-b after:from-page after:to-transparent after:opacity-0 data-stuck:after:opacity-100",
         // A section header pinned right under the bar already hides the rows.
         "[&:has(~*_[data-slot=list-section-header][data-stuck])]:after:opacity-0",

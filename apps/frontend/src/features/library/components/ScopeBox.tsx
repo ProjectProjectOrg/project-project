@@ -137,7 +137,7 @@ export function ScopeBox(props: ScopeBoxProps) {
   return (
     <div
       data-scope-box={view.standing}
-      className="flex gap-3 rounded-lg border border-border bg-card p-4"
+      className="flex gap-3 rounded-lg border border-border surface-card p-4"
     >
       {copy.icon}
       <div className="flex min-w-0 flex-1 flex-col gap-1">

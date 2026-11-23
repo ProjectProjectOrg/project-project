@@ -31,7 +31,7 @@ The primitives do all of this themselves. When building a new interactive elemen
 
 ### Hover only on things that act
 
-A static element never changes on hover; a hover says "this does something". Hover is a see-through overlay (`--hover`), so it works on any surface, lands instantly and fades out ([Motion](/foundations/motion)).
+A static element never changes on hover; a hover says "this does something". Hover is the surface it sits on mixed toward the text colour (`--hover`), solid so nothing behind the surface shows through; it lands instantly and fades out ([Motion](/foundations/motion)).
 
 ### Press: darker and smaller
 
@@ -55,7 +55,7 @@ Every target is at least 24×24 (WCAG 2.5.8). Small visual controls (a 16px chec
 
 ## Fields and menus step from their surface
 
-A field, its hover and focus, and the menu highlight are worked out from the surface they sit on (`--surface`), a fixed step of lightness away, so they read the same on the page, a settings group and a popup. `--surface` is the page; a surface that holds fields declares its own with the `surface` class (`surface [--surface:var(--card)]`), as `popupSurfaceClass` and settings groups do, and the tokens are worked out again inside it.
+A field, its hover and focus, and the menu highlight are worked out from the surface they sit on (`--surface`), a fixed step of lightness away, so they read the same on the page, a settings group and a popup. `--surface` is the page; anything that paints a background paints it with `surface-*` (`surface-card`, `surface-(--tooltip)`), as `popupSurfaceClass` and settings groups do, and the tokens are worked out again inside it.
 
 ```css
 /* dark */

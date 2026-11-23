@@ -49,7 +49,7 @@ export function ReferenceGroupCard({
   const Icon = KIND_ICONS[group.kind]
 
   return (
-    <section className="flex flex-col rounded-lg border border-border bg-card">
+    <section className="flex flex-col rounded-lg border border-border surface-card">
       <header className="flex flex-wrap items-start gap-3 p-4">
         <Icon
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"

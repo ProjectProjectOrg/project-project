@@ -144,7 +144,7 @@ function TilesSkeleton() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-32 skeleton rounded-xl border border-border bg-background"
+            className="h-32 skeleton rounded-xl border border-border surface-background"
           />
         ))}
       </div>

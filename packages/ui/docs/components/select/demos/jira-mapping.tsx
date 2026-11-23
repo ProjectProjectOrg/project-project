@@ -46,7 +46,7 @@ export default function JiraMapping() {
     Readonly<Record<string, string | null>>
   >(Object.fromEntries(JIRA_STATUSES.map((s) => [s.id, s.mapped])))
   return (
-    <div className="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-card">
+    <div className="w-full max-w-lg overflow-hidden rounded-lg border border-border surface-card">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 border-b border-border px-4 py-2 text-caption text-muted-foreground">
         <span>Jira status</span>
         <span />

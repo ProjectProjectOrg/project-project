@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect"
 // keeps its height and the text doesn't rewrap.
 export default function SettingsRow() {
   return (
-    <div className="w-full max-w-xl divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <div className="w-full max-w-xl divide-y divide-border overflow-hidden rounded-lg border border-border surface-card">
       <div className="flex min-h-14 items-center gap-x-4 gap-y-3 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="min-w-0">

@@ -20,8 +20,8 @@ export function ProjectTile({
       to="/orgs/$orgSlug/projects/$slug"
       params={{ orgSlug, slug: project.slug }}
       className={cn(
-        "group relative isolate flex flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-4 transition-all",
-        "hover:border-border/80 hover:bg-hover hover:shadow-sm"
+        "group relative isolate flex flex-col gap-3 overflow-hidden rounded-xl border border-border surface-background p-4 transition-all",
+        "hover:border-border/80 hover:surface-lit hover:shadow-sm"
       )}
     >
       <ProjectBanner

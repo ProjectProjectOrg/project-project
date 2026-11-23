@@ -34,7 +34,7 @@ function Corners() {
       {shapes.map(([shape, label, note]) => (
         <Labelled key={shape} label={label} note={note}>
           <div
-            className="size-24 bg-card shadow-[inset_0_0_0_1.5px_var(--foreground)]"
+            className="size-24 surface-card shadow-[inset_0_0_0_1.5px_var(--foreground)]"
             style={shapeStyle(shape)}
           />
         </Labelled>
@@ -70,12 +70,12 @@ function Concentric() {
   return (
     <div className="grid gap-4 @xl:grid-cols-2">
       <Labelled label="Concentric" note="18 outside, 4 gap, 14 inside">
-        <div className="rounded-[18px] bg-card p-1 shadow-[inset_0_0_0_1px_var(--border)] corner-squircle">
+        <div className="rounded-[18px] surface-card p-1 shadow-[inset_0_0_0_1px_var(--border)] corner-squircle">
           <div className="h-20 w-40 rounded-[14px] bg-muted corner-squircle" />
         </div>
       </Labelled>
       <Labelled label="Not concentric" note="18 outside, 4 gap, 18 inside">
-        <div className="rounded-[18px] bg-card p-1 shadow-[inset_0_0_0_1px_var(--border)] corner-squircle">
+        <div className="rounded-[18px] surface-card p-1 shadow-[inset_0_0_0_1px_var(--border)] corner-squircle">
           <div className="h-20 w-40 rounded-[18px] bg-muted corner-squircle" />
         </div>
       </Labelled>

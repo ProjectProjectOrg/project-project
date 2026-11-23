@@ -109,7 +109,7 @@ function SidebarRail({
       onPointerDown={onPointerDown}
       onPointerCancel={resync}
       className={cn(
-        "relative flex h-full w-14 shrink-0 flex-col bg-rail pt-[19px] pb-3",
+        "relative flex h-full w-14 shrink-0 flex-col surface-rail pt-[19px] pb-3",
         className
       )}
     >

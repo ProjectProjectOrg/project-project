@@ -44,7 +44,7 @@ export default function Rows() {
   }
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex h-[24rem] w-60 flex-col rounded-[14px] bg-background py-2">
+      <div className="flex h-[24rem] w-60 flex-col rounded-[14px] surface-background py-2">
         <SidebarPanelBody label="Atlas Mobile App">
           <SidebarRow
             icon={<ListChecks />}

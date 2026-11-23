@@ -92,7 +92,7 @@ function Frame({
           />
         </div>
         <div className="relative flex min-h-0 flex-1">
-          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 shrink-0 flex-col bg-(color:--tooltip)">
+          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 shrink-0 flex-col surface-(--tooltip)">
             <CommandMenuList aria-label={placeholder} renderItem={() => null}>
               <CommandMenuEmpty className="p-0">
                 <CommandFrameEmpty {...empty} />

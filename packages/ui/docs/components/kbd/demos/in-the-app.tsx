@@ -108,7 +108,7 @@ export default function InTheApp() {
           <Button
             variant="ghost"
             aria-keyshortcuts="E"
-            className="rounded-full bg-page pl-3"
+            className="rounded-full surface-page pl-3"
           >
             Edit
             <Kbd aria-hidden>E</Kbd>

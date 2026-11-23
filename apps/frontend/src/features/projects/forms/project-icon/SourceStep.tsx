@@ -122,7 +122,7 @@ export function SourceStep({
                     )}
                     onSuccess={({ value }) =>
                       value.status !== "active" ? (
-                        <div className="flex gap-3 rounded-md bg-muted p-3">
+                        <div className="flex gap-3 rounded-md surface-muted p-3">
                           <Database
                             className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                             strokeWidth={1.75}
@@ -190,9 +190,9 @@ export function SourceStep({
 
             <group.Subscribe selector={(state) => state.values.emoji}>
               {(emoji) => (
-                <div className="flex items-start gap-2.5 rounded-md bg-muted p-2.5">
+                <div className="flex items-start gap-2.5 rounded-md surface-muted p-2.5">
                   {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- a 24px emoji tile, squircled to read as an icon */}
-                  <span className="grid size-6 shrink-0 place-items-center rounded-[6px] bg-background text-body leading-none corner-squircle">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-[6px] surface-background text-body leading-none corner-squircle">
                     {emoji}
                   </span>
                   <span className="text-body text-muted-foreground">

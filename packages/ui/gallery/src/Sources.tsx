@@ -45,7 +45,7 @@ function SourceChip({ source }: Readonly<{ source: Source }>) {
   // Plain inline text, not a flex row, so a long note wraps like a sentence
   // inside the chip instead of squeezing into a column.
   const className =
-    "inline-block max-w-full rounded-lg bg-surface-2 px-2.5 py-1.5 text-caption corner-squircle"
+    "inline-block max-w-full rounded-lg surface-2 px-2.5 py-1.5 text-caption corner-squircle"
   return source.href === undefined ? (
     <span className={className}>{body}</span>
   ) : (
