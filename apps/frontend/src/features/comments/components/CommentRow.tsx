@@ -93,7 +93,7 @@ export function CommentRow({
   const resolve = useAtomSet(resolveKey)
   const resolveState = useAtomValue(resolveKey)
   const waiting =
-    pending || editState.waiting || deleteState.waiting || resolveState.waiting
+    editState.waiting || deleteState.waiting || resolveState.waiting
   const isRoot = comment.id === thread.root.id
   const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
   const resolution = thread.root.resolution
@@ -172,7 +172,6 @@ export function CommentRow({
                 )
               }
               pending={waiting}
-              appear={pending}
               targeted={targeted}
               onContextMenu={keepNativeMenu}
               footer={

@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest"
 
-import { railBend, railPath } from "./timelineRail"
+import { railBend, railPath, railPoints } from "./timelineRail"
 
 const numbers = (d: string) =>
   [...d.matchAll(/[ML] (-?[\d.]+) (-?[\d.]+)/g)].map(([, x, y]) => ({
@@ -49,5 +50,83 @@ describe("railBend", () => {
     const xs = railBend(10, 16, 0).map((p) => p.x)
     expect(Math.max(...xs)).toBeLessThanOrEqual(16 + 1e-9)
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(10 - 1e-9)
+  })
+})
+
+const box = (top: number, height: number, scrollHeight = height) => {
+  const element = document.createElement("div")
+  element.getBoundingClientRect = () =>
+    DOMRect.fromRect({ x: 0, y: top, width: 20, height })
+  Object.defineProperty(element, "scrollHeight", { get: () => scrollHeight })
+  return element
+}
+
+describe("railPoints", () => {
+  it("follows the most closed clip when clips nest", () => {
+    const root = box(0, 200)
+    const before = box(0, 20)
+    before.dataset.railNode = ""
+    const closing = box(40, 29, 58)
+    closing.dataset.railClip = ""
+    const opened = box(40, 58)
+    opened.dataset.railClip = ""
+    const mark = box(80, 20)
+    mark.dataset.railNode = ""
+    opened.append(mark)
+    closing.append(opened)
+    root.append(before, closing)
+
+    expect(railPoints(root)[1]?.y).toBeCloseTo(10 + (90 - 10) / 2)
+  })
+
+  it("puts a closed clip's mark on the mark before it, across too", () => {
+    const root = box(0, 200)
+    const before = box(0, 20)
+    before.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 22, y: 0, width: 20, height: 20 })
+    before.dataset.railNode = ""
+    const closed = box(40, 0, 58)
+    closed.dataset.railClip = ""
+    const mark = box(50, 20)
+    mark.dataset.railNode = ""
+    closed.append(mark)
+    root.append(before, closed)
+
+    expect(railPoints(root)[1]).toEqual({ x: 32, y: 10 })
+  })
+
+  it("keeps a fold's marks in one column while it opens", () => {
+    const root = box(0, 300)
+    const before = box(0, 20)
+    before.dataset.railNode = ""
+    const fold = box(40, 60, 120)
+    fold.dataset.railClip = ""
+    for (const top of [40, 80, 120]) {
+      const mark = box(top, 20)
+      mark.getBoundingClientRect = () =>
+        DOMRect.fromRect({ x: 22, y: top, width: 20, height: 20 })
+      mark.dataset.railNode = ""
+      fold.append(mark)
+    }
+    root.append(before, fold)
+
+    const xs = railPoints(root)
+      .slice(1)
+      .map((point) => point.x)
+    expect(new Set(xs)).toEqual(new Set([21]))
+  })
+
+  it("puts a closed mark with nothing before it on the mark after it", () => {
+    const root = box(0, 200)
+    const closed = box(0, 0, 58)
+    closed.dataset.railClip = ""
+    const mark = box(20, 20)
+    mark.dataset.railNode = ""
+    closed.append(mark)
+    const after = box(40, 20)
+    after.dataset.railNode = ""
+    root.append(closed, after)
+
+    expect(railPoints(root)[0]).toEqual({ x: 10, y: 50 })
   })
 })

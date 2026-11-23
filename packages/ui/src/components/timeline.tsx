@@ -207,10 +207,11 @@ export function TimelineFold({
   )
 }
 
-// Something that arrives while you watch (a comment you just placed, a
-// reply): its space eases open, it rises into place, and the rail follows it
-// down. Only what mounts with `appear` animates; what was already there
-// shows as it is.
+// Something that arrives while you watch (a comment you just placed): its
+// space eases open, pushing what's below down, and the rail follows it. It
+// doesn't fade or slide: it's already where it belongs, so only the room
+// for it opens. Only what mounts with `appear` animates; what was already
+// there shows as it is.
 export function TimelineAppear({
   appear,
   className,
@@ -218,25 +219,20 @@ export function TimelineAppear({
 }: Readonly<{ appear: boolean; className?: string; children: ReactNode }>) {
   const rail = use(RailContext)
   const reduce = useReducedMotion() ?? false
-  const [animate] = useState(appear && !reduce)
+  const [arriving] = useState(appear && !reduce)
   useLayoutEffect(() => {
-    if (animate) rail?.follow(FOLD_SECONDS * 1000 + 80)
-  }, [animate, rail])
-  if (!animate) return <div className={className}>{children}</div>
+    if (arriving) rail?.follow(FOLD_SECONDS * 1000 + 80)
+  }, [arriving, rail])
+  if (!arriving) return <div className={className}>{children}</div>
   return (
     <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
+      initial={{ height: 0 }}
+      animate={{ height: "auto" }}
       transition={{ duration: FOLD_SECONDS, ease: EASE }}
-      className={cn("overflow-clip", className)}
+      data-rail-clip
+      className="overflow-clip"
     >
-      <motion.div
-        initial={{ y: 8, filter: "blur(2px)" }}
-        animate={{ y: 0, filter: "blur(0px)" }}
-        transition={{ duration: FOLD_SECONDS, ease: EASE }}
-      >
-        {children}
-      </motion.div>
+      <div className={className}>{children}</div>
     </motion.div>
   )
 }
@@ -348,13 +344,23 @@ export function TimelineRun({
 }
 
 // A slot in the timeline for something that isn't an event: a comment.
-export function TimelineEntry({ className, ...props }: ComponentProps<"li">) {
+// `appear` when it was just placed: its room, padding and all, eases open.
+export function TimelineEntry({
+  appear = false,
+  className,
+  children,
+  ...props
+}: ComponentProps<"li"> & Readonly<{ appear?: boolean }>) {
   return (
     <li
       data-slot="timeline-entry"
-      className={cn("py-2.5 pl-(--timeline-inset)", className)}
+      className={cn("pl-(--timeline-inset)", className)}
       {...props}
-    />
+    >
+      <TimelineAppear appear={appear} className="py-2.5">
+        {children}
+      </TimelineAppear>
+    </li>
   )
 }
 

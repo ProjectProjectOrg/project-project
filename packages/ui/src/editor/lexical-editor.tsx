@@ -39,6 +39,7 @@ import {
   type RefObject
 } from "react"
 
+import { CaretRevealPlugin } from "../editor/caret-reveal-plugin"
 import { ChecklistClickExtension } from "../editor/checklist-click-extension"
 import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
 import { CodeHighlightExtension } from "../editor/code-highlight"
@@ -367,6 +368,7 @@ export function LexicalEditor({
             <FormattingToolbarPlugin labels={formattingToolbarLabels()} />
           )}
           <LinkBlurActivationPlugin />
+          <CaretRevealPlugin />
           <CodeLanguagePlugin />
           <LinkFaviconsPlugin />
           {compact ? null : (

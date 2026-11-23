@@ -56,7 +56,7 @@ import {
 | `Timeline` | the list and its rail; `--timeline-inset` sets where the rows start (0 by default) |
 | `TimelineEvent` | one event: `mark` (20px), `actor`, the line, `time` |
 | `TimelineRun` | a folded run: `marks` (20px, stacked), `label`, `time`, `open` and `onOpenChange`; its children are the folded events, in the order to show them |
-| `TimelineEntry` | a slot for something that isn't an event: a comment |
+| `TimelineEntry` | a slot for something that isn't an event: a comment; `appear` when it was just placed eases its room open (through `TimelineAppear`) |
 | `TimelineMark` | puts something on the rail (a comment's avatar) |
 | `TimelineIndent` | one step in (a comment's replies) |
 | `TimelineActor` | the name in ink; `via` adds the client an agent acted through |
@@ -67,7 +67,7 @@ import {
 | `TimelineQuote` | quoted text under the line |
 | `TimelineSkeleton` | loading, announced with `label` |
 | `TimelineFold` | rows that fold open right under what opens them (a run's changes, a thread's earlier replies): the height eases open, rows come in one after another and the rail follows; `list` makes it an `<ol>` |
-| `TimelineAppear` | something that arrives while you watch (a comment just placed): its space eases open, it rises in, and the rail follows; only what mounts with `appear` animates |
+| `TimelineAppear` | something that arrives while you watch (a comment just placed): its space eases open without a fade or a slide, and the rail follows; only what mounts with `appear` animates |
 | `useTimelineRailFollow` | returns a function that has the rail follow a shape change for a given number of ms |
 | `timelineEase`, `timelineFoldSeconds` | the fold's curve and duration, for parts that move with it (Comment) |
 

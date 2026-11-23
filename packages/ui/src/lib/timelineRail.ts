@@ -54,40 +54,77 @@ export const railPath = (points: ReadonlyArray<RailPoint>) =>
     .join(" ")
 
 // Where each mark sits on the rail, relative to the rail's box. A mark
-// inside a fold or a box that is opening (data-rail-clip) travels with it:
-// from the mark before it to its own place, as far as the fold is open, and
-// the indent the fold itself adds (data-rail-indent, or its rows' left
-// padding) eases in the same way. Closed, it sits on the mark before it, so
-// the rail is exactly what it was without it; open, it's where it belongs.
-// Nothing jumps when a fold mounts or unmounts.
+// inside a fold or a box that is opening (data-rail-clip) travels with it,
+// as far as the fold is open: down from the mark before it, and across from
+// the point before the fold, so an indent eases in with it and the fold's
+// marks share one column. Closed, it sits on the mark before it, so the rail
+// is exactly what it was without it; open, it's where it belongs. Nothing
+// jumps when a fold mounts or unmounts. When clips nest (a reply box closing
+// around a fresh one still opening), the most closed one leads. Clipped
+// marks with nothing before them (a new comment at the top, newest first)
+// travel from the mark after them instead.
+const openOf = (clip: HTMLElement) =>
+  clip.scrollHeight > 0
+    ? Math.min(1, clip.getBoundingClientRect().height / clip.scrollHeight)
+    : 1
+
+const closestClip = (node: HTMLElement, root: HTMLElement) => {
+  let clip: HTMLElement | null = null
+  let open = 1
+  for (
+    let around = node.closest<HTMLElement>("[data-rail-clip]");
+    around !== null && root.contains(around);
+    around =
+      around.parentElement?.closest<HTMLElement>("[data-rail-clip]") ?? null
+  ) {
+    const opened = openOf(around)
+    if (clip === null || opened < open) {
+      clip = around
+      open = opened
+    }
+  }
+  return { clip, open }
+}
+
+const toward = (from: RailPoint, to: RailPoint, open: number) => ({
+  x: from.x + (to.x - from.x) * open,
+  y: from.y + (to.y - from.y) * open
+})
+
 export const railPoints = (root: HTMLElement) => {
   const box = root.getBoundingClientRect()
-  const points: Array<RailPoint> = []
-  for (const node of root.querySelectorAll<HTMLElement>("[data-rail-node]")) {
-    const r = node.getBoundingClientRect()
-    const x = r.left + r.width / 2 - box.left
-    const y = r.top + r.height / 2 - box.top
-    const clip = node.closest<HTMLElement>("[data-rail-clip]")
-    const prev = points.at(-1)
-    if (!clip || !root.contains(clip) || prev === undefined) {
-      points.push({ x, y })
-      continue
+  const marks = [...root.querySelectorAll<HTMLElement>("[data-rail-node]")].map(
+    (node) => {
+      const r = node.getBoundingClientRect()
+      const { clip, open } = closestClip(node, root)
+      return {
+        at: {
+          x: r.left + r.width / 2 - box.left,
+          y: r.top + r.height / 2 - box.top
+        },
+        clip,
+        open
+      }
     }
-    const c = clip.getBoundingClientRect()
-    const open =
-      clip.scrollHeight > 0 ? Math.min(1, c.height / clip.scrollHeight) : 1
-    const rows = clip.firstElementChild
-    const given = clip.dataset.railIndent
-    const step =
-      given !== undefined
-        ? Number.parseFloat(given) || 0
-        : rows instanceof HTMLElement
-          ? Number.parseFloat(getComputedStyle(rows).paddingLeft) || 0
-          : 0
-    points.push({
-      x: x - step * (1 - open),
-      y: prev.y + (y - prev.y) * open
-    })
+  )
+  const leading = marks.findIndex((mark) => mark.clip === null)
+  const lead = leading === -1 ? 0 : leading
+  const points: Array<RailPoint> = marks.map((mark) => mark.at)
+  const origins = new Map<HTMLElement, RailPoint>()
+  for (let index = lead + 1; index < marks.length; index++) {
+    const { at, clip, open } = marks[index]
+    const prev = points[index - 1]
+    if (clip === null) continue
+    const origin = origins.get(clip) ?? prev
+    origins.set(clip, origin)
+    points[index] = {
+      x: toward(origin, at, open).x,
+      y: toward(prev, at, open).y
+    }
+  }
+  for (let index = lead - 1; index >= 0; index--) {
+    const { at, open } = marks[index]
+    points[index] = toward(points[index + 1], at, open)
   }
   return points
 }

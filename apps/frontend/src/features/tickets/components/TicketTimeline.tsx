@@ -283,7 +283,7 @@ export function TicketTimeline<C>({
       <Timeline className="[--timeline-inset:var(--ticket-box-offset)]">
         {rows.map((row) =>
           TimelineRow.$is("comment")(row) ? (
-            <TimelineEntry key={row.key}>
+            <TimelineEntry key={row.key} appear={row.comment.appear}>
               {renderComment(row.comment)}
             </TimelineEntry>
           ) : (
