@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type {
   Estimate,
   LinkedTicket,
@@ -19,7 +19,7 @@ import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ComponentProps } from "react"
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, use, useEffect } from "react"
 
 import {
   projectEstimation,
@@ -31,6 +31,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { BoardCardGit } from "@/features/sprints/components/BoardCardGit"
+import { fillTicketContent } from "@/features/tickets/atoms/ticketContentFill"
 import {
   ticketDetail,
   ticketRequest
@@ -125,6 +126,12 @@ export function TicketPreviewBody({
   shortcut?: HotkeyChord
 }) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
+  const registry = use(RegistryContext)
+  useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   const result = useAtomValue(ticketDetail(req))
   const statusesReq = statusesRequest(scope.orgSlug, scope.slug)
   const statusesResult = useAtomValue(statusesFor(statusesReq))

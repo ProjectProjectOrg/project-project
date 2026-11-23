@@ -4,6 +4,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
+import { ticketContentKey } from "@/features/tickets/lib/ticketContent"
 
 export type TicketSubscribersRequest = ReturnType<
   typeof ticketSubscribersRequest
@@ -19,11 +20,11 @@ export const ticketSubscribersRequest = (
     params: { orgSlug, slug, id }
   }) as const
 
-const subscribersQuery = (req: TicketSubscribersRequest) => {
+export const subscribersQuery = (req: TicketSubscribersRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)
   return query("ticketSubscriptions", "list", {
     params: req.params,
-    timeToLive: "2 minutes",
+    serializationKey: ticketContentKey(req.params),
     reactivityKeys: [
       Keys.ticketsIn(scope),
       Keys.ticketComments(scope),

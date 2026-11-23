@@ -223,7 +223,6 @@ const probe = (name: string, key: string) =>
   query("tickets", "count", {
     params: { orgSlug: "acme", slug: "web" },
     query: { q: name },
-    timeToLive: "2 minutes",
     reactivityKeys: [key]
   })
 

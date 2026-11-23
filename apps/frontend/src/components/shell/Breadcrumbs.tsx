@@ -1,7 +1,12 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
 import { BreadcrumbItem, Breadcrumbs as Trail } from "@pp/ui/breadcrumbs"
-import { Link, useMatches, useSearch } from "@tanstack/react-router"
+import {
+  Link,
+  useMatches,
+  useRouterState,
+  useSearch
+} from "@tanstack/react-router"
 import * as Data from "effect/Data"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
@@ -277,10 +282,19 @@ function LoadedTicketCrumb({
   id
 }: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
+  const titleHint = useRouterState({
+    select: (state) => state.location.state.ticketTitle
+  })
   return (
     <TicketCrumbText
       id={id}
-      title={Result.isSuccess(result) ? result.value.title : null}
+      title={
+        Result.isSuccess(result)
+          ? result.value.title
+          : Result.isInitial(result)
+            ? (titleHint ?? null)
+            : null
+      }
     />
   )
 }

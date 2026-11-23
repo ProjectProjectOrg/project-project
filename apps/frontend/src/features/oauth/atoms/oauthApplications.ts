@@ -10,7 +10,6 @@ export const oauthApplicationsRequest = () => ({})
 
 const oauthApplicationsQuery = (_req: OAuthApplicationsRequest) =>
   query("oauthApplications", "list", {
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.oauthApplications()]
   })
 

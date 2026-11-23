@@ -34,7 +34,6 @@ const scopeOf = (req: StatusesRequest) =>
 const statusesQuery = (req: StatusesRequest) =>
   query("statuses", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [Keys.statuses(scopeOf(req))]
   })
 

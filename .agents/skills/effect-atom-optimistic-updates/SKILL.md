@@ -30,7 +30,6 @@ const backlogQuery = (req: BacklogRequest) =>
   query("tickets", "sections", {
     params: req.params,
     query: req.query,
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.ticketsIn(project(req))]
   })
 

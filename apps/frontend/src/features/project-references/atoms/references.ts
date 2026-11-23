@@ -19,7 +19,6 @@ export const referencesRequest = (orgSlug: string, slug: string) =>
 const referencesQuery = (req: ReferencesRequest) =>
   query("projectReferences", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [
       Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
     ]

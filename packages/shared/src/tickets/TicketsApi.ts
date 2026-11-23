@@ -63,6 +63,7 @@ import {
   BulkUpdateTicketsInput,
   BulkUpdateTicketsResult
 } from "./BulkTickets"
+import { TicketContentLine, TicketContentRequest } from "./content"
 import { MovedTicketLocation, MoveTicketInput, MoveTicketResult } from "./move"
 import {
   ArchiveTicketInput,
@@ -141,6 +142,19 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketListHttpQuery,
         success: TicketSections
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "content",
+      "/orgs/:orgSlug/projects/:slug/tickets/content",
+      {
+        params: ProjectPath,
+        payload: TicketContentRequest,
+        success: Schema.Array(TicketContentLine)
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })

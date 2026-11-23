@@ -52,14 +52,12 @@ const scopeOf = (req: ProjectLibraryRequest) =>
 const orgLibraryQuery = (req: OrgLibraryRequest) =>
   query("library", "org", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [Keys.orgLibrary(req.params.orgSlug)]
   })
 
 const projectLibraryQuery = (req: ProjectLibraryRequest) =>
   query("library", "project", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [
       Keys.orgLibrary(req.params.orgSlug),
       Keys.projectLibrary(scopeOf(req))

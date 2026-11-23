@@ -12,8 +12,7 @@ export const linkPreviewRequest = (url: string) => ({
 
 const linkPreviewQuery = (req: LinkPreviewRequest) =>
   query("linkPreviews", "get", {
-    query: req.query,
-    timeToLive: "1 hour"
+    query: req.query
   })
 
 export const linkPreview = Atom.family((req: LinkPreviewRequest) =>

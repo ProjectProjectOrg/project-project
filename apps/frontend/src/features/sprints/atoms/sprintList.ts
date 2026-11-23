@@ -41,7 +41,6 @@ const scopeOf = (req: SprintListRequest) =>
 const sprintsQuery = (req: SprintListRequest) =>
   query("groups", "list", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [Keys.sprints(scopeOf(req))]
   })
 

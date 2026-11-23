@@ -43,7 +43,6 @@ export const ticketPage = Atom.family((req: TicketPageRequest) => {
       sort: DEFAULT_TICKET_SORT,
       cursor: req.cursor
     },
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scope),
       Keys.ticketLists(scope),

@@ -28,7 +28,6 @@ export const pinsRequest = (orgSlug: string) =>
 const pinsQuery = (req: PinsRequest) =>
   query("sidebarPins", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [Keys.pins(req.params.orgSlug)]
   })
 

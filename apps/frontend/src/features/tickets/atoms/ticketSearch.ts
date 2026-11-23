@@ -37,7 +37,6 @@ export const ticketSearch = Atom.family((req: SearchRequest) => {
   return query("tickets", "search", {
     params: req.params,
     query: req.query,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
@@ -53,7 +52,6 @@ export const ticketTextSearch = Atom.family(
     return query("tickets", "textSearch", {
       params: req.params,
       query: { q: req.q },
-      timeToLive: "2 minutes",
       reactivityKeys: [Keys.ticketsIn(scope), Keys.ticketLists(scope)]
     })
   }
@@ -63,7 +61,6 @@ export const ticketTitles = Atom.family((params: SearchRequest["params"]) => {
   const scope = projectScope(params.orgSlug, params.slug)
   return query("tickets", "titles", {
     params,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scope),
       Keys.ticketLists(scope),

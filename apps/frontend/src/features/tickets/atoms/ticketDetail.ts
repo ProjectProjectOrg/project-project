@@ -17,6 +17,7 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { withoutRelation } from "../lib/relationGroups"
+import { ticketContentKey } from "../lib/ticketContent"
 import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
 import { coalescingTicketUpdate } from "./ticketRows"
 
@@ -34,7 +35,7 @@ const scopeOf = (req: TicketRequest) =>
 export const ticketQuery = (req: TicketRequest) =>
   query("tickets", "get", {
     params: req.params,
-    timeToLive: "2 minutes",
+    serializationKey: ticketContentKey(req.params),
     reactivityKeys: [
       Keys.ticket(scopeOf(req), req.params.id),
       Keys.ticketsIn(scopeOf(req)),
@@ -51,7 +52,6 @@ export const ticketDetail = Atom.family((req: TicketRequest) =>
 const movedTicketQuery = (req: TicketRequest) =>
   query("tickets", "movedTo", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.ticket(scopeOf(req), req.params.id)]
   })
 

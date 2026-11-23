@@ -31,7 +31,6 @@ const scopeOf = (req: FigmaProjectRequest | FigmaTicketLinksRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const figmaProfileQuery = query("figma", "profile", {
-  timeToLive: "1 minute",
   reactivityKeys: [Keys.figmaProfile()]
 })
 
@@ -55,7 +54,6 @@ export const disconnectFigmaProfileAtom = viewMutation(figmaProfileAtom, {
 const figmaProjectQuery = (req: FigmaProjectRequest) =>
   query("figma", "projectStatus", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.figmaProject(scopeOf(req))]
   })
 
@@ -82,7 +80,6 @@ export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
 const figmaTicketLinksQuery = (req: FigmaTicketLinksRequest) =>
   query("figma", "ticketLinks", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.figmaTicketLinks(scopeOf(req))]
   })
 

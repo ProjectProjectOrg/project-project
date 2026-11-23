@@ -60,6 +60,7 @@ declare module "@tanstack/react-router" {
   }
   interface HistoryState {
     ticketStep?: true
+    ticketTitle?: string
   }
 }
 

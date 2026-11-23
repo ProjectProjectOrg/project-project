@@ -12,6 +12,7 @@ import {
 } from "@/features/sprints/components/SprintChip"
 import { sprintCountdown } from "@/features/sprints/lib/sprintDates"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
+import { useShownTicket } from "@/features/tickets/hooks/useShownTicket"
 import { m } from "@/paraglide/messages"
 
 type PinRowProps = Readonly<{
@@ -77,6 +78,12 @@ function PinRowView({
   live,
   action
 }: PinRowProps & Readonly<{ live: boolean; action: React.ReactNode }>) {
+  useShownTicket(
+    orgSlug,
+    slug,
+    "ticket" in display ? display.ticket.id : null,
+    undefined
+  )
   if ("ticket" in display) {
     const { ticket } = display
     return (

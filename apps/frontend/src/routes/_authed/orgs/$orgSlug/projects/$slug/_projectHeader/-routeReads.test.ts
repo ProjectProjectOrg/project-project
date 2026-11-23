@@ -186,6 +186,23 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
   ).toBe(false)
 })
 
+it("starts the reads of the grouping a preload names over the viewer's own", async () => {
+  localStorage.setItem(
+    "projectproject:backlog-grouping:user-1:org/project",
+    JSON.stringify("status")
+  )
+  load(BacklogRoute.options.loader, {
+    ...loaderDefaults(BacklogRoute),
+    context: { registry },
+    params,
+    deps: { group: "sprint" }
+  })
+  await started("/tickets/sprint-sections")
+  expect(
+    requests.some((url) => url.pathname.endsWith("/tickets/sections"))
+  ).toBe(false)
+})
+
 it.each(["board", "list", "description"] as const)(
   "starts only the %s view's ticket read without awaiting responses",
   async (view) => {

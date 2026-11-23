@@ -83,7 +83,6 @@ const projectsQuery = (req: ProjectsRequest) =>
   Atom.map(
     query("projects", "list", {
       params: req.params,
-      timeToLive: "1 minute",
       reactivityKeys: [Keys.projects(req.params.orgSlug)]
     }),
     (result) => {
@@ -104,7 +103,6 @@ export const confirmedProject = (req: ProjectRequest) =>
   Atom.map(
     query("projects", "get", {
       params: req.params,
-      timeToLive: "2 minutes",
       reactivityKeys: [
         Keys.project(scopeOf(req)),
         Keys.orgMembers(req.params.orgSlug),

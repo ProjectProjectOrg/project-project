@@ -115,7 +115,6 @@ const scopeOf = (req: ProjectRequest | BranchesRequest) =>
 const gitStatesQuery = (req: ProjectRequest) =>
   query("projects", "gitStates", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [
       Keys.gitStates(scopeOf(req)),
       Keys.githubAuth(req.params.orgSlug)
@@ -189,7 +188,6 @@ export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
 const githubIntegrationQuery = (req: GithubOrgRequest) =>
   query("projects", "githubIntegration", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.githubIntegration(req.params.orgSlug),
       Keys.githubAuth(req.params.orgSlug)
@@ -252,7 +250,6 @@ const branchPage = (req: BranchesRequest, after: string | null) =>
       first: BRANCH_PAGE_SIZE,
       ...(after === null ? {} : { after })
     },
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.branches(scopeOf(req)),
       Keys.githubAuth(req.params.orgSlug)
@@ -380,7 +377,6 @@ export const disconnectGithub = Atom.family(
 export const projectGithubInstallations = Atom.family((req: ProjectRequest) =>
   query("projects", "listGithubInstallations", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.githubIntegration(req.params.orgSlug),
       Keys.githubAuth(req.params.orgSlug)
@@ -487,8 +483,7 @@ export const githubInstallationChoices = Atom.family(
   (req: GithubInstallationChoicesRequest) =>
     query("projects", "githubInstallationChoices", {
       params: req.params,
-      query: req.query,
-      timeToLive: "10 minutes"
+      query: req.query
     })
 )
 

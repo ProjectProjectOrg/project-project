@@ -72,25 +72,19 @@ export const jiraSkippedAttachmentsRequest = (
     params: { orgSlug, migrationId }
   }) as const
 
-export const jiraProfile = query("jira", "profile", {
-  timeToLive: "1 minute"
-})
+export const jiraProfile = query("jira", "profile", {})
 
-export const jiraSites = query("jira", "sites", {
-  timeToLive: "1 minute"
-})
+export const jiraSites = query("jira", "sites", {})
 
 export const jiraProjects = Atom.family((req: JiraProjectsRequest) =>
   query("jira", "projects", {
-    params: req.params,
-    timeToLive: "1 minute"
+    params: req.params
   })
 )
 
 const jiraMigrationsQuery = (req: JiraOrgRequest) =>
   query("jiraMigrations", "list", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.jiraMigrations(req.params.orgSlug)]
   })
 
@@ -101,7 +95,6 @@ export const jiraMigrations = Atom.family((req: JiraOrgRequest) =>
 const jiraMigrationQuery = (req: JiraMigrationRequest) =>
   query("jiraMigrations", "get", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [
       Keys.jiraMigration(req.params.orgSlug, req.params.migrationId)
     ]
@@ -115,16 +108,14 @@ export const jiraDestinationConflicts = Atom.family(
   (req: JiraDestinationConflictsRequest) =>
     query("jiraMigrations", "destinationConflicts", {
       params: req.params,
-      query: req.query,
-      timeToLive: "30 seconds"
+      query: req.query
     })
 )
 
 export const jiraSkippedAttachments = Atom.family(
   (req: JiraSkippedAttachmentsRequest) =>
     query("jiraMigrations", "skippedAttachments", {
-      params: req.params,
-      timeToLive: "1 hour"
+      params: req.params
     })
 )
 
@@ -263,7 +254,6 @@ export const jiraReportRequest = (orgSlug: string, migrationId: string) =>
 
 export const jiraMigrationReport = Atom.family((req: JiraReportRequest) =>
   query("jiraMigrations", "report", {
-    params: req.params,
-    timeToLive: "10 minutes"
+    params: req.params
   })
 )

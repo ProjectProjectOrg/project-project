@@ -68,9 +68,10 @@ export const Route = createFileRoute(
     const grouping =
       view === "board"
         ? "status"
-        : viewerId === undefined
-          ? undefined
-          : readBacklogGrouping(viewerId, orgSlug, slug)
+        : (search.group ??
+          (viewerId === undefined
+            ? undefined
+            : readBacklogGrouping(viewerId, orgSlug, slug)))
     if (grouping !== "sprint") {
       registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     }

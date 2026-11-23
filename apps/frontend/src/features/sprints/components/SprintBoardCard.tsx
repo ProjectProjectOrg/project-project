@@ -17,6 +17,7 @@ import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/U
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
+import { useShownTicket } from "@/features/tickets/hooks/useShownTicket"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 
@@ -56,6 +57,7 @@ function BoardCardFields({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
+  useShownTicket(orgSlug, slug, ticket.id, from)
   const pointAt = usePointedTicket(orgSlug, slug, ticket, onPatch)
   const preloadChildren = useChildTicketsPreload(ticket)
   const actor = useProjectActor()

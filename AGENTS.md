@@ -200,7 +200,7 @@ Read `docs/frontend/forms.md` before writing or changing a form.
 Read `docs/frontend/data-layer.md` before adding or changing a read, a mutation or an `AsyncResult` render. The rules most often broken:
 
 - **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Reads go through `query` from `@/api/query`, not `Api.query`.
-- **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, keyed by a request object with a `_view` literal. The query stays module-private, and `timeToLive` and `reactivityKeys` are declared on it.
+- **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, keyed by a request object with a `_view` literal. The query stays module-private and declares its `reactivityKeys`; retention (30 idle minutes) is set once in `query`.
 - **Default to optimistic.** Mutations are `viewMutation` against the wrapper of the view they fire from, keyed by view request plus entity id, with input equal to the API payload.
 - **Read and write through the same wrapper.** An optimistic value on an atom nobody renders is invisible until a reload, and nothing errors.
 - **Reactivity keys come from `src/api/keys.ts`**, in array form.

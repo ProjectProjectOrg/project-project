@@ -9,10 +9,12 @@ import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { steppedTicket } from "@/features/tickets/atoms/steppedTicket"
 import {
-  ticketDetail,
-  ticketRequest
-} from "@/features/tickets/atoms/ticketDetail"
+  FILL_AHEAD,
+  fillTicketWindow
+} from "@/features/tickets/atoms/ticketContentFill"
 import {
+  knownViewSequence,
+  rememberViewSequence,
   ticketSequence,
   ticketSequenceRequest
 } from "@/features/tickets/atoms/ticketSequence"
@@ -39,6 +41,7 @@ type Entry = Readonly<{ id: TicketId; source: string }>
 type Session = Readonly<{
   entry: Entry
   sequence: TicketSequence | null
+  provisional: boolean
 }>
 
 export type TicketStepping = Readonly<{
@@ -61,13 +64,22 @@ export function useTicketStepping(
   const source = JSON.stringify([orgSlug, slug, from ?? null])
   const [entry, setEntry] = useState<Entry>({ id: urlId, source })
   if (entry.source !== source) setEntry({ id: urlId, source })
-  const loaded = useAtomValue(
-    ticketSequence(ticketSequenceRequest(orgSlug, slug, entry.id, listSource))
-  )
+  const sequenceReq = ticketSequenceRequest(orgSlug, slug, entry.id, listSource)
+  const loaded = useAtomValue(ticketSequence(sequenceReq))
   const [session, setSession] = useState<Session | null>(null)
-  if (Result.isSuccess(loaded) && session?.entry !== entry) {
-    setSession({ entry, sequence: loaded.value })
+  if (Result.isSuccess(loaded)) {
+    if (session?.entry !== entry || session.provisional)
+      setSession({ entry, sequence: loaded.value, provisional: false })
+  } else if (session?.entry !== entry) {
+    const known = knownViewSequence(registry, sequenceReq)
+    if (known !== null)
+      setSession({ entry, sequence: known, provisional: true })
   }
+  const loadedSequence = Result.isSuccess(loaded) ? loaded.value : undefined
+  useEffect(() => {
+    if (loadedSequence !== undefined)
+      rememberViewSequence(registry, sequenceReq, loadedSequence)
+  }, [registry, sequenceReq, loadedSequence])
   const sequence = session?.entry === entry ? session.sequence : null
 
   const [cursor, setCursor] = useState<StepCursor | null>(null)
@@ -99,31 +111,14 @@ export function useTicketStepping(
   }, [registry, urlId, shown, title])
   useLayoutEffect(() => () => registry.set(steppedTicket, null), [registry])
 
-  const warmed = useRef(new Map<TicketId, () => void>())
   useEffect(() => {
-    const mounts = warmed.current
-    return () => {
-      for (const unmount of mounts.values()) unmount()
-      mounts.clear()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (sequence === null) return
-    const mounts = warmed.current
-    const warm = new Set(warmWindow(sequence.tickets, shown, direction.current))
-    for (const [id, unmount] of mounts) {
-      if (warm.has(id)) continue
-      unmount()
-      mounts.delete(id)
-    }
-    for (const id of warm) {
-      if (mounts.has(id)) continue
-      mounts.set(
-        id,
-        registry.mount(ticketDetail(ticketRequest(orgSlug, slug, id)))
-      )
-    }
+    if (sequence === null) return undefined
+    return fillTicketWindow(
+      registry,
+      { orgSlug, slug },
+      warmWindow(sequence.tickets, shown, direction.current),
+      warmWindow(sequence.tickets, shown, direction.current, FILL_AHEAD)
+    )
   }, [registry, orgSlug, slug, sequence, shown])
 
   useEffect(() => {

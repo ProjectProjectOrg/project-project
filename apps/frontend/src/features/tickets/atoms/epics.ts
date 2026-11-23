@@ -26,7 +26,6 @@ const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
       sort: EPIC_SORT,
       cursor
     },
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(projectScope(req.params.orgSlug, req.params.slug))
     ]

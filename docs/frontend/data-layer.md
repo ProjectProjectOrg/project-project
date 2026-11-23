@@ -19,7 +19,6 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
    const tagsQuery = (req: TagsRequest) =>
      query("tags", "list", {
        params: req.params,
-       timeToLive: "2 minutes",
        reactivityKeys: [Keys.tags(scopeOf(req))]
      })
 
@@ -30,9 +29,11 @@ Read before adding or changing a read, a mutation or an `AsyncResult` render in 
 
    Each view's request carries a `_view` literal and is built by its own builder (`tagsRequest`, `backlogRequest`, `sprintSectionsRequest`), and its type is derived from that builder rather than declared beside it, so two views with the same params cannot take each other's request: `updateBacklogTicket({ req: sprintSectionsReq, id })` does not compile. Requests shared by several reads on purpose (`ProjectRequest`, `OrgRequest`) stay unbranded.
 
-   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and nothing else does); components never see one.
+   `Atom.family` hashes its key by Effect's structural equality (`node_modules/effect/src/Equal.ts`), not by reference, so rebuilding the request literal on every render is free. What must be stable is the request's _contents_ — a field that is not structurally equal from one render to the next (a fresh `Date`, a generated id, a callback) is a different key and a second fetch. Export a query only to compose it into another region inside the atom layer (`sprintDetail.ts` exports `sprintQuery` for `sprintBoard.ts`, and the ticket content queries are exported for `ticketContentFill.ts`); components never see one.
 
-3. **Retention and invalidation are declared at the query.** `timeToLive` and `reactivityKeys` sit in the `query` call next to the data they describe, so a view states what it listens to and how long it is kept. Neither belongs in a mutation body.
+   Every query is serializable: `query` derives its `serializationKey` from the request (its params, query, payload and reactivity keys as JSON), so a read can be preloaded by key. Ticket content (detail, comments, first activity page, subscribers, sub-tickets) is the one read filled in bulk: its queries pass their own `serializationKey`, and `fillTicketContent` puts a batch response into the registry with `preloadQuery` (`api/query.ts`). A preloaded value is taken on the atom's first read and revalidated in the background; it never replaces a node that already exists.
+
+3. **One retention rule; invalidation is declared at the query.** `query` keeps every read for 30 minutes after nothing shows it, so a page visited earlier in the session paints from memory on return and revalidates behind it (stale after 30 seconds, on remount and window focus). A query passes its own `timeToLive` only with a concrete reason to keep it shorter or longer. The one exception is `ticketSequence` (30 seconds): the ticket page freezes the first order it reads for as long as it is open, so that read must not be served from a long-retained copy. Invalidating a retained read refetches it at once, even when nothing shows it, so every read still held multiplies the requests one invalidation causes; keep a read's keys as narrow as its data allows. `reactivityKeys` sit in the `query` call next to the data they describe, so a view states what it listens to. Neither belongs in a mutation body.
 
 4. **Read and write through the same wrapper.** The atom a view renders and the atom its editors mutate must be the same one. This is the worst failure mode in this layer: the optimistic value lands on an atom nobody renders, so the edit is invisible until a reload, and nothing errors. Adding a tag did exactly this during the migration — the detail view read `ticketDetail` while four editors still wrote a legacy atom that no longer had a consumer.
 

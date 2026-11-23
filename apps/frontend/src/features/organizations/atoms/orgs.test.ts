@@ -203,7 +203,6 @@ describe("org members optimistic updates", () => {
       query("tickets", "count", {
         params: { orgSlug: "acme", slug: "web" },
         query: { q: name },
-        timeToLive: "2 minutes",
         reactivityKeys: [key]
       })
     const orgMembersProbe = probe(

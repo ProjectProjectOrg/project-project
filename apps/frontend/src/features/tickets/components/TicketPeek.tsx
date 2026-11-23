@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import {
   finishedStatusSlugs,
   type Member,
@@ -9,7 +9,7 @@ import {
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react"
+import { lazy, Suspense, use, useEffect, useState, type ReactNode } from "react"
 
 import {
   projectEstimation,
@@ -25,6 +25,7 @@ import {
   childTickets,
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
+import { fillTicketContent } from "@/features/tickets/atoms/ticketContentFill"
 import {
   ticketDetail,
   ticketRequest
@@ -69,6 +70,12 @@ export function TicketPeek({
   scope: TicketPeekScope
   prefetch: ReadonlyArray<TicketId>
 }>) {
+  const registry = use(RegistryContext)
+  useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   const result = useAtomValue(
     ticketDetail(ticketRequest(scope.orgSlug, scope.slug, ticketId))
   )
@@ -202,10 +209,13 @@ export function TicketPrefetch({
   ticketId,
   scope
 }: Readonly<{ ticketId: TicketId; scope: Omit<TicketPeekScope, "members"> }>) {
-  useAtomValue(ticketDetail(ticketRequest(scope.orgSlug, scope.slug, ticketId)))
+  const registry = use(RegistryContext)
   useEffect(() => {
+    fillTicketContent(registry, { orgSlug: scope.orgSlug, slug: scope.slug }, [
+      ticketId
+    ])
     void loadMarkdown()
-  }, [])
+  }, [registry, scope.orgSlug, scope.slug, ticketId])
   return null
 }
 

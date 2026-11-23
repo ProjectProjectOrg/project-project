@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
+import { ticketContentKey } from "@/features/tickets/lib/ticketContent"
 
 export type CommentsRequest = ReturnType<typeof commentsRequest>
 
@@ -57,10 +58,10 @@ const createdKeys = Atom.family((_req: CommentsRequest) =>
   )
 )
 
-const commentsQuery = (req: CommentsRequest) =>
+export const commentsQuery = (req: CommentsRequest) =>
   query("ticketComments", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
+    serializationKey: ticketContentKey(req.params),
     reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]
   })
 

@@ -71,7 +71,6 @@ const snapshotQuery = (req: EpicSectionsRequest) =>
   query("tickets", req.by === "epic" ? "epicSections" : "parentSections", {
     params: req.params,
     query: req.query,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
@@ -96,7 +95,6 @@ const pageQuery = (
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
       Keys.ticketPages(scopeOf(req)),

@@ -124,21 +124,18 @@ const mineQuery = (scoped: ScopedRequest, cursor: string | undefined) =>
   query("tickets", "mine", {
     params: scoped.req.params,
     query: cursor === undefined ? {} : { cursor },
-    timeToLive: "2 minutes",
     reactivityKeys: listensTo(scoped)
   })
 
 const mineByProjectQuery = (scoped: ScopedRequest) =>
   query("tickets", "mineByProject", {
     params: scoped.req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: listensTo(scoped)
   })
 
 const recentQuery = (scoped: ScopedRequest) =>
   query("tickets", "recent", {
     params: scoped.req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       ...listensTo(scoped),
       ...scoped.scopes.map(Keys.ticketComments)

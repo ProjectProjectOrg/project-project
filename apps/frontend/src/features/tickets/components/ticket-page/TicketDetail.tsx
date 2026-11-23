@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
-import { getRouteApi, Navigate } from "@tanstack/react-router"
+import { getRouteApi, Navigate, useRouterState } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -110,8 +110,13 @@ export function TicketDetail() {
   const stepper = sequence !== null && (
     <TicketStepper sequence={sequence} shown={shown} search={stepping.search} />
   )
+  const titleHint = useRouterState({
+    select: (state) => state.location.state.ticketTitle
+  })
   const title =
-    sequence?.tickets.find((ticket) => ticket.id === shown)?.title ?? null
+    sequence?.tickets.find((ticket) => ticket.id === shown)?.title ??
+    (shown === urlId ? titleHint : undefined) ??
+    null
   const loading = (
     <TicketPageLoading back={back} stepper={stepper} title={title} />
   )

@@ -36,7 +36,6 @@ const scopeOf = (req: TagsRequest) =>
 const tagsQuery = (req: TagsRequest) =>
   query("tags", "list", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.tags(scopeOf(req))]
   })
 
@@ -47,7 +46,6 @@ export const tagsFor = Atom.family((req: TagsRequest) =>
 const tagUsageQuery = (req: TagsRequest) =>
   query("tags", "usageCounts", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.tagUsage(scopeOf(req)),
       Keys.tags(scopeOf(req)),

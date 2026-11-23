@@ -107,7 +107,6 @@ const snapshotQuery = (req: SprintSectionsRequest) =>
   query("tickets", "sprintSections", {
     params: req.params,
     query: req.query,
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
       Keys.sprints(scopeOf(req)),
@@ -134,7 +133,6 @@ const pageQuery = (
       section: { groupId: [groupIdFilter(key)] },
       cursor
     },
-    timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
       Keys.ticketPages(scopeOf(req)),

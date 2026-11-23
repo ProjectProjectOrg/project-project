@@ -26,6 +26,7 @@ import {
   type TicketRow
 } from "@/features/tickets/lib/ticketRows"
 
+import { ticketContentKey } from "../lib/ticketContent"
 import { allPages } from "./allPages"
 import {
   bulkTicketUpdate,
@@ -48,7 +49,7 @@ export const childTicketsRequest = (
 const scopeOf = (req: ChildTicketsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const childTicketsPage = (
+export const childTicketsPage = (
   req: ChildTicketsRequest,
   cursor: string | undefined
 ) =>
@@ -59,7 +60,10 @@ const childTicketsPage = (
       sort: CHILD_TICKET_SORT,
       cursor
     },
-    timeToLive: "2 minutes",
+    serializationKey:
+      cursor === undefined
+        ? ticketContentKey({ ...req.params, id: req.parent })
+        : undefined,
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)

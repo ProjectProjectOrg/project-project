@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
 import { dieOnMarkdown } from "../http/dieOnMarkdown"
+import { contentBundle } from "./contentBundle"
 import { createTicket } from "./createTicket"
 
 export const TicketsHandlerLive = HttpApiBuilder.group(
@@ -35,6 +36,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.sections(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("content", ({ payload }) => contentBundle(payload))
       .handle("sprintSections", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.sprintSections(query)
