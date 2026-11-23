@@ -11,9 +11,9 @@ import type {
   StackLayerState,
   StartGithubAppManifestInput,
   StartGithubInstallInput,
-  TicketId,
   UpdateGithubInstallationInput
 } from "@pp/shared"
+import { TicketId } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -115,7 +115,6 @@ const scopeOf = (req: ProjectRequest | BranchesRequest) =>
 const gitStatesQuery = (req: ProjectRequest) =>
   query("projects", "gitStates", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [
       Keys.gitStates(scopeOf(req)),
       Keys.githubAuth(req.params.orgSlug)
@@ -180,8 +179,16 @@ export const projectGitStatesWaiting = Atom.family((req: ProjectRequest) =>
 
 export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
   Api.runtime.fn(
-    Effect.fn("invalidateGitStateTickets")(function* (_input: void) {
-      yield* Reactivity.invalidate([Keys.ticketsIn(scopeOf(req))])
+    Effect.fn("invalidateGitStateTickets")(function* (
+      ids: ReadonlyArray<string>
+    ) {
+      yield* Reactivity.invalidate([
+        ...new Set(
+          ids.flatMap((id) =>
+            Keys.ticketChanged(scopeOf(req), TicketId.make(id))
+          )
+        )
+      ])
     })
   )
 )
@@ -189,7 +196,6 @@ export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
 const githubIntegrationQuery = (req: GithubOrgRequest) =>
   query("projects", "githubIntegration", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.githubIntegration(req.params.orgSlug),
       Keys.githubAuth(req.params.orgSlug)
@@ -252,7 +258,6 @@ const branchPage = (req: BranchesRequest, after: string | null) =>
       first: BRANCH_PAGE_SIZE,
       ...(after === null ? {} : { after })
     },
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.branches(scopeOf(req)),
       Keys.githubAuth(req.params.orgSlug)
@@ -380,7 +385,6 @@ export const disconnectGithub = Atom.family(
 export const projectGithubInstallations = Atom.family((req: ProjectRequest) =>
   query("projects", "listGithubInstallations", {
     params: req.params,
-    timeToLive: "1 minute",
     reactivityKeys: [
       Keys.githubIntegration(req.params.orgSlug),
       Keys.githubAuth(req.params.orgSlug)
@@ -487,8 +491,7 @@ export const githubInstallationChoices = Atom.family(
   (req: GithubInstallationChoicesRequest) =>
     query("projects", "githubInstallationChoices", {
       params: req.params,
-      query: req.query,
-      timeToLive: "10 minutes"
+      query: req.query
     })
 )
 
@@ -536,10 +539,8 @@ const createBranchPayload = ({
     ? { name, baseBranch }
     : { name, baseBranch, repoId }) satisfies CreateBranchInput
 
-const branchKeys = (req: ProjectRequest, id: TicketId) => [
-  Keys.ticketsIn(scopeOf(req)),
-  Keys.ticket(scopeOf(req), id)
-]
+const branchKeys = (req: ProjectRequest, id: TicketId) =>
+  Keys.ticketChanged(scopeOf(req), id)
 
 export const createBranch = Atom.family(
   ({ req, id }: GitStateMutationRequest) =>

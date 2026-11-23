@@ -7,8 +7,7 @@ import { query } from "@/api/query"
 
 export const feedbackStatus = Atom.family((orgSlug: string) =>
   query("feedback", "status", {
-    params: { orgSlug },
-    timeToLive: "5 minutes"
+    params: { orgSlug }
   })
 )
 

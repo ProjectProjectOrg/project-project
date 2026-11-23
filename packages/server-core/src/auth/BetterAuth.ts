@@ -47,6 +47,8 @@ export type AuthUser = Readonly<{
 }>
 
 export type AuthSession = Readonly<{
+  id: string
+  expiresAt: Date
   activeOrganizationId?: string | null
 }>
 
@@ -55,7 +57,8 @@ export class BetterAuth extends Context.Service<
   Readonly<{
     handler: (request: Request) => Effect.Effect<Response, BetterAuthError>
     getSession: (
-      headers: Headers
+      headers: Headers,
+      options?: Readonly<{ revalidate: true }>
     ) => Effect.Effect<
       { user: AuthUser; session: AuthSession } | null,
       BetterAuthError

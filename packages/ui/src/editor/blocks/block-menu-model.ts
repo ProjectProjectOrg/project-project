@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import {
   blockMatchesDefinition,
   type BlockDefinition,
@@ -61,7 +60,6 @@ const DEFINITION_SUBTITLES: Record<BlockDefinitionState, () => string | null> =
 
 type MenuContext = Readonly<{
   lookup: BlockLookup
-  transformers: ReadonlyArray<Transformer>
   blocks: Pick<EditorBlocks, "canEdit" | "onMakeDefinition"> &
     Partial<Pick<EditorBlocks, "mode">>
 }>
@@ -99,7 +97,7 @@ export function $blockMenuModel(node: TopLevelBlockNode, context: MenuContext) {
       definitionTarget: null,
       resetsTo: null
     } satisfies BlockMenuModel
-  const content = $blockMarkdown(node, context.transformers)
+  const content = $blockMarkdown(node)
   const definition = context.lookup(blockType)
   const state: BlockDefinitionState =
     definition === undefined || definition.hidden

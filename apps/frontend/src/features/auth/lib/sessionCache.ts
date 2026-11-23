@@ -3,27 +3,45 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
+import {
+  clearSnapshot,
+  readSnapshot,
+  restoreQueries,
+  saveSnapshot,
+  shownQueries,
+  type Snapshot
+} from "@/api/querySnapshot"
 import { logout, me } from "@/features/auth/atoms/auth"
 
 export function createSessionCache<
   Router extends { cancelMatches: () => void }
->(createRouter: (registry: Registry.AtomRegistry) => Router) {
+>(
+  createRouter: (registry: Registry.AtomRegistry) => Router,
+  build: string | undefined,
+  viewer: string | null
+) {
   const listeners = new Set<() => void>()
-  let identity: string | null | undefined
+  const stored = build === undefined ? null : readSnapshot(build, viewer)
+  let identity: string | null | undefined = stored?.user
+  let trusted = true
   let disposed = false
   let generation = 0
-  const makeSession = (viewer?: Atom.Type<ReturnType<typeof me>>) => {
+  const makeSession = (
+    viewer?: Atom.Type<ReturnType<typeof me>>,
+    queries?: Snapshot["queries"]
+  ) => {
     const registry = Registry.make({
       initialValues: viewer ? [[me(), viewer]] : undefined
     })
+    if (queries !== undefined) restoreQueries(registry, queries)
     return {
       registry,
       router: createRouter(registry),
-      ready: viewer !== undefined,
+      ready: viewer !== undefined || queries !== undefined,
       generation: generation++
     }
   }
-  let session = makeSession()
+  let session = makeSession(undefined, stored?.queries)
   let stopWatching = () => {}
   const notify = () => listeners.forEach((listener) => listener())
 
@@ -31,13 +49,16 @@ export function createSessionCache<
     viewer: Atom.Type<ReturnType<typeof me>>,
     nextIdentity: string | null
   ) => {
+    const previous = session
     stopWatching()
-    session.router.cancelMatches()
-    session.registry.dispose()
+    clearSnapshot()
+    previous.router.cancelMatches()
     identity = nextIdentity
+    trusted = Result.isSuccess(viewer)
     session = makeSession(viewer)
     watch()
     notify()
+    queueMicrotask(() => previous.registry.dispose())
   }
 
   const watch = () => {
@@ -59,6 +80,7 @@ export function createSessionCache<
         return
       }
       if (nextIdentity !== undefined) identity = nextIdentity
+      if (Result.isSuccess(viewer) && !viewer.waiting) trusted = true
       if (!session.ready && !Result.isInitial(viewer)) {
         session = { ...session, ready: true }
         notify()
@@ -93,6 +115,20 @@ export function createSessionCache<
     },
     refreshIdentity: () => {
       if (!disposed) session.registry.refresh(me())
+    },
+    distrust: () => {
+      if (disposed) return
+      trusted = false
+      session.registry.refresh(me())
+    },
+    persist: () => {
+      if (disposed || !trusted || build === undefined) return
+      if (identity === undefined || identity === null) return
+      saveSnapshot({
+        user: identity,
+        build,
+        queries: shownQueries(session.registry)
+      })
     },
     dispose: () => {
       disposed = true

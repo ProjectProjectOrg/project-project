@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
+import { ticketContentKey } from "@/features/tickets/lib/ticketContent"
 
 export type CommentsRequest = ReturnType<typeof commentsRequest>
 
@@ -57,11 +58,14 @@ const createdKeys = Atom.family((_req: CommentsRequest) =>
   )
 )
 
-const commentsQuery = (req: CommentsRequest) =>
+export const commentsQuery = (req: CommentsRequest) =>
   query("ticketComments", "list", {
     params: req.params,
-    timeToLive: "5 minutes",
-    reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]
+    serializationKey: ticketContentKey(req.params),
+    reactivityKeys: [
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.projectResync(scopeOf(req))
+    ]
   })
 
 const commentsView = (req: CommentsRequest) =>
@@ -158,7 +162,11 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
             }
           : row
       ),
-    publish: () => [Keys.ticketComments(scopeOf(key.req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(key.req)),
+      Keys.comments(scopeOf(key.req), key.req.params.id),
+      Keys.ticketSubscribers(scopeOf(key.req), key.req.params.id)
+    ]
   })
 )
 
@@ -187,7 +195,11 @@ export const editComment = Atom.family(({ req, commentId }: CommentKey) =>
           ? { ...row, comment: updated, pending: false }
           : row
       ),
-    publish: () => [Keys.ticketComments(scopeOf(req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(req)),
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.ticketSubscribers(scopeOf(req), req.params.id)
+    ]
   })
 )
 
@@ -203,7 +215,11 @@ export const deleteComment = Atom.family(({ req, commentId }: CommentKey) =>
         })
         .pipe(Effect.as(commentId)),
     confirm: keepPredicted,
-    publish: () => [Keys.ticketComments(scopeOf(req))]
+    publish: () => [
+      Keys.ticketComments(scopeOf(req)),
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.ticketSubscribers(scopeOf(req), req.params.id)
+    ]
   })
 )
 
@@ -246,7 +262,11 @@ export const resolveThread = Atom.family(
         value.map((row) =>
           row.comment.id === rootId ? { ...row, comment: root } : row
         ),
-      publish: () => [Keys.ticketComments(scopeOf(req))]
+      publish: () => [
+        Keys.ticketComments(scopeOf(req)),
+        Keys.comments(scopeOf(req), req.params.id),
+        Keys.ticketSubscribers(scopeOf(req), req.params.id)
+      ]
     })
 )
 

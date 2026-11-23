@@ -167,6 +167,7 @@ Add a Proxy Host in NPM:
 - **SSL:** Request a Let's Encrypt cert; force SSL.
 
 Set the same Forward Hostname for HTTPS that you put in `BETTER_AUTH_URL`.
+Keep response buffering disabled for `/api/orgs/:orgSlug/projects/:slug/tickets/events` on the outer proxy by honoring `X-Accel-Buffering: no` or setting `proxy_buffering off` for that route.
 
 Project imports upload one archive of up to 2 GiB to `/api/orgs/<org>/project-imports`. The image's nginx allows that on this route only; if a proxy in front (NPM or another) caps request bodies, raise its limit for this host too, for example `client_max_body_size 2g;` in the Proxy Host's custom nginx configuration.
 

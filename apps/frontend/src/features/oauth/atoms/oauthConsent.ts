@@ -53,7 +53,6 @@ const oauthClientNameQuery = (req: OAuthClientRequest) =>
     ? missingOAuthClient
     : query("publicOAuth", "publicClient", {
         query: req.query,
-        timeToLive: "2 minutes",
         reactivityKeys: [Keys.oauthClient(req.query.client_id)]
       })
 

@@ -20,6 +20,8 @@ import {
   ProjectContext,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
+import { useProjectChanges } from "@/features/projects/hooks/useProjectChanges"
+import { useWarmProjectViews } from "@/features/projects/hooks/useWarmProjectViews"
 import { ticketKeyWidth } from "@/features/tickets/lib/ticketKeyWidth"
 import { m } from "@/paraglide/messages"
 
@@ -29,6 +31,8 @@ export function ProjectLayout({ orgSlug, slug }: ProjectParams) {
   const projectUpdate = useAtomValue(
     updateProject(projectRequest(orgSlug, slug))
   )
+  const rewarm = useWarmProjectViews(orgSlug, slug)
+  useProjectChanges(orgSlug, slug, rewarm)
   return (
     <ProjectScope orgSlug={orgSlug} slug={slug}>
       {(value, waiting) => (

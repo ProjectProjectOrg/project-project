@@ -56,12 +56,17 @@ const elapse = (ms: number) => vi.setSystemTime(start + ms)
 
 const returnToTab = () => tab.dispatchEvent(new Event("visibilitychange"))
 
-const tagsSource = (slug: string) =>
-  Api.query("tags", "list", {
+const tagsSource = (slug: string) => {
+  const request = {
     params: { orgSlug: "acme", slug },
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.tags(projectScope("acme", slug))]
+  }
+  return Api.query("tags", "list", {
+    ...request,
+    timeToLive: "30 minutes",
+    serializationKey: JSON.stringify(request)
   })
+}
 
 const serving = (tags: () => ReadonlyArray<Tag>) => {
   const gets = vi.fn(() =>
@@ -74,8 +79,7 @@ describe("query revalidation", () => {
   it("shares one revalidating atom between equal requests", () => {
     const request = () =>
       query("tags", "list", {
-        params: { orgSlug: "acme", slug: "shared" },
-        timeToLive: "2 minutes"
+        params: { orgSlug: "acme", slug: "shared" }
       })
     expect(request()).toBe(request())
   })

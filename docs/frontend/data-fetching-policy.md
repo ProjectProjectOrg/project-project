@@ -51,12 +51,14 @@ candidate or optional integration dataset.
 
 Idle TTL governs retention of unused atom nodes. It is not a freshness policy and
 does not periodically refetch mounted data. Keep freshness explicit: mutations
-settle through their optimistic wrapper and publish affected query keys, existing
-polling updates live integration state, and failed sections expose retry. Do not
+settle through their optimistic wrapper and publish affected query keys, the
+project event stream invalidates the same keys for changes made elsewhere,
+existing polling updates live integration state, and failed sections expose retry. Do not
 add blanket refetching on navigation or global keep-alive. Reuse retained
 results and in-flight reads through shared keys.
 
-Declare idle TTL and reactivity subscriptions on `Api.query`. Mutation modules
+`query` (`apps/frontend/src/api/query.ts`) gives every read the same 30-minute
+idle TTL; declare reactivity subscriptions on the query. Mutation modules
 publish keys for all affected views, including every affected source of a composed
 view. Shared-key invalidation may also refresh the initiating view; correctness
 comes before avoiding a redundant request. Batch operations that can partially
@@ -82,6 +84,14 @@ registry behaviour; router preload retention and atom retention are independent.
 On sign-out or identity change, clear all user-specific cached data and prevent
 old in-flight requests from repopulating the new session's state. Routing and
 rendering must not expose the previous identity's cached results.
+
+The on-disk snapshot of the last screen (`api/querySnapshot.ts`) follows the
+same rule: sign-out and an identity change delete it, and a tab whose snapshot
+another tab deleted writes none until `/me` answers again. A page load paints
+the snapshot before `/me` answers only when the `pp-viewer` cookie names the
+user who saved it, so a browser where someone else has since signed in never
+shows it. When `/me` still names another user or no session, the restored
+registry is dropped and the app continues as on a first visit.
 
 On organization switching within the same identity, retain correctly org-keyed
 resource caches so switching back stays fast. Reset transient UI state tied to

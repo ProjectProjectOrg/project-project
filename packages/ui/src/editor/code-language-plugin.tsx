@@ -1,4 +1,4 @@
-import { $isCodeNode, CodeNode } from "@lexical/code"
+import { $isCodeNode, CodeNode } from "@lexical/code-core"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { $findMatchingParent, mergeRegister } from "@lexical/utils"
@@ -24,7 +24,7 @@ import { m } from "./messages"
 
 const PLAIN = "plain"
 
-// The languages the app highlights (lib/prismLangs), by their fence name.
+// The languages the picker offers, by their fence name.
 const LANGUAGES = [
   ["typescript", "TypeScript"],
   ["tsx", "TSX"],

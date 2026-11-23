@@ -2,7 +2,6 @@ import { useAtomSet } from "@effect/atom-react"
 import type { Group } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { CalendarDays } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
@@ -10,6 +9,7 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useState, type FormEvent, type KeyboardEvent } from "react"
 
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import {
   sprintListRequest,
   updateSprint

@@ -1,53 +1,61 @@
 // @vitest-environment jsdom
-import { HorizontalRuleNode } from "@lexical/extension"
-import {
-  $convertFromMarkdownString,
-  $convertToMarkdownString
-} from "@lexical/markdown"
+import { $createCodeNode, CodeNode } from "@lexical/code-core"
+import { buildEditorFromExtensions } from "@lexical/extension"
+import { RichTextExtension } from "@lexical/rich-text"
 import {
   $createParagraphNode,
+  $createTextNode,
   $getRoot,
-  $getSelection,
-  createEditor
+  defineExtension,
+  KEY_SPACE_COMMAND,
+  type ElementNode,
+  type TextNode
 } from "lexical"
-import { describe, expect, it } from "vitest"
+import { expect, it } from "vitest"
 
-import { HORIZONTAL_RULE } from "./horizontal-rule"
+import { HorizontalRuleShortcutExtension } from "./horizontal-rule"
 
-function importMarkdown(markdown: string) {
-  const editor = createEditor({
-    namespace: "horizontal-rule-test",
-    nodes: [HorizontalRuleNode],
-    onError: (error) => {
-      throw error
-    }
-  })
-
-  let selection: unknown = null
-  let exported = ""
-
+const pressSpaceAfterDashes = ($block: (text: TextNode) => ElementNode) => {
+  const editor = buildEditorFromExtensions(
+    defineExtension({
+      name: "horizontal-rule-test",
+      nodes: [CodeNode],
+      dependencies: [RichTextExtension, HorizontalRuleShortcutExtension],
+      onError: (error) => {
+        throw error
+      }
+    })
+  )
   editor.update(
     () => {
-      $convertFromMarkdownString(markdown, [HORIZONTAL_RULE])
-      const root = $getRoot()
-      const last = root.getLastChild()
-      if (!last || last.getType() !== "paragraph") {
-        root.append($createParagraphNode())
-      }
-      selection = $getSelection()
-      exported = $convertToMarkdownString([HORIZONTAL_RULE])
+      const text = $createTextNode("---")
+      $getRoot().clear().append($block(text), $createParagraphNode())
+      text.select(3, 3)
     },
     { discrete: true }
   )
-
-  return { exported, selection }
+  const handled = editor.dispatchCommand(
+    KEY_SPACE_COMMAND,
+    new KeyboardEvent("keydown", { key: " " })
+  )
+  return {
+    handled,
+    blocks: editor.read(() =>
+      $getRoot()
+        .getChildren()
+        .map((child) => child.getType())
+    )
+  }
 }
 
-describe("HORIZONTAL_RULE", () => {
-  it("does not create an active selection while importing markdown", () => {
-    const result = importMarkdown("before\n\n---\n\nafter")
+it("turns a typed --- into a horizontal rule when space is pressed", () => {
+  expect(
+    pressSpaceAfterDashes((text) => $createParagraphNode().append(text)).blocks
+  ).toEqual(["horizontalrule", "paragraph"])
+})
 
-    expect(result.exported).toBe("before\n\n---\n\nafter")
-    expect(result.selection).toBeNull()
-  })
+it("leaves a --- line in a code block alone when space is pressed", () => {
+  expect(
+    pressSpaceAfterDashes((text) => $createCodeNode().append(text))
+  ).toEqual({ handled: false, blocks: ["code", "paragraph"] })
 })

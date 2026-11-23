@@ -20,7 +20,6 @@ const scopeOf = (req: EverhourProjectRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export const everhourProfileQuery = query("everhour", "profile", {
-  timeToLive: "1 minute",
   reactivityKeys: [Keys.everhourProfile()]
 })
 
@@ -56,7 +55,6 @@ export const disconnectEverhourProfileAtom = viewMutation(everhourProfileAtom, {
 const everhourProjectQuery = (req: EverhourProjectRequest) =>
   query("everhour", "projectStatus", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.everhourProject(scopeOf(req))]
   })
 

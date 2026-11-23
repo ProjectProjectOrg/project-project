@@ -1,4 +1,4 @@
-import { $isCodeNode } from "@lexical/code"
+import { $isCodeNode } from "@lexical/code-core"
 import { $isLinkNode } from "@lexical/link"
 import { $isListNode, ListNode } from "@lexical/list"
 import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text"

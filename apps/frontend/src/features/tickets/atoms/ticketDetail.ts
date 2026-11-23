@@ -17,7 +17,9 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { withoutRelation } from "../lib/relationGroups"
-import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
+import { ticketContentKey } from "../lib/ticketContent"
+import { applyTicketDetailPatch } from "../lib/ticketPatch"
+import { parentKeys } from "./bulkTickets"
 import { coalescingTicketUpdate } from "./ticketRows"
 
 export type TicketRequest = ReturnType<typeof ticketRequest>
@@ -34,10 +36,10 @@ const scopeOf = (req: TicketRequest) =>
 export const ticketQuery = (req: TicketRequest) =>
   query("tickets", "get", {
     params: req.params,
-    timeToLive: "2 minutes",
+    serializationKey: ticketContentKey(req.params),
     reactivityKeys: [
       Keys.ticket(scopeOf(req), req.params.id),
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.projectResync(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug),
       Keys.orgLibrary(req.params.orgSlug),
       Keys.projectLibrary(scopeOf(req))
@@ -51,7 +53,6 @@ export const ticketDetail = Atom.family((req: TicketRequest) =>
 const movedTicketQuery = (req: TicketRequest) =>
   query("tickets", "movedTo", {
     params: req.params,
-    timeToLive: "2 minutes",
     reactivityKeys: [Keys.ticket(scopeOf(req), req.params.id)]
   })
 
@@ -63,26 +64,13 @@ export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
-const publishFor = (req: TicketRequest, patch: TicketEdit) => {
-  const scope = scopeOf(req)
-  const fields = Object.keys(patch)
-  const contentOnly = fields.every((f) => f === "title" || f === "body")
-  if (!contentOnly) return Keys.ticketsChanged(scope)
-  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
-  if (patch.title !== undefined) {
-    keys.push(Keys.ticketTitleQuery(scope))
-  }
-  return keys
-}
-
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   coalescingTicketUpdate(ticketDetail(req), {
     name: "updateTicketDetail",
     path: req.params,
     idleTTL: "10 minutes",
     predict: applyTicketDetailPatch,
-    confirm: (_ticket, { ticket }) => ticket,
-    publish: (patch) => publishFor(req, patch)
+    confirm: (_ticket, { ticket }) => ticket
   })
 )
 
@@ -96,9 +84,10 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.archive({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => [
-      ...Keys.ticketsChanged(scopeOf(req)),
-      Keys.pins(req.params.orgSlug)
+    publish: (ticket) => [
+      ...Keys.ticketChanged(scopeOf(req), req.params.id),
+      Keys.pins(req.params.orgSlug),
+      ...parentKeys(scopeOf(req), [ticket])
     ]
   })
 )
@@ -110,7 +99,10 @@ export const markTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.mark({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (_result, input) => [
+      ...Keys.ticketChanged(scopeOf(req), req.params.id),
+      Keys.ticket(scopeOf(req), input.target)
+    ]
   })
 )
 
@@ -124,7 +116,10 @@ export const unmarkTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.unmark({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (_result, input) => [
+      ...Keys.ticketChanged(scopeOf(req), req.params.id),
+      Keys.ticket(scopeOf(req), input.target)
+    ]
   })
 )
 
@@ -134,9 +129,10 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
     predict: (ticket, _input: void) => ({ ...ticket, archivedAt: null }),
     call: (client) => client.tickets.unarchive({ params: req.params }),
     confirm: replaceWith,
-    publish: () => [
-      ...Keys.ticketsChanged(scopeOf(req)),
-      Keys.pins(req.params.orgSlug)
+    publish: (ticket) => [
+      ...Keys.ticketChanged(scopeOf(req), req.params.id),
+      Keys.pins(req.params.orgSlug),
+      ...parentKeys(scopeOf(req), [ticket])
     ]
   })
 )
@@ -148,7 +144,7 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
         client.tickets.delete({ params: req.params, query })
       )
       yield* Reactivity.invalidate([
-        ...Keys.ticketsChanged(scopeOf(req)),
+        ...Keys.ticketChanged(scopeOf(req), req.params.id),
         Keys.pins(req.params.orgSlug)
       ])
     })
@@ -162,11 +158,14 @@ export const moveTicket = Atom.family((req: TicketRequest) =>
         client.tickets.move({ params: req.params, payload: input })
       )
       yield* Reactivity.invalidate([
-        ...Keys.ticketChanged(scopeOf(req), req.params.id),
+        ...result.moved.flatMap(({ from, to }) => [
+          ...Keys.ticketChanged(scopeOf(req), from),
+          ...Keys.ticketChanged(
+            projectScope(req.params.orgSlug, result.projectSlug),
+            to
+          )
+        ]),
         Keys.sprintMembership(scopeOf(req)),
-        ...Keys.ticketsChanged(
-          projectScope(req.params.orgSlug, result.projectSlug)
-        ),
         Keys.pins(req.params.orgSlug)
       ])
       return result
@@ -185,6 +184,7 @@ export const splitTicket = Atom.family((req: TicketRequest) =>
       )
       yield* Reactivity.invalidate([
         ...Keys.ticketChanged(scopeOf(req), req.params.id),
+        ...result.created.map(({ id }) => Keys.ticket(scopeOf(req), id)),
         Keys.sprintMembership(scopeOf(req))
       ])
       return result

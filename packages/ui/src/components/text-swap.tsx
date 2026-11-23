@@ -49,6 +49,7 @@ type TextSwapProps = Readonly<{
   // Let a long value wrap onto more lines. Otherwise it stays on one line,
   // clipped at the width it's given.
   wrap?: boolean
+  animate?: boolean
   className?: string
 }>
 
@@ -59,6 +60,7 @@ function TextSwap({
   speed = "normal",
   announce = false,
   wrap = false,
+  animate = true,
   className
 }: TextSwapProps) {
   const swap = (
@@ -74,7 +76,12 @@ function TextSwap({
     >
       {icon != null && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
       <span className={wrap ? "max-w-full min-w-0" : "min-w-0 overflow-x-clip"}>
-        <SwapText value={children} duration={DURATION[speed]} wrap={wrap} />
+        <SwapText
+          value={children}
+          duration={DURATION[speed]}
+          wrap={wrap}
+          animate={animate}
+        />
       </span>
     </span>
   )
@@ -94,13 +101,27 @@ function TextSwap({
 function SwapText({
   value,
   duration,
-  wrap
-}: Readonly<{ value: string; duration: number; wrap: boolean }>) {
+  wrap,
+  animate
+}: Readonly<{
+  value: string
+  duration: number
+  wrap: boolean
+  animate: boolean
+}>) {
   const [first] = useState(value)
   const [live, setLive] = useState(false)
   if (!live && value === first) return value
   if (!live) setLive(true)
-  return <LiveText from={first} value={value} duration={duration} wrap={wrap} />
+  return (
+    <LiveText
+      from={first}
+      value={value}
+      duration={duration}
+      wrap={wrap}
+      animate={animate}
+    />
+  )
 }
 
 const isScritto = (element: HTMLElement | null): element is ScrittoElement =>
@@ -110,8 +131,15 @@ function LiveText({
   from,
   value,
   duration,
-  wrap
-}: Readonly<{ from: string; value: string; duration: number; wrap: boolean }>) {
+  wrap,
+  animate
+}: Readonly<{
+  from: string
+  value: string
+  duration: number
+  wrap: boolean
+  animate: boolean
+}>) {
   const ref = useRef<HTMLElement>(null)
   const started = useRef(false)
   useLayoutEffect(() => {
@@ -122,8 +150,8 @@ function LiveText({
       started.current = true
       element.update(from, false)
     }
-    element.update(value, true)
-  }, [from, value, duration])
+    element.update(value, animate)
+  }, [from, value, duration, animate])
   return (
     <scritto-text
       ref={ref}

@@ -360,11 +360,8 @@ export const typeBodyFromTicket = (body: string, lookup: BlockLookup) => {
   }
 }
 
-export const isPristineTypeBody = (
-  body: string,
-  type: Readonly<{ body: string }>,
-  lookup: BlockLookup
-) => comparableMarkdown(body) === comparableMarkdown(expandType(type, lookup))
+export const isPristineTypeBody = (body: string, expanded: string) =>
+  comparableMarkdown(body) === comparableMarkdown(expanded)
 
 export const typeFor = (library: Library, key: string) =>
   library.types.find((type) => type.key === key && !type.hidden) ?? null

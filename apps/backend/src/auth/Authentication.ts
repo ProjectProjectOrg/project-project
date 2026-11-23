@@ -37,10 +37,11 @@ import {
   ActivityActor,
   Authentication,
   CurrentUser,
-  Unauthorized
+  Unauthorized,
+  viewerCookieName
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
-import { HttpServerRequest } from "effect/http"
+import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 
 import { toWebHeaders } from "../http/toWebHeaders"
@@ -60,12 +61,23 @@ export const AuthenticationLive = Layer.effect(
             .pipe(
               Effect.catchTag("BetterAuthError", (error) =>
                 isClientRefusal(error)
-                  ? Effect.fail(new Unauthorized())
+                  ? Effect.succeed(null)
                   : Effect.die(error)
               )
             )
 
           if (session === null) {
+            yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+              Effect.succeed(
+                HttpServerResponse.expireCookieUnsafe(
+                  response,
+                  viewerCookieName,
+                  {
+                    path: "/"
+                  }
+                )
+              )
+            )
             return yield* new Unauthorized()
           }
           // Shape Better Auth's user into the shared `User` schema. The fields

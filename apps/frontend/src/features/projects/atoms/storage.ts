@@ -16,7 +16,6 @@ export const storageRequest = (orgSlug: string) => ({
 const storageQuery = (req: StorageRequest) =>
   query("storage", "get", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.storage(req.params.orgSlug)]
   })
 

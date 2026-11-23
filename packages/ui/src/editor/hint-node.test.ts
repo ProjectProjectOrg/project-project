@@ -1,39 +1,34 @@
 // @vitest-environment jsdom
-import { ListItemNode, ListNode } from "@lexical/list"
+import { buildEditorFromExtensions } from "@lexical/extension"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
-import { HeadingNode, QuoteNode } from "@lexical/rich-text"
-import { $getRoot, createEditor } from "lexical"
+} from "@lexical/mdast"
+import { $getRoot, defineExtension } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { $isHintNode, HintNode } from "../editor/hint-node"
-import { transformersForMode } from "./editor-transformers"
-
-const TRANSFORMERS = transformersForMode("definition", undefined)
+import { HintExtension } from "./blocks/definition-mode"
+import { $isHintNode } from "./hint-node"
+import { MarkdownExtension } from "./markdown-extension"
 
 function importDefinition(markdown: string) {
-  const editor = createEditor({
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, HintNode],
-    onError: (error) => {
-      throw error
-    }
-  })
-  let exported = ""
-  let hints: ReadonlyArray<string> = []
-  editor.update(
-    () => {
-      $convertFromMarkdownString(markdown, TRANSFORMERS)
-      hints = $getRoot()
-        .getAllTextNodes()
-        .filter($isHintNode)
-        .map((node) => node.getTextContent())
-      exported = $convertToMarkdownString(TRANSFORMERS)
-    },
-    { discrete: true }
+  const editor = buildEditorFromExtensions(
+    defineExtension({
+      name: "hint-node-test",
+      dependencies: [MarkdownExtension, HintExtension],
+      onError: (error) => {
+        throw error
+      }
+    })
   )
-  return { exported, hints }
+  editor.update(() => $convertFromMarkdownString(markdown), { discrete: true })
+  return editor.read(() => ({
+    exported: $convertToMarkdownString(),
+    hints: $getRoot()
+      .getAllTextNodes()
+      .filter($isHintNode)
+      .map((node) => node.getTextContent())
+  }))
 }
 
 describe("HintNode", () => {

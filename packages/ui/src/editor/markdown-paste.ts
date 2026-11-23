@@ -1,23 +1,17 @@
 import { $insertGeneratedNodes } from "@lexical/clipboard"
-import { $isCodeNode } from "@lexical/code"
-import { $convertFromMarkdownString, type Transformer } from "@lexical/markdown"
+import { $isCodeNode } from "@lexical/code-core"
+import { $generateNodesFromMarkdownString } from "@lexical/mdast"
 import {
   $addUpdateTag,
-  $createParagraphNode,
-  $getRoot,
   $getSelection,
   $isRangeSelection,
-  $setSelection,
   COMMAND_PRIORITY_NORMAL,
   PASTE_COMMAND,
   PASTE_TAG,
   type LexicalEditor
 } from "lexical"
 
-export function registerMarkdownPaste(
-  editor: LexicalEditor,
-  transformers: Transformer[]
-) {
+export function registerMarkdownPaste(editor: LexicalEditor) {
   return editor.registerCommand(
     PASTE_COMMAND,
     (event) => {
@@ -38,16 +32,11 @@ export function registerMarkdownPaste(
       const anchor = selection.anchor.getNode()
       if ([anchor, ...anchor.getParents()].some($isCodeNode)) return false
 
-      const insertion = selection.clone()
-      const container = $createParagraphNode()
-      $getRoot().append(container)
-      try {
-        $convertFromMarkdownString(text, transformers, container)
-      } finally {
-        $setSelection(insertion)
-        container.remove()
-      }
-      $insertGeneratedNodes(editor, container.getChildren(), insertion)
+      $insertGeneratedNodes(
+        editor,
+        $generateNodesFromMarkdownString(text),
+        selection
+      )
       $addUpdateTag(PASTE_TAG)
       event.preventDefault()
       return true

@@ -20,7 +20,7 @@ describe("Api", () => {
     const request = {
       params: { orgSlug: "acme", slug: "web" },
       query: {},
-      reactivityKeys: [Keys.ticketsIn(projectScope("acme", "web"))],
+      reactivityKeys: [Keys.ticketLists(projectScope("acme", "web"))],
       timeToLive: "2 minutes"
     } as const
     const a = Api.query("tickets", "count", { ...request })
@@ -61,7 +61,6 @@ describe("keys", () => {
   it("builds project-scoped key strings", () => {
     const scope = projectScope("acme", "web")
     expect(scope).toBe("acme/web")
-    expect(Keys.ticketsIn(scope)).toBe("tickets/acme/web")
     expect(Keys.ticketLists(scope)).toBe("ticket-lists/acme/web")
     expect(Keys.ticket(scope, TicketId.make("T-1"))).toBe(
       "ticket-content/acme/web/T-1"

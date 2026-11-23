@@ -1,5 +1,6 @@
 import {
   TicketDetail,
+  TicketId,
   TicketUpdateResult,
   UpdateTicketInput,
   TypeKey
@@ -13,6 +14,9 @@ import { describe, expect, it, vi } from "vitest"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
+import { fireMutation } from "@/api/viewMutation"
+import { invalidateProjectKeys } from "@/features/projects/atoms/projectChanges"
+import { changeKeys } from "@/features/projects/lib/projectChanges"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import { ticketDetail, ticketRequest, updateTicketDetail } from "./ticketDetail"
@@ -223,12 +227,11 @@ const probe = (name: string, key: string) =>
   query("tickets", "count", {
     params: { orgSlug: "acme", slug: "web" },
     query: { q: name },
-    timeToLive: "2 minutes",
     reactivityKeys: [key]
   })
 
 const probeNames = [
-  "ticketsIn",
+  "projectResync",
   "ticketLists",
   "ticketPages",
   "titleQuery",
@@ -239,7 +242,7 @@ const probeNames = [
 type ProbeName = (typeof probeNames)[number]
 
 const probes: Readonly<Record<ProbeName, ReturnType<typeof probe>>> = {
-  ticketsIn: probe("ticketsIn", Keys.ticketsIn(scope)),
+  projectResync: probe("projectResync", Keys.projectResync(scope)),
   ticketLists: probe("ticketLists", Keys.ticketLists(scope)),
   ticketPages: probe("ticketPages", Keys.ticketPages(scope)),
   titleQuery: probe("titleQuery", Keys.ticketTitleQuery(scope)),
@@ -305,54 +308,66 @@ describe("ticket detail invalidation keys", () => {
     return { registry, publishedBy }
   }
 
-  it("publishes ticketsIn and the title query for a title edit, but never the ticket's own key", async () => {
+  it("refreshes the edited ticket and lists without publishing the project-wide key", async () => {
     const { registry, publishedBy } = await setup()
     try {
-      const published = await publishedBy({ title: "After" }, [
-        "ticketsIn",
-        "titleQuery",
-        "updatedQuery"
-      ])
-      expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "titleQuery", "updatedQuery"])
+      const expected = probeNames.filter((name) => name !== "projectResync")
+      expect(await publishedBy({ title: "After" }, expected)).toEqual(
+        new Set(expected)
       )
-      expect(published.has("self")).toBe(false)
     } finally {
       registry.dispose()
     }
   })
+})
 
-  it("publishes the ticket list and updated query for a body-only edit", async () => {
-    const { registry, publishedBy } = await setup()
-    try {
-      const published = await publishedBy({ body: "After" }, [
-        "ticketsIn",
-        "updatedQuery"
-      ])
-      expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "updatedQuery"])
+it("refreshes only named retained ticket details and the list after viewing thirty tickets", async () => {
+  const registry = AtomRegistry.make()
+  const ids = Array.from({ length: 30 }, (_, i) => TicketId.make(`T-${i + 1}`))
+  const requests: Array<string> = []
+  fetchStub.set((input) => {
+    const path = new URL(input instanceof Request ? input.url : String(input))
+      .pathname
+    const name = path.split("/").at(-1)
+    if (!name) throw new Error("Missing ticket path")
+    requests.push(name)
+    return Promise.resolve(
+      Response.json(
+        name === "count"
+          ? { total: 0, byStatus: {} }
+          : encode(makeTicketDetail({ id: TicketId.make(name) }))
       )
-      expect(published.has("titleQuery")).toBe(false)
-      expect(published.has("self")).toBe(false)
-    } finally {
-      registry.dispose()
-    }
+    )
   })
-
-  it("publishes the list keys for a non-content edit, but never the ticket's own key", async () => {
-    const { registry, publishedBy } = await setup()
-    try {
-      const published = await publishedBy({ priority: "high" }, [
-        "ticketsIn",
-        "ticketLists",
-        "ticketPages"
-      ])
-      expect(published).toEqual(
-        new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages"])
-      )
-      expect(published.has("self")).toBe(false)
-    } finally {
-      registry.dispose()
-    }
-  })
+  try {
+    const views = ids.map((id) =>
+      ticketDetail(ticketRequest("acme", "web", id))
+    )
+    const releases = views.map((view) => registry.mount(view))
+    registry.mount(probes.ticketLists)
+    await vi.waitFor(() =>
+      expect(
+        views.every((view) => AsyncResult.isSuccess(registry.get(view))) &&
+          AsyncResult.isSuccess(registry.get(probes.ticketLists))
+      ).toBe(true)
+    )
+    releases.forEach((release) => release())
+    requests.length = 0
+    await fireMutation(registry, invalidateProjectKeys, [
+      Keys.projectResync(scope),
+      Keys.ticketLists(scope)
+    ])
+    await vi.waitFor(() => expect(requests).toHaveLength(31))
+    requests.length = 0
+    const affected = ids.slice(0, 2)
+    const keys = affected.flatMap((id) =>
+      changeKeys(req.params, { kind: "tickets", id })
+    )
+    await fireMutation(registry, invalidateProjectKeys, [...new Set(keys)])
+    await vi.waitFor(() =>
+      expect(requests.toSorted()).toEqual(["T-1", "T-2", "count"])
+    )
+  } finally {
+    registry.dispose()
+  }
 })

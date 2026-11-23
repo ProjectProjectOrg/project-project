@@ -205,14 +205,12 @@ const orgAttachmentsQuery = (req: OrgAttachmentsRequest) =>
   query("attachments", "list", {
     params: req.params,
     query: req.query,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
 
 const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
   query("attachments", "summary", {
     params: req.params,
-    timeToLive: "30 seconds",
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
 

@@ -19,7 +19,6 @@ const scopeOf = (req: GitAutomationRequest) =>
 const gitAutomationQuery = (req: GitAutomationRequest) =>
   query("gitAutomation", "get", {
     params: req.params,
-    timeToLive: "5 minutes",
     reactivityKeys: [
       Keys.gitAutomation(scopeOf(req)),
       Keys.statuses(scopeOf(req))

@@ -690,7 +690,8 @@ const make = Effect.gen(function* () {
                 settleLater: activity.settleLater,
                 touched:
                   !activity.silent &&
-                  current.commentsRegion !== next.commentsRegion
+                  current.commentsRegion !== next.commentsRegion,
+                commentsChanged: current.commentsRegion !== next.commentsRegion
               }
             )
             if (onPersist) yield* onPersist(next)

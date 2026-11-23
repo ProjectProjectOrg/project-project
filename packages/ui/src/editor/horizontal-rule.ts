@@ -1,69 +1,60 @@
 import {
   $createHorizontalRuleNode,
-  $isHorizontalRuleNode,
-  HorizontalRuleExtension,
-  HorizontalRuleNode
+  HorizontalRuleExtension
 } from "@lexical/extension"
-import type { ElementTransformer } from "@lexical/markdown"
+import { mergeRegister } from "@lexical/utils"
 import {
   $getSelection,
+  $isParagraphNode,
   $isRangeSelection,
   $isTextNode,
   COMMAND_PRIORITY_HIGH,
   KEY_ENTER_COMMAND,
+  KEY_SPACE_COMMAND,
   defineExtension,
   type LexicalEditor
 } from "lexical"
 
 const HR_LINE = /^(---|\*\*\*|___)$/
 
-export const HORIZONTAL_RULE: ElementTransformer = {
-  dependencies: [HorizontalRuleNode],
-  export: (node) => ($isHorizontalRuleNode(node) ? "---" : null),
-  regExp: /^(---|\*\*\*|___)\s?$/,
-  replace: (parentNode, _children, _match, isImport) => {
-    const line = $createHorizontalRuleNode()
-    if (isImport || parentNode.getNextSibling() != null) {
-      parentNode.replace(line)
-    } else {
-      parentNode.insertBefore(line)
-    }
-    if (isImport) return
-    line.selectNext()
-  },
-  type: "element"
+function $replaceRuleLine(event: KeyboardEvent | null) {
+  if (event !== null && event.shiftKey) return false
+  const selection = $getSelection()
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
+  const anchorNode = selection.anchor.getNode()
+  if (!$isTextNode(anchorNode)) return false
+  const parent = anchorNode.getParent()
+  if (!$isParagraphNode(parent) || parent.getFirstChild() !== anchorNode)
+    return false
+  const text = anchorNode.getTextContent()
+  if (selection.anchor.offset !== text.length) return false
+  if (!HR_LINE.test(text)) return false
+  event?.preventDefault()
+  const line = $createHorizontalRuleNode()
+  if (parent.getNextSibling() != null) {
+    parent.replace(line)
+  } else {
+    parent.insertBefore(line)
+    anchorNode.remove()
+  }
+  line.selectNext()
+  return true
 }
 
-export const HorizontalRuleEnterExtension = defineExtension({
-  name: "@pp/horizontal-rule-enter",
+export const HorizontalRuleShortcutExtension = defineExtension({
+  name: "@pp/horizontal-rule-shortcut",
   dependencies: [HorizontalRuleExtension],
   register: (editor: LexicalEditor) =>
-    editor.registerCommand(
-      KEY_ENTER_COMMAND,
-      (event) => {
-        if (event !== null && event.shiftKey) return false
-        const selection = $getSelection()
-        if (!$isRangeSelection(selection) || !selection.isCollapsed())
-          return false
-        const anchorNode = selection.anchor.getNode()
-        if (!$isTextNode(anchorNode)) return false
-        const parent = anchorNode.getParent()
-        if (parent === null || parent.getFirstChild() !== anchorNode)
-          return false
-        const text = anchorNode.getTextContent()
-        if (selection.anchor.offset !== text.length) return false
-        if (!HR_LINE.test(text)) return false
-        event?.preventDefault()
-        const line = $createHorizontalRuleNode()
-        if (parent.getNextSibling() != null) {
-          parent.replace(line)
-        } else {
-          parent.insertBefore(line)
-          anchorNode.remove()
-        }
-        line.selectNext()
-        return true
-      },
-      COMMAND_PRIORITY_HIGH
+    mergeRegister(
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        $replaceRuleLine,
+        COMMAND_PRIORITY_HIGH
+      ),
+      editor.registerCommand(
+        KEY_SPACE_COMMAND,
+        $replaceRuleLine,
+        COMMAND_PRIORITY_HIGH
+      )
     )
 })

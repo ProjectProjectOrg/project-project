@@ -38,6 +38,7 @@ import { fetchClientMetadataResource } from "./cimdTransport"
 import { legacyMcpResources } from "./legacyMcpResources"
 import { orgAccessControl, orgRoles, requireSingleOrgRole } from "./orgAccess"
 import { protectedResourceMetadata } from "./protectedResourceMetadata"
+import { mirrorViewerCookie } from "./viewerCookie"
 
 const authDatabase = (pool: Pool) =>
   drizzle({ client: pool, relations: schema.relations })
@@ -381,6 +382,7 @@ export const makeAuth = (settings: AuthSettings, db: AuthDb) => {
         maxAge: 5 * 60
       }
     },
+    hooks: { after: mirrorViewerCookie },
     // On sign-in, return the user to the org they were last in. We persist
     // that on `user.lastActiveOrganizationId` (a column on the user table)
     // and capture it at sign-out time via the `session.delete.before` hook.

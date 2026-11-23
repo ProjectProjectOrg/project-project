@@ -216,6 +216,13 @@ describe("extractFigmaRefs", () => {
     expect(extractFigmaRefs(md)[0]?.nodeId).toBe("1:2")
   })
 
+  it("reads a link destination written with markdown escapes", () => {
+    const md = `[A](https://figma.com/design/${KEY}/A?node-id=1-2\\&pp-density=compact)`
+    expect(extractFigmaRefs(md)).toEqual([
+      { kind: "design", fileKey: KEY, nodeId: "1:2", slug: "A" }
+    ])
+  })
+
   it("strips terminal prose punctuation", () => {
     const md = `See https://figma.com/design/${KEY}/A?node-id=1-2.`
     expect(extractFigmaRefs(md)[0]?.nodeId).toBe("1:2")

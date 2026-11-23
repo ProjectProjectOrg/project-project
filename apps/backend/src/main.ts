@@ -662,6 +662,7 @@ if (import.meta.main) {
               return BunHttpServer.layer({
                 port,
                 hostname,
+                idleTimeout: 40,
                 maxRequestBodySize: PROJECT_IMPORT_MAX_BYTES
               })
             })

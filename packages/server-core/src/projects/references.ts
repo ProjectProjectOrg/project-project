@@ -1,4 +1,8 @@
-import { FixReferenceAction, type ReferenceKind } from "@pp/shared"
+import {
+  FixReferenceAction,
+  type ReferenceKind,
+  unescapeMarkdown
+} from "@pp/shared"
 
 export type ReferenceCandidate = Readonly<{
   kind: ReferenceKind
@@ -8,11 +12,8 @@ export type ReferenceCandidate = Readonly<{
 }>
 
 const MENTION = /\[([^\]]*)\]\(mention:(user|ticket)\/([^)\s]+)\)/g
-const LINK = /\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g
+const LINK = /\[([^\]]*)\]\(((?:\\.|[^)\s\\])+)\)/g
 const SNIPPET_RADIUS = 60
-
-const escapeRegExp = (text: string) =>
-  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
 const snippetAt = (body: string, index: number, length: number) => {
   const start = Math.max(0, index - SNIPPET_RADIUS)
@@ -43,11 +44,11 @@ export const referenceCandidates = (body: string, oldOrigin: string | null) => [
   ...(oldOrigin === null
     ? []
     : [...body.matchAll(LINK)].flatMap((match) =>
-        referenceOrigin(match[2]) === oldOrigin
+        referenceOrigin(unescapeMarkdown(match[2])) === oldOrigin
           ? [
               {
                 kind: "link" as const,
-                target: match[2],
+                target: unescapeMarkdown(match[2]),
                 label: match[1],
                 snippet: snippetAt(body, match.index, match[0].length)
               }
@@ -67,14 +68,13 @@ export const applyReferenceFix = (
   reference: Readonly<{ kind: ReferenceKind; target: string }>,
   action: FixReferenceAction
 ) => {
-  const pattern = new RegExp(
-    `\\[([^\\]]*)\\]\\(${escapeRegExp(hrefOf(reference.kind, reference.target))}\\)`,
-    "g"
-  )
-  return body.replace(pattern, (_whole, label: string) =>
-    FixReferenceAction.match(action, {
-      plain: () => label,
-      link: ({ to }) => `[${label}](${linkedHref(reference.kind, to)})`
-    })
+  const href = hrefOf(reference.kind, reference.target)
+  return body.replace(LINK, (whole, label: string, destination: string) =>
+    unescapeMarkdown(destination) === href
+      ? FixReferenceAction.match(action, {
+          plain: () => label,
+          link: ({ to }) => `[${label}](${linkedHref(reference.kind, to)})`
+        })
+      : whole
   )
 }

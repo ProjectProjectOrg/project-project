@@ -2,11 +2,10 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { mergeRegister } from "@lexical/utils"
 import type { Library } from "@pp/shared"
 import type { LexicalEditor, NodeKey } from "lexical"
-import { useContext, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 import { m } from "../messages"
 import { lookupFor } from "./block-chrome"
-import { EditorBlocksContext } from "./editor-blocks-context"
 import { registerSyncedBlocks } from "./synced-blocks"
 
 const markSourceRemoved = (
@@ -29,18 +28,16 @@ export function SyncedBlocksPlugin({
   library
 }: Readonly<{ library: Library }>) {
   const [editor] = useLexicalComposerContext()
-  const transformers = useContext(EditorBlocksContext)?.transformers
   const lookup = useMemo(() => lookupFor(library), [library])
   const removed = useRef(new Set<NodeKey>())
 
   useEffect(() => {
-    if (transformers === undefined) return
     const keys = removed.current
     return mergeRegister(
       editor.registerUpdateListener(() => markSourceRemoved(editor, keys)),
-      registerSyncedBlocks(editor, lookup, transformers, (key) => keys.add(key))
+      registerSyncedBlocks(editor, lookup, (key) => keys.add(key))
     )
-  }, [editor, lookup, transformers])
+  }, [editor, lookup])
 
   return null
 }

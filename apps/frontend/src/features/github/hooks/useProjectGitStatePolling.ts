@@ -37,11 +37,18 @@ export function useProjectGitStatePolling(
     const previous = seen.current
     if (previous === states.value) return
     seen.current = states.value
+    const changed = changedGitStateTicketIds(previous, states.value)
     if (
       shouldInvalidateTicketsForGitStates(states.value) ||
-      changedGitStateTicketIds(previous, states.value).length > 0
+      changed.length > 0
     ) {
-      invalidateTickets()
+      invalidateTickets([
+        ...new Set([
+          ...(states.value.changedTicketIds ?? []),
+          ...states.value.transitioned.map(({ ticketId }) => ticketId),
+          ...changed
+        ])
+      ])
     }
   }, [enabled, states, invalidateTickets])
 

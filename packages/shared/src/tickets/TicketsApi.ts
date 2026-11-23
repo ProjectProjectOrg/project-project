@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect"
-import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api"
 import * as Schema from "effect/Schema"
 
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
@@ -63,6 +63,7 @@ import {
   BulkUpdateTicketsInput,
   BulkUpdateTicketsResult
 } from "./BulkTickets"
+import { TicketContentLine, TicketContentRequest } from "./content"
 import { MovedTicketLocation, MoveTicketInput, MoveTicketResult } from "./move"
 import {
   ArchiveTicketInput,
@@ -141,6 +142,33 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketListHttpQuery,
         success: TicketSections
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "content",
+      "/orgs/:orgSlug/projects/:slug/tickets/content",
+      {
+        params: ProjectPath,
+        payload: TicketContentRequest,
+        success: Schema.Array(TicketContentLine)
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "events",
+      "/orgs/:orgSlug/projects/:slug/tickets/events",
+      {
+        params: ProjectPath,
+        success: HttpApiSchema.StreamUint8Array({
+          contentType: "text/event-stream"
+        })
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })

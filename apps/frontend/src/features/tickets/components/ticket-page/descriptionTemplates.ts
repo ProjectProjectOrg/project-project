@@ -1,5 +1,6 @@
-import { $convertFromMarkdownString, type Transformer } from "@lexical/markdown"
+import { $convertFromMarkdownString } from "@lexical/mdast"
 import {
+  expandType,
   isPristineTypeBody,
   stripHints,
   typeFor,
@@ -10,6 +11,7 @@ import {
 } from "@pp/shared"
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { $applyTemplate } from "@pp/ui/editor/blocks/block-commands"
+import { normalizeMarkdown } from "@pp/ui/editor/markdown-normalize"
 import { $runSlashItem } from "@pp/ui/editor/slash-menu/slash-commands"
 import { SlashItem } from "@pp/ui/editor/slash-menu/slash-menu-items"
 import {
@@ -36,7 +38,7 @@ const untouchedTemplate = (
   from: TypeKey | null
 ) => {
   const lookup = lookupFor(library)
-  const comparable = stripHints(body)
+  const comparable = normalizeMarkdown(stripHints(body))
   const current = from === null ? null : typeFor(library, from)
   const candidates =
     current === null
@@ -44,7 +46,10 @@ const untouchedTemplate = (
       : [current, ...library.types.filter((t) => t.key !== current.key)]
   return (
     candidates.find((template) =>
-      isPristineTypeBody(comparable, template, lookup)
+      isPristineTypeBody(
+        comparable,
+        normalizeMarkdown(expandType(template, lookup))
+      )
     ) ?? null
   )
 }
@@ -63,7 +68,6 @@ export const templateSwap = ({
 }
 
 export type TemplateBodyContext = Readonly<{
-  transformers: ReadonlyArray<Transformer>
   lookup: BlockLookup
 }>
 
@@ -78,7 +82,7 @@ export function $startFromTemplate(
   context: TemplateBodyContext
 ) {
   if (!$isRangeSelection($getSelection())) $getRoot().selectStart()
-  $applyTemplate(expanded, context.transformers, context.lookup)
+  $applyTemplate(expanded, context.lookup)
   $ensureTrailingLine()
 }
 
@@ -91,16 +95,13 @@ export function $replaceWithTemplate(
   const line = $createParagraphNode()
   root.append(line)
   line.select()
-  $applyTemplate(expanded, context.transformers, context.lookup)
+  $applyTemplate(expanded, context.lookup)
   $ensureTrailingLine()
   $setSelection(null)
 }
 
-export function $restoreBody(
-  markdown: string,
-  transformers: ReadonlyArray<Transformer>
-) {
-  $convertFromMarkdownString(markdown, [...transformers])
+export function $restoreBody(markdown: string) {
+  $convertFromMarkdownString(markdown)
   $ensureTrailingLine()
   $setSelection(null)
 }
@@ -127,12 +128,8 @@ export function replaceWithTemplate(
   })
 }
 
-export function restoreBody(
-  editor: LexicalEditor,
-  markdown: string,
-  transformers: ReadonlyArray<Transformer>
-) {
-  editor.update(() => $restoreBody(markdown, transformers), {
+export function restoreBody(editor: LexicalEditor, markdown: string) {
+  editor.update(() => $restoreBody(markdown), {
     tag: HISTORY_PUSH_TAG
   })
 }

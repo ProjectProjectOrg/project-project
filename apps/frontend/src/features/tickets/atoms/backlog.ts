@@ -79,9 +79,8 @@ const sectionsQuery = (req: BacklogRequest) =>
   query("tickets", "sections", {
     params: req.params,
     query: req.query,
-    timeToLive: "2 minutes",
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
     ]
   })
@@ -100,9 +99,8 @@ const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
       section: { status: [TicketStatus.make(status)] },
       cursor
     },
-    timeToLive: "2 minutes",
     reactivityKeys: [
-      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req)),
       Keys.ticketPages(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug)
     ]
@@ -398,8 +396,8 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
         )
       ),
     confirm: confirmCreated,
-    publish: (_value, input) => [
-      ...Keys.ticketsChanged(scopeOf(req)),
+    publish: (created, input) => [
+      ...Keys.ticketChanged(scopeOf(req), created.id),
       ...(input.sprint === undefined
         ? []
         : sprintAssignmentKeys(scopeOf(req), input.sprint))

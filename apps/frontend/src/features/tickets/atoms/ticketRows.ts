@@ -26,7 +26,7 @@ import {
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
 
-import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
+import { bulkBatches, bulkChangedKeys, parentKeys } from "./bulkTickets"
 import { justCreatedTicket } from "./createTicket"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
@@ -78,12 +78,17 @@ export const bulkTicketUpdate = <V, VE>(
         )
       ),
     confirm: keepPredicted,
-    publish: (_result, input) =>
-      bulkChangedKeys(
+    publish: (results, input) => [
+      ...bulkChangedKeys(
         update.path,
         input.tickets,
         input.patch.sprint !== undefined
+      ),
+      ...parentKeys(
+        projectScope(update.path.orgSlug, update.path.slug),
+        results.flatMap((result) => result.tickets)
       )
+    ]
   })
 }
 
@@ -140,12 +145,17 @@ export const bulkTicketMove = <V, VE>(
           )
         ),
     confirm: keepPredicted,
-    publish: (_result, input) =>
-      bulkChangedKeys(
+    publish: (result, input) => [
+      ...bulkChangedKeys(
         update.path,
         input.tickets,
         input.edit.sprint !== undefined
+      ),
+      ...parentKeys(
+        projectScope(update.path.orgSlug, update.path.slug),
+        result.tickets
       )
+    ]
   })
 
 export const createdKeys = Atom.family((_scope: string) =>
@@ -280,7 +290,7 @@ export const coalescingTicketUpdate = <V, VE>(
         payload: toUpdateInput(edit)
       }),
     confirm: (value, confirmed) => update.confirm(value, confirmed),
-    publish: (_confirmed, payload) => [
+    publish: (confirmed, payload) => [
       ...(update.publish?.(payload) ??
         (payload.sprint === undefined
           ? Keys.ticketChanged(
@@ -288,6 +298,9 @@ export const coalescingTicketUpdate = <V, VE>(
               update.path.id
             )
           : bulkChangedKeys(update.path, [update.path.id], true))),
+      ...parentKeys(projectScope(update.path.orgSlug, update.path.slug), [
+        confirmed.ticket
+      ]),
       ...(payload.title === undefined && payload.status === undefined
         ? []
         : [Keys.pins(update.path.orgSlug)])

@@ -165,8 +165,8 @@
 /* Code blocks, the editor's and read-only Markdown's, look like the
    gallery's: a 20px squircle on --surface-2, Geist Mono at 12 on 22px lines,
    and line numbers in a 31px gutter at 65% ink. The editor's comes from
-   Lexical (data-gutter), the read view's from rehype-prism-plus
-   (showLineNumbers). It bleeds 4px past the text on both sides: its big
+   Lexical (data-gutter), the read view's from markdown-highlight.ts. It
+   bleeds 4px past the text on both sides: its big
    squircle corners pull the visible edge in, so a block flush with the text
    reads as indented. */
 .prose-md pre,
@@ -224,9 +224,9 @@
   user-select: none;
 }
 
-/* Syntax colours from the gallery's Pierre themes, on the token classes
-   both Prism highlighters emit (rehype-prism-plus in the read view, Lexical
-   in the editor). Each keeps Pierre's hue; the ones under 4.5:1 on the code
+/* Syntax colours from the gallery's Pierre themes, on the `token <kind>`
+   classes lib/highlight.ts gives the editor, read view and snippets. Each
+   keeps Pierre's hue; the ones under 4.5:1 on the code
    fill (most of light, the comment grey in dark) are darkened or lightened
    in OKLCH just enough to pass AA at 12px. */
 .prose-md {
@@ -253,66 +253,35 @@ html.dark .prose-md {
   --code-attribute: #60d199;
   --code-variable: #ffa359;
 }
-.prose-md :is(.token.comment, .token.prolog, .token.doctype, .token.cdata) {
+.prose-md .token.comment {
   color: var(--code-comment);
 }
-.prose-md :is(.token.punctuation, .token.operator) {
+.prose-md .token.punctuation {
   color: var(--code-punctuation);
 }
-.prose-md
-  :is(
-    .token.keyword,
-    .token.atrule,
-    .token.important,
-    .token.deleted,
-    .token.deleted-sign,
-    .token.deleted-arrow
-  ) {
+.prose-md .token.keyword {
   color: var(--code-keyword);
 }
-.prose-md
-  :is(
-    .token.string,
-    .token.char,
-    .token.attr-value,
-    .token.regex,
-    .token.url,
-    .token.inserted,
-    .token.inserted-sign,
-    .token.inserted-arrow
-  ) {
+.prose-md .token.string {
   color: var(--code-string);
 }
-.prose-md
-  :is(
-    .token.number,
-    .token.boolean,
-    .token.constant,
-    .token.symbol,
-    .token.coord
-  ) {
+.prose-md .token.number {
   color: var(--code-number);
 }
-.prose-md :is(.token.function, .token.function-name) {
+.prose-md .token.function {
   color: var(--code-function);
 }
-.prose-md :is(.token.class-name, .token.builtin, .token.namespace) {
+.prose-md .token.type {
   color: var(--code-type);
 }
-.prose-md :is(.token.tag, .token.selector) {
+.prose-md .token.tag {
   color: var(--code-tag);
 }
-.prose-md :is(.token.attr-name, .token.property) {
+.prose-md .token.attribute {
   color: var(--code-attribute);
 }
-.prose-md :is(.token.variable, .token.parameter) {
+.prose-md .token.variable {
   color: var(--code-variable);
-}
-.prose-md :is(.token.bold, .token.important) {
-  font-weight: 600;
-}
-.prose-md .token.italic {
-  font-style: italic;
 }
 
 /* Lexical content surface — inherit `.prose-md` typography but with a couple

@@ -1,4 +1,4 @@
-import type { TextMatchTransformer } from "@lexical/markdown"
+import { $isCodeNode } from "@lexical/code-core"
 import {
   $applyNodeReplacement,
   TextNode,
@@ -45,14 +45,12 @@ export function $isHintNode(
   return node instanceof HintNode
 }
 
-export const HINT_TRANSFORMER: TextMatchTransformer = {
-  dependencies: [HintNode],
-  export: (node) => ($isHintNode(node) ? node.getTextContent() : null),
-  importRegExp: /\{\{[^{}\n]{1,200}\}\}(?=\s*$)/,
-  regExp: /\{\{[^{}\n]{1,200}\}\}$/,
-  replace: (textNode, match) => {
-    textNode.replace($createHintNode(match[0]))
-  },
-  trigger: "}",
-  type: "text-match"
+const TRAILING_HINT = /\{\{[^{}\n]{1,200}\}\}(?=\s*$)/
+
+export function $convertTrailingHint(node: TextNode) {
+  if (node.hasFormat("code") || $isCodeNode(node.getParent())) return
+  const match = TRAILING_HINT.exec(node.getTextContent())
+  if (match === null) return
+  const parts = node.splitText(match.index, match.index + match[0].length)
+  parts[match.index === 0 ? 0 : 1]?.replace($createHintNode(match[0]))
 }
