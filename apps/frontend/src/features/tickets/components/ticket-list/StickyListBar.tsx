@@ -30,11 +30,14 @@ export function StickyListBar({
     update()
     const observer = new ResizeObserver(schedule)
     observer.observe(bar)
+    const content = root.querySelector(":scope > [data-scroll-content]")
+    if (content) observer.observe(content)
     root.addEventListener("scroll", schedule, { passive: true })
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
       root.removeEventListener("scroll", schedule)
+      bar.removeAttribute("data-stuck")
       scope.style.removeProperty("--list-sticky-top")
     }
   }, [])
