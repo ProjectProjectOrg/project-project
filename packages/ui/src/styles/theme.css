@@ -122,9 +122,6 @@
      column (checkbox, chevron) on the icons of the fields above the list
      (composer, search), which sit 17px in. */
   --list-pad-start: 5px;
-  /* How long the list's hover highlight takes to glide to a row (spring.fast
-     in springs.ts), so a row's hover reveals fade in as it arrives. */
-  --highlight-glide: 80ms;
   /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
      Pages sit one step up on --page, cards and popups one more on --card.
      The sidebar's icon rail sits one step below, on --rail. */

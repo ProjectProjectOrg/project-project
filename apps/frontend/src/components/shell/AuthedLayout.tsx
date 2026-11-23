@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { User } from "@pp/shared"
+import { trackScrolling } from "@pp/ui/lib/scrolling"
 import {
   Navigate,
   Outlet,
@@ -67,6 +68,7 @@ function Shell({ user }: { user: User }) {
                   doesn't fly them in from where the page used to be. */}
               <motion.div
                 layoutScroll
+                ref={trackScrolling}
                 data-scroll-root
                 className="relative isolate min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-none"
               >
@@ -77,7 +79,7 @@ function Shell({ user }: { user: User }) {
                 />
                 <div
                   data-scroll-content
-                  className="flex min-h-full flex-col p-6 pt-3"
+                  className="flex min-h-full flex-col p-6 pt-3 in-data-scrolling:pointer-events-none"
                 >
                   <PageBar user={user} />
                   <Outlet />

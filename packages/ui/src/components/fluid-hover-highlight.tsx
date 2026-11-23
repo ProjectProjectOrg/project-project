@@ -20,10 +20,16 @@ export type FluidHoverHighlightProps = Readonly<{
   hidden?: boolean
   instant?: boolean
   fullWidth?: boolean
+  onArrive?: (rect: ItemRect) => void
   className?: string
 }>
 
 const fade: Transition = { duration: 0.08 }
+
+const ARRIVING = 0.25
+
+const near = (value: number, target: number, reach: number) =>
+  Math.abs(value - target) <= reach
 const snap: Transition = { duration: 0 }
 
 const toTarget = (rect: ItemRect, fullWidth: boolean) =>
@@ -43,6 +49,7 @@ export function FluidHoverHighlight({
   hidden = false,
   instant = false,
   fullWidth = false,
+  onArrive,
   className
 }: FluidHoverHighlightProps) {
   const rect = hidden ? null : activeRect(hover)
@@ -76,6 +83,17 @@ export function FluidHoverHighlight({
           initial={{ opacity: 0, ...toTarget(rect, fullWidth) }}
           animate={{ opacity: 1, ...toTarget(rect, fullWidth) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
+          onUpdate={
+            onArrive &&
+            ((latest) => {
+              const reach = rect.height * ARRIVING
+              if (
+                near(Number(latest.y), rect.top, reach) &&
+                (fullWidth || near(Number(latest.x), rect.left, reach))
+              )
+                onArrive(rect)
+            })
+          }
           transition={{
             ...(reduceMotion || instant || sameRow ? snap : spring.fast),
             opacity: fade
