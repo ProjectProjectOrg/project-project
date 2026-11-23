@@ -6,7 +6,7 @@ import { MigratedDatabase, migratedDatabase } from "./migrationFixture"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
-const statusPhaseMigration = "20261123142713_status_phase"
+const statusPhaseMigration = "20261123145423_status_phase"
 
 const web = "00000000-0000-0000-0000-000000000001"
 const api = "00000000-0000-0000-0000-000000000002"
