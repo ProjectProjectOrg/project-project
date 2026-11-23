@@ -55,39 +55,71 @@ export const railPath = (points: ReadonlyArray<RailPoint>) =>
 
 // Where each mark sits on the rail, relative to the rail's box. A mark
 // inside a fold or a box that is opening (data-rail-clip) travels with it:
-// from the mark before it to its own place, as far as the fold is open, and
-// the indent the fold itself adds (data-rail-indent, or its rows' left
-// padding) eases in the same way. Closed, it sits on the mark before it, so
-// the rail is exactly what it was without it; open, it's where it belongs.
-// Nothing jumps when a fold mounts or unmounts.
+// from the point before the fold to its own place, as far as the most
+// closed fold around it is open. Closed, it sits on the mark before it (or
+// after it, when nothing comes before), so the rail is exactly what it was
+// without it; open, it's where it belongs.
+const openOf = (clip: HTMLElement) =>
+  clip.scrollHeight > 0
+    ? Math.min(1, clip.getBoundingClientRect().height / clip.scrollHeight)
+    : 1
+
+const closestClip = (node: HTMLElement, root: HTMLElement) => {
+  let clip: HTMLElement | null = null
+  let open = 1
+  for (
+    let around = node.closest<HTMLElement>("[data-rail-clip]");
+    around !== null && root.contains(around);
+    around =
+      around.parentElement?.closest<HTMLElement>("[data-rail-clip]") ?? null
+  ) {
+    const opened = openOf(around)
+    if (clip === null || opened < open) {
+      clip = around
+      open = opened
+    }
+  }
+  return { clip, open }
+}
+
+const toward = (from: RailPoint, to: RailPoint, open: number) => ({
+  x: from.x + (to.x - from.x) * open,
+  y: from.y + (to.y - from.y) * open
+})
+
 export const railPoints = (root: HTMLElement) => {
   const box = root.getBoundingClientRect()
-  const points: Array<RailPoint> = []
-  for (const node of root.querySelectorAll<HTMLElement>("[data-rail-node]")) {
-    const r = node.getBoundingClientRect()
-    const x = r.left + r.width / 2 - box.left
-    const y = r.top + r.height / 2 - box.top
-    const clip = node.closest<HTMLElement>("[data-rail-clip]")
-    const prev = points.at(-1)
-    if (!clip || !root.contains(clip) || prev === undefined) {
-      points.push({ x, y })
-      continue
+  const marks = [...root.querySelectorAll<HTMLElement>("[data-rail-node]")].map(
+    (node) => {
+      const r = node.getBoundingClientRect()
+      const { clip, open } = closestClip(node, root)
+      return {
+        at: {
+          x: r.left + r.width / 2 - box.left,
+          y: r.top + r.height / 2 - box.top
+        },
+        clip,
+        open
+      }
     }
-    const c = clip.getBoundingClientRect()
-    const open =
-      clip.scrollHeight > 0 ? Math.min(1, c.height / clip.scrollHeight) : 1
-    const rows = clip.firstElementChild
-    const given = clip.dataset.railIndent
-    const step =
-      given !== undefined
-        ? Number.parseFloat(given) || 0
-        : rows instanceof HTMLElement
-          ? Number.parseFloat(getComputedStyle(rows).paddingLeft) || 0
-          : 0
-    points.push({
-      x: x - step * (1 - open),
-      y: prev.y + (y - prev.y) * open
-    })
+  )
+  const leading = marks.findIndex((mark) => mark.clip === null)
+  const lead = leading === -1 ? 0 : leading
+  const points: Array<RailPoint> = marks.map((mark) => mark.at)
+  const origins = new Map<HTMLElement, RailPoint>()
+  const place = (index: number, beside: number) => {
+    const { at, clip, open } = marks[index]
+    const near = points[beside]
+    if (clip === null) return
+    const origin = origins.get(clip) ?? near
+    origins.set(clip, origin)
+    points[index] = {
+      x: toward(origin, at, open).x,
+      y: toward(near, at, open).y
+    }
   }
+  for (let index = lead + 1; index < marks.length; index++)
+    place(index, index - 1)
+  for (let index = lead - 1; index >= 0; index--) place(index, index + 1)
   return points
 }

@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import {
   useLayoutEffect,
   useRef,
+  useState,
   type ComponentProps,
   type MouseEvent,
   type ReactNode
@@ -10,7 +11,6 @@ import {
 import { cn } from "../lib/utils"
 import { ChevronRight } from "./icons"
 import {
-  TimelineAppear,
   TimelineFold,
   TimelineIndent,
   TimelineMark,
@@ -68,7 +68,6 @@ export function Comment({
   meta,
   actions,
   pending = false,
-  appear = false,
   targeted = false,
   failed = false,
   footer,
@@ -86,8 +85,6 @@ export function Comment({
     // The comment's menu button, shown on hover.
     actions?: ReactNode
     pending?: boolean
-    // Mounting as a comment just placed: it eases in instead of popping in.
-    appear?: boolean
     targeted?: boolean
     // Sending it failed: a red hairline round the bubble; the footer says
     // so and offers Retry (CommentFailed).
@@ -100,61 +97,59 @@ export function Comment({
     children: ReactNode
   }>) {
   return (
-    <TimelineAppear appear={appear}>
-      <div
-        data-slot="comment"
-        data-targeted={targeted || undefined}
-        className={cn(
-          "group/reveal grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5",
-          className
-        )}
-        {...props}
-      >
-        <TimelineMark className="mt-2 self-start">{mark}</TimelineMark>
-        <div className="min-w-0">
-          <div
-            className={cn(
-              "rounded-[4px_14px_14px_14px] px-3 pt-2 pb-2.5 transition-shadow duration-300 in-data-targeted:shadow-[0_0_0_2px_var(--ring)]",
-              surfaceClass,
-              pending && "animate-pulse",
-              failed &&
-                "shadow-[inset_0_0_0_1px_oklch(from_var(--destructive)_l_calc(c*0.8)_h)]"
-            )}
-          >
-            <div className="flex min-h-5 items-center gap-2">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-caption text-muted-foreground">
-                <span className="font-semibold text-foreground">{author}</span>
-                {time != null && (
-                  <>
-                    <span aria-hidden>·</span>
-                    {time}
-                  </>
-                )}
-                {meta}
-              </div>
-              {actions != null && (
-                <div className="-my-1 -mr-1.5 flex shrink-0 items-center">
-                  {actions}
-                </div>
+    <div
+      data-slot="comment"
+      data-targeted={targeted || undefined}
+      className={cn(
+        "group/reveal grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5",
+        className
+      )}
+      {...props}
+    >
+      <TimelineMark className="mt-2 self-start">{mark}</TimelineMark>
+      <div className="min-w-0">
+        <div
+          className={cn(
+            "rounded-[4px_14px_14px_14px] px-3 pt-2 pb-2.5 transition-shadow duration-300 in-data-targeted:shadow-[0_0_0_2px_var(--ring)]",
+            surfaceClass,
+            pending && "animate-pulse [animation-delay:400ms]",
+            failed &&
+              "shadow-[inset_0_0_0_1px_oklch(from_var(--destructive)_l_calc(c*0.8)_h)]"
+          )}
+        >
+          <div className="flex min-h-5 items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-caption text-muted-foreground">
+              <span className="font-semibold text-foreground">{author}</span>
+              {time != null && (
+                <>
+                  <span aria-hidden>·</span>
+                  {time}
+                </>
               )}
+              {meta}
             </div>
-            {editActions == null ? (
-              <div className="text-body text-foreground">{children}</div>
-            ) : (
-              <div className="flex items-end gap-2">
-                <div className="min-w-0 flex-1 text-body text-foreground [&_.lexical-content]:min-h-5">
-                  {children}
-                </div>
-                <div className="-my-1 -mr-1.5 flex shrink-0 items-center gap-1">
-                  {editActions}
-                </div>
+            {actions != null && (
+              <div className="-my-1 -mr-1.5 flex shrink-0 items-center">
+                {actions}
               </div>
             )}
           </div>
-          {footer}
+          {editActions == null ? (
+            <div className="text-body text-foreground">{children}</div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1 text-body text-foreground [&_.lexical-content]:min-h-5">
+                {children}
+              </div>
+              <div className="-my-1 -mr-1.5 flex shrink-0 items-center gap-1">
+                {editActions}
+              </div>
+            </div>
+          )}
         </div>
+        {footer}
       </div>
-    </TimelineAppear>
+    </div>
   )
 }
 
@@ -246,7 +241,7 @@ export function CommentReplyAction({
     <button
       type="button"
       className={cn(
-        "w-fit cursor-pointer text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0",
+        "w-fit cursor-pointer text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0 disabled:pointer-events-none",
         under === "comment" ? "ml-5" : "ml-[2.625rem]",
         className
       )}
@@ -258,15 +253,17 @@ export function CommentReplyAction({
 // Reply and the reply box in one place: pressing Reply collapses the link
 // while the box eases open in its place (so the thread only grows). Under a
 // comment with no replies yet the box starts the indent, so the rail's bend
-// eases out with it (data-rail-indent); among replies it only lengthens the
-// line. Clipped, not scrolled: the editor takes focus while it opens.
+// eases out with it; among replies it only lengthens the line. Clipped, not
+// scrolled: the editor takes focus while it opens.
 export function CommentReplySwap({
   open,
+  sent = 0,
   under = "reply",
   action,
   children
 }: Readonly<{
   open: boolean
+  sent?: number
   under?: "comment" | "reply"
   action: ReactNode
   children: ReactNode
@@ -274,12 +271,20 @@ export function CommentReplySwap({
   const follow = useTimelineRailFollow()
   const reduce = useReducedMotion() ?? false
   const seconds = reduce ? 0 : timelineFoldSeconds
-  const shown = useRef(open)
+  const shown = useRef({ open, sent })
   useLayoutEffect(() => {
-    if (shown.current === open) return
-    shown.current = open
+    if (shown.current.open === open && shown.current.sent === sent) return
+    shown.current = { open, sent }
     follow(seconds * 1000 + 80)
-  }, [open, follow, seconds])
+  }, [open, sent, follow, seconds])
+  const [opening, setOpening] = useState({ open, count: 0, sent })
+  if (opening.open !== open)
+    setOpening({
+      open,
+      count: open ? opening.count + 1 : opening.count,
+      sent
+    })
+  const openedAt = opening.sent
   const swap = {
     initial: { height: 0, opacity: 0 },
     animate: { height: "auto", opacity: 1 },
@@ -291,13 +296,21 @@ export function CommentReplySwap({
       <AnimatePresence initial={false}>
         {open ? (
           <motion.div
-            key="box"
+            key={`box-${opening.count}`}
             {...swap}
             data-rail-clip
-            data-rail-indent={under === "comment" ? 22 : 0}
             className="overflow-clip"
           >
-            {children}
+            <motion.div
+              key={sent}
+              initial={sent === openedAt ? false : swap.initial}
+              animate={swap.animate}
+              transition={swap.transition}
+              data-rail-clip={sent === openedAt ? undefined : true}
+              className="overflow-clip"
+            >
+              {children}
+            </motion.div>
           </motion.div>
         ) : (
           <motion.div
@@ -363,7 +376,9 @@ export function CommentReplyBox({
               )}
             </div>
           )}
-          <div className="flex items-end gap-2">
+          <div
+            className={cn("flex items-end gap-2", author != null && "-mt-1")}
+          >
             <div className="min-w-0 flex-1 py-1 text-body [&_.lexical-content]:min-h-5">
               {children}
             </div>

@@ -9,6 +9,7 @@ export type TimelineComment<C> = Readonly<{
   key: string
   at: Date
   lastAt: Date
+  appear: boolean
   value: C
 }>
 

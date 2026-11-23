@@ -1,11 +1,12 @@
-import { RegistryContext, useAtomSet } from "@effect/atom-react"
+import { RegistryContext } from "@effect/atom-react"
 import type { CommentId, TicketId, User } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useContext, useRef, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import {
   commentsRequest,
   createComment,
@@ -33,12 +34,8 @@ export function useCommentDraft({
   const [body, setBody] = useState("")
   const [editorVersion, setEditorVersion] = useState(0)
   const [focusEditor, setFocusEditor] = useState(false)
-  const [identity, setIdentity] = useState(newCommentIdentity)
   const registry = useContext(RegistryContext)
   const req = commentsRequest(orgSlug, slug, ticketId)
-  const create = useAtomSet(createComment({ req, author, ...identity }), {
-    mode: "promiseExit"
-  })
   const rootRef = useRef<HTMLDivElement>(null)
 
   const reset = (next: string, focus: boolean) => {
@@ -52,12 +49,15 @@ export function useCommentDraft({
   const submit = async () => {
     if (!body.trim()) return
     const input = replyTo === undefined ? { body } : { body, replyTo }
-    const sent = identity
+    const sent = newCommentIdentity()
     reset("", true)
-    setIdentity(newCommentIdentity())
-    const pending = create(input)
+    const pending = fireMutation(
+      registry,
+      createComment({ req, author, ...sent }),
+      input
+    )
     onSend?.(rootRef.current)
-    if (Exit.isSuccess(await pending)) return
+    if (AsyncResult.isSuccess(await pending)) return
     parkFailedComment(registry, req, { ...sent, author, input })
   }
 

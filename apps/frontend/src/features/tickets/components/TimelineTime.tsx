@@ -1,12 +1,13 @@
 import { cn } from "@pp/ui/lib/utils"
 
-import { formatRelative } from "@/lib/relativeTime"
+import { formatRelative, useNow } from "@/lib/relativeTime"
 import { getLocale } from "@/paraglide/runtime"
 
 export function TimelineTime({
   at,
   className
 }: Readonly<{ at: Date; className?: string }>) {
+  const now = useNow()
   return (
     <time
       className={cn("text-muted-foreground tabular-nums", className)}
@@ -17,7 +18,7 @@ export function TimelineTime({
         hourCycle: "h23"
       })}
     >
-      {formatRelative(at)}
+      {formatRelative(at, now)}
     </time>
   )
 }

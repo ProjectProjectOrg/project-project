@@ -75,6 +75,7 @@ export function CommentsSection({
               key: thread.root.key,
               at: thread.root.comment.createdAt,
               lastAt: (thread.replies.at(-1) ?? thread.root).comment.createdAt,
+              appear: thread.root.pending,
               value: thread
             }))}
             renderComment={({ value: thread }) => (

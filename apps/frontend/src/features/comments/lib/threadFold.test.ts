@@ -13,6 +13,7 @@ const fold = (input: Partial<Parameters<typeof threadFold>[0]>) =>
     manual: null,
     target: "",
     editing: new Set(),
+    held: null,
     ...input
   })
 
@@ -36,6 +37,17 @@ describe("threadFold", () => {
   it("opens for a linked reply until it is collapsed by hand", () => {
     expect(fold({ target: "c_2" }).open).toBe(true)
     expect(fold({ target: "c_2", manual: false }).open).toBe(false)
+  })
+
+  it("folds no more than it held while replying", () => {
+    expect(foldedIds({ held: 0 })).toEqual([])
+    expect(foldedIds({ held: 2 })).toEqual(["c_1", "c_2"])
+    expect(foldedIds({ held: 0, resolved: true })).toEqual([
+      "c_1",
+      "c_2",
+      "c_3",
+      "c_4"
+    ])
   })
 
   it("stays open while a folded reply is being edited, even when collapsed", () => {

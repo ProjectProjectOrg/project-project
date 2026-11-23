@@ -18,6 +18,7 @@ type ReplyProps = Readonly<{
   replyTo: CommentId
   // Leaving the box empty closes it again.
   onClose: () => void
+  onSent: () => void
 }>
 
 export function ReplyComposer(props: ReplyProps) {
@@ -30,12 +31,14 @@ function ReadyReplyComposer({
   ticketId,
   replyTo,
   onClose,
+  onSent,
   author
 }: ReplyProps & Readonly<{ author: User }>) {
   const { body, setBody, editorKey, submit, rootRef } = useCommentDraft({
     ticketId,
     author,
-    replyTo
+    replyTo,
+    onSend: onSent
   })
   const [openedAt] = useState(() => DateTime.toDate(DateTime.nowUnsafe()))
   const ready = body.trim() !== ""
@@ -65,7 +68,7 @@ function ReadyReplyComposer({
         onSubmit={submit}
         placeholder={m.comments_reply_placeholder()}
         // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click on Reply that opened the box
-        autoFocus
+        autoFocus={editorKey === 0}
         compact
       />
     </CommentReplyBox>

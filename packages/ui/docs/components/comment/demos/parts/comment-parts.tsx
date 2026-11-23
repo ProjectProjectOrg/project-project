@@ -117,7 +117,6 @@ export function Said({
   time,
   thread = false,
   pending = false,
-  appear = false,
   menuOpen = false,
   onEditingChange,
   children
@@ -126,7 +125,6 @@ export function Said({
   time: string
   thread?: boolean
   pending?: boolean
-  appear?: boolean
   menuOpen?: boolean
   onEditingChange?: (editing: boolean) => void
   children: string
@@ -187,7 +185,6 @@ export function Said({
         )
       }
       pending={pending}
-      appear={appear}
     >
       <Markdown>{text}</Markdown>
     </Comment>

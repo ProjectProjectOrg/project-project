@@ -36,6 +36,7 @@
   "common_previous_month": "Previous month",
   "common_save_button": "Save",
   "common_scroll_area_label": "scroll area",
+  "common_time_just_now": "just now",
   "error_everhour_api_key_missing": "Connect your Everhour API key before syncing this project.",
   "error_everhour_auth_invalid": "Everhour rejected this API key. Check the key and try again.",
   "error_everhour_config_missing": "Everhour encryption is not configured on the server.",

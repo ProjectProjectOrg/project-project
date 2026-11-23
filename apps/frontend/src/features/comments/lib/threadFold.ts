@@ -12,19 +12,22 @@ export const threadFold = <R extends Reply>({
   resolved,
   manual,
   target,
-  editing
+  editing,
+  held
 }: Readonly<{
   replies: ReadonlyArray<R>
   resolved: boolean
   manual: boolean | null
   target: string
   editing: ReadonlySet<string>
+  held: number | null
 }>) => {
-  const foldable = resolved
+  const folds = resolved
     ? replies.slice(0, -1)
     : replies.length > FOLD_AFTER
       ? replies.slice(0, -KEEP_OPEN)
       : []
+  const foldable = held === null || resolved ? folds : folds.slice(0, held)
   const holds = (check: (id: string) => boolean) =>
     foldable.some((reply) => check(reply.comment.id))
   return {

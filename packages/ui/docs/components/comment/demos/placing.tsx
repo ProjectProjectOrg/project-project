@@ -96,7 +96,7 @@ export default function Placing() {
             </CommentThread>
           </TimelineEntry>
           {placed.map((entry) => (
-            <TimelineEntry key={entry.id}>
+            <TimelineEntry key={entry.id} appear>
               <CommentThread>
                 {entry.state === "failed" ? (
                   <Unsent
@@ -111,7 +111,6 @@ export default function Placing() {
                     member={CHIDI}
                     time="just now"
                     pending={entry.state === "sending"}
-                    appear
                   >
                     {entry.text}
                   </Said>

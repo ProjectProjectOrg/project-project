@@ -172,7 +172,6 @@ export function CommentRow({
                 )
               }
               pending={waiting}
-              appear={pending}
               targeted={targeted}
               onContextMenu={keepNativeMenu}
               footer={

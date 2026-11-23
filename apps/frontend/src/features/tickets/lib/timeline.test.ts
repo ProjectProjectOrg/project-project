@@ -28,6 +28,7 @@ const comment = (key: string, time: string, lastTime = time) => ({
   key,
   at: at(time),
   lastAt: at(lastTime),
+  appear: false,
   value: key
 })
 

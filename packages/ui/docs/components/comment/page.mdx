@@ -63,7 +63,7 @@ import {
 | Part | Holds |
 | --- | --- |
 | `CommentThread` | a thread: the first comment and its replies, at the timeline's 13px text |
-| `Comment` | one comment: `mark` (20px, on the rail), `author`, `time`, `meta` (edited, imported, resolved), `actions` (the menu), `pending`, `appear` (just placed: eases in), `targeted`, `failed` (not sent: a red hairline), `editActions` (Cancel and Save while editing), `footer` (an error, or `CommentFailed`), and the body |
+| `Comment` | one comment: `mark` (20px, on the rail), `author`, `time`, `meta` (edited, imported, resolved), `actions` (the menu), `pending`, `targeted`, `failed` (not sent: a red hairline), `editActions` (Cancel and Save while editing), `footer` (an error, or `CommentFailed`), and the body |
 | `CommentFailed` | under a comment that failed to send: `message` ("Not sent.") and Retry (`retryLabel`, `onRetry`) |
 | `CommentReplies` | the replies, one step in (22px) |
 | `CommentEarlier` | earlier replies folded into one row that opens right under itself; `label`, `open`, `onOpenChange` |
@@ -92,7 +92,7 @@ Replies sit one step in (22px), and the rail bends in to them with the timeline'
 
 ### A placed comment eases in
 
-A comment you place (or a reply) joins the timeline at once, while it's sent: its space eases open over 340ms on the house curve while it rises 8px into place and unblurs, and the rail follows it down. It pulses until it's saved. Comments already on the page don't animate; reduced motion shows it at once.
+A comment you place joins the timeline at once, while it's sent: its entry (`TimelineEntry appear`), padding and Reply link included, eases open over 340ms on the house curve without a fade, and the rail follows it down. A reply you send takes the reply box's place, laid out exactly like it, and a fresh box eases open under it (`CommentReplySwap sent`). Comments already on the page don't animate; reduced motion shows them at once. A comment pulses while it's sent, once that takes longer than 400ms, so a quick send never dims.
 
 ### The menu holds every action
 
