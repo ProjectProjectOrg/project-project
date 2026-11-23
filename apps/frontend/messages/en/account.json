@@ -125,6 +125,16 @@
   "profile_changelog_link_copied": "Link copied",
   "profile_changelog_nightly": "Nightly",
   "profile_changelog_notices": "Before you update",
+  "profile_changelog_notices_audience": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} note for whoever runs this server",
+        "countPlural=*": "{count} notes for whoever runs this server"
+      }
+    }
+  ],
   "profile_changelog_on_github": "On GitHub",
   "profile_changelog_pr": "Pull request {number}",
   "profile_changelog_release": "Release",

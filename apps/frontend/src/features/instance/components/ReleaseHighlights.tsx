@@ -1,6 +1,8 @@
 import type { ChangelogHighlight, ChangelogNotice } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
 import { Markdown } from "@pp/ui/editor/markdown"
-import { AlertTriangle } from "@pp/ui/icons"
+import { AlertTriangle, ChevronRight } from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 
 import { m } from "@/paraglide/messages"
 
@@ -92,39 +94,71 @@ function Highlight({
   )
 }
 
+// Notes for whoever hosts the instance, not for the people using it: closed
+// at the end of the release until someone opens them.
 export function Notices({
-  notices
-}: Readonly<{ notices: ReadonlyArray<ChangelogNotice> }>) {
+  notices,
+  open,
+  onToggle
+}: Readonly<{
+  notices: ReadonlyArray<ChangelogNotice>
+  open: boolean
+  onToggle: () => void
+}>) {
+  const panelId = `${SECTION_IDS.notices}-notes`
   return (
-    <section
-      id={SECTION_IDS.notices}
-      className="flex scroll-mt-6 flex-col gap-8"
-    >
-      <AnchorHeading
-        anchor={SECTION_IDS.notices}
-        level="section"
-        label={m.profile_changelog_notices()}
-      >
-        <AlertTriangle aria-hidden className="size-6 self-center" />
-        {m.profile_changelog_notices()}
-      </AnchorHeading>
-      <div className="flex flex-col gap-8">
-        {notices.map((notice) => (
-          <div
-            key={notice.text}
-            className="flex flex-col gap-2 border-l-2 border-foreground pl-5"
-          >
-            <h3 className="text-title font-semibold text-balance">
-              {notice.text}
-            </h3>
-            {notice.body === "" ? null : (
-              <Markdown blocks="flat" size="reading" className="max-w-[62ch]">
-                {notice.body}
-              </Markdown>
+    <section id={SECTION_IDS.notices} className="scroll-mt-6">
+      <h2>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={onToggle}
+          className="focus-ring -mx-3 grid w-[calc(100%+1.5rem)] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-xl px-3 py-4 text-left transition-[background-color,scale] duration-100 [corner-shape:var(--button-corner)] hover:bg-hover active:scale-[0.99]"
+        >
+          <AlertTriangle aria-hidden className="size-5 text-muted-foreground" />
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <span className="text-title font-semibold">
+              {m.profile_changelog_notices()}
+            </span>
+            <span className="text-body text-muted-foreground">
+              {m.profile_changelog_notices_audience({ count: notices.length })}
+            </span>
+          </span>
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              "size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+              open && "rotate-90"
             )}
+          />
+        </button>
+      </h2>
+      <AutoHeight>
+        <div id={panelId} hidden={!open}>
+          <div className="flex flex-col gap-8 pt-4 pb-2">
+            {notices.map((notice) => (
+              <div
+                key={notice.text}
+                className="flex flex-col gap-2 border-l-2 border-foreground pl-5"
+              >
+                <h3 className="text-title font-semibold text-balance">
+                  {notice.text}
+                </h3>
+                {notice.body === "" ? null : (
+                  <Markdown
+                    blocks="flat"
+                    size="reading"
+                    className="max-w-[62ch]"
+                  >
+                    {notice.body}
+                  </Markdown>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      </AutoHeight>
     </section>
   )
 }

@@ -111,15 +111,15 @@ describe("indexItems", () => {
     )
     expect(items.map((entry) => [entry.label, entry.count])).toEqual([
       ["Highlights", null],
-      ["Before you update", null],
       ["Fixed", 2],
+      ["Before you update", null],
       ["Earlier releases", null]
     ])
     expect(indexIds(items)).toEqual([
       "highlights",
       "highlight-1",
-      "before-you-update",
       "fixed",
+      "before-you-update",
       "earlier-releases"
     ])
   })

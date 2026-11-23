@@ -155,7 +155,7 @@ export const indexItems = (
         }
       ]
     : []
-  return [...highlights, ...notices, ...sections, ...earlier]
+  return [...highlights, ...sections, ...notices, ...earlier]
 }
 
 export const indexIds = (items: ReadonlyArray<IndexItem>) =>

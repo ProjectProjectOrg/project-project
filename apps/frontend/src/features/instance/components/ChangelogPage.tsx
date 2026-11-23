@@ -5,7 +5,7 @@ import { ArrowUpRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useReducedMotion } from "motion/react"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
@@ -127,6 +127,13 @@ function Release({
 }>) {
   const reduce = useReducedMotion() ?? false
   const hash = useLocation({ select: (location) => location.hash })
+  // The notices start closed; a link or index jump to them opens them.
+  const [noticesOpen, setNoticesOpen] = useState(hash === SECTION_IDS.notices)
+  const [seenHash, setSeenHash] = useState(hash)
+  if (seenHash !== hash) {
+    setSeenHash(hash)
+    if (hash === SECTION_IDS.notices) setNoticesOpen(true)
+  }
 
   useEffect(() => {
     if (hash === "") return undefined
@@ -138,6 +145,7 @@ function Release({
   }, [hash])
 
   const go = (id: string) => {
+    if (id === SECTION_IDS.notices) setNoticesOpen(true)
     const url = new URL(window.location.href)
     url.hash = id
     window.history.replaceState(window.history.state, "", url)
@@ -161,7 +169,7 @@ function Release({
     earlier.length > 0
   )
   const counts = releaseCounts(latest)
-  const headlines = counts.highlights + counts.notices > 0
+  const headlines = counts.highlights > 0
   const repository = repositoryUrl(latest.url)
 
   return (
@@ -171,9 +179,6 @@ function Release({
         <div className="mx-auto flex w-full max-w-[42rem] min-w-0 flex-col gap-24 @[52rem]:mx-0">
           {latest.highlights.length === 0 ? null : (
             <Highlights highlights={latest.highlights} />
-          )}
-          {latest.notices.length === 0 ? null : (
-            <Notices notices={latest.notices} />
           )}
           {counts.changes === 0 ? null : (
             <div
@@ -221,6 +226,13 @@ function Release({
                 })}
               </div>
             </div>
+          )}
+          {latest.notices.length === 0 ? null : (
+            <Notices
+              notices={latest.notices}
+              open={noticesOpen}
+              onToggle={() => setNoticesOpen((open) => !open)}
+            />
           )}
           {earlier.length === 0 ? null : <EarlierReleases entries={earlier} />}
         </div>
