@@ -5,7 +5,7 @@ export const trackScrolling = (element: HTMLElement | null) => {
   let settle: number | undefined
   let dragging = false
   const onScroll = () => {
-    // A drag's auto-scroll must keep its drop targets hit-testable.
+    // Drop targets must stay hit-testable during any drag, files included.
     if (dragging) return
     element.dataset.scrolling = ""
     window.clearTimeout(settle)
@@ -21,13 +21,17 @@ export const trackScrolling = (element: HTMLElement | null) => {
   }
   element.addEventListener("scroll", onScroll, { passive: true })
   document.addEventListener("dragstart", onDragStart, true)
+  document.addEventListener("dragenter", onDragStart, true)
   document.addEventListener("dragend", onDragEnd, true)
   document.addEventListener("drop", onDragEnd, true)
+  document.addEventListener("mousemove", onDragEnd, true)
   return () => {
     element.removeEventListener("scroll", onScroll)
     document.removeEventListener("dragstart", onDragStart, true)
+    document.removeEventListener("dragenter", onDragStart, true)
     document.removeEventListener("dragend", onDragEnd, true)
     document.removeEventListener("drop", onDragEnd, true)
+    document.removeEventListener("mousemove", onDragEnd, true)
     window.clearTimeout(settle)
     delete element.dataset.scrolling
   }
