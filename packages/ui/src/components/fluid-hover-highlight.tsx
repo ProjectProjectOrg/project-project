@@ -32,8 +32,8 @@ const fade: Transition = { duration: 0.08 }
 // is too slow to wait out.
 const ARRIVED = 2
 
-const near = (value: unknown, target: number) =>
-  typeof value === "number" && Math.abs(value - target) <= ARRIVED
+const near = (value: number, target: number) =>
+  Math.abs(value - target) <= ARRIVED
 const snap: Transition = { duration: 0 }
 
 const toTarget = (rect: ItemRect, fullWidth: boolean) =>
@@ -91,8 +91,8 @@ export function FluidHoverHighlight({
             onArrive &&
             ((latest) => {
               if (
-                near(latest.y, rect.top) &&
-                (fullWidth || near(latest.x, rect.left))
+                near(Number(latest.y), rect.top) &&
+                (fullWidth || near(Number(latest.x), rect.left))
               )
                 onArrive()
             })
