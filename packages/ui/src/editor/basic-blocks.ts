@@ -1,4 +1,4 @@
-import { $createCodeNode } from "@lexical/code"
+import { $createCodeNode } from "@lexical/code-core"
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/extension"
 import {
   INSERT_CHECK_LIST_COMMAND,

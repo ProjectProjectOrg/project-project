@@ -90,6 +90,14 @@ describe("matchTicketText", () => {
     }
   })
 
+  it("finds a ticket by a link url written with markdown escapes", () => {
+    const result = matchTicketText(
+      { title: "Header polish", body: "[PR](https://x.example/a?b=1\\&c=2)" },
+      searchWords("https://x.example/a?b=1&c=2")
+    )
+    expect(result).toMatchObject({ where: "description" })
+  })
+
   it("ranks visible text above a link url", () => {
     const url = "https://github.com/x"
     const result = matchTicketText(

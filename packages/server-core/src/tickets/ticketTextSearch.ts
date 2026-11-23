@@ -1,4 +1,8 @@
-import type { TextRange, TicketTextSnippet } from "@pp/shared"
+import {
+  type TextRange,
+  type TicketTextSnippet,
+  unescapeMarkdown
+} from "@pp/shared"
 
 import {
   parseCommentsRegion,
@@ -62,8 +66,8 @@ const linkKey = (url: string) =>
     .replace(/\/$/, "")
 
 const linkTargets = (line: string) =>
-  [...line.matchAll(/\]\((?!mention:)([^)\s]+)[^)]*\)/g)].map(([, target]) =>
-    linkKey(target ?? "")
+  [...line.matchAll(/\]\((?!mention:)((?:\\.|[^)\s\\])+)[^)]*\)/g)].map(
+    ([, target]) => linkKey(unescapeMarkdown(target ?? ""))
   )
 
 const linkedCount = (

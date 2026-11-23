@@ -5,7 +5,7 @@ import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
+} from "@lexical/mdast"
 import { RichTextExtension } from "@lexical/rich-text"
 import { $getNearestBlockElementAncestorOrThrow } from "@lexical/utils"
 import { formatTicketBlock, stripHints } from "@pp/shared"
@@ -21,16 +21,16 @@ import {
   CONTROLLED_TEXT_INSERTION_COMMAND,
   KEY_TAB_COMMAND,
   defineExtension,
-  type ElementNode,
   type LexicalEditor,
   type LexicalNode
 } from "lexical"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { MarkdownExtension } from "../markdown-extension"
 import { BUILTIN_LIBRARY, lookupFor } from "./block-chrome"
 import { registerBlockHints } from "./block-hints"
 import { TicketBlockExtension } from "./ticket-block-extension"
+import { TicketBlockMarkdownExtension } from "./ticket-block-markdown"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
@@ -55,10 +55,12 @@ function mount(markdown: string) {
         HistoryExtension,
         ListExtension,
         CheckListExtension,
-        TicketBlockExtension
+        MarkdownExtension,
+        TicketBlockExtension,
+        TicketBlockMarkdownExtension
       ],
       $initialEditorState: () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(markdown)
       },
       onError: (error) => {
         throw error
@@ -89,7 +91,7 @@ const hintsOf = (editor: LexicalEditor) =>
   )
 
 const markdownOf = (editor: LexicalEditor) =>
-  editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  editor.read(() => $convertToMarkdownString())
 
 function elementAt(path: ReadonlyArray<number>) {
   let node: LexicalNode | null = $getRoot()
@@ -196,7 +198,9 @@ describe("block hints", () => {
       "li:What you see",
       "p:How often: always, sometimes, only when…"
     ])
-    expect(markdownOf(editor).trimEnd()).toBe(markdown)
+    expect(markdownOf(editor).trimEnd()).toBe(
+      markdown.replace(/^(\d+\.) $/gm, "$1")
+    )
   })
 
   it("hides a hint once the element has text and brings it back when cleared", () => {
@@ -227,8 +231,11 @@ describe("block hints", () => {
       )
     editor.update(
       () => {
-        const expected = $getRoot().getFirstChildOrThrow<ElementNode>()
-        expected.getChildAtIndex<ElementNode>(1)!.selectEnd()
+        const expected = $getRoot().getFirstChildOrThrow()
+        if (!$isElementNode(expected)) throw new Error("no block")
+        const line = expected.getChildAtIndex(1)
+        if (!$isElementNode(line)) throw new Error("no line")
+        line.selectEnd()
       },
       { discrete: true }
     )
@@ -242,8 +249,11 @@ describe("block hints", () => {
     setTextAt(editor, [0, 1], "Expected: ok")
     editor.update(
       () => {
-        const expected = $getRoot().getFirstChildOrThrow<ElementNode>()
-        expected.getChildAtIndex<ElementNode>(1)!.selectEnd()
+        const expected = $getRoot().getFirstChildOrThrow()
+        if (!$isElementNode(expected)) throw new Error("no block")
+        const line = expected.getChildAtIndex(1)
+        if (!$isElementNode(line)) throw new Error("no line")
+        line.selectEnd()
         editor.dispatchCommand(CONTROLLED_TEXT_INSERTION_COMMAND, "!")
       },
       { discrete: true }

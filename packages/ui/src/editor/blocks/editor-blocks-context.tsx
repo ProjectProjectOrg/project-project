@@ -1,4 +1,3 @@
-import type { Transformer } from "@lexical/markdown"
 import { createContext, useContext, useMemo, type ReactNode } from "react"
 
 import { LibraryContext } from "./block-chrome"
@@ -6,23 +5,20 @@ import type { EditorBlocks } from "./editor-blocks"
 
 export type EditorBlocksScope = Readonly<{
   blocks: EditorBlocks
-  transformers: ReadonlyArray<Transformer>
 }>
 
 export const EditorBlocksContext = createContext<EditorBlocksScope | null>(null)
 
 export function EditorBlocksProvider({
   blocks,
-  transformers,
   children
 }: Readonly<{
   blocks: EditorBlocks | undefined
-  transformers: ReadonlyArray<Transformer>
   children: ReactNode
 }>) {
   const scope = useMemo(
-    () => (blocks === undefined ? null : { blocks, transformers }),
-    [blocks, transformers]
+    () => (blocks === undefined ? null : { blocks }),
+    [blocks]
   )
   const outerLibrary = useContext(LibraryContext)
   return (

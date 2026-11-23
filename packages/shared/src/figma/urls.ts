@@ -1,3 +1,5 @@
+import { unescapeMarkdown } from "../markdown"
+
 export type FigmaKind = "design" | "board" | "slides" | "proto"
 
 export type FigmaDensity = "rich" | "compact"
@@ -117,7 +119,7 @@ export const figmaRefKey = (ref: FigmaRef) =>
   `${ref.fileKey}/${ref.nodeId ?? ""}`
 
 const FIGMA_URL_CANDIDATE_RE =
-  /https?:\/\/(?:www\.)?figma\.com\/(?:design|board|slides|proto|file)\/[^\s)<>"']+/gi
+  /https?:\/\/(?:www\.)?figma\.com\/(?:design|board|slides|proto|file)\/(?:\\[!-/:-@[-`{-~]|[^\s)<>"'\\])+/gi
 
 const trimFigmaCandidate = (candidate: string) =>
   candidate.replace(/[.,;:!?}\]_*~]+$/g, "")
@@ -126,7 +128,7 @@ export const extractFigmaRefs = (markdown: string) => {
   const seen = new Set<string>()
   const out: Array<FigmaRef> = []
   for (const match of markdown.matchAll(FIGMA_URL_CANDIDATE_RE)) {
-    const ref = parseFigmaUrl(trimFigmaCandidate(match[0]))
+    const ref = parseFigmaUrl(trimFigmaCandidate(unescapeMarkdown(match[0])))
     if (ref === null) continue
     const key = figmaRefKey(ref)
     if (seen.has(key)) continue

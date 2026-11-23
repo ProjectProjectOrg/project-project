@@ -705,7 +705,7 @@ const make = Effect.gen(function* () {
       if (body.trim() === "") return true
       const comparable = stripHints(body)
       return library.types.some((type) =>
-        isPristineTypeBody(comparable, type, lookup)
+        isPristineTypeBody(comparable, expandType(type, lookup))
       )
     }
   })

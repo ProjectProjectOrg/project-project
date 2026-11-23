@@ -4,8 +4,9 @@ import { HistoryExtension } from "@lexical/history"
 import { $isListNode, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
-  $convertToMarkdownString
-} from "@lexical/markdown"
+  $convertToMarkdownString,
+  MdastShortcutsExtension
+} from "@lexical/mdast"
 import { RichTextExtension } from "@lexical/rich-text"
 import {
   $getRoot,
@@ -18,7 +19,8 @@ import { describe, expect, it } from "vitest"
 
 import { ChecklistShortcutExtension } from "../editor/checklist-markdown"
 import { TicketBlockExtension } from "./blocks/ticket-block-extension"
-import { MARKDOWN_TRANSFORMERS } from "./editor-transformers"
+import { TicketBlockMarkdownExtension } from "./blocks/ticket-block-markdown"
+import { MarkdownExtension } from "./markdown-extension"
 
 function editorWith(markdown: string) {
   const editor = buildEditorFromExtensions(
@@ -28,11 +30,14 @@ function editorWith(markdown: string) {
         RichTextExtension,
         HistoryExtension,
         ListExtension,
+        MarkdownExtension,
         ChecklistShortcutExtension,
-        TicketBlockExtension
+        MdastShortcutsExtension,
+        TicketBlockExtension,
+        TicketBlockMarkdownExtension
       ],
       $initialEditorState: () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(markdown)
       },
       onError: (error) => {
         throw error
@@ -67,7 +72,7 @@ function typeInto(editor: LexicalEditor, itemText: string, typed: string) {
 }
 
 const markdownOf = (editor: LexicalEditor) =>
-  editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  editor.read(() => $convertToMarkdownString())
 
 const listTypes = (editor: LexicalEditor) =>
   editor.read(() =>
@@ -107,7 +112,7 @@ describe("typing a task marker into a bullet", () => {
     const editor = editorWith("- one\n- [ ]\n- three")
     typeInto(editor, "[ ]", " two")
     expect(listTypes(editor)).toEqual(["bullet", "check", "bullet"])
-    expect(markdownOf(editor)).toBe("- one\n\n- [ ] two\n\n- three")
+    expect(markdownOf(editor)).toBe("- one\n- [ ] two\n- three")
   })
 
   it("keeps an item's nested list with it", () => {
@@ -119,7 +124,7 @@ describe("typing a task marker into a bullet", () => {
         $getRoot().getChildren().filter($isListNode)[0].getTextContent()
       )
     ).toContain("child")
-    expect(markdownOf(editor)).toMatch(/^- \[ \] a\n {4}- child\n\n- b$/)
+    expect(markdownOf(editor)).toBe("- [ ] a\n  - child\n- b")
   })
 
   it("joins a checklist right above", () => {

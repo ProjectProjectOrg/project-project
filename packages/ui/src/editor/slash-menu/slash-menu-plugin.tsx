@@ -1,4 +1,4 @@
-import { $convertToMarkdownString, type Transformer } from "@lexical/markdown"
+import { $convertToMarkdownString } from "@lexical/mdast"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   LexicalTypeaheadMenuPlugin,
@@ -65,12 +65,10 @@ const EMPTY_MENU: SlashMenuState = {
 export function SlashMenuPlugin({
   library,
   ticketType,
-  transformers,
   mode = "ticket"
 }: Readonly<{
   library: Library
   ticketType: TypeKey | null
-  transformers: ReadonlyArray<Transformer>
   mode?: SlashMode
 }>) {
   const [editor] = useLexicalComposerContext()
@@ -86,14 +84,12 @@ export function SlashMenuPlugin({
     (next: string | null) => {
       if (next === null) bodyRef.current = null
       else if (bodyRef.current === null) {
-        bodyRef.current = editor
-          .getEditorState()
-          .read(() => $convertToMarkdownString([...transformers]))
+        bodyRef.current = editor.read(() => $convertToMarkdownString())
         setBody(bodyRef.current)
       }
       setQuery(next)
     },
-    [editor, transformers]
+    [editor]
   )
 
   const menu = useMemo(() => {
@@ -190,7 +186,6 @@ export function SlashMenuPlugin({
       editor.update(() => {
         nodeToReplace?.remove()
         $runSlashItem(editor, option.item, {
-          transformers,
           lookup,
           detach,
           mode: mode === "basic" ? undefined : mode
@@ -198,7 +193,7 @@ export function SlashMenuPlugin({
         closeMenu()
       })
     },
-    [editor, lookup, mode, openGallery, transformers]
+    [editor, lookup, mode, openGallery]
   )
 
   // Lexical's typeahead removes and re-adds its anchor element on every

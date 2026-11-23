@@ -1,25 +1,24 @@
 // @vitest-environment jsdom
-import { CodeNode } from "@lexical/code"
-import { ListItemNode, ListNode } from "@lexical/list"
+import { buildEditorFromExtensions } from "@lexical/extension"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
-import { HeadingNode } from "@lexical/rich-text"
+} from "@lexical/mdast"
 import {
   $createLineBreakNode,
   $createParagraphNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
-  createEditor,
+  defineExtension,
   type LexicalNode
 } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { MarkdownExtension } from "../markdown-extension"
 import { $exitTicketBlockFromEmptyLastLine } from "./ticket-block-extension"
-import { $isTicketBlockNode, TicketBlockNode } from "./ticket-block-node"
+import { TicketBlockMarkdownExtension } from "./ticket-block-markdown"
+import { $isTicketBlockNode, type TicketBlockNode } from "./ticket-block-node"
 
 const BLOCK = '<block type="notes">\n\n## Notes\n\n</block>'
 
@@ -27,19 +26,21 @@ function pressEnterOnEmptyLastLine(
   markdown: string,
   prepare: (block: TicketBlockNode) => LexicalNode
 ) {
-  const editor = createEditor({
-    namespace: "ticket-block-test",
-    nodes: [CodeNode, HeadingNode, ListNode, ListItemNode, TicketBlockNode],
-    onError: (error) => {
-      throw error
-    }
-  })
+  const editor = buildEditorFromExtensions(
+    defineExtension({
+      name: "ticket-block-test",
+      dependencies: [MarkdownExtension, TicketBlockMarkdownExtension],
+      onError: (error) => {
+        throw error
+      }
+    })
+  )
   let handled = false
   let exported = ""
   let caretOutsideBlock = false
   editor.update(
     () => {
-      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+      $convertFromMarkdownString(markdown)
       const block = $getRoot().getChildren().find($isTicketBlockNode)
       if (!block) throw new Error("no block imported")
       prepare(block).selectStart()
@@ -51,7 +52,7 @@ function pressEnterOnEmptyLastLine(
           .getNode()
           .getParents()
           .some((parent) => $isTicketBlockNode(parent))
-      exported = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
+      exported = $convertToMarkdownString()
     },
     { discrete: true }
   )

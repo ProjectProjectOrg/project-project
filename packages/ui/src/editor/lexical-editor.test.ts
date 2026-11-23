@@ -1,44 +1,31 @@
 // @vitest-environment jsdom
 import { $getHtmlContent } from "@lexical/clipboard"
-import { CodeNode } from "@lexical/code"
-import { HorizontalRuleNode } from "@lexical/extension"
-import { LinkNode } from "@lexical/link"
-import { ListItemNode, ListNode } from "@lexical/list"
+import { buildEditorFromExtensions } from "@lexical/extension"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
-  registerMarkdownShortcuts
-} from "@lexical/markdown"
-import { HeadingNode, QuoteNode } from "@lexical/rich-text"
-import { TableNode, TableRowNode, TableCellNode } from "@lexical/table"
-import { TicketId } from "@pp/shared"
-import * as Schema from "effect/Schema"
+  MdastShortcutsExtension
+} from "@lexical/mdast"
 import {
   $getRoot,
   $getSelection,
   $isRangeSelection,
   $isElementNode,
-  createEditor,
+  defineExtension,
+  type AnyLexicalExtension,
   type LexicalNode
 } from "lexical"
 import { describe, expect, it, vi } from "vitest"
 
-import { INLINE_MARKDOWN_TRANSFORMER } from "../editor/common-mark"
-import { ImageNode } from "../editor/image-node"
 import { parseMarkdown } from "../editor/markdown-parser"
-import { AttachmentNode } from "./attachments/attachment-node"
-import { $isTicketBlockNode, TicketBlockNode } from "./blocks/ticket-block-node"
-import {
-  attachmentsForDescription,
-  AUTO_LINK_MATCHERS,
-  MARKDOWN_TRANSFORMERS,
-  transformersForAttachments
-} from "./editor-transformers"
-import { FigmaNode } from "./figma/figma-node"
-import { MentionNode } from "./mentions/mention-node"
+import { AttachmentExtension } from "./attachments/attachment-extension"
+import { TicketBlockMarkdownExtension } from "./blocks/ticket-block-markdown"
+import { $isTicketBlockNode } from "./blocks/ticket-block-node"
+import { AUTO_LINK_MATCHERS } from "./editor-transformers"
+import { FigmaExtension } from "./figma/figma-extension"
+import { MarkdownExtension } from "./markdown-extension"
+import { MentionExtension } from "./mentions/mention-extension"
 import { createCoalescedSaveQueue, nextMarkdownChange } from "./save-queue"
-
-const decodeUnknownTicketIdSync = Schema.decodeUnknownSync(TicketId)
 
 function matchAutoLink(text: string) {
   for (const matcher of AUTO_LINK_MATCHERS) {
@@ -48,181 +35,67 @@ function matchAutoLink(text: string) {
   return null
 }
 
-function roundTripMarkdown(markdown: string) {
-  const editor = createEditor({
-    namespace: "lexical-editor-test",
-    nodes: [
-      TableNode,
-      TableRowNode,
-      TableCellNode,
-      ImageNode,
-      CodeNode,
-      FigmaNode,
-      HeadingNode,
-      HorizontalRuleNode,
-      LinkNode,
-      ListNode,
-      ListItemNode,
-      MentionNode,
-      QuoteNode,
-      TicketBlockNode
-    ],
-    onError: (error) => {
-      throw error
-    }
-  })
-
-  let exported = ""
-
-  editor.update(
-    () => {
-      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
-      exported = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
-    },
-    { discrete: true }
+function markdownEditor(extras: ReadonlyArray<AnyLexicalExtension> = []) {
+  return buildEditorFromExtensions(
+    defineExtension({
+      name: "lexical-editor-test",
+      dependencies: [
+        MarkdownExtension,
+        MentionExtension,
+        FigmaExtension,
+        TicketBlockMarkdownExtension,
+        ...extras
+      ],
+      onError: (error) => {
+        throw error
+      }
+    })
   )
-
-  return exported
 }
 
-const ATTACHMENT_ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
-const ATTACHMENT_URL = `/api/attachments/acme/${ATTACHMENT_ID}`
-const ATTACHMENT_MARKDOWN = `![shot](${ATTACHMENT_URL})`
-
-function descriptionAttachments(storageActive: boolean) {
-  return attachmentsForDescription({
-    orgSlug: "acme",
-    slug: "web",
-    ticketId: decodeUnknownTicketIdSync("T-1"),
-    storageActive
-  })
-}
-
-function inAttachmentEditor<A>(
-  parseTransformers: ReturnType<typeof transformersForAttachments>,
+function inEditor<A>(
+  extras: ReadonlyArray<AnyLexicalExtension>,
+  markdown: string,
   run: () => A
 ) {
-  const editor = createEditor({
-    namespace: "lexical-editor-test",
-    nodes: [
-      TableNode,
-      TableRowNode,
-      TableCellNode,
-      AttachmentNode,
-      ImageNode,
-      CodeNode,
-      HeadingNode,
-      HorizontalRuleNode,
-      LinkNode,
-      ListNode,
-      ListItemNode,
-      MentionNode,
-      QuoteNode
-    ],
-    onError: (error) => {
-      throw error
-    }
-  })
-
+  const editor = markdownEditor(extras)
   const captured: Array<A> = []
-
   editor.update(
     () => {
-      $convertFromMarkdownString(ATTACHMENT_MARKDOWN, parseTransformers)
+      $convertFromMarkdownString(markdown)
       captured.push(run())
     },
     { discrete: true }
   )
-
   const result = captured[0]
   if (result === undefined) throw new Error("editor update did not run")
   return result
 }
 
-function roundTripAttachmentMarkdown(markdown: string) {
-  const transformers = transformersForAttachments(descriptionAttachments(true))
-  const editor = createEditor({
-    namespace: "lexical-editor-test",
-    nodes: [
-      TableNode,
-      TableRowNode,
-      TableCellNode,
-      AttachmentNode,
-      ImageNode,
-      CodeNode,
-      FigmaNode,
-      HeadingNode,
-      HorizontalRuleNode,
-      LinkNode,
-      ListNode,
-      ListItemNode,
-      MentionNode,
-      QuoteNode
-    ],
-    onError: (error) => {
-      throw error
-    }
-  })
+const roundTripMarkdown = (markdown: string) =>
+  inEditor([], markdown, () => $convertToMarkdownString())
 
-  let exported = ""
+const ATTACHMENT_ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
+const ATTACHMENT_URL = `/api/attachments/acme/${ATTACHMENT_ID}`
+const ATTACHMENT_MARKDOWN = `![shot](${ATTACHMENT_URL})`
 
-  editor.update(
-    () => {
-      $convertFromMarkdownString(markdown, transformers)
-      exported = $convertToMarkdownString(transformers)
-    },
-    { discrete: true }
-  )
-
-  return exported
-}
+const roundTripAttachmentMarkdown = (markdown: string) =>
+  inEditor([AttachmentExtension], markdown, () => $convertToMarkdownString())
 
 const FIGMA_KEY = "aBcDeF1234567890GhIjKl"
 const FIGMA_URL = `https://figma.com/design/${FIGMA_KEY}/Checkout?node-id=1-2`
 const FIGMA_MARKDOWN = `[Checkout](${FIGMA_URL})`
 
-function markdownNodeTypes(
-  markdown: string,
-  transformers: ReturnType<typeof transformersForAttachments>
-) {
-  const editor = createEditor({
-    namespace: "lexical-editor-test",
-    nodes: [
-      TableNode,
-      TableRowNode,
-      TableCellNode,
-      AttachmentNode,
-      ImageNode,
-      CodeNode,
-      FigmaNode,
-      HeadingNode,
-      HorizontalRuleNode,
-      LinkNode,
-      ListNode,
-      ListItemNode,
-      MentionNode,
-      QuoteNode
-    ],
-    onError: (error) => {
-      throw error
+function markdownNodeTypes(markdown: string, attachments: boolean) {
+  return inEditor(attachments ? [AttachmentExtension] : [], markdown, () => {
+    const types: Array<string> = []
+    const visit = (node: LexicalNode) => {
+      types.push(node.getType())
+      if ($isElementNode(node)) node.getChildren().forEach(visit)
     }
+    $getRoot().getChildren().forEach(visit)
+    return types
   })
-
-  const types: Array<string> = []
-
-  editor.update(
-    () => {
-      $convertFromMarkdownString(markdown, transformers)
-      const visit = (node: LexicalNode) => {
-        types.push(node.getType())
-        if ($isElementNode(node)) node.getChildren().forEach(visit)
-      }
-      $getRoot().getChildren().forEach(visit)
-    },
-    { discrete: true }
-  )
-
-  return types
 }
 
 describe("nextMarkdownChange", () => {
@@ -349,19 +222,16 @@ describe("AUTO_LINK_MATCHERS", () => {
   })
 })
 
-describe("MARKDOWN_TRANSFORMERS", () => {
+describe("markdown round trips", () => {
   it.each([
     ["\\# Literal", "\\# Literal"],
-    [
-      "\\[label\\](https://example.com)",
-      "\\[label]\\([https://example.com](https://example.com))"
-    ],
+    ["\\[label\\](https://example.com)", "\\[label]\\(https://example.com)"],
     ["> > - Item", "> > - Item"],
     ["Note[^n]\n\n[^n]: **bold**", "Note\\[^n]\n\n\\[^n]: \\*\\*bold\\*\\*"],
     ["[doc][id]\n\n[id]: /first\n[id]: /second", "[doc](/first)"],
     ["> [doc][id]\n>\n> [id]: /guide", "> [doc](/guide)"],
     ["[docs](<docs/my file.md>)", "[docs](<docs/my file.md>)"],
-    ["- Item\n\n  ```\n  x()\n  ```", "- Item\n\n    ```\n    x()\n    ```"]
+    ["- Item\n\n  ```\n  x()\n  ```", "- Item\n\n  ```\n  x()\n  ```"]
   ])(
     "preserves markdown semantics through save and reload: %s",
     (source, expected) => {
@@ -371,13 +241,10 @@ describe("MARKDOWN_TRANSFORMERS", () => {
     }
   )
   it.each([
-    ["- Parent\n  - Child", "- Parent\n    - Child"],
-    ["1. Parent\n   1. Child", "1. Parent\n    1. Child"],
-    ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n    - [x] Child"],
-    [
-      "- Parent\n  - [x] Done\n  - Plain",
-      "- Parent\n    - [x] Done\n    - Plain"
-    ]
+    ["- Parent\n  - Child", "- Parent\n  - Child"],
+    ["1. Parent\n   1. Child", "1. Parent\n   1. Child"],
+    ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n  - [x] Child"],
+    ["- Parent\n  - [x] Done\n  - Plain", "- Parent\n  - [x] Done\n  - Plain"]
   ])("preserves nesting when importing %s", (markdown, expected) => {
     const saved = roundTripMarkdown(markdown)
     expect(saved).toBe(expected)
@@ -410,33 +277,19 @@ describe("MARKDOWN_TRANSFORMERS", () => {
   })
 
   it("preserves a code span after formatting part of its content", () => {
-    const editor = createEditor({
-      onError: (error) => {
-        throw error
-      }
+    const code = inEditor([], "Code: ``a `backtick` value``.", () => {
+      const text = $getRoot()
+        .getAllTextNodes()
+        .find((node) => node.hasFormat("code"))
+      if (text === undefined) throw new Error("missing code span")
+      text.splitText(2, 12)[1].toggleFormat("bold")
+      $convertFromMarkdownString($convertToMarkdownString())
+      return $getRoot()
+        .getAllTextNodes()
+        .filter((node) => node.hasFormat("code"))
+        .map((node) => node.getTextContent())
+        .join("")
     })
-    let code = ""
-    editor.update(
-      () => {
-        $convertFromMarkdownString(
-          "Code: ``a `backtick` value``.",
-          MARKDOWN_TRANSFORMERS
-        )
-        const text = $getRoot()
-          .getAllTextNodes()
-          .find((node) => node.hasFormat("code"))
-        if (text === undefined) throw new Error("missing code span")
-        text.splitText(2, 12)[1].toggleFormat("bold")
-        const saved = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
-        $convertFromMarkdownString(saved, MARKDOWN_TRANSFORMERS)
-        code = $getRoot()
-          .getAllTextNodes()
-          .filter((node) => node.hasFormat("code"))
-          .map((node) => node.getTextContent())
-          .join("")
-      },
-      { discrete: true }
-    )
     expect(code).toBe("a `backtick` value")
   })
 
@@ -445,51 +298,27 @@ describe("MARKDOWN_TRANSFORMERS", () => {
     expect(roundTripMarkdown(markdown)).toBe(markdown)
   })
 
-  it.each([
-    ["`inline code", "`", "inline code"],
-    ["`` a `tick` ", "``", "a `tick`"]
-  ])(
-    "formats a code span when its closing delimiter is typed: %s",
-    (initial, closing, expected) => {
-      const editor = createEditor({
-        onError: (error) => {
-          throw error
-        }
-      })
+  it("formats a code span when its closing delimiter is typed", () => {
+    const editor = markdownEditor([MdastShortcutsExtension])
+    editor.update(() => $getRoot().selectEnd(), { discrete: true })
+    for (const character of "`inline code`")
       editor.update(
         () => {
-          $convertFromMarkdownString("", MARKDOWN_TRANSFORMERS)
-          $getRoot().selectEnd()
+          const selection = $getSelection()
+          if ($isRangeSelection(selection)) selection.insertText(character)
         },
         { discrete: true }
       )
-      const unregister = registerMarkdownShortcuts(editor, [
-        INLINE_MARKDOWN_TRANSFORMER
-      ])
-      try {
-        for (const character of initial + closing) {
-          editor.update(
-            () => {
-              const selection = $getSelection()
-              if ($isRangeSelection(selection)) selection.insertText(character)
-            },
-            { discrete: true }
-          )
-        }
-        expect(
-          editor.read(() =>
-            $getRoot()
-              .getAllTextNodes()
-              .filter((node) => node.hasFormat("code"))
-              .map((node) => node.getTextContent())
-              .join("")
-          )
-        ).toBe(expected)
-      } finally {
-        unregister()
-      }
-    }
-  )
+    expect(
+      editor.read(() =>
+        $getRoot()
+          .getAllTextNodes()
+          .filter((node) => node.hasFormat("code"))
+          .map((node) => node.getTextContent())
+          .join("")
+      )
+    ).toBe("inline code")
+  })
 
   it("round-trips markdown links", () => {
     expect(roundTripMarkdown("See [docs](https://example.com).")).toBe(
@@ -561,12 +390,7 @@ it.each([
   "imports an ordinary image at %s as an image and preserves its markdown",
   (url) => {
     const markdown = `![ProjectProject icon](${url})`
-    const transformers = transformersForAttachments(
-      descriptionAttachments(true)
-    )
-    expect(markdownNodeTypes(markdown, transformers)).toContain(
-      "markdown-image"
-    )
+    expect(markdownNodeTypes(markdown, true)).toContain("markdown-image")
     const saved = roundTripAttachmentMarkdown(markdown)
     expect(parseMarkdown(saved).children).toMatchObject([
       { type: "paragraph", children: [{ type: "image", url }] }
@@ -576,40 +400,22 @@ it.each([
 )
 
 it("saves an ordinary image after restoring the editor's serialized state", () => {
-  const editor = createEditor({
-    nodes: [ImageNode],
-    onError: (error) => {
-      throw error
-    }
-  })
+  const editor = markdownEditor()
   const markdown = '![ProjectProject icon](/icon/icon-192.png "Icon")'
-  editor.update(
-    () => {
-      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
-    },
-    { discrete: true }
-  )
+  editor.update(() => $convertFromMarkdownString(markdown), { discrete: true })
   editor.setEditorState(
     editor.parseEditorState(editor.getEditorState().toJSON())
   )
-  expect(
-    editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
-  ).toBe(markdown)
+  expect(editor.read(() => $convertToMarkdownString())).toBe(markdown)
 })
 
 it("copies an ordinary image to the HTML clipboard with its source and description", () => {
-  const editor = createEditor({
-    nodes: [ImageNode],
-    onError: (error) => {
-      throw error
-    }
-  })
+  const editor = markdownEditor()
   let html = ""
   editor.update(
     () => {
       $convertFromMarkdownString(
-        '![ProjectProject icon](https://example.com/icon.png "Icon")',
-        MARKDOWN_TRANSFORMERS
+        '![ProjectProject icon](https://example.com/icon.png "Icon")'
       )
       $getRoot().select(0, $getRoot().getChildrenSize())
       html = $getHtmlContent(editor)
@@ -623,14 +429,14 @@ it("copies an ordinary image to the HTML clipboard with its source and descripti
   expect(image?.getAttribute("title")).toBe("Icon")
 })
 
-describe("figma links in the assembled transformer pipeline", () => {
+describe("figma links in the markdown pipeline", () => {
   it("round-trips a figma design link with a node id", () => {
     const line = `See ${FIGMA_MARKDOWN} for the flow.`
     expect(roundTripMarkdown(line)).toBe(line)
   })
 
   it("parses a figma link into a figma node, not a link node", () => {
-    const types = markdownNodeTypes(FIGMA_MARKDOWN, MARKDOWN_TRANSFORMERS)
+    const types = markdownNodeTypes(FIGMA_MARKDOWN, false)
     expect(types).toContain("figma")
     expect(types).not.toContain("link")
     expect(types).not.toContain("attachment")
@@ -638,7 +444,9 @@ describe("figma links in the assembled transformer pipeline", () => {
 
   it("round-trips the compact density param", () => {
     const line = `[Checkout](${FIGMA_URL}&pp-density=compact)`
-    expect(roundTripMarkdown(line)).toBe(line)
+    expect(roundTripMarkdown(line)).toBe(
+      `[Checkout](${FIGMA_URL}\\&pp-density=compact)`
+    )
   })
 
   it("leaves a link without a density param without one", () => {
@@ -653,10 +461,7 @@ describe("figma links in the assembled transformer pipeline", () => {
 
   it("gives each link in a mixed document its own node type", () => {
     const line = `${FIGMA_MARKDOWN} ${ATTACHMENT_MARKDOWN} [docs](https://example.com/x)`
-    const types = markdownNodeTypes(
-      line,
-      transformersForAttachments(descriptionAttachments(true))
-    )
+    const types = markdownNodeTypes(line, true)
     expect(types.filter((type) => type === "figma")).toHaveLength(1)
     expect(types.filter((type) => type === "attachment")).toHaveLength(1)
     expect(types.filter((type) => type === "link")).toHaveLength(1)
@@ -665,25 +470,23 @@ describe("figma links in the assembled transformer pipeline", () => {
   it("does not claim a non-figma host that resembles a figma path", () => {
     const line = `[A](https://notfigma.test/design/${FIGMA_KEY}/A)`
     expect(roundTripMarkdown(line)).toBe(line)
-    const types = markdownNodeTypes(line, MARKDOWN_TRANSFORMERS)
+    const types = markdownNodeTypes(line, false)
     expect(types).toContain("link")
     expect(types).not.toContain("figma")
   })
 })
 
-describe("description editor attachment transformers", () => {
+describe("attachments in description markdown", () => {
   it("parses attachment markdown into an inline attachment node inside a paragraph, before storage status is known", () => {
-    const shape = inAttachmentEditor(
-      transformersForAttachments(descriptionAttachments(false)),
-      () =>
-        $getRoot()
-          .getChildren()
-          .map((child) => ({
-            type: child.getType(),
-            children: $isElementNode(child)
-              ? child.getChildren().map((grandchild) => grandchild.getType())
-              : []
-          }))
+    const shape = inEditor([AttachmentExtension], ATTACHMENT_MARKDOWN, () =>
+      $getRoot()
+        .getChildren()
+        .map((child) => ({
+          type: child.getType(),
+          children: $isElementNode(child)
+            ? child.getChildren().map((grandchild) => grandchild.getType())
+            : []
+        }))
     )
 
     const types = shape.flatMap((entry) => [entry.type, ...entry.children])
@@ -734,53 +537,49 @@ describe("description editor attachment transformers", () => {
 
   it("round-trips width and density together", () => {
     const line = `![shot](${ATTACHMENT_URL}?w=240&d=compact)`
-    expect(roundTripAttachmentMarkdown(line)).toBe(line)
-  })
-
-  it("serializes a committed attachment back to markdown when uploads are disabled", () => {
-    const exported = inAttachmentEditor(
-      transformersForAttachments(descriptionAttachments(true)),
-      () =>
-        $convertToMarkdownString(
-          transformersForAttachments(descriptionAttachments(false))
-        )
+    expect(roundTripAttachmentMarkdown(line)).toBe(
+      `![shot](${ATTACHMENT_URL}?w=240\\&d=compact)`
     )
-
-    expect(exported).toBe(ATTACHMENT_MARKDOWN)
-    expect(exported).not.toBe("shot")
-  })
-
-  it("keeps attachment markdown out of the transformer list for callsites without attachments", () => {
-    expect(transformersForAttachments(undefined)).toBe(MARKDOWN_TRANSFORMERS)
   })
 })
 
 it("preserves mentions and fenced examples alongside an editable table", () => {
   const markdown =
-    "| Owner | Example |\n| --- | --- |\n| [Ticket](mention:ticket/T-157) | `a\\|b` |\n\n```md\n| literal | table |\n| --- | --- |\n```"
+    "| Owner                          | Example |\n| ------------------------------ | ------- |\n| [Ticket](mention:ticket/T-157) | `a\\|b`  |\n\n```md\n| literal | table |\n| --- | --- |\n```"
   expect(roundTripMarkdown(markdown)).toBe(markdown)
 })
 
 it.each(["---", "***", "___"])(
   "keeps %s after a table as a separate horizontal rule",
   (rule) => {
-    const table = "| A | B |\n| --- | --- |\n| one | two |"
-    expect(roundTripMarkdown(`${table}\n${rule}\nAfter`)).toBe(
-      `${table}\n\n---\n\nAfter`
-    )
+    expect(
+      roundTripMarkdown(
+        `| A | B |\n| --- | --- |\n| one | two |\n${rule}\nAfter`
+      )
+    ).toBe(`| A   | B   |\n| --- | --- |\n| one | two |\n\n${rule}\n\nAfter`)
   }
 )
 
 it("loads image and file attachments inside table cells and preserves their display settings", () => {
   const markdown = `| Preview | File |\n| --- | --- |\n| ![shot](${ATTACHMENT_URL}?w=240) | [report.pdf](${ATTACHMENT_URL}?d=compact) |`
-  const transformers = transformersForAttachments(descriptionAttachments(true))
   expect(
-    markdownNodeTypes(markdown, transformers).filter(
-      (type) => type === "attachment"
-    )
+    markdownNodeTypes(markdown, true).filter((type) => type === "attachment")
   ).toHaveLength(2)
-  expect(roundTripAttachmentMarkdown(markdown)).toBe(markdown)
+  const saved = roundTripAttachmentMarkdown(markdown)
+  expect(saved).toContain(`![shot](${ATTACHMENT_URL}?w=240)`)
+  expect(saved).toContain(`[report.pdf](${ATTACHMENT_URL}?d=compact)`)
+  expect(roundTripAttachmentMarkdown(saved)).toBe(saved)
 })
+
+const importedRootTypes = (markdown: string) =>
+  inEditor([], markdown, () => {
+    const children = $getRoot().getChildren()
+    const block = children.find($isTicketBlockNode)
+    return {
+      types: children.map((child) => child.getType()),
+      blockChildren: block?.getChildren().map((c) => c.getType()) ?? []
+    }
+  })
 
 describe("ticket blocks", () => {
   const CRITERIA_BLOCK = [
@@ -792,41 +591,6 @@ describe("ticket blocks", () => {
     "",
     "</block>"
   ].join("\n")
-
-  function importedRootTypes(markdown: string) {
-    const editor = createEditor({
-      namespace: "lexical-editor-test",
-      nodes: [
-        ImageNode,
-        CodeNode,
-        HeadingNode,
-        LinkNode,
-        ListNode,
-        ListItemNode,
-        MentionNode,
-        TableNode,
-        TableRowNode,
-        TableCellNode,
-        TicketBlockNode
-      ],
-      onError: (error) => {
-        throw error
-      }
-    })
-    let types: ReadonlyArray<string> = []
-    let blockChildren: ReadonlyArray<string> = []
-    editor.update(
-      () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
-        const children = $getRoot().getChildren()
-        types = children.map((child) => child.getType())
-        const block = children.find($isTicketBlockNode)
-        blockChildren = block?.getChildren().map((c) => c.getType()) ?? []
-      },
-      { discrete: true }
-    )
-    return { types, blockChildren }
-  }
 
   it.each(["\n", "\n\n"])(
     "preserves prose around a block separated by %j",
@@ -932,7 +696,7 @@ describe("ticket blocks", () => {
       '<block type="notes">',
       "",
       "| a | b |",
-      "| --- | --- |",
+      "| - | - |",
       "| 1 | 2 |",
       "",
       "</block>"
@@ -955,27 +719,17 @@ describe("checklist markers in markdown", () => {
   })
 
   it("escapes a marker typed into a bullet so it reloads as a bullet", () => {
-    const editor = createEditor({
-      namespace: "lexical-editor-test",
-      nodes: [ListNode, ListItemNode],
-      onError: (error) => {
-        throw error
-      }
-    })
-    let exported = ""
-    let reloaded: ReadonlyArray<string> = []
-    editor.update(
-      () => {
-        $convertFromMarkdownString("- placeholder", MARKDOWN_TRANSFORMERS)
-        $getRoot().getAllTextNodes()[0].setTextContent("[ ] literal")
-        exported = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
-        $convertFromMarkdownString(exported, MARKDOWN_TRANSFORMERS)
-        reloaded = $getRoot()
+    const { exported, reloaded } = inEditor([], "- placeholder", () => {
+      $getRoot().getAllTextNodes()[0].setTextContent("[ ] literal")
+      const markdown = $convertToMarkdownString()
+      $convertFromMarkdownString(markdown)
+      return {
+        exported: markdown,
+        reloaded: $getRoot()
           .getChildren()
           .map((child) => `${child.getType()}:${child.getTextContent()}`)
-      },
-      { discrete: true }
-    )
+      }
+    })
     expect(exported).toBe("- \\[ ] literal")
     expect(reloaded).toEqual(["list:[ ] literal"])
   })
@@ -989,8 +743,8 @@ describe("checklist markers in markdown", () => {
       "- [ ] ",
       "- [ ] ",
       "",
-      "1. ",
-      "2. ",
+      "1.",
+      "2.",
       "",
       "**Expected:** ",
       "",

@@ -4,7 +4,7 @@ import * as Data from "effect/Data"
 import {
   ATTACHMENT_MARKDOWN_RE,
   unescapeAttachmentAlt
-} from "./attachment-transformer"
+} from "./attachment-markdown"
 
 export type PastedPart = Data.TaggedEnum<{
   text: Readonly<{ value: string }>

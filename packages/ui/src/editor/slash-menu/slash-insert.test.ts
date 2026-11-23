@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { CodeExtension } from "@lexical/code"
+import { CodeExtension } from "@lexical/code-core"
 import {
   HorizontalRuleExtension,
   buildEditorFromExtensions
@@ -11,7 +11,7 @@ import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString
-} from "@lexical/markdown"
+} from "@lexical/mdast"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import {
@@ -43,8 +43,9 @@ import {
   missingBlocksMarkdown
 } from "../blocks/block-commands"
 import { TicketBlockExtension } from "../blocks/ticket-block-extension"
+import { TicketBlockMarkdownExtension } from "../blocks/ticket-block-markdown"
 import { $isTicketBlockNode } from "../blocks/ticket-block-node"
-import { MARKDOWN_TRANSFORMERS } from "../editor-transformers"
+import { MarkdownExtension } from "../markdown-extension"
 import { provideEditorMessages } from "../messages"
 import { $runSlashItem } from "./slash-commands"
 import { slashMenuSections } from "./slash-menu-items"
@@ -75,10 +76,12 @@ function editorWith(markdown: string) {
         LinkExtension,
         HorizontalRuleExtension,
         TableExtension,
-        TicketBlockExtension
+        MarkdownExtension,
+        TicketBlockExtension,
+        TicketBlockMarkdownExtension
       ],
       $initialEditorState: () => {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(markdown)
       },
       onError: (error) => {
         throw error
@@ -106,14 +109,13 @@ const describeNode = (node: LexicalNode) =>
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true })
 
-const read = <A>(editor: LexicalEditor, fn: () => A) =>
-  editor.getEditorState().read(fn)
+const read = <A>(editor: LexicalEditor, fn: () => A) => editor.read(fn)
 
 const outline = (editor: LexicalEditor) =>
   read(editor, () => $getRoot().getChildren().map(describeNode))
 
 const markdown = (editor: LexicalEditor) =>
-  read(editor, () => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  read(editor, () => $convertToMarkdownString())
 
 const caret = (editor: LexicalEditor) =>
   read(editor, () => {
@@ -136,7 +138,7 @@ describe("$insertBlocksAt", () => {
     const editor = editorWith("Before after")
     run(editor, () => {
       $caretAfter("Before ")
-      $insertBlocksAt(block("notes"), MARKDOWN_TRANSFORMERS, lookup)
+      $insertBlocksAt(block("notes"), lookup)
     })
 
     expect(outline(editor)).toEqual([
@@ -152,7 +154,7 @@ describe("$insertBlocksAt", () => {
       const line = $createParagraphNode()
       $getRoot().append(line)
       line.select()
-      $insertBlocksAt(block("notes"), MARKDOWN_TRANSFORMERS, lookup)
+      $insertBlocksAt(block("notes"), lookup)
     })
 
     expect(outline(editor)).toEqual([
@@ -171,11 +173,7 @@ describe("$insertBlocksAt", () => {
     )
     run(editor, () => {
       $caretAfter("Some")
-      $insertBlocksAt(
-        block("acceptance-criteria"),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      $insertBlocksAt(block("acceptance-criteria"), lookup)
     })
 
     expect(outline(editor)).toEqual([
@@ -189,11 +187,7 @@ describe("$insertBlocksAt", () => {
     const editor = editorWith("Start")
     run(editor, () => {
       $caretAfter("Start")
-      $insertBlocksAt(
-        block("expected-vs-actual"),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      $insertBlocksAt(block("expected-vs-actual"), lookup)
     })
 
     expect(caret(editor)).toEqual({
@@ -207,7 +201,7 @@ describe("$insertBlocksAt", () => {
     const editor = editorWith("Start")
     run(editor, () => {
       $caretAfter("Start")
-      $insertBlocksAt(block("context"), MARKDOWN_TRANSFORMERS, lookup)
+      $insertBlocksAt(block("context"), lookup)
     })
 
     expect(caret(editor)).toEqual({
@@ -221,11 +215,7 @@ describe("$insertBlocksAt", () => {
     const editor = editorWith("Start")
     run(editor, () => {
       $caretAfter("Start")
-      $insertBlocksAt(
-        block("steps-to-reproduce"),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      $insertBlocksAt(block("steps-to-reproduce"), lookup)
     })
 
     expect(caret(editor)).toMatchObject({
@@ -251,7 +241,7 @@ describe("$insertBlocksAt", () => {
       const [, query] = node.splitText(start, start + "/notes".length)
       query.select(query.getTextContentSize(), query.getTextContentSize())
       query.remove()
-      $insertBlocksAt(block("notes"), MARKDOWN_TRANSFORMERS, lookup)
+      $insertBlocksAt(block("notes"), lookup)
     })
     expect(outline(editor)).toContain("block:notes")
 
@@ -274,11 +264,7 @@ describe("$applyTemplate", () => {
     let added: ReadonlyArray<string> = []
     run(editor, () => {
       $caretAfter("Intro")
-      added = $applyTemplate(
-        expandType(chore, lookup),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      added = $applyTemplate(expandType(chore, lookup), lookup)
     })
 
     expect(added).toEqual(["context"])
@@ -299,11 +285,7 @@ describe("$applyTemplate", () => {
     let added: ReadonlyArray<string> = ["unset"]
     run(editor, () => {
       $caretAfter("Tail")
-      added = $applyTemplate(
-        expandType(chore, lookup),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      added = $applyTemplate(expandType(chore, lookup), lookup)
     })
 
     expect(added).toEqual([])
@@ -314,7 +296,7 @@ describe("$applyTemplate", () => {
     const editor = editorWith("")
     run(editor, () => {
       $getRoot().selectEnd()
-      $applyTemplate(expandType(chore, lookup), MARKDOWN_TRANSFORMERS, lookup)
+      $applyTemplate(expandType(chore, lookup), lookup)
     })
 
     expect(
@@ -369,7 +351,7 @@ describe("markdown slash actions", () => {
   it.each([
     [
       "- [x] Before\n  - [ ] Nested\n- [ ] Example\n- [x] After",
-      "- [x] Before\n    - [ ] Nested\n\nExample\n\n- [x] After"
+      "- [x] Before\n  - [ ] Nested\n\nExample\n\n- [x] After"
     ],
     [
       "- [x] Before\n- [ ] Example\n- [x] After",
@@ -423,7 +405,6 @@ describe("markdown slash actions", () => {
       run(editor, () => {
         $caretAfter("Example")
         $runSlashItem(editor, item, {
-          transformers: MARKDOWN_TRANSFORMERS,
           lookup,
           detach: false
         })

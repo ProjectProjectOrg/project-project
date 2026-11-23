@@ -41,6 +41,19 @@ describe("applyReferenceFix", () => {
     ).toContain("Ask Bob about")
   })
 
+  it("reads and fixes an old-instance link written with markdown escapes", () => {
+    const escaped = "See [old](https://old.example/a?b=1\\&c=2)."
+    const [candidate] = referenceCandidates(escaped, "https://old.example")
+    expect(candidate?.target).toBe("https://old.example/a?b=1&c=2")
+    expect(
+      applyReferenceFix(
+        escaped,
+        { kind: "link", target: "https://old.example/a?b=1&c=2" },
+        FixReferenceAction.cases.plain.make({})
+      )
+    ).toBe("See old.")
+  })
+
   it("links an old-instance link to a ticket here, keeping its label", () => {
     expect(
       applyReferenceFix(

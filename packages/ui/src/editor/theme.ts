@@ -1,8 +1,5 @@
-import {
-  CodeExtension,
-  PrismTokenizer,
-  registerCodeHighlighting
-} from "@lexical/code"
+import { CodeExtension } from "@lexical/code-core"
+import { PrismTokenizer, registerCodeHighlighting } from "@lexical/code-prism"
 import { defineExtension, type LexicalEditor } from "lexical"
 
 import "../lib/prismLangs"
