@@ -1,5 +1,5 @@
 ---
-kind: fixes
-area: navigation
+kind: internal
+follows: 565
 ---
 Pinned rows in the sidebar show their whole focus ring instead of just its corners
