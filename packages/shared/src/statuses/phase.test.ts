@@ -1,76 +1,78 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  compareStatuses,
   finishedStatusSlugs,
-  hasBaselineOrder,
-  phaseEndNeighbors,
+  lastKeyInPhase,
+  phasesFromOrder,
   statusPhaseOf
 } from "./phase"
 
 const statuses = [
-  { slug: "refine", orderKey: "Zz" },
-  { slug: "todo", orderKey: "a0" },
-  { slug: "in_progress", orderKey: "a1" },
-  { slug: "review", orderKey: "a1V" },
-  { slug: "done", orderKey: "a2" },
-  { slug: "wont_do", orderKey: "a3" }
-]
+  { slug: "todo", phase: "unstarted", orderKey: "a0" },
+  { slug: "in_progress", phase: "started", orderKey: "a0" },
+  { slug: "wont_do", phase: "finished", orderKey: "a0" },
+  { slug: "done", phase: "finished", orderKey: "a1" }
+] as const
 
 describe("statusPhaseOf", () => {
-  it.each([
-    ["refine", "unstarted"],
-    ["todo", "unstarted"],
-    ["in_progress", "started"],
-    ["review", "started"],
-    ["done", "finished"],
-    ["wont_do", "finished"],
-    ["missing", "unstarted"]
-  ])("%s is %s", (slug, phase) => {
-    expect(statusPhaseOf(statuses, slug)).toBe(phase)
+  it("reads the phase stored on the status", () => {
+    expect(statusPhaseOf(statuses, "wont_do")).toBe("finished")
   })
 
-  it("keeps built-ins in their own phase when stored out of order", () => {
-    const shuffled = [
-      { slug: "done", orderKey: "a0" },
-      { slug: "in_progress", orderKey: "a1" },
-      { slug: "todo", orderKey: "a2" }
-    ]
-    expect(statusPhaseOf(shuffled, "todo")).toBe("unstarted")
-    expect(statusPhaseOf(shuffled, "done")).toBe("finished")
+  it("falls back to the built-in phase, then to unstarted", () => {
+    expect(statusPhaseOf([], "done")).toBe("finished")
+    expect(statusPhaseOf([], "missing")).toBe("unstarted")
   })
 })
 
 describe("finishedStatusSlugs", () => {
-  it("collects done and every status after it", () => {
+  it("collects every finished status, done included when unknown", () => {
     expect([...finishedStatusSlugs(statuses)].toSorted()).toEqual([
       "done",
       "wont_do"
     ])
-  })
-
-  it("falls back to done when statuses are unknown", () => {
     expect([...finishedStatusSlugs([])]).toEqual(["done"])
   })
 })
 
-describe("hasBaselineOrder", () => {
-  it("accepts todo before in progress before done", () => {
-    expect(hasBaselineOrder(statuses)).toBe(true)
-  })
-
-  it("rejects done moved before in progress", () => {
+describe("compareStatuses", () => {
+  it("orders by phase, then by key within the phase", () => {
     expect(
-      hasBaselineOrder(
-        statuses.map((s) => (s.slug === "done" ? { ...s, orderKey: "a0V" } : s))
-      )
-    ).toBe(false)
+      [...statuses]
+        .reverse()
+        .toSorted(compareStatuses)
+        .map((s) => s.slug)
+    ).toEqual(["todo", "in_progress", "wont_do", "done"])
   })
 })
 
-describe("phaseEndNeighbors", () => {
-  it("returns the keys around the end of a phase", () => {
-    expect(phaseEndNeighbors(statuses, "unstarted")).toEqual(["a0", "a1"])
-    expect(phaseEndNeighbors(statuses, "started")).toEqual(["a1V", "a2"])
-    expect(phaseEndNeighbors(statuses, "finished")).toEqual(["a3", null])
+describe("lastKeyInPhase", () => {
+  it("returns the highest key in the phase, or null when it is empty", () => {
+    expect(lastKeyInPhase(statuses, "finished")).toBe("a1")
+    expect(lastKeyInPhase([], "started")).toBeNull()
   })
+})
+
+describe("phasesFromOrder", () => {
+  const phaseOf = phasesFromOrder([
+    { slug: "refine", orderKey: "Zz" },
+    { slug: "todo", orderKey: "a0" },
+    { slug: "in_progress", orderKey: "a1" },
+    { slug: "review", orderKey: "a1V" },
+    { slug: "done", orderKey: "a2" },
+    { slug: "wont_do", orderKey: "a3" }
+  ])
+
+  it.each([
+    ["refine", "unstarted"],
+    ["review", "started"],
+    ["wont_do", "finished"],
+    ["done", "finished"]
+  ])(
+    "reads %s as %s from where it sits around the built-ins",
+    (slug, phase) => {
+      expect(phaseOf(slug)).toBe(phase)
+    }
+  )
 })

@@ -12,12 +12,13 @@ import {
   type UpdateGitAutomationInput,
   UnknownStatus
 } from "@pp/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import { statusOrder } from "../projects/statusOrder"
 import type { GitAutomationConfig } from "./automation"
 
 export class ProjectGitAutomation extends Context.Service<
@@ -84,7 +85,7 @@ const make = Effect.gen(function* () {
           .select({ slug: projectStatus.slug })
           .from(projectStatus)
           .where(eq(projectStatus.projectId, projectId))
-          .orderBy(asc(projectStatus.orderKey))
+          .orderBy(...statusOrder)
           .pipe(Effect.orDie)
       ],
       { concurrency: 2 }

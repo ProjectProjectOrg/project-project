@@ -42,6 +42,7 @@ const statuses = [
     label: "Shipped",
     icon: "CircleCheck",
     color: "#22c55e",
+    phase: "finished",
     orderKey: "a2",
     description: null,
     createdBy: "wouter",

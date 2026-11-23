@@ -53,6 +53,7 @@ import * as Markdown from "../markdown/Markdown"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
 import { markdownUserIds } from "./exportPeople"
+import { statusOrder } from "./statusOrder"
 import { tarGz, type TarEntry, type TarGzError } from "./tarGz"
 
 const makeRole = Schema.decodeUnknownSync(Role)
@@ -134,7 +135,7 @@ const make = Effect.gen(function* () {
           .select()
           .from(projectStatus)
           .where(eq(projectStatus.projectId, projectId))
-          .orderBy(asc(projectStatus.orderKey)),
+          .orderBy(...statusOrder),
         tags: db
           .select()
           .from(projectTag)

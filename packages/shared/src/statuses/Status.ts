@@ -8,6 +8,7 @@ export type BaselineStatusSlug = (typeof BASELINE_STATUS_SLUGS)[number]
 export const BASELINE_STATUS_SEED = [
   {
     slug: "todo",
+    phase: "unstarted",
     label: "Todo",
     icon: "CircleDashed",
     color: "#a3a3a3",
@@ -17,6 +18,7 @@ export const BASELINE_STATUS_SEED = [
   },
   {
     slug: "in_progress",
+    phase: "started",
     label: "In progress",
     icon: "CircleDot",
     color: "#3b82f6",
@@ -25,6 +27,7 @@ export const BASELINE_STATUS_SEED = [
   },
   {
     slug: "done",
+    phase: "finished",
     label: "Done",
     icon: "CircleCheck",
     color: "#22c55e",
@@ -122,6 +125,7 @@ export const ProjectStatus = Schema.Struct({
   label: StatusLabel,
   icon: StatusIconValue,
   color: StatusColor,
+  phase: StatusPhase,
   orderKey: OrderKey,
   description: Schema.NullOr(StatusDescription),
   createdBy: Schema.String,
@@ -147,6 +151,7 @@ export const UpdateStatusInput = Schema.Struct({
 export type UpdateStatusInput = typeof UpdateStatusInput.Type
 
 export const ReorderStatusInput = Schema.Struct({
+  phase: StatusPhase,
   orderKey: OrderKey
 })
 export type ReorderStatusInput = typeof ReorderStatusInput.Type

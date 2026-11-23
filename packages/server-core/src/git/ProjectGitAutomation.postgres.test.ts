@@ -73,7 +73,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
       [id, id, id]
     )
     await pool.query(
-      "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'done','Done','CircleCheck','#22c55e','a2',$2)",
+      "INSERT INTO project_status (project_id,slug,label,icon,color,phase,order_key,created_by) VALUES ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'unstarted', 'a0', $2), ($1, 'in_review', 'In review', 'Eye', '#e0a03b', 'unstarted', 'a1', $2), ($1, 'done', 'Done', 'CircleCheck', '#22c55e', 'finished', 'a2', $2)",
       [id, id]
     )
     layer = ProjectGitAutomation.layer.pipe(
@@ -186,7 +186,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         pool.query(
-          "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'race','Race','Circle','#a3a3a3','a3',$2)",
+          "INSERT INTO project_status (project_id,slug,label,icon,color,phase,order_key,created_by) VALUES ($1,'race','Race','Circle','#a3a3a3','finished','a3',$2)",
           [id, id]
         )
       )

@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest"
 import { type OverviewInput, summarize } from "./overview"
 
 const statuses = [
-  { slug: "todo", label: "Todo", orderKey: "a1" },
-  { slug: "in_progress", label: "In progress", orderKey: "a2" },
-  { slug: "done", label: "Done", orderKey: "a3" },
-  { slug: "shipped", label: "Shipped", orderKey: "a4" }
-]
+  { slug: "todo", label: "Todo", phase: "unstarted" },
+  { slug: "in_progress", label: "In progress", phase: "started" },
+  { slug: "done", label: "Done", phase: "finished" },
+  { slug: "shipped", label: "Shipped", phase: "finished" }
+] as const
 
 const at = (iso: string) => DateTime.toDateUtc(DateTime.makeUnsafe(iso))
 
@@ -28,7 +28,7 @@ const input = (overrides: Partial<OverviewInput> = {}) => ({
 })
 
 describe("summarize", () => {
-  it("counts sprint tickets by phase, with statuses after done as finished", () => {
+  it("counts sprint tickets by phase, with every finished status as finished", () => {
     const overview = summarize(
       input({
         tickets: [

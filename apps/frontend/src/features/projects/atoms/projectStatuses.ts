@@ -3,7 +3,8 @@ import {
   StatusSlug,
   StatusColor,
   OrderKey,
-  phaseEndNeighbors,
+  compareStatuses,
+  lastKeyInPhase,
   pickStatusColor,
   type CreateStatusInput,
   type DeleteStatusInput,
@@ -18,7 +19,7 @@ import { generateKeyBetween } from "fractional-indexing"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, viewMutation } from "@/api/viewMutation"
-import { compareByOrderKey } from "@/lib/orderKey"
+import type { StatusReorderUpdate } from "@/features/statuses/lib/statusPhases"
 
 export type StatusesRequest = ReturnType<typeof statusesRequest>
 
@@ -62,6 +63,7 @@ const syntheticStatus = (
   const derivedSlug = deriveStatusSlug(input.label)
   if (derivedSlug.length === 0) return statuses
   if (statuses.some((status) => status.slug === derivedSlug)) return statuses
+  const phase = input.phase ?? "started"
   const synthetic: ProjectStatus = {
     slug: StatusSlug.make(derivedSlug),
     label: input.label,
@@ -69,16 +71,15 @@ const syntheticStatus = (
     color:
       input.color ??
       StatusColor.make(pickStatusColor(statuses.map((status) => status.color))),
+    phase,
     orderKey: OrderKey.make(
-      generateKeyBetween(
-        ...phaseEndNeighbors(statuses, input.phase ?? "started")
-      )
+      generateKeyBetween(lastKeyInPhase(statuses, phase), null)
     ),
     description: input.description ?? null,
     createdBy: "",
     createdAt: DateTime.toDate(DateTime.nowUnsafe())
   }
-  return [...statuses, synthetic].toSorted(compareByOrderKey)
+  return [...statuses, synthetic].toSorted(compareStatuses)
 }
 
 export const createStatus = Atom.family((req: StatusesRequest) =>
@@ -133,8 +134,9 @@ export const reorderStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
     predict: (statuses, input: ReorderStatusInput) =>
       replaceStatus(statuses, statusSlug, (status) => ({
         ...status,
+        phase: input.phase,
         orderKey: input.orderKey
-      })).toSorted(compareByOrderKey),
+      })).toSorted(compareStatuses),
     call: (client, input) =>
       client.statuses.reorder({
         params: { ...req.params, statusSlug },
@@ -142,23 +144,16 @@ export const reorderStatus = Atom.family(({ req, statusSlug }: StatusKey) =>
       }),
     confirm: (statuses, reordered) =>
       replaceStatus(statuses, statusSlug, () => reordered).toSorted(
-        compareByOrderKey
+        compareStatuses
       ),
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })
 )
 
-export type StatusReorder = Readonly<{
-  statusSlug: StatusSlug
-  orderKey: ReorderStatusInput["orderKey"]
-}>
-
 export const dispatchStatusReorders = Atom.family((req: StatusesRequest) =>
-  Atom.fnSync((reorders: ReadonlyArray<StatusReorder>, get) => {
-    for (const { statusSlug, orderKey } of reorders) {
-      void fireMutation(get.registry, reorderStatus({ req, statusSlug }), {
-        orderKey
-      })
+  Atom.fnSync((reorders: ReadonlyArray<StatusReorderUpdate>, get) => {
+    for (const { statusSlug, ...input } of reorders) {
+      void fireMutation(get.registry, reorderStatus({ req, statusSlug }), input)
     }
   })
 )

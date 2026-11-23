@@ -622,7 +622,7 @@ export class StatusChangeRejected extends Schema.TaggedError<StatusChangeRejecte
   "StatusChangeRejected",
   {
     kind: Schema.Literals([
-      "baseline_order",
+      "builtin_phase",
       "invalid_label",
       "reassign_required",
       "reassign_target_invalid",

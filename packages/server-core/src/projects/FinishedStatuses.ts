@@ -33,7 +33,7 @@ export class FinishedStatuses extends Context.Service<
         db
           .select({
             slug: projectStatus.slug,
-            orderKey: projectStatus.orderKey
+            phase: projectStatus.phase
           })
           .from(projectStatus)
           .innerJoin(projectIndex, eq(projectIndex.id, projectStatus.projectId))

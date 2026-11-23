@@ -12,7 +12,7 @@ const WEEKS = 12
 export type OverviewInput = Readonly<{
   scope: string
   statuses: ReadonlyArray<
-    Readonly<{ slug: string; label: string; orderKey: string }>
+    Readonly<{ slug: string; label: string; phase: StatusPhase }>
   >
   tickets: ReadonlyArray<
     Readonly<{ id: string; status: string; createdAt: Date }>

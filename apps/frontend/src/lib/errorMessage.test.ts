@@ -47,7 +47,7 @@ describe("statusSaveErrorMessage", () => {
   it("falls back for a status rejection without its own message", () => {
     expect(
       statusSaveErrorMessage(
-        new StatusChangeRejected({ kind: "baseline_order" })
+        new StatusChangeRejected({ kind: "builtin_phase" })
       )
     ).toBe("Couldn't add this status. Try again.")
   })

@@ -23,6 +23,7 @@ import {
   ImportFormatUnsupported,
   NotFound,
   OrgScope,
+  phasesFromOrder,
   PROJECT_EXPORT_ATTACHMENTS_DIR,
   PROJECT_EXPORT_FORMAT_VERSION,
   PROJECT_EXPORT_MANIFEST_PATH,
@@ -1181,6 +1182,7 @@ export const importPlan = (
 ) => {
   const { manifest, mapping, projectId } = input
   const mapUser = (id: string) => mapping.users.get(id) ?? input.importerId
+  const phaseFromOrder = phasesFromOrder(manifest.statuses)
   const byAttachment = new Map(manifest.attachments.map((a) => [a.id, a]))
   const createdAt = manifest.project.createdAt
   const identity: HiddenProject.HiddenProjectIdentity = {
@@ -1316,6 +1318,7 @@ export const importPlan = (
       project: identity,
       statuses: manifest.statuses.map((status) => ({
         ...status,
+        phase: status.phase ?? phaseFromOrder(status.slug),
         projectId,
         createdBy: mapUser(status.createdBy)
       })),

@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   isReservedStatusSlug,
-  type OrderKey,
   type ProjectStatus,
+  type ReorderStatusInput,
   type UpdateStatusInput,
   StatusLabel,
   StatusColor
@@ -29,10 +29,7 @@ import {
   type StatusEditorValues
 } from "@/features/statuses/forms/status-editor"
 import { STATUS_ICON_NAMES } from "@/features/statuses/lib/statusIcons"
-import {
-  isPinnedStatus,
-  type PhaseEntry
-} from "@/features/statuses/lib/statusPhases"
+import type { PhaseEntry } from "@/features/statuses/lib/statusPhases"
 import {
   statusLabelFor,
   statusMetaFor
@@ -47,8 +44,8 @@ type Props = Readonly<{
   count: number
   dragging: boolean
   onDragStart: () => void
-  onDragEnd: () => OrderKey | null
-  onMove: (delta: -1 | 1) => OrderKey | null
+  onDragEnd: () => ReorderStatusInput | null
+  onMove: (delta: -1 | 1) => ReorderStatusInput | null
 }>
 
 const isUnchanged = (status: ProjectStatus, draft: StatusEditorValues) =>
@@ -111,8 +108,8 @@ export function StatusRow({
   const displayLabel = baseline
     ? statusLabelFor(status.slug, statuses)
     : status.label
-  const commitOrder = (orderKey: OrderKey | null) => {
-    if (orderKey !== null) reorder({ orderKey })
+  const commitOrder = (placed: ReorderStatusInput | null) => {
+    if (placed !== null) reorder(placed)
   }
   const closeEditor = () => {
     setEditing(false)
@@ -182,7 +179,7 @@ export function StatusRow({
             isDragging && "surface-2"
           )}
         >
-          {isPinnedStatus(status.slug) || !canManage ? (
+          {!canManage ? (
             <span className="w-5 shrink-0" />
           ) : (
             <DragHandle

@@ -22,8 +22,8 @@ const encodeProjectStatusSync = Schema.encodeSync(ProjectStatus)
 const encode = Schema.encodeSync(Schema.Array(ProjectStatus))
 const fetchStub = stubFetch()
 const req = statusesRequest("acme", "web")
-const todo = Schema.decodeSync(StatusSlug)("todo")
-const done = Schema.decodeSync(StatusSlug)("done")
+const review = Schema.decodeSync(StatusSlug)("review")
+const qa = Schema.decodeSync(StatusSlug)("qa")
 
 const makeStatus = (slug: StatusSlug, orderKey: string) =>
   decodeProjectStatusSync({
@@ -31,6 +31,7 @@ const makeStatus = (slug: StatusSlug, orderKey: string) =>
     label: slug,
     icon: "Circle",
     color: "#123456",
+    phase: "started",
     orderKey,
     description: null,
     createdBy: "user-1",
@@ -39,16 +40,16 @@ const makeStatus = (slug: StatusSlug, orderKey: string) =>
 
 describe("dispatchStatusReorders", () => {
   it("reorders immediately and settles the mutation", async () => {
-    const todoStatus = makeStatus(todo, "a")
-    const doneStatus = makeStatus(done, "b")
+    const reviewStatus = makeStatus(review, "a")
+    const qaStatus = makeStatus(qa, "b")
     const list = (statuses: ReadonlyArray<ProjectStatus>) =>
       Promise.resolve(Response.json(encode(statuses)))
-    let served = [todoStatus, doneStatus]
+    let served = [reviewStatus, qaStatus]
     fetchStub.set(() => list(served))
     const registry = AtomRegistry.make()
     const view = statusesFor(req)
     const dispatch = dispatchStatusReorders(req)
-    const mutation = reorderStatus({ req, statusSlug: todo })
+    const mutation = reorderStatus({ req, statusSlug: review })
     registry.mount(view)
     registry.mount(dispatch)
     try {
@@ -66,21 +67,25 @@ describe("dispatchStatusReorders", () => {
       fetchStub.set(() => patch)
 
       registry.set(dispatch, [
-        { statusSlug: todo, orderKey: decodeOrderKeySync("c") }
+        {
+          statusSlug: review,
+          phase: "started",
+          orderKey: decodeOrderKeySync("c")
+        }
       ])
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic value")
       }
       expect(optimistic.value.map((status) => status.slug)).toEqual([
-        done,
-        todo
+        qa,
+        review
       ])
       expect(registry.get(mutation).waiting).toBe(true)
 
       served = [
-        { ...todoStatus, orderKey: decodeOrderKeySync("c") },
-        doneStatus
+        { ...reviewStatus, orderKey: decodeOrderKeySync("c") },
+        qaStatus
       ]
       fetchStub.set(() => list(served))
       finishPatch(Response.json(encodeProjectStatusSync(served[0])))

@@ -343,6 +343,7 @@ const make = Effect.gen(function* () {
                     label: baseline.label,
                     icon: baseline.icon,
                     color: baseline.color,
+                    phase: baseline.phase,
                     orderKey: baseline.orderKey,
                     description: baseline.description,
                     createdBy

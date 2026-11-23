@@ -18,7 +18,7 @@ import {
   GroupId,
   JiraMigrationConfiguration,
   JiraMigrationFinding,
-  phaseEndNeighbors,
+  lastKeyInPhase,
   pickStatusColor,
   ProjectKey,
   Slug,
@@ -29,7 +29,7 @@ import {
   TicketPriority,
   StoredTicketType,
   type TypeKey,
-  type StatusPhase
+  StatusPhase
 } from "@pp/shared"
 import { Data, DateTime, Effect, Option, Schema } from "effect"
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
@@ -1228,15 +1228,14 @@ export const placeJiraStatuses = <
 >(
   created: ReadonlyArray<S>
 ) => {
-  const placed: Array<Readonly<{ slug: string; orderKey: string }>> = [
-    ...BASELINE_STATUS_SEED
-  ]
+  const placed: Array<
+    Readonly<{ slug: string; phase: StatusPhase; orderKey: string }>
+  > = [...BASELINE_STATUS_SEED]
   return created.map((status) => {
-    const orderKey = generateKeyBetween(
-      ...phaseEndNeighbors(placed, JIRA_STATUS_PHASE[status.icon])
-    )
-    placed.push({ slug: status.slug, orderKey })
-    return { ...status, orderKey }
+    const phase = JIRA_STATUS_PHASE[status.icon]
+    const orderKey = generateKeyBetween(lastKeyInPhase(placed, phase), null)
+    placed.push({ slug: status.slug, phase, orderKey })
+    return { ...status, phase, orderKey }
   })
 }
 
@@ -1246,6 +1245,7 @@ const PlannedStatus = Schema.Struct({
   icon: Schema.String,
   color: Schema.String,
   isTerminal: Schema.Literal(false),
+  phase: Schema.optional(StatusPhase),
   orderKey: Schema.String
 })
 const PlannedTag = Schema.Struct({
@@ -1394,6 +1394,7 @@ const StatusRow = Schema.Struct({
   label: Schema.String,
   icon: Schema.String,
   color: Schema.String,
+  phase: Schema.optional(StatusPhase),
   orderKey: Schema.String,
   createdBy: Schema.String,
   createdAt: Timestamp
@@ -2158,6 +2159,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           label: status.label,
           icon: status.icon,
           color: status.color,
+          phase: status.phase,
           orderKey: status.orderKey
         })),
         tags: tags.map((tag) => ({

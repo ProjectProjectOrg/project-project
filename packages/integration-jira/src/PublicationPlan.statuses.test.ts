@@ -1,4 +1,3 @@
-import { statusPhaseOf } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { placeJiraStatuses } from "./PublicationPlan"
@@ -11,16 +10,8 @@ describe("placeJiraStatuses", () => {
       { slug: "released", icon: "CircleCheck" },
       { slug: "testing", icon: "CircleDot" }
     ])
-    const all = [
-      { slug: "todo", orderKey: "a0" },
-      { slug: "in_progress", orderKey: "a1" },
-      { slug: "done", orderKey: "a2" },
-      ...placed
-    ]
     expect(
-      Object.fromEntries(
-        placed.map(({ slug }) => [slug, statusPhaseOf(all, slug)])
-      )
+      Object.fromEntries(placed.map(({ slug, phase }) => [slug, phase]))
     ).toEqual({
       backlog: "unstarted",
       in_review: "started",

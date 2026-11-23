@@ -208,7 +208,7 @@ describe.skipIf(!databaseUrl)("project import", () => {
       )
     }
     await pool.query(
-      "INSERT INTO project_status (project_id, slug, label, icon, color, order_key, created_by) VALUES ($1, 'todo', 'Todo', 'circle', 'gray', 'a0', $2)",
+      "INSERT INTO project_status (project_id, slug, label, icon, color, phase, order_key, created_by) VALUES ($1, 'todo', 'Todo', 'circle', 'gray', 'unstarted', 'a0', $2)",
       [sourceProjectId, bob]
     )
     await pool.query(

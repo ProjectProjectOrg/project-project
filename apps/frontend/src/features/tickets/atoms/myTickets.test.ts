@@ -8,7 +8,8 @@ import {
   RecentTicketRow,
   Ticket,
   TicketId,
-  TicketUpdateResult
+  TicketUpdateResult,
+  type StatusPhase
 } from "@pp/shared"
 import { makeTicket, makeTicketDetail } from "@pp/shared/tickets/testing"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -55,11 +56,17 @@ const ticketOf = (id: string, status: string) =>
     assignees: ["user-1"]
   })
 
-const statusJson = (slug: string, label: string, orderKey: string) => ({
+const statusJson = (
+  slug: string,
+  label: string,
+  phase: StatusPhase,
+  orderKey: string
+) => ({
   slug,
   label,
   icon: "Circle",
   color: "#123456",
+  phase,
   orderKey,
   description: null,
   createdBy: "user-1",
@@ -78,9 +85,9 @@ const projects = decodeProjects([
 ])
 
 const baselineStatuses = [
-  statusJson("todo", "Todo", "a0"),
-  statusJson("in_progress", "In progress", "a1"),
-  statusJson("done", "Done", "a2")
+  statusJson("todo", "Todo", "unstarted", "a0"),
+  statusJson("in_progress", "In progress", "started", "a0"),
+  statusJson("done", "Done", "finished", "a0")
 ]
 
 const statusesBySlug = new Map([
@@ -88,14 +95,14 @@ const statusesBySlug = new Map([
     "web",
     decodeStatuses([
       ...baselineStatuses,
-      statusJson("review", "In Review", "a1V")
+      statusJson("review", "In Review", "started", "a1")
     ])
   ],
   [
     "api",
     decodeStatuses([
       ...baselineStatuses,
-      statusJson("in_review", "In-review", "a1V")
+      statusJson("in_review", "In-review", "started", "a1")
     ])
   ]
 ])
@@ -376,7 +383,7 @@ describe("myTicketBoard", () => {
         ).toEqual([
           ["todo", ["API-2"]],
           ["in_progress", []],
-          ["label:inreview", ["WEB-1", "API-1"]],
+          ["label:started:inreview", ["WEB-1", "API-1"]],
           ["done", []]
         ])
       )

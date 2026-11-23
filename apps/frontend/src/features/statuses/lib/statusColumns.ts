@@ -1,11 +1,14 @@
 import {
+  BASELINE_STATUS_SEED,
   BASELINE_STATUS_SLUGS,
+  compareStatuses,
+  STATUS_PHASES,
   type BaselineStatusSlug,
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
 
-import { compareByOrderKey, compareCodePoints } from "@/lib/orderKey"
+import { compareCodePoints } from "@/lib/orderKey"
 
 export type ProjectStatuses = Readonly<{
   projectSlug: string
@@ -22,6 +25,7 @@ export type StatusColumn = Readonly<{
   label: string
   color: ProjectStatus["color"]
   icon: ProjectStatus["icon"]
+  phase: ProjectStatus["phase"]
   position: number
   members: ReadonlyArray<StatusColumnMember>
 }>
@@ -31,14 +35,9 @@ export type StatusColumns = Readonly<{
   columnKeyFor: (projectSlug: string, status: StatusSlug) => string | undefined
 }>
 
-const BASELINE_ANCHORS: ReadonlyMap<string, number> = new Map<
-  BaselineStatusSlug,
-  number
->([
-  ["todo", 0],
-  ["in_progress", 1],
-  ["done", 2]
-])
+const BASELINE_PHASE: ReadonlyMap<string, ProjectStatus["phase"]> = new Map(
+  BASELINE_STATUS_SEED.map((status) => [status.slug, status.phase])
+)
 
 const isBaseline = (slug: string): slug is BaselineStatusSlug =>
   (BASELINE_STATUS_SLUGS as ReadonlyArray<string>).includes(slug)
@@ -75,33 +74,22 @@ const columnKeyOf = (
 ) => {
   if (isBaseline(status.slug)) return status.slug
   const label = normalizeStatusLabel(status.label)
-  const baseline =
-    aliases.get(label) ?? aliases.get(normalizeStatusLabel(status.slug))
+  const baseline = [label, normalizeStatusLabel(status.slug)]
+    .map((alias) => aliases.get(alias))
+    .find(
+      (slug) => slug !== undefined && BASELINE_PHASE.get(slug) === status.phase
+    )
   if (baseline !== undefined) return baseline
-  return label.length > 0 ? `label:${label}` : `slug:${status.slug}`
+  return label.length > 0
+    ? `label:${status.phase}:${label}`
+    : `slug:${status.phase}:${status.slug}`
 }
 
 const positionsIn = (statuses: ReadonlyArray<ProjectStatus>) => {
-  const ordered = [...statuses].toSorted(compareByOrderKey)
-  const anchors = ordered.flatMap((status, index) => {
-    const value = BASELINE_ANCHORS.get(status.slug)
-    return value === undefined ? [] : [{ index, value }]
-  })
-  return ordered.map((status, index) => {
-    const anchor = BASELINE_ANCHORS.get(status.slug)
-    if (anchor !== undefined) return [status, anchor] as const
-    const before = anchors.findLast((anchor) => anchor.index < index)
-    const after = anchors.find((anchor) => anchor.index > index)
-    if (before && after) {
-      const share = (index - before.index) / (after.index - before.index)
-      return [
-        status,
-        before.value + (after.value - before.value) * share
-      ] as const
-    }
-    if (before) return [status, before.value + (index - before.index)] as const
-    if (after) return [status, after.value - (after.index - index)] as const
-    return [status, index] as const
+  const ordered = [...statuses].toSorted(compareStatuses)
+  return ordered.map((status) => {
+    const phase = ordered.filter((other) => other.phase === status.phase)
+    return [status, phase.indexOf(status) / phase.length] as const
   })
 }
 
@@ -143,6 +131,7 @@ export const mergeStatusColumns = (
       label: representative.status.label,
       color: representative.status.color,
       icon: representative.status.icon,
+      phase: representative.status.phase,
       position:
         group.reduce((sum, { position }) => sum + position, 0) / group.length,
       members
@@ -151,6 +140,7 @@ export const mergeStatusColumns = (
   return {
     columns: columns.toSorted(
       (a, b) =>
+        STATUS_PHASES.indexOf(a.phase) - STATUS_PHASES.indexOf(b.phase) ||
         a.position - b.position ||
         compareCodePoints(
           normalizeStatusLabel(a.label),

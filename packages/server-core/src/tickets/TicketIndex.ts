@@ -685,12 +685,9 @@ const finishedStatus = (
   row: SQL
 ) => drizzleSql`(${columnOf(row, ticketIndex.status)} = 'done' or exists (
   select 1 from ${projectStatus} s
-  join ${projectStatus} anchor
-    on anchor.project_id = s.project_id and anchor.slug = 'done'
   where s.project_id = ${columnOf(row, ticketIndex.projectId)}
     and s.slug = ${columnOf(row, ticketIndex.status)}
-    and s.slug not in ('todo', 'in_progress')
-    and s.order_key collate "C" > anchor.order_key collate "C"
+    and s.phase = 'finished'
 ))`
 
 const parentTicketRow = drizzleSql`${drizzleSql.identifier("parent_ticket")}`
@@ -1459,7 +1456,8 @@ const make = Effect.gen(function* () {
         : (row) => sectionExpression(sections, row)
     const ordinal = TicketIndexSectionOrder.$is("status")(order)
       ? drizzleSql`coalesce((
-            select ${projectStatus.orderKey} from ${projectStatus}
+            select array_position(enum_range(null::status_phase), ${projectStatus.phase})::text || ${projectStatus.orderKey}
+            from ${projectStatus}
             where ${projectStatus.projectId} = ${ticketIndex.projectId}
               and ${projectStatus.slug} = ${ticketIndex.status}
           ), '') collate "C"`

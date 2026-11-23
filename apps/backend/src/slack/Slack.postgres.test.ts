@@ -131,7 +131,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     )
     yield* Effect.promise(() =>
       pool.query(
-        "insert into project_status (project_id,slug,label,icon,color,order_key,created_by) values ($1,'todo','Todo','Circle','#aaaaaa','a0',$2),($1,'done','Done','CircleCheck','#aaaaaa','a1',$2)",
+        "insert into project_status (project_id,slug,label,icon,color,phase,order_key,created_by) values ($1, 'todo', 'Todo', 'Circle', '#aaaaaa', 'unstarted', 'a0', $2),($1, 'done', 'Done', 'CircleCheck', '#aaaaaa', 'finished', 'a1', $2)",
         [projectId, adminId]
       )
     )
