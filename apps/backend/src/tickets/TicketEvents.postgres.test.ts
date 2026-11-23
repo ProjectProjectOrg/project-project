@@ -152,6 +152,14 @@ describe.skipIf(databaseUrl === undefined)("ticket event subscriptions", () => {
         const events = yield* TicketEvents.TicketEvents
         const stream = yield* events.subscribe(scope, "account")
         if (stream === null) throw new Error("Stream was rejected")
+        yield* pg`select pg_notify('project_sync', json_build_object('project', ${scope}::text, 'kind', 'project', 'id', null)::text)`
+        yield* stream.pipe(
+          Stream.takeUntil((changes) =>
+            changes.some(({ kind }) => kind === "project")
+          ),
+          Stream.runDrain,
+          Effect.timeout("2 seconds")
+        )
         const batch = stream.pipe(
           Stream.runHead,
           Effect.timeout("2 seconds"),
