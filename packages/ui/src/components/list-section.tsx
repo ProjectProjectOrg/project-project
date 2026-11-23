@@ -77,8 +77,10 @@ function useStuck(node: HTMLDivElement | null) {
       const offset = Number.parseFloat(getComputedStyle(node).top) || 0
       const stuck =
         root.scrollTop > 0 &&
-        node.getBoundingClientRect().top <=
-          root.getBoundingClientRect().top + offset + 1
+        Math.abs(
+          node.getBoundingClientRect().top -
+            (root.getBoundingClientRect().top + offset)
+        ) <= 1
       node.toggleAttribute("data-stuck", stuck)
     }
     const schedule = () => {
@@ -87,11 +89,15 @@ function useStuck(node: HTMLDivElement | null) {
     update()
     const observer = new ResizeObserver(schedule)
     observer.observe(root)
+    const content = root.querySelector(":scope > [data-scroll-content]")
+    if (content) observer.observe(content)
+    if (node.parentElement) observer.observe(node.parentElement)
     root.addEventListener("scroll", schedule, { passive: true })
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
       root.removeEventListener("scroll", schedule)
+      node.removeAttribute("data-stuck")
     }
   }, [node])
 }
