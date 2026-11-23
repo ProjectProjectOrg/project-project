@@ -10,6 +10,7 @@ import * as Access from "@pp/server-core/access/Access"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
 import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
 import * as Figma from "@pp/server-core/figma/Figma"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
@@ -53,6 +54,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { RequestValidationLive } from "../http/RequestValidation"
 import { TicketsHandlerLive } from "../tickets/Handlers"
+import { TicketEvents } from "../tickets/TicketEvents"
 import { OrgAccessLive, ProjectAccessLive } from "./AccessMiddleware"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -272,7 +274,10 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
             Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {}),
-            Layer.mock(TicketSubscriptions.TicketSubscriptions, {})
+            Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
+            Layer.mock(TicketEvents, {}),
+            Layer.mock(BetterAuth.BetterAuth, {}),
+            access()
           )
         ),
         Layer.provide(

@@ -62,7 +62,10 @@ export const commentsQuery = (req: CommentsRequest) =>
   query("ticketComments", "list", {
     params: req.params,
     serializationKey: ticketContentKey(req.params),
-    reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]
+    reactivityKeys: [
+      Keys.comments(scopeOf(req), req.params.id),
+      Keys.projectResync(scopeOf(req))
+    ]
   })
 
 const commentsView = (req: CommentsRequest) =>

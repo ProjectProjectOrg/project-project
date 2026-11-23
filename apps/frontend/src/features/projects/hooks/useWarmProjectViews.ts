@@ -52,4 +52,14 @@ export function useWarmProjectViews(orgSlug: string, slug: string) {
     }, 1000)
     return () => window.clearTimeout(timer)
   }, [router, orgSlug, warmProject])
+
+  return useCallback(() => {
+    router.clearCache({
+      filter: (match) =>
+        "slug" in match.params &&
+        match.params.orgSlug === orgSlug &&
+        match.params.slug === slug
+    })
+    warmProject()
+  }, [router, orgSlug, slug, warmProject])
 }

@@ -1,0 +1,108 @@
+import { useAtomSet } from "@effect/atom-react"
+import { ProjectChange } from "@pp/shared"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import { useEffect, useEffectEvent } from "react"
+
+import type { ReactivityKey } from "@/api/keys"
+import { invalidateProjectKeys } from "@/features/projects/atoms/projectChanges"
+import { changeKeys, resyncKeys } from "@/features/projects/lib/projectChanges"
+
+const REWARM_DELAY_MS = 1000
+const REWARM_INTERVAL_MS = 10_000
+const SILENCE_MS = 60_000
+
+const decodeChanges = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Array(ProjectChange))
+)
+
+export function useProjectChanges(
+  orgSlug: string,
+  slug: string,
+  rewarm: () => void
+) {
+  const invalidate = useAtomSet(invalidateProjectKeys)
+  const onRewarm = useEffectEvent(rewarm)
+
+  useEffect(() => {
+    const params = { orgSlug, slug }
+    const url = `/api/orgs/${encodeURIComponent(orgSlug)}/projects/${encodeURIComponent(slug)}/tickets/events`
+    let source: EventSource | null = null
+    let retry: number | undefined
+    let silence: number | undefined
+    let delay = 1000
+    let warming: number | undefined
+    let warmedAt = -REWARM_INTERVAL_MS
+
+    const scheduleRewarm = () => {
+      if (warming !== undefined) return
+      warming = window.setTimeout(
+        () => {
+          warming = undefined
+          if (document.visibilityState !== "visible") return
+          warmedAt = performance.now()
+          onRewarm()
+        },
+        Math.max(
+          REWARM_DELAY_MS,
+          warmedAt + REWARM_INTERVAL_MS - performance.now()
+        )
+      )
+    }
+    const apply = (keys: ReadonlyArray<ReactivityKey>) => {
+      if (keys.length === 0) return
+      invalidate(keys)
+      scheduleRewarm()
+    }
+    const heard = () => {
+      window.clearTimeout(silence)
+      silence = window.setTimeout(() => {
+        close()
+        open()
+      }, SILENCE_MS)
+    }
+    const open = () => {
+      window.clearTimeout(retry)
+      if (source !== null) return
+      const next = new EventSource(url)
+      source = next
+      next.addEventListener("open", () => {
+        heard()
+        delay = 1000
+        apply(resyncKeys(params))
+      })
+      next.addEventListener("message", (event: MessageEvent<unknown>) => {
+        heard()
+        const changes = decodeChanges(event.data)
+        if (Option.isSome(changes))
+          apply([
+            ...new Set(
+              changes.value.flatMap((change) => changeKeys(params, change))
+            )
+          ])
+      })
+      next.addEventListener("error", () => {
+        if (next.readyState !== EventSource.CLOSED) return
+        source = null
+        retry = window.setTimeout(open, delay)
+        delay = Math.min(delay * 2, 30_000)
+      })
+    }
+    const close = () => {
+      window.clearTimeout(retry)
+      window.clearTimeout(silence)
+      source?.close()
+      source = null
+    }
+    const follow = () =>
+      document.visibilityState === "visible" ? open() : close()
+
+    follow()
+    document.addEventListener("visibilitychange", follow)
+    return () => {
+      document.removeEventListener("visibilitychange", follow)
+      window.clearTimeout(warming)
+      close()
+    }
+  }, [orgSlug, slug, invalidate])
+}

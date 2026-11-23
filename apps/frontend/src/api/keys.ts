@@ -49,6 +49,8 @@ export const Keys = {
         ? `sprint-membership/${scope}`
         : `sprint-membership/${scope}/${groupId}`
     ),
+  /** Per-entity reads that a project event stream refreshes after it may have missed changes. */
+  projectResync: (scope: string) => key(`project-resync/${scope}`),
   /** One sprint's own content, wherever it is shown. */
   sprint: (scope: string, id: GroupId) => key(`sprint/${scope}/${id}`),
   /** This project's tag definitions. */

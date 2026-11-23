@@ -51,8 +51,9 @@ candidate or optional integration dataset.
 
 Idle TTL governs retention of unused atom nodes. It is not a freshness policy and
 does not periodically refetch mounted data. Keep freshness explicit: mutations
-settle through their optimistic wrapper and publish affected query keys, existing
-polling updates live integration state, and failed sections expose retry. Do not
+settle through their optimistic wrapper and publish affected query keys, the
+project event stream invalidates the same keys for changes made elsewhere,
+existing polling updates live integration state, and failed sections expose retry. Do not
 add blanket refetching on navigation or global keep-alive. Reuse retained
 results and in-flight reads through shared keys.
 

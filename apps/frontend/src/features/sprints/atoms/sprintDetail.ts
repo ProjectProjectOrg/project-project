@@ -21,7 +21,10 @@ const scopeOf = (req: SprintRequest) =>
 export const sprintQuery = (req: SprintRequest) =>
   query("groups", "get", {
     params: req.params,
-    reactivityKeys: [Keys.sprint(scopeOf(req), req.params.id)]
+    reactivityKeys: [
+      Keys.sprint(scopeOf(req), req.params.id),
+      Keys.projectResync(scopeOf(req))
+    ]
   })
 
 export const sprintDetail = Atom.family((req: SprintRequest) =>

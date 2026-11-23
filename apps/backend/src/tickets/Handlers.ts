@@ -1,15 +1,34 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in TicketQueries, TicketCommands and TicketGit.
 
+import * as Access from "@pp/server-core/access/Access"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { AppApi } from "@pp/shared"
+import {
+  AppApi,
+  CurrentUser,
+  ProjectChange,
+  ProjectScope,
+  Unauthorized
+} from "@pp/shared"
+import * as Clock from "effect/Clock"
 import * as Effect from "effect/Effect"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
+import * as Schedule from "effect/Schedule"
+import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 
 import { dieOnMarkdown } from "../http/dieOnMarkdown"
+import { toWebHeaders } from "../http/toWebHeaders"
 import { contentBundle } from "./contentBundle"
 import { createTicket } from "./createTicket"
+import { TicketEvents } from "./TicketEvents"
+
+const encodeChanges = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Array(ProjectChange))
+)
 
 export const TicketsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -37,6 +56,84 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("content", ({ payload }) => contentBundle(payload))
+      .handleRaw("events", () =>
+        Effect.gen(function* () {
+          const { projectId, orgSlug, slug } = yield* ProjectScope
+          const user = yield* CurrentUser
+          const request = yield* HttpServerRequest.HttpServerRequest
+          const auth = yield* BetterAuth.BetterAuth
+          const session = auth.getSession(toWebHeaders(request.headers), {
+            revalidate: true
+          })
+          const opened = yield* session.pipe(Effect.orDie)
+          if (opened?.user.id !== user.id) return yield* new Unauthorized()
+          const expiresAt = opened.session.expiresAt.getTime()
+          const sessionValid = Effect.gen(function* () {
+            const current = yield* session
+            const now = yield* Clock.currentTimeMillis
+            return (
+              current?.session.id === opened.session.id &&
+              current.user.id === user.id &&
+              now < Math.min(expiresAt, current.session.expiresAt.getTime())
+            )
+          }).pipe(Effect.orElseSucceed(() => false))
+          const access = yield* Access.Access
+          const readable = access.project(orgSlug, slug).pipe(
+            Effect.map(
+              (scope) =>
+                scope.projectId === projectId &&
+                scope.permissions.can({ ticket: ["read"] })
+            ),
+            Effect.provideService(CurrentUser, user),
+            Effect.catchTag("NotFound", () => Effect.succeed(false))
+          )
+          const events = yield* TicketEvents
+          const remaining = expiresAt - (yield* Clock.currentTimeMillis)
+          if (remaining <= 0) return yield* new Unauthorized()
+          const changes = yield* events.subscribe(projectId, user.id).pipe(
+            Effect.timeoutOrElse({
+              duration: remaining,
+              orElse: () => Effect.fail(new Unauthorized())
+            })
+          )
+          if (changes === null) return HttpServerResponse.empty({ status: 429 })
+          const heartbeat = Stream.fromEffectSchedule(
+            Effect.succeed(null),
+            Schedule.spaced("25 seconds")
+          ).pipe(Stream.drop(1))
+          const send = (batch: ReadonlyArray<ProjectChange> | null) =>
+            Effect.gen(function* () {
+              if (!(yield* sessionValid)) return ""
+              if (batch === null) return "data: []\n\n"
+              if (!(yield* readable)) return ""
+              return `data: ${encodeChanges(batch)}\n\n`
+            })
+          return HttpServerResponse.stream(
+            Stream.concat(
+              Stream.succeed("retry: 1000\n\n"),
+              changes.pipe(
+                Stream.merge(heartbeat, { haltStrategy: "left" }),
+                Stream.mapEffect(send),
+                Stream.takeWhile((event) => event !== "")
+              )
+            ).pipe(
+              Stream.interruptWhen(
+                Effect.flatMap(Clock.currentTimeMillis, (now) =>
+                  Effect.sleep(Math.max(0, expiresAt - now))
+                )
+              ),
+              Stream.encodeText
+            ),
+            {
+              contentType: "text/event-stream",
+              headers: {
+                "cache-control": "private, no-store, no-transform",
+                "x-accel-buffering": "no"
+              }
+            }
+          )
+        })
+      )
       .handle("sprintSections", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.sprintSections(query)

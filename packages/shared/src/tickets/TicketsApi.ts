@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect"
-import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api"
 import * as Schema from "effect/Schema"
 
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
@@ -155,6 +155,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         payload: TicketContentRequest,
         success: Schema.Array(TicketContentLine)
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "events",
+      "/orgs/:orgSlug/projects/:slug/tickets/events",
+      {
+        params: ProjectPath,
+        success: HttpApiSchema.StreamUint8Array({
+          contentType: "text/event-stream"
+        })
       }
     )
       .annotate(RequiresProject, { ticket: ["read"] })
