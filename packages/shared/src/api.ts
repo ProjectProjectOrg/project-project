@@ -48,17 +48,18 @@ const HealthResponse = Schema.Struct({
 
 export type HealthResponse = typeof HealthResponse.Type
 
-const HealthGroup = HttpApiGroup.make("health")
-  .add(
-    HttpApiEndpoint.get("get", "/health", {
-      success: HealthResponse
-    })
-  )
-  .add(
-    HttpApiEndpoint.get("changelog", "/changelog", {
-      success: Changelog
-    })
-  )
+const HealthGroup = HttpApiGroup.make("health").add(
+  HttpApiEndpoint.get("get", "/health", {
+    success: HealthResponse
+  })
+)
+
+// The release notes this server shipped with, baked into the image.
+const ChangelogGroup = HttpApiGroup.make("changelog").add(
+  HttpApiEndpoint.get("get", "/changelog", {
+    success: Changelog
+  })
+)
 
 const DbPingResponse = Schema.Struct({
   projectCount: Schema.Finite
@@ -74,6 +75,7 @@ const DbGroup = HttpApiGroup.make("db").add(
 
 export const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
+  .add(ChangelogGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(OrgGroup)
