@@ -101,6 +101,10 @@ export function CreateTicketForm({
       ? request.related
       : null
 
+  // "New epic for AV-2": the epic is what's made, in that ticket's project,
+  // so neither the type nor the project can change.
+  const makingEpic = related?.kind === "epicOf"
+
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
@@ -205,7 +209,7 @@ export function CreateTicketForm({
             orgSlug={orgSlug}
             projects={projects}
             value={slug}
-            readOnly={locked}
+            readOnly={locked || makingEpic}
             onChange={(next) => {
               setPicked(next)
               creatorType.reset()
@@ -213,7 +217,7 @@ export function CreateTicketForm({
               setSprint(null)
             }}
           />
-          {related?.kind === "epicOf" ? (
+          {makingEpic ? (
             // The epic is what's made here, so the header says so in one
             // phrase instead of "New ticket · …".
             <h2 className="truncate text-body font-normal text-muted-foreground">
@@ -292,6 +296,7 @@ export function CreateTicketForm({
                   orgSlug={orgSlug}
                   slug={slug}
                   creatorType={creatorType}
+                  typeLocked={makingEpic}
                   value={fields}
                   onChange={(patch) =>
                     setFields((current) => ({ ...current, ...patch }))
@@ -323,7 +328,7 @@ export function CreateTicketForm({
             <Button type="submit" size="sm" disabled={!canSubmit}>
               {linkFailed
                 ? m.tickets_create_retry_link()
-                : related?.kind === "epicOf"
+                : makingEpic
                   ? m.tickets_create_epic_submit()
                   : m.tickets_create_dialog_submit()}
             </Button>

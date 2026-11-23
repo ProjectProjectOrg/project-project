@@ -48,12 +48,14 @@ export function TicketFieldChips({
   orgSlug,
   slug,
   creatorType,
+  typeLocked = false,
   value,
   onChange
 }: Readonly<{
   orgSlug: string
   slug: string
   creatorType: CreatorType
+  typeLocked?: boolean
   value: TicketFields
   onChange: (patch: Partial<TicketFields>) => void
 }>) {
@@ -68,14 +70,16 @@ export function TicketFieldChips({
         onChange={(status) => onChange({ status })}
         showLabel
       />
-      <CreatorTypeSelect
-        orgSlug={orgSlug}
-        slug={slug}
-        type={creatorType.type}
-        lastUsed={creatorType.lastUsed}
-        epics={creatorType.epics}
-        onTypeChange={creatorType.pick}
-      />
+      <fieldset disabled={typeLocked} className="contents">
+        <CreatorTypeSelect
+          orgSlug={orgSlug}
+          slug={slug}
+          type={creatorType.type}
+          lastUsed={creatorType.lastUsed}
+          epics={creatorType.epics}
+          onTypeChange={creatorType.pick}
+        />
+      </fieldset>
       <PrioritySelect
         value={value.priority ?? creatorType.prediction?.priority ?? "med"}
         onChange={(priority) => onChange({ priority })}
