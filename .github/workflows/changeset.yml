@@ -1,0 +1,35 @@
+name: changeset
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: changeset-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changeset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Check changesets and summarize how they appear
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          ADDED_FILES="$(git diff --name-only --no-renames --diff-filter=A "$BASE_SHA"...HEAD)" \
+          MODIFIED_FILES="$(git diff --name-only --no-renames --diff-filter=M "$BASE_SHA"...HEAD)" \
+            bun .github/scripts/check-changeset.ts
+      # The root bunfig ignores dot folders, so these run from their own.
+      - name: Test the release scripts
+        working-directory: .github/scripts
+        run: bun test

@@ -197,6 +197,10 @@ A ticket in the Pinned shelf sits under its parent ticket (or epic) when the par
 
 Rows under a parent (Current under Sprints) sit 18px in beside a 2px `--border` guide line, like a tree.
 
+### Card
+
+`SidebarCard` is a small dismissable note pinned to the bottom of the panel, passed as `SidebarPanel`'s `footer` so it stays put while the panel's content swaps. It wears the board card's surface (`--surface-3`, `shadow-surface-1`), and with a `link` (an `ItemLink` stretched over it) the whole card opens it and lifts like a board card on hover and focus (`--surface-4`, `shadow-surface-1-hover`); the ✕ sits above the link. 18px squircle corners concentric with its 24px ✕ and its `media` (a video or image at the top, 12px corners, 6px in), where the ✕ switches to the `overlay` button so it reads on the picture, and rises 8px as it fades in (fades only with reduced motion). The app uses it for "What's new" after an upgrade. One card at a time, and only for something the person hasn't seen yet: dismissing it is final, and opening its link doesn't dismiss it. Props: `open`, `title`, `meta?`, `media?`, `link?`, `dismissLabel`, `onDismiss`, `children`.
+
 ## Examples
 
 ### Rail
@@ -210,3 +214,9 @@ Pick an item: the bar slides between Dashboard and the tiles. Move down the rail
 The project rows with the Pinned shelf. Pin Sprint 25 to see it land with a flash; unpin a sprint from its row.
 
 <Demo name="rows" title="Rows" />
+
+### Card
+
+Dismiss the card with its ✕ to see it leave, then bring it back.
+
+<Demo name="card" title="Card" />

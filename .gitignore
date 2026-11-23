@@ -53,3 +53,7 @@ docs/history/benchmarks/*.json
 docs/history/benchmarks/*.jsonl
 
 .agent.local/
+
+# Local seed for the in-app changelog (release builds bake their own)
+/changelog.json
+/changelog-media/

@@ -60,6 +60,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check out the released commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Fails before any image is promoted when the release check fails; a hotfix (ref set) may skip the highlight.
+      - name: Check and write the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: stable
+          HOTFIX: ${{ inputs.ref != '' }}
+        run: bun .github/scripts/changelog.ts
+
       - name: Promote as stable
         run: |
           prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
@@ -76,12 +98,14 @@ jobs:
             --build-arg APP_VERSION="$TAG" \
             -t "$prefix-app:$TAG" \
             -t "$prefix-app:stable" \
-            -t "$prefix-app:latest" - <<'DOCKERFILE'
+            -t "$prefix-app:latest" -f - dist/release <<'DOCKERFILE'
           ARG SOURCE_IMAGE
           FROM $SOURCE_IMAGE
           ARG APP_VERSION
           ENV APP_VERSION=$APP_VERSION
           LABEL org.opencontainers.image.version=$APP_VERSION
+          COPY changelog.json /app/changelog.json
+          COPY changelog-media /app/changelog-media
           DOCKERFILE
           docker buildx imagetools create \
             -t "$prefix-web:$TAG" \
@@ -105,29 +129,16 @@ jobs:
             echo "reused=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check out the released commit
-        if: steps.cli.outputs.reused == 'false'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.sha }}
-
-      - name: Set up Bun
-        if: steps.cli.outputs.reused == 'false'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-
       - name: Build the pp CLI
         if: steps.cli.outputs.reused == 'false'
-        run: |
-          bun install --frozen-lockfile
-          sh .github/scripts/build-cli.sh "$TAG" dist/cli
+        run: sh .github/scripts/build-cli.sh "$TAG" dist/cli
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          args=(--target "$SHA" --latest --generate-notes --title "ProjectProject $TAG")
-          [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
-          gh release create "$TAG" "${args[@]}" dist/cli/*
+          gh release create "$TAG" --target "$SHA" --latest \
+            --title "ProjectProject $TAG" \
+            --notes-file dist/release/notes.md \
+            dist/cli/* dist/release/changelog.json

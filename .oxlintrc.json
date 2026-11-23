@@ -119,6 +119,7 @@
     {
       "files": [
         "apps/frontend/**/*.{js,jsx,ts,tsx}",
+        "apps/videos/**/*.{js,jsx,ts,tsx}",
         "packages/ui/**/*.{js,jsx,ts,tsx}"
       ],
       "env": {

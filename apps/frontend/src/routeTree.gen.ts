@@ -13,9 +13,11 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as AuthedChangelogRouteImport } from './routes/_authed/changelog'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as AuthedSettingsRouteRouteImport } from './routes/_authed/settings/route'
 import { Route as AuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as AuthedChangelogVersionRouteImport } from './routes/_authed/changelog_.$version'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as publicCliSignedInRouteImport } from './routes/(public)/cli.signed-in'
 import { Route as publicCliSignInFailedRouteImport } from './routes/(public)/cli.sign-in-failed'
@@ -100,6 +102,11 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedChangelogRoute = AuthedChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
@@ -114,6 +121,11 @@ const AuthedSettingsIndexRoute = AuthedSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthedSettingsRouteRoute,
+} as any)
+const AuthedChangelogVersionRoute = AuthedChangelogVersionRouteImport.update({
+  id: '/changelog_/$version',
+  path: '/changelog/$version',
+  getParentRoute: () => AuthedRouteRoute,
 } as any)
 const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
   id: '/(public)/oauth/consent',
@@ -509,12 +521,14 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/login': typeof publicLoginRoute
+  '/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/settings/profile': typeof AuthedSettingsProfileRouteRouteWithChildren
   '/cli/sign-in-failed': typeof publicCliSignInFailedRoute
   '/cli/signed-in': typeof publicCliSignedInRoute
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/changelog/$version': typeof AuthedChangelogVersionRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/settings/orgs/$orgSlug': typeof AuthedSettingsOrgsOrgSlugRouteRouteWithChildren
   '/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
@@ -578,11 +592,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
+  '/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
   '/cli/sign-in-failed': typeof publicCliSignInFailedRoute
   '/cli/signed-in': typeof publicCliSignedInRoute
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/changelog/$version': typeof AuthedChangelogVersionRoute
   '/settings': typeof AuthedSettingsIndexRoute
   '/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
   '/settings/profile/agents': typeof AuthedSettingsProfileAgentsRoute
@@ -639,6 +655,7 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/_authed/settings': typeof AuthedSettingsRouteRouteWithChildren
   '/(public)/login': typeof publicLoginRoute
+  '/_authed/changelog': typeof AuthedChangelogRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
@@ -646,6 +663,7 @@ export interface FileRoutesById {
   '/(public)/cli/sign-in-failed': typeof publicCliSignInFailedRoute
   '/(public)/cli/signed-in': typeof publicCliSignedInRoute
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
+  '/_authed/changelog_/$version': typeof AuthedChangelogVersionRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/settings/orgs/$orgSlug': typeof AuthedSettingsOrgsOrgSlugRouteRouteWithChildren
   '/_authed/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
@@ -714,12 +732,14 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/settings'
     | '/login'
+    | '/changelog'
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
     | '/settings/profile'
     | '/cli/sign-in-failed'
     | '/cli/signed-in'
     | '/oauth/consent'
+    | '/changelog/$version'
     | '/settings/'
     | '/settings/orgs/$orgSlug'
     | '/settings/profile/account'
@@ -783,11 +803,13 @@ export interface FileRouteTypes {
   to:
     | '/welcome'
     | '/login'
+    | '/changelog'
     | '/invite/$invitationId'
     | '/'
     | '/cli/sign-in-failed'
     | '/cli/signed-in'
     | '/oauth/consent'
+    | '/changelog/$version'
     | '/settings'
     | '/settings/profile/account'
     | '/settings/profile/agents'
@@ -843,6 +865,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/_authed/settings'
     | '/(public)/login'
+    | '/_authed/changelog'
     | '/invite/$invitationId'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
@@ -850,6 +873,7 @@ export interface FileRouteTypes {
     | '/(public)/cli/sign-in-failed'
     | '/(public)/cli/signed-in'
     | '/(public)/oauth/consent'
+    | '/_authed/changelog_/$version'
     | '/_authed/settings/'
     | '/_authed/settings/orgs/$orgSlug'
     | '/_authed/settings/profile/account'
@@ -952,6 +976,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/changelog': {
+      id: '/_authed/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof AuthedChangelogRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
     '/(public)/login': {
       id: '/(public)/login'
       path: '/login'
@@ -972,6 +1003,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthedSettingsIndexRouteImport
       parentRoute: typeof AuthedSettingsRouteRoute
+    }
+    '/_authed/changelog_/$version': {
+      id: '/_authed/changelog_/$version'
+      path: '/changelog/$version'
+      fullPath: '/changelog/$version'
+      preLoaderRoute: typeof AuthedChangelogVersionRouteImport
+      parentRoute: typeof AuthedRouteRoute
     }
     '/(public)/oauth/consent': {
       id: '/(public)/oauth/consent'
@@ -1766,14 +1804,18 @@ const AuthedOrgsOrgSlugRouteRouteWithChildren =
 
 interface AuthedRouteRouteChildren {
   AuthedSettingsRouteRoute: typeof AuthedSettingsRouteRouteWithChildren
+  AuthedChangelogRoute: typeof AuthedChangelogRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedOrgsOrgSlugRouteRoute: typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  AuthedChangelogVersionRoute: typeof AuthedChangelogVersionRoute
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
   AuthedSettingsRouteRoute: AuthedSettingsRouteRouteWithChildren,
+  AuthedChangelogRoute: AuthedChangelogRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedOrgsOrgSlugRouteRoute: AuthedOrgsOrgSlugRouteRouteWithChildren,
+  AuthedChangelogVersionRoute: AuthedChangelogVersionRoute,
 }
 
 const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(

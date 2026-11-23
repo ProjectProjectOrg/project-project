@@ -29,6 +29,10 @@
   font-size: var(--fs-body-compact);
   line-height: var(--lh-body-compact);
 }
+.prose-md.prose-reading {
+  font-size: var(--fs-title-compact);
+  line-height: 1.6;
+}
 .prose-md.prose-compact h1,
 .prose-md.prose-compact h2 {
   font-size: var(--fs-subtitle-compact);

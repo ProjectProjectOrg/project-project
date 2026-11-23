@@ -16,6 +16,7 @@ import {
   SidebarScope
 } from "@/components/shell/sidebar/sidebarRoute"
 import { useOpenCommandMenu } from "@/features/command-menu/hooks/useOpenCommandMenu"
+import { WhatsNewRailItem } from "@/features/instance/components/WhatsNewRailItem"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { PROJECT_SETTINGS_SECTIONS } from "@/features/projects/lib/projectSettingsSections"
@@ -48,6 +49,7 @@ export function AppRail({
       }
       bottom={
         <>
+          <WhatsNewRailItem />
           {orgSlug === null ? null : <SearchItem orgSlug={orgSlug} />}
           <AccountMenu user={user} orgSlug={orgSlug} />
         </>

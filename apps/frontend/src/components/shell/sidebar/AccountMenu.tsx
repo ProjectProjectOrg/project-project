@@ -9,7 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { Copy, LogOut, MessageSquarePlus, Settings } from "@pp/ui/icons"
+import {
+  Copy,
+  LogOut,
+  Megaphone,
+  MessageSquarePlus,
+  Settings
+} from "@pp/ui/icons"
 import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
@@ -107,6 +113,10 @@ export function AccountMenu({
         {orgSlug ? (
           <FeedbackItem orgSlug={orgSlug} onDone={() => setOpen(false)} />
         ) : null}
+        <DropdownMenuItem render={<Link to="/changelog" />}>
+          <Megaphone className="size-4" strokeWidth={1.75} />
+          {m.chrome_whats_new_title()}
+        </DropdownMenuItem>
         {version ? (
           <DropdownMenuItem
             onClick={() => void navigator.clipboard.writeText(version)}

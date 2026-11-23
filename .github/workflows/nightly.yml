@@ -63,7 +63,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promote CI images as nightly
+      - name: Wait for CI images
         run: |
           prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
           for name in app web; do
@@ -73,47 +73,66 @@ jobs:
               exit 0
             fi
           done
+          echo "ready=true" >> "$GITHUB_ENV"
+
+      - name: Check out the released commit
+        if: env.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Set up Bun
+        if: env.ready == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        if: env.ready == 'true'
+        run: bun install --frozen-lockfile
+
+      # Also keeps the "Next stable (draft)" release up to date.
+      - name: Write the changelog
+        if: env.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: nightly
+        run: bun .github/scripts/changelog.ts
+
+      - name: Promote CI images as nightly
+        if: env.ready == 'true'
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/projectproject"
           docker buildx build --push --provenance=false \
             --build-arg SOURCE_IMAGE="$prefix-app:sha-$SHORT_SHA" \
             --build-arg APP_VERSION="$TAG" \
             -t "$prefix-app:nightly" \
-            -t "$prefix-app:$TAG" - <<'DOCKERFILE'
+            -t "$prefix-app:$TAG" -f - dist/release <<'DOCKERFILE'
           ARG SOURCE_IMAGE
           FROM $SOURCE_IMAGE
           ARG APP_VERSION
           ENV APP_VERSION=$APP_VERSION
           LABEL org.opencontainers.image.version=$APP_VERSION
+          COPY changelog.json /app/changelog.json
+          COPY changelog-media /app/changelog-media
           DOCKERFILE
           docker buildx imagetools create \
             -t "$prefix-web:nightly" \
             -t "$prefix-web:$TAG" \
             "$prefix-web:sha-$SHORT_SHA"
-          echo "retagged=true" >> "$GITHUB_ENV"
-
-      - name: Check out the released commit
-        if: env.retagged == 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.sha }}
-
-      - name: Set up Bun
-        if: env.retagged == 'true'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
 
       - name: Build the pp CLI
-        if: env.retagged == 'true'
-        run: |
-          bun install --frozen-lockfile
-          sh .github/scripts/build-cli.sh "$TAG" dist/cli
+        if: env.ready == 'true'
+        run: sh .github/scripts/build-cli.sh "$TAG" dist/cli
 
       - name: Publish prerelease
-        if: env.retagged == 'true'
+        if: env.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          args=(--target "$SHA" --prerelease --generate-notes --title "ProjectProject nightly $VERSION ($SHORT_SHA)")
-          [ -n "$PREVIOUS_TAG" ] && args+=(--notes-start-tag "$PREVIOUS_TAG")
-          gh release create "$TAG" "${args[@]}" dist/cli/*
+          gh release create "$TAG" --target "$SHA" --prerelease \
+            --title "ProjectProject nightly $VERSION ($SHORT_SHA)" \
+            --notes-file dist/release/notes.md \
+            dist/cli/* dist/release/changelog.json

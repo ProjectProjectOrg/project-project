@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "@pp/ui/theme.css";
+
+@source "../../../packages/ui/src";

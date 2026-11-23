@@ -1,4 +1,10 @@
-import { Command as CommandKeyIcon, Link, LogOut, Palette } from "@pp/ui/icons"
+import {
+  Command as CommandKeyIcon,
+  Link,
+  LogOut,
+  Megaphone,
+  Palette
+} from "@pp/ui/icons"
 
 import { logout } from "@/features/auth/atoms/auth"
 import { appHotkeys } from "@/lib/appHotkeys"
@@ -14,6 +20,17 @@ export const appCommands: ReadonlyArray<Command> = [
     icon: Link,
     run: (_context, env) => {
       env.copy(window.location.href)
+      env.close()
+    }
+  }),
+  Command.run({
+    id: "app.whats-new",
+    group: "navigation",
+    label: m.chrome_whats_new_title,
+    icon: Megaphone,
+    keywords: ["changelog", "release notes", "updates", "version"],
+    run: (_context, env) => {
+      env.navigate("/changelog")
       env.close()
     }
   }),

@@ -13,6 +13,7 @@ import {
   PublicAuthGroup,
   PublicOAuthGroup
 } from "./auth/AuthApi"
+import { Changelog } from "./changelog/Changelog"
 import { TicketCommentsGroup } from "./comments/CommentsApi"
 import { EverhourGroup } from "./everhour/EverhourApi"
 import { FeedbackGroup, FeedbackIntakeGroup } from "./feedback/FeedbackApi"
@@ -53,6 +54,13 @@ const HealthGroup = HttpApiGroup.make("health").add(
   })
 )
 
+// The release notes this server shipped with, baked into the image.
+const ChangelogGroup = HttpApiGroup.make("changelog").add(
+  HttpApiEndpoint.get("get", "/changelog", {
+    success: Changelog
+  })
+)
+
 const DbPingResponse = Schema.Struct({
   projectCount: Schema.Finite
 })
@@ -67,6 +75,7 @@ const DbGroup = HttpApiGroup.make("db").add(
 
 export const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
+  .add(ChangelogGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(OrgGroup)

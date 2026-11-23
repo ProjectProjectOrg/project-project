@@ -98,6 +98,8 @@ import { attachmentRoutes } from "./attachments/Routes"
 import { attachmentUploadRoute } from "./attachments/UploadRoutes"
 import { AuthHandlerLive, PublicAuthHandlerLive } from "./auth/Handlers"
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { ChangelogMediaRouteLive } from "./changelog/mediaRoute"
+import { ChangelogHandlerLive } from "./changelog/readChangelog"
 import { CliInstallRouteLive } from "./cli/InstallRoutes"
 import { CommentsHandlerLive } from "./comments/Handlers"
 import { EverhourHandlerLive } from "./everhour/Handlers"
@@ -186,7 +188,7 @@ const betterAuthApp = Effect.gen(function* () {
 )
 
 export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
-  Layer.provide(HealthHandlerLive),
+  Layer.provide(Layer.mergeAll(HealthHandlerLive, ChangelogHandlerLive)),
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(OrgHandlerLive),
@@ -540,6 +542,7 @@ export const RouteLive = Layer.mergeAll(
     attachmentRoutes
   ),
   HttpRouter.add("POST", "/api/attachment-uploads", attachmentUploadRoute),
+  ChangelogMediaRouteLive,
   McpLive,
   ToolsRouteLive,
   CliInstallRouteLive,

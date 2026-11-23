@@ -19,6 +19,8 @@ export * from "./access/canCall"
 export * from "./attachments/Attachment"
 export * from "./attachments/urls"
 
+export * from "./changelog/Changelog"
+
 export * from "./auth/Authentication"
 export * from "./auth/OAuthApplication"
 export * from "./auth/SignInProvider"

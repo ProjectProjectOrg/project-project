@@ -31,11 +31,15 @@ const shardArg = args.find((arg) => arg.startsWith("--shard="))
 const forwarded = args.filter((arg) => arg !== shardArg)
 const explicit = forwarded.some((arg) => !arg.startsWith("-"))
 
-const testFiles = (
-  await Bun.$`git ls-files -- '*.test.ts' '*.test.tsx'`.cwd(root).text()
-)
-  .split("\n")
-  .filter(Boolean)
+const testFiles =
+  // .github/scripts tests run in the changeset workflow; bunfig skips dot folders.
+  (
+    await Bun.$`git ls-files -- '*.test.ts' '*.test.tsx' ':!.github/**'`
+      .cwd(root)
+      .text()
+  )
+    .split("\n")
+    .filter(Boolean)
 
 const timingsDir = path.join(root, ".cache/test-timings")
 const recorded: Record<string, number> = {}

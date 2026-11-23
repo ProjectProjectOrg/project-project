@@ -110,7 +110,7 @@ export type MarkdownBlocks = "frame" | "flat"
 
 const LinkReferencesContext = createContext("")
 
-export type MarkdownSize = "default" | "compact"
+export type MarkdownSize = "default" | "compact" | "reading"
 
 export function Markdown({
   children,
@@ -138,6 +138,7 @@ export function Markdown({
           className={cn(
             "prose-md",
             size === "compact" && "prose-compact",
+            size === "reading" && "prose-reading",
             framed && "block-gutter",
             className
           )}
