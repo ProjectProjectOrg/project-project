@@ -14,10 +14,11 @@ const ownsNode = (container: HTMLElement, node: EventTarget | null) => {
 
 export function useCreatorFocus(
   containerRef: RefObject<HTMLElement | null>,
-  onLeave?: () => void
+  onLeave?: () => void,
+  startActive = false
 ) {
-  const [active, setActive] = useState(false)
-  const activeRef = useRef(false)
+  const [active, setActive] = useState(startActive)
+  const activeRef = useRef(startActive)
   const onLeaveRef = useRef(onLeave)
 
   useEffect(() => {

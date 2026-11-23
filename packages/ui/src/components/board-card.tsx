@@ -1,6 +1,12 @@
-import type { ComponentProps, ReactNode } from "react"
+import {
+  useLayoutEffect,
+  useRef,
+  type ComponentProps,
+  type ReactNode
+} from "react"
 
 import { cn } from "../lib/utils"
+import { bareFieldClass } from "./input"
 import { itemSurfaceClass } from "./item-link"
 import { menuItemClass } from "./menu-styles"
 import {
@@ -197,4 +203,66 @@ export function BoardCardSubTicketsNote({
   )
 }
 
-export type { BoardCardProps }
+type BoardDraftCardProps = ComponentProps<"textarea"> &
+  Readonly<{
+    meta?: ReactNode
+    error?: ReactNode
+    note?: ReactNode
+  }>
+
+export function BoardDraftCard({
+  meta,
+  error,
+  note,
+  className,
+  ...props
+}: BoardDraftCardProps) {
+  const card = useDraftCardFadeIn()
+  return (
+    <div
+      ref={card}
+      data-slot="board-draft-card"
+      className="relative flex flex-col gap-1 rounded-(--card-radius) bg-surface-3 px-3 pt-2.5 pb-3 shadow-surface-1 [--card-radius:14px] [corner-shape:var(--button-corner)]"
+    >
+      {meta ? (
+        <div className="flex h-6 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
+          {meta}
+        </div>
+      ) : null}
+      <textarea
+        rows={2}
+        className={cn(
+          "block [field-sizing:content] min-h-[calc(2lh+0.5rem)] resize-none text-subtitle leading-snug font-semibold text-foreground outline-none placeholder:text-muted-foreground",
+          bareFieldClass,
+          className
+        )}
+        {...props}
+      />
+      {error ? (
+        <p role="alert" className="text-caption text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {note ? (
+        <output className="block text-caption text-muted-foreground">
+          {note}
+        </output>
+      ) : null}
+    </div>
+  )
+}
+
+const DRAFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+
+function useDraftCardFadeIn() {
+  const card = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    card.current?.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: 160,
+      easing: DRAFT_EASE
+    })
+  }, [])
+  return card
+}
+
+export type { BoardCardProps, BoardDraftCardProps }

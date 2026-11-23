@@ -117,8 +117,6 @@ type BoardColumnHeaderProps = Omit<ComponentProps<"div">, "title"> &
   Readonly<{
     title: ReactNode
     count: number
-    onAdd?: () => void
-    addLabel?: string
     // Folds the column to a narrow strip; leave out where columns can't fold.
     onCollapse?: () => void
     collapseLabel?: string
@@ -133,8 +131,6 @@ type BoardColumnHeaderProps = Omit<ComponentProps<"div">, "title"> &
 export function BoardColumnHeader({
   title,
   count,
-  onAdd,
-  addLabel,
   onCollapse,
   collapseLabel,
   onReorderStart,
@@ -152,19 +148,6 @@ export function BoardColumnHeader({
       {title}
       <BoardColumnCount value={count} />
       <span className="ml-auto flex shrink-0 items-center">
-        {onAdd && addLabel ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="square-7"
-            onClick={onAdd}
-            aria-label={addLabel}
-            title={addLabel}
-            className="text-muted-foreground opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-          >
-            <Plus className="size-4" strokeWidth={1.75} />
-          </Button>
-        ) : null}
         {onCollapse && collapseLabel ? (
           <Button
             type="button"
@@ -278,5 +261,88 @@ export function BoardColumn({
       </div>
       <BoardCardList scrollLabel={scrollLabel}>{children}</BoardCardList>
     </section>
+  )
+}
+
+export function BoardColumnAddButton({
+  label,
+  pinned = false,
+  folded = false,
+  ...props
+}: Omit<ComponentProps<"button">, "children"> &
+  Readonly<{
+    label: string
+    pinned?: boolean
+    folded?: boolean
+  }>) {
+  return (
+    <div
+      data-board-column-add
+      inert={folded}
+      className={cn(
+        "shrink-0 px-2 pb-2 transition-opacity duration-150 ease-standard",
+        pinned ? "pt-2" : "-mt-1",
+        folded && "opacity-0"
+      )}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="md"
+        className="w-full text-muted-foreground"
+        {...props}
+      >
+        <Plus className="size-4" strokeWidth={1.75} />
+        {label}
+      </Button>
+    </div>
+  )
+}
+
+const INSERT_PLUS_INSET = 12
+
+export function BoardInsertGap({
+  top,
+  label,
+  onInsert
+}: Readonly<{ top: number; label: string; onInsert: () => void }>) {
+  const [x, setX] = useState<number | null>(null)
+  return (
+    <div
+      data-board-insert-gap
+      className="group/insert absolute inset-x-2 top-0 z-10 h-2"
+      style={{ transform: `translateY(${top - 4}px)` }}
+      onPointerMove={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect()
+        setX(
+          Math.min(
+            Math.max(event.clientX - bounds.left, INSERT_PLUS_INSET),
+            bounds.width - INSERT_PLUS_INSET
+          )
+        )
+      }}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-1 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground/25 opacity-0 transition-opacity duration-150 group-hover/insert:opacity-100"
+      />
+      <span
+        data-slot="board-insert-plus"
+        className="pointer-events-none absolute top-1/2 -translate-1/2 group-hover/insert:pointer-events-auto"
+        style={{ left: x ?? "50%" }}
+      >
+        <Button
+          type="button"
+          variant="primary"
+          size="square-6"
+          tabIndex={-1}
+          aria-label={label}
+          title={label}
+          onClick={onInsert}
+        >
+          <Plus className="size-3.5" strokeWidth={2.25} />
+        </Button>
+      </span>
+    </div>
   )
 }

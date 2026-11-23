@@ -163,10 +163,10 @@ export function BoardCardMotion({
       if (reducedMotion) animation.current?.cancel()
       return
     }
-    const currentOffset =
-      animation.current?.playState === "running"
-        ? translateYOf(node)
-        : (before?.offset ?? offset)
+    const sliding = animation.current?.playState === "running"
+    const currentOffset = sliding
+      ? translateYOf(node)
+      : (before?.offset ?? offset)
     const from = before ? before.start + currentOffset - start : offset
     animation.current?.cancel()
     node.style.transform = `translateY(${offset}px)`
@@ -175,7 +175,8 @@ export function BoardCardMotion({
       !before ||
       (before.index === index &&
         before.offset === offset &&
-        before.hidden === hidden) ||
+        before.hidden === hidden &&
+        !sliding) ||
       before.hidden ||
       before.resetKey !== resetKey ||
       hidden ||

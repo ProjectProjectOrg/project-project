@@ -24,6 +24,10 @@ Drag a column by its grip, drag a card onto another column (or the folded one) t
 
 <Demo name="overview" title="A board" />
 
+## Inline create
+
+<Demo name="inline-create" title="Adding a card in place" />
+
 ## Usage
 
 The dashboard uses the plain column:
@@ -76,7 +80,7 @@ Each card uses `useBoardCardDrag({ slot, card, id, status, enabled })`; each col
 | --- | --- | --- |
 | `BoardColumn` | `title`, `tone`, `count`, `scrollLabel` | The plain column the dashboard uses |
 | `boardColumnTone` | a CSS colour (token or `#rrggbb`), or null for grey | Sets `--column-tone` for the wash, the count chip and the drop ring |
-| `BoardColumnHeader` | `title`, `count`, `onAdd`, `addLabel`, `onCollapse`, `collapseLabel`, `onReorderStart`, `onReorderKey`, `reorderLabel`, plus div props | The open column's header: add button when `onAdd` is given, fold button, then the grip when `onReorderStart` is given |
+| `BoardColumnHeader` | `title`, `count`, `onCollapse`, `collapseLabel`, `onReorderStart`, `onReorderKey`, `reorderLabel`, plus div props | The open column's header: fold button, then the grip when `onReorderStart` is given |
 | `BoardCollapsedColumnHeader` | `icon`, `label`, `count`, `expandLabel`, `onExpand`, plus button props | The folded strip: icon, name running down, count; a click unfolds |
 | `BoardColumnTitle` | `icon`, `label` | The status's icon and name |
 | `BoardColumnCount` | `value` | The count in its tinted chip, rolling when it changes by one |
@@ -85,6 +89,9 @@ Each card uses `useBoardCardDrag({ slot, card, id, status, enabled })`; each col
 | `BoardColumnFrame` (board-drag) | `value`, `tone`, `collapsed`, `over`, `onReorderStart`, `onReorderEnd`, render prop `{ startReorder }` | One column: its well, width easing between open and folded, the drop ring and the lift while dragged |
 | `useBoardCardDrag`, `useBoardColumnDrop`, `useBoardCardDrop` (board-drag) | | Card drag (whole card, clone preview, top or bottom half as the drop), the column as a drop target, and the drop itself |
 | `useBoardDropGap`, `boardDropOffset`, `BoardDropGap`, `BoardCardMotion` (board-drag) | | The gap a dragged card opens and the cards sliding around it over 180ms |
+| `BoardColumnAddButton` | `label`, `pinned`, `folded`, plus button props | The column's foot, under the last card: starts a new card at the end |
+| `BoardInsertGap` | `top`, `label`, `onInsert` | The seam between two cards: on hover a line, with a plus that follows the pointer; a click starts a card there |
+| `BoardDraftCard` (board-card) | `meta`, `error`, plus textarea props | A card being written: the card's shape with its title as a bare field, fading in |
 
 ## Rules
 
@@ -115,3 +122,7 @@ All of the board's drag lives in `@pp/ui/board-drag`: Pragmatic drag and drop fo
 ### The grip is always there
 
 People who may reorder the board's columns get a grip at the end of every header: press and drag it to move the column, and the new order saves when you let go. Its arrow keys move the column one place left or right. There is no separate reorder mode. Everyone else sees only the fold button, which shows on hover and on focus, before the grip.
+
+### New cards start where they go
+
+A column adds a card in place, never in a separate form. The button at its foot sits 8px under the last card, pinned to the bottom once the cards scroll, and starts a card at the end. Pinned under scrolling cards it keeps 8px above the button as well as below. While a new card is open in the column the foot fades out in place, and fades back once the card is added or let go. Hovering the seam between two cards draws a line with a plus that follows the pointer; a click starts the card right there. The draft card has a card's shape and a field for its title. Enter adds it and opens the next draft below, so a list goes in one after another. Escape, or leaving it empty, drops it at once and the cards close up. Columns sorted by anything but the manual order offer only the foot, since a place between two cards means nothing there.

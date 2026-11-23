@@ -1,38 +1,43 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { Ticket } from "@pp/shared"
-import { boardCardSlotClass, BoardCardList } from "@pp/ui/board-column"
+import { BoardCardList } from "@pp/ui/board-column"
 import {
-  BoardCardMotion,
   boardDropOffset,
   BoardDropGap,
-  boardSlotAttribute,
   useBoardDropGap,
   useBoardEdgeScroll
 } from "@pp/ui/board-drag"
-import { cn } from "@pp/ui/lib/utils"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import { useReducedMotion } from "motion/react"
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode
-} from "react"
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
 
-import {
-  justCreatedTicket,
-  type JustCreatedTicket
-} from "@/features/tickets/atoms/createTicket"
-import { isFresh } from "@/features/tickets/components/ticket-list/CreatedRow"
 import { m } from "@/paraglide/messages"
 
 import { useDeferredOverscan } from "../../tickets/components/ticket-list/useDeferredOverscan"
 import { useBoardColumnKeyboard } from "../hooks/useBoardKeyboardNavigation"
+import {
+  useReportOverflow,
+  useRevealCreated,
+  useRevealDraft
+} from "../hooks/useCardListReveal"
+import { draftSlots, withKeptIndexes } from "../lib/draftSlots"
+import {
+  DraftSlot,
+  dropGapTop,
+  ESTIMATED_CARD_HEIGHT,
+  InsertGaps,
+  PlaceholderSlot,
+  TicketSlot
+} from "./VirtualCardSlots"
 
-const ESTIMATED_CARD_HEIGHT = 104
 const LOAD_AHEAD = 10
+
+const ticketId = (ticket: Ticket) => ticket.id
+
+export type CardsDraft = Readonly<{
+  key: string
+  index: number
+  node: ReactNode
+}>
 
 export function VirtualSprintCards({
   tickets,
@@ -42,6 +47,10 @@ export function VirtualSprintCards({
   showDropGap = true,
   filterKey,
   footer,
+  draft = null,
+  onInsertAt,
+  onOverflowChange,
+  keyOf = ticketId,
   children
 }: {
   tickets: ReadonlyArray<Ticket>
@@ -51,6 +60,10 @@ export function VirtualSprintCards({
   showDropGap?: boolean
   filterKey: string
   footer?: (nearEnd: boolean) => ReactNode
+  draft?: CardsDraft | null
+  onInsertAt?: (index: number) => void
+  onOverflowChange?: (overflowing: boolean) => void
+  keyOf?: (ticket: Ticket) => string
   children: (ticket: Ticket) => ReactNode
 }) {
   "use no memo"
@@ -60,11 +73,20 @@ export function VirtualSprintCards({
   const getScrollElement = useCallback(() => scrollRef.current, [])
   const overscan = useDeferredOverscan(getScrollElement, 4)
   const [focusedId, setFocusedId] = useState<string | null>(null)
-  const focusedIndex = tickets.findIndex((ticket) => ticket.id === focusedId)
-  const count = Math.max(total, tickets.length)
+  const draftIndex = draft === null ? -1 : Math.min(draft.index, tickets.length)
+  const { ticketIndexOf, slotIndexOf } = draftSlots(draftIndex)
+  const focusedIndex = slotIndexOf(
+    tickets.findIndex((ticket) => ticket.id === focusedId)
+  )
+  const count = Math.max(total, tickets.length) + (draftIndex >= 0 ? 1 : 0)
+  const draftKey = draft?.key
   const getItemKey = useCallback(
-    (index: number) => tickets[index]?.id ?? `placeholder-${index}`,
-    [tickets]
+    (index: number) => {
+      if (index === draftIndex && draftKey !== undefined) return draftKey
+      const ticket = tickets[draftSlots(draftIndex).ticketIndexOf(index)]
+      return ticket ? keyOf(ticket) : `placeholder-${index}`
+    },
+    [tickets, draftIndex, draftKey, keyOf]
   )
   // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
@@ -74,13 +96,12 @@ export function VirtualSprintCards({
     estimateSize: () => ESTIMATED_CARD_HEIGHT,
     overscan,
     rangeExtractor: useCallback(
-      (range) => {
-        const indexes = defaultRangeExtractor(range)
-        return focusedIndex >= 0 && !indexes.includes(focusedIndex)
-          ? [...indexes, focusedIndex].toSorted((a, b) => a - b)
-          : indexes
-      },
-      [focusedIndex]
+      (range) =>
+        withKeptIndexes(defaultRangeExtractor(range), [
+          focusedIndex,
+          draftIndex
+        ]),
+      [focusedIndex, draftIndex]
     )
   })
 
@@ -88,56 +109,44 @@ export function VirtualSprintCards({
   const reveal = useCallback(
     (index: number) => {
       setFocusedId(tickets[index]?.id ?? null)
-      virtualizer.scrollToIndex(index, { align: "auto" })
+      virtualizer.scrollToIndex(draftSlots(draftIndex).slotIndexOf(index), {
+        align: "auto"
+      })
     },
-    [tickets, virtualizer]
+    [tickets, virtualizer, draftIndex]
   )
   useBoardColumnKeyboard(status, ticketIds, reveal)
 
   useBoardEdgeScroll(scrollRef, isDraggable)
   const drag = useBoardDropGap(status, ticketIds, isDraggable)
 
-  const created = useAtomValue(justCreatedTicket)
-  const createdIndex =
-    created === null
-      ? -1
-      : tickets.findIndex((ticket) => ticket.id === created.id)
-  const shownCreated = useRef<JustCreatedTicket | null>(null)
-  useLayoutEffect(() => {
-    const viewport = scrollRef.current
-    if (
-      created === null ||
-      createdIndex < 0 ||
-      !viewport ||
-      created === shownCreated.current ||
-      !isFresh(created.at)
-    )
-      return
-    shownCreated.current = created
-    viewport
-      .closest("[data-board-column]")
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" })
-    const item = virtualizer.measurementsCache[createdIndex]
-    const visible =
-      item !== undefined &&
-      item.start >= viewport.scrollTop &&
-      item.end <= viewport.scrollTop + viewport.clientHeight
-    if (!visible) virtualizer.scrollToIndex(createdIndex, { align: "center" })
-  })
+  useRevealCreated(scrollRef, virtualizer, tickets, slotIndexOf)
+
+  useRevealDraft(scrollRef, virtualizer, draftKey, draftIndex)
+  const overflowing = useReportOverflow(
+    virtualizer.getTotalSize(),
+    virtualizer.scrollRect?.height ?? 0,
+    onOverflowChange
+  )
 
   const sourceIndex = drag
     ? tickets.findIndex((ticket) => ticket.id === drag.id)
     : -1
   const rows = virtualizer.getVirtualItems()
   const nearEnd =
-    tickets.length < count &&
-    (rows.at(-1)?.index ?? 0) >= tickets.length - LOAD_AHEAD
-  const gapStart =
-    showDropGap && drag?.index != null
-      ? (rows.find((row) => row.index === drag.index)?.start ??
-          virtualizer.getTotalSize()) -
-        (sourceIndex >= 0 && sourceIndex < drag.index ? drag.height : 0)
-      : null
+    tickets.length < total &&
+    ticketIndexOf(rows.at(-1)?.index ?? 0) >= tickets.length - LOAD_AHEAD
+  const showInsertGaps =
+    onInsertAt !== undefined && draftIndex < 0 && drag === null
+  const gapStart = showDropGap
+    ? dropGapTop(
+        rows,
+        drag,
+        sourceIndex,
+        slotIndexOf,
+        virtualizer.getTotalSize()
+      )
+    : null
   return (
     <BoardCardList
       scrollLabel={m.common_scroll_area_label()}
@@ -156,6 +165,10 @@ export function VirtualSprintCards({
       <ul
         className="relative w-full overflow-clip"
         style={{
+          transition:
+            overflowing || reducedMotion
+              ? undefined
+              : "height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
           height:
             virtualizer.getTotalSize() +
             (showDropGap && drag?.index != null && sourceIndex < 0
@@ -166,50 +179,51 @@ export function VirtualSprintCards({
         {gapStart !== null && drag && (
           <BoardDropGap top={gapStart} height={drag.height} />
         )}
+        {showInsertGaps && (
+          <InsertGaps
+            rows={rows}
+            loaded={tickets.length}
+            onInsertAt={onInsertAt}
+          />
+        )}
         {rows.map((row) =>
-          row.index >= tickets.length ? (
-            <li
+          row.index === draftIndex && draft !== null ? (
+            <DraftSlot
               key={row.key}
-              data-index={row.index}
-              aria-hidden
-              className={cn(boardCardSlotClass, "absolute top-0 left-0 w-full")}
-              style={{
-                height: ESTIMATED_CARD_HEIGHT,
-                transform: `translateY(${row.start}px)`
-              }}
+              row={row}
+              measure={virtualizer.measureElement}
+              offset={
+                showDropGap
+                  ? boardDropOffset(drag, draftIndex - 0.5, sourceIndex)
+                  : 0
+              }
+              reducedMotion={Boolean(reducedMotion) || virtualizer.isScrolling}
+              resetKey={filterKey}
             >
-              <div className="size-full animate-pulse rounded-lg bg-surface-3/60 motion-reduce:animate-none" />
-            </li>
+              {draft.node}
+            </DraftSlot>
+          ) : ticketIndexOf(row.index) >= tickets.length ? (
+            <PlaceholderSlot key={row.key} row={row} />
           ) : (
-            <li
+            <TicketSlot
               key={row.key}
-              ref={virtualizer.measureElement}
-              aria-setsize={count}
-              aria-posinset={row.index + 1}
-              data-index={row.index}
-              data-ticket-id={tickets[row.index].id}
-              {...{ [boardSlotAttribute]: "" }}
-              className="absolute top-0 left-0 w-full"
-              style={{ transform: `translateY(${row.start}px)` }}
-              onFocusCapture={() => setFocusedId(tickets[row.index].id)}
+              row={row}
+              ticket={tickets[ticketIndexOf(row.index)]}
+              position={ticketIndexOf(row.index) + 1}
+              size={Math.max(total, tickets.length)}
+              measure={virtualizer.measureElement}
+              offset={
+                showDropGap
+                  ? boardDropOffset(drag, ticketIndexOf(row.index), sourceIndex)
+                  : 0
+              }
+              hidden={drag?.id === tickets[ticketIndexOf(row.index)].id}
+              reducedMotion={Boolean(reducedMotion) || virtualizer.isScrolling}
+              resetKey={filterKey}
+              onFocus={setFocusedId}
             >
-              <BoardCardMotion
-                index={row.index}
-                start={row.start}
-                offset={
-                  showDropGap
-                    ? boardDropOffset(drag, row.index, sourceIndex)
-                    : 0
-                }
-                hidden={drag?.id === tickets[row.index].id}
-                reducedMotion={
-                  Boolean(reducedMotion) || virtualizer.isScrolling
-                }
-                resetKey={filterKey}
-              >
-                {children(tickets[row.index])}
-              </BoardCardMotion>
-            </li>
+              {children}
+            </TicketSlot>
           )
         )}
       </ul>

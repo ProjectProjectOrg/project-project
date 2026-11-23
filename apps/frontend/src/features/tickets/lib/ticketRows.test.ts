@@ -1,9 +1,16 @@
-import { DEFAULT_TICKET_SORT, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  DEFAULT_TICKET_SORT,
+  TicketId,
+  TicketRank,
+  TicketStatus,
+  TypeKey
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Equal from "effect/Equal"
 import { describe, expect, it } from "vitest"
 
 import {
+  placeCreatedRow,
   placeholderRow,
   viewQuery,
   withoutEpics,
@@ -72,5 +79,52 @@ describe("viewQuery", () => {
     const query = withoutEpics({ sort, type, excludeType: ["none" as const] })
     expect(query).toEqual({ sort, type, excludeType: ["none", "epic"] })
     expect(withoutEpics(query)).toBe(query)
+  })
+})
+
+describe("placeCreatedRow", () => {
+  const ranked = (id: string, rank: string) => {
+    const row = placeholderRow(input(id), [], todo, now)
+    return {
+      ...row,
+      ticket: {
+        ...row.ticket,
+        id: TicketId.make(id),
+        rank: TicketRank.make(rank)
+      },
+      orderKey: `${rank}\u0000${id}`
+    }
+  }
+  const items = [ranked("T-1", "a0"), ranked("T-2", "a1")]
+  const created = placeholderRow(input("new"), items, todo, now)
+  const manual = { key: "manual", dir: "asc" } as const
+
+  it("puts a ticket created at a position between its neighbours", () => {
+    const placed = placeCreatedRow(
+      items,
+      created,
+      { after: TicketId.make("T-1") },
+      manual
+    )
+
+    expect(placed.map((row) => row.ticket.id)).toEqual([
+      "T-1",
+      created.ticket.id,
+      "T-2"
+    ])
+  })
+
+  it("keeps a new ticket on top without a position or a manual order", () => {
+    expect(
+      placeCreatedRow(items, created, undefined, manual)[0].ticket.id
+    ).toBe(created.ticket.id)
+    expect(
+      placeCreatedRow(
+        items,
+        created,
+        { after: TicketId.make("T-1") },
+        { key: "created", dir: "desc" }
+      )[0].ticket.id
+    ).toBe(created.ticket.id)
   })
 })

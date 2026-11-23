@@ -27,10 +27,10 @@ type CloseReason = Parameters<OnOpenChange>[1]["reason"]
 
 type CreatorMenuProps = Readonly<{
   expanded: boolean
-  inputRef: RefObject<HTMLInputElement | null>
+  inputRef: RefObject<HTMLElement | null>
 }>
 
-function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
+function useCreatorMenuFocus(inputRef: RefObject<HTMLElement | null>) {
   const closeReason = useRef<CloseReason | null>(null)
   const handleOpenChange: OnOpenChange = (open, details) => {
     closeReason.current = open ? null : details.reason

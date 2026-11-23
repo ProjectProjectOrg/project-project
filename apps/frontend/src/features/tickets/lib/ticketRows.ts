@@ -13,6 +13,7 @@ import {
   type TicketFilter,
   type TicketListQuery,
   type TicketListRow,
+  type TicketPosition,
   type TicketPriority,
   type TicketSort,
   type TicketStatus
@@ -23,6 +24,7 @@ import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
 import { applyTicketPatch } from "./ticketPatch"
+import { predictRank } from "./ticketRank"
 
 export type TicketRow = Readonly<{
   ticket: Ticket
@@ -188,6 +190,7 @@ export type QuickCreateInput = Readonly<{
   // in its sprint straight away instead of moving there after.
   sprint?: GroupId
   prediction: QuickCreatePrediction
+  inPlace?: boolean
 }>
 
 export const quickCreatePayload = ({ payload, parent }: QuickCreateInput) =>
@@ -256,4 +259,25 @@ export const patchTicketRow = (
       ? localOrderKey(ticket, sort)
       : row.orderKey
   }
+}
+
+export const placeCreatedRow = (
+  items: ReadonlyArray<TicketRow>,
+  row: TicketRow,
+  position: TicketPosition | undefined,
+  sort: TicketSort
+) => {
+  if (position === undefined || sort.key !== "manual") return [row, ...items]
+  const rank = predictRank(
+    items.map((item) => item.ticket),
+    row.ticket.id,
+    position
+  )
+  if (rank === null) return [row, ...items]
+  const ticket = { ...row.ticket, rank }
+  return insertByOrderKey(
+    items,
+    { ...row, ticket, orderKey: localOrderKey(ticket, sort) },
+    sort.dir
+  )
 }

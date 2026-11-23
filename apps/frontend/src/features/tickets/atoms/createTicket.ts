@@ -3,7 +3,6 @@ import type {
   GroupId,
   MarkKind,
   TicketId,
-  TicketStatus,
   TypeKey
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -17,7 +16,6 @@ export type CreateTicketRequest = Readonly<{
   orgSlug: string
   projectSlug: string | null
   sprint?: GroupId
-  status?: TicketStatus
   type?: TypeKey
   title?: string
   body?: string

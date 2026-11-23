@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
 import {
   boardCardSlotClass,
+  BoardColumnAddButton,
   BoardColumnHeader,
   BoardColumnTitle,
   BoardCollapsedColumnHeader
@@ -36,8 +37,10 @@ import {
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
+import type { ColumnCreate } from "../hooks/useBoardDraft"
 import { BoardKeyboardContext } from "../hooks/useBoardKeyboardNavigation"
 import type { StatusReorder } from "../hooks/useStatusReorder"
+import { BoardTicketDraft } from "./BoardTicketDraft"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { VirtualSprintCards } from "./VirtualSprintCards"
 
@@ -87,7 +90,8 @@ export function SprintBoardColumn({
   reorder,
   collapsed = false,
   onToggleCollapsed,
-  onCreate,
+  create,
+  keyOf,
   footer
 }: {
   update: TicketUpdates
@@ -109,7 +113,8 @@ export function SprintBoardColumn({
   reorder?: ColumnReorder
   collapsed?: boolean
   onToggleCollapsed?: () => void
-  onCreate?: (status: Ticket["status"]) => void
+  create?: ColumnCreate
+  keyOf?: (ticket: Ticket) => string
   footer?: (nearEnd: boolean) => ReactNode
 }) {
   const keyboard = useContext(BoardKeyboardContext)
@@ -133,6 +138,7 @@ export function SprintBoardColumn({
     if (created !== null && isFresh(created.at)) onToggleCollapsed?.()
   }, [collapsed, holdsCreated, created, onToggleCollapsed])
 
+  const [overflowing, setOverflowing] = useState(false)
   const count = countOverride ?? tickets.length
   const glyph = <MetaGlyph meta={meta} />
 
@@ -164,8 +170,6 @@ export function SprintBoardColumn({
             <BoardColumnHeader
               title={<BoardColumnTitle icon={glyph} label={meta.label} />}
               count={count}
-              onAdd={onCreate ? () => onCreate(status) : undefined}
-              addLabel={m.sprints_board_column_add({ status: meta.label })}
               onCollapse={onToggleCollapsed}
               collapseLabel={m.sprints_board_column_collapse({
                 status: meta.label
@@ -178,7 +182,7 @@ export function SprintBoardColumn({
             />
             <div
               style={{ pointerEvents: reorderMode ? "none" : undefined }}
-              className="relative flex min-h-0 flex-1 flex-col"
+              className="relative flex min-h-0 flex-initial flex-col"
             >
               <VirtualSprintCards
                 tickets={tickets}
@@ -188,6 +192,27 @@ export function SprintBoardColumn({
                 filterKey={filterKey}
                 status={status}
                 footer={footer}
+                draft={
+                  create?.draft
+                    ? {
+                        key: create.draft.key,
+                        index: create.draft.index,
+                        node: (
+                          <BoardTicketDraft
+                            status={status}
+                            tickets={tickets}
+                            index={create.draft.index}
+                            column={create}
+                            initialTitle={create.draft.title}
+                            initialError={create.draft.error}
+                          />
+                        )
+                      }
+                    : null
+                }
+                onInsertAt={create?.insertable ? create.open : undefined}
+                onOverflowChange={setOverflowing}
+                keyOf={keyOf}
               >
                 {(ticket) => (
                   <CardSlot
@@ -211,6 +236,14 @@ export function SprintBoardColumn({
                 )}
               </VirtualSprintCards>
             </div>
+            {create && (
+              <BoardColumnAddButton
+                label={m.sprints_board_add_ticket()}
+                pinned={overflowing}
+                folded={create.draft !== null}
+                onClick={() => create.open(tickets.length)}
+              />
+            )}
           </div>
         )
       }

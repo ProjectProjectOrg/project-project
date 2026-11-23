@@ -158,11 +158,12 @@ export const recordCreatedKey = (
   get: Atom.FnContext,
   scope: string,
   id: TicketId,
-  clientId: string
+  clientId: string,
+  announce = true
 ) => {
   const index = createdKeys(scope)
   get.set(index, new Map(get(index)).set(id, clientId))
-  get.set(justCreatedTicket, { id, at: performance.now() })
+  if (announce) get.set(justCreatedTicket, { id, at: performance.now() })
 }
 
 type Page<Item> = Readonly<{
