@@ -34,17 +34,14 @@ import {
 } from "@pp/shared"
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster"
 import * as ConfigProvider from "effect/ConfigProvider"
-import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Scope from "effect/Scope"
-import * as TestClock from "effect/testing/TestClock"
 import { Pool } from "pg"
 import { afterAll, afterEach, beforeAll, describe, expect } from "vitest"
 
@@ -416,7 +413,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     }
   })
 
-  it.effect(
+  it.live(
     "saves tickets while Slack is offline and recovers the file-to-job handoff after a new instance starts",
     () =>
       Effect.gen(function* () {
@@ -439,14 +436,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
           )
           await pool.query(`drop function if exists ${trigger}()`)
         })
-        const created = yield* Deferred.make<void>()
-        const creation = yield* Effect.forkChild(
-          f.create().pipe(Effect.ensuring(Deferred.succeed(created, undefined)))
-        )
-        while (!(yield* Deferred.isDone(created))) {
-          yield* TestClock.adjust("50 millis")
-        }
-        yield* Fiber.join(creation)
+        yield* f.create()
         expect(
           f.calls.filter((call) => call.method === "chat.postMessage")
         ).toHaveLength(0)
