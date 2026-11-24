@@ -100,7 +100,7 @@ export function AttachmentImage({
         style={attachmentWidthStyle(effectiveWidth)}
         className={cn(
           ATTACHMENT_IMAGE_CLASS,
-          "border border-transparent transition-colors group-focus-within/editing:hitbox-hover:border-border"
+          "border border-transparent transition-colors group-data-[attachment-selected]/hitbox:border-ring! group-focus-within/editing:hitbox-hover:border-border"
         )}
         onError={onBroken}
       />

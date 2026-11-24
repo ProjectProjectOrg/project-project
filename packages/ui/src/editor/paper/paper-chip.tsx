@@ -19,7 +19,7 @@ export function PaperChip({
         />
       }
       size="xs"
-      className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
+      className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none group-data-[paper-selected]/hitbox:inset-ring-1 group-data-[paper-selected]/hitbox:inset-ring-ring"
       contentEditable={false}
     >
       <span className="flex size-3 shrink-0">

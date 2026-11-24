@@ -210,7 +210,7 @@ export function EditableImage({
         {children || (
           <Badge
             size="xs"
-            className="max-w-full min-w-0 shrink select-none active:scale-[0.97]"
+            className="max-w-full min-w-0 shrink select-none group-data-[attachment-selected]/hitbox:inset-ring-1 group-data-[attachment-selected]/hitbox:inset-ring-ring active:scale-[0.97]"
             render={<button type="button" aria-label={filename} />}
             onClick={(event) => {
               cancelExpand()
@@ -272,6 +272,21 @@ export function EditableImage({
           popover="manual"
           tabIndex={-1}
           onKeyDown={(event) => {
+            if (event.key === "Tab") {
+              const buttons = event.currentTarget.querySelectorAll("button")
+              const first = buttons[0]
+              const last = buttons[buttons.length - 1]
+              if (
+                event.shiftKey &&
+                (event.target === first || event.target === event.currentTarget)
+              ) {
+                event.preventDefault()
+                last?.focus()
+              } else if (!event.shiftKey && event.target === last) {
+                event.preventDefault()
+                first?.focus()
+              }
+            }
             if (event.key === "Escape") {
               event.preventDefault()
               event.stopPropagation()
