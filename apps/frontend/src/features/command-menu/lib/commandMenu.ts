@@ -1,6 +1,8 @@
 import type { Group, GroupId, Ticket, TicketId } from "@pp/shared"
 import * as Data from "effect/Data"
 
+import type { MarkRowRelation } from "@/features/tickets/atoms/markRowRelation"
+import type { RemoveTickets } from "@/features/tickets/atoms/removeTickets"
 import type { FilterOption } from "@/features/tickets/hooks/useFilterOptions"
 import type {
   FilterChoice,
@@ -19,6 +21,8 @@ export type TicketContext = Readonly<{
 export type PointedTicket = TicketContext &
   Readonly<{
     row: Ticket
+    mark?: MarkRowRelation
+    remove?: RemoveTickets
     patch: (edit: TicketEdit) => void
     search: TicketNavigationSearch | undefined
   }>

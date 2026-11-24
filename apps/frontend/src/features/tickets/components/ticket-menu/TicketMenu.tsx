@@ -48,14 +48,12 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { SubscribeMenuItem } from "@/features/subscriptions/components/SubscribeMenuItem"
 import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
-import {
-  bulkArchiveTickets,
-  bulkDeleteTickets
-} from "@/features/tickets/atoms/bulkTickets"
 import type { RelatedKind } from "@/features/tickets/atoms/createTicket"
+import type { MarkRowRelation } from "@/features/tickets/atoms/markRowRelation"
+import type { RemoveTickets } from "@/features/tickets/atoms/removeTickets"
+import { runTicketRemoval } from "@/features/tickets/atoms/runTicketRemoval"
 import {
   archiveTicket,
-  deleteTicket,
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
@@ -63,6 +61,7 @@ import { CreateTicketForm } from "@/features/tickets/components/create-ticket/Cr
 import { FlagTicket } from "@/features/tickets/components/FlagTicket"
 import {
   useForgetTicket,
+  useSelectionStore,
   useSelectionActions
 } from "@/features/tickets/components/ticket-list/TicketSelection"
 import {
@@ -113,9 +112,11 @@ export type TicketMenuTicket = Pick<
 >
 
 export type TicketMenuProps = Readonly<{
-  ticket: TicketMenuTicket
+  ticket: Ticket
   members: ReadonlyArray<Member>
   onPatch: (patch: TicketEdit) => void
+  mark?: MarkRowRelation
+  remove?: RemoveTickets
   onDeleted?: () => void
   template?: SaveAsTemplateProps
   fromList?: boolean
@@ -215,6 +216,8 @@ function TicketMenuItems({
   members,
   onPatch,
   template,
+  remove,
+  mark,
   fromList = false,
   onDeleted,
   onFlow
@@ -225,7 +228,10 @@ function TicketMenuItems({
   const registry = useContext(RegistryContext)
   const archived = ticket.archivedAt !== null
   const canPlan = can.planSprints && canJoinSprint(ticket.type)
-  const openPage = useOpenTicketPage(ticket.id)
+  const openPage = useOpenTicketPage(
+    ticket.id,
+    fromList ? { row: ticket, patch: onPatch, remove, mark } : undefined
+  )
   const parent = ticket.parent ?? null
   const detachable = parent !== null && can.edit
   const { count, selectedTickets } = useSelectionActions(
@@ -289,7 +295,7 @@ function TicketMenuItems({
         )}
         {!archived && can.edit && (
           <MarkAsSubmenu
-            ticketId={ticket.id}
+            onMark={(kind) => openPage(`mark:${kind}`)}
             flagged={ticket.flag !== null}
             onFlag={() => onFlow("flag")}
             onUnflag={() => onPatch({ flag: null })}
@@ -343,13 +349,19 @@ function TicketMenuItems({
         {can.archive &&
           (archived && single ? (
             <DropdownMenuItem
-              onClick={() =>
-                void fireMutation(
-                  registry,
-                  unarchiveTicket(ticketRequest(orgSlug, slug, ticket.id)),
-                  undefined
-                )
-              }
+              onClick={() => {
+                if (remove)
+                  void remove(registry, {
+                    kind: "unarchive",
+                    tickets: [ticket.id]
+                  })
+                else
+                  void fireMutation(
+                    registry,
+                    unarchiveTicket(ticketRequest(orgSlug, slug, ticket.id)),
+                    undefined
+                  )
+              }}
               className="cursor-pointer"
             >
               <ArchiveRestore className="size-4" strokeWidth={1.75} />
@@ -373,7 +385,12 @@ function TicketMenuItems({
       </Fragment>
     ),
     can.delete && (
-      <DeleteTicketItems key="delete" ticket={ticket} onDeleted={onDeleted} />
+      <DeleteTicketItems
+        key="delete"
+        remove={remove}
+        ticket={ticket}
+        onDeleted={onDeleted}
+      />
     )
   ].filter((section) => section !== false)
   return sections.map((section, index) => (
@@ -409,18 +426,22 @@ function RemoveFromSprintItem({ ticketId }: Readonly<{ ticketId: TicketId }>) {
 // (an epic's are its tickets).
 function DeleteTicketItems({
   ticket,
-  onDeleted
-}: Readonly<{ ticket: TicketMenuProps["ticket"]; onDeleted?: () => void }>) {
+  onDeleted,
+  remove
+}: Pick<TicketMenuProps, "ticket" | "onDeleted" | "remove">) {
   const { orgSlug, slug } = useProjectRoute()
-  const remove = useAtomSet(
-    deleteTicket(ticketRequest(orgSlug, slug, ticket.id)),
-    {
-      mode: "promiseExit"
-    }
-  )
-  const removeMany = useAtomSet(bulkDeleteTickets({ orgSlug, slug }), {
-    mode: "promiseExit"
-  })
+  const registry = useContext(RegistryContext)
+  const store = useSelectionStore()
+  const run = (tickets: ReadonlyArray<TicketId>, cascadeSubTickets = false) =>
+    runTicketRemoval(
+      registry,
+      { orgSlug, slug },
+      { kind: "delete", tickets, cascadeSubTickets },
+      (id) =>
+        tickets.length > 1
+          ? (store?.views.get(selectionKey(slug, id))?.remove ?? remove)
+          : remove
+    )
   const selection = useSelectionActions(selectionKey(slug, ticket.id))
   const forget = useForgetTicket(selectionKey(slug, ticket.id))
   const icon = <Trash2 className="size-4" strokeWidth={1.75} />
@@ -434,22 +455,21 @@ function DeleteTicketItems({
         confirmLabel={m.tickets_row_delete_many_confirm({ count })}
         describeError={describeCause}
         busyLabel={m.common_deleting_button()}
-        onConfirm={async () => {
-          const exit = await removeMany({ tickets: selection.selectedIds() })
-          if (Exit.isSuccess(exit)) selection.clear()
-          return exit
+        onConfirm={() => {
+          const result = run(selection.selectedIds())
+          selection.clear()
+          onDeleted?.()
+          return result
         }}
       />
     )
   }
 
-  const removeOne = (cascade: boolean) => async () => {
-    const exit = await remove({ cascadeSubTickets: cascade })
-    if (Exit.isSuccess(exit)) {
-      forget(cascade)
-      onDeleted?.()
-    }
-    return exit
+  const removeOne = (cascade: boolean) => () => {
+    const result = run([ticket.id], cascade)
+    forget(cascade)
+    onDeleted?.()
+    return result
   }
   const count = ticket.subTicketCount ?? 0
   const epic = isEpic(ticket)
@@ -501,6 +521,7 @@ function TicketMenuFlows(props: TicketMenuFlowsProps) {
 
 function TicketMenuFlowPopovers({
   ticket,
+  remove,
   template,
   flow,
   onFlow,
@@ -508,30 +529,33 @@ function TicketMenuFlowPopovers({
 }: TicketMenuFlowsProps) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
+  const registry = useContext(RegistryContext)
+  const store = useSelectionStore()
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
   const archiveState = useAtomValue(archiveTicket(req))
   const selection = useSelectionActions(selectionKey(slug, ticket.id))
   const many = selection.count > 1
   const project = { orgSlug, slug }
-  const archiveMany = useAtomSet(bulkArchiveTickets(project), {
-    mode: "promiseExit"
-  })
-  const archiveManyState = useAtomValue(bulkArchiveTickets(project))
   const popupAnchor = anchor ?? undefined
   const forget = useForgetTicket(selectionKey(slug, ticket.id))
   const relatedKind = flow === null ? undefined : RELATED_FLOWS[flow]
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
-    if (many) {
-      const exit = await archiveMany({
-        tickets: selection.selectedIds(),
-        reason: input.reason
-      })
-      if (Exit.isSuccess(exit)) {
-        selection.clear()
-        onFlow(null)
-      }
-      return exit
+    if (remove || many) {
+      const tickets = many ? selection.selectedIds() : [ticket.id]
+      const result = runTicketRemoval(
+        registry,
+        project,
+        { kind: "archive", tickets, ...input },
+        (id) =>
+          many
+            ? (store?.views.get(selectionKey(slug, id))?.remove ?? remove)
+            : remove
+      )
+      if (many) selection.clear()
+      else forget(false)
+      onFlow(null)
+      return result
     }
     const exit = await archive(input)
     if (Exit.isSuccess(exit)) {
@@ -556,12 +580,8 @@ function TicketMenuFlowPopovers({
           <ArchiveForm
             ticket={ticket}
             onArchive={archiveAndClose}
-            waiting={(many ? archiveManyState : archiveState).waiting}
-            failed={
-              many
-                ? Result.isFailure(archiveManyState)
-                : Result.isFailure(archiveState)
-            }
+            waiting={archiveState.waiting}
+            failed={Result.isFailure(archiveState)}
             onClose={() => onFlow(null)}
           />
         </Composer.Popover>

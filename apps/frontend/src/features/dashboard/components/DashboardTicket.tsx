@@ -15,7 +15,6 @@ import {
 } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
-import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import type {
   OrgTicket,
   OrgTicketUpdates
@@ -132,13 +131,22 @@ export function DashboardRows({
   preview: TicketPreview
   below?: (item: OrgTicket) => ReactNode
 }>) {
+  const viewerId = useAtomValue(currentUserId) ?? ""
   return (
     <SelectionOrder
-      entries={tickets.map((item) => ({
-        key: selectionKey(item.project.slug, item.ticket.id),
-        ticket: item.ticket,
-        bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug })
-      }))}
+      entries={tickets.map((item) => {
+        const { bulk, sprintBulk, remove } = update({
+          viewerId,
+          projectSlug: item.project.slug
+        })
+        return {
+          key: selectionKey(item.project.slug, item.ticket.id),
+          ticket: item.ticket,
+          bulk,
+          sprintBulk,
+          remove
+        }
+      })}
     >
       <div className={cn(listGridClassName, below !== undefined && "gap-y-2")}>
         {tickets.map((item) => (

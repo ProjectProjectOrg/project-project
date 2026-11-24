@@ -1,17 +1,25 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import {
+  RegistryContext,
+  useAtomRefresh,
+  useAtomValue
+} from "@effect/atom-react"
 import type { Member, ProjectStatus, TicketDetail } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
 import { ArrowDown, Eye, UserRound } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { useNavigate } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
+import { useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState } from "react"
+import { useState, useContext } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
+import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
+import {
+  commandMenuRow,
+  pointedAt
+} from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { statusesFor } from "@/features/projects/atoms/projectStatuses"
@@ -23,14 +31,15 @@ import {
   markDuplicateRequest,
   type MarkDuplicateRequest
 } from "@/features/tickets/atoms/markDuplicateRequest"
+import { runTicketAction } from "@/features/tickets/atoms/ticketActionFailures"
 import {
-  archiveTicket,
+  markDuplicate,
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
+import { linkedTicket } from "@/features/tickets/lib/relationGroups"
 import { statusLabelFor } from "@/features/tickets/lib/ticketMeta"
-import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 // cmd+k's "Mark as duplicate" confirmation: both tickets side by side, a swap
@@ -145,10 +154,8 @@ function DuplicateConfirmation({
   const { orgSlug, slug } = useProjectRoute()
   const duplicate = swapped ? target : current
   const original = swapped ? current : target
-  const mutation = archiveTicket(ticketRequest(orgSlug, slug, duplicate.id))
-  const archive = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
-  const navigate = useNavigate()
+  const router = useRouter()
+  const registry = useContext(RegistryContext)
   const blocked =
     duplicate.archivedAt !== null
       ? m.tickets_duplicate_archived()
@@ -164,7 +171,6 @@ function DuplicateConfirmation({
               original: original.relations.duplicateOf.id
             })
           : null
-  const error = mutationErrorText(state) ?? (state.waiting ? null : blocked)
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -174,7 +180,6 @@ function DuplicateConfirmation({
           statuses={statuses}
           label={m.tickets_duplicate_duplicate()}
           current={duplicate.id === request.ticketId}
-          waiting={state.waiting}
         />
         <div className="flex items-center gap-3 py-1">
           <div className="h-px flex-1 bg-border" />
@@ -183,7 +188,6 @@ function DuplicateConfirmation({
             size="compact"
             aria-label={m.tickets_duplicate_swap()}
             title={m.tickets_duplicate_swap()}
-            disabled={state.waiting}
             onClick={onSwap}
           >
             <ArrowDown className="size-3.5" />
@@ -197,13 +201,12 @@ function DuplicateConfirmation({
           statuses={statuses}
           label={m.tickets_duplicate_original()}
           current={original.id === request.ticketId}
-          waiting={false}
         />
       </div>
       {/* The page is the confirmation: Cancel, or mark it. */}
-      {error !== null && (
+      {blocked !== null && (
         <p role="alert" className="text-caption text-destructive">
-          {error}
+          {blocked}
         </p>
       )}
       <div className="flex justify-end gap-1">
@@ -213,13 +216,34 @@ function DuplicateConfirmation({
         <Button
           type="button"
           size="sm"
-          loading={state.waiting}
-          disabled={blocked !== null || state.waiting}
+          disabled={blocked !== null}
           onClick={async () => {
-            const exit = await archive({ duplicateOf: original.id })
-            if (Exit.isSuccess(exit)) {
-              onDone()
-              void navigate({
+            const remove = pointedAt(
+              commandMenuRow(registry.get(commandMenuState)),
+              request
+            )?.remove
+            const location = router.state.location
+            const input = {
+              kind: "archive",
+              tickets: [duplicate.id],
+              duplicateOf: original.id
+            } as const
+            const save = remove
+              ? remove(registry, input)
+              : runTicketAction(registry, { orgSlug, slug }, input, () =>
+                  fireMutation(
+                    registry,
+                    markDuplicate(ticketRequest(orgSlug, slug, current.id)),
+                    {
+                      original: linkedTicket(original),
+                      duplicate: linkedTicket(duplicate)
+                    }
+                  ).then(Result.toExit)
+                )
+            onDone()
+            const exit = await save
+            if (exit._tag === "Success" && router.state.location === location) {
+              void router.navigate({
                 to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
                 params: { orgSlug, slug, id: original.id }
               })
@@ -238,15 +262,13 @@ function TicketSummary({
   members,
   statuses,
   label,
-  current,
-  waiting
+  current
 }: Readonly<{
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   statuses: ReadonlyArray<ProjectStatus>
   label: string
   current: boolean
-  waiting: boolean
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const assignees = ticket.assignees.flatMap((id) => {
@@ -254,9 +276,7 @@ function TicketSummary({
     return member ? [member] : []
   })
   return (
-    <section
-      className={cn("flex flex-col gap-2 py-4", waiting && "animate-pulse")}
-    >
+    <section className="flex flex-col gap-2 py-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
         <h3>{label}</h3>
         {current && (

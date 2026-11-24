@@ -70,24 +70,43 @@ export const removableRelations = (relations: TicketRelations) =>
     unmark === null ? [] : tickets.map((linked) => ({ kind: unmark, linked }))
   )
 
-const MARK_GROUPS: Readonly<
-  Record<MarkKind, "blockedBy" | "blocking" | "related">
-> = {
-  blockedBy: "blockedBy",
-  blocking: "blocking",
-  related: "related"
-}
+export const linkedTicket = ({
+  id,
+  title,
+  status,
+  archivedAt
+}: LinkedTicket) => ({
+  id,
+  title,
+  status,
+  archivedAt
+})
+
+export type AddRelation = Readonly<{ kind: MarkKind; target: LinkedTicket }>
+
+export const withRelation = (
+  relations: TicketRelations,
+  {
+    kind,
+    target
+  }: Readonly<{ kind: MarkKind | "duplicates"; target: LinkedTicket }>
+) =>
+  hasTicket(relations[kind], target.id)
+    ? relations
+    : {
+        ...relations,
+        [kind]: [...relations[kind], target].sort((a, b) =>
+          a.id.localeCompare(b.id, undefined, { numeric: true })
+        )
+      }
 
 export const withoutRelation = (
   relations: TicketRelations,
   { kind, target }: MarkTicketInput
-) => {
-  const group = MARK_GROUPS[kind]
-  return {
-    ...relations,
-    [group]: relations[group].filter((ticket) => ticket.id !== target)
-  }
-}
+) => ({
+  ...relations,
+  [kind]: relations[kind].filter((ticket) => ticket.id !== target)
+})
 
 export type MarkPickKind = MarkKind | "duplicateOf"
 

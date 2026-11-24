@@ -1,5 +1,6 @@
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
@@ -149,7 +150,10 @@ describe.skipIf(databaseUrl === undefined)("ticket event subscriptions", () => {
         select ${org}, ${scope}, id, parent, id, 'todo', 'med', 'a', 'user', timestamp 'epoch', timestamp 'epoch'
         from (values ('T-1',null),('T-2','T-1'),('T-3','T-2'),('T-4',null),('T-5',null)) as tickets(id,parent)`
         yield* pg`insert into ticket_relation_index values (${scope}, 'T-4', 'T-2', 'related')`
-        const events = yield* TicketEvents.TicketEvents
+        const events = Context.get(
+          yield* Layer.build(TicketEvents.layer),
+          TicketEvents.TicketEvents
+        )
         const stream = yield* events.subscribe(scope, "account")
         if (stream === null) throw new Error("Stream was rejected")
         const batch = stream.pipe(
@@ -164,7 +168,7 @@ describe.skipIf(databaseUrl === undefined)("ticket event subscriptions", () => {
         expect(yield* batch).toEqual(new Set(["T-1", "T-2", "T-3", "T-4"]))
         yield* pg`delete from ticket_relation_index where project_id = ${scope}`
         expect(yield* batch).toEqual(new Set(["T-1", "T-2", "T-3", "T-4"]))
-      }).pipe(Effect.scoped, Effect.provide(live))
+      }).pipe(Effect.scoped, Effect.provide(pg))
   )
 
   it.live("collapses an overflowing burst into one project change", () =>

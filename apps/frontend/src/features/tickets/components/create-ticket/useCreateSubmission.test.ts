@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { TicketId } from "@pp/shared"
+import { type LinkedTicket, TicketId } from "@pp/shared"
+import { makeTicket } from "@pp/shared/tickets/testing"
 import { act, cleanup, renderHook } from "@testing-library/react"
 import * as Exit from "effect/Exit"
 import { afterEach, expect, it, vi } from "vitest"
@@ -10,11 +11,10 @@ afterEach(cleanup)
 
 it("locks the form once the ticket exists, so a resubmit only retries the link", async () => {
   const id = TicketId.make("T-7")
-  const create = vi.fn<() => Promise<Exit.Exit<TicketId, unknown>>>(async () =>
-    Exit.succeed(id)
-  )
+  const ticket = makeTicket({ id })
+  const create = vi.fn(async () => Exit.succeed(ticket))
   const link = vi
-    .fn<(target: TicketId) => Promise<Exit.Exit<unknown, unknown>>>()
+    .fn<(target: LinkedTicket) => Promise<Exit.Exit<unknown, unknown>>>()
     .mockResolvedValueOnce(Exit.fail("offline"))
     .mockResolvedValueOnce(Exit.void)
   const done = vi.fn<(target: TicketId) => void>()
@@ -23,12 +23,15 @@ it("locks the form once the ticket exists, so a resubmit only retries the link",
   )
 
   await act(() => result.current.submit())
-  expect(result.current.submission).toMatchObject({ _tag: "linkFailed", id })
+  expect(result.current.submission).toMatchObject({
+    _tag: "linkFailed",
+    ticket
+  })
   expect(result.current.locked).toBe(true)
   expect(done).not.toHaveBeenCalled()
 
   await act(() => result.current.submit())
   expect(create).toHaveBeenCalledTimes(1)
-  expect(link).toHaveBeenNthCalledWith(2, id)
+  expect(link).toHaveBeenNthCalledWith(2, ticket)
   expect(done).toHaveBeenCalledWith(id)
 })

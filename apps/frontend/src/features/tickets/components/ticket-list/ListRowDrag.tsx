@@ -189,7 +189,7 @@ export function useSectionDrop(
             current.ordered
           )
           if (edit === null) return
-          registry.set(current.update(row.id), edit)
+          registry.set(current.update.patch(row.id), edit)
           setLanded({ ids: [row.id], at })
           return
         }

@@ -19,7 +19,10 @@ import {
   type TicketStatus
 } from "@pp/shared"
 
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import type {
+  TicketEdit,
+  TicketPrediction
+} from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
@@ -247,11 +250,13 @@ export const placeholderRow = (
 
 export const patchTicketRow = (
   row: TicketRow,
-  patch: TicketEdit,
+  patch: TicketPrediction,
   sort: TicketSort,
   now: Date
 ) => {
-  const ticket = { ...applyTicketPatch(row.ticket, patch), updatedAt: now }
+  const patched = applyTicketPatch(row.ticket, patch)
+  if (patch.incrementRelation !== undefined) return { ...row, ticket: patched }
+  const ticket = { ...patched, updatedAt: now }
   return {
     ...row,
     ticket,

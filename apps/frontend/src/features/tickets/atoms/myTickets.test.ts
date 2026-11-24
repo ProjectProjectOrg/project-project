@@ -19,6 +19,12 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
+import {
+  createSelectionStore,
+  selectFromOrder,
+  updateSelected
+} from "../components/ticket-list/selectionStore"
+import { emptySelection, selectAll, selectionKey } from "../lib/ticketSelection"
 import { childTickets, childTicketsRequest } from "./childTickets"
 import {
   loadMoreMyTickets,
@@ -29,8 +35,9 @@ import {
   myTicketsRequest,
   recentTickets,
   recentTicketsRequest,
-  updateMyTicket,
-  updateProjectTicket
+  recentTicketUpdates,
+  myTicketUpdates,
+  projectTicketUpdates
 } from "./myTickets"
 import { ticketRequest, updateTicketDetail } from "./ticketDetail"
 
@@ -184,7 +191,8 @@ const serve = (
       "http://localhost"
     )
     calls.push(`${init?.method ?? "GET"} ${url.pathname}`)
-    if (init?.method === "PATCH" && patch) return patch(url)
+    if ((init?.method === "PATCH" || init?.method === "POST") && patch)
+      return patch(url)
     if (init?.method === "PATCH") {
       const ticket = makeTicketDetail(ticketOf("WEB-1", "in_progress"))
       return Promise.resolve(
@@ -410,12 +418,10 @@ describe("updateMyTicket", () => {
     const registry = AtomRegistry.make()
     const list = myTickets(req)
     const board = myTicketBoard(req)
-    const mutation = updateMyTicket({
-      req,
+    const mutation = myTicketUpdates(req)({
       viewerId: "user-1",
-      projectSlug: "web",
-      id: webTicketId
-    })
+      projectSlug: "web"
+    }).patch(webTicketId)
     registry.mount(list)
     registry.mount(board)
     registry.mount(mutation)
@@ -467,6 +473,122 @@ describe("updateMyTicket", () => {
   })
 })
 
+it("bulk unassignment updates the selected dashboard list and rolls it back on failure", async () => {
+  const mine = [
+    row("web", "WEB-1", "todo"),
+    row("web", "WEB-2", "todo"),
+    row("api", "WEB-1", "todo")
+  ]
+  const pending: Array<(response: Response) => void> = []
+  const calls: Array<string> = []
+  serve(
+    { mine, recent: mine, nextCursor: null },
+    calls,
+    () => new Promise<Response>((resolve) => pending.push(resolve))
+  )
+  const registry = AtomRegistry.make()
+  const list = myTickets(req)
+  const recent = recentTickets(recentReq)
+  const store = createSelectionStore()
+  const scope = { viewerId: "user-1", projectSlug: "web" }
+  registry.mount(list)
+  registry.mount(recent)
+  try {
+    await vi.waitFor(() => {
+      expect(successOf(registry.get(list)).total).toBe(3)
+      expect(successOf(registry.get(recent)).total).toBe(3)
+    })
+    const entries = mine
+      .filter((item) => item.projectSlug === scope.projectSlug)
+      .map(({ ticket }) => ({
+        ...myTicketUpdates(req)(scope),
+        key: selectionKey(scope.projectSlug, ticket.id),
+        ticket
+      }))
+    for (const entry of entries)
+      store.views.set(entry.key, recentTicketUpdates(recentReq)(scope))
+    selectFromOrder(
+      registry,
+      store,
+      selectAll(
+        emptySelection,
+        entries.map(({ key }) => key),
+        null
+      ),
+      entries
+    )
+    const saved = updateSelected(
+      registry,
+      store,
+      "web",
+      entries.map(({ ticket }) => ticket.id),
+      { assignees: [] }
+    )
+    expect(successOf(registry.get(list))).toMatchObject({
+      tickets: [{ project: { slug: "api" } }],
+      total: 1,
+      statusCounts: [
+        { projectSlug: "web", count: 0 },
+        { projectSlug: "api", count: 1 }
+      ]
+    })
+    expect(registry.get(store.known).get(entries[0].key)?.assignees).toEqual([])
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
+    expect(calls).toContain("POST /api/orgs/acme/projects/web/tickets/bulk")
+    pending[0](new Response(null, { status: 500 }))
+    expect(await saved).toBe(false)
+    expect(registry.get(store.known).get(entries[0].key)?.assignees).toEqual([
+      "user-1"
+    ])
+    await vi.waitFor(() => expect(successOf(registry.get(list)).total).toBe(3))
+  } finally {
+    registry.dispose()
+  }
+})
+
+it("shows the flag and its author on every selected dashboard ticket before the server answers", async () => {
+  const tickets = [row("web", "WEB-1", "todo"), row("web", "WEB-2", "todo")]
+  let reject: ((response: Response) => void) | undefined
+  serve(
+    { mine: [], recent: tickets, nextCursor: null },
+    [],
+    () =>
+      new Promise((resolve) => {
+        reject = resolve
+      })
+  )
+  const registry = AtomRegistry.make()
+  const view = recentTickets(recentReq)
+  const mutation = recentTicketUpdates(recentReq)({
+    viewerId: "user-1",
+    projectSlug: "web"
+  }).bulk
+  registry.mount(view)
+  registry.mount(mutation)
+  try {
+    await vi.waitFor(() => expect(successOf(registry.get(view)).total).toBe(2))
+    registry.set(mutation, {
+      tickets: tickets.map(({ ticket }) => ticket.id),
+      patch: { flag: { reason: "Needs review" } }
+    })
+    expect(
+      successOf(registry.get(view)).tickets.map(({ ticket }) => ticket.flag)
+    ).toMatchObject([
+      { by: "user-1", reason: "Needs review" },
+      { by: "user-1", reason: "Needs review" }
+    ])
+    await vi.waitFor(() => expect(reject).toBeDefined())
+    reject?.(new Response(null, { status: 500 }))
+    await vi.waitFor(() =>
+      expect(
+        successOf(registry.get(view)).tickets.map(({ ticket }) => ticket.flag)
+      ).toEqual([null, null])
+    )
+  } finally {
+    registry.dispose()
+  }
+})
+
 describe("updateMyTicket on a sub-ticket", () => {
   it("refreshes its parent's sub-tickets", async () => {
     const calls: Array<string> = []
@@ -493,12 +615,10 @@ describe("updateMyTicket on a sub-ticket", () => {
     )
     const registry = AtomRegistry.make()
     const children = childTickets(childTicketsRequest("acme", "web", parent))
-    const mutation = updateMyTicket({
-      req,
+    const mutation = myTicketUpdates(req)({
       viewerId: "user-1",
-      projectSlug: "web",
-      id: webTicketId
-    })
+      projectSlug: "web"
+    }).patch(webTicketId)
     const childReads = () =>
       calls.filter((call) => call === "GET /api/orgs/acme/projects/web/tickets")
         .length
@@ -579,12 +699,10 @@ describe("myTicketsByProject", () => {
     )
     const registry = AtomRegistry.make()
     const view = myTicketsByProject(byProjectReq)
-    const mutation = updateProjectTicket({
-      req: byProjectReq,
+    const mutation = projectTicketUpdates(byProjectReq)({
       viewerId: "user-1",
-      projectSlug: "web",
-      id: webTicketId
-    })
+      projectSlug: "web"
+    }).patch(webTicketId)
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -650,12 +768,10 @@ describe("updateMyTicket unassignment", () => {
     )
     const registry = AtomRegistry.make()
     const list = myTickets(req)
-    const mutation = updateMyTicket({
-      req,
+    const mutation = myTicketUpdates(req)({
       viewerId: "user-1",
-      projectSlug: "web",
-      id: webTicketId
-    })
+      projectSlug: "web"
+    }).patch(webTicketId)
     registry.mount(list)
     registry.mount(mutation)
     try {

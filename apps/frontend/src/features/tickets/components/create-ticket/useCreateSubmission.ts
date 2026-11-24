@@ -1,4 +1,4 @@
-import type { TicketId } from "@pp/shared"
+import type { TicketId, LinkedTicket } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Data from "effect/Data"
 import * as Exit from "effect/Exit"
@@ -9,8 +9,8 @@ import { errorMessage } from "@/lib/errorMessage"
 export type Submission = Data.TaggedEnum<{
   editing: Readonly<{ failure: string | null }>
   creating: {}
-  linking: Readonly<{ id: TicketId }>
-  linkFailed: Readonly<{ id: TicketId; failure: string }>
+  linking: {}
+  linkFailed: Readonly<{ ticket: LinkedTicket; failure: string }>
 }>
 export const Submission = Data.taggedEnum<Submission>()
 
@@ -22,22 +22,22 @@ export function useCreateSubmission({
   link,
   done
 }: Readonly<{
-  create: () => Promise<Exit.Exit<TicketId, unknown>>
-  link: (id: TicketId) => Promise<Exit.Exit<unknown, unknown>>
+  create: () => Promise<Exit.Exit<LinkedTicket, unknown>>
+  link: (ticket: LinkedTicket) => Promise<Exit.Exit<unknown, unknown>>
   done: (id: TicketId) => void
 }>) {
   const [submission, setSubmission] = useState<Submission>(
     Submission.editing({ failure: null })
   )
 
-  const finish = async (id: TicketId) => {
-    setSubmission(Submission.linking({ id }))
-    const failure = failureOf(await link(id))
+  const finish = async (ticket: LinkedTicket) => {
+    setSubmission(Submission.linking())
+    const failure = failureOf(await link(ticket))
     if (failure !== null) {
-      setSubmission(Submission.linkFailed({ id, failure }))
+      setSubmission(Submission.linkFailed({ ticket, failure }))
       return
     }
-    done(id)
+    done(ticket.id)
   }
 
   const createThenLink = async () => {
@@ -50,7 +50,7 @@ export function useCreateSubmission({
   const submit = () =>
     Submission.$match(submission, {
       editing: createThenLink,
-      linkFailed: ({ id }) => finish(id),
+      linkFailed: ({ ticket }) => finish(ticket),
       creating: () => Promise.resolve(),
       linking: () => Promise.resolve()
     })

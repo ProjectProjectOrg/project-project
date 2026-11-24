@@ -28,10 +28,16 @@ import {
 
 import { bulkBatches, bulkChangedKeys, parentKeys } from "./bulkTickets"
 import { justCreatedTicket } from "./createTicket"
+import type { MarkRowRelation } from "./markRowRelation"
+import type { RemoveTickets } from "./removeTickets"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
-export type TicketUpdates = (id: TicketId) => TicketUpdateAtom
+export type TicketUpdates = Readonly<{
+  patch: (id: TicketId) => TicketUpdateAtom
+  mark: MarkRowRelation
+  remove: RemoveTickets
+}>
 
 export type BulkTicketUpdateAtom = Atom.AtomResultFn<
   BulkUpdateTicketsInput,
@@ -41,6 +47,7 @@ export type BulkTicketUpdateAtom = Atom.AtomResultFn<
 
 type BulkTicketUpdate<V> = Readonly<{
   name: string
+  viewerId?: string
   path: Readonly<{ orgSlug: string; slug: string }>
   predict: (value: V, id: TicketId, edit: TicketEdit) => V
 }>
@@ -53,7 +60,7 @@ export const bulkTicketUpdate = <V, VE>(
   return viewMutation(view, {
     name: update.name,
     predict: (value, input: BulkUpdateTicketsInput) => {
-      const edit = fromBulkPatch(input.patch)
+      const edit = fromBulkPatch(input.patch, update.viewerId)
       return input.tickets.reduce(
         (current, id) => update.predict(current, id, edit),
         value

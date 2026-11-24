@@ -81,7 +81,14 @@ export function SectionRows({
       entries={items.flatMap(({ ticket, pending }) =>
         pending
           ? []
-          : [{ key: selectionKey(slug, ticket.id), ticket, bulk: bulkUpdate }]
+          : [
+              {
+                key: selectionKey(slug, ticket.id),
+                ticket,
+                bulk: bulkUpdate,
+                remove: update.remove
+              }
+            ]
       )}
     >
       <SectionDropProvider drop={drop}>

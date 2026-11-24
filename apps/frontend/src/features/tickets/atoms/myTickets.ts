@@ -1,5 +1,6 @@
 import type {
   AssignedStatusCount,
+  BulkDeleteTicketsInput,
   OrgTicketRow,
   Project,
   RecentTicketActivity,
@@ -23,18 +24,25 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import {
+  bulkAssignTicketSprint,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
+import {
   mergeStatusColumns,
   placeInColumns,
   type PlacedColumn
 } from "@/features/statuses/lib/statusColumns"
 import { getLocale } from "@/paraglide/runtime"
 
-import { applyTicketPatch } from "../lib/ticketPatch"
+import { deletedTicketIds } from "../lib/deletedTickets"
+import { applyTicketPatch, type TicketPrediction } from "../lib/ticketPatch"
+import { ticketRowActions } from "./markRowRelation"
 import {
+  bulkTicketUpdate,
   coalescingTicketUpdate,
   loadNextPage,
   readLoadedPages,
-  type TicketUpdateAtom,
+  type BulkTicketUpdateAtom,
   type TicketUpdates
 } from "./ticketRows"
 
@@ -339,7 +347,8 @@ export type OrgTicketKey<R extends OrgTicketsRequest = OrgTicketsRequest> =
 
 export type OrgTicketUpdates = (
   scope: Readonly<{ viewerId: string; projectSlug: string }>
-) => TicketUpdates
+) => TicketUpdates &
+  Readonly<{ bulk: BulkTicketUpdateAtom; sprintBulk: BulkTicketUpdateAtom }>
 
 type TicketUpdate = (ticket: Ticket) => Ticket
 
@@ -426,50 +435,68 @@ const patchByProject: PatchView<MyTicketsByProjectValue> = (
   })
 })
 
-const updateOrgTicket = <R extends OrgTicketsRequest, V, E>(
+const deleteOrgTickets = (
+  value: OrgTicketsValue,
+  slug: string,
+  input: BulkDeleteTicketsInput
+) => {
+  const ids = deletedTicketIds(
+    value.tickets
+      .filter((row) => row.project.slug === slug)
+      .map((row) => row.ticket),
+    input
+  )
+  const removed = value.tickets.filter(
+    (row) => row.project.slug === slug && ids.has(row.ticket.id)
+  )
+  return {
+    ...value,
+    tickets: value.tickets.filter(
+      (row) => row.project.slug !== slug || !ids.has(row.ticket.id)
+    ),
+    total: Math.max(0, value.total - removed.length),
+    statusCounts: removed.reduce(
+      (counts, row) => moveStatusCount(counts, slug, row.ticket.status, null),
+      value.statusCounts
+    )
+  }
+}
+
+const bindOrgTicketUpdates = <R extends OrgTicketsRequest, V, E>(
   name: string,
   view: (req: R) => OptimisticView<V, E>,
-  patch: PatchView<V>
-) =>
-  Atom.family((key: OrgTicketKey<R>) =>
-    coalescingTicketUpdate(view(key.req), {
-      name,
-      path: {
-        orgSlug: key.req.params.orgSlug,
-        slug: key.projectSlug,
-        id: key.id
-      },
-      predict: (value, input) =>
-        patch(value, key, (ticket) => applyTicketPatch(ticket, input)),
-      confirm: (value, { ticket }) => patch(value, key, () => ticket)
-    })
-  )
-
-export const updateMyTicket = updateOrgTicket(
-  "updateMyTicket",
-  myTickets,
-  patchMine
-)
-
-export const updateProjectTicket = updateOrgTicket(
-  "updateProjectTicket",
-  myTicketsByProject,
-  patchByProject
-)
-
-export const updateRecentTicket = updateOrgTicket(
-  "updateRecentTicket",
-  recentTickets,
-  patchRecent
-)
-
-const bindOrgTicketUpdates = <R extends OrgTicketsRequest>(
-  family: (key: OrgTicketKey<R>) => TicketUpdateAtom
+  patch: PatchView<V>,
+  remove: (value: V, slug: string, input: BulkDeleteTicketsInput) => V
 ) => {
-  const rows = Atom.family(
-    (scope: OrgTicketScope<R>) =>
-      ((id) => family({ ...scope, id })) satisfies TicketUpdates
-  )
+  const rows = Atom.family((scope: OrgTicketScope<R>) => {
+    const source = view(scope.req)
+    const path = { orgSlug: scope.req.params.orgSlug, slug: scope.projectSlug }
+    const predict = (value: V, id: TicketId, edit: TicketPrediction) =>
+      patch(value, { ...scope, id }, (ticket) => applyTicketPatch(ticket, edit))
+    return {
+      patch: Atom.family((id: TicketId) =>
+        coalescingTicketUpdate(source, {
+          name,
+          path: { ...path, id },
+          predict: (value, input) => predict(value, id, input),
+          confirm: (value, { ticket }) =>
+            patch(value, { ...scope, id }, () => ticket)
+        })
+      ),
+      bulk: bulkTicketUpdate(source, {
+        name,
+        path,
+        predict,
+        viewerId: scope.viewerId
+      }),
+      sprintBulk: bulkAssignTicketSprint(
+        sprintListRequest(path.orgSlug, path.slug)
+      ),
+      ...ticketRowActions(source, path, predict, (value, input) =>
+        remove(value, scope.projectSlug, input)
+      )
+    }
+  })
   return Atom.family(
     (req: R) =>
       (({ viewerId, projectSlug }) =>
@@ -477,11 +504,40 @@ const bindOrgTicketUpdates = <R extends OrgTicketsRequest>(
   )
 }
 
-export const myTicketUpdates = bindOrgTicketUpdates(updateMyTicket)
+export const myTicketUpdates = bindOrgTicketUpdates(
+  "updateMyTicket",
+  myTickets,
+  patchMine,
+  deleteOrgTickets
+)
 
-export const projectTicketUpdates = bindOrgTicketUpdates(updateProjectTicket)
+export const projectTicketUpdates = bindOrgTicketUpdates(
+  "updateProjectTicket",
+  myTicketsByProject,
+  patchByProject,
+  (value, slug, input) => ({
+    groups: value.groups.map((group) => {
+      if (group.project.slug !== slug) return group
+      const ids = deletedTicketIds(
+        group.tickets.map((row) => row.ticket),
+        input
+      )
+      const tickets = group.tickets.filter((row) => !ids.has(row.ticket.id))
+      return {
+        ...group,
+        tickets,
+        total: group.total - (group.tickets.length - tickets.length)
+      }
+    })
+  })
+)
 
-export const recentTicketUpdates = bindOrgTicketUpdates(updateRecentTicket)
+export const recentTicketUpdates = bindOrgTicketUpdates(
+  "updateRecentTicket",
+  recentTickets,
+  patchRecent,
+  deleteOrgTickets
+)
 
 const statusesOf = (req: MyTicketsRequest, slug: string) =>
   statusesFor(statusesRequest(req.params.orgSlug, slug))

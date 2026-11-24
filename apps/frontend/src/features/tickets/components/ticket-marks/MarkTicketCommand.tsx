@@ -1,24 +1,29 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { EMPTY_TICKET_RELATIONS, type Ticket } from "@pp/shared"
 import { CommandMenuItem } from "@pp/ui/command-menu"
 import { CircleAlert, Search } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState, type ReactNode } from "react"
+import { useContext, useState, type ReactNode } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
+import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import {
   CommandFrame,
   type CommandEmpty
 } from "@/features/command-menu/components/CommandFrame"
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import {
+  commandMenuRow,
+  pointedAt,
+  type TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import { markDuplicateRequest } from "@/features/tickets/atoms/markDuplicateRequest"
 import {
   recentTickets,
   recentTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
+import { runTicketAction } from "@/features/tickets/atoms/ticketActionFailures"
 import {
   markTicket,
   ticketDetail,
@@ -29,12 +34,12 @@ import {
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
 import {
+  linkedTicket,
   pickBlock,
   type MarkPickKind,
   type PickBlock
 } from "@/features/tickets/lib/relationGroups"
 import { useSettledValue } from "@/hooks/useSettledValue"
-import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { TicketStatusIcon } from "./TicketStatusIcon"
@@ -72,16 +77,14 @@ export function MarkTicketCommand({
   // side): this opens it once the request is set.
   onDuplicate: () => void
 }>) {
+  const registry = useContext(RegistryContext)
   const req = ticketRequest(orgSlug, slug, ticketId)
   const detail = useAtomValue(ticketDetail(req))
   const relations = Result.isSuccess(detail)
     ? detail.value.relations
     : EMPTY_TICKET_RELATIONS
-  const mark = useAtomSet(markTicket(req), { mode: "promiseExit" })
   const setDuplicate = useAtomSet(markDuplicateRequest)
   const [search, setSearch] = useState("")
-  const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
   const [debounced] = useDebouncedValue(search.trim(), { wait: 150 })
   const searching = debounced.length > 0
 
@@ -134,19 +137,33 @@ export function MarkTicketCommand({
     onSuccess: () => undefined
   })
 
-  const pick = async (target: Ticket) => {
-    if (pending) return
+  const pick = (target: Ticket) => {
     if (kind === "duplicateOf") {
       setDuplicate({ orgSlug, slug, ticketId, originalId: target.id })
       onDuplicate()
       return
     }
-    setPending(true)
-    setFailure(null)
-    const exit = await mark({ kind, target: target.id })
-    setPending(false)
-    if (Exit.isSuccess(exit)) onDone()
-    else setFailure(errorMessage(Cause.squash(exit.cause)))
+    const row = pointedAt(commandMenuRow(registry.get(commandMenuState)), {
+      orgSlug,
+      slug,
+      ticketId
+    })
+    const input = { kind, target: linkedTicket(target) }
+    void runTicketAction(
+      registry,
+      { orgSlug, slug },
+      {
+        kind: "mark",
+        relation: kind,
+        source: ticketId,
+        target: target.id
+      },
+      () =>
+        row?.mark
+          ? row.mark(registry, { ...input, source: linkedTicket(row.row) })
+          : fireMutation(registry, markTicket(req), input).then(Result.toExit)
+    )
+    onDone()
   }
 
   return (
@@ -158,7 +175,6 @@ export function MarkTicketCommand({
       filter={false}
       onSearchChange={setSearch}
       empty={empty}
-      notice={failure}
       items={[
         ...recent.map((ticket) => ({
           value: ticket.id,
@@ -176,7 +192,7 @@ export function MarkTicketCommand({
       onSelect={(picked) => {
         const target = byId.get(picked.value)
         if (target && pickBlock(relations, kind, target.id) === null) {
-          void pick(target)
+          pick(target)
         }
       }}
       renderItem={(row) => {

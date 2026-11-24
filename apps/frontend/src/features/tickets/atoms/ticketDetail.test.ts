@@ -19,7 +19,13 @@ import { invalidateProjectKeys } from "@/features/projects/atoms/projectChanges"
 import { changeKeys } from "@/features/projects/lib/projectChanges"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
-import { ticketDetail, ticketRequest, updateTicketDetail } from "./ticketDetail"
+import {
+  markDuplicate,
+  markTicket,
+  ticketDetail,
+  ticketRequest,
+  updateTicketDetail
+} from "./ticketDetail"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
 
@@ -36,6 +42,100 @@ const req = ticketRequest("acme", "web", ticket.id)
 const fetchStub = stubFetch()
 
 describe("ticket detail optimistic update", () => {
+  it("shows the chosen relation in ticket order before confirmation and rolls it back on failure", async () => {
+    const existing = {
+      id: TicketId.make("T-10"),
+      status: ticket.status,
+      title: "Existing",
+      archivedAt: null
+    }
+    const target = { ...existing, id: TicketId.make("T-2"), title: "Selected" }
+    const served = {
+      ...ticket,
+      relations: { ...ticket.relations, related: [existing] }
+    }
+    const writes: Array<(response: Response) => void> = []
+    fetchStub.set((_input, init) =>
+      init?.method === "POST"
+        ? new Promise<Response>((resolve) => writes.push(resolve))
+        : Promise.resolve(Response.json(encode(served)))
+    )
+    const registry = AtomRegistry.make()
+    const view = ticketDetail(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          value: { relations: { related: [existing] } }
+        })
+      )
+      const result = fireMutation(registry, markTicket(req), {
+        kind: "related",
+        target
+      })
+      expect(registry.get(view)).toMatchObject({
+        value: { relations: { related: [target, existing] } }
+      })
+      await vi.waitFor(() => expect(writes).toHaveLength(1))
+      writes[0](new Response(null, { status: 500 }))
+      expect(AsyncResult.isFailure(await result)).toBe(true)
+      expect(registry.get(view)).toMatchObject({
+        value: { relations: { related: [existing] } }
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("shows the original ticket as soon as a duplicate is confirmed", async () => {
+    const original = {
+      id: TicketId.make("T-2"),
+      status: ticket.status,
+      title: "Original",
+      archivedAt: null
+    }
+    const payloads: Array<unknown> = []
+    let served = ticket
+    fetchStub.set(async (input, init) => {
+      if (init?.method === "POST") {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        payloads.push(await request.json())
+        served = {
+          ...ticket,
+          archivedAt: ticket.updatedAt,
+          relations: { ...ticket.relations, duplicateOf: original }
+        }
+      }
+      return Response.json(encode(served))
+    })
+    const registry = AtomRegistry.make()
+    const view = ticketDetail(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          value: { archivedAt: null }
+        })
+      )
+      const result = fireMutation(registry, markDuplicate(req), {
+        original,
+        duplicate: ticket
+      })
+      expect(registry.get(view)).toMatchObject({
+        waiting: true,
+        value: {
+          archivedAt: expect.any(Date),
+          relations: { duplicateOf: original }
+        }
+      })
+      expect(AsyncResult.isSuccess(await result)).toBe(true)
+      expect(payloads).toEqual([{ duplicateOf: original.id }])
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("paints instantly, holds until the refetch lands, then shows server truth", async () => {
     let served: TicketDetail = ticket
     let finish = (_r: Response) => {}

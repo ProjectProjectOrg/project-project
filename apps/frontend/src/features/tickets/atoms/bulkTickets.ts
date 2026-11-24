@@ -1,7 +1,5 @@
 import {
   BULK_TICKETS_MAX,
-  type BulkArchiveTicketsInput,
-  type BulkDeleteTicketsInput,
   type BulkUpdateTicketsInput,
   type TicketId,
   type TicketParent
@@ -75,44 +73,6 @@ export const bulkUpdateTickets = Atom.family((req: BulkTicketsRequest) =>
               input.patch.sprint !== undefined
             )
           )
-        )
-      )
-    })
-  )
-)
-
-export const bulkArchiveTickets = Atom.family((req: BulkTicketsRequest) =>
-  Api.runtime.fn(
-    Effect.fn("bulkArchiveTickets")(function* (input: BulkArchiveTicketsInput) {
-      return yield* Effect.forEach(bulkBatches(input.tickets), (tickets) =>
-        Api.use((client) =>
-          client.tickets.bulkArchive({
-            params: req,
-            payload: { ...input, tickets }
-          })
-        )
-      ).pipe(
-        Effect.ensuring(
-          Reactivity.invalidate(bulkChangedKeys(req, input.tickets, false))
-        )
-      )
-    })
-  )
-)
-
-export const bulkDeleteTickets = Atom.family((req: BulkTicketsRequest) =>
-  Api.runtime.fn(
-    Effect.fn("bulkDeleteTickets")(function* (input: BulkDeleteTicketsInput) {
-      return yield* Effect.forEach(bulkBatches(input.tickets), (tickets) =>
-        Api.use((client) =>
-          client.tickets.bulkDelete({
-            params: req,
-            payload: { ...input, tickets }
-          })
-        )
-      ).pipe(
-        Effect.ensuring(
-          Reactivity.invalidate(bulkChangedKeys(req, input.tickets, true))
         )
       )
     })

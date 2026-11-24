@@ -11,6 +11,9 @@ import {
   type TicketRank,
   type UpdateTicketInput
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
+
+import { flagFor } from "./ticketFlag"
 
 export const parentRef = ({
   id,
@@ -35,6 +38,15 @@ export type TicketEdit = Omit<
     parent?: TicketParent | null
     flag?: TicketFlag | null
     position?: TicketMove
+  }>
+
+export type TicketPrediction = TicketEdit &
+  Readonly<{
+    incrementRelation?:
+      | "openBlockerCount"
+      | "openBlockingCount"
+      | "relatedCount"
+      | "duplicateCount"
   }>
 
 const flagInput = (flag: TicketFlag | null | undefined) => {
@@ -83,16 +95,30 @@ export const toBulkPatch = (edit: TicketEdit) => {
   return patch
 }
 
-export const fromBulkPatch = ({
-  sprint: _sprint,
-  parent: _parent,
-  position: _position,
-  flag,
-  ...edit
-}: BulkTicketPatch) => (flag === null ? { ...edit, flag: null } : edit)
+export const fromBulkPatch = (
+  { parent, position: _position, flag, ...edit }: BulkTicketPatch,
+  viewerId?: string
+) => ({
+  ...edit,
+  ...(parent === null ? { parent: null } : {}),
+  ...(flag === null
+    ? { flag: null }
+    : flag && viewerId
+      ? {
+          flag: flagFor(
+            flag.reason ?? "",
+            viewerId,
+            DateTime.toDate(DateTime.nowUnsafe())
+          )
+        }
+      : {})
+})
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
-export function applyTicketPatch(ticket: Ticket, patch: TicketEdit) {
+export function applyTicketPatch(ticket: Ticket, patch: TicketPrediction) {
+  const count = patch.incrementRelation
+  if (count !== undefined)
+    return { ...ticket, [count]: (ticket[count] ?? 0) + 1 }
   return {
     ...ticket,
     title: patch.title ?? ticket.title,

@@ -13,13 +13,15 @@ import * as Atom from "effect/reactivity/Atom"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectEstimation,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
+import { removeFromSections } from "@/features/tickets/lib/deletedTickets"
 import {
   patchEpicSectionsRow,
   replaceEpicSectionsRow,
@@ -218,8 +220,27 @@ export const updateEpicSectionsTicket = Atom.family(
     })
 )
 
-export const epicSectionsTicketUpdates = bindRowMutation(
-  updateEpicSectionsTicket
+export const epicSectionsTicketUpdates = Atom.family(
+  (req: EpicSectionsRequest) => ({
+    patch: (id: TicketId) => updateEpicSectionsTicket({ req, id }),
+    ...ticketRowActions(
+      epicSections(req),
+      req.params,
+      (value, id, change) =>
+        patchEpicSectionsRow(
+          value,
+          id,
+          change,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        ),
+      (value, input) => ({
+        ...value,
+        ...removeFromSections(value, input)
+      }),
+      req.query.archived === true
+    )
+  })
 )
 
 export const bulkUpdateEpicSectionsTickets = Atom.family(

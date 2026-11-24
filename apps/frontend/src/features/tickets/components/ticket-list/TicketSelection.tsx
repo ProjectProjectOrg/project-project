@@ -21,7 +21,6 @@ import { pointedTicket } from "@/features/command-menu/atoms/commandMenu"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
-import type { BulkTicketUpdateAtom } from "@/features/tickets/atoms/ticketRows"
 import { lightRowFields } from "@/features/tickets/lib/selectionKeys"
 import {
   toBulkPatch,
@@ -30,7 +29,6 @@ import {
 import {
   emptySelection,
   projectOfKey,
-  selectAll,
   selectionKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
@@ -43,13 +41,19 @@ import { m } from "@/paraglide/messages"
 
 import { SelectionBar } from "./SelectionBar"
 import {
+  allInOrder,
   applySelected,
+  orderContaining,
+  selectFromOrder,
+  type SelectionEntry,
   createSelectionStore,
   type SelectionStore
 } from "./selectionStore"
 
 const SelectionContext = createContext<SelectionStore | null>(null)
-const OrderContext = createContext<(() => ReadonlyArray<string>) | null>(null)
+const OrderContext = createContext<
+  (() => ReadonlyArray<SelectionEntry>) | null
+>(null)
 const notSelected = Atom.make(false)
 
 export function TicketSelectionProvider({
@@ -99,10 +103,16 @@ export function TicketSelectionProvider({
       : key
   }
   useHotkey(appHotkeys["tickets.select-all"], (event) => {
-    const order = [...store.orders].flatMap((each) => each())
-    registry.set(
-      store.selection,
-      selectAll(registry.get(store.selection), order, rowKeyFor(event.target))
+    const key = rowKeyFor(event.target)
+    const origin =
+      key === null
+        ? undefined
+        : orderContaining(store, key, registry.get(pointedTicket)?.remove)
+    selectFromOrder(
+      registry,
+      store,
+      allInOrder(store, registry.get(store.selection), key),
+      origin
     )
   })
   useHotkey(
@@ -111,9 +121,11 @@ export function TicketSelectionProvider({
       const key = rowKeyFor(event.target)
       if (key === null) return
       event.preventDefault()
-      registry.set(
-        store.selection,
-        toggleSelection(registry.get(store.selection), key)
+      selectFromOrder(
+        registry,
+        store,
+        toggleSelection(registry.get(store.selection), key),
+        orderContaining(store, key, registry.get(pointedTicket)?.remove)
       )
     },
     { preventDefault: false }
@@ -170,6 +182,7 @@ const guideSeenCodec = createLocalStorageCodec(Schema.Boolean)
 
 const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
   ({
+    removalView: (slug, id) => store.views.get(selectionKey(slug, id))?.remove,
     clearSelection: () => registry.set(store.selection, emptySelection),
     updateSelection: (slug, tickets, patch, restore) =>
       applySelected(registry, store, slug, tickets, patch, restore),
@@ -187,27 +200,31 @@ const selectionScope = (registry: AtomRegistry, store: SelectionStore) =>
     }
   }) satisfies CommandScope
 
-export type SelectionEntry = Readonly<{
-  key: string
-  ticket: SelectedTicket
-  bulk: BulkTicketUpdateAtom
-}>
-
 export function SelectionOrder({
   entries,
   children
 }: Readonly<{ entries: ReadonlyArray<SelectionEntry>; children: ReactNode }>) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
-  const current = useRef<ReadonlyArray<string>>([])
+  const current = useRef(entries)
   useLayoutEffect(() => {
-    current.current = entries.map(({ key }) => key)
+    current.current = entries
     if (store === null) return
-    for (const { key, bulk } of entries) store.views.set(key, bulk)
+    const selection = registry.get(store.selection)
     const known = registry.get(store.known)
-    if (entries.every(({ key, ticket }) => known.get(key) === ticket)) return
-    const next = new Map(known)
-    for (const { key, ticket } of entries) next.set(key, ticket)
+    let next: Map<string, SelectedTicket> | undefined
+    for (const entry of entries) {
+      if (
+        selection.keys.has(entry.key) &&
+        store.views.get(entry.key)?.bulk !== entry.bulk
+      )
+        continue
+      store.views.set(entry.key, entry)
+      if (known.get(entry.key) === entry.ticket) continue
+      next ??= new Map(known)
+      next.set(entry.key, entry.ticket)
+    }
+    if (!next) return
     registry.set(store.known, next)
   })
   const [order] = useState(() => () => current.current)
@@ -328,14 +345,18 @@ export function useTicketSelection(key: string) {
   if (store === null) return null
   return {
     selected,
-    toggle: (extend: boolean) =>
-      registry.set(
-        store.selection,
+    toggle: (extend: boolean) => {
+      const entries = order?.()
+      selectFromOrder(
+        registry,
+        store,
         toggleSelection(
           registry.get(store.selection),
           key,
-          extend ? order?.() : undefined
-        )
+          extend ? entries?.map((entry) => entry.key) : undefined
+        ),
+        entries
       )
+    }
   }
 }

@@ -1,6 +1,7 @@
 import {
   GroupColor,
   GroupId,
+  type BulkUpdateTicketsInput,
   type CompleteSprintDestination,
   type CompleteSprintInput,
   type CompleteSprintOutput,
@@ -339,33 +340,29 @@ export const addTicketsToSprint = Atom.family(
     })
 )
 
-export type BulkSprintAssignmentInput = Readonly<{
-  groupId: GroupId
-  tickets: ReadonlyArray<TicketId>
-}>
-
-export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
+export const bulkAssignTicketSprint = Atom.family((req: SprintListRequest) =>
   viewMutation(sprintList(req), {
-    name: "bulkAddTicketsToSprint",
-    predict: (sprints, input: BulkSprintAssignmentInput) => {
+    name: "bulkAssignTicketSprint",
+    predict: (sprints, { tickets, patch }: BulkUpdateTicketsInput) => {
+      if (patch.sprint === undefined) return sprints
       const now = DateTime.toDate(DateTime.nowUnsafe())
       return sprints.map((sprint) => {
-        if (sprint.id === input.groupId) {
+        if (sprint.id === patch.sprint) {
           return {
             ...sprint,
             tickets: [
               ...sprint.tickets,
-              ...input.tickets.filter((id) => !sprint.tickets.includes(id))
+              ...tickets.filter((id) => !sprint.tickets.includes(id))
             ],
             updatedAt: now
           }
         }
-        if (!sprint.tickets.some((id) => input.tickets.includes(id))) {
+        if (!sprint.tickets.some((id) => tickets.includes(id))) {
           return sprint
         }
         return {
           ...sprint,
-          tickets: sprint.tickets.filter((id) => !input.tickets.includes(id)),
+          tickets: sprint.tickets.filter((id) => !tickets.includes(id)),
           updatedAt: now
         }
       })
@@ -374,14 +371,14 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
       Effect.forEach(bulkBatches(input.tickets), (tickets) =>
         client.tickets.bulkUpdate({
           params: req.params,
-          payload: { tickets, patch: { sprint: input.groupId } }
+          payload: { tickets, patch: input.patch }
         })
       ).pipe(
         Effect.onError(() =>
           Reactivity.invalidate([
             Keys.sprints(scopeOf(req)),
             Keys.sprintMembership(scopeOf(req)),
-            Keys.sprint(scopeOf(req), input.groupId),
+            Keys.projectResync(scopeOf(req)),
             ...input.tickets.flatMap((id) =>
               Keys.ticketChanged(scopeOf(req), id)
             )
@@ -395,18 +392,23 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
             ? current
             : confirmAddedTickets(
                 current,
-                input.groupId,
+                sprint.target.id,
                 input.tickets,
                 sprint
               ),
         sprints
       ),
     publish: (results, input) => [
+      Keys.sprints(scopeOf(req)),
+      Keys.sprintMembership(scopeOf(req)),
+      ...(input.patch.sprint === null
+        ? [Keys.projectResync(scopeOf(req))]
+        : []),
       ...input.tickets.flatMap((id) => Keys.ticketChanged(scopeOf(req), id)),
       ...results.flatMap(({ sprint }) =>
         sprint === null
           ? []
-          : membershipKeys(scopeOf(req), input.groupId, sprint)
+          : membershipKeys(scopeOf(req), sprint.target.id, sprint)
       )
     ]
   })

@@ -17,12 +17,23 @@ import { describe, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 import { fireMutation } from "@/api/viewMutation"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import {
+  myTicketsRequest,
+  myTicketUpdates,
+  recentTicketsRequest,
+  recentTicketUpdates
+} from "@/features/tickets/atoms/myTickets"
+import {
+  createSelectionStore,
+  updateSelected
+} from "@/features/tickets/components/ticket-list/selectionStore"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
 import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
   assignTicketToSprint,
-  bulkAddTicketsToSprint,
+  bulkAssignTicketSprint,
   completeSprint,
   createSprint,
   deleteSprint,
@@ -774,6 +785,57 @@ describe("ticket membership mutations", () => {
     }
   })
 
+  it("clears sprint chips across dashboard sections in one write and restores them on failure", async () => {
+    const writes: Array<(response: Response) => void> = []
+    fetchStub.set((input, init) =>
+      new Request(input, init).url.endsWith("/tickets/bulk")
+        ? new Promise((resolve) => writes.push(resolve))
+        : Promise.resolve(
+            listResponse([sprint, { ...otherSprint, tickets: [ticketB] }])
+          )
+    )
+    const registry = AtomRegistry.make()
+    const membership = sprintMembership(req)
+    const store = createSelectionStore()
+    const scope = { viewerId: "user-1", projectSlug: "web" }
+    store.views.set(
+      selectionKey("web", ticketA),
+      myTicketUpdates(myTicketsRequest("acme"))(scope)
+    )
+    store.views.set(
+      selectionKey("web", ticketB),
+      recentTicketUpdates(recentTicketsRequest("acme"))(scope)
+    )
+    registry.mount(membership)
+    const membershipIds = () => [
+      ...AsyncResult.getOrElse(
+        registry.get(membership),
+        () => new Map<TicketId, Group>()
+      ).keys()
+    ]
+    try {
+      await vi.waitFor(() =>
+        expect(membershipIds()).toEqual([ticketA, ticketB])
+      )
+      const result = updateSelected(
+        registry,
+        store,
+        "web",
+        [ticketA, ticketB],
+        { sprint: null }
+      )
+      expect(membershipIds()).toEqual([])
+      await vi.waitFor(() => expect(writes).toHaveLength(1))
+      writes[0](new Response(null, { status: 500 }))
+      expect(await result).toBe(false)
+      await vi.waitFor(() =>
+        expect(membershipIds()).toEqual([ticketA, ticketB])
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("splits a large sprint assignment into accepted batches", async () => {
     const tickets = Array.from({ length: 250 }, (_, index) =>
       decodeTicketId(`T-${index + 10}`)
@@ -800,8 +862,8 @@ describe("ticket membership mutations", () => {
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({ _tag: "Success" })
       )
-      const result = await fireMutation(registry, bulkAddTicketsToSprint(req), {
-        groupId,
+      const result = await fireMutation(registry, bulkAssignTicketSprint(req), {
+        patch: { sprint: groupId },
         tickets
       })
       expect(AsyncResult.isSuccess(result)).toBe(true)
@@ -844,8 +906,8 @@ describe("ticket membership mutations", () => {
         expect(registry.get(view)).toMatchObject({ _tag: "Success" })
       )
       const before = lists
-      const result = await fireMutation(registry, bulkAddTicketsToSprint(req), {
-        groupId,
+      const result = await fireMutation(registry, bulkAssignTicketSprint(req), {
+        patch: { sprint: groupId },
         tickets
       })
       expect(AsyncResult.isFailure(result)).toBe(true)

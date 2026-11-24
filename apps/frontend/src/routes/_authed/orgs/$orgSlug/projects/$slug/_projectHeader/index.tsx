@@ -23,7 +23,7 @@ import {
 import {
   readBacklogGrouping,
   writeBacklogGrouping
-} from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
+} from "@/features/tickets/lib/backlogGrouping"
 import {
   BacklogSearch,
   ticketQueryFromSearch

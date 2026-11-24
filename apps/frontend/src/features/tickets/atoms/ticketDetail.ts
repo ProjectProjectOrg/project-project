@@ -1,8 +1,8 @@
 import type {
   ArchiveTicketInput,
-  DeleteTicketQuery,
   MoveTicketInput,
   MarkTicketInput,
+  LinkedTicket,
   SplitTicketInput,
   TicketId
 } from "@pp/shared"
@@ -16,7 +16,11 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
-import { withoutRelation } from "../lib/relationGroups"
+import {
+  withRelation,
+  withoutRelation,
+  type AddRelation
+} from "../lib/relationGroups"
 import { ticketContentKey } from "../lib/ticketContent"
 import { applyTicketDetailPatch } from "../lib/ticketPatch"
 import { parentKeys } from "./bulkTickets"
@@ -92,19 +96,66 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
   })
 )
 
-export const markTicket = Atom.family((req: TicketRequest) =>
+export const markDuplicate = (req: TicketRequest) =>
+  viewMutation(ticketDetail(req), {
+    name: "markDuplicate",
+    predict: (
+      ticket,
+      {
+        duplicate,
+        original
+      }: Readonly<{ duplicate: LinkedTicket; original: LinkedTicket }>
+    ) => {
+      const archivedAt = DateTime.toDate(DateTime.nowUnsafe())
+      if (ticket.id === duplicate.id)
+        return {
+          ...ticket,
+          archivedAt,
+          relations: { ...ticket.relations, duplicateOf: original }
+        }
+      const relations = withRelation(ticket.relations, {
+        kind: "duplicates",
+        target: { ...duplicate, archivedAt }
+      })
+      return {
+        ...ticket,
+        relations,
+        duplicateCount: relations.duplicates.length
+      }
+    },
+    call: (client, { duplicate, original }) =>
+      client.tickets.archive({
+        params: { ...req.params, id: duplicate.id },
+        payload: { duplicateOf: original.id }
+      }),
+    confirm: (current, confirmed) =>
+      current.id === confirmed.id ? confirmed : current,
+    publish: (ticket, { original }) => [
+      ...Keys.ticketChanged(scopeOf(req), ticket.id),
+      Keys.ticket(scopeOf(req), original.id),
+      Keys.pins(req.params.orgSlug),
+      ...parentKeys(scopeOf(req), [ticket])
+    ]
+  })
+
+export const markTicket = (req: TicketRequest) =>
   viewMutation(ticketDetail(req), {
     name: "markTicket",
-    predict: (ticket, _input: MarkTicketInput) => ticket,
+    predict: (ticket, input: AddRelation) => ({
+      ...ticket,
+      relations: withRelation(ticket.relations, input)
+    }),
     call: (client, input) =>
-      client.tickets.mark({ params: req.params, payload: input }),
+      client.tickets.mark({
+        params: req.params,
+        payload: { kind: input.kind, target: input.target.id }
+      }),
     confirm: replaceWith,
     publish: (_result, input) => [
       ...Keys.ticketChanged(scopeOf(req), req.params.id),
-      Keys.ticket(scopeOf(req), input.target)
+      Keys.ticket(scopeOf(req), input.target.id)
     ]
   })
-)
 
 export const unmarkTicket = Atom.family((req: TicketRequest) =>
   viewMutation(ticketDetail(req), {
@@ -135,20 +186,6 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
       ...parentKeys(scopeOf(req), [ticket])
     ]
   })
-)
-
-export const deleteTicket = Atom.family((req: TicketRequest) =>
-  Api.runtime.fn(
-    Effect.fn("deleteTicket")(function* (query: DeleteTicketQuery) {
-      yield* Api.use((client) =>
-        client.tickets.delete({ params: req.params, query })
-      )
-      yield* Reactivity.invalidate([
-        ...Keys.ticketChanged(scopeOf(req), req.params.id),
-        Keys.pins(req.params.orgSlug)
-      ])
-    })
-  )
 )
 
 export const moveTicket = Atom.family((req: TicketRequest) =>
