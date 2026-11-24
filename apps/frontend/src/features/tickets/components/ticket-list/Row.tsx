@@ -171,7 +171,9 @@ function RowImpl({
                       preload="intent"
                     />
                   }
-                  aria-label={`${ticket.id} ${ticket.title}`}
+                  aria-label={
+                    pending ? ticket.title : `${ticket.id} ${ticket.title}`
+                  }
                   aria-haspopup="menu"
                   aria-keyshortcuts="Shift+F10 Space"
                   onKeyDown={(event) => {

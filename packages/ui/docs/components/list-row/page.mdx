@@ -104,6 +104,6 @@ Each title takes the space left by its own row’s chips and keeps at least 10re
 
 The selection checkbox and an empty assignee only show while the row is hovered, focused or has a menu open, so a list of unassigned tickets doesn't fill a column with empty faces. Both are 24px targets (the checkbox a 16px box, the face 20px), so they meet the target size without a pseudo-element hit area.
 
-### A new ticket's number rolls in
+### Pending ticket keys
 
-While a ticket is being created it has no number yet, so `TicketKey` shows only the prefix ("ATL-"); the number rolls in through TextSwap once the server answers, instead of a placeholder that jumps.
+A small skeleton shimmers in the key slot until the create response supplies the permanent ID. The key replaces it immediately, even while sprint assignment is pending. With reduced motion the skeleton stays still.

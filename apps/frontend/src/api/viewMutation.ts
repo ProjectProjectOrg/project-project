@@ -25,7 +25,8 @@ export type ViewMutation<V, Input, A, E> = Readonly<{
   call: (
     client: ApiClient,
     input: Input,
-    get: Atom.FnContext
+    get: Atom.FnContext,
+    updateView: (update: (value: V) => V) => void
   ) => Effect.Effect<A, E, CallContext>
   confirm: (value: V, confirmed: A, input: Input) => V
   publish?: (confirmed: A, input: Input) => ReadonlyArray<ReactivityKey>
@@ -50,17 +51,16 @@ export const viewMutation = <V, VE, Input, A, E>(
           get.addFinalizer(() => {
             superseded = true
           })
+          const updateView = (update: (value: V) => V) => {
+            if (!superseded) set(AsyncResult.map(get(view), update))
+          }
           const confirmed = yield* Api.use((client) =>
-            mutation.call(client, input, get)
+            mutation.call(client, input, get, updateView)
           )
           if (superseded) {
             get.registry.refresh(view)
           } else {
-            set(
-              AsyncResult.map(get(view), (value) =>
-                mutation.confirm(value, confirmed, input)
-              )
-            )
+            updateView((value) => mutation.confirm(value, confirmed, input))
           }
           yield* publish(mutation.publish?.(confirmed, input))
           return confirmed

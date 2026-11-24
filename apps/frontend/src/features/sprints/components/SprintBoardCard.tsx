@@ -26,16 +26,19 @@ import { BoardCardProperties, ParentTicketCrumb } from "./BoardCardProperties"
 
 function SprintBoardCardImpl({
   update,
+  pendingKey = false,
   ticket,
   members
 }: Readonly<{
   update: TicketUpdates
+  pendingKey?: boolean
   ticket: Ticket
   members: ReadonlyArray<Member>
 }>) {
   const onPatch = useAtomSet(update.patch(ticket.id))
   return (
     <BoardCardFields
+      pendingKey={pendingKey}
       ticket={ticket}
       members={members}
       onPatch={onPatch}
@@ -46,6 +49,7 @@ function SprintBoardCardImpl({
 }
 
 function BoardCardFields({
+  pendingKey,
   ticket,
   members,
   onPatch,
@@ -54,13 +58,14 @@ function BoardCardFields({
 }: Readonly<{
   ticket: Ticket
   members: ReadonlyArray<Member>
+  pendingKey: boolean
   onPatch: (patch: TicketEdit) => void
   actions: Pick<TicketUpdates, "mark" | "remove">
   failure: ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
-  useShownTicket(orgSlug, slug, ticket.id, from)
+  useShownTicket(orgSlug, slug, pendingKey ? null : ticket.id, from)
   const pointAt = usePointedTicket(orgSlug, slug, ticket, onPatch, actions)
   const preloadChildren = useChildTicketsPreload(ticket)
   const actor = useProjectActor()
@@ -94,14 +99,16 @@ function BoardCardFields({
                   preload="intent"
                 />
               }
-              aria-label={`${ticket.id} ${ticket.title}`}
+              aria-label={
+                pendingKey ? ticket.title : `${ticket.id} ${ticket.title}`
+              }
               aria-haspopup="menu"
               aria-keyshortcuts="Shift+F10"
             />
           }
           meta={
             <>
-              <TicketKey value={ticket.id} />
+              <TicketKey value={ticket.id} pending={pendingKey} />
               {ticket.parent && !isEpic(ticket.parent) && (
                 <ParentTicketCrumb parent={ticket.parent} />
               )}

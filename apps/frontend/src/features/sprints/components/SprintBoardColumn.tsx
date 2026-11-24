@@ -300,7 +300,7 @@ function CardSlot({
           className={cn(
             "relative rounded-lg",
             dragging && "opacity-40",
-            (pending || inert) && "animate-pulse"
+            pending && "animate-pulse"
           )}
         >
           {created !== null && (
@@ -320,6 +320,7 @@ function CardSlot({
             className="rounded-lg"
           >
             <SprintBoardCard
+              pendingKey={inert}
               update={update}
               ticket={ticket}
               members={members}

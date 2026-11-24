@@ -429,7 +429,7 @@ const confirmCreated = (
       {
         ...section,
         items: section.items.map((row) =>
-          row.key === input.prediction.clientId
+          row.pending && row.key === input.prediction.clientId
             ? { ...row, ticket: created, pending: false }
             : row
         )
@@ -443,8 +443,13 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
     name: "quickCreateBacklogTicket",
     predict: (value, input: QuickCreateInput) =>
       insertCreated(req, value, input),
-    call: (_client, input, get) =>
-      createInSprint(req.params, quickCreatePayload(input), input.sprint).pipe(
+    call: (_client, input, get, updateView) =>
+      createInSprint(
+        req.params,
+        quickCreatePayload(input),
+        input.sprint,
+        (ticket) => updateView((value) => confirmCreated(value, ticket, input))
+      ).pipe(
         Effect.tap((created) =>
           Effect.sync(() =>
             recordCreatedKey(

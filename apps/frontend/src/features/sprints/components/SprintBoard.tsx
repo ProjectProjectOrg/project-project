@@ -25,6 +25,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { useContext, useMemo, useRef, useState } from "react"
 
+import { projectScope } from "@/api/keys"
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
   statusesFor,
@@ -33,7 +34,6 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   boardRequest,
-  boardCardKey,
   boardTicketUpdates,
   quickCreateBoardTicket,
   sprintBoard,
@@ -47,6 +47,7 @@ import {
 } from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
+import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
@@ -150,6 +151,16 @@ function SprintBoardContent({
   const actor = useProjectActor()
   const canReorder = TicketPolicy.canChange(actor, { content: true })
   const canTransition = TicketPolicy.canChange(actor, { status: true })
+  const keys = useAtomValue(createdKeys(projectScope(orgSlug, slug)))
+  const pendingIds = useMemo(
+    () =>
+      new Set(
+        board.tickets
+          .filter((ticket) => ticket.creationKey !== undefined)
+          .map((ticket) => ticket.id)
+      ),
+    [board.tickets]
+  )
   const draft = useBoardDraft()
   const createTicket = useAtomSet(quickCreateBoardTicket(req), {
     mode: "promiseExit"
@@ -276,7 +287,10 @@ function SprintBoardContent({
                   collapsed={layout.collapsed.includes(status)}
                   onToggleCollapsed={() => layout.toggleCollapsed(status)}
                   create={columnCreate(status)}
-                  keyOf={boardCardKey}
+                  inertTicketIds={pendingIds}
+                  keyOf={(ticket: BoardValue["tickets"][number]) =>
+                    ticket.creationKey ?? keys.get(ticket.id) ?? ticket.id
+                  }
                 />
               ))}
             </BoardColumns>
