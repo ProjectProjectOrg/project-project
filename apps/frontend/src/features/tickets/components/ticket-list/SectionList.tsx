@@ -310,7 +310,10 @@ export function TicketPagination({
               )}
             >
               <Loader2
-                className="size-4 animate-spin motion-reduce:animate-none"
+                className={cn(
+                  "size-4",
+                  loadingMore && "animate-spin motion-reduce:animate-none"
+                )}
                 strokeWidth={1.75}
               />
               {m.tickets_load_more_loading()}
