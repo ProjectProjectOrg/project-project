@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react"
-import { ProjectPolicy } from "@pp/access/policies"
 import type { PinTarget, Project } from "@pp/shared"
 import { CalendarRange, Info, ListChecks, Settings } from "@pp/ui/icons"
 import { SidebarPanelBody, SidebarRow, SidebarSubRows } from "@pp/ui/sidebar"
@@ -13,10 +12,7 @@ import {
 import { pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
 import { ProjectPins } from "@/features/pins/components/ProjectPins"
 import { samePin } from "@/features/pins/lib/pins"
-import {
-  projectActor,
-  projectRequest
-} from "@/features/projects/atoms/projects"
+import { projectRequest } from "@/features/projects/atoms/projects"
 import { ProjectSetupLine } from "@/features/projects/components/ProjectSetupLine"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { useActiveSprint } from "@/features/sprints/hooks/useActiveSprint"
@@ -43,8 +39,6 @@ export function ProjectPanel({
     Result.isSuccess(pins) &&
     pins.value.some((pin) => samePin(pin, { projectSlug: slug, ...viewing }))
   const current = projectNavActive(route, activeSprintId, viewingPinned)
-  const actor = useAtomValue(projectActor(projectRequest(orgSlug, slug)))
-  const canSettings = ProjectPolicy.canUpdate(actor, { settings: true })
   return (
     <ProjectContext value={projectRequest(orgSlug, slug)}>
       <ProjectSetupLine />
@@ -101,20 +95,18 @@ export function ProjectPanel({
             />
           }
         />
-        {canSettings ? (
-          <SidebarRow
-            icon={<Settings />}
-            label={m.chrome_sidebar_menu_settings()}
-            submenu
-            render={
-              <Link
-                activeOptions={{ exact: true, includeSearch: false }}
-                to="/settings/orgs/$orgSlug/projects/$slug"
-                params={params}
-              />
-            }
-          />
-        ) : null}
+        <SidebarRow
+          icon={<Settings />}
+          label={m.chrome_sidebar_menu_settings()}
+          submenu
+          render={
+            <Link
+              activeOptions={{ exact: true, includeSearch: false }}
+              to="/settings/orgs/$orgSlug/projects/$slug"
+              params={params}
+            />
+          }
+        />
         <ProjectPins
           orgSlug={orgSlug}
           slug={slug}
