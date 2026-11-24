@@ -429,7 +429,7 @@ const confirmCreated = (
       {
         ...section,
         items: section.items.map((row) =>
-          row.key === input.prediction.clientId
+          row.pending && row.key === input.prediction.clientId
             ? { ...row, ticket: created, pending: false }
             : row
         )
