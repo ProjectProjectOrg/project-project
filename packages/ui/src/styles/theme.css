@@ -533,6 +533,7 @@
 }
 [data-scrolling]
   [data-slot="list-row"][data-hover-highlight]:not(
+    [data-selected],
     [data-keyboard-navigation] *
   ) {
   background-color: var(--hover-overlay);
