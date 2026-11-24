@@ -3,11 +3,10 @@ import { flushSync } from "react-dom"
 
 import { emptyWindow, preparedRows, requiredRows } from "../lib/preparedRows"
 
-const MOUNT_MARGIN = 336
 const UNMOUNT_MARGIN = 3000
 
 export function usePreparedRows(
-  listRef: RefObject<HTMLUListElement | null>,
+  listRef: RefObject<HTMLDivElement | null>,
   count: number,
   stride: number
 ) {
@@ -50,7 +49,7 @@ export function usePreparedRows(
         scheduleIdle()
         return
       }
-      publish(next, true)
+      publish(next, false)
       scheduleIdle()
     }
     const scheduleIdle = () => {
@@ -65,7 +64,7 @@ export function usePreparedRows(
     }
     const update = (event: "scroll" | "resize" | "rest") => {
       const scrolling = event === "scroll"
-      const sync = event !== "rest"
+      const sync = event === "resize"
       const top = root.scrollTop
       if (lastTop !== top) forward = top > lastTop
       lastTop = top
@@ -73,9 +72,9 @@ export function usePreparedRows(
         margin - top - viewportHeight,
         top - margin - height
       )
-      if (hidden || distance > MOUNT_MARGIN) {
+      if (hidden || distance > Math.min(UNMOUNT_MARGIN, viewportHeight * 2)) {
         stopIdle()
-        if (distance > UNMOUNT_MARGIN) publish(emptyWindow, sync)
+        if (distance > UNMOUNT_MARGIN) publish(emptyWindow, false)
         return
       }
       required = requiredRows({
@@ -83,12 +82,7 @@ export function usePreparedRows(
         height: viewportHeight,
         stride,
         count,
-        forward,
-        phase: scrolling
-          ? "scroll"
-          : mountedRef.current === emptyWindow
-            ? "mount"
-            : "rest"
+        forward
       })
       const next = preparedRows(
         mountedRef.current,
@@ -120,7 +114,13 @@ export function usePreparedRows(
       const rootRect = root.getBoundingClientRect()
       margin = listRect.top - rootRect.top + root.scrollTop
       height = listRect.height
-      viewportHeight = root.clientHeight
+      if (viewportHeight !== root.clientHeight) {
+        viewportHeight = root.clientHeight
+        list.style.setProperty(
+          "--scroll-viewport-height",
+          `${viewportHeight}px`
+        )
+      }
       update(event)
     }
     measure("rest")

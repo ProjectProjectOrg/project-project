@@ -11,36 +11,20 @@ export function requiredRows({
   height,
   stride,
   count,
-  forward,
-  phase
+  forward
 }: Readonly<{
   offset: number
   height: number
   stride: number
   count: number
   forward: boolean
-  phase: "mount" | "scroll" | "rest"
 }>) {
   if (count === 0) return emptyWindow
-  const viewport = Math.ceil(height / stride)
-  const trailing = Math.min(BEHIND, viewport)
-  const first = Math.floor(offset / stride)
-  const end = Math.ceil((offset + height) / stride)
-  const behind = Math.max(0, forward ? first : count - end)
-  const unused = Math.max(0, trailing - behind)
-  const guard = {
-    mount: viewport,
-    scroll: viewport * 2 + unused,
-    rest: Math.ceil(viewport * 1.5)
-  }
-  const ahead = Math.min(AHEAD, guard[phase])
-  return {
-    start: Math.min(
-      count - 1,
-      Math.max(0, first - (forward ? trailing : ahead))
-    ),
-    end: Math.max(1, Math.min(count, end + (forward ? ahead : trailing)))
-  }
+  const visible = Math.ceil(height / stride) + 1
+  const size = Math.min(count, visible + BATCH)
+  const first = Math.floor(offset / stride) - (forward ? 0 : BATCH)
+  const start = Math.max(0, Math.min(first, count - size))
+  return { start, end: start + size }
 }
 
 export function preparedRows(

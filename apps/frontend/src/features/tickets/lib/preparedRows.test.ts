@@ -67,23 +67,17 @@ describe("prepared ticket rows", () => {
 })
 
 describe("backlog row layout", () => {
-  it("uses the full scroll buffer when leaving either end of a section", () => {
+  it("covers a partial viewport immediately with at most one batch of extra tickets", () => {
     const viewport = { count: 1000, height: 440, stride: 44 }
-    const bottom = viewport.count * viewport.stride - viewport.height
     for (const forward of [true, false]) {
-      const interior = requiredRows({
-        ...viewport,
-        forward,
-        phase: "scroll",
-        offset: 4400
-      })
-      const edge = requiredRows({
-        ...viewport,
-        forward,
-        phase: "scroll",
-        offset: forward ? 0 : bottom
-      })
-      expect(edge.end - edge.start).toBe(interior.end - interior.start)
+      for (const offset of [1, 4401, 43559]) {
+        const range = requiredRows({ ...viewport, offset, forward })
+        const first = Math.floor(offset / viewport.stride)
+        const end = Math.ceil((offset + viewport.height) / viewport.stride)
+        expect(range.start).toBeLessThanOrEqual(first)
+        expect(range.end).toBeGreaterThanOrEqual(end)
+        expect(range.end - range.start).toBeLessThanOrEqual(end - first + 3)
+      }
     }
   })
 
@@ -92,8 +86,7 @@ describe("backlog row layout", () => {
       count: 50,
       height: 160,
       stride: 44,
-      forward: true,
-      phase: "rest" as const
+      forward: true
     }
     const above = requiredRows({ ...viewport, offset: -300 })
     const below = requiredRows({ ...viewport, offset: 2400 })

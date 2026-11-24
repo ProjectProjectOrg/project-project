@@ -32,7 +32,7 @@ export function VirtualRows({
   scrollTo?: Readonly<{ index: number }> | null
   children: (index: number) => ReactNode
 }>) {
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const count = rowKeys.length
   const range = usePreparedRows(listRef, count, ROW_STRIDE)
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -43,25 +43,26 @@ export function VirtualRows({
 
   useLayoutEffect(() => {
     if (reveal === null || reveal === revealed.current) return
-    const row = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${reveal.index + 1}"]`
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>(
+      `:scope > ul > li[aria-posinset="${reveal.index + 1}"]`
     )
     const link = row?.querySelector<HTMLElement>("[data-item-link]")
-    if (!row || !link) return
+    if (!list || !row || !link) return
     revealed.current = reveal
     link.focus({ preventScroll: true })
-    row.scrollIntoView({ block: "nearest" })
+    bringIntoView(list, row, reveal.index, "nearest")
   })
 
   useLayoutEffect(() => {
     if (scrollTo === null || scrollTo === scrolled.current) return
-    const row = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${scrollTo.index + 1}"]`
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>(
+      `:scope > ul > li[aria-posinset="${scrollTo.index + 1}"]`
     )
-    if (!row) return
+    if (!list || !row) return
     scrolled.current = scrollTo
-    const root = row.closest<HTMLElement>("[data-scroll-root]")
-    if (root) bringIntoView(root, row)
+    bringIntoView(list, row, scrollTo.index, "created")
   })
 
   const pinned = [activeIndex, focusedIndex, revealIndex, scrollIndex]
@@ -71,29 +72,51 @@ export function VirtualRows({
     if (i >= 0 && i < count) indexes.add(i)
   }
   const rows = [...indexes].toSorted((a, b) => a - b)
+  const first = Math.min(range.start, count)
+  const length = Math.min(range.end, count) - first
+  const windowHeight = Math.max(0, length * ROW_STRIDE - ROW_GAP)
+  const inset = `min(0px, calc(var(--scroll-viewport-height) - ${windowHeight}px))`
   return (
-    <ul
+    <div
       ref={listRef}
-      className={className}
       data-virtual-rows
-      data-loaded-rows={rowKeys.length}
+      data-loaded-rows={count}
       data-mounted-rows={rows.length}
       style={{
-        contain: "size layout",
         height: Math.max(0, count * ROW_STRIDE - ROW_GAP),
-        gridTemplateRows: `${listRowHeight}px`
+        overflow: "clip"
       }}
     >
-      {rows.map((index) => (
-        <RowSlot
-          key={rowKeys[index]}
-          index={index}
-          count={count}
-          onFocus={setFocusedIndex}
-          render={children}
-        />
-      ))}
-    </ul>
+      <div aria-hidden style={{ height: first * ROW_STRIDE }} />
+      <ul
+        className={className}
+        style={{
+          position: "sticky",
+          top: inset,
+          bottom: inset,
+          height: windowHeight,
+          gridTemplateRows: rows.length > length ? "0px" : undefined,
+          gridAutoRows: ROW_STRIDE,
+          rowGap: 0,
+          alignContent: "start"
+        }}
+      >
+        {rows.map((index) => (
+          <RowSlot
+            key={rowKeys[index]}
+            index={index}
+            count={count}
+            pinnedOffset={
+              index < first || index >= first + length
+                ? (index - first) * ROW_STRIDE
+                : undefined
+            }
+            onFocus={setFocusedIndex}
+            render={children}
+          />
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -111,26 +134,37 @@ const visibleBand = (root: HTMLElement, row: HTMLElement) => {
   }
 }
 
-// Jumps (no smooth scroll) so a row out of view lands about a third of the
-// way down the readable band, with room around it, rather than flush against
-// an edge.
-const bringIntoView = (root: HTMLElement, row: HTMLElement) => {
+const bringIntoView = (
+  list: HTMLElement,
+  row: HTMLElement,
+  index: number,
+  placement: "nearest" | "created"
+) => {
+  const root = list.closest<HTMLElement>("[data-scroll-root]")
+  if (!root) return
   const band = visibleBand(root, row)
-  const rect = row.getBoundingClientRect()
-  if (rect.top >= band.top && rect.bottom <= band.bottom) return
-  const target = band.top + (band.bottom - band.top) / 3
-  root.scrollTop += rect.top - target
+  const top = list.getBoundingClientRect().top + index * ROW_STRIDE
+  if (top >= band.top && top + listRowHeight <= band.bottom) return
+  const target =
+    placement === "created"
+      ? band.top + (band.bottom - band.top) / 3
+      : top < band.top
+        ? band.top
+        : band.bottom - listRowHeight
+  root.scrollTop += top - target
 }
 
 // The list re-renders on its own when its position or the viewport moves;
 // rows whose data didn't change skip that render.
 const RowSlot = memo(function RowSlot({
   index,
+  pinnedOffset,
   count,
   onFocus,
   render
 }: Readonly<{
   index: number
+  pinnedOffset: number | undefined
   count: number
   onFocus: (index: number) => void
   render: (index: number) => ReactNode
@@ -139,9 +173,13 @@ const RowSlot = memo(function RowSlot({
     <li
       className="col-span-full grid grid-cols-subgrid"
       style={{
-        gridRow: 1,
+        height: listRowHeight,
+        gridRow: pinnedOffset === undefined ? undefined : 1,
         position: "relative",
-        transform: `translateY(${index * ROW_STRIDE}px)`,
+        transform:
+          pinnedOffset === undefined
+            ? undefined
+            : `translateY(${pinnedOffset}px)`,
         scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
       }}
       aria-posinset={index + 1}
