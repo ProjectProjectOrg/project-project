@@ -36,7 +36,7 @@ import { HoverSide } from "./tooltip"
  *   </div>
  *
  * Columns, left to right: lead (the selection checkbox, revealed on hover),
- * status, priority, key, title (takes the rest), trailing (chips), estimate
+ * status, priority, key, title with trailing chips, estimate
  * and assignee. The CSS variables `--list-lead`, `--list-lead-gap`,
  * `--list-icon` and `--list-row-gap` (theme.css) size the leading columns, so
  * section headers can line up with them; `--ticket-key-width` (set by the
