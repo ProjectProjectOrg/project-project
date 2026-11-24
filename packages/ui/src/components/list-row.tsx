@@ -257,12 +257,14 @@ export function ListHoverScope({
       }}
       className={cn("relative", className)}
     >
-      <FluidHoverHighlight
-        hover={hover}
-        instant={hovered?.instant}
-        onArrive={arrive}
-        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
-      />
+      {(!scrolled.current || hovered !== null) && (
+        <FluidHoverHighlight
+          hover={hover}
+          instant={hovered?.instant}
+          onArrive={arrive}
+          className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
+        />
+      )}
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
   )
