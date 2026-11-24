@@ -2,6 +2,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { runInNewContext } from "node:vm"
 
+import { toHtml } from "hast-util-to-html"
+import { toHast } from "mdast-util-to-hast"
+import remarkGfm from "remark-gfm"
+import remarkParse from "remark-parse"
+import { unified } from "unified"
 import type { Plugin, ViteDevServer } from "vite"
 
 type Source = Readonly<{
@@ -102,6 +107,50 @@ function llmsIndex(pages: ReadonlyArray<MarkdownPage>) {
   return `# ProjectProject UI\n\n> The design-system primitives in @pp/ui. Every page is available as Markdown.\n\n${lines.join("\n")}\n`
 }
 
+const escapeHtml = (text: string) =>
+  text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+
+const markdownToHtml = (markdown: string) => {
+  const processor = unified().use(remarkParse).use(remarkGfm)
+  return toHtml(toHast(processor.runSync(processor.parse(markdown))))
+}
+
+// The gallery renders in the browser, so its one index.html is an empty
+// shell to anything that doesn't run scripts (most AI fetch tools). Each
+// page gets its own copy with its title, description, a link to its
+// Markdown and its content inside #root, which React replaces on start.
+function pageHtml(shell: string, page: MarkdownPage) {
+  const title =
+    page.path === "/"
+      ? "ProjectProject UI"
+      : `${page.meta.title} · ProjectProject UI`
+  const description =
+    page.meta.description === undefined
+      ? ""
+      : `\n    <meta name="description" content="${escapeHtml(page.meta.description)}" />`
+  return shell
+    .replace(
+      "<title>ProjectProject UI</title>",
+      `<title>${escapeHtml(title)}</title>${description}`
+    )
+    .replace(
+      'type="text/markdown" href="/index.md"',
+      `type="text/markdown" href="${markdownPathOf(page.path)}"`
+    )
+    .replace(
+      "</head>",
+      "  <noscript><style>#app-loader { display: none; }</style></noscript>\n  </head>"
+    )
+    .replace(
+      '<div id="root"></div>',
+      `<div id="root"><main>${markdownToHtml(page.markdown)}</main></div>`
+    )
+}
+
 export function markdownPages(docsRoot: string) {
   const load = () =>
     listMdx(docsRoot)
@@ -139,19 +188,42 @@ export function markdownPages(docsRoot: string) {
         res.end(page.markdown)
       })
     },
-    generateBundle() {
-      const pages = load()
-      this.emitFile({
-        type: "asset",
-        fileName: "llms.txt",
-        source: llmsIndex(pages)
-      })
-      for (const page of pages)
+    generateBundle: {
+      // After Vite emits index.html, so each page can start from it.
+      order: "post",
+      handler(_options, bundle) {
+        const pages = load()
+        const shell = bundle["index.html"]
+        if (shell?.type === "asset") {
+          const template = Buffer.from(shell.source).toString("utf8")
+          for (const page of pages) {
+            const html = pageHtml(template, page)
+            if (page.path === "/") shell.source = html
+            else
+              this.emitFile({
+                type: "asset",
+                fileName: `${page.path.slice(1)}.html`,
+                source: html
+              })
+          }
+        }
         this.emitFile({
           type: "asset",
-          fileName: markdownPathOf(page.path).slice(1),
-          source: page.markdown
+          fileName: "robots.txt",
+          source: "User-agent: *\nAllow: /\n"
         })
+        this.emitFile({
+          type: "asset",
+          fileName: "llms.txt",
+          source: llmsIndex(pages)
+        })
+        for (const page of pages)
+          this.emitFile({
+            type: "asset",
+            fileName: markdownPathOf(page.path).slice(1),
+            source: page.markdown
+          })
+      }
     }
   } satisfies Plugin
 }

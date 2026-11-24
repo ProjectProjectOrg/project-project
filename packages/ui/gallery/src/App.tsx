@@ -33,7 +33,11 @@ function Shell({ path }: Readonly<{ path: string }>) {
       'link[rel="alternate"][type="text/markdown"]'
     )
     if (link !== null) link.href = markdownPathOf(path)
-  }, [path])
+    document.title =
+      page === undefined || page.path === "/"
+        ? "ProjectProject UI"
+        : `${page.meta.title} · ProjectProject UI`
+  }, [path, page])
   return (
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col gap-5 border-r border-border px-3 pt-6 pb-4">
