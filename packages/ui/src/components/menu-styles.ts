@@ -21,8 +21,7 @@ export function useRaisedPopupClass() {
     : undefined
 }
 
-// A menu closed from the keyboard (Enter or a digit on a row) fades out in
-// 80ms instead of 150ms: Base UI marks those closes data-instant="click".
+// Base UI marks keyboard closes data-instant="click".
 export const popupMotionClass =
   "data-[instant=click]:data-[closed]:animation-duration-80 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none"
 

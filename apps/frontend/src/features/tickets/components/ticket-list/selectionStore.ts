@@ -113,10 +113,6 @@ export const orderContaining = (
       entries.some((entry) => entry.key === key && entry.remove === view)
     )
 
-// Starts the store over for a new view: nothing selected and no failure
-// or Undo left in the bar. What the lists recorded (known, views, orders)
-// stays, because their rows are still mounted. Atoms already empty aren't
-// written, so a reset with nothing selected re-renders nothing.
 export const resetSelection = (
   registry: AtomRegistry,
   store: SelectionStore
@@ -232,7 +228,6 @@ export const applySelected = (
           }
   }
   registry.set(store.outcome, outcome)
-  // A failure takes back only its own Undo, not a newer edit's.
   return sent.then((ok) => {
     if (!ok && registry.get(store.outcome) === outcome)
       registry.set(store.outcome, null)

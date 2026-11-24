@@ -61,8 +61,6 @@ export function TicketSelectionProvider({
   resetKey,
   children
 }: Readonly<{ resetKey: string; children: ReactNode }>) {
-  // One store for the provider's life: every row reads it through
-  // context, so swapping it would re-render every row on each view change.
   const [store] = useState(createSelectionStore)
   const registry = use(RegistryContext)
   const shownKey = useRef(resetKey)

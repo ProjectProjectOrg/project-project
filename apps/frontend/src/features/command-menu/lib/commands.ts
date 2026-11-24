@@ -126,8 +126,6 @@ export const visibleCommands = <C extends Command>(
     )
   )
 
-// Hotkeys bound to commands, none of which applies in this context: pressing
-// one does nothing here.
 export const unavailableHotkeys = (
   commands: ReadonlyArray<Command>,
   context: CommandContext

@@ -13,10 +13,7 @@ import { commandRegistry } from "../registry"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
 // "Keyboard shortcuts" in cmd+k: every app hotkey, grouped and searchable.
-// Shortcuts that don't apply on this page are listed but disabled: no
-// handler is mounted or enabled, or none of its commands applies here.
-// While this sheet is open its menu suspends every page hotkey, so a
-// suspended one still counts as available.
+// Shortcuts that don't apply on this page are listed but disabled.
 export function ShortcutSheetPage({
   context,
   chip,
@@ -39,6 +36,7 @@ export function ShortcutSheetPage({
               group,
               icon: CommandKeyIcon,
               shortcut: appHotkey.hotkey,
+              // The open menu suspends page hotkeys; suspended still counts.
               disabled:
                 status === "inactive" ||
                 status === "disabled" ||
