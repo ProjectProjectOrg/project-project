@@ -53,7 +53,7 @@ const buttonVariants = cva(
         destructive: "button-fill button-destructive",
         tertiary: "button-fill button-tertiary text-foreground",
         ghost:
-          "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
+          "bg-transparent text-muted-foreground not-disabled:hover:bg-hover not-disabled:hover:text-foreground not-disabled:active:bg-active aria-pressed:bg-active aria-pressed:text-foreground aria-pressed:not-disabled:hover:bg-[color-mix(in_srgb,var(--active),var(--ink)_var(--mix-hover))] aria-[current=page]:bg-active aria-[current=page]:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         // Ghost with a hairline ring: an empty slot waiting for a value, like
         // an unassigned ticket's avatar.
         outline:
