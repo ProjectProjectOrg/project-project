@@ -118,7 +118,7 @@ export function SectionRows({
                     aria-busy={pending}
                     className={cn(
                       "col-span-full grid grid-cols-subgrid",
-                      pending && "pointer-events-none animate-pulse"
+                      pending && "pointer-events-none"
                     )}
                   >
                     <DraggableRow

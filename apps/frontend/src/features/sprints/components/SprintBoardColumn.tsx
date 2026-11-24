@@ -300,7 +300,7 @@ function CardSlot({
           className={cn(
             "relative rounded-lg",
             dragging && "opacity-40",
-            (pending || inert) && "animate-pulse"
+            pending && "animate-pulse"
           )}
         >
           {created !== null && (

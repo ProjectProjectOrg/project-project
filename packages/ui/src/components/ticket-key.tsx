@@ -14,10 +14,18 @@ export function TicketKey({
       data-slot="ticket-key"
       className={cn(
         "inline-flex items-baseline text-caption text-muted-foreground tabular-nums",
+        pending && "h-[1lh] items-center",
         className
       )}
     >
-      {pending ? null : value}
+      {pending ? (
+        <span
+          aria-hidden="true"
+          className="pp-loader h-[0.6em] w-[4ch] rounded-full bg-foreground/30"
+        />
+      ) : (
+        value
+      )}
     </span>
   )
 }

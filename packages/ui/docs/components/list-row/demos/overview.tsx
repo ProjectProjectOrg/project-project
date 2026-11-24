@@ -55,7 +55,7 @@ export default function Overview() {
         <Row ticket={INVITED} force="hover" />
         <Caption>Selected</Caption>
         <Row ticket={AUDIT} selected />
-        <Caption>The key stays blank until the ticket is saved</Caption>
+        <Caption>Creating a ticket</Caption>
         <Row ticket={{ ...FOCUS, id: "ATL-25" }} pending />
         <Caption>Everything on it: tags past three fold into +N</Caption>
         <Row ticket={EVERYTHING} />

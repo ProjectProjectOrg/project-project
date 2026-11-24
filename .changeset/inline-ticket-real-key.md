@@ -2,4 +2,4 @@
 kind: fixes
 area: lists
 ---
-New tickets show their permanent key as soon as they are created, even while being added to a sprint.
+New tickets show a small shimmer until their permanent key arrives, even while being added to a sprint.
