@@ -1,6 +1,6 @@
-import { useAtomSet } from "@effect/atom-react"
+import { useAtom, useAtomSet } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
-import { useEffect, useRef, useState } from "react"
+import { useId, useRef, useState } from "react"
 
 import { uploadFeedbackAttachment } from "@/features/feedback/atoms/feedback"
 import {
@@ -8,58 +8,32 @@ import {
   type FileRejection
 } from "@/features/feedback/lib/feedbackFiles"
 
-export type FeedbackFileDraft = Readonly<
-  { key: string; file: File; previewUrl: string } & (
-    | { state: "uploading" }
-    | { state: "ready"; id: string }
-    | { state: "failed" }
-  )
->
+import { feedbackDraft, type FeedbackFileDraft } from "../atoms/feedbackDraft"
 
-const revoke = (drafts: ReadonlyArray<FeedbackFileDraft>) => {
-  for (const draft of drafts) URL.revokeObjectURL(draft.previewUrl)
-}
-
-export function useFeedbackFiles(orgSlug: string) {
-  const upload = useAtomSet(uploadFeedbackAttachment(orgSlug), {
+export function useFeedbackFiles(orgSlug: string, route: string) {
+  const [uploadAtom] = useState(() => uploadFeedbackAttachment(orgSlug))
+  const upload = useAtomSet(uploadAtom, {
     mode: "promiseExit"
   })
-  const [drafts, setDrafts] = useState<ReadonlyArray<FeedbackFileDraft>>([])
+  const [draft, setDraft] = useAtom(feedbackDraft(orgSlug))
+  const drafts = draft.files
   const [rejection, setRejection] = useState<FileRejection | null>(null)
-  const nextKey = useRef(0)
+  const batchId = useId()
+  const nextFile = useRef(0)
   const queue = useRef<Promise<void>>(Promise.resolve())
-  const live = useRef<ReadonlyArray<FeedbackFileDraft>>([])
-
-  useEffect(() => {
-    live.current = drafts
-  }, [drafts])
-
-  useEffect(() => () => revoke(live.current), [])
-
   const settle = (
     key: string,
     exit: Exit.Exit<Readonly<{ id: string }>, unknown>
   ) =>
-    setDrafts((current) =>
-      current.map((draft) => {
-        if (draft.key !== key) return draft
-        const { file, previewUrl } = draft
+    setDraft((current) => ({
+      ...current,
+      files: current.files.map((file) => {
+        if (file.key !== key) return file
         return Exit.isSuccess(exit)
-          ? ({
-              key,
-              file,
-              previewUrl,
-              state: "ready",
-              id: exit.value.id
-            } satisfies FeedbackFileDraft)
-          : ({
-              key,
-              file,
-              previewUrl,
-              state: "failed"
-            } satisfies FeedbackFileDraft)
+          ? { ...file, state: "ready", id: exit.value.id }
+          : { ...file, state: "failed" }
       })
-    )
+    }))
 
   const add = (files: ReadonlyArray<File>) => {
     if (files.length === 0) return
@@ -68,13 +42,17 @@ export function useFeedbackFiles(orgSlug: string) {
     const added = accepted.map(
       (file) =>
         ({
-          key: String(nextKey.current++),
+          key: `${batchId}-${nextFile.current++}`,
           file,
-          previewUrl: URL.createObjectURL(file),
           state: "uploading"
         }) satisfies FeedbackFileDraft
     )
-    setDrafts((current) => [...current, ...added])
+    if (added.length === 0) return
+    setDraft((current) => ({
+      ...current,
+      route,
+      files: [...current.files, ...added]
+    }))
     for (const draft of added) {
       queue.current = queue.current.then(() =>
         upload(draft.file).then((exit) => settle(draft.key, exit))
@@ -84,25 +62,18 @@ export function useFeedbackFiles(orgSlug: string) {
 
   const remove = (key: string) => {
     setRejection(null)
-    revoke(drafts.filter((draft) => draft.key === key))
-    setDrafts((current) => current.filter((draft) => draft.key !== key))
-  }
-
-  const reset = () => {
-    setRejection(null)
-    revoke(drafts)
-    setDrafts([])
+    setDraft((current) => ({
+      ...current,
+      files: current.files.filter((file) => file.key !== key)
+    }))
   }
 
   return {
     drafts,
     rejection,
     uploading: drafts.some((draft) => draft.state === "uploading"),
-    readyIds: drafts.flatMap((draft) =>
-      draft.state === "ready" ? [draft.id] : []
-    ),
+    ready: drafts.filter((draft) => draft.state === "ready"),
     add,
-    remove,
-    reset
+    remove
   }
 }

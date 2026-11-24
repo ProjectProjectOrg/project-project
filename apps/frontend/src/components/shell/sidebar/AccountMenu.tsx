@@ -25,6 +25,7 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useRef, useState, type ReactElement } from "react"
 
 import { logout } from "@/features/auth/atoms/auth"
+import { hasFeedbackDraft } from "@/features/feedback/atoms/feedbackDraft"
 import {
   FeedbackPopover,
   useFeedbackEnabled
@@ -196,6 +197,7 @@ function FeedbackItem({
 }) {
   const [open, setOpen] = useState(false)
   const itemRef = useRef<HTMLDivElement>(null)
+  const hasDraft = useAtomValue(hasFeedbackDraft(orgSlug))
   if (!useFeedbackEnabled(orgSlug)) return null
   return (
     <>
@@ -205,7 +207,7 @@ function FeedbackItem({
         onClick={() => setOpen(true)}
       >
         <MessageSquarePlus className="size-4" strokeWidth={1.75} />
-        {m.feedback_open()}
+        {hasDraft ? m.feedback_continue() : m.feedback_open()}
       </DropdownMenuItem>
       <FeedbackPopover
         orgSlug={orgSlug}

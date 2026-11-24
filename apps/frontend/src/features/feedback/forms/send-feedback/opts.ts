@@ -1,13 +1,8 @@
-import type { FeedbackKind } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
 import { appFormOptions, validateAfterSubmit } from "@/lib/form"
 
-export type SendFeedbackValues = Readonly<{
-  kind: FeedbackKind
-  title: string
-  description: string
-}>
+import { emptyFeedbackValues } from "../../atoms/feedbackDraft"
 
 const SendFeedbackFormSchema = Schema.Struct({
   kind: Schema.Literals(["bug", "feature"]),
@@ -17,14 +12,8 @@ const SendFeedbackFormSchema = Schema.Struct({
   description: Schema.String
 })
 
-const defaultValues: SendFeedbackValues = {
-  kind: "bug",
-  title: "",
-  description: ""
-}
-
 export const sendFeedbackFormOpts = appFormOptions({
-  defaultValues,
+  defaultValues: emptyFeedbackValues,
   validators: [
     validateAfterSubmit(Schema.toStandardSchemaV1(SendFeedbackFormSchema))
   ]

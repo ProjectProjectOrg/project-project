@@ -65,6 +65,7 @@ export type CommandContext = Readonly<{
   viewerId: string | null
   canSeeOrgMembers: boolean
   canCreateProjects: boolean
+  hasFeedbackDraft: boolean
   canSendFeedback: boolean
   canHoldChildren: boolean
   project: ProjectDetail | null

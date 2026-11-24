@@ -1,15 +1,26 @@
+import { useAtomValue } from "@effect/atom-react"
 import { isRasterImageContentType } from "@pp/shared"
 import { AttachmentChip } from "@pp/ui/attachment-chip"
 import { CircleAlert, LoaderCircle, X } from "@pp/ui/icons"
 import { chipIconActionClass } from "@pp/ui/morph-icon-link"
+import * as Atom from "effect/reactivity/Atom"
 
-import type { FeedbackFileDraft } from "@/features/feedback/hooks/useFeedbackFiles"
+import type { FeedbackFileDraft } from "@/features/feedback/atoms/feedbackDraft"
 import { m } from "@/paraglide/messages"
+
+const previewUrl = Atom.family((file: File) =>
+  Atom.make((get) => {
+    const url = URL.createObjectURL(file)
+    get.addFinalizer(() => URL.revokeObjectURL(url))
+    return url
+  })
+)
 
 function FeedbackFileChip({
   draft,
   onRemove
 }: Readonly<{ draft: FeedbackFileDraft; onRemove: () => void }>) {
+  const url = useAtomValue(previewUrl(draft.file))
   const image = isRasterImageContentType(draft.file.type)
   const action =
     draft.state === "uploading" ? (
@@ -40,7 +51,7 @@ function FeedbackFileChip({
     )
   return (
     <AttachmentChip
-      url={draft.previewUrl}
+      url={url}
       alt={draft.file.name}
       filename={draft.file.name}
       kind={image ? "image" : "file"}

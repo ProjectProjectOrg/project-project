@@ -5,6 +5,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
+import { hasFeedbackDraft } from "@/features/feedback/atoms/feedbackDraft"
 import {
   orgActor,
   orgDetail,
@@ -127,6 +128,7 @@ export const commandContext = Atom.family((key: CommandContextKey) =>
       viewerId: get(currentUserId) ?? null,
       canSeeOrgMembers: org.call("org", "members"),
       canCreateProjects: org.call("projects", "create"),
+      hasFeedbackDraft: get(hasFeedbackDraft(orgSlug)),
       canSendFeedback: feedback?.enabled ?? false,
       projectActor: actor,
       project: projectReq === null ? null : success(get(project(projectReq))),

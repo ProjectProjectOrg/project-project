@@ -1,14 +1,14 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { CircleCheck, Paperclip } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { spring } from "@pp/ui/lib/springs"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useLocation } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
 import { motion, type Variants } from "motion/react"
 import {
   useRef,
@@ -22,15 +22,14 @@ import {
 import { flushSync } from "react-dom"
 
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
-import { submitFeedback } from "@/features/feedback/atoms/feedback"
 import { FeedbackFileList } from "@/features/feedback/components/FeedbackFileList"
-import { useFeedbackFiles } from "@/features/feedback/hooks/useFeedbackFiles"
 import type { FileRejection } from "@/features/feedback/lib/feedbackFiles"
-import { useAppForm, useFormValues } from "@/lib/form"
-import { mutationErrorText } from "@/lib/mutationError"
+import { describeCause } from "@/lib/errorMessage"
+import { useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
-import { sendFeedbackFormOpts } from "./opts"
+import { feedbackDraft } from "../../atoms/feedbackDraft"
+import { useFeedbackForm } from "./useFeedbackForm"
 
 const kindItems = () =>
   [
@@ -64,47 +63,55 @@ const rejectionText: Readonly<Record<FileRejection, () => string>> = {
   unsupported: m.feedback_files_unsupported
 }
 
-export function SendFeedbackForm({
+type FeedbackFormProps = Readonly<{
+  orgSlug: string
+  attachments: boolean
+  Title: ComponentType<Readonly<{ className?: string; children: ReactNode }>>
+  onDone: () => void
+}>
+
+export function SendFeedbackForm(props: FeedbackFormProps) {
+  const generation = useAtomValue(
+    feedbackDraft(props.orgSlug),
+    (draft) => draft.generation
+  )
+  const [sent, setSent] = useState(false)
+  return (
+    <FeedbackComposer
+      key={JSON.stringify([props.orgSlug, generation])}
+      {...props}
+      sent={sent}
+      setSent={setSent}
+    />
+  )
+}
+
+function FeedbackComposer({
   orgSlug,
   attachments,
   Title,
-  onDone
-}: Readonly<{
-  orgSlug: string
-  attachments: boolean
-  Title: ComponentType<{ className?: string; children: ReactNode }>
-  onDone: () => void
-}>) {
+  onDone,
+  sent,
+  setSent
+}: FeedbackFormProps &
+  Readonly<{ sent: boolean; setSent: (sent: boolean) => void }>) {
   const { pathname } = useLocation()
-  const [sent, setSent] = useState(false)
-  const [round, setRound] = useState(0)
+  const {
+    form,
+    initialMarkdown,
+    hasDraft,
+    reset,
+    files,
+    busy,
+    sending,
+    error
+  } = useFeedbackForm(orgSlug, pathname, () => setSent(true))
   const titleRef = useRef<HTMLInputElement>(null)
-  const files = useFeedbackFiles(orgSlug)
-  const submit = useAtomSet(submitFeedback(orgSlug), { mode: "promiseExit" })
-  const state = useAtomValue(submitFeedback(orgSlug))
-  const error = mutationErrorText(state)
-  const busy = state.waiting || files.uploading
-  const form = useAppForm({
-    ...sendFeedbackFormOpts,
-    onSubmit: async ({ value }) => {
-      const exit = await submit({
-        kind: value.kind,
-        title: value.title.trim(),
-        description: value.description.trim(),
-        route: pathname,
-        attachmentIds: files.readyIds
-      })
-      if (Exit.isSuccess(exit)) setSent(true)
-    }
-  })
   const values = useFormValues(form)
   const send = () => {
     if (!busy) void form.handleSubmit()
   }
   const sendAnother = () => {
-    form.reset()
-    files.reset()
-    setRound((current) => current + 1)
     flushSync(() => setSent(false))
     titleRef.current?.focus()
   }
@@ -143,7 +150,7 @@ export function SendFeedbackForm({
         initial={false}
         variants={swap}
         animate={sent ? "hidden" : "shown"}
-        inert={sent}
+        inert={sent || sending}
         onSubmit={(event) => {
           event.preventDefault()
           send()
@@ -204,8 +211,7 @@ export function SendFeedbackForm({
               onDropCapture={attachDropped}
             >
               <LexicalEditor
-                key={round}
-                markdown=""
+                markdown={initialMarkdown}
                 onDraftChange={field.handleChange}
                 placeholder={m.feedback_description_placeholder()}
               />
@@ -239,16 +245,30 @@ export function SendFeedbackForm({
                 : m.feedback_attach_unavailable()}
             </Composer.Hint>
             <Composer.Actions>
-              <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-                {m.common_cancel_button()}
-              </Button>
+              {hasDraft ? (
+                <DiscardDraft
+                  onDiscard={() => {
+                    onDone()
+                    reset()
+                  }}
+                />
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onDone}
+                >
+                  {m.common_cancel_button()}
+                </Button>
+              )}
               <Button
                 type="submit"
                 size="sm"
                 disabled={busy}
-                data-pending={state.waiting || undefined}
+                data-pending={sending || undefined}
               >
-                {state.waiting ? m.feedback_sending() : m.feedback_submit()}
+                {sending ? m.feedback_sending() : m.feedback_submit()}
               </Button>
             </Composer.Actions>
           </Composer.Footer>
@@ -259,6 +279,25 @@ export function SendFeedbackForm({
         {sent ? m.feedback_sent() : ""}
       </span>
     </div>
+  )
+}
+
+function DiscardDraft({ onDiscard }: Readonly<{ onDiscard: () => void }>) {
+  return (
+    <ConfirmButton.Root>
+      <ConfirmButton.Trigger type="button" variant="ghost" size="sm">
+        {m.feedback_discard_draft()}
+      </ConfirmButton.Trigger>
+      <ConfirmButton.Confirm>
+        <ConfirmButton.Action
+          prompt={m.feedback_discard_prompt()}
+          label={m.feedback_discard()}
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
+          onConfirm={onDiscard}
+        />
+      </ConfirmButton.Confirm>
+    </ConfirmButton.Root>
   )
 }
 

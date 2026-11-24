@@ -80,6 +80,7 @@ const contextFor = (
     viewerId: "user-1",
     canSeeOrgMembers: false,
     canCreateProjects: false,
+    hasFeedbackDraft: false,
     canSendFeedback: false,
     canHoldChildren: true,
     project,

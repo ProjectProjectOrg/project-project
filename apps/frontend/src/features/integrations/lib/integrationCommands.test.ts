@@ -34,6 +34,7 @@ const context: CommandContext = {
   viewerId: null,
   canSeeOrgMembers: false,
   canCreateProjects: false,
+  hasFeedbackDraft: false,
   canSendFeedback: false,
   canHoldChildren: false,
   project: null,
