@@ -127,10 +127,7 @@ export function TicketPropertySubmenus({
     }
   })
   const types = useTicketTypes(orgSlug, slug)
-  const typeItems = typeMenuItems(types).map((item) => ({
-    ...item,
-    closeOnClick: true
-  }))
+  const typeItems = typeMenuItems(types)
   const setAssignees = (assignees: ReadonlyArray<string>) =>
     onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
 

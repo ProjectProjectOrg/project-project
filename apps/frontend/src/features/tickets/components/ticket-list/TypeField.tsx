@@ -1,7 +1,14 @@
 import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { Settings2 } from "@pp/ui/icons"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
@@ -19,33 +26,28 @@ import {
 } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
-type SelectContentProps = NonNullable<
-  ComponentProps<typeof Select>["contentProps"]
->
+type MenuContentProps = ComponentProps<typeof DropdownMenuContent>
 
 export type TypeMenuAction = Readonly<{
   label: string
   onAction: () => void
 }>
 
-const TYPE_MENU_ACTION = "type-menu-action"
-
 export const typeMenuItems = (
   types: ReadonlyArray<TypeDefinition>,
   {
     epics = true,
-    lastUsed,
-    separateNone = false
+    lastUsed
   }: Readonly<{
     epics?: boolean
     lastUsed?: TypeKey | null
-    separateNone?: boolean
   }> = {}
 ) =>
   typeOptions(types, epics).map((option) => ({
     value: option.value,
     textValue: typeName(option.type),
-    separated: option.separated || (separateNone && option.type === null),
+    separated: option.separated,
+    closeOnClick: true,
     label: (
       <>
         <TypeGlyph type={option.type} />
@@ -59,22 +61,20 @@ export const typeMenuItems = (
     )
   }))
 
-export const typeActionItems = (action: TypeMenuAction | null) =>
-  action === null
-    ? []
-    : [
-        {
-          value: TYPE_MENU_ACTION,
-          textValue: action.label,
-          label: (
-            <>
-              <Settings2 strokeWidth={1.75} />
-              <span className="truncate">{action.label}</span>
-            </>
-          ),
-          onAction: action.onAction
-        }
-      ]
+export function TypeMenuActionItem({
+  action
+}: Readonly<{ action: TypeMenuAction | null }>) {
+  if (action === null) return null
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem label={action.label} onClick={action.onAction}>
+        <Settings2 strokeWidth={1.75} />
+        <span className="truncate">{action.label}</span>
+      </DropdownMenuItem>
+    </>
+  )
+}
 
 function TypePicker({
   types,
@@ -90,30 +90,30 @@ function TypePicker({
   value: TypeKey | null
   action?: TypeMenuAction | null
   onChange: (type: TypeKey | null) => void
-  align: SelectContentProps["align"]
-  finalFocus?: SelectContentProps["finalFocus"]
+  align: MenuContentProps["align"]
+  finalFocus?: MenuContentProps["finalFocus"]
   trigger: ReactElement
   children: ReactNode
 }>) {
   return (
-    <Select
-      items={[
-        ...typeMenuItems(types, { separateNone: action !== null }),
-        ...typeActionItems(action)
-      ]}
-      value={typeOptionValue(value)}
-      onValueChange={(next) => {
-        const key = typeKeyOfOption(next)
-        if (key !== value) onChange(key)
-      }}
-      contentProps={{
-        align,
-        className: action === null ? "w-44" : "w-auto max-w-80",
-        finalFocus
-      }}
-    >
-      <SelectTrigger render={trigger}>{children}</SelectTrigger>
-    </Select>
+    <DropdownMenu>
+      <DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={align}
+        finalFocus={finalFocus}
+        className={action === null ? "w-44" : "w-auto max-w-80"}
+      >
+        <DropdownMenuRadioGroup
+          items={typeMenuItems(types)}
+          value={typeOptionValue(value)}
+          onValueChange={(next) => {
+            const key = typeKeyOfOption(next)
+            if (key !== value) onChange(key)
+          }}
+        />
+        <TypeMenuActionItem action={action} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

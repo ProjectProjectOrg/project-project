@@ -122,6 +122,10 @@ Every label change rolls through TextSwap and every icon change crossfades, so t
 
 ## Rules
 
+### Pickers are menus, selects are form fields
+
+A value you pick while working (status, priority, assignee, type, estimate, a toolbar's grouping or ordering, the org and project switchers) is a menu with a `DropdownMenuRadioGroup`, so every picker numbers its rows, takes actions after its choices and nests as a submenu. `Select` is for a value that belongs to a form or a settings row.
+
 ### Multi-select rows use `DropdownMenuCheckboxItem`
 
 A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a checkbox nested in a menu item. The menu stays open while you toggle, through `closeOnClick={false}`.
@@ -161,6 +165,8 @@ A submenu opens once the pointer rests on its row for Base UI's default 100ms, s
 ### A pick closes the menu as it was
 
 A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its way out: the menu fades out showing the selection it opened with, and the new value shows on the page. A selection changing inside a menu that is leaving reads as two events at once. The next open shows the new value. Escape and an outside click close the same way.
+
+A pick from the keyboard (Enter, or a row's digit) closes the menu in 80ms instead of 150ms, the submenu's fade: the hand is already on the next key, and a full fade reads as lag, while no fade at all leaves the trigger's new value rolling in on its own. A digit also moves the highlight to its row first, so a menu that stays open shows the pick where you're looking.
 
 ### Hover and press match the buttons
 

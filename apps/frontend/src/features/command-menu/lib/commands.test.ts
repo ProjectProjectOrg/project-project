@@ -11,9 +11,11 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
 import { organizationCommands } from "@/features/organizations/commands"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 import {
   runCommand,
+  unavailableHotkeys,
   visibleCommands,
   Command,
   type CommandContext,
@@ -118,6 +120,30 @@ describe("visibleCommands", () => {
         (c) => c.id
       )
     ).toEqual(["status", "theme"])
+  })
+})
+
+describe("unavailableHotkeys", () => {
+  it("marks a hotkey unavailable only when none of its commands applies", () => {
+    const commands = [
+      {
+        ...command("about", "navigation", (ctx) => ctx.projectSlug !== null),
+        hotkey: appHotkeys["nav.about"]
+      },
+      {
+        ...command("flag", "ticket", (ctx) => ctx.ticket !== null),
+        hotkey: appHotkeys["tickets.flag"]
+      },
+      {
+        ...command("unflag", "ticket", () => true),
+        hotkey: appHotkeys["tickets.flag"]
+      }
+    ]
+
+    expect([...unavailableHotkeys(commands, context)]).toEqual(["nav.about"])
+    expect(
+      unavailableHotkeys(commands, { ...context, projectSlug: "app" }).size
+    ).toBe(0)
   })
 })
 

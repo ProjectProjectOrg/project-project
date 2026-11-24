@@ -1,7 +1,14 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Org } from "@pp/shared"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { Plus } from "@pp/ui/icons"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ReactElement } from "react"
@@ -9,8 +16,6 @@ import type { ReactElement } from "react"
 import { me, setActiveOrganization } from "@/features/auth/atoms/auth"
 import { userOrgs } from "@/features/organizations/atoms/orgs"
 import { m } from "@/paraglide/messages"
-
-const CREATE_ORG = "__create-org"
 
 export function OrgSwitcher({ trigger }: Readonly<{ trigger: ReactElement }>) {
   const orgsResult = useAtomValue(userOrgs())
@@ -39,42 +44,34 @@ export function OrgSwitcher({ trigger }: Readonly<{ trigger: ReactElement }>) {
     void navigate({ to: "/orgs/$orgSlug", params: { orgSlug: org.slug } })
   }
 
-  const items = [
-    ...sorted.map((org, index) => ({
-      value: org.slug,
-      textValue: org.name,
-      separated: index === sorted.length - 1,
-      label: <span className="min-w-0 flex-1 truncate">{org.name}</span>
-    })),
-    {
-      value: CREATE_ORG,
-      textValue: m.org_switcher_create_new(),
-      label: (
-        <>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={trigger} />
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={10}
+        className="w-56"
+      >
+        <DropdownMenuRadioGroup
+          items={sorted.map((org) => ({
+            value: org.slug,
+            textValue: org.name,
+            closeOnClick: true,
+            label: <span className="min-w-0 flex-1 truncate">{org.name}</span>
+          }))}
+          value={current.slug}
+          onValueChange={(slug) => {
+            const org = sorted.find((candidate) => candidate.slug === slug)
+            if (org) switchTo(org)
+          }}
+        />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void navigate({ to: "/welcome" })}>
           <Plus className="size-4" strokeWidth={1.75} />
           {m.org_switcher_create_new()}
-        </>
-      ),
-      onAction: () => void navigate({ to: "/welcome" })
-    }
-  ]
-
-  return (
-    <Select
-      items={items}
-      value={current.slug}
-      onValueChange={(slug) => {
-        const org = sorted.find((candidate) => candidate.slug === slug)
-        if (org) switchTo(org)
-      }}
-      contentProps={{
-        side: "right",
-        align: "start",
-        sideOffset: 10,
-        className: "w-56"
-      }}
-    >
-      <SelectTrigger render={trigger} />
-    </Select>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

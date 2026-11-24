@@ -288,6 +288,9 @@ function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
   if (!item) return
   event.preventDefault()
   event.stopPropagation()
+  // Focus lands the highlight on the picked row first, so a menu that stays
+  // open shows the pick where the eye is.
+  item.focus()
   item.click()
 }
 
