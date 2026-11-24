@@ -357,8 +357,8 @@ function BreadcrumbItem({
           >
             <span
               className={cn(
-                "block h-4 rounded bg-muted/60",
-                loading && "skeleton"
+                "block h-4 skeleton rounded bg-muted/60",
+                !loading && "[animation-play-state:paused]"
               )}
             />
           </span>
