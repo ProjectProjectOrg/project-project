@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
-import { getRouteApi, Navigate, useRouterState } from "@tanstack/react-router"
+import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -20,11 +20,7 @@ import {
   ticketRequest,
   type TicketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import {
-  TicketPage,
-  TicketPageSkeleton
-} from "@/features/tickets/components/ticket-page"
-import { TicketBackButton } from "@/features/tickets/components/ticket-page/TicketBackButton"
+import { TicketPage } from "@/features/tickets/components/ticket-page"
 import { TicketPageLoading } from "@/features/tickets/components/ticket-page/TicketPageLoading"
 import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
@@ -45,7 +41,7 @@ const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
   const result = useAtomValue(movedTicket(req))
   return Result.matchWithError(result, {
-    onInitial: () => <TicketPageSkeleton />,
+    onInitial: () => <TicketPageLoading />,
     onError: (error) =>
       Match.value(error).pipe(
         Match.tag("NotFound", () => (
@@ -59,15 +55,18 @@ function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
-      <Navigate
-        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-        params={{
-          orgSlug: req.params.orgSlug,
-          slug: value.projectSlug,
-          id: value.id
-        }}
-        replace
-      />
+      <>
+        <TicketPageLoading />
+        <Navigate
+          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+          params={{
+            orgSlug: req.params.orgSlug,
+            slug: value.projectSlug,
+            id: value.id
+          }}
+          replace
+        />
+      </>
     )
   })
 }
@@ -106,26 +105,14 @@ export function TicketDetail() {
     })
   }, [autoFocusBody, navigate])
 
-  const back = <TicketBackButton from={from} />
   const stepper = sequence !== null && (
     <TicketStepper sequence={sequence} shown={shown} search={stepping.search} />
-  )
-  const titleHint = useRouterState({
-    select: (state) => state.location.state.ticketTitle
-  })
-  const title =
-    sequence?.tickets.find((ticket) => ticket.id === shown)?.title ??
-    (shown === urlId ? titleHint : undefined) ??
-    null
-  const loading = (
-    <TicketPageLoading back={back} stepper={stepper} title={title} />
   )
   const atUrl = shown === urlId
   return (
     <HotkeysProvider scope="ticket">
       <LoadedTicket
         req={ticketRequest(orgSlug, slug, shown)}
-        loading={loading}
         stepper={stepper}
         from={from}
         autoFocusBody={atUrl && autoFocusBody}
@@ -137,14 +124,12 @@ export function TicketDetail() {
 
 function LoadedTicket({
   req,
-  loading,
   stepper,
   from,
   autoFocusBody,
   splitInto
 }: Readonly<{
   req: TicketRequest
-  loading: ReactNode
   stepper: ReactNode
   from: TicketPageSource | undefined
   autoFocusBody: boolean
@@ -153,7 +138,7 @@ function LoadedTicket({
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
   return Result.matchWithError(result, {
-    onInitial: () => loading,
+    onInitial: () => <TicketPageLoading />,
     onError: (error) =>
       Match.value(error).pipe(
         Match.tag("NotFound", () => <MovedTicketRedirect req={req} />),

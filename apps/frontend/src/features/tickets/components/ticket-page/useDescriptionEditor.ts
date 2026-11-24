@@ -1,0 +1,170 @@
+import { useEditMode } from "@pp/ui/editor/use-edit-mode"
+import { useHotkey } from "@tanstack/react-hotkeys"
+import type { LexicalEditor } from "lexical"
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type RefObject
+} from "react"
+import { flushSync } from "react-dom"
+
+import { loadLexicalEditor } from "@/features/editor/components/LexicalEditor"
+import { appHotkeys } from "@/lib/appHotkeys"
+
+const readSelection = (root: HTMLElement | null) => {
+  const body = root?.querySelector(".prose-md")
+  const selection = window.getSelection()
+  if (!body || !selection || selection.isCollapsed) return null
+  const range = selection.getRangeAt(0)
+  if (
+    !body.contains(range.startContainer) ||
+    !body.contains(range.endContainer)
+  )
+    return null
+  const prefix = document.createRange()
+  prefix.selectNodeContents(body)
+  prefix.setEnd(range.startContainer, range.startOffset)
+  return { start: prefix.toString().length, text: range.toString() }
+}
+
+const selectDescriptionText = (
+  root: HTMLElement,
+  { start, text }: NonNullable<ReturnType<typeof readSelection>>
+) => {
+  const content = root.textContent ?? ""
+  const index = content.indexOf(text)
+  const offset = content.startsWith(text, start)
+    ? start
+    : index === content.lastIndexOf(text)
+      ? index
+      : -1
+  if (offset < 0 || text === "") return
+  const end = offset + text.length
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const range = document.createRange()
+  let position = 0
+  let hasStart = false
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const next = position + (node.textContent?.length ?? 0)
+    if (!hasStart && offset < next) {
+      range.setStart(node, offset - position)
+      hasStart = true
+    }
+    if (hasStart && end <= next) {
+      range.setEnd(node, end - position)
+      window.getSelection()?.removeAllRanges()
+      window.getSelection()?.addRange(range)
+      return
+    }
+    position = next
+  }
+}
+
+const importDescriptionEditor = async () => {
+  try {
+    const [Editor, templates] = await Promise.all([
+      loadLexicalEditor(),
+      import("./descriptionTemplates")
+    ])
+    return { Editor, templates }
+  } catch (error) {
+    descriptionEditorLoad = undefined
+    throw error
+  }
+}
+
+type DescriptionEditor = Awaited<ReturnType<typeof importDescriptionEditor>>
+let descriptionEditorLoad: Promise<DescriptionEditor> | undefined
+const loadDescriptionEditor = () =>
+  (descriptionEditorLoad ??= importDescriptionEditor())
+
+export function useDescriptionEditor(
+  rootRef: RefObject<HTMLDivElement | null>,
+  autoFocus: boolean
+) {
+  const editorRef = useRef<LexicalEditor | null>(null)
+  const [editor, setEditor] = useState<DescriptionEditor | null>(null)
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "failed">(
+    "idle"
+  )
+  const editorLoad = useRef<Promise<DescriptionEditor | null> | null>(null)
+  const { editing, startEditing, stopEditing } = useEditMode({
+    editorRef,
+    rootRef,
+    startHotkey: null,
+    initial: autoFocus
+  })
+  const activeEditing = editor !== null && editing
+
+  const ensureEditor = useCallback(() => {
+    if (editor !== null) return Promise.resolve(editor)
+    if (editorLoad.current !== null) return editorLoad.current
+    setLoadState("loading")
+    const pending = loadDescriptionEditor()
+      .then((loaded) => {
+        if (rootRef.current === null) return null
+        flushSync(() => {
+          setEditor(loaded)
+          setLoadState("idle")
+        })
+        return loaded
+      })
+      .catch(() => {
+        if (rootRef.current !== null) setLoadState("failed")
+        return null
+      })
+      .finally(() => {
+        editorLoad.current = null
+      })
+    editorLoad.current = pending
+    return pending
+  }, [editor, rootRef])
+
+  const edit = () => {
+    if (editorRef.current !== null) {
+      startEditing()
+      return
+    }
+    const selection = readSelection(rootRef.current)
+    void ensureEditor().then((loaded) => {
+      if (loaded === null || rootRef.current === null) return
+      const editorRoot = editorRef.current?.getRootElement()
+      if (selection !== null && editorRoot)
+        selectDescriptionText(editorRoot, selection)
+      startEditing()
+    })
+  }
+
+  useHotkey(appHotkeys["tickets.edit-description"], edit, {
+    enabled: !activeEditing,
+    requireReset: true
+  })
+
+  const openForNewTicket = useEffectEvent(() => void ensureEditor())
+  useEffect(() => {
+    if (autoFocus) {
+      openForNewTicket()
+      return undefined
+    }
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        void loadDescriptionEditor().catch(() => {})
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [autoFocus])
+
+  return {
+    editor,
+    editorRef,
+    loadState,
+    ensureEditor,
+    editing: activeEditing,
+    startEditing,
+    stopEditing,
+    edit
+  }
+}

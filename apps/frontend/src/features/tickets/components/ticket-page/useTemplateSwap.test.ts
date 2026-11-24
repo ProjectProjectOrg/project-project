@@ -14,7 +14,7 @@ const fakeDescription = () => {
   let body = PREVIOUS
   let onEdit: (() => void) | null = null
   const handle: DescriptionHandle = {
-    swapTemplate: () => {
+    swapTemplate: async () => {
       body = SWAPPED
       return { name: "Bug report", previous: PREVIOUS, swapped: SWAPPED }
     },
@@ -71,7 +71,9 @@ it("keeps what the user typed when the type change fails later", async () => {
         settle = resolve
       })
   )
-  act(() => hook.result.current.onTypePatch({ type: TypeKey.make("bug") }))
+  await act(async () =>
+    hook.result.current.onTypePatch({ type: TypeKey.make("bug") })
+  )
   act(() => type("my notes"))
   await act(async () => settle(Exit.fail("boom")))
   expect(handle.restore).not.toHaveBeenCalled()

@@ -54,7 +54,8 @@ export const syncedDisplayContent = (
 ) =>
   mode === "reference" ? hintsAsEmphasis(view.definition.content) : view.content
 
-const TASK_MARK = /^(\s*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])\]/
+const TASK_MARK =
+  /^((?:[ \t]*>[ \t]?)*[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX])\]/
 
 export const toggleTaskAtLine = (content: string, line: number) => {
   const lines = content.split("\n")

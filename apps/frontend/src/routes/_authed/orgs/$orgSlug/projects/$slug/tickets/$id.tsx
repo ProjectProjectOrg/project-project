@@ -1,6 +1,8 @@
 import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
+import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
+import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
 import { Crumb } from "@/components/shell/Breadcrumbs"
@@ -14,13 +16,17 @@ import {
   projectLibraryRequest
 } from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
 import { tagEditor, tagEditorRequest } from "@/features/tags/atoms/tags"
-import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   ticketActivity,
   ticketActivityRequest
@@ -52,7 +58,14 @@ export const Route = createFileRoute(
     from: ticketSourceFromSearch(search),
     sprint: sprintFromSearch(search)
   }),
-  loader: ({ context, params, deps, location }) => {
+  loader: async ({
+    context: { registry },
+    params,
+    deps,
+    location,
+    abortController
+  }) => {
+    const { orgSlug, slug } = params
     const id = decodeTicketId(params.id)
     const ticket = Crumb.ticket({
       orgSlug: params.orgSlug,
@@ -76,7 +89,7 @@ export const Route = createFileRoute(
             ticket
           ]
     if (location.state.ticketStep === true) return { crumb }
-    context.registry.mount(
+    registry.mount(
       ticketSequence(
         ticketSequenceRequest(
           params.orgSlug,
@@ -87,35 +100,46 @@ export const Route = createFileRoute(
       )
     )()
     if (deps.sprint !== undefined) {
-      context.registry.mount(
+      registry.mount(
         sprintDetail(sprintRequest(params.orgSlug, params.slug, deps.sprint))
       )()
     }
-    context.registry.mount(
-      ticketDetail(ticketRequest(params.orgSlug, params.slug, id))
-    )()
-    context.registry.mount(
-      comments(commentsRequest(params.orgSlug, params.slug, id))
-    )()
-    context.registry.mount(
+    registry.mount(comments(commentsRequest(params.orgSlug, params.slug, id)))()
+    registry.mount(
       ticketActivity(ticketActivityRequest(params.orgSlug, params.slug, id))
     )()
-    context.registry.mount(orgStorage(storageRequest(params.orgSlug)))()
-    context.registry.mount(orgDetail(orgRequest(params.orgSlug)))()
-    context.registry.mount(
-      projectLibraryFor(projectLibraryRequest(params.orgSlug, params.slug))
-    )()
-    context.registry.mount(
-      projectEpics(epicsRequest(params.orgSlug, params.slug))
-    )()
-    context.registry.mount(
-      tagEditor(tagEditorRequest(params.orgSlug, params.slug, id))
-    )()
-    context.registry.mount(
+    registry.mount(orgStorage(storageRequest(orgSlug)))()
+    registry.mount(orgDetail(orgRequest(orgSlug)))()
+    registry.mount(
       everhourProjectStatusAtom(
         everhourProjectRequest(params.orgSlug, params.slug)
       )
     )()
+    await Effect.runPromiseExit(
+      Effect.all(
+        [
+          Registry.getResult(
+            registry,
+            ticketDetail(ticketRequest(orgSlug, slug, id))
+          ),
+          Registry.getResult(registry, project(projectRequest(orgSlug, slug))),
+          Registry.getResult(
+            registry,
+            statusesFor(statusesRequest(orgSlug, slug))
+          ),
+          Registry.getResult(
+            registry,
+            projectLibraryFor(projectLibraryRequest(orgSlug, slug))
+          ),
+          Registry.getResult(
+            registry,
+            tagEditor(tagEditorRequest(orgSlug, slug, id))
+          )
+        ],
+        { concurrency: "unbounded", mode: "result" }
+      ),
+      { signal: abortController.signal }
+    )
     return { crumb }
   }
 })

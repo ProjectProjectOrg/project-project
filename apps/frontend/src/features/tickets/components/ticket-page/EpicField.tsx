@@ -21,6 +21,7 @@ import { ProgressCount } from "@pp/ui/progress-count"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 import { useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -32,6 +33,9 @@ import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const NO_EPIC = "__no-epic"
+const idleEpics = Atom.make<Atom.Type<ReturnType<typeof projectEpics>>>(
+  Result.initial()
+)
 
 export function EpicField({
   ticket,
@@ -43,7 +47,10 @@ export function EpicField({
   onPatch: (patch: TicketEdit) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const result = useAtomValue(projectEpics(epicsRequest(orgSlug, slug)))
+  const [requested, setRequested] = useState(false)
+  const result = useAtomValue(
+    requested ? projectEpics(epicsRequest(orgSlug, slug)) : idleEpics
+  )
   const epics = Result.isSuccess(result) ? result.value : []
   const parent = ticket.parent
   const [query, setQuery] = useState("")
@@ -104,6 +111,9 @@ export function EpicField({
     <PickerField>
       <DropdownMenu
         filterable={{ value: query, onValueChange: setQuery }}
+        onOpenChange={(open) => {
+          if (open) setRequested(true)
+        }}
         onOpenChangeComplete={(open) => {
           if (!open) setQuery("")
         }}

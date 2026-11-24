@@ -23,11 +23,15 @@ access, existence, or a redirect. Preserve genuine permission prerequisites.
 Components remain able to start a missing read if router loader data is reused
 after its atom has expired.
 
-The ticket description and comments are both core ticket content. Start them
-together, including during ticket hover prefetch, and render each as it becomes
-ready. Time tracking and GitHub data load independently and never block core
-content. Keep loading, empty, failed, and refreshing states distinct at the owning
-section; a failed refresh must remain visible even when retaining previous data.
+Start ticket detail and comments together, including during ticket hover
+prefetch. On a cold open, keep the full-screen loader up until the ticket route
+can render the description and primary properties. The ticket loader waits for
+the canonical detail, project, statuses, library and tag editor reads to settle.
+The route chunk includes the description renderer. Cached results can paint
+while they refresh. Comments, activity, navigation sequence, time tracking and
+GitHub data load independently. Keep loading, empty, failed and refreshing states
+distinct at the owning section. A failed refresh remains visible even when
+retaining previous data.
 
 ## Backlog and control demand
 

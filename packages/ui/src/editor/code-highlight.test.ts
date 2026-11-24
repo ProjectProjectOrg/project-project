@@ -19,9 +19,10 @@ import {
 } from "lexical"
 import { expect, it } from "vitest"
 
+import { loadHighlighter } from "../lib/highlight"
 import { CodeHighlightExtension } from "./code-highlight"
 
-it("highlights a code block and keeps the caret where the typing was", () => {
+it("highlights a code block and keeps the caret where the typing was", async () => {
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "test",
@@ -43,6 +44,7 @@ it("highlights a code block and keeps the caret where the typing was", () => {
     },
     { discrete: true }
   )
+  await loadHighlighter()
   editor.read(() => {
     const code = $getRoot().getFirstChild()
     if (!$isCodeNode(code)) throw new Error("no code block")
@@ -67,7 +69,8 @@ it("highlights a code block and keeps the caret where the typing was", () => {
   })
 })
 
-it("leaves an IME composition in a code block alone until it ends", () => {
+it("leaves an IME composition in a code block alone until it ends", async () => {
+  await loadHighlighter()
   const editor = buildEditorFromExtensions(
     defineExtension({
       name: "test",

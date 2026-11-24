@@ -22,21 +22,33 @@ import {
   $isTextNode,
   $onUpdate,
   defineExtension,
+  HISTORY_MERGE_TAG,
   mergeRegister,
+  SKIP_DOM_SELECTION_TAG,
   TextNode,
   type LexicalEditor,
   type LexicalNode,
   type NodeKey
 } from "lexical"
 
-import { highlightCode, isHighlighted } from "../lib/highlight"
+import {
+  getHighlighter,
+  loadHighlighter,
+  type CodeToken
+} from "../lib/highlight"
 
 export const PLAIN_CODE_LANGUAGE = "plain"
 
-type Highlighting = { pending: boolean; keys: Set<NodeKey> }
+type Highlighting = {
+  pending: boolean
+  keys: Set<NodeKey>
+  loadFor: (key: NodeKey) => void
+}
 
-const $highlightNodes = (text: string, language: string) => {
-  const lines = highlightCode(text, language)
+const $highlightNodes = (
+  text: string,
+  lines: ReadonlyArray<ReadonlyArray<CodeToken>> | null
+) => {
   if (lines === null) return $plainifyCodeContent(text)
   return lines.flatMap((line, index) => {
     const nodes: Array<LexicalNode> = index > 0 ? [$createLineBreakNode()] : []
@@ -128,7 +140,11 @@ const $highlight = (state: Highlighting, code: CodeNode) => {
   const key = code.getKey()
   if (!code.getLanguage()) code.setLanguage(PLAIN_CODE_LANGUAGE)
   const language = code.getLanguage() ?? PLAIN_CODE_LANGUAGE
-  const supported = isHighlighted(language)
+  const highlighter = getHighlighter()
+  if (language !== PLAIN_CODE_LANGUAGE && highlighter === undefined) {
+    state.loadFor(key)
+  }
+  const supported = highlighter?.isHighlighted(language) ?? false
   if (code.getIsSyntaxHighlightSupported() !== supported)
     code.setIsSyntaxHighlightSupported(supported)
   if (state.keys.has(key) || $getEditor().isComposing()) return
@@ -143,9 +159,15 @@ const $highlight = (state: Highlighting, code: CodeNode) => {
   const current = $getNodeByKey(key)
   if (!$isCodeNode(current) || !current.isAttached()) return
   const caret = $caretOffset(current)
+  const text = current.getTextContent()
   const { from, to, nodes } = changedRange(
     current.getChildren(),
-    $highlightNodes(current.getTextContent(), language)
+    $highlightNodes(
+      text,
+      supported && highlighter
+        ? highlighter.highlightCode(text, language)
+        : null
+    )
   )
   if (from === to && nodes.length === 0) return
   current.splice(from, to - from, nodes)
@@ -160,8 +182,40 @@ const $highlightText = (state: Highlighting, node: TextNode) => {
 }
 
 export const registerCodeHighlighting = (editor: LexicalEditor) => {
-  const state: Highlighting = { pending: false, keys: new Set() }
+  const waiting = new Set<NodeKey>()
+  const state: Highlighting = {
+    pending: false,
+    keys: new Set(),
+    loadFor: (key) => {
+      const alreadyLoading = waiting.size > 0
+      waiting.add(key)
+      if (alreadyLoading) return
+      void loadHighlighter().then(
+        () => {
+          if (waiting.size === 0) return
+          const keys = [...waiting]
+          waiting.clear()
+          const root = editor.getRootElement()
+          const tag =
+            root !== null && !root.contains(root.ownerDocument.activeElement)
+              ? [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG]
+              : HISTORY_MERGE_TAG
+          editor.update(
+            () => {
+              for (const key of keys) {
+                const node = $getNodeByKey(key)
+                if ($isCodeNode(node) && node.isAttached()) node.markDirty()
+              }
+            },
+            { tag }
+          )
+        },
+        () => waiting.clear()
+      )
+    }
+  }
   return mergeRegister(
+    () => waiting.clear(),
     registerCodeGutter(editor),
     editor.registerNodeTransform(CodeNode, (node) => $highlight(state, node)),
     editor.registerNodeTransform(TextNode, (node) =>

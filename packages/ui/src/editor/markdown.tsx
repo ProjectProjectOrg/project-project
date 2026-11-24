@@ -5,6 +5,8 @@ import {
   parseAttachmentUrl,
   parseMentionHref,
   parseTicketBlocks,
+  serializeTicketBlocks,
+  stripHints,
   TicketBlockSegment
 } from "@pp/shared"
 import {
@@ -26,7 +28,6 @@ import {
   ATTACHMENT_IMAGE_CLASS,
   attachmentWidthStyle
 } from "../editor/attachment-image-style"
-import { rehypeHighlight } from "../editor/markdown-highlight"
 import { markdownPlugins } from "../editor/markdown-parser"
 import { cn } from "../lib/utils"
 import {
@@ -43,10 +44,12 @@ import {
 import {
   splitLeadingHeading,
   SyncedView,
-  syncedView
+  syncedView,
+  toggleTaskAtLine
 } from "./blocks/synced-content"
 import { previewableUrl } from "./links/link-preview-url"
 import { PreviewLink } from "./links/preview-link"
+import { MarkdownCodeBlock } from "./markdown-code-block"
 import { FigmaTargetContext, MarkdownFigma } from "./markdown-figma"
 import {
   allowMentionUrls,
@@ -109,13 +112,17 @@ export function Markdown({
   className,
   blocks = "frame",
   size = "default",
-  figmaTarget = null
+  figmaTarget = null,
+  hideHints = false,
+  onToggleTask
 }: Readonly<{
   children: string
   className?: string
   blocks?: MarkdownBlocks
   size?: MarkdownSize
   figmaTarget?: TicketTarget | null
+  hideHints?: boolean
+  onToggleTask?: (markdown: string) => void
 }>) {
   const morphId = useId()
   const segments = parseTicketBlocks(children)
@@ -137,16 +144,30 @@ export function Markdown({
         >
           {segments.map((segment, index) => {
             const id = `${morphId}-${index}`
-            if (TicketBlockSegment.$is("markdown")(segment))
-              return (
-                <MarkdownSegment key={index} text={segment.text} morphId={id} />
-              )
-            if (!framed)
+            const plain = TicketBlockSegment.$is("markdown")(segment)
+            const text = plain ? segment.text : segment.content
+            const display = hideHints && !plain ? stripHints(text) : text
+            const toggle =
+              onToggleTask === undefined
+                ? undefined
+                : (source: string, line: number) => {
+                    const next = toggleTaskAtLine(source, line)
+                    if (next === source) return
+                    const replacement = plain
+                      ? TicketBlockSegment.markdown({ text: next })
+                      : TicketBlockSegment.block({ ...segment, content: next })
+                    onToggleTask(
+                      serializeTicketBlocks(segments.with(index, replacement))
+                    )
+                  }
+            const toggleLine = toggle && ((line: number) => toggle(text, line))
+            if (plain || !framed)
               return (
                 <MarkdownSegment
                   key={index}
-                  text={segment.content}
+                  text={display}
                   morphId={id}
+                  onToggleTask={toggleLine}
                 />
               )
             if (segment.sync === true)
@@ -156,9 +177,10 @@ export function Markdown({
                   blockType={segment.type}
                   snapshot={segment.content}
                   morphId={id}
+                  onToggleTask={toggle}
                 />
               )
-            const heading = blankBlockHeading(segment.content)
+            const heading = blankBlockHeading(display)
             return (
               <BlockFrame
                 key={index}
@@ -167,8 +189,9 @@ export function Markdown({
               >
                 {heading === "" ? null : (
                   <MarkdownSegment
-                    text={heading ?? segment.content}
+                    text={heading ?? display}
                     morphId={id}
+                    onToggleTask={toggleLine}
                   />
                 )}
               </BlockFrame>
@@ -183,8 +206,14 @@ export function Markdown({
 function SyncedMarkdownBlock({
   blockType,
   snapshot,
-  morphId
-}: Readonly<{ blockType: string; snapshot: string; morphId: string }>) {
+  morphId,
+  onToggleTask
+}: Readonly<{
+  blockType: string
+  snapshot: string
+  morphId: string
+  onToggleTask?: (content: string, line: number) => void
+}>) {
   const lookup = useBlockLookup()
   const view = syncedView(lookup, blockType, snapshot, "synced")
   if (SyncedView.$is("removed")(view)) {
@@ -202,7 +231,13 @@ function SyncedMarkdownBlock({
   const origin = blockChrome(blockType, lookup).origin ?? "org"
   return (
     <BlockFrame blockType={blockType} sync>
-      <MarkdownSegment text={view.content} morphId={morphId} />
+      <MarkdownSegment
+        text={view.content}
+        morphId={morphId}
+        onToggleTask={
+          onToggleTask && ((line) => onToggleTask(view.content, line))
+        }
+      />
       <SyncedChip label={syncedChipLabel("synced", origin)} />
     </BlockFrame>
   )
@@ -238,9 +273,9 @@ export function MarkdownSegment({
   return (
     <ReactMarkdown
       remarkPlugins={markdownPlugins}
-      rehypePlugins={[rehypeHighlight]}
       urlTransform={allowMentionUrls}
       components={{
+        pre: MarkdownCodeBlock,
         li: ({ node, ...rest }) => {
           // A task's checkbox is named by its item's text.
           const id = `${attachmentId}-task-${node?.position?.start.line}`

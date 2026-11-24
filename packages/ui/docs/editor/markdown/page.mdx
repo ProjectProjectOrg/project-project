@@ -30,6 +30,8 @@ import { Markdown } from "@pp/ui/editor/markdown"
 | `size` | `"default"`; `"compact"` for comments (tighter headings); `"reading"` for short text read on its own, such as release notes (15px, looser lines) |
 | `blocks` | `"frame"` (blocks with their icons, the default) or `"flat"` (blocks as plain sections) |
 | `figmaTarget` | The ticket its Figma links belong to: their names and thumbnails (`EditorServices` `useFigmaLinks`), and live embeds for rich links. Without it (previews, hover cards) every Figma link is a chip with the link's text |
+| `hideHints` | Hide template hint text in the reading view |
+| `onToggleTask` | Let readers tick checklist items. Receives the updated Markdown to save |
 
 ## Rules
 
@@ -37,9 +39,11 @@ import { Markdown } from "@pp/ui/editor/markdown"
 
 `Markdown` and the editor share their styles (`.prose-md`, in `prose.css`), and the same mentions, attachments, blocks, Figma and Paper chips and code highlighting, so switching a description into edit mode moves nothing.
 
+Code blocks render their text and line numbers immediately. A language label starts loading the tokenizer, and the colors appear in place once it is ready.
+
 ### Checkboxes are the Checkbox
 
-Task lists render the Checkbox component, read-only, like the editor's checklist items. (`MarkdownSegment` takes `onToggleTask` for surfaces that let you tick them without editing.)
+Task lists render the Checkbox component. A description with `onToggleTask` lets readers tick items directly, including in synced sections. Other surfaces show read-only checkboxes.
 
 ### Links show their page, unsafe ones are dropped
 

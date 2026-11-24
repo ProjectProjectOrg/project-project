@@ -37,12 +37,15 @@ export function useTemplateSwap(
     setNote((current) => (current === swap ? null : current))
   }
 
-  const onTypePatch = (patch: TicketEdit) => {
+  const onTypePatch = async (patch: TicketEdit) => {
     const retyped = patch.type !== undefined && patch.type !== ticketType
     const swap =
       patch.type === undefined || !retyped
         ? null
-        : (descriptionRef.current?.swapTemplate(ticketType, patch.type) ?? null)
+        : ((await descriptionRef.current?.swapTemplate(
+            ticketType,
+            patch.type
+          )) ?? null)
     if (retyped) setNote(swap)
     void onPatch(patch).then((exit) => {
       if (swap !== null && Exit.isFailure(exit)) rollBack(swap)

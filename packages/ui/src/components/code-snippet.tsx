@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 
-import { highlightCode, type CodeToken } from "../lib/highlight"
+import { useHighlightedCode } from "../hooks/useHighlightedCode"
+import type { CodeToken } from "../lib/highlight"
 import { cn } from "../lib/utils"
 import { CopyButton } from "./copy-button"
 
@@ -17,10 +18,9 @@ export function CodeSnippet({
   copiedLabel: string
   className?: string
 }>) {
+  const highlighted = useHighlightedCode(code, language)
   const tokens = useMemo(() => {
-    const lines = highlightCode(code, language) ?? [
-      [{ text: code, kind: null }]
-    ]
+    const lines = highlighted ?? [[{ text: code, kind: null }]]
     const newline: CodeToken = { text: "\n", kind: null }
     return lines
       .flatMap((line, index) => (index === 0 ? line : [newline].concat(line)))
@@ -35,7 +35,7 @@ export function CodeSnippet({
         },
         []
       )
-  }, [code, language])
+  }, [code, highlighted])
 
   return (
     <div className={cn("group relative", className)}>

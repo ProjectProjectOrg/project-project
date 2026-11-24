@@ -97,17 +97,17 @@ const mountComments = async () => {
   return { wrapper, reads: () => reads }
 }
 
-it("catches up on connecting, then refreshes the comments a change names", async () => {
+it("refreshes comments only when the first connection receives a change that names them", async () => {
   const { wrapper, reads } = await mountComments()
   renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
   expect(latest().url).toBe("/api/orgs/org/projects/project/tickets/events")
 
   open()
-  await waitFor(() => expect(reads()).toBe(2))
   send('[{"kind":"comments","id":"T-2"}]')
-  expect(reads()).toBe(2)
+  await act(async () => {})
+  expect(reads()).toBe(1)
   send('[{"kind":"tickets","id":"T-1"},{"kind":"comments","id":"T-1"}]')
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
 })
 
 it("closes while hidden and catches up on reopening", async () => {
@@ -115,14 +115,27 @@ it("closes while hidden and catches up on reopening", async () => {
   renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
   const first = latest()
   open()
-  await waitFor(() => expect(reads()).toBe(2))
 
   setVisibility("hidden")
   expect(first.readyState).toBe(FakeEventSource.CLOSED)
   setVisibility("visible")
   expect(FakeEventSource.opened).toHaveLength(2)
   open()
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
+})
+
+it("catches up when returning to a project with retained reads", async () => {
+  const { wrapper, reads } = await mountComments()
+  const first = renderHook(
+    () => useProjectChanges("org", "project", () => {}),
+    { wrapper }
+  )
+  open()
+  first.unmount()
+
+  renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
+  open()
+  await waitFor(() => expect(reads()).toBe(2))
 })
 
 it("refreshes a stale read once on returning to the tab, through the stream's catch-up", async () => {
@@ -134,14 +147,13 @@ it("refreshes a stale read once on returning to the tab, through the stream's ca
   const { wrapper, reads } = await mountComments()
   renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
   open()
-  await waitFor(() => expect(reads()).toBe(2))
   vi.setSystemTime(start + 31_000)
 
   setVisibility("hidden")
   setVisibility("visible")
-  expect(reads()).toBe(2)
+  expect(reads()).toBe(1)
   open()
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
 })
 
 const followFrom = async (start: number) => {
@@ -150,7 +162,6 @@ const followFrom = async (start: number) => {
   const { wrapper, reads } = await mountComments()
   renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
   open()
-  await waitFor(() => expect(reads()).toBe(2))
   return reads
 }
 
@@ -173,7 +184,7 @@ it("refreshes a stale read on returning to the tab while the stream is down", as
   fail()
   vi.setSystemTime(start + 31_000)
   returnToTab()
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
 })
 
 it("leaves returning to the tab to the stream again once it reconnects", async () => {
@@ -183,10 +194,10 @@ it("leaves returning to the tab to the stream again once it reconnects", async (
   const reads = await followFrom(start)
   fail()
   open()
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
   vi.setSystemTime(start + 31_000)
   returnToTab()
-  expect(reads()).toBe(3)
+  expect(reads()).toBe(2)
 })
 
 it("reopens and catches up when the stream falls silent", async () => {
@@ -204,7 +215,7 @@ it("reopens and catches up when the stream falls silent", async () => {
   expect(first.readyState).toBe(FakeEventSource.CLOSED)
   open()
   vi.useRealTimers()
-  await waitFor(() => expect(reads()).toBe(3))
+  await waitFor(() => expect(reads()).toBe(2))
 })
 
 it("rewarms once a second after changes and at most every ten seconds", async () => {
