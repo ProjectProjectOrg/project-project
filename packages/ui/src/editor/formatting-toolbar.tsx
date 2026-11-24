@@ -142,6 +142,7 @@ export function FormattingToolbarPlugin({
   }
 
   const startLink = (current: Toolbar) => {
+    if (current.kind !== "text") return
     if (current.link) {
       editor.update(() => $toggleLink(null))
       return
@@ -212,7 +213,7 @@ function ToolbarButtons({
   const toggleBlock = (kind: BlockKind) =>
     editor.update(() => {
       const selection = $getSelection()
-      if (!$isRangeSelection(selection)) return
+      if (toolbar.kind !== "text" || !$isRangeSelection(selection)) return
       if (toolbar.block !== kind) $insertBasicBlock(editor, kind)
       else if (LIST_BLOCKS.has(kind))
         editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
@@ -272,44 +273,48 @@ function ToolbarButtons({
             </ToolbarButton>
           ))}
         </ToggleGroup>
-        <ToolbarButton
-          label={toolbar.link ? labels.unlink : labels.link}
-          index={TEXT_FORMATS.length}
-          hover={hover}
-          render={<Button variant="toolbar" size="square-7" />}
-          onPress={onLink}
-        >
-          {toolbar.link ? (
-            <Unlink className="size-3.5" />
-          ) : (
-            <Link className="size-3.5" />
-          )}
-        </ToolbarButton>
-        <ToolbarPrimitive.Separator className="mx-1 h-4 w-px bg-border" />
-        <ToggleGroup
-          value={toolbar.block === null ? [] : [toolbar.block]}
-          aria-label={labels.block}
-        >
-          {BLOCK_KINDS.map((kind, index) => {
-            const Icon = BASIC_BLOCK_ICONS[kind]
-            return (
-              <ToolbarButton
-                key={kind}
-                index={TEXT_FORMATS.length + 1 + index}
-                hover={hover}
-                label={labels.blocks[kind]}
-                render={
-                  <ToggleGroupItem
-                    value={kind}
-                    onPressedChange={() => toggleBlock(kind)}
-                  />
-                }
-              >
-                <Icon className="size-3.5" />
-              </ToolbarButton>
-            )
-          })}
-        </ToggleGroup>
+        {toolbar.kind === "text" && (
+          <>
+            <ToolbarButton
+              label={toolbar.link ? labels.unlink : labels.link}
+              index={TEXT_FORMATS.length}
+              hover={hover}
+              render={<Button variant="toolbar" size="square-7" />}
+              onPress={onLink}
+            >
+              {toolbar.link ? (
+                <Unlink className="size-3.5" />
+              ) : (
+                <Link className="size-3.5" />
+              )}
+            </ToolbarButton>
+            <ToolbarPrimitive.Separator className="mx-1 h-4 w-px bg-border" />
+            <ToggleGroup
+              value={toolbar.block === null ? [] : [toolbar.block]}
+              aria-label={labels.block}
+            >
+              {BLOCK_KINDS.map((kind, index) => {
+                const Icon = BASIC_BLOCK_ICONS[kind]
+                return (
+                  <ToolbarButton
+                    key={kind}
+                    index={TEXT_FORMATS.length + 1 + index}
+                    hover={hover}
+                    label={labels.blocks[kind]}
+                    render={
+                      <ToggleGroupItem
+                        value={kind}
+                        onPressedChange={() => toggleBlock(kind)}
+                      />
+                    }
+                  >
+                    <Icon className="size-3.5" />
+                  </ToolbarButton>
+                )
+              })}
+            </ToggleGroup>
+          </>
+        )}
       </ToolbarPrimitive.Root>
     </TooltipGroup>
   )
