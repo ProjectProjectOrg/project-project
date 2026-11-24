@@ -127,7 +127,9 @@ export function ListHoverScope({
     scrolled.current = paused
     const retained = targetRow.current
     const row = paused
-      ? retained && container.contains(retained) ? retained : null
+      ? retained && container.contains(retained)
+        ? retained
+        : null
       : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
     if (!paused && at && !row) {
       const under = document.elementFromPoint(at.x, at.y)
