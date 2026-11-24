@@ -1,4 +1,7 @@
-import { $convertFromMarkdownString } from "@lexical/mdast"
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString
+} from "@lexical/mdast"
 import {
   expandType,
   isPristineTypeBody,
@@ -10,7 +13,10 @@ import {
   type TypeKey
 } from "@pp/shared"
 import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
-import { $applyTemplate } from "@pp/ui/editor/blocks/block-commands"
+import {
+  $applyTemplate,
+  $selectFirstHint
+} from "@pp/ui/editor/blocks/block-commands"
 import { normalizeMarkdown } from "@pp/ui/editor/markdown-normalize"
 import { $runSlashItem } from "@pp/ui/editor/slash-menu/slash-commands"
 import { SlashItem } from "@pp/ui/editor/slash-menu/slash-menu-items"
@@ -21,9 +27,20 @@ import {
   $getSelection,
   $isRangeSelection,
   $setSelection,
+  HISTORY_MERGE_TAG,
   HISTORY_PUSH_TAG,
   type LexicalEditor
 } from "lexical"
+
+export const readDescription = (editor: LexicalEditor) =>
+  editor.read(() => $convertToMarkdownString())
+
+export const selectFirstDescriptionHint = (
+  editor: LexicalEditor,
+  lookup: BlockLookup
+) => {
+  editor.update(() => void $selectFirstHint(lookup), { tag: HISTORY_MERGE_TAG })
+}
 
 export type TemplateSwapInput = Readonly<{
   library: Library

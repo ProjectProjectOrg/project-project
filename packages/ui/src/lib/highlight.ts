@@ -1,9 +1,3 @@
-import {
-  codeToTokens,
-  isSupportedLanguage,
-  type Theme
-} from "@pierre/highlights"
-
 export const CODE_TOKEN_KINDS = [
   "comment",
   "punctuation",
@@ -21,67 +15,21 @@ export type CodeTokenKind = (typeof CODE_TOKEN_KINDS)[number]
 
 export type CodeToken = Readonly<{ text: string; kind: CodeTokenKind | null }>
 
-const SCOPES = {
-  comment: "comment",
-  "tag.doctype": "comment",
-  punctuation: "punctuation",
-  operator: "punctuation",
-  keyword: "keyword",
-  preproc: "keyword",
-  "variable.special": "keyword",
-  "diff.minus": "keyword",
-  string: "string",
-  link_uri: "string",
-  "diff.plus": "string",
-  number: "number",
-  boolean: "number",
-  constant: "number",
-  "string.special.symbol": "number",
-  function: "function",
-  type: "type",
-  constructor: "type" as const,
-  namespace: "type",
-  enum: "type",
-  variant: "type",
-  tag: "tag",
-  selector: "tag",
-  attribute: "attribute",
-  property: "attribute",
-  "variable.parameter": "variable"
-} satisfies Record<string, CodeTokenKind>
+type Highlighter = typeof import("./highlight-engine")
 
-const PREFIX = "--code-"
+let highlighter: Highlighter | undefined
+let loading: Promise<Highlighter> | undefined
 
-const theme = {
-  name: "projectproject",
-  appearance: "light",
-  cssVariables: { prefix: PREFIX },
-  style: { syntax: SCOPES }
-} satisfies Theme
+export const getHighlighter = () => highlighter
 
-const kinds = new Map(
-  CODE_TOKEN_KINDS.map((kind) => [`var(${PREFIX}${kind})`, kind])
-)
-
-const lexerFor = (language: string) => {
-  const lower = language.toLowerCase()
-  return lower.startsWith("diff-") ? "diff" : lower
+const importHighlighter = async () => {
+  try {
+    highlighter = await import("./highlight-engine")
+    return highlighter
+  } catch (error) {
+    loading = undefined
+    throw error
+  }
 }
 
-export const isHighlighted = (language: string) =>
-  isSupportedLanguage(lexerFor(language))
-
-export const highlightCode = (code: string, language: string) => {
-  const lang = lexerFor(language)
-  if (!isSupportedLanguage(lang)) return null
-  return codeToTokens(code, { lang, theme }).tokens.map((line) =>
-    line.reduce<Array<CodeToken>>((merged, token) => {
-      const kind = kinds.get(token.color ?? "") ?? null
-      const last = merged.at(-1)
-      if (last?.kind === kind)
-        merged[merged.length - 1] = { text: last.text + token.content, kind }
-      else merged.push({ text: token.content, kind })
-      return merged
-    }, [])
-  )
-}
+export const loadHighlighter = () => (loading ??= importHighlighter())

@@ -103,6 +103,10 @@ describe("toggleTaskAtLine", () => {
     expect(toggleTaskAtLine(SNAPSHOT, 1)).toBe(SNAPSHOT)
     expect(toggleTaskAtLine(SNAPSHOT, 99)).toBe(SNAPSHOT)
   })
+
+  it("toggles a quoted task in place", () => {
+    expect(toggleTaskAtLine("> > - [ ] Confirm", 1)).toBe("> > - [x] Confirm")
+  })
 })
 
 describe("splitLeadingHeading", () => {

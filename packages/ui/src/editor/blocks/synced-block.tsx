@@ -1,4 +1,4 @@
-import type { Library, LibraryOrigin } from "@pp/shared"
+import type { BlockDefinition, Library, LibraryOrigin } from "@pp/shared"
 import type { ReactNode } from "react"
 
 import { Button } from "../../components/button"
@@ -6,6 +6,7 @@ import { Link2 } from "../../components/icons"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import { BUILTIN_LIBRARY } from "./block-chrome"
+import type { EditorBlocks } from "./editor-blocks"
 import type { SyncedBlockMode } from "./synced-content"
 
 const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
@@ -94,6 +95,40 @@ export function SyncedChipAction({
 
 export function SyncedChipNote({ label }: Readonly<{ label: string }>) {
   return <span className="px-1.5">{label}</span>
+}
+
+export function SyncedActions({
+  blocks,
+  definition,
+  mode,
+  onDetach
+}: Readonly<{
+  blocks: EditorBlocks
+  definition: BlockDefinition
+  mode: SyncedBlockMode
+  onDetach: () => void
+}>) {
+  if (mode === "reference")
+    return (
+      <SyncedChipAction
+        label={m.editor_synced_customize()}
+        onClick={onDetach}
+      />
+    )
+  const { origin, key } = definition
+  const edit = syncedEditAction(blocks.library, origin, blocks.canEdit)
+  return (
+    <>
+      {edit === "edit" && (
+        <SyncedChipAction
+          label={m.editor_synced_edit()}
+          onClick={() => blocks.onEditDefinition("block", key, origin)}
+        />
+      )}
+      {edit === "managed" && <SyncedChipNote label={managedInLabel(origin)} />}
+      <SyncedChipAction label={m.editor_synced_detach()} onClick={onDetach} />
+    </>
+  )
 }
 
 export function SourceRemovedNote() {

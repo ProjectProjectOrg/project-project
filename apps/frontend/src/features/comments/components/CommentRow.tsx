@@ -8,7 +8,6 @@ import {
   ContextMenuContent,
   ContextMenuTrigger
 } from "@pp/ui/context-menu"
-import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { CircleCheck, X } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
@@ -26,6 +25,7 @@ import {
   resolveThread
 } from "@/features/comments/atoms/comments"
 import { commentAuthorName } from "@/features/comments/lib/commentClipboard"
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"

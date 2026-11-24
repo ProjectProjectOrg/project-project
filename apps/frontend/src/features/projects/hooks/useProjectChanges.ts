@@ -1,8 +1,9 @@
-import { useAtomSet } from "@effect/atom-react"
+import { RegistryContext, useAtomSet } from "@effect/atom-react"
 import { ProjectChange } from "@pp/shared"
 import * as Option from "effect/Option"
+import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { useEffect, useEffectEvent } from "react"
+import { use, useEffect, useEffectEvent } from "react"
 
 import type { ReactivityKey } from "@/api/keys"
 import { streamedKeys } from "@/api/query"
@@ -16,6 +17,7 @@ import {
 const REWARM_DELAY_MS = 1000
 const REWARM_INTERVAL_MS = 10_000
 const SILENCE_MS = 60_000
+const connectedProjects = new WeakMap<AtomRegistry, Set<string>>()
 
 const decodeChanges = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(ProjectChange))
@@ -26,6 +28,7 @@ export function useProjectChanges(
   slug: string,
   rewarm: () => void
 ) {
+  const registry = use(RegistryContext)
   const invalidate = useAtomSet(invalidateProjectKeys)
   const setStreamed = useAtomSet(streamedKeys)
   const onRewarm = useEffectEvent(rewarm)
@@ -34,6 +37,11 @@ export function useProjectChanges(
     const params = { orgSlug, slug }
     const streamed = new Set<unknown>(streamedProjectKeys(params))
     const url = `/api/orgs/${encodeURIComponent(orgSlug)}/projects/${encodeURIComponent(slug)}/tickets/events`
+    const connected = connectedProjects.get(registry) ?? new Set<string>()
+    connectedProjects.set(registry, connected)
+    let needsResync =
+      connected.has(url) || document.visibilityState !== "visible"
+    let catchUpOnHeartbeat = false
     let source: EventSource | null = null
     let streaming = false
     let retry: number | undefined
@@ -86,20 +94,29 @@ export function useProjectChanges(
       next.addEventListener("open", () => {
         heard()
         delay = 1000
-        apply(resyncKeys(params))
+        if (needsResync) apply(resyncKeys(params))
+        catchUpOnHeartbeat = !needsResync
+        needsResync = false
+        connected.add(url)
         stream(true)
       })
       next.addEventListener("message", (event: MessageEvent<unknown>) => {
         heard()
         const changes = decodeChanges(event.data)
-        if (Option.isSome(changes))
-          apply([
-            ...new Set(
-              changes.value.flatMap((change) => changeKeys(params, change))
-            )
-          ])
+        if (Option.isNone(changes)) return
+        if (catchUpOnHeartbeat && changes.value.length === 0) {
+          catchUpOnHeartbeat = false
+          apply(resyncKeys(params))
+          return
+        }
+        apply([
+          ...new Set(
+            changes.value.flatMap((change) => changeKeys(params, change))
+          )
+        ])
       })
       next.addEventListener("error", () => {
+        needsResync = true
         stream(false)
         if (next.readyState !== EventSource.CLOSED) return
         source = null
@@ -110,7 +127,10 @@ export function useProjectChanges(
     const close = () => {
       window.clearTimeout(retry)
       window.clearTimeout(silence)
-      source?.close()
+      if (source !== null) {
+        needsResync = true
+        source.close()
+      }
       source = null
     }
     const follow = () =>
@@ -124,5 +144,5 @@ export function useProjectChanges(
       close()
       stream(false)
     }
-  }, [orgSlug, slug, invalidate, setStreamed])
+  }, [orgSlug, slug, registry, invalidate, setStreamed])
 }

@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { Copy, MoreHorizontal, Pencil, Trash2, X } from "@pp/ui/icons"
 import { Reveal } from "@pp/ui/reveal"
@@ -22,6 +21,7 @@ import {
   retryFailedComment,
   type OutboxEntry
 } from "@/features/comments/atoms/comments"
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { describeCause } from "@/lib/errorMessage"

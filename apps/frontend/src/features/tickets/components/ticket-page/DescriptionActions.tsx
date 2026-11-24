@@ -28,11 +28,13 @@ const statusLabel = {
 
 export function DescriptionActions({
   editing,
+  loading,
   status,
   onEdit,
   onDone
 }: Readonly<{
   editing: boolean
+  loading?: boolean
   status: SaveStatus
   onEdit: () => void
   onDone: () => void
@@ -71,6 +73,7 @@ export function DescriptionActions({
           ) : (
             <Button
               variant="tertiary"
+              loading={loading}
               leadingIcon={Pencil}
               aria-label={m.tickets_description_edit()}
               aria-keyshortcuts={

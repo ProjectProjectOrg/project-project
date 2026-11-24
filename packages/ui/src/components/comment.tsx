@@ -401,11 +401,15 @@ const focusEditorEnd = (event: MouseEvent<HTMLElement>) => {
   )
     return
   const editor = event.currentTarget.querySelector<HTMLElement>(
-    "[contenteditable=true]"
+    "[contenteditable=true], textarea"
   )
   if (editor === null) return
   event.preventDefault()
   editor.focus({ preventScroll: true })
+  if (editor instanceof HTMLTextAreaElement) {
+    editor.setSelectionRange(editor.value.length, editor.value.length)
+    return
+  }
   const range = document.createRange()
   range.selectNodeContents(editor)
   range.collapse(false)

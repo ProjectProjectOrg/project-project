@@ -1,5 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { $convertToMarkdownString } from "@lexical/mdast"
+import { useAtom, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   expandType,
   typeFor,
@@ -7,23 +6,17 @@ import {
   type TicketDetail,
   type TypeKey
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { AttachmentAvailabilityProvider } from "@pp/ui/editor/attachments/availability"
-import { lookupFor } from "@pp/ui/editor/blocks/block-chrome"
-import { $selectFirstHint } from "@pp/ui/editor/blocks/block-commands"
-import { attachmentsForDescription } from "@pp/ui/editor/editor-transformers"
-import { LexicalEditor } from "@pp/ui/editor/lexical-editor"
+import { LibraryContext, lookupFor } from "@pp/ui/editor/blocks/block-chrome"
+import { Markdown } from "@pp/ui/editor/markdown"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { type SaveStatus } from "@pp/ui/editor/save-queue"
-import { useEditMode } from "@pp/ui/editor/use-edit-mode"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  HISTORY_MERGE_TAG,
-  type LexicalEditor as LexicalEditorType
-} from "lexical"
 import {
   useEffect,
   useImperativeHandle,
@@ -38,6 +31,7 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
+  ticketReadEditFailed,
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
@@ -45,17 +39,11 @@ import { useTicketParticipants } from "@/features/tickets/hooks/useTicketPartici
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
-import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { DescriptionActions } from "./DescriptionActions"
-import {
-  replaceWithTemplate,
-  restoreBody,
-  startFromTemplate,
-  templateSwap
-} from "./descriptionTemplates"
 import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
+import { useDescriptionEditor } from "./useDescriptionEditor"
 
 const SLASH_COMMAND_ONLY = /^(\/\S*)?$/
 const INTERACTIVE = "a, button, input, label"
@@ -69,8 +57,9 @@ export type TemplateSwapNote = Readonly<{
 export type DescriptionHandle = Readonly<{
   swapTemplate: (
     from: TypeKey | null,
-    to: TypeKey | null
-  ) => TemplateSwapNote | null
+    to: TypeKey | null,
+    isCurrent: () => boolean
+  ) => Promise<TemplateSwapNote | null>
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
   onEdit: (markdown: string, callback: () => void) => () => void
@@ -103,13 +92,7 @@ export function DescriptionField({
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
   const canConnectStorage = useOrgActor(orgSlug).call("storage", "connect")
-  const attachments = attachmentsForDescription({
-    orgSlug,
-    slug,
-    ticketId: ticket.id,
-    storageActive
-  })
-  const editorRef = useRef<LexicalEditorType | null>(null)
+  const target = { orgSlug, slug, ticketId: ticket.id }
   const involved = useTicketParticipants(ticket.id)
   const library = blocks?.library ?? null
   const lookup = useMemo(() => lookupFor(library), [library])
@@ -119,82 +102,135 @@ export function DescriptionField({
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const rootRef = useRef<HTMLDivElement>(null)
-  const { editing, startEditing, stopEditing } = useEditMode({
+  const {
+    editor,
     editorRef,
-    rootRef,
-    startHotkey: appHotkeys["tickets.edit-description"],
-    initial: autoFocus
-  })
+    loadState,
+    ensureEditor,
+    editing,
+    startEditing,
+    stopEditing,
+    edit
+  } = useDescriptionEditor(rootRef, autoFocus)
 
-  const startAs = (key: TypeKey) => {
-    const editor = editorRef.current
+  const startAs = async (key: TypeKey) => {
+    const loaded = await ensureEditor()
+    const instance = editorRef.current
+    if (loaded === null || instance === null || rootRef.current === null) return
     const definition = library === null ? null : typeFor(library, key)
     startEditing()
     if (key !== ticket.type) onStartType(key)
-    else if (editor !== null && definition !== null)
-      startFromTemplate(editor, expandType(definition, lookup), { lookup })
+    else if (definition !== null)
+      loaded.templates.startFromTemplate(
+        instance,
+        expandType(definition, lookup),
+        { lookup }
+      )
   }
 
-  useImperativeHandle(ref, () => {
-    const markdownOf = (editor: LexicalEditorType) =>
-      editor.read(() => $convertToMarkdownString())
-    return {
-      swapTemplate: (from, to) => {
-        const editor = editorRef.current
-        if (editor === null || library === null) return null
-        const body = markdownOf(editor)
-        const template = templateSwap({ library, body, from, to })
-        if (template === null) return null
-        replaceWithTemplate(editor, expandType(template, lookup), { lookup })
-        return {
-          name: template.name,
-          previous: body,
-          swapped: markdownOf(editor)
-        }
-      },
-      restore: (markdown) => {
-        const editor = editorRef.current
-        if (editor !== null) restoreBody(editor, markdown)
-      },
-      matches: (markdown) => {
-        const editor = editorRef.current
-        return editor !== null && sameBody(markdownOf(editor), markdown)
-      },
-      focus: () => startEditing(),
-      onEdit: (markdown, callback) => {
-        const editor = editorRef.current
-        if (editor === null) return () => {}
-        return editor.registerUpdateListener(
-          ({ dirtyElements, dirtyLeaves }) => {
-            if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return
-            if (!sameBody(markdownOf(editor), markdown)) callback()
-          }
-        )
+  useImperativeHandle(ref, () => ({
+    swapTemplate: async (from, to, isCurrent) => {
+      if (library === null || to === null || typeFor(library, to) === null)
+        return null
+      const loaded = await ensureEditor()
+      const instance = editorRef.current
+      if (
+        !isCurrent() ||
+        loaded === null ||
+        instance === null ||
+        rootRef.current === null
+      )
+        return null
+      const { readDescription, replaceWithTemplate, templateSwap } =
+        loaded.templates
+      const previous = readDescription(instance)
+      const template = templateSwap({ library, body: previous, from, to })
+      if (template === null) return null
+      replaceWithTemplate(instance, expandType(template, lookup), { lookup })
+      return {
+        name: template.name,
+        previous,
+        swapped: readDescription(instance)
       }
+    },
+    restore: (markdown) => {
+      const instance = editorRef.current
+      if (instance !== null) editor?.templates.restoreBody(instance, markdown)
+    },
+    matches: (markdown) => {
+      const instance = editorRef.current
+      return (
+        instance !== null &&
+        editor !== null &&
+        sameBody(editor.templates.readDescription(instance), markdown)
+      )
+    },
+    focus: edit,
+    onEdit: (markdown, callback) => {
+      const instance = editorRef.current
+      if (instance === null || editor === null) return () => {}
+      return instance.registerUpdateListener(
+        ({ dirtyElements, dirtyLeaves }) => {
+          if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return
+          if (!sameBody(editor.templates.readDescription(instance), markdown))
+            callback()
+        }
+      )
     }
-  }, [library, lookup, startEditing])
+  }))
 
   const landedRef = useRef(false)
   useEffect(() => {
-    const editor = editorRef.current
-    if (!autoFocus || library === null || editor === null || landedRef.current)
+    const instance = editorRef.current
+    if (
+      !autoFocus ||
+      library === null ||
+      editor === null ||
+      instance === null ||
+      landedRef.current
+    )
       return
     landedRef.current = true
-    editor.update(() => void $selectFirstHint(lookup), {
-      tag: HISTORY_MERGE_TAG
-    })
-  }, [autoFocus, library, lookup])
+    editor.templates.selectFirstDescriptionHint(instance, lookup)
+  }, [autoFocus, editor, editorRef, library, lookup])
+
+  const [readEditFailed, setReadEditFailed] = useAtom(ticketReadEditFailed(req))
+  const saveBody = async (next: string) => {
+    const exit = await update({ body: next })
+    if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+    setBodyDraft((draft) => (draft === next ? null : draft))
+    setReadEditFailed(false)
+  }
+
+  const taskSave = useRef(0)
+  const saveReadEdit = (next: string) => {
+    const save = ++taskSave.current
+    setBodyDraft(next)
+    setSaveStatus("saving")
+    const finish = (status: SaveStatus) => {
+      if (save === taskSave.current) setSaveStatus(status)
+    }
+    void saveBody(next).then(
+      () => finish("saved"),
+      () => {
+        if (save === taskSave.current) setReadEditFailed(true)
+        finish("failed")
+      }
+    )
+  }
 
   const empty = SLASH_COMMAND_ONLY.test(body.trim())
   const canStart =
     library !== null && startingTypes(types, ticket.type).length > 0
   const offersStarts = canStart && empty
+  const Editor = editor?.Editor
 
   return (
     <div
       ref={rootRef}
       role="presentation"
       tabIndex={-1}
+      aria-busy={loadState === "loading" || undefined}
       className={cn(
         // States like a bare field: an empty description's placeholder steps
         // up on hover, and further while editing.
@@ -221,47 +257,77 @@ export function DescriptionField({
             event.target.closest(INTERACTIVE)
           )
             return
-          startEditing()
+          edit()
         }}
       >
         <div className={cn("relative flow-root", canStart && "min-h-15")}>
           <DescriptionActions
             editing={editing}
+            loading={loadState === "loading"}
             status={saveStatus}
-            onEdit={() => startEditing()}
+            onEdit={edit}
             onDone={stopEditing}
           />
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
-              <LexicalEditor
-                key={`${slug}/${ticket.id}`}
-                markdown={body}
-                onDraftChange={setBodyDraft}
-                onChange={async (next) => {
-                  const exit = await update({ body: next })
-                  if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-                  setBodyDraft((draft) => (draft === next ? null : draft))
-                }}
-                onStatusChange={setSaveStatus}
-                autoFocus={autoFocus ? "start" : false}
-                placeholder={m.tickets_description_placeholder()}
-                attachments={attachments}
-                blocks={blocks}
-                editorRef={editorRef}
-                editable={editing}
-              />
+              {Editor !== undefined ? (
+                <Editor
+                  key={`${slug}/${ticket.id}`}
+                  markdown={body}
+                  onDraftChange={setBodyDraft}
+                  onChange={saveBody}
+                  onStatusChange={setSaveStatus}
+                  autoFocus={autoFocus ? "start" : false}
+                  placeholder={m.tickets_description_placeholder()}
+                  attachments={{ ...target, uploadsEnabled: storageActive }}
+                  blocks={blocks}
+                  editorRef={editorRef}
+                  editable={editing}
+                />
+              ) : empty ? (
+                <p
+                  data-slot="editor-placeholder"
+                  className="text-body text-muted-foreground"
+                >
+                  {m.tickets_description_placeholder()}
+                </p>
+              ) : (
+                <LibraryContext value={library}>
+                  <Markdown
+                    figmaTarget={target}
+                    hideHints
+                    onChange={saveReadEdit}
+                    sectionEditor={blocks}
+                  >
+                    {body}
+                  </Markdown>
+                </LibraryContext>
+              )}
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
           {offersStarts && (
             <DescriptionTypeStarts
               types={types}
               ticketType={ticket.type}
-              onStart={startAs}
+              onStart={(key) => void startAs(key)}
               className="mt-2"
             />
           )}
         </div>
       </div>
+      {loadState === "failed" && (
+        <p role="alert" className="mt-2 px-3 text-caption text-destructive">
+          {m.tickets_description_editor_load_failed()}
+        </p>
+      )}
+      {readEditFailed && (
+        <div className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive">
+          <span role="alert">{m.editor_save_failed()}</span>
+          <Button variant="ghost" size="xs" onClick={() => saveReadEdit(body)}>
+            {m.error_page_retry_button()}
+          </Button>
+        </div>
+      )}
       {definitionError !== null && (
         <p
           role="alert"

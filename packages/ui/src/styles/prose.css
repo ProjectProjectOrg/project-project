@@ -165,7 +165,7 @@
 /* Code blocks, the editor's and read-only Markdown's, look like the
    gallery's: a 20px squircle on --surface-2, Geist Mono at 12 on 22px lines,
    and line numbers in a 31px gutter at 65% ink. The editor's comes from
-   Lexical (data-gutter), the read view's from markdown-highlight.ts. It
+   Lexical (data-gutter), the read view's from markdown-code-block.tsx. It
    bleeds 4px past the text on both sides: its big
    squircle corners pull the visible edge in, so a block flush with the text
    reads as indented. */
@@ -212,7 +212,7 @@
   user-select: none;
 }
 .prose-md pre .line-number::before {
-  content: attr(line);
+  content: attr(data-line);
   display: inline-block;
   width: var(--code-gutter);
   margin-left: calc(-1 * var(--code-gutter) - 0.6ch);
