@@ -8,6 +8,12 @@ import {
 } from "./sidebarRoute"
 
 describe("sidebarScope", () => {
+  it("keeps What's new active on the latest and earlier releases", () => {
+    for (const path of ["/changelog", "/changelog/2026.11.23"]) {
+      expect(sidebarScope(path, null, undefined)._tag).toBe("changelog")
+    }
+  })
+
   it("puts the org dashboard and all projects in the dashboard scope", () => {
     expect(sidebarScope("/orgs/acme", "acme", undefined)).toEqual(
       SidebarScope.dashboard({ page: "overview" })
