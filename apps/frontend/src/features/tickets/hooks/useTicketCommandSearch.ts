@@ -72,6 +72,20 @@ const titleMatches = (
     .toSorted((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, TITLE_LIMIT)
 
+function matchingTextHits(
+  shownText: ShownText,
+  textQuery: boolean,
+  query: string
+) {
+  const current = textQuery && shownText.query === query
+  const held =
+    textQuery &&
+    !current &&
+    shownText.query !== "" &&
+    (query.startsWith(shownText.query) || shownText.query.startsWith(query))
+  return current || held ? shownText.hits : []
+}
+
 export function useTicketCommandSearch(
   { orgSlug, projectSlug }: CommandContext,
   search: string
@@ -103,13 +117,7 @@ export function useTicketCommandSearch(
   ) {
     setShownText({ query: debounced, hits: textResult.value })
   }
-  const current = textQuery && shownText.query === query
-  const held =
-    textQuery &&
-    !current &&
-    shownText.query !== "" &&
-    (query.startsWith(shownText.query) || shownText.query.startsWith(query))
-  const textHits = current || held ? shownText.hits : []
+  const textHits = matchingTextHits(shownText, textQuery, query)
   if (query === "") return { recent: [], found: [] }
 
   const recent = (

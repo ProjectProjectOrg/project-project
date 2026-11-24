@@ -9,7 +9,7 @@ import { spring } from "@pp/ui/lib/springs"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useLocation } from "@tanstack/react-router"
-import { motion, type Variants } from "motion/react"
+import { m as motion, type Variants } from "motion/react"
 import {
   useRef,
   useState,

@@ -7,7 +7,7 @@ import {
   type StatusPhase
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState } from "react"
 
 import {
@@ -54,6 +54,7 @@ export function StatusDraftRow({ phase, statuses, onClose }: Props) {
     >
       <StatusEditorForm
         initial={{ label: "", icon: "Circle", color, description: "" }}
+        busy={createState.waiting}
         identityLocked={false}
         submitLabel={m.tickets_status_create_add()}
         error={error}
@@ -68,9 +69,7 @@ export function StatusDraftRow({ phase, statuses, onClose }: Props) {
             description: description.length > 0 ? description : null,
             phase
           })
-          if (Exit.isFailure(exit)) return false
-          onClose()
-          return true
+          if (Exit.isSuccess(exit)) onClose()
         }}
       />
     </motion.li>

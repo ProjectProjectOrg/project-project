@@ -2,7 +2,7 @@ import { Button } from "@pp/ui/button"
 import { CropWindow } from "@pp/ui/crop-window"
 import { transitions } from "@pp/ui/lib/springs"
 import { Slider } from "@pp/ui/slider"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
 import { m } from "@/paraglide/messages"

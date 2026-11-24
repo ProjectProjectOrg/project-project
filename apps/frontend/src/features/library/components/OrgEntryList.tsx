@@ -7,6 +7,16 @@ import { useMemo, type ReactNode } from "react"
 
 import { AsyncFailure } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
+import {
+  asIsText,
+  entryUsage,
+  type EntryUsage,
+  type UsageProject
+} from "@/features/library/lib/orgUsage"
+import {
+  sectionUseText,
+  usageBySection
+} from "@/features/library/lib/sectionUsage"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -18,13 +28,10 @@ import {
 import { templateSketch } from "../lib/blockSketchModel"
 import { standingOf } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
-import { entryUsage, type EntryUsage, type UsageProject } from "../lib/orgUsage"
-import { usageBySection } from "../lib/sectionUsage"
 import { BlockStrip } from "./BlockSketch"
 import { ChangedHereBadge, SameOnEveryTicketBadge } from "./EntryBadges"
 import { ENTRY_GRID_CLASS, EntryCard, NewEntryCard } from "./EntryCard"
 import { LibraryEmpty } from "./LibraryEmpty"
-import { sectionUseText } from "./ProjectEntryGroups"
 
 type OrgScope = Extract<LibraryScope, { layer: "org" }>
 
@@ -175,18 +182,6 @@ function OrgEntryList({
       <p className="px-0.5 text-caption text-muted-foreground">{note}</p>
     </div>
   )
-}
-
-export const asIsText = (usage: EntryUsage) => {
-  if (usage.projects === 0) return m.templates_types_usage_no_projects()
-  if (usage.asIs === usage.projects)
-    return usage.projects === 1
-      ? m.templates_types_usage_all_one()
-      : m.templates_types_usage_all({ count: usage.projects })
-  if (usage.asIs === 0) return m.templates_types_usage_none()
-  return usage.asIs === 1
-    ? m.templates_types_usage_some_one()
-    : m.templates_types_usage_some({ count: usage.asIs })
 }
 
 function UsageBadges({ usage }: Readonly<{ usage: EntryUsage }>) {

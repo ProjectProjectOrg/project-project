@@ -1,6 +1,8 @@
+import type { ProjectBanner } from "@pp/shared"
 import { createValidator } from "@tanstack/react-form"
 import * as Schema from "effect/Schema"
 
+import { bannerDefaults } from "@/features/projects/lib/bannerPresets"
 import { appFormOptions } from "@/lib/form"
 
 export const BannerSource = Schema.Struct({
@@ -29,20 +31,30 @@ export const bannerStepValidator = createValidator({
   ]
 })
 
-export const bannerFormOpts = (initial: {
-  kind: "artwork" | "upload" | "none"
+export const bannerFormOpts = (
+  banner: ProjectBanner | null,
   src: string | null
-  preset: string | null
-  crop: { x: number; y: number; zoom: number }
-}) =>
-  appFormOptions({
+) => {
+  const source: typeof BannerSource.Type = {
+    kind:
+      banner === null
+        ? "none"
+        : banner.type === "preset"
+          ? "artwork"
+          : "upload",
+    src,
+    preset: banner?.type === "preset" ? banner.preset : null
+  }
+  return appFormOptions({
     defaultValues: {
-      source: {
-        kind: initial.kind,
-        src: initial.src,
-        preset: initial.preset
-      },
-      crop: initial.crop
+      source,
+      crop: {
+        ...(banner?.crop ?? {
+          x: bannerDefaults.x,
+          y: bannerDefaults.y,
+          zoom: bannerDefaults.zoom
+        })
+      }
     },
     validators: [
       {
@@ -53,3 +65,4 @@ export const bannerFormOpts = (initial: {
       }
     ]
   })
+}

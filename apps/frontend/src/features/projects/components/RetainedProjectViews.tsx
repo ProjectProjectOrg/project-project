@@ -31,43 +31,10 @@ const forView = (query: TicketListQuery, view: string) => {
   return rest
 }
 
-export function RetainedProjectViews() {
-  const { orgSlug, slug } = useProjectRoute()
-  const { estimation } = useProject()
-  const router = useRouter()
+function useNormalizedSearch(activeSearch: TicketListSearch | undefined) {
   const navigate = useNavigate()
-  const backlog = useMatches({
-    select: (matches) =>
-      matches.find(
-        (match) =>
-          match.routeId ===
-          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
-      )
-  })
-  const sprint = useMatches({
-    select: (matches) =>
-      matches.find(
-        (match) =>
-          match.routeId ===
-          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
-      )
-  })
-  const [lastBacklog, setLastBacklog] = useState(backlog?.search)
-  const [lastSprint, setLastSprint] = useState(
-    sprint && {
-      groupId: sprint.params.groupId,
-      search: sprint.search
-    }
-  )
-  if (backlog && lastBacklog !== backlog.search) setLastBacklog(backlog.search)
-  if (
-    sprint &&
-    (lastSprint?.groupId !== sprint.params.groupId ||
-      lastSprint.search !== sprint.search)
-  ) {
-    setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
-  }
-  const activeSearch = (sprint ?? backlog)?.search
+  const router = useRouter()
+  const { estimation } = useProject()
   const activeQuery = useMemo(
     () => activeSearch && ticketQueryFromSearch(activeSearch),
     [activeSearch]
@@ -76,7 +43,7 @@ export function RetainedProjectViews() {
   const normalizedSort = activeSort
     ? normalizeEstimateSort(estimation, activeSort)
     : undefined
-  const activeEstimate = (sprint ?? backlog)?.search.estimate
+  const activeEstimate = activeSearch?.estimate
   const normalizedEstimate = useMemo(
     () => normalizeEstimateFilter(estimation, activeEstimate),
     [estimation, activeEstimate]
@@ -112,6 +79,50 @@ export function RetainedProjectViews() {
     navigate,
     router
   ])
+}
+
+function useRetainedMatches() {
+  const backlog = useMatches({
+    select: (matches) =>
+      matches.find(
+        (match) =>
+          match.routeId ===
+          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+      )
+  })
+  const sprint = useMatches({
+    select: (matches) =>
+      matches.find(
+        (match) =>
+          match.routeId ===
+          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
+      )
+  })
+  const [lastBacklog, setLastBacklog] = useState(backlog?.search)
+  const [lastSprint, setLastSprint] = useState(
+    sprint && {
+      groupId: sprint.params.groupId,
+      search: sprint.search
+    }
+  )
+  if (backlog && lastBacklog !== backlog.search) setLastBacklog(backlog.search)
+  if (
+    sprint &&
+    (lastSprint?.groupId !== sprint.params.groupId ||
+      lastSprint.search !== sprint.search)
+  ) {
+    setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
+  }
+  return { backlog, sprint, lastBacklog, lastSprint }
+}
+
+export function RetainedProjectViews() {
+  const { orgSlug, slug } = useProjectRoute()
+  const { estimation } = useProject()
+  const router = useRouter()
+  const navigate = useNavigate()
+  const { backlog, sprint, lastBacklog, lastSprint } = useRetainedMatches()
+  useNormalizedSearch((sprint ?? backlog)?.search)
   // The stored view updates synchronously (it's an external store), which
   // rendered the whole new list or board inside the click. Deferred, the
   // switcher answers in the click's own frame and the view renders after it

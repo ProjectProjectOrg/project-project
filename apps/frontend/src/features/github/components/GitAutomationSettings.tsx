@@ -21,8 +21,8 @@ import type * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

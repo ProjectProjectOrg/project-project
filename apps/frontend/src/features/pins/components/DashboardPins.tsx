@@ -4,10 +4,11 @@ import { SidebarRowGroup, SidebarSection } from "@pp/ui/sidebar"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
-import { predictionOf } from "@/features/pins/components/PinRow"
-import { PinTree, topPins } from "@/features/pins/components/PinTree"
+import { PinTree } from "@/features/pins/components/PinTree"
 import { usePinReorder } from "@/features/pins/hooks/usePinReorder"
 import {
+  predictionOf,
+  topPins,
   nestPins,
   pinKey,
   pinsIn,

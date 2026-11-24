@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
-import { settingsPage } from "@/components/shell/settings/SettingsLayout"
+import { settingsPage } from "@/components/shell/settings/settingsPage"
 import { figmaProfileAtom } from "@/features/figma/atoms/figma"
 import { Connections } from "@/features/profile/components/Connections"
 import { slackProfiles } from "@/features/slack/atoms/slack"

@@ -77,19 +77,21 @@ export function WelcomeInviteList({
     setAcceptingAll(true)
     setPageError(null)
     onJoining(true)
-    try {
-      const entries = [...accepts.current.entries()]
-      const exits = await Promise.all(entries.map(([, accept]) => accept()))
-      const acceptedIds = new Set(
-        entries.flatMap(([invitationId], index) =>
-          Exit.isSuccess(exits[index]) ? [invitationId] : []
-        )
-      )
-      await enterOrg(invites.filter((invite) => acceptedIds.has(invite.id)))
-    } finally {
+    await acceptAll().finally(() => {
       acceptingAllRef.current = false
       setAcceptingAll(false)
-    }
+    })
+  }
+
+  const acceptAll = async () => {
+    const entries = [...accepts.current.entries()]
+    const exits = await Promise.all(entries.map(([, accept]) => accept()))
+    const acceptedIds = new Set(
+      entries.flatMap(([invitationId], index) =>
+        Exit.isSuccess(exits[index]) ? [invitationId] : []
+      )
+    )
+    await enterOrg(invites.filter((invite) => acceptedIds.has(invite.id)))
   }
 
   return (

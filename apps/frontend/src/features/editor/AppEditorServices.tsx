@@ -3,8 +3,7 @@ import { isProseQuery } from "@pp/ui/editor/mentions/mention-trigger"
 import { useMentionScope } from "@pp/ui/editor/mentions/scope"
 import {
   EditorServicesProvider,
-  type EditorServices,
-  type TicketTarget
+  type EditorServices
 } from "@pp/ui/editor/services"
 import { useRouter } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -39,7 +38,10 @@ const searchSource = (provider: SearchableMentionProvider) => ({
     isProseQuery(empty) && query.startsWith(empty)
 })
 
-const useMentionSearch: EditorServices["useMentionSearch"] = (query) => {
+const MentionSearch: EditorServices["MentionSearch"] = ({
+  query,
+  children
+}) => {
   const scope = useMentionScope()
   const orgSlug = scope?.orgSlug ?? ""
   const slug = scope?.slug ?? ""
@@ -61,30 +63,39 @@ const useMentionSearch: EditorServices["useMentionSearch"] = (query) => {
     useMemo(() => searchSource(tickets), [tickets]),
     query
   )
-  return {
+  return children({
     people: { provider: people, results: peopleResults },
     tickets: { provider: tickets, results: ticketResults }
-  }
+  })
 }
 
-const useUploadAttachment = (target: TicketTarget) =>
-  useAtomSet(
+const AttachmentUpload: EditorServices["AttachmentUpload"] = ({
+  target,
+  children
+}) => {
+  const upload = useAtomSet(
     uploadAttachment(
       uploadAttachmentRequest(target.orgSlug, target.slug, target.ticketId)
     ),
     { mode: "promiseExit" }
   )
 
-const useFigmaLinks = (target: TicketTarget) => {
+  return children(upload)
+}
+
+const LinkPreview: EditorServices["LinkPreview"] = ({ url, children }) =>
+  children(useLinkPreview(url))
+
+const FigmaLinks: EditorServices["FigmaLinks"] = ({ target, children }) => {
   const atom = figmaTicketLinksAtom(
     figmaTicketLinksRequest(target.orgSlug, target.slug, target.ticketId)
   )
   const result = useAtomValue(atom)
   const refresh = useAtomRefresh(atom)
-  return {
+  return children({
     links: AsyncResult.isSuccess(result) ? result.value : null,
     refresh
-  }
+  })
 }
 
 const renderPdf = (url: string) =>
@@ -105,7 +116,7 @@ export function AppEditorServices({
     () =>
       ({
         navigate: (href) => void router.navigate({ href }),
-        useMentionSearch,
+        MentionSearch,
         mentionHref: {
           user: (scope) => `/settings${projectPath(scope)}/team`,
           ticket: (scope, ticketId) =>
@@ -121,9 +132,9 @@ export function AppEditorServices({
             scope={scope}
           />
         ),
-        useLinkPreview,
-        useUploadAttachment,
-        useFigmaLinks,
+        LinkPreview,
+        AttachmentUpload,
+        FigmaLinks,
         openBlockGallery: () => {
           const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
           if (params.orgSlug === undefined) return

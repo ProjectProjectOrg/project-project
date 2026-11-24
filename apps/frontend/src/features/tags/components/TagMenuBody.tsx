@@ -31,6 +31,7 @@ export function TagMenuBody({
   onToggle: (name: TagName) => void
   onCreate: (name: TagName) => void
 }>) {
+  const appliedNames = new Set(applied)
   const newName = Option.filter(
     decodeTagName(draft.trim()),
     (name) => canCreate && !tags.some((tag) => tag.name === name)
@@ -50,7 +51,7 @@ export function TagMenuBody({
           <TagMenuItem
             key={tag.name}
             tag={tag}
-            checked={applied.includes(tag.name)}
+            checked={appliedNames.has(tag.name)}
             onToggle={() => onToggle(tag.name)}
           />
         ))}

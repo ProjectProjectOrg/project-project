@@ -3,10 +3,8 @@ import { Button } from "@pp/ui/button"
 import { ExternalLink } from "@pp/ui/icons"
 import * as Exit from "effect/Exit"
 
-import {
-  SettingsGroup,
-  SettingsRow
-} from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
+import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import {
   githubOrgRequest,
   startGithubAppManifest

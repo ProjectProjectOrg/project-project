@@ -5,6 +5,8 @@ import {
   TicketBlockSegment
 } from "@pp/shared"
 
+import { m } from "@/paraglide/messages"
+
 const sectionKeysOf = (type: TypeDefinition) =>
   new Set(
     parseTicketBlocks(type.body).flatMap((segment) =>
@@ -26,3 +28,12 @@ export const usageBySection = (library: Library) => {
 
 export const typesUsingSection = (library: Library, key: string) =>
   usageBySection(library).get(key) ?? []
+
+export const sectionUseText = (
+  types: ReadonlyArray<Readonly<{ name: string }>>
+) =>
+  types.length === 0
+    ? m.templates_sections_in_none()
+    : m.templates_sections_in({
+        types: types.map((type) => type.name).join(", ")
+      })

@@ -5,15 +5,15 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch
 } from "@pp/ui/emoji-picker"
-import { Database, Upload } from "@pp/ui/icons"
+import { Database } from "@pp/ui/icons"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Link } from "@tanstack/react-router"
 import * as Predicate from "effect/Predicate"
-import { useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
+import { ProjectImagePicker } from "@/features/projects/components/appearance/ProjectImagePicker"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/features/projects/lib/iconCutout"
 import { m } from "@/paraglide/messages"
@@ -38,19 +38,17 @@ export function SourceStep({
 }) {
   const { orgSlug } = useProjectRoute()
   const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
 
-  const take = async (file: File) => {
+  const take = async (file: File, advance: () => void) => {
     const accepted = await draft.accept(file)
-    if (!accepted) return false
+    if (!accepted) return
     form.setFieldValue("source.objectUrl", accepted.url)
     form.setFieldValue("crop", { x: 0.5, y: 0.5, zoom: 1 })
     form.setFieldValue("treatment", {
       kind: accepted.treatment,
       tolerance: CUTOUT_DEFAULT_TOLERANCE
     })
-    return true
+    advance()
   }
 
   return (
@@ -149,38 +147,12 @@ export function SourceStep({
                           </div>
                         </div>
                       ) : (
-                        <Button
-                          type="button"
-                          onClick={() => fileRef.current?.click()}
-                          onDragOver={(event) => {
-                            event.preventDefault()
-                            setDragging(true)
-                          }}
-                          onDragLeave={() => setDragging(false)}
-                          onDrop={(event) => {
-                            event.preventDefault()
-                            setDragging(false)
-                            const file = event.dataTransfer.files[0]
-                            if (file)
-                              void take(file).then((accepted) => {
-                                if (accepted) void group.handleSubmit()
-                              })
-                          }}
-                          variant="dropzone"
-                          size="dropzone"
-                          data-dragging={dragging}
-                        >
-                          <Upload
-                            className="mb-1 size-4 text-muted-foreground"
-                            strokeWidth={1.75}
-                          />
-                          <span className="text-body font-semibold">
-                            {m.project_icon_dropzone_title()}
-                          </span>
-                          <span className="text-caption text-muted-foreground">
-                            {m.project_icon_dropzone_hint()}
-                          </span>
-                        </Button>
+                        <ProjectImagePicker
+                          accept="image/png,image/jpeg,image/webp,image/avif"
+                          onPick={(file) =>
+                            void take(file, () => void group.handleSubmit())
+                          }
+                        />
                       )
                     }
                   />
@@ -217,21 +189,6 @@ export function SourceStep({
                 ) : null
               }
             </group.Subscribe>
-
-            <input
-              ref={fileRef}
-              hidden
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                event.target.value = ""
-                if (file)
-                  void take(file).then((accepted) => {
-                    if (accepted) void group.handleSubmit()
-                  })
-              }}
-            />
           </fieldset>
         </form>
       )}

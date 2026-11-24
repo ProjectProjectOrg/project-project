@@ -12,14 +12,11 @@ import {
   BULK_TICKETS_MAX,
   SPRINT_SECTION_UNSCHEDULED,
   TicketId,
-  TicketPriority,
-  TicketRank,
-  TypeKey,
   type Ticket
 } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
 import * as Schema from "effect/Schema"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import {
   createContext,
   use,
@@ -46,25 +43,11 @@ import {
   type ListDropTarget,
   type RowGap
 } from "@/features/tickets/lib/listDrop"
+import { RowDragData, isRowDragData } from "@/features/tickets/lib/rowDragData"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
 import { fireSelected } from "./selectionStore"
 import { useSelectionActions, useSelectionStore } from "./TicketSelection"
-
-const DraggedRowData = Schema.Struct({
-  id: TicketId,
-  ticketType: Schema.NullOr(TypeKey),
-  subTicketCount: Schema.Number,
-  rank: TicketRank,
-  section: Schema.String
-})
-
-const RowDragData = Schema.TaggedStruct("list-row", {
-  title: Schema.String,
-  priority: TicketPriority,
-  rows: Schema.NonEmptyArray(DraggedRowData)
-})
-export const isRowDragData = Schema.is(RowDragData)
 
 const SectionDropData = Schema.TaggedStruct("list-section", {})
 

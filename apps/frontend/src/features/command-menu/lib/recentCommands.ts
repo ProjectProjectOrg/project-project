@@ -13,8 +13,9 @@ export const recentFirst = <A extends Readonly<{ id: string }>>(
 ) => {
   const byId = new Map(commands.map((command) => [command.id, command]))
   const first = recent.flatMap((id) => byId.get(id) ?? [])
+  const leading = new Set(first)
   return {
     recent: first,
-    rest: commands.filter((command) => !first.includes(command))
+    rest: commands.filter((command) => !leading.has(command))
   }
 }

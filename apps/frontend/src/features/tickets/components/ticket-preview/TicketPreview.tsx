@@ -1,18 +1,10 @@
 import { RegistryContext } from "@effect/atom-react"
-import {
-  type GitState,
-  type StackLayerState,
-  type TicketFlag,
-  type TagName,
-  type TicketId
-} from "@pp/shared"
+import { type TicketId } from "@pp/shared"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger
 } from "@pp/ui/hover-card"
-import type { HotkeyChord } from "@tanstack/react-hotkeys"
-import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import { useContext, type ComponentProps } from "react"
@@ -22,7 +14,6 @@ import {
   useProjectRequest,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
-import type { PullRequest } from "@/features/sprints/components/gitLooks"
 import {
   PullRequestPreview,
   StackPreview
@@ -37,38 +28,11 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketPreviewBody } from "@/features/tickets/components/TicketHoverCard"
-import { type RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
-import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 
 import { FlagPreview } from "./FlagPreview"
 import { TagListPreview, TagPreview } from "./TagPreviews"
 import { RelationsPreview, SubTicketsPreview } from "./TicketListPreviews"
-
-export type TicketPreview = Data.TaggedEnum<{
-  ticket: Readonly<{ id: TicketId; shortcut?: HotkeyChord }>
-  relations: Readonly<{ id: TicketId; relation: RelationPreviewKind }>
-  subTickets: Readonly<{
-    id: TicketId
-    label: string
-    current?: TicketId
-    search?: TicketDetailSearch
-  }>
-  flag: Readonly<{ id: TicketId; flag: TicketFlag }>
-  tag: Readonly<{ name: TagName }>
-  tags: Readonly<{ names: ReadonlyArray<TagName> }>
-  pullRequest: Readonly<{
-    pr: PullRequest
-    ticketId: TicketId
-    repo: string | null
-  }>
-  stack: Readonly<{
-    own: GitState
-    stack: ReadonlyArray<StackLayerState>
-    layers: ReadonlyArray<StackLayerState>
-    repo: string | null
-  }>
-}>
-export const TicketPreview = Data.taggedEnum<TicketPreview>()
 
 // A chip or link that previews on hover (and on focus). Chips whose preview
 // holds more than they say (lists, a flag's reason) also open on click, for

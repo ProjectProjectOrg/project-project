@@ -13,6 +13,7 @@ import { useRef, type RefObject } from "react"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/typeMenuItems"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { useTypeEditing } from "@/features/tickets/hooks/useTypeEditing"
@@ -25,7 +26,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
-import { TypeMenuActionItem, typeMenuItems } from "./TypeField"
+import { TypeMenuActionItem } from "./TypeField"
 
 type CreatorMenuProps = Readonly<{
   expanded: boolean

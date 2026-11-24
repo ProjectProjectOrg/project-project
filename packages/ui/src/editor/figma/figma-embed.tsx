@@ -12,7 +12,7 @@ import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import type { TicketTarget } from "../services"
 import { FigmaChip, FigmaGlyph, figmaDisplayName } from "./figma-chip"
-import { useFigmaMetadata } from "./figma-metadata"
+import { FigmaMetadata, type useFigmaMetadata } from "./figma-metadata"
 
 export function FigmaEmbed({
   request,
@@ -21,7 +21,11 @@ export function FigmaEmbed({
   return request === null ? (
     <FigmaEmbedContent {...props} metadata={null} request={null} />
   ) : (
-    <ResolvedFigmaEmbed {...props} request={request} />
+    <FigmaMetadata target={request} reference={props.reference}>
+      {(metadata) => (
+        <FigmaEmbedContent {...props} metadata={metadata} request={request} />
+      )}
+    </FigmaMetadata>
   )
 }
 
@@ -31,14 +35,6 @@ type FigmaEmbedProps = Readonly<{
   label: string
   morphId: string
 }>
-
-function ResolvedFigmaEmbed({
-  request,
-  ...props
-}: FigmaEmbedProps & { request: TicketTarget }) {
-  const metadata = useFigmaMetadata(props.reference, request)
-  return <FigmaEmbedContent {...props} metadata={metadata} request={request} />
-}
 
 function FigmaEmbedContent({
   reference,

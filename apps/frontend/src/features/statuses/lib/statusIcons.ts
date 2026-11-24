@@ -41,7 +41,7 @@ import {
 } from "@pp/ui/icons"
 import * as Schema from "effect/Schema"
 
-const ICON_MAP: Record<StatusIconName, IconType> = {
+export const STATUS_ICON_COMPONENTS: Record<StatusIconName, IconType> = {
   Circle,
   CircleDot,
   CircleDashed,
@@ -86,5 +86,5 @@ export const STATUS_ICON_NAMES = STATUS_ICONS
 const isStatusIcon = Schema.is(StatusIcon)
 
 export function getStatusIcon(name: string) {
-  return isStatusIcon(name) ? ICON_MAP[name] : Circle
+  return isStatusIcon(name) ? STATUS_ICON_COMPONENTS[name] : Circle
 }

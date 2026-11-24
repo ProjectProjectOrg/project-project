@@ -21,5 +21,6 @@ export function visibleColumns<S extends string>(
   order: ReadonlyArray<S>,
   hidden: ReadonlyArray<string>
 ) {
-  return order.filter((slug) => !hidden.includes(slug))
+  const hiddenSlugs = new Set(hidden)
+  return order.filter((slug) => !hiddenSlugs.has(slug))
 }

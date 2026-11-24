@@ -1,4 +1,4 @@
-import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import { m } from "@/paraglide/messages"
 
 import { CredentialRow } from "./CredentialRow"

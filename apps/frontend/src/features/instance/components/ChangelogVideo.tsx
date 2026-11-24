@@ -7,7 +7,7 @@ import { useResolvedTheme } from "@/hooks/useTheme"
 
 // A highlight's video comes in a light and a dark file; play the one that
 // matches the app around it.
-export const changelogVideoUrl = (video: string, theme: "light" | "dark") =>
+const changelogVideoUrl = (video: string, theme: "light" | "dark") =>
   `/api/changelog-media/${encodeURIComponent(changelogVideoFile(video, theme))}`
 
 const STILL_AT = 0.6

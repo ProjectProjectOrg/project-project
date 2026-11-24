@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import { restoreDefinitionHints, type BlockDefinition } from "@pp/shared"
+import { restoreDefinitionHints } from "@pp/shared"
 import type { EditorBlocks } from "@pp/ui/editor/blocks/editor-blocks"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
@@ -32,8 +32,8 @@ export function useMakeBlockDefinition(
   onError: (message: string) => void
 ) {
   const registry = useContext(RegistryContext)
-  return useCallback(
-    ((definition: BlockDefinition, content: string) => {
+  return useCallback<NonNullable<EditorBlocks["onMakeDefinition"]>>(
+    (definition, content) => {
       const target = {
         req: projectLibraryRequest(orgSlug, slug),
         key: definition.key
@@ -46,7 +46,7 @@ export function useMakeBlockDefinition(
         { content: restoreDefinitionHints(content, definition.content) },
         onError
       )
-    }) satisfies NonNullable<EditorBlocks["onMakeDefinition"]>,
+    },
     [onError, orgSlug, registry, slug]
   )
 }

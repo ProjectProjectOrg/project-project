@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { AboutTab } from "@/features/projects/components/AboutTab"
 import { m } from "@/paraglide/messages"
 

@@ -13,12 +13,13 @@ import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Match from "effect/Match"
 import type { ReactNode } from "react"
 
+import { BranchMenuRemoval } from "@/features/github/lib/branchMenuRemoval"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { canStackOn } from "@/features/github/lib/stacking"
 import { textLinkClass } from "@/lib/textLink"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu, BranchMenuRemoval, type BranchMenuPr } from "./BranchMenu"
+import { BranchMenu, type BranchMenuPr } from "./BranchMenu"
 import type { GitPanelFrame } from "./gitPanelFrame"
 import { PrLink } from "./PrLink"
 
@@ -118,9 +119,7 @@ const baseNote = (base: string, defaultBase: string) =>
     </span>
   )
 
-export const pendingLabel = (
-  state: Extract<GitState, { tag: "branch_pending" }>
-) =>
+const pendingLabel = (state: Extract<GitState, { tag: "branch_pending" }>) =>
   Match.value(state.pendingOperation).pipe(
     Match.when("create", () => m.git_create_branch_checking()),
     Match.when("connect", () => m.git_connect_branch_checking()),

@@ -62,7 +62,6 @@ export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
 ) {
   const registry = useContext(RegistryContext)
   const [settled, setSettled] = useState<Settled<A> | null>(null)
-  const more = useRef<AbortController | null>(null)
   const own =
     settled !== null && source !== null && settled.key === source.key
       ? settled
@@ -74,9 +73,19 @@ export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
     own.page.items.length === 0 &&
     (source?.deadEnd?.(own.query, query) ?? false)
 
+  const current = own !== null && own.query === query ? own : null
+  const cursor = current?.page.nextCursor ?? null
+
+  const { loadMore, cancel } = useNextPage(
+    source,
+    current,
+    registry,
+    setSettled
+  )
+
   useEffect(() => {
     if (source === null || query === null || deadEnd) return undefined
-    more.current?.abort()
+    cancel()
     const controller = new AbortController()
     const settle = (page: SearchPage<A>, failed: boolean) => {
       if (controller.signal.aborted) return
@@ -99,14 +108,83 @@ export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
       () => settle({ items: NONE, nextCursor: null }, true)
     )
     return () => controller.abort()
-  }, [source, query, deadEnd, registry])
+  }, [source, query, deadEnd, registry, cancel])
 
-  const current = own !== null && own.query === query ? own : null
+  const base = {
+    hasMore: cursor !== null,
+    loadingMore: current?.loadingMore ?? false,
+    loadMoreFailed: current?.loadMoreFailed ?? false
+  }
+  return {
+    ...searchResults(
+      base,
+      source === null || query === null,
+      own,
+      current,
+      deadEnd
+    ),
+    loadMore
+  } satisfies PagedSearchResults<A>
+}
+
+function searchResults<A>(
+  base: Omit<PagedSearchResults<A>, "items" | "status" | "loadMore">,
+  idle: boolean,
+  own: Settled<A> | null,
+  current: Settled<A> | null,
+  deadEnd: boolean
+) {
+  if (idle) {
+    return {
+      ...base,
+      items: NONE,
+      status: "idle",
+      hasMore: false
+    } as const
+  }
+  if (own === null)
+    return {
+      ...base,
+      items: NONE,
+      status: "loading"
+    } as const
+  if (deadEnd)
+    return {
+      ...base,
+      items: NONE,
+      status: "ready",
+      hasMore: false
+    } as const
+  if (current === null) {
+    return {
+      ...base,
+      items: own.page.items,
+      status: "searching"
+    } as const
+  }
+  return {
+    ...base,
+    items: current.page.items,
+    status: current.failed ? "failed" : "ready"
+  } as const
+}
+
+function useNextPage<A extends Readonly<{ id: string }>, E>(
+  source: PagedSearchSource<A, E> | null,
+  current: Settled<A> | null,
+  registry: Registry.AtomRegistry,
+  setSettled: React.Dispatch<React.SetStateAction<Settled<A> | null>>
+) {
+  const more = useRef<AbortController | null>(null)
+  const cancel = useCallback(() => more.current?.abort(), [])
   const cursor = current?.page.nextCursor ?? null
-  const blocked = current === null || current.loadingMore || cursor === null
-
   const loadMore = useCallback(() => {
-    if (blocked || source === null || current === null || cursor === null) {
+    if (
+      source === null ||
+      current === null ||
+      current.loadingMore ||
+      cursor === null
+    ) {
       return
     }
     const controller = new AbortController()
@@ -140,45 +218,6 @@ export function usePagedSearch<A extends Readonly<{ id: string }>, E>(
           loadMoreFailed: true
         }))
     )
-  }, [blocked, source, current, cursor, registry])
-
-  const base = {
-    hasMore: cursor !== null,
-    loadingMore: current?.loadingMore ?? false,
-    loadMoreFailed: current?.loadMoreFailed ?? false,
-    loadMore
-  }
-  if (source === null || query === null) {
-    return {
-      ...base,
-      items: NONE,
-      status: "idle",
-      hasMore: false
-    } satisfies PagedSearchResults<A>
-  }
-  if (own === null)
-    return {
-      ...base,
-      items: NONE,
-      status: "loading"
-    } satisfies PagedSearchResults<A>
-  if (deadEnd)
-    return {
-      ...base,
-      items: NONE,
-      status: "ready",
-      hasMore: false
-    } satisfies PagedSearchResults<A>
-  if (current === null) {
-    return {
-      ...base,
-      items: own.page.items,
-      status: "searching"
-    } satisfies PagedSearchResults<A>
-  }
-  return {
-    ...base,
-    items: current.page.items,
-    status: current.failed ? "failed" : "ready"
-  } satisfies PagedSearchResults<A>
+  }, [source, current, cursor, registry, setSettled])
+  return { loadMore, cancel }
 }

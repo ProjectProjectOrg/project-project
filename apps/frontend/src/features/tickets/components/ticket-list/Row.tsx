@@ -10,7 +10,6 @@ import { Checkbox } from "@pp/ui/checkbox"
 import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
 import { ItemLink } from "@pp/ui/item-link"
 import { hasModifier, isKeyboardNavigating } from "@pp/ui/lib/keyboard"
-import { cn } from "@pp/ui/lib/utils"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { Reveal } from "@pp/ui/reveal"
@@ -52,7 +51,7 @@ import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
-import { EstimateBadgeTrigger, estimateColumnWidth } from "./EstimateField"
+import { RowEstimate } from "./EstimateField"
 import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -115,19 +114,8 @@ function RowImpl({
   }
   const pointAt = usePointedTicket(orgSlug, slug, ticket, patchRow, update)
   const key = selectionKey(slug, ticket.id)
-  const selectable = useTicketSelection(key)
-  const selection = pending ? null : selectable
-  const selectionActions = useSelectionActions(key)
-  const shared =
-    selectionActions.count > 1
-      ? sharedTicketFields(selectionActions.selectedTickets)
-      : null
-  // Selected with others: the row shows every field (empty ones as a
-  // placeholder) and its fields change them all.
-  const acting = selection?.selected === true && selectionActions.count > 1
-  const onPatch = (edit: TicketEdit) => {
-    if (!selectionActions.patch(edit)) patchRow(edit)
-  }
+  const { selection, sharedStatus, sharedPriority, acting, onPatch } =
+    useRowSelection(key, pending, patchRow)
   return (
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
@@ -193,9 +181,7 @@ function RowImpl({
                 <RowField name="status">
                   <StatusButton
                     ticket={ticket}
-                    selected={
-                      shared === null ? undefined : (shared.status ?? null)
-                    }
+                    selected={sharedStatus}
                     stopPropagation
                     onPatch={onPatch}
                   />
@@ -205,9 +191,7 @@ function RowImpl({
                 <RowField name="priority">
                   <PriorityButton
                     ticket={ticket}
-                    selected={
-                      shared === null ? undefined : (shared.priority ?? null)
-                    }
+                    selected={sharedPriority}
                     stopPropagation
                     onPatch={onPatch}
                   />
@@ -221,112 +205,35 @@ function RowImpl({
                 />
               }
               title={
-                <>
-                  {ticket.parent &&
-                    ticket.parent.id !== contextParent &&
-                    (ticket.parent.type !== "epic" || shows("epic")) && (
-                      <ParentPrefix parent={ticket.parent} />
-                    )}
-                  <Link
-                    to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                    params={{ orgSlug, slug, id: ticket.id }}
-                    search={from ?? {}}
-                    state={{ ticketTitle: ticket.title }}
-                    preload="intent"
-                    draggable={false}
-                    tabIndex={-1}
-                    className="flex min-w-0 items-center self-stretch outline-none"
-                  >
-                    <PopoverTrigger
-                      openOnHover
-                      delay={TICKET_PREVIEW_DELAY_MS}
-                      nativeButton={false}
-                      onPointerEnter={handleTitlePointerEnter}
-                      onPointerLeave={handleTitlePointerLeave}
-                      render={(triggerProps) => (
-                        <div
-                          {...triggerProps}
-                          role={undefined}
-                          tabIndex={undefined}
-                          aria-controls={undefined}
-                          aria-expanded={undefined}
-                          aria-haspopup={undefined}
-                          onClick={undefined}
-                          onKeyDown={undefined}
-                          onKeyUp={undefined}
-                          onPointerDown={undefined}
-                          className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
-                        />
-                      )}
-                    >
-                      <ListRowTitle variant={titleVariant}>
-                        {ticket.title}
-                      </ListRowTitle>
-                    </PopoverTrigger>
-                  </Link>
-                  <FlagChip ticket={ticket} className="ml-1" />
-                  <SubTicketsChip ticket={ticket} className="ml-1" />
-                </>
+                <RowTitle
+                  shows={shows}
+                  ticket={ticket}
+                  contextParent={contextParent}
+                  titleVariant={titleVariant}
+                  onPointerEnter={handleTitlePointerEnter}
+                  onPointerLeave={handleTitlePointerLeave}
+                />
               }
               trailing={
-                <>
-                  <UpdateFailureMarker update={update.patch(ticket.id)} />
-                  {shows("tags") && (
-                    <span
-                      data-row-field="labels"
-                      className="flex items-center gap-1.5 *:max-w-32 empty:hidden"
-                    >
-                      <TagChips
-                        names={ticket.tags}
-                        onPatch={editable ? onPatch : undefined}
-                        placeholder={
-                          acting ? m.tickets_row_add_label() : undefined
-                        }
-                        max={3}
-                        collapse
-                      />
-                    </span>
-                  )}
-                  {shows("git") && (
-                    <fieldset disabled={!editable} className="contents">
-                      <BoardCardGit ticket={ticket} />
-                    </fieldset>
-                  )}
-                  <span className="flex items-center gap-1.5 empty:hidden">
-                    <RelationChips ticket={ticket} />
-                  </span>
-                  {showSprint && shows("sprint") && (
-                    <fieldset
-                      disabled={!editable}
-                      data-row-field="sprint"
-                      className="contents"
-                    >
-                      <RowSprint
-                        ticketId={ticket.id}
-                        placeholder={
-                          acting ? m.tickets_row_add_sprint() : undefined
-                        }
-                      />
-                    </fieldset>
-                  )}
-                </>
+                <RowTrailing
+                  shows={shows}
+                  ticket={ticket}
+                  update={update}
+                  editable={editable}
+                  acting={acting}
+                  showSprint={showSprint}
+                  onPatch={onPatch}
+                />
               }
               estimate={
                 shows("estimate") &&
                 estimateUnit !== null && (
-                  <span
-                    className={cn(
-                      "flex text-caption",
-                      estimateColumnWidth(estimateUnit)
-                    )}
-                  >
-                    <EstimateBadgeTrigger
-                      ticket={ticket}
-                      mode={estimation}
-                      onPatch={onPatch}
-                      variant="compact"
-                    />
-                  </span>
+                  <RowEstimate
+                    unit={estimateUnit}
+                    ticket={ticket}
+                    mode={estimation}
+                    onPatch={onPatch}
+                  />
                 )
               }
               assignee={
@@ -353,6 +260,70 @@ function RowImpl({
         </Popover>
       </DeferredDropdownMenus>
     </div>
+  )
+}
+
+type DisplayVisibility = Pick<ReturnType<typeof useDisplayProperties>, "shows">
+
+function RowTitle({
+  shows,
+  ticket,
+  contextParent,
+  titleVariant,
+  onPointerEnter,
+  onPointerLeave
+}: Pick<RowProps, "ticket" | "contextParent" | "titleVariant"> &
+  DisplayVisibility &
+  Readonly<{ onPointerEnter: () => void; onPointerLeave: () => void }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const from = use(TicketViewSourceContext)
+  return (
+    <>
+      {ticket.parent &&
+        ticket.parent.id !== contextParent &&
+        (ticket.parent.type !== "epic" || shows("epic")) && (
+          <ParentPrefix parent={ticket.parent} />
+        )}
+      <Link
+        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+        params={{ orgSlug, slug, id: ticket.id }}
+        search={from ?? {}}
+        state={{ ticketTitle: ticket.title }}
+        preload="intent"
+        draggable={false}
+        tabIndex={-1}
+        className="flex min-w-0 items-center self-stretch outline-none"
+      >
+        <PopoverTrigger
+          openOnHover
+          delay={TICKET_PREVIEW_DELAY_MS}
+          nativeButton={false}
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={onPointerLeave}
+          render={({
+            role: _role,
+            tabIndex: _tabIndex,
+            "aria-controls": _aria_controls,
+            "aria-expanded": _aria_expanded,
+            "aria-haspopup": _aria_haspopup,
+            onClick: _onClick,
+            onKeyDown: _onKeyDown,
+            onKeyUp: _onKeyUp,
+            onPointerDown: _onPointerDown,
+            ...triggerProps
+          }) => (
+            <div
+              {...triggerProps}
+              className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
+            />
+          )}
+        >
+          <ListRowTitle variant={titleVariant}>{ticket.title}</ListRowTitle>
+        </PopoverTrigger>
+      </Link>
+      <FlagChip ticket={ticket} className="ml-1" />
+      <SubTicketsChip ticket={ticket} className="ml-1" />
+    </>
   )
 }
 
@@ -431,4 +402,88 @@ function RowField({
       {children}
     </span>
   )
+}
+
+function RowTrailing({
+  shows,
+  ticket,
+  update,
+  editable,
+  acting,
+  showSprint,
+  onPatch
+}: Pick<RowProps, "ticket" | "update"> &
+  DisplayVisibility &
+  Readonly<{
+    editable: boolean
+    acting: boolean
+    showSprint: boolean
+    onPatch: (edit: TicketEdit) => void
+  }>) {
+  return (
+    <>
+      <UpdateFailureMarker update={update.patch(ticket.id)} />
+      {shows("tags") && (
+        <span
+          data-row-field="labels"
+          className="flex items-center gap-1.5 *:max-w-32 empty:hidden"
+        >
+          <TagChips
+            names={ticket.tags}
+            onPatch={editable ? onPatch : undefined}
+            placeholder={acting ? m.tickets_row_add_label() : undefined}
+            max={3}
+            collapse
+          />
+        </span>
+      )}
+      {shows("git") && (
+        <fieldset disabled={!editable} className="contents">
+          <BoardCardGit ticket={ticket} />
+        </fieldset>
+      )}
+      <span className="flex items-center gap-1.5 empty:hidden">
+        <RelationChips ticket={ticket} />
+      </span>
+      {showSprint && shows("sprint") && (
+        <fieldset
+          disabled={!editable}
+          data-row-field="sprint"
+          className="contents"
+        >
+          <RowSprint
+            ticketId={ticket.id}
+            placeholder={acting ? m.tickets_row_add_sprint() : undefined}
+          />
+        </fieldset>
+      )}
+    </>
+  )
+}
+
+function useRowSelection(
+  key: string,
+  pending: RowProps["pending"],
+  patchRow: (edit: TicketEdit) => void
+) {
+  const selectable = useTicketSelection(key)
+  const selection = pending ? null : selectable
+  const selectionActions = useSelectionActions(key)
+  const shared =
+    selectionActions.count > 1
+      ? sharedTicketFields(selectionActions.selectedTickets)
+      : null
+  // Selected with others: the row shows every field (empty ones as a
+  // placeholder) and its fields change them all.
+  const acting = selection?.selected === true && selectionActions.count > 1
+  const onPatch = (edit: TicketEdit) => {
+    if (!selectionActions.patch(edit)) patchRow(edit)
+  }
+  return {
+    selection,
+    sharedStatus: shared === null ? undefined : (shared.status ?? null),
+    sharedPriority: shared === null ? undefined : (shared.priority ?? null),
+    acting,
+    onPatch
+  }
 }

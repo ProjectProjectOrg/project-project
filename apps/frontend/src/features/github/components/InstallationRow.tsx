@@ -144,6 +144,7 @@ function ProjectAccessMenu({
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
   const { projectAccess, projectSlugs } = installation
+  const selectedProjects = new Set(projectSlugs)
 
   return (
     <DropdownMenu>
@@ -191,7 +192,7 @@ function ProjectAccessMenu({
               {projects.map((project) => (
                 <DropdownMenuCheckboxItem
                   key={project.slug}
-                  checked={projectSlugs.includes(project.slug)}
+                  checked={selectedProjects.has(project.slug)}
                   closeOnClick={false}
                   onCheckedChange={() =>
                     update({

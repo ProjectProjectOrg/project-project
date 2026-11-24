@@ -3,6 +3,7 @@ import { localToday } from "@pp/ui/lib/parseDate"
 import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -35,11 +36,15 @@ export const sprintDatesPatch = (
     : null
 }
 
+const shortDate = perLocale(Intl.DateTimeFormat, {
+  month: "short",
+  day: "numeric"
+})
+
+export const shortDateFormatter = () => shortDate(getLocale())
+
 export const formatSprintRange = (from: Date, to: Date) => {
-  const format = new Intl.DateTimeFormat(getLocale(), {
-    month: "short",
-    day: "numeric"
-  })
+  const format = shortDateFormatter()
   return `${format.format(from)} – ${format.format(to)}`
 }
 
@@ -48,10 +53,7 @@ export const formatSprintDates = ({ from, to }: SprintDateDraft) =>
     ? null
     : to === undefined
       ? m.sprints_starts_on({
-          date: new Intl.DateTimeFormat(getLocale(), {
-            month: "short",
-            day: "numeric"
-          }).format(from)
+          date: shortDateFormatter().format(from)
         })
       : formatSprintRange(from, to)
 

@@ -3,11 +3,9 @@ import { Chip } from "@pp/ui/chip"
 import { Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 
-import { stackSummary } from "@/features/github/components/ticket-git/TicketStack"
-import {
-  TicketPreview,
-  TicketPreviewTrigger
-} from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { stackSummary } from "@/features/github/lib/stackPresentation"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 
 import { CHECKS, needsAttention, reportedChecks, type Checks } from "./gitLooks"
 

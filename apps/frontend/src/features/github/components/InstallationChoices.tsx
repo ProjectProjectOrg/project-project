@@ -5,8 +5,8 @@ import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

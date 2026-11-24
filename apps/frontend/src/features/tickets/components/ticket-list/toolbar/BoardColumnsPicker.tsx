@@ -34,7 +34,8 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
   const order = boardStatusesFor(statuses)
   const layout = useBoardColumns(scope)
   if (order.length === 0) return null
-  const visible = order.filter((status) => !layout.hidden.includes(status))
+  const hidden = new Set(layout.hidden)
+  const visible = order.filter((status) => !hidden.has(status))
   const label = m.tickets_view_options_columns()
   const displayValue =
     visible.length === order.length
@@ -71,7 +72,7 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
               <DropdownMenuCheckboxItem
                 key={status}
                 label={meta.label}
-                checked={visible.includes(status)}
+                checked={!hidden.has(status)}
                 closeOnClick={false}
                 onCheckedChange={() => layout.toggleHidden(status)}
               >

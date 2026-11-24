@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { EverhourProjectIntegrationStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
@@ -60,25 +61,19 @@ export function EverhourSettingsRow({ canManage }: { canManage: boolean }) {
   )
 }
 
+type EverhourSettingsProps = Readonly<{
+  status: EverhourProjectIntegrationStatus
+  waiting: boolean
+  hasKey: boolean
+  canManage: boolean
+}>
+
 function EverhourSettingsContent({
   status,
   waiting,
   hasKey,
   canManage
-}: {
-  status: {
-    status: "not_connected" | "active" | "broken"
-    everhourProjectId: string | null
-    everhourProjectName: string | null
-    lastSyncedAt: Date | null
-    lastSyncStatus: "ok" | "error" | null
-    lastSyncError: string | null
-    needsSync: boolean
-  }
-  waiting: boolean
-  hasKey: boolean
-  canManage: boolean
-}) {
+}: EverhourSettingsProps) {
   const { orgSlug, slug } = useProjectRoute()
   const req = everhourProjectRequest(orgSlug, slug)
   const connect = useAtomSet(connectEverhourProjectAtom(req))
@@ -121,31 +116,7 @@ function EverhourSettingsContent({
           <EverhourApiKeyWalkthrough />
         </span>
       }
-      description={
-        <span className={cn("flex flex-col gap-0.5", busy && "animate-pulse")}>
-          <span>
-            {Match.value(status.status).pipe(
-              Match.when("active", () =>
-                m.project_settings_everhour_connected()
-              ),
-              Match.when("broken", () => m.project_settings_everhour_broken()),
-              Match.orElse(() => m.project_settings_everhour_not_connected())
-            )}
-          </span>
-          {status.everhourProjectId ? (
-            <span className="tabular-nums">
-              {status.everhourProjectName} · {status.everhourProjectId}
-            </span>
-          ) : null}
-          {status.lastSyncedAt ? (
-            <span>
-              {m.project_settings_everhour_last_synced({
-                date: status.lastSyncedAt.toLocaleString(getLocale())
-              })}
-            </span>
-          ) : null}
-        </span>
-      }
+      description={<EverhourStatusDescription status={status} busy={busy} />}
       error={error}
     >
       {!hasKey ? (
@@ -193,5 +164,34 @@ function EverhourSettingsContent({
         </>
       ) : null}
     </SettingsRow>
+  )
+}
+
+function EverhourStatusDescription({
+  status,
+  busy
+}: Readonly<{ status: EverhourSettingsProps["status"]; busy: boolean }>) {
+  return (
+    <span className={cn("flex flex-col gap-0.5", busy && "animate-pulse")}>
+      <span>
+        {Match.value(status.status).pipe(
+          Match.when("active", () => m.project_settings_everhour_connected()),
+          Match.when("broken", () => m.project_settings_everhour_broken()),
+          Match.orElse(() => m.project_settings_everhour_not_connected())
+        )}
+      </span>
+      {status.everhourProjectId ? (
+        <span className="tabular-nums">
+          {status.everhourProjectName} · {status.everhourProjectId}
+        </span>
+      ) : null}
+      {status.lastSyncedAt ? (
+        <span>
+          {m.project_settings_everhour_last_synced({
+            date: status.lastSyncedAt.toLocaleString(getLocale())
+          })}
+        </span>
+      ) : null}
+    </span>
   )
 }

@@ -2,7 +2,6 @@ import { Columns3, Rows3 } from "@pp/ui/icons"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { useMatch, useNavigate } from "@tanstack/react-router"
 import { startTransition } from "react"
-import { flushSync } from "react-dom"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectView } from "@/hooks/useViewPreference"
@@ -29,7 +28,7 @@ export function ViewSwitcher() {
   if (!sprintMatch && !backlogMatch) return null
 
   const select = (next: "list" | "board" | "description", to: () => void) => {
-    if (next !== "description") flushSync(() => setPreference(next))
+    if (next !== "description") setPreference(next)
     startTransition(to)
   }
 

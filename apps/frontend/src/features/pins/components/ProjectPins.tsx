@@ -4,18 +4,16 @@ import { transitions } from "@pp/ui/lib/springs"
 import { SidebarNote, SidebarRowGroup, SidebarSection } from "@pp/ui/sidebar"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
 
 import { pinItem, pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
-import { predictionOf } from "@/features/pins/components/PinRow"
-import {
-  PinTree,
-  topPins,
-  type PinRowSpec
-} from "@/features/pins/components/PinTree"
+import { PinTree } from "@/features/pins/components/PinTree"
 import { usePinReorder } from "@/features/pins/hooks/usePinReorder"
 import {
+  predictionOf,
+  topPins,
+  type PinRowSpec,
   nestPins,
   pinKey,
   pinsIn,
@@ -52,15 +50,7 @@ function useLivePrediction(
       : noTicket
   )
   const sprints = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
-  // While the next ticket loads, the live row keeps showing the last one, so
-  // it changes in place instead of shrinking out and growing back in.
-  const [held, setHeld] = useState<TicketDetail | null>(null)
-  const loaded = Result.isSuccess(ticket) ? ticket.value : null
-  const current =
-    shown && viewingTicket
-      ? (loaded ?? (Result.isInitial(ticket) ? held : null))
-      : null
-  if (current !== held) setHeld(current)
+  const current = usePendingTicket(ticket, shown && viewingTicket)
   if (viewingTicket)
     return current === null
       ? null
@@ -149,10 +139,7 @@ export function ProjectPins({
       ? { target: viewing, display: prediction }
       : null
   const viewedKey = viewed === null ? null : pinKey(viewed)
-  const [landed, setLanded] = useState<
-    Readonly<{ key: string | null; on: string | null }>
-  >({ key: null, on: viewedKey })
-  if (landed.on !== viewedKey) setLanded({ key: null, on: viewedKey })
+  const { landedKey, land } = useLandedPin(viewedKey)
   const failure = mutationErrorText(pinState)
   const reorder = usePinReorder(orgSlug, slug)
 
@@ -168,7 +155,7 @@ export function ProjectPins({
             display: live.display,
             pin: null,
             active: false,
-            onPinned: () => setLanded({ key: viewedKey, on: viewedKey })
+            onPinned: land
           }
         ]),
     ...pins.map((pin) => ({
@@ -177,36 +164,86 @@ export function ProjectPins({
       display: predictionOf(pin),
       pin,
       active: viewed !== null && samePin(pin, viewed),
-      highlight: landed.key === pinKey(pin)
+      highlight: landedKey === pinKey(pin)
     }))
   ]
   const tree = nestPins(rows, (row) => ticketLinkOf(row.display))
-  const liveNode = tree.find((node) => node.row.key === LIVE_KEY)
   const empty = Result.isSuccess(result) && pins.length === 0 && live === null
+  return (
+    <SidebarSection label={m.chrome_sidebar_pinned()} count={pins.length}>
+      <PinnedRows
+        tree={tree}
+        orgSlug={orgSlug}
+        slug={slug}
+        empty={empty}
+        onReorder={(order) => reorder(topPins(tree), order)}
+      />
+      {failure === null ? null : (
+        <SidebarNote tone="error">{failure}</SidebarNote>
+      )}
+    </SidebarSection>
+  )
+}
+
+function usePendingTicket(
+  ticket: Result.AsyncResult<TicketDetail, unknown>,
+  showTicket: boolean
+) {
+  // While the next ticket loads, the live row keeps showing the last one, so
+  // it changes in place instead of shrinking out and growing back in.
+  const [held, setHeld] = useState<TicketDetail | null>(null)
+  const loaded = Result.isSuccess(ticket) ? ticket.value : null
+  const current = showTicket
+    ? (loaded ?? (Result.isInitial(ticket) ? held : null))
+    : null
+  if (current !== held) setHeld(current)
+  return current
+}
+
+function useLandedPin(viewedKey: string | null) {
+  const [landed, setLanded] = useState<
+    Readonly<{ key: string | null; on: string | null }>
+  >({ key: null, on: viewedKey })
+  if (landed.on !== viewedKey) setLanded({ key: null, on: viewedKey })
+  return {
+    landedKey: landed.key,
+    land: () => setLanded({ key: viewedKey, on: viewedKey })
+  }
+}
+
+function PinnedRows({
+  tree,
+  orgSlug,
+  slug,
+  empty,
+  onReorder
+}: Readonly<{
+  tree: ReturnType<typeof nestPins<PinRowSpec>>
+  orgSlug: string
+  slug: string
+  empty: boolean
+  onReorder: (order: ReadonlyArray<string>) => void
+}>) {
+  const liveNode = tree.find((node) => node.row.key === LIVE_KEY)
   const pinTree = (node: (typeof tree)[number]) => (
     <PinTree key={node.row.key} orgSlug={orgSlug} slug={slug} node={node} />
   )
 
   return (
-    <SidebarSection label={m.chrome_sidebar_pinned()} count={pins.length}>
-      <SidebarRowGroup
-        onReorder={(order) => reorder(topPins(tree), order)}
-        isSortable={(key) => key !== HEAD_KEY}
-      >
-        {liveNode === undefined && !empty ? null : (
-          <HeadSlot key={HEAD_KEY} showing={empty ? "empty" : "live"}>
-            {liveNode === undefined ? (
-              <SidebarNote>{m.chrome_sidebar_pinned_empty()}</SidebarNote>
-            ) : (
-              pinTree(liveNode)
-            )}
-          </HeadSlot>
-        )}
-        {tree.filter((node) => node !== liveNode).map(pinTree)}
-      </SidebarRowGroup>
-      {failure === null ? null : (
-        <SidebarNote tone="error">{failure}</SidebarNote>
+    <SidebarRowGroup
+      onReorder={onReorder}
+      isSortable={(key) => key !== HEAD_KEY}
+    >
+      {liveNode === undefined && !empty ? null : (
+        <HeadSlot key={HEAD_KEY} showing={empty ? "empty" : "live"}>
+          {liveNode === undefined ? (
+            <SidebarNote>{m.chrome_sidebar_pinned_empty()}</SidebarNote>
+          ) : (
+            pinTree(liveNode)
+          )}
+        </HeadSlot>
       )}
-    </SidebarSection>
+      {tree.filter((node) => node !== liveNode).map(pinTree)}
+    </SidebarRowGroup>
   )
 }

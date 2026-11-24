@@ -90,7 +90,11 @@ function FigmaProfileContent({
       ) : (
         <Button
           size="sm"
-          render={<a href="/api/integrations/figma/oauth/start" />}
+          render={({ children, ...props }) => (
+            <a {...props} href="/api/integrations/figma/oauth/start">
+              {children}
+            </a>
+          )}
         >
           {m.figma_profile_connect_button()}
         </Button>

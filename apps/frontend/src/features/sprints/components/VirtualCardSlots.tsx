@@ -1,18 +1,12 @@
 import type { Ticket } from "@pp/shared"
 import { boardCardSlotClass, BoardInsertGap } from "@pp/ui/board-column"
-import {
-  BoardCardMotion,
-  boardSlotAttribute,
-  type BoardDrag
-} from "@pp/ui/board-drag"
+import { BoardCardMotion, boardSlotAttribute } from "@pp/ui/board-drag"
 import { cn } from "@pp/ui/lib/utils"
-import type { Key, ReactNode } from "react"
+import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
 
-export const ESTIMATED_CARD_HEIGHT = 104
-
-export type Row = Readonly<{ index: number; start: number; key: Key }>
+import { ESTIMATED_CARD_HEIGHT, type Row } from "../lib/draftSlots"
 
 export function InsertGaps({
   rows,
@@ -23,15 +17,20 @@ export function InsertGaps({
   loaded: number
   onInsertAt: (index: number) => void
 }>) {
-  return rows.map((row) =>
-    row.index > 0 && row.index < loaded ? (
-      <BoardInsertGap
-        key={`gap-${String(row.key)}`}
-        top={row.start}
-        label={m.sprints_board_insert_ticket()}
-        onInsert={() => onInsertAt(row.index)}
-      />
-    ) : null
+  return (
+    <>
+      {" "}
+      {rows.map((row) =>
+        row.index > 0 && row.index < loaded ? (
+          <BoardInsertGap
+            key={`gap-${String(row.key)}`}
+            top={row.start}
+            label={m.sprints_board_insert_ticket()}
+            onInsert={() => onInsertAt(row.index)}
+          />
+        ) : null
+      )}{" "}
+    </>
   )
 }
 
@@ -135,20 +134,5 @@ export function TicketSlot({
         {children(ticket)}
       </BoardCardMotion>
     </li>
-  )
-}
-
-export const dropGapTop = (
-  rows: ReadonlyArray<Row>,
-  drag: BoardDrag | null,
-  sourceIndex: number,
-  slotIndexOf: (ticket: number) => number,
-  totalSize: number
-) => {
-  if (drag?.index == null) return null
-  const slot = slotIndexOf(drag.index)
-  const start = rows.find((row) => row.index === slot)?.start ?? totalSize
-  return (
-    start - (sourceIndex >= 0 && sourceIndex < drag.index ? drag.height : 0)
   )
 }

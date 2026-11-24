@@ -20,21 +20,19 @@ import { numberKey } from "@pp/ui/kbd"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { cn } from "@pp/ui/lib/utils"
 import type { Hotkey, HotkeyChord } from "@tanstack/react-hotkeys"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 
+import {
+  peekFits,
+  usePeekWipe
+} from "@/features/command-menu/hooks/usePeekWipe"
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
 import { m } from "@/paraglide/messages"
 
 import { SearchFooter } from "./CommandFrameFooter"
 import { CommandFrameRow } from "./CommandFrameRow"
-import {
-  CommandPeekPane,
-  PeekWarmer,
-  peekFits,
-  TrackHighlight,
-  usePeekWipe
-} from "./CommandPeek"
+import { CommandPeekPane, PeekWarmer, TrackHighlight } from "./CommandPeek"
 
 export type CommandFrameItem = CommandMenuItemData &
   Readonly<{
@@ -93,10 +91,11 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
   const lead = commands.filter(
     ({ score }) => score >= STRONG_MATCH && score > topResult
   )
+  const leading = new Set(lead)
   return [
     ...lead,
     ...results,
-    ...commands.filter((entry) => !lead.includes(entry))
+    ...commands.filter((entry) => !leading.has(entry))
   ]
     .map(({ item }) => item)
     .concat(
@@ -337,19 +336,7 @@ export function CommandFrame({
             }}
           >
             <CommandMenuEmpty className="p-0">
-              <CommandFrameEmpty
-                {...(empty ?? {
-                  icon: Search,
-                  title:
-                    query === ""
-                      ? m.chrome_command_menu_empty_list()
-                      : m.chrome_command_menu_empty_title({ query }),
-                  description:
-                    query === ""
-                      ? ""
-                      : m.chrome_command_menu_empty_description()
-                })}
-              />
+              <CommandFrameEmpty {...(empty ?? emptySearch(query))} />
             </CommandMenuEmpty>
           </CommandMenuList>
         </motion.div>
@@ -405,4 +392,15 @@ function CommandFrameEmpty({
       )}
     </Empty>
   )
+}
+
+function emptySearch(query: string) {
+  return {
+    icon: Search,
+    title:
+      query === ""
+        ? m.chrome_command_menu_empty_list()
+        : m.chrome_command_menu_empty_title({ query }),
+    description: query === "" ? "" : m.chrome_command_menu_empty_description()
+  }
 }

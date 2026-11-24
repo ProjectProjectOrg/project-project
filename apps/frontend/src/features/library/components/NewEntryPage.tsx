@@ -6,6 +6,10 @@ import type { ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { LibraryCreateForm } from "@/features/library/forms/library-create"
+import {
+  noticeText,
+  creatableLayers
+} from "@/features/library/lib/entryStanding"
 import { m } from "@/paraglide/messages"
 
 import { orgLibraryFor, orgLibraryRequest } from "../atoms/library"
@@ -14,10 +18,8 @@ import {
   useLibraryPermissions,
   useOrgName
 } from "../hooks/useLibraryPermissions"
-import { creatableLayers } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
 import { LibraryEditorSkeleton, LibraryEntryFrame } from "./LibraryEditorChrome"
-import { noticeText } from "./ScopeBox"
 
 type NewEntryPageProps = Readonly<{ scope: LibraryScope; kind: LibraryKind }>
 

@@ -5,32 +5,39 @@ import {
   type ProjectIconImage
 } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import { preloadImage } from "@/features/projects/lib/imagePreload"
 
-export function ProjectIconDisplay({
-  orgSlug,
-  icon,
-  iconImage,
-  size,
-  className,
-  emojiStyle
-}: {
+type Props = Readonly<{
   orgSlug: string
   icon: string
   iconImage: ProjectIconImage | null
   size: number
   className?: string
   emojiStyle?: React.CSSProperties
-}) {
-  const [failed, setFailed] = useState(false)
+}>
 
+export function ProjectIconDisplay(props: Props) {
+  const { iconImage } = props
   const id =
     iconImage?.type === "sticker"
       ? iconImage.renderedAttachmentId
       : (iconImage?.sourceAttachmentId ?? null)
+  return <IconImage key={id} {...props} id={id} />
+}
+
+function IconImage({
+  orgSlug,
+  icon,
+  iconImage,
+  size,
+  className,
+  emojiStyle,
+  id
+}: Props & Readonly<{ id: ProjectIconImage["sourceAttachmentId"] | null }>) {
+  const [failed, setFailed] = useState(false)
   const source =
     id === null || iconImage === null
       ? null
@@ -44,12 +51,6 @@ export function ProjectIconDisplay({
   useEffect(() => {
     if (source) void preloadImage(source)
   }, [source])
-
-  const previousId = useRef(id)
-  if (previousId.current !== id) {
-    previousId.current = id
-    if (failed) setFailed(false)
-  }
 
   if (!iconImage || failed || source === null) {
     return (

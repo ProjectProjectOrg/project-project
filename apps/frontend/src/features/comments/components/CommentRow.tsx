@@ -55,19 +55,12 @@ export type CommentThreadOf = Readonly<{
   replies: ReadonlyArray<Comment>
 }>
 
-export function CommentRow({
-  comment,
-  thread,
-  pending,
-  ticketId,
-  onEditingChange
-}: Readonly<{
-  comment: Comment
-  thread: CommentThreadOf
+function useCommentActions(
+  comment: Comment,
+  rootId: Comment["id"],
+  ticketId: TicketId,
   pending: boolean
-  ticketId: TicketId
-  onEditingChange: (editing: boolean) => void
-}>) {
+) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const linkedAuthor =
@@ -87,23 +80,20 @@ export function CommentRow({
   const viewer = useAtomValue(me())
   const resolveKey = resolveThread({
     req,
-    rootId: thread.root.id,
+    rootId,
     viewer: AsyncResult.isSuccess(viewer) ? viewer.value : null
   })
   const resolve = useAtomSet(resolveKey)
   const resolveState = useAtomValue(resolveKey)
   const waiting =
     pending || editState.waiting || deleteState.waiting || resolveState.waiting
-  const isRoot = comment.id === thread.root.id
-  const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
-  const resolution = thread.root.resolution
   const actionError =
     mutationErrorText(
       deleteState,
       () => m.comments_delete_failed(),
       m.comments_delete_failed
     ) ??
-    (isRoot
+    (comment.id === rootId
       ? mutationErrorText(
           resolveState,
           () => m.comments_resolve_failed(),
@@ -111,6 +101,27 @@ export function CommentRow({
         )
       : null)
 
+  return { actor, canEdit, canDelete, remove, resolve, waiting, actionError }
+}
+
+export function CommentRow({
+  comment,
+  thread,
+  pending,
+  ticketId,
+  onEditingChange
+}: Readonly<{
+  comment: Comment
+  thread: CommentThreadOf
+  pending: boolean
+  ticketId: TicketId
+  onEditingChange: (editing: boolean) => void
+}>) {
+  const { actor, canEdit, canDelete, remove, resolve, waiting, actionError } =
+    useCommentActions(comment, thread.root.id, ticketId, pending)
+  const isRoot = comment.id === thread.root.id
+  const last = (thread.replies.at(-1) ?? thread.root).id === comment.id
+  const resolution = thread.root.resolution
   const [mode, setModeState] = useState<Mode>("idle")
   const setMode = (next: Mode) => {
     setModeState(next)
@@ -276,32 +287,15 @@ function EditForm({
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState(comment.body)
   const [error, setError] = useState<string | null>(null)
-  const edit = useAtomSet(
-    editComment({
-      req: commentsRequest(orgSlug, slug, ticketId),
-      commentId: comment.id
-    }),
-    { mode: "promiseExit" }
-  )
-  const [busy, setBusy] = useState(false)
-  // Escape anywhere in the form cancels, unless a save is running (or
-  // something inside, like a menu, already used the key).
-  const form = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const element = form.current
-    if (!element) return undefined
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || busy || event.defaultPrevented) return
-      event.preventDefault()
-      onClose()
-    }
-    element.addEventListener("keydown", onKeyDown)
-    return () => element.removeEventListener("keydown", onKeyDown)
-  }, [busy, onClose])
+  const atom = editComment({
+    req: commentsRequest(orgSlug, slug, ticketId),
+    commentId: comment.id
+  })
+  const edit = useAtomSet(atom, { mode: "promiseExit" })
+  const busy = useAtomValue(atom).waiting
 
   const save = async () => {
     if (!body.trim() || busy) return
-    setBusy(true)
     setError(null)
     const exit = await edit({ body })
     if (Exit.isSuccess(exit)) return onClose()
@@ -312,11 +306,16 @@ function EditForm({
         m.comments_save_failed
       )
     )
-    setBusy(false)
   }
 
   return (
-    <div ref={form}>
+    <div
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || busy || event.defaultPrevented) return
+        event.preventDefault()
+        onClose()
+      }}
+    >
       <CommentBubble
         mark={<AuthorMark author={comment.author} />}
         author={commentAuthorName(comment.author)}

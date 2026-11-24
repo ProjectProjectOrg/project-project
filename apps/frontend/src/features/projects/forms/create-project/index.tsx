@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { AutoHeight } from "@pp/ui/auto-height"
 import { Plus } from "@pp/ui/icons"
 import {
   InputGroup,
@@ -9,7 +10,7 @@ import { KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useRef, useState } from "react"
 
 import {
@@ -180,39 +181,41 @@ export function CreateProjectRow({
                   />
                 )}
               </InputGroup>
-              <AnimatePresence initial={false}>
-                {trimmed && (
-                  <motion.div
-                    key="hint"
-                    initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-                    transition={transitions.presence}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-2 flex items-center gap-3 pl-3">
-                      <div className="flex min-w-0 items-center gap-2 text-micro text-muted-foreground tabular-nums">
-                        <span className="text-muted-foreground">→</span>
-                        {key && (
-                          <>
-                            <span>{key}-1</span>
-                            <span className="text-muted-foreground">·</span>
-                          </>
+              <AutoHeight>
+                <AnimatePresence initial={false} mode="popLayout">
+                  {trimmed && (
+                    <motion.div
+                      key="hint"
+                      initial={reduceMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={reduceMotion ? undefined : { opacity: 0 }}
+                      transition={transitions.presence}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-2 flex items-center gap-3 pl-3">
+                        <div className="flex min-w-0 items-center gap-2 text-micro text-muted-foreground tabular-nums">
+                          <span className="text-muted-foreground">→</span>
+                          {key && (
+                            <>
+                              <span>{key}-1</span>
+                              <span className="text-muted-foreground">·</span>
+                            </>
+                          )}
+                          <span className="truncate">/{slugify(trimmed)}</span>
+                        </div>
+                        {error && (
+                          <span
+                            role="alert"
+                            className="ml-auto shrink-0 text-caption text-destructive"
+                          >
+                            {error}
+                          </span>
                         )}
-                        <span className="truncate">/{slugify(trimmed)}</span>
                       </div>
-                      {error && (
-                        <span
-                          role="alert"
-                          className="ml-auto shrink-0 text-caption text-destructive"
-                        >
-                          {error}
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </AutoHeight>
             </>
           )
         }}

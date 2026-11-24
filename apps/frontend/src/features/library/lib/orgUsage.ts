@@ -1,5 +1,7 @@
 import type { Library } from "@pp/shared"
 
+import { m } from "@/paraglide/messages"
+
 import type { LibraryKind } from "./libraryModel"
 
 export type UsageProject = Readonly<{ slug: string; name: string }>
@@ -42,4 +44,16 @@ export const entryUsage = (
     changedIn: projectsWith("changed"),
     hiddenIn: projectsWith("hidden")
   }
+}
+
+export const asIsText = (usage: EntryUsage) => {
+  if (usage.projects === 0) return m.templates_types_usage_no_projects()
+  if (usage.asIs === usage.projects)
+    return usage.projects === 1
+      ? m.templates_types_usage_all_one()
+      : m.templates_types_usage_all({ count: usage.projects })
+  if (usage.asIs === 0) return m.templates_types_usage_none()
+  return usage.asIs === 1
+    ? m.templates_types_usage_some_one()
+    : m.templates_types_usage_some({ count: usage.asIs })
 }

@@ -8,7 +8,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { sprintStatusText } from "@/features/sprints/components/SprintChip"
+import { sprintStatusText } from "@/features/sprints/lib/sprintPresentation"
 
 type SprintListResult = Atom.Type<ReturnType<typeof sprintList>>
 

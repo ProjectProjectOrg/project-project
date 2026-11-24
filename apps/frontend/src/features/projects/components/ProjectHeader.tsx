@@ -17,10 +17,16 @@ import * as Result from "effect/reactivity/AsyncResult"
 import {
   AnimatePresence,
   LayoutGroup,
-  motion,
+  m as motion,
   useReducedMotion
 } from "motion/react"
-import { useState, type KeyboardEvent, type ReactNode } from "react"
+import {
+  useRef,
+  useLayoutEffect,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
 
 import { GithubChip } from "@/features/github/components/GithubChip"
 import { connectedRepos } from "@/features/github/lib/repos"
@@ -49,7 +55,10 @@ import { SprintStartButton } from "@/features/sprints/components/SprintStartButt
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { Appear, morphFrom, morphTo } from "./Appear"
+import { Appear } from "./Appear"
+
+const morphFrom = { opacity: 0, filter: "blur(4px)" }
+const morphTo = { opacity: 1, filter: "blur(0px)" }
 
 const CURRENT_SPRINT_ROUTE =
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/current"
@@ -140,8 +149,43 @@ export function ProjectHeader({
   )
 
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
-  const isCompleted = sprint?.completedAt != null
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
+
+  const slots = sprintGroupId
+    ? sprintHeaderSlots(
+        orgSlug,
+        slug,
+        sprint,
+        sprints,
+        sprintMissing,
+        canPlan,
+        sprintMatch?.search.view === "description"
+      )
+    : {
+        icon: (
+          <div className="-mt-1 w-fit shrink-0">
+            <ProjectIconTile
+              orgSlug={orgSlug}
+              icon={project.icon}
+              iconImage={project.iconImage}
+              color={project.color}
+              tone={project.tone}
+              colors={project.colors}
+              size="md"
+              seed={slug}
+            />
+          </div>
+        ),
+        title: <NameField name={name} canEdit={canEdit} />,
+        subtitle: <ActiveSprintLine />,
+        actions: (
+          <ProjectActions
+            project={project}
+            newSprint={onSprints && canPlan}
+            reduce={reduce}
+          />
+        )
+      }
 
   return (
     <LayoutGroup id={`project-header-${slug}`}>
@@ -167,32 +211,8 @@ export function ProjectHeader({
           layoutId="project-header-icon"
           reduce={reduce}
         >
-          {sprintGroupId ? (
-            sprint ? (
-              <fieldset disabled={!canPlan} className="contents">
-                <SprintStatusSelect sprint={sprint} sprints={sprints} />
-              </fieldset>
-            ) : sprintMissing ? (
-              <div className="-mt-1 size-10 shrink-0 rounded-lg bg-muted/40" />
-            ) : (
-              <div className="-mt-1 size-10 shrink-0 animate-pulse rounded-lg bg-muted" />
-            )
-          ) : (
-            <div className="-mt-1 w-fit shrink-0">
-              <ProjectIconTile
-                orgSlug={orgSlug}
-                icon={project.icon}
-                iconImage={project.iconImage}
-                color={project.color}
-                tone={project.tone}
-                colors={project.colors}
-                size="md"
-                seed={slug}
-              />
-            </div>
-          )}
+          {slots.icon}
         </MorphSlot>
-
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <MorphSlot
             slotKey={mode}
@@ -200,50 +220,7 @@ export function ProjectHeader({
             reduce={reduce}
             className="flex h-8 max-w-full min-w-0 items-baseline gap-2"
           >
-            {sprintGroupId ? (
-              sprint ? (
-                <>
-                  <SprintNameField
-                    sprint={sprint}
-                    disabled={isCompleted || !canPlan}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    leadingIcon={
-                      sprintMatch?.search.view === "description"
-                        ? ArrowLeft
-                        : FileText
-                    }
-                    render={
-                      <Link
-                        to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
-                        params={{ orgSlug, slug, groupId: sprint.id }}
-                        search={(previous) => ({
-                          ...previous,
-                          view:
-                            previous.view === "description"
-                              ? undefined
-                              : "description"
-                        })}
-                      />
-                    }
-                  >
-                    {sprintMatch?.search.view === "description"
-                      ? m.sprints_back_to_tickets()
-                      : m.sprints_about_button()}
-                  </Button>
-                </>
-              ) : sprintMissing ? (
-                <span className="truncate text-display font-bold text-muted-foreground">
-                  {m.sprints_not_found_title()}
-                </span>
-              ) : (
-                <div className="h-6 w-40 animate-pulse rounded bg-muted/60" />
-              )
-            ) : (
-              <NameField name={name} canEdit={canEdit} />
-            )}
+            {slots.title}
           </MorphSlot>
           <MorphSlot
             slotKey={mode}
@@ -251,47 +228,91 @@ export function ProjectHeader({
             reduce={reduce}
             className="flex h-5 items-center"
           >
-            {sprintGroupId ? (
-              sprint ? (
-                <SprintSubtitle
-                  sprint={sprint}
-                  disabled={isCompleted || !canPlan}
-                />
-              ) : sprintMissing ? null : (
-                <div className="h-3.5 w-28 animate-pulse rounded bg-muted/60" />
-              )
-            ) : (
-              <ActiveSprintLine />
-            )}
+            {slots.subtitle}
           </MorphSlot>
         </div>
-
         <MorphSlot slotKey={mode} reduce={reduce}>
-          {sprintGroupId ? (
-            sprint ? (
-              canPlan ? (
-                <div className="flex items-center gap-2">
-                  <SprintStartButton sprint={sprint} />
-                  {sprintState(sprint) === "active" && (
-                    <CompleteSprintButton sprint={sprint} sprints={sprints} />
-                  )}
-                  <SprintDeleteMenu sprint={sprint} />
-                </div>
-              ) : null
-            ) : sprintMissing ? null : (
-              <div className="size-8" />
-            )
-          ) : (
-            <ProjectActions
-              project={project}
-              newSprint={onSprints && canPlan}
-              reduce={reduce}
-            />
-          )}
+          {slots.actions}
         </MorphSlot>
       </header>
     </LayoutGroup>
   )
+}
+
+function sprintHeaderSlots(
+  orgSlug: string,
+  slug: string,
+  sprint: Group | undefined,
+  sprints: ReadonlyArray<Group>,
+  missing: boolean,
+  canPlan: boolean,
+  showingDescription: boolean
+) {
+  if (!sprint)
+    return {
+      icon: (
+        <div
+          className={cn(
+            "-mt-1 size-10 shrink-0 rounded-lg",
+            missing ? "bg-muted/40" : "animate-pulse bg-muted"
+          )}
+        />
+      ),
+      title: missing ? (
+        <span className="truncate text-display font-bold text-muted-foreground">
+          {m.sprints_not_found_title()}
+        </span>
+      ) : (
+        <div className="h-6 w-40 animate-pulse rounded bg-muted/60" />
+      ),
+      subtitle: missing ? null : (
+        <div className="h-3.5 w-28 animate-pulse rounded bg-muted/60" />
+      ),
+      actions: missing ? null : <div className="size-8" />
+    }
+  const disabled = sprint.completedAt != null || !canPlan
+  return {
+    icon: (
+      <fieldset disabled={!canPlan} className="contents">
+        <SprintStatusSelect sprint={sprint} sprints={sprints} />
+      </fieldset>
+    ),
+    title: (
+      <>
+        <SprintNameField sprint={sprint} disabled={disabled} />
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={showingDescription ? ArrowLeft : FileText}
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+              params={{ orgSlug, slug, groupId: sprint.id }}
+              search={(previous) => ({
+                ...previous,
+                view:
+                  previous.view === "description" ? undefined : "description"
+              })}
+            />
+          }
+        >
+          {showingDescription
+            ? m.sprints_back_to_tickets()
+            : m.sprints_about_button()}
+        </Button>
+      </>
+    ),
+    subtitle: <SprintSubtitle sprint={sprint} disabled={disabled} />,
+    actions: canPlan ? (
+      <div className="flex items-center gap-2">
+        <SprintStartButton sprint={sprint} />
+        {sprintState(sprint) === "active" && (
+          <CompleteSprintButton sprint={sprint} sprints={sprints} />
+        )}
+        <SprintDeleteMenu sprint={sprint} />
+      </div>
+    ) : null
+  }
 }
 
 // GitHub, and New sprint on the Sprints page.
@@ -324,7 +345,11 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
   const updateState = useAtomValue(updateProject(req))
   const saving = updateState.waiting
   const failed = Result.isFailure(updateState)
+  const input = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState(false)
+  useLayoutEffect(() => {
+    if (canEdit && editing) input.current?.focus()
+  }, [canEdit, editing])
   const [draft, setDraft] = useState(name)
 
   async function commit() {
@@ -371,7 +396,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
   return (
     <div className="relative w-full">
       <input
-        autoFocus
+        ref={input}
         value={draft}
         disabled={saving}
         onChange={(e) => setDraft(e.target.value)}

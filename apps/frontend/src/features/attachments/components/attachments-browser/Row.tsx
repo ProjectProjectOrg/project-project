@@ -48,7 +48,21 @@ export function Row({
         "group/reveal border-b border-border transition-colors hover:surface-lit",
         only && "cursor-pointer"
       )}
-      onClick={only ? () => void openTicket(only) : undefined}
+      tabIndex={only && row.ticketId === null ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (
+          only &&
+          event.key === "Enter" &&
+          event.target === event.currentTarget
+        )
+          void openTicket(only)
+      }}
+      onClick={(event) => {
+        if (!only || event.defaultPrevented) return
+        if (event.target instanceof Element && event.target.closest("a")) return
+        if (window.getSelection()?.type === "Range") return
+        void openTicket(only)
+      }}
     >
       <td className="w-6 px-2 py-2 align-middle">
         {isDeletable(row) ? (
@@ -127,10 +141,10 @@ export function Row({
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={m.attachments_download()}
                   render={
                     <a
                       href={attachmentDownloadUrl(orgSlug, row.id)}
+                      aria-label={m.attachments_download()}
                       download={row.filename}
                     />
                   }
@@ -192,7 +206,6 @@ function TicketCell({
       <Link
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug: first.projectSlug, id: first.ticketId }}
-        onClick={(event) => event.stopPropagation()}
         className="text-body text-muted-foreground tabular-nums transition-colors hover:text-foreground"
       >
         {first.ticketId}

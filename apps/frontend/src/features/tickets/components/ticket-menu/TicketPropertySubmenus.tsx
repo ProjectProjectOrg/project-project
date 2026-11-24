@@ -32,7 +32,7 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
-import { typeMenuItems } from "@/features/tickets/components/ticket-list/TypeField"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/typeMenuItems"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
@@ -127,6 +127,7 @@ export function TicketPropertySubmenus({
     }
   })
   const types = useTicketTypes(orgSlug, slug)
+  const assigned = new Set(ticket.assignees)
   const typeItems = typeMenuItems(types)
   const setAssignees = (assignees: ReadonlyArray<string>) =>
     onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
@@ -232,7 +233,7 @@ export function TicketPropertySubmenus({
                       : member.name
                   }
                   closeOnClick={false}
-                  checked={ticket.assignees.includes(member.id)}
+                  checked={assigned.has(member.id)}
                   onCheckedChange={() =>
                     setAssignees(toggleAssignee(ticket.assignees, member.id))
                   }

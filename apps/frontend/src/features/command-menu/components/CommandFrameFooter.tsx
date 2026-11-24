@@ -6,7 +6,7 @@ import {
 } from "@pp/ui/command-menu"
 import { spring } from "@pp/ui/lib/springs"
 import type { Hotkey } from "@tanstack/react-hotkeys"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"

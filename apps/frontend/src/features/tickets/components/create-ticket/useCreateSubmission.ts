@@ -26,7 +26,7 @@ export function useCreateSubmission({
   link: (ticket: LinkedTicket) => Promise<Exit.Exit<unknown, unknown>>
   done: (id: TicketId) => void
 }>) {
-  const [submission, setSubmission] = useState<Submission>(
+  const [submission, setSubmission] = useState<Submission>(() =>
     Submission.editing({ failure: null })
   )
 

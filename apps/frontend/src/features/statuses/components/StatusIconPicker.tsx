@@ -3,7 +3,7 @@ import { IconGridPicker } from "@pp/ui/icon-grid-picker"
 
 import {
   STATUS_ICON_NAMES,
-  getStatusIcon
+  STATUS_ICON_COMPONENTS
 } from "@/features/statuses/lib/statusIcons"
 import { m } from "@/paraglide/messages"
 
@@ -18,7 +18,7 @@ export function StatusIconPicker({
   onChange: (icon: StatusIconName) => void
   disabled?: boolean
 }>) {
-  const Current = getStatusIcon(value)
+  const Current = STATUS_ICON_COMPONENTS[value]
   return (
     <IconGridPicker
       value={value}
@@ -29,7 +29,7 @@ export function StatusIconPicker({
       triggerIcon={<Current className="size-4" style={{ color }} />}
       optionLabel={(name) => m.tickets_status_icon_option_aria({ name })}
       renderIcon={(name) => {
-        const Icon = getStatusIcon(name)
+        const Icon = STATUS_ICON_COMPONENTS[name]
         return <Icon className="size-3.5" style={{ color }} />
       }}
     />

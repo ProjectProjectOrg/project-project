@@ -40,14 +40,13 @@ import { typesUsingSection } from "../lib/sectionUsage"
 import {
   AsideGroup,
   CommitInput,
-  IconAndColorField,
+  DefinitionFields,
   MUTED_VALUE_CLASS
 } from "./DefinitionAside"
 import { DeleteEntryConfirm, EntryActions } from "./EntryActions"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { EntryGone } from "./EntryGone"
 import {
-  combinedStatus,
   LibraryEditorHeader,
   LibraryEditorLayout,
   LibraryEditorSkeleton,
@@ -61,7 +60,7 @@ const isBlockKey = Schema.is(BlockKey)
 
 const ignoreEditDefinition: EditorBlocks["onEditDefinition"] = () => {}
 
-export class NestedBlockError extends Error {}
+class NestedBlockError extends Error {}
 
 export function SectionPage({
   scope,
@@ -267,34 +266,7 @@ function SectionEditor({
       }
       aside={
         <>
-          <AsideGroup>
-            <MetaRow label={m.templates_editor_icon_label()}>
-              <IconAndColorField
-                icon={section.icon}
-                color={section.color}
-                onIcon={(icon) => patch({ icon })}
-                onColor={(color) => patch({ color })}
-                disabled={!editable}
-              />
-            </MetaRow>
-            <MetaRow label={m.templates_editor_description_label()}>
-              {editable ? (
-                <CommitInput
-                  value={section.description}
-                  onCommit={(description) => patch({ description })}
-                  ariaLabel={m.templates_editor_description_label()}
-                  placeholder={m.templates_editor_description_placeholder()}
-                  maxLength={200}
-                />
-              ) : (
-                <span className={MUTED_VALUE_CLASS}>
-                  {section.description === ""
-                    ? m.templates_editor_none()
-                    : section.description}
-                </span>
-              )}
-            </MetaRow>
-          </AsideGroup>
+          <DefinitionFields entry={section} editable={editable} patch={patch} />
           <AsideGroup>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
@@ -399,4 +371,10 @@ function DeleteSection({
       }}
     />
   )
+}
+
+const combinedStatus = (editor: SaveStatus, save: SaveStatus) => {
+  if (save === "saving") return "saving"
+  if (editor === "dirty") return "dirty"
+  return save === "idle" ? editor : save
 }

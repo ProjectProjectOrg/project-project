@@ -21,13 +21,12 @@ export function useSubTicketsSettled(
 ) {
   const { orgSlug, slug } = useProjectRoute()
   const [expandedByDefault] = useSubTicketsExpanded()
+  const allowed = new Set(statuses)
   const tickets =
     snapshot === null || !board
       ? []
       : Object.entries(snapshot.sections).flatMap(([key, page]) =>
-          statuses !== undefined &&
-          statuses.length > 0 &&
-          !statuses.includes(TicketStatus.make(key))
+          allowed.size > 0 && !allowed.has(TicketStatus.make(key))
             ? []
             : page.items.map((row) => row.ticket)
         )

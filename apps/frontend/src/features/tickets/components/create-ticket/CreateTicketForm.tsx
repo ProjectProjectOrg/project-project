@@ -51,19 +51,19 @@ import {
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
-import { startText } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
+import { startText } from "@/features/tickets/lib/creatorType"
 import { linkedTicket } from "@/features/tickets/lib/relationGroups"
+import {
+  DEFAULT_TICKET_FIELDS,
+  ticketFieldsPayload,
+  type TicketFields
+} from "@/features/tickets/lib/ticketFields"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
-import {
-  DEFAULT_TICKET_FIELDS,
-  TicketFieldChips,
-  ticketFieldsPayload,
-  type TicketFields
-} from "./TicketFieldChips"
+import { TicketFieldChips } from "./TicketFieldChips"
 import { Submission, useCreateSubmission } from "./useCreateSubmission"
 
 const RELATED_LABELS: Readonly<
@@ -99,26 +99,17 @@ export function CreateTicketForm({
 }>) {
   const { orgSlug } = request
   const navigate = useNavigate()
-  const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
-  const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
-  const [picked, setPicked] = useState(request.projectSlug)
-  const slug = picked ?? projects[0]?.slug ?? null
-  const related =
-    request.related !== undefined && slug === request.projectSlug
-      ? request.related
-      : null
-
-  const makingEpic = related?.kind === "epicOf"
+  const { projects, setPicked, slug, related, makingEpic, fromComment } =
+    useCreationProject(request)
 
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
-  const [description, setDescription] = useState(request.body ?? "")
-  const fromComment =
-    slug === request.projectSlug ? request.fromComment : undefined
+  const initialBody = request.body ?? ""
+  const [description, setDescription] = useState(initialBody)
+  const scope = { orgSlug, slug: slug ?? "" }
   const creatorType = useCreatorType({
-    orgSlug,
-    slug: slug ?? "",
+    ...scope,
     epics: related?.kind !== "subTicket",
     initial: request.type
   })
@@ -146,30 +137,7 @@ export function CreateTicketForm({
     return Exit.map(exit, linkedTicket)
   }
 
-  const link = async (target: LinkedTicket) => {
-    if (related?.kind === "epicOf") {
-      const moved = await fireMutation(
-        registry,
-        updateTicketDetail(ticketRequest(orgSlug, slug, related.ticketId)),
-        {
-          parent: parentRef({
-            id: target.id,
-            title: target.title,
-            type: EPIC_TYPE
-          })
-        }
-      )
-      return Result.isFailure(moved) ? Exit.failCause(moved.cause) : Exit.void
-    }
-    if (related?.kind !== "blockedBy") return Exit.void
-    const marked = await fireMutation(
-      registry,
-      markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
-      { kind: "blockedBy", target }
-    )
-    return Result.isFailure(marked) ? Exit.failCause(marked.cause) : Exit.void
-  }
-
+  const link = useLinkCreatedTicket(orgSlug, slug, related)
   const done = (id: TicketId) => {
     if (sprint !== null && !isEpicType(creatorType.type)) {
       assignTicketToSprint(
@@ -214,8 +182,10 @@ export function CreateTicketForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col">
-      {inCommandMenu ? (
-        <Composer.Header>
+      <CreationHeader
+        inCommandMenu={inCommandMenu}
+        related={related}
+        projectPicker={
           <ProjectSelect
             orgSlug={orgSlug}
             projects={projects}
@@ -228,37 +198,8 @@ export function CreateTicketForm({
               setSprint(null)
             }}
           />
-          {makingEpic ? (
-            <h2 className="truncate text-body font-normal text-muted-foreground">
-              <TicketIdText id={related.ticketId}>
-                {m.tickets_create_epic_for({ id: related.ticketId })}
-              </TicketIdText>
-            </h2>
-          ) : (
-            <h2 className="text-body font-normal text-muted-foreground">
-              {m.tickets_create_dialog_title()}
-            </h2>
-          )}
-          {related !== null && related.kind !== "epicOf" && (
-            <span className="truncate text-body text-muted-foreground">
-              ·{" "}
-              <TicketIdText id={related.ticketId}>
-                {RELATED_LABELS[related.kind]({ id: related.ticketId })}
-              </TicketIdText>
-            </span>
-          )}
-        </Composer.Header>
-      ) : (
-        related !== null && (
-          <Composer.Header>
-            <span className="truncate">
-              <TicketIdText id={related.ticketId}>
-                {RELATED_LABELS[related.kind]({ id: related.ticketId })}
-              </TicketIdText>
-            </span>
-          </Composer.Header>
-        )
-      )}
+        }
+      />
       <Composer.Title>
         <Input
           variant="bare"
@@ -277,9 +218,9 @@ export function CreateTicketForm({
         />
       </Composer.Title>
       <Composer.Body onKeyDownCapture={onSubmitShortcut}>
-        <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
+        <MentionScopeProvider scope={scope}>
           <LexicalEditor
-            markdown={request.body ?? ""}
+            markdown={initialBody}
             editable={!locked}
             onDraftChange={setDescription}
             placeholder={m.tickets_create_dialog_description_placeholder()}
@@ -348,6 +289,24 @@ export function CreateTicketForm({
   )
 }
 
+function useCreationProject(request: CreateTicketRequest) {
+  const { orgSlug } = request
+  const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
+  const [picked, setPicked] = useState<string | undefined>(undefined)
+  const slug = picked ?? request.projectSlug ?? projects[0]?.slug ?? null
+  const related =
+    request.related !== undefined && slug === request.projectSlug
+      ? request.related
+      : null
+
+  const makingEpic = related?.kind === "epicOf"
+
+  const fromComment =
+    slug === request.projectSlug ? request.fromComment : undefined
+  return { projects, setPicked, slug, related, makingEpic, fromComment }
+}
+
 function ProjectScope({
   orgSlug,
   slug,
@@ -359,4 +318,81 @@ function ProjectScope({
       {children}
     </ProjectContext.Provider>
   )
+}
+
+function CreationHeader({
+  inCommandMenu,
+  related,
+  projectPicker
+}: Readonly<{
+  inCommandMenu: boolean
+  related: NonNullable<CreateTicketRequest["related"]> | null
+  projectPicker: ReactNode
+}>) {
+  const makingEpic = related?.kind === "epicOf"
+  return inCommandMenu ? (
+    <Composer.Header>
+      {projectPicker}
+      {makingEpic ? (
+        <h2 className="truncate text-body font-normal text-muted-foreground">
+          <TicketIdText id={related.ticketId}>
+            {m.tickets_create_epic_for({ id: related.ticketId })}
+          </TicketIdText>
+        </h2>
+      ) : (
+        <h2 className="text-body font-normal text-muted-foreground">
+          {m.tickets_create_dialog_title()}
+        </h2>
+      )}
+      {related !== null && related.kind !== "epicOf" && (
+        <span className="truncate text-body text-muted-foreground">
+          ·{" "}
+          <TicketIdText id={related.ticketId}>
+            {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+          </TicketIdText>
+        </span>
+      )}
+    </Composer.Header>
+  ) : (
+    related !== null && (
+      <Composer.Header>
+        <span className="truncate">
+          <TicketIdText id={related.ticketId}>
+            {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+          </TicketIdText>
+        </span>
+      </Composer.Header>
+    )
+  )
+}
+
+function useLinkCreatedTicket(
+  orgSlug: string,
+  slug: string,
+  related: NonNullable<CreateTicketRequest["related"]> | null
+) {
+  const registry = useContext(RegistryContext)
+  return async (target: LinkedTicket) => {
+    if (related?.kind === "epicOf") {
+      const moved = await fireMutation(
+        registry,
+        updateTicketDetail(ticketRequest(orgSlug, slug, related.ticketId)),
+        {
+          parent: parentRef({
+            id: target.id,
+            title: target.title,
+            type: EPIC_TYPE
+          })
+        }
+      )
+      return Result.isFailure(moved) ? Exit.failCause(moved.cause) : Exit.void
+    }
+    if (related?.kind !== "blockedBy") return Exit.void
+    const marked = await fireMutation(
+      registry,
+      markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
+      { kind: "blockedBy", target }
+    )
+    return Result.isFailure(marked) ? Exit.failCause(marked.cause) : Exit.void
+  }
 }

@@ -14,7 +14,7 @@ import {
 } from "@pp/ui/board-drag"
 import { cn } from "@pp/ui/lib/utils"
 import { StatusGlyph } from "@pp/ui/status-glyph"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import {
   useCallback,
   useContext,
@@ -31,39 +31,18 @@ import {
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import {
   CreatedFlash,
-  isFresh,
   RowEnter
 } from "@/features/tickets/components/ticket-list/CreatedRow"
+import { isFresh } from "@/features/tickets/lib/createdRow"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import type { ColumnCreate } from "../hooks/useBoardDraft"
 import { BoardKeyboardContext } from "../hooks/useBoardKeyboardNavigation"
-import type { StatusReorder } from "../hooks/useStatusReorder"
+import type { ColumnReorder } from "../hooks/useStatusReorder"
 import { BoardTicketDraft } from "./BoardTicketDraft"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { VirtualSprintCards } from "./VirtualSprintCards"
-
-// A column's grip: pressing it starts the drag, letting go saves the order,
-// and its arrow keys move the column one place.
-export type ColumnReorder = Readonly<{
-  start: () => void
-  end: () => void
-  move: (delta: -1 | 1) => void
-}>
-
-export const columnReorder = (
-  reorder: StatusReorder | null,
-  order: ReadonlyArray<Ticket["status"]>,
-  status: Ticket["status"]
-) =>
-  reorder === null
-    ? undefined
-    : ({
-        start: reorder.enterReorder,
-        end: reorder.saveReorder,
-        move: (delta) => reorder.moveStatus(order, status, delta)
-      } satisfies ColumnReorder)
 
 function MetaGlyph({
   meta

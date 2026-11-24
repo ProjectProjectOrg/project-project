@@ -14,8 +14,7 @@ import type {
  * What the editor needs from the app it runs in: data (mention search,
  * uploads, Figma links, link previews, PDF pages) and navigation. The app
  * provides it once, near its root (EditorServicesProvider); the gallery
- * provides sample data. Members whose names start with `use` are hooks:
- * the editor calls them on every render, so keep them stable.
+ * provides sample data.
  */
 
 // Where a ticket's attachments and Figma links live.
@@ -45,15 +44,21 @@ export type MentionGroupSearch = Readonly<{
   results: MentionResults
 }>
 
+export type MentionSearchResults = Readonly<{
+  people: MentionGroupSearch
+  tickets: MentionGroupSearch
+}>
+
+type DataComponent<Props, Value> = (
+  props: Readonly<Props & { children: (value: Value) => ReactNode }>
+) => ReactNode
+
 export type EditorServices = Readonly<{
   // Follows an in-app link without a page load.
   navigate: (href: string) => void
   // Mentions: people and tickets matching what follows "@" (null while no
   // menu is open), in the mention scope around the editor.
-  useMentionSearch: (query: string | null) => Readonly<{
-    people: MentionGroupSearch
-    tickets: MentionGroupSearch
-  }>
+  MentionSearch: DataComponent<{ query: string | null }, MentionSearchResults>
   // Where a mention chip links to.
   mentionHref: Readonly<{
     user: (scope: MentionScope, userId: string) => string
@@ -74,9 +79,9 @@ export type EditorServices = Readonly<{
     commentId: string,
     scope: Readonly<{ orgSlug: string; slug: string }>
   ) => ReactNode
-  useLinkPreview: (url: string) => LinkPreviewView
-  useUploadAttachment: (target: TicketTarget) => UploadAttachment
-  useFigmaLinks: (target: TicketTarget) => FigmaLinks
+  LinkPreview: DataComponent<{ url: string }, LinkPreviewView>
+  AttachmentUpload: DataComponent<{ target: TicketTarget }, UploadAttachment>
+  FigmaLinks: DataComponent<{ target: TicketTarget }, FigmaLinks>
   // Opens the block library (the slash menu's "Browse blocks").
   openBlockGallery: () => void
   // A PDF's first pages, for its tile (the app's pdf.js).

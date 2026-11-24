@@ -22,7 +22,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useContext, useMemo, useRef, useState } from "react"
 
 import { projectScope } from "@/api/keys"
@@ -46,6 +46,7 @@ import {
   useBoardKeyboardNavigation
 } from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
+import { columnReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
@@ -69,7 +70,7 @@ import {
 } from "../lib/boardUtils"
 import { createdTicketShows } from "../lib/inlineCreate"
 import { HiddenColumnsEmpty } from "./HiddenColumnsEmpty"
-import { columnReorder, SprintBoardColumn } from "./SprintBoardColumn"
+import { SprintBoardColumn } from "./SprintBoardColumn"
 
 type SprintBoardProps = {
   groupId: GroupId
@@ -128,6 +129,78 @@ export function SprintBoard(props: SprintBoardProps) {
   )
 }
 
+function useSprintBoardDrop(
+  req: BoardRequest,
+  tickets: BoardValue["tickets"],
+  statusSlugs: ReadonlyArray<string>,
+  enabled: boolean,
+  canTransition: boolean
+) {
+  const registry = useContext(RegistryContext)
+  const [lastFlash, setLastFlash] = useState<{
+    id: TicketId
+    tick: number
+  } | null>(null)
+  const flash = (id: TicketId) =>
+    setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
+
+  const unfilteredGrouped = useMemo(
+    () => groupTicketsByStatus(tickets, statusSlugs),
+    [tickets, statusSlugs]
+  )
+
+  useBoardCardDrop(enabled, (src, dst) => {
+    if (!isDragData(src) || !isDropData(dst)) return
+    if (DropData.guards.card(dst) && dst.id === src.id) return
+
+    const status = dst.status !== src.status ? dst.status : undefined
+    if (status !== undefined && !canTransition) return
+    const position = boardMove(
+      tickets,
+      unfilteredGrouped[dst.status] ?? [],
+      src.id,
+      dst
+    )
+    const edit = boardEdit(status, position)
+    if (edit === null) return
+    registry.set(updateBoardTicket({ req, id: src.id }), edit)
+    flash(src.id)
+  })
+
+  return lastFlash
+}
+
+function useColumnCreate(
+  req: BoardRequest,
+  query: TicketListQuery,
+  isCompleted: boolean,
+  canTransition: boolean
+) {
+  const actor = useProjectActor()
+  const draft = useBoardDraft()
+  const createTicket = useAtomSet(quickCreateBoardTicket(req), {
+    mode: "promiseExit"
+  })
+  const canCreate =
+    !isCompleted &&
+    actor.call("tickets", "quickCreate") &&
+    GroupPolicy.can(actor, "sprint", "add_ticket")
+  const columnCreate = (status: ProjectStatus["slug"]) =>
+    canCreate && (status === "todo" || canTransition)
+      ? draft.forColumn(status, {
+          submit: createTicket,
+          insertable: true,
+          showsInPlace: (input) =>
+            createdTicketShows(
+              query,
+              input,
+              DateTime.toDate(DateTime.nowUnsafe())
+            )
+        })
+      : undefined
+  return columnCreate
+}
+
 function SprintBoardContent({
   req,
   query,
@@ -161,42 +234,17 @@ function SprintBoardContent({
       ),
     [board.tickets]
   )
-  const draft = useBoardDraft()
-  const createTicket = useAtomSet(quickCreateBoardTicket(req), {
-    mode: "promiseExit"
-  })
-  const canCreate =
-    !isCompleted &&
-    actor.call("tickets", "quickCreate") &&
-    GroupPolicy.can(actor, "sprint", "add_ticket")
-  const columnCreate = (status: ProjectStatus["slug"]) =>
-    canCreate && (status === "todo" || canTransition)
-      ? draft.forColumn(status, {
-          submit: createTicket,
-          insertable: true,
-          showsInPlace: (input) =>
-            createdTicketShows(
-              query,
-              input,
-              DateTime.toDate(DateTime.nowUnsafe())
-            )
-        })
-      : undefined
+  const columnCreate = useColumnCreate(req, query, isCompleted, canTransition)
   const { height, hasRightOverflow } = useBoardViewport(ref)
-  useBoardAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
+  const canDrag = !isCompleted && canReorder
+  const dragEnabled = canDrag && !reorderMode
+  useBoardAutoScroll(ref, dragEnabled)
 
-  const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const layout = useBoardColumns("sprints")
+  const collapsed = new Set(layout.collapsed)
   const order = visibleColumns(dragOrder ?? statusSlugs, layout.hidden)
-
-  const [lastFlash, setLastFlash] = useState<{
-    id: TicketId
-    tick: number
-  } | null>(null)
-  const flash = (id: TicketId) =>
-    setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
   const { visibleTickets } = useBoardTickets(
     orgSlug,
@@ -209,32 +257,13 @@ function SprintBoardContent({
     () => groupTicketsByStatus(visibleTickets, statusSlugs),
     [visibleTickets, statusSlugs]
   )
-  const unfilteredGrouped = useMemo(
-    () => groupTicketsByStatus(board.tickets, statusSlugs),
-    [board.tickets, statusSlugs]
+  const lastFlash = useSprintBoardDrop(
+    req,
+    board.tickets,
+    statusSlugs,
+    dragEnabled,
+    canTransition
   )
-  const unfilteredGroupedRef = useRef(unfilteredGrouped)
-  unfilteredGroupedRef.current = unfilteredGrouped
-  const boardTicketsRef = useRef(board.tickets)
-  boardTicketsRef.current = board.tickets
-
-  useBoardCardDrop(!isCompleted && !reorderMode && canReorder, (src, dst) => {
-    if (!isDragData(src) || !isDropData(dst)) return
-    if (DropData.guards.card(dst) && dst.id === src.id) return
-
-    const status = dst.status !== src.status ? dst.status : undefined
-    if (status !== undefined && !canTransition) return
-    const position = boardMove(
-      boardTicketsRef.current,
-      unfilteredGroupedRef.current[dst.status] ?? [],
-      src.id,
-      dst
-    )
-    const edit = boardEdit(status, position)
-    if (edit === null) return
-    registry.set(updateBoardTicket({ req, id: src.id }), edit)
-    flash(src.id)
-  })
 
   const keyboard = useBoardKeyboardNavigation(
     ref,
@@ -280,11 +309,11 @@ function SprintBoardContent({
                   tickets={grouped[status] ?? []}
                   filterKey={encodeTicketListQuery(query)}
                   members={members}
-                  isDraggable={!isCompleted && canReorder}
+                  isDraggable={canDrag}
                   lastFlash={lastFlash}
                   reorderMode={reorderMode}
                   reorder={columnReorder(reorder, order, status)}
-                  collapsed={layout.collapsed.includes(status)}
+                  collapsed={collapsed.has(status)}
                   onToggleCollapsed={() => layout.toggleCollapsed(status)}
                   create={columnCreate(status)}
                   inertTicketIds={pendingIds}

@@ -127,41 +127,42 @@ export function ViewFilterPage({ context, onBack, env }: CommandPageProps) {
   )
 }
 
-export const viewFilterDimensionPage = (dimension: ValueFilterDimension) =>
-  function ViewFilterDimensionPage({ context, onBack }: CommandPageProps) {
-    const options = (context.view?.options ?? []).filter(
-      (option) => option.choice.dimension === dimension
-    )
-    return (
-      <CommandFrame
-        chip={null}
-        placeholder={m.tickets_command_filter_pick_placeholder({
-          dimension: FILTER_DIMENSION_META[dimension].label()
-        })}
-        onBack={onBack}
-        warmPeek={warmFilter(context, options)}
-        items={options.map((option) => ({
-          value: option.key,
-          label: option.label,
-          icon: option.icon
-        }))}
-        onSelect={(item) => {
-          const option = options.find(
-            (candidate) => candidate.key === item.value
-          )
-          if (option !== undefined) context.view?.toggle(option.choice)
-        }}
-        renderItem={(item) => (
-          <CommandMenuItem value={item.value}>
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            <CommandMenuCheck
-              checked={options.some(
-                (option) => option.key === item.value && option.chosen
-              )}
-              label={m.chrome_command_menu_selected()}
-            />
-          </CommandMenuItem>
-        )}
-      />
-    )
-  }
+export function ViewFilterDimensionPage({
+  dimension,
+  context,
+  onBack
+}: CommandPageProps & Readonly<{ dimension: ValueFilterDimension }>) {
+  const options = (context.view?.options ?? []).filter(
+    (option) => option.choice.dimension === dimension
+  )
+  return (
+    <CommandFrame
+      chip={null}
+      placeholder={m.tickets_command_filter_pick_placeholder({
+        dimension: FILTER_DIMENSION_META[dimension].label()
+      })}
+      onBack={onBack}
+      warmPeek={warmFilter(context, options)}
+      items={options.map((option) => ({
+        value: option.key,
+        label: option.label,
+        icon: option.icon
+      }))}
+      onSelect={(item) => {
+        const option = options.find((candidate) => candidate.key === item.value)
+        if (option !== undefined) context.view?.toggle(option.choice)
+      }}
+      renderItem={(item) => (
+        <CommandMenuItem value={item.value}>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <CommandMenuCheck
+            checked={options.some(
+              (option) => option.key === item.value && option.chosen
+            )}
+            label={m.chrome_command_menu_selected()}
+          />
+        </CommandMenuItem>
+      )}
+    />
+  )
+}

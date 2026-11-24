@@ -13,6 +13,7 @@ import {
   type CutoutRejection,
   type IconTreatment
 } from "@/features/projects/lib/iconDraft"
+import { objectUrl } from "@/lib/objectUrl"
 
 export type IconPreview = Readonly<{
   cutoutUrl: string
@@ -49,8 +50,8 @@ export function useIconDraft() {
   const [rejected, setRejected] = useState(false)
   const bitmapRef = useRef<ImageBitmap | null>(null)
   const fileRef = useRef<File | null>(null)
-  const previewUrls = useRef<ReadonlyArray<string>>([])
-  const sourceUrl = useRef<string | null>(null)
+  const releasePreview = useRef<(() => void) | null>(null)
+  const sourceUrl = useRef<ReturnType<typeof objectUrl> | null>(null)
   const restyleToken = useRef(0)
   const draftToken = useRef(0)
   const renderedTolerance = useRef<number | null>(null)
@@ -63,9 +64,9 @@ export function useIconDraft() {
       mounted.current = false
       draftToken.current += 1
       restyleToken.current += 1
-      previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
-      previewUrls.current = []
-      if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
+      releasePreview.current?.()
+      releasePreview.current = null
+      sourceUrl.current?.release()
       sourceUrl.current = null
       bitmapRef.current?.close()
       bitmapRef.current = null
@@ -99,16 +100,13 @@ export function useIconDraft() {
         setRejected(true)
       return null
     }
-    const fresh = [next.cutoutUrl, next.fullUrl].filter(
-      (url, index, all) => all.indexOf(url) === index
-    )
     if (token !== restyleToken.current || draft !== draftToken.current) {
-      fresh.forEach((url) => URL.revokeObjectURL(url))
+      next.release()
       return null
     }
     renderedTolerance.current = tolerance
-    previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
-    previewUrls.current = fresh
+    releasePreview.current?.()
+    releasePreview.current = next.release
     const { treatment: resolved, ...rendered } = next
     setPreview(rendered)
     return initializingSaved ? treatment : resolved
@@ -144,9 +142,9 @@ export function useIconDraft() {
       bitmapRef.current?.close()
       bitmapRef.current = bitmap
       fileRef.current = file
-      if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
-      const url = URL.createObjectURL(file)
-      sourceUrl.current = url
+      sourceUrl.current?.release()
+      sourceUrl.current = objectUrl(file)
+      const { url } = sourceUrl.current
       const treatment = await restyle(initial.treatment, initial.tolerance)
       return token === draftToken.current
         ? ({

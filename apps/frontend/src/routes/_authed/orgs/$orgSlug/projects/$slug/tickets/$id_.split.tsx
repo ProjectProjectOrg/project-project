@@ -2,7 +2,7 @@ import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   sprintList,

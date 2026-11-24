@@ -4,11 +4,12 @@ import {
   isRasterImageContentType,
   type ProjectBanner
 } from "@pp/shared"
+import { useMountedRef } from "@pp/ui/hooks/useMountedRef"
 import { transitions } from "@pp/ui/lib/springs"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 
 import {
@@ -37,10 +38,39 @@ import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
 import { BannerCropStep } from "./CropStep"
-import { bannerFormOpts } from "./opts"
+import { bannerFormOpts, type BannerSource, type BannerCrop } from "./opts"
 import { BannerSourceStep } from "./SourceStep"
 
 export type BannerForm = ReactFormType<ReturnType<typeof bannerFormOpts>>
+
+function bannerSourceDetail(
+  source: typeof BannerSource.Type,
+  file: File | null
+) {
+  const preset = bannerPresets.find((entry) => entry.id === source.preset)
+  return preset
+    ? `${preset.label()} · ${preset.artist}`
+    : (file?.name ??
+        (source.src
+          ? m.project_appearance_banner_custom()
+          : m.project_appearance_banner_none()))
+}
+
+function croppedBanner(
+  banner: ProjectBanner | null,
+  selected: string | null,
+  crop: typeof BannerCrop.Type
+) {
+  const preset = bannerPresets.find((entry) => entry.id === selected)
+  if (preset)
+    return {
+      type: "preset",
+      preset: preset.id,
+      crop,
+      placeholder: null
+    } satisfies ProjectBanner
+  return banner ? { ...banner, crop } : null
+}
 
 export function ProjectBannerForm({
   banner,
@@ -70,14 +100,8 @@ export function ProjectBannerForm({
   const fade = reduce ? { duration: 0 } : transitions.fade
   const fadeIn = reduce ? false : { opacity: 0, y: -4 }
   const fadeOut = { opacity: 0, y: 4 }
-  const mounted = useRef(false)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-  const fileRef = useRef<File | null>(null)
+  const mounted = useMountedRef()
+  const [file, setFile] = useState<File | null>(null)
   const objectUrls = useRef<string[]>([])
 
   useEffect(
@@ -89,30 +113,16 @@ export function ProjectBannerForm({
 
   const applied = bannerSource(orgSlug, banner) ?? null
   const form = useAppForm({
-    ...bannerFormOpts({
-      kind:
-        banner === null
-          ? "none"
-          : banner.type === "preset"
-            ? "artwork"
-            : "upload",
-      src: applied,
-      preset: banner?.type === "preset" ? banner.preset : null,
-      crop: {
-        x: banner?.crop.x ?? bannerDefaults.x,
-        y: banner?.crop.y ?? bannerDefaults.y,
-        zoom: banner?.crop.zoom ?? bannerDefaults.zoom
-      }
-    }),
+    ...bannerFormOpts(banner, applied),
     onSubmit: async ({ value }) => {
       setRejected(false)
       let next: ProjectBanner | null = null
 
       if (value.source.kind !== "none") {
-        if (value.source.kind === "upload" && fileRef.current) {
+        if (value.source.kind === "upload" && file) {
           let compressed: CompressedBanner
           try {
-            compressed = await compressBanner(fileRef.current, {
+            compressed = await compressBanner(file, {
               maxEdge: 2560,
               hasAlpha: false,
               quality: 0.82
@@ -131,19 +141,7 @@ export function ProjectBannerForm({
             placeholder: compressed.placeholder
           }
         } else {
-          const preset = bannerPresets.find(
-            (entry) => entry.id === value.source.preset
-          )
-          if (preset) {
-            next = {
-              type: "preset",
-              preset: preset.id,
-              crop: value.crop,
-              placeholder: null
-            }
-          } else if (banner) {
-            next = { ...banner, crop: value.crop }
-          }
+          next = croppedBanner(banner, value.source.preset, value.crop)
         }
       }
 
@@ -178,18 +176,8 @@ export function ProjectBannerForm({
     values.crop
   ])
 
-  const preset = bannerPresets.find(
-    (entry) => entry.id === values.source.preset
-  )
-  const sourceDetail = preset
-    ? `${preset.label()} · ${preset.artist}`
-    : (fileRef.current?.name ??
-      (values.source.src
-        ? m.project_appearance_banner_custom()
-        : m.project_appearance_banner_none()))
-
   const removeBanner = () => {
-    fileRef.current = null
+    setFile(null)
     form.setFieldValue("source.kind", "none")
     form.setFieldValue("source.src", null)
     form.setFieldValue("source.preset", null)
@@ -229,7 +217,7 @@ export function ProjectBannerForm({
                 </span>
               }
               label={m.project_banner_summary_source_label()}
-              value={sourceDetail}
+              value={bannerSourceDetail(values.source, file)}
               onChange={() => setStep(0)}
             />
           </motion.div>
@@ -249,7 +237,7 @@ export function ProjectBannerForm({
               form={form}
               rejected={rejected}
               onPickPreset={() => {
-                fileRef.current = null
+                setFile(null)
               }}
               onPickFile={(file) => {
                 if (
@@ -261,7 +249,7 @@ export function ProjectBannerForm({
                   return false
                 }
                 setRejected(false)
-                fileRef.current = file
+                setFile(file)
                 const url = URL.createObjectURL(file)
                 objectUrls.current.push(url)
                 form.setFieldValue("source.kind", "upload")

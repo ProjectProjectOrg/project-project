@@ -13,6 +13,7 @@ import { TextSwap } from "@pp/ui/text-swap"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/typeMenuItems"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { useTypeEditing } from "@/features/tickets/hooks/useTypeEditing"
@@ -21,7 +22,6 @@ import {
   resolveType,
   typeKeyOfOption,
   typeName,
-  typeOptions,
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
@@ -32,34 +32,6 @@ export type TypeMenuAction = Readonly<{
   label: string
   onAction: () => void
 }>
-
-export const typeMenuItems = (
-  types: ReadonlyArray<TypeDefinition>,
-  {
-    epics = true,
-    lastUsed
-  }: Readonly<{
-    epics?: boolean
-    lastUsed?: TypeKey | null
-  }> = {}
-) =>
-  typeOptions(types, epics).map((option) => ({
-    value: option.value,
-    textValue: typeName(option.type),
-    separated: option.separated,
-    closeOnClick: true,
-    label: (
-      <>
-        <TypeGlyph type={option.type} />
-        <span className="truncate">{typeName(option.type)}</span>
-        {lastUsed !== undefined && (option.type?.key ?? null) === lastUsed && (
-          <span className="ml-auto shrink-0 text-micro text-muted-foreground">
-            {m.tickets_create_type_last_used()}
-          </span>
-        )}
-      </>
-    )
-  }))
 
 export function TypeMenuActionItem({
   action

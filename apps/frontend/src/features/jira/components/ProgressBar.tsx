@@ -1,5 +1,5 @@
 import { spring } from "@pp/ui/lib/springs"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 
 export function ProgressBar({
   ratio,

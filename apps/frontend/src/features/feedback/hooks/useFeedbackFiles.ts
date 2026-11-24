@@ -10,6 +10,8 @@ import {
 
 import { feedbackDraft, type FeedbackFileDraft } from "../atoms/feedbackDraft"
 
+const RESOLVED = Promise.resolve()
+
 export function useFeedbackFiles(orgSlug: string, route: string) {
   const [uploadAtom] = useState(() => uploadFeedbackAttachment(orgSlug))
   const upload = useAtomSet(uploadAtom, {
@@ -20,7 +22,7 @@ export function useFeedbackFiles(orgSlug: string, route: string) {
   const [rejection, setRejection] = useState<FileRejection | null>(null)
   const batchId = useId()
   const nextFile = useRef(0)
-  const queue = useRef<Promise<void>>(Promise.resolve())
+  const queue = useRef(RESOLVED)
   const settle = (
     key: string,
     exit: Exit.Exit<Readonly<{ id: string }>, unknown>

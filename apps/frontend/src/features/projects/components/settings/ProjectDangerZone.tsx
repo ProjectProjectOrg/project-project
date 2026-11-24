@@ -3,8 +3,8 @@ import { ConfirmButton } from "@pp/ui/confirm-button"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

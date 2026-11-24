@@ -223,7 +223,7 @@ export function SelectionOrder({
         continue
       store.views.set(entry.key, entry)
       if (known.get(entry.key) === entry.ticket) continue
-      next ??= new Map(known)
+      if (!next) next = new Map(known)
       next.set(entry.key, entry.ticket)
     }
     if (!next) return

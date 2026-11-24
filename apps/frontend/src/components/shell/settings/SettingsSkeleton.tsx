@@ -1,4 +1,4 @@
-import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 
 export function SettingsSkeleton({ rows = 1 }: Readonly<{ rows?: number }>) {
   return (

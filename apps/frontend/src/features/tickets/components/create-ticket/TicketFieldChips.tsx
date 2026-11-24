@@ -1,11 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import {
-  TicketStatus as TicketStatusSchema,
-  type CreateTicketInput,
-  type Estimate,
-  type TicketPriority,
-  type TicketStatus
-} from "@pp/shared"
+import { TicketStatus as TicketStatusSchema } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 
@@ -19,30 +13,9 @@ import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/
 import { PrioritySelect } from "@/features/tickets/components/ticket-list/PriorityField"
 import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
 import type { CreatorType } from "@/features/tickets/hooks/useCreatorType"
+import { type TicketFields } from "@/features/tickets/lib/ticketFields"
 
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatusSchema)("todo")
-
-export type TicketFields = Readonly<{
-  status: TicketStatus | null
-  priority: TicketPriority | null
-  assignees: ReadonlyArray<string>
-  estimate: Estimate | null
-}>
-
-export const DEFAULT_TICKET_FIELDS: TicketFields = {
-  status: null,
-  priority: null,
-  assignees: [],
-  estimate: null
-}
-
-export const ticketFieldsPayload = (fields: TicketFields) =>
-  ({
-    priority: fields.priority ?? undefined,
-    status: fields.status ?? undefined,
-    assignees: fields.assignees.length === 0 ? undefined : fields.assignees,
-    estimate: fields.estimate ?? undefined
-  }) satisfies Partial<CreateTicketInput>
 
 export function TicketFieldChips({
   orgSlug,

@@ -29,6 +29,7 @@ import {
   bannerCropStyle,
   bannerFadeMask,
   bannerPreviewChanged,
+  type BannerPreview,
   type BannerFrameCrop
 } from "../lib/bannerFrame"
 import { bannerDefaults, bannerPresets } from "../lib/bannerPresets"
@@ -36,6 +37,60 @@ import { CachedShaderBanner } from "./CachedShaderBanner"
 
 const devicePixelRatio = () =>
   typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+
+function useBannerSize() {
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!node) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      setContainerSize((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height }
+      )
+    })
+    observer.observe(node)
+    observerRef.current = observer
+    const width = Math.round(node.clientWidth)
+    const height = Math.round(node.clientHeight)
+    if (width > 0 && height > 0) setContainerSize({ width, height })
+  }, [])
+
+  useEffect(() => () => observerRef.current?.disconnect(), [])
+
+  return { containerRef, containerSize }
+}
+
+function bannerSources(
+  orgSlug: string,
+  banner: Banner | null,
+  preview: BannerPreview | null
+) {
+  const appliedSource = bannerSource(
+    orgSlug,
+    banner,
+    typeof window === "undefined" ? undefined : window.innerWidth
+  )
+  const appliedCrop = banner?.crop ?? bannerDefaults
+  const source = preview ? preview.source : appliedSource
+  const crop = preview?.crop ?? appliedCrop
+  const changed = bannerPreviewChanged(preview, appliedSource, appliedCrop)
+  const presetThumb =
+    banner?.type === "preset"
+      ? (bannerPresets.find((preset) => preset.id === banner.preset)
+          ?.thumbSrc ?? null)
+      : null
+  const placeholder = changed
+    ? null
+    : (banner?.placeholder ?? presetThumb ?? null)
+  return { source, crop, changed, placeholder }
+}
 
 export function ProjectBanner({
   orgSlug,
@@ -57,27 +112,14 @@ export function ProjectBanner({
   )
   const pageBackdropSlot = usePageBackdrop()
   const backdrop = pageBackdrop ? pageBackdropSlot : null
-  const appliedSource = bannerSource(
+  const { source, crop, changed, placeholder } = bannerSources(
     orgSlug,
     banner,
-    typeof window === "undefined" ? undefined : window.innerWidth
+    preview
   )
-  const appliedCrop = banner?.crop ?? bannerDefaults
-  const source = preview ? preview.source : appliedSource
-  const crop = preview?.crop ?? appliedCrop
   const editing = preview !== null
-  const changed = bannerPreviewChanged(preview, appliedSource, appliedCrop)
-  const presetThumb =
-    banner?.type === "preset"
-      ? (bannerPresets.find((preset) => preset.id === banner.preset)
-          ?.thumbSrc ?? null)
-      : null
-  const placeholder = changed
-    ? null
-    : (banner?.placeholder ?? presetThumb ?? null)
   const placeholderSize = usePlaceholderSize(placeholder)
-  const observerRef = useRef<ResizeObserver | null>(null)
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const { containerRef, containerSize } = useBannerSize()
   const measured = containerSize.width > 0 && containerSize.height > 0
 
   const bucketedWidth =
@@ -115,29 +157,6 @@ export function ProjectBanner({
         : null,
     [identity, bucketedWidth, containerSize.height]
   )
-
-  const containerRef = useCallback((node: HTMLDivElement | null) => {
-    observerRef.current?.disconnect()
-    observerRef.current = null
-    if (!node) return
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      const width = Math.round(entry.contentRect.width)
-      const height = Math.round(entry.contentRect.height)
-      setContainerSize((current) =>
-        current.width === width && current.height === height
-          ? current
-          : { width, height }
-      )
-    })
-    observer.observe(node)
-    observerRef.current = observer
-    const width = Math.round(node.clientWidth)
-    const height = Math.round(node.clientHeight)
-    if (width > 0 && height > 0) setContainerSize({ width, height })
-  }, [])
-
-  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   if (!source) return null
 
@@ -184,6 +203,33 @@ export function ProjectBanner({
     : node
 }
 
+function bannerLayers(
+  image: ReturnType<typeof useBannerImage>,
+  identity: BannerRenderIdentity | null,
+  editing: boolean,
+  reduceMotion: boolean,
+  revealComplete: boolean
+) {
+  const { painted, shaderImage, cachedRender } = image
+  const showingPreview =
+    painted &&
+    (editing ||
+      (cachedRender !== null &&
+        identity !== null &&
+        !matchesBannerRender(cachedRender, identity)))
+  const settled = showingPreview ? null : cachedRender
+  const ready = settled !== null || painted
+  const revealed = revealComplete || (reduceMotion && ready)
+  const renderShader =
+    settled === null || editing || image.lookup === "miss" ? shaderImage : null
+  return { ready, settled, revealed, renderShader }
+}
+
+const bannerOpacityTransition = (reduceMotion: boolean, revealed: boolean) =>
+  reduceMotion || revealed
+    ? "none"
+    : `opacity ${transitions.fade.duration}s ${standardEaseCss}`
+
 function BannerLayers({
   source,
   identity,
@@ -213,21 +259,15 @@ function BannerLayers({
     measured,
     editing
   })
-  const { painted, shaderImage, cachedRender } = image
   const [revealComplete, setRevealComplete] = useState(image.initiallyReady)
 
-  const showingPreview =
-    painted &&
-    (editing ||
-      (cachedRender !== null &&
-        identity !== null &&
-        !matchesBannerRender(cachedRender, identity)))
-  const settled = showingPreview ? null : cachedRender
-  const ready = settled !== null || painted
-  const revealed = revealComplete || (reduceMotion && ready)
-  const renderShader =
-    shaderImage !== null &&
-    (settled === null || editing || image.lookup === "miss")
+  const { ready, settled, revealed, renderShader } = bannerLayers(
+    image,
+    identity,
+    editing,
+    reduceMotion,
+    revealComplete
+  )
   const settings = useMemo(
     () => ({ ...bannerDefaults, x: crop.x, y: crop.y, zoom: crop.zoom }),
     [crop.x, crop.y, crop.zoom]
@@ -247,10 +287,7 @@ function BannerLayers({
       )
     : undefined
   const fadeMask = bannerFadeMask(settings.fade)
-  const transition =
-    reduceMotion || revealed
-      ? "none"
-      : `opacity ${transitions.fade.duration}s ${standardEaseCss}`
+  const transition = bannerOpacityTransition(reduceMotion, revealed)
   const mixBlendMode = revealed ? "normal" : "plus-lighter"
 
   return (
@@ -297,13 +334,13 @@ function BannerLayers({
             className="absolute inset-0 block size-full object-cover"
           />
         )}
-        {renderShader && (
+        {renderShader !== null && (
           <div
             className="absolute inset-0 size-full"
             style={{ opacity: settled === null ? 1 : 0 }}
           >
             <CachedShaderBanner
-              image={shaderImage}
+              image={renderShader}
               settings={settings}
               cacheKey={cacheKey}
               live={editing}

@@ -279,6 +279,7 @@ function AssigneeOptions({
   ComponentProps<typeof AssigneeSelect>,
   "value" | "members" | "onChange" | "onClear"
 >) {
+  const assigned = new Set(value)
   const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
   const clear = () => {
     if (onClear !== undefined) onClear()
@@ -308,7 +309,7 @@ function AssigneeOptions({
                 ? `${member.name} ${member.username}`
                 : member.name
             }
-            checked={value.includes(member.id)}
+            checked={assigned.has(member.id)}
             onCheckedChange={() => toggle(member.id)}
           >
             <MemberAvatar member={member} size={20} />

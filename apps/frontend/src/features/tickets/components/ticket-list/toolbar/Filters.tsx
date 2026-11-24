@@ -63,8 +63,8 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
+import { SPRINT_STATE_META } from "@/features/sprints/lib/sprintPresentation"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
@@ -105,9 +105,6 @@ export function Filters() {
     query,
     patchFilter: onChange,
     filters,
-    members,
-    estimation,
-    counts,
     boardScope,
     searchActive: compact
   } = useTicketToolbar()
@@ -124,15 +121,11 @@ export function Filters() {
   if (active && activeFilterCount !== shownCount) {
     setShownCount(activeFilterCount)
   }
-  const hasToggles = filters.some((dimension) => TOGGLES.has(dimension))
   const clearFilters = () =>
     onChange({
       ...clearedFilters(filters),
       status: showStatus ? undefined : value.status
     })
-  const hasSubmenus =
-    showStatus || filters.some((dimension) => !TOGGLES.has(dimension))
-
   return (
     <DropdownMenu
       onOpenChange={(open) => {
@@ -191,94 +184,7 @@ export function Filters() {
         className="w-52"
         finalFocus={false}
       >
-        {showStatus && (
-          <FilterStatus
-            value={value.status}
-            onChange={(status) => onChange({ status })}
-            counts={counts}
-          />
-        )}
-        {filters.includes("type") && (
-          <FilterType
-            value={value?.type}
-            onChange={(type) => onChange({ type })}
-          />
-        )}
-        {filters.includes("assignee") && (
-          <FilterAssignee
-            value={value?.assignee}
-            onChange={(assignee) => onChange({ assignee })}
-            members={members}
-          />
-        )}
-        {filters.includes("sprint") && (
-          <FilterSprint
-            value={value?.groupId}
-            onChange={(groupId) => onChange({ groupId })}
-          />
-        )}
-        {filters.includes("epic") && (
-          <FilterEpic
-            value={value?.parent}
-            onChange={(parent) => onChange({ parent })}
-          />
-        )}
-        {filters.includes("estimate") && (
-          <FilterEstimate
-            value={value?.estimate}
-            onChange={(estimate) => onChange({ estimate })}
-            estimation={estimation}
-          />
-        )}
-        {filters.includes("tags") && (
-          <FilterTags
-            value={value?.tags}
-            onChange={(tags) => onChange({ tags })}
-          />
-        )}
-        {hasSubmenus && hasToggles && <DropdownMenuSeparator />}
-        {filters.includes("blocked") && (
-          <DropdownMenuCheckboxItem
-            checked={value?.blocked === true}
-            onCheckedChange={(on) =>
-              onChange({ blocked: on ? true : undefined })
-            }
-          >
-            <OctagonMinus className="size-4" strokeWidth={1.75} />
-            {m.tickets_filters_blocked_only()}
-          </DropdownMenuCheckboxItem>
-        )}
-        {filters.includes("flagged") && (
-          <DropdownMenuCheckboxItem
-            checked={value?.flagged === true}
-            onCheckedChange={(on) =>
-              onChange({ flagged: on ? true : undefined })
-            }
-          >
-            <Flag className="size-4" strokeWidth={1.75} />
-            {m.tickets_filters_flagged_only()}
-          </DropdownMenuCheckboxItem>
-        )}
-        {filters.includes("archived") && (
-          <DropdownMenuCheckboxItem
-            checked={value?.archived === true}
-            onCheckedChange={(on) =>
-              onChange({ archived: on ? true : undefined })
-            }
-          >
-            <Archive className="size-4" strokeWidth={1.75} />
-            {m.tickets_filters_archived_show()}
-          </DropdownMenuCheckboxItem>
-        )}
-        {active && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={clearFilters} className="cursor-pointer">
-              <X className="size-4" strokeWidth={1.75} />
-              {m.tickets_filters_clear_all()}
-            </DropdownMenuItem>
-          </>
-        )}
+        <FilterChoices active={active} clearFilters={clearFilters} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -326,13 +232,14 @@ function CheckboxOptions<A extends string>({
   selected: ReadonlyArray<A> | undefined
   onChange: (next: ReadonlyArray<A> | undefined) => void
 }>) {
+  const checked = new Set(selected)
   return (
     <>
       {options.map((option) => (
         <Fragment key={option.value}>
           <DropdownMenuCheckboxItem
             label={option.label}
-            checked={selected?.includes(option.value) === true}
+            checked={checked.has(option.value)}
             closeOnClick={false}
             onCheckedChange={() => onChange(toggled(selected, option.value))}
           >
@@ -636,6 +543,7 @@ function FilterTags({
     [tags]
   )
   if (tagList.length === 0) return null
+  const selected = new Set(value)
   return (
     <FilterSubmenu
       icon={Tag}
@@ -652,12 +560,120 @@ function FilterTags({
           <TagMenuItem
             key={tag.name}
             tag={tag}
-            checked={value?.includes(tag.name) === true}
+            checked={selected.has(tag.name)}
             onToggle={() => onChange(toggled(value, tag.name))}
           />
         ))}
       </DropdownMenuList>
       <DropdownMenuEmpty>{m.tickets_command_tags_empty()}</DropdownMenuEmpty>
     </FilterSubmenu>
+  )
+}
+
+function FilterChoices({
+  active,
+  clearFilters
+}: Readonly<{ active: boolean; clearFilters: () => void }>) {
+  const {
+    query: value,
+    patchFilter: onChange,
+    filters,
+    counts,
+    members,
+    estimation,
+    boardScope
+  } = useTicketToolbar()
+  const showStatus = !boardScope
+  const hasToggles = filters.some((dimension) => TOGGLES.has(dimension))
+  const hasSubmenus =
+    showStatus || filters.some((dimension) => !TOGGLES.has(dimension))
+
+  return (
+    <>
+      {showStatus && (
+        <FilterStatus
+          value={value.status}
+          onChange={(status) => onChange({ status })}
+          counts={counts}
+        />
+      )}
+      {filters.includes("type") && (
+        <FilterType
+          value={value.type}
+          onChange={(type) => onChange({ type })}
+        />
+      )}
+      {filters.includes("assignee") && (
+        <FilterAssignee
+          value={value.assignee}
+          onChange={(assignee) => onChange({ assignee })}
+          members={members}
+        />
+      )}
+      {filters.includes("sprint") && (
+        <FilterSprint
+          value={value.groupId}
+          onChange={(groupId) => onChange({ groupId })}
+        />
+      )}
+      {filters.includes("epic") && (
+        <FilterEpic
+          value={value.parent}
+          onChange={(parent) => onChange({ parent })}
+        />
+      )}
+      {filters.includes("estimate") && (
+        <FilterEstimate
+          value={value.estimate}
+          onChange={(estimate) => onChange({ estimate })}
+          estimation={estimation}
+        />
+      )}
+      {filters.includes("tags") && (
+        <FilterTags
+          value={value.tags}
+          onChange={(tags) => onChange({ tags })}
+        />
+      )}
+      {hasSubmenus && hasToggles && <DropdownMenuSeparator />}
+      {filters.includes("blocked") && (
+        <DropdownMenuCheckboxItem
+          checked={value.blocked === true}
+          onCheckedChange={(on) => onChange({ blocked: on ? true : undefined })}
+        >
+          <OctagonMinus className="size-4" strokeWidth={1.75} />
+          {m.tickets_filters_blocked_only()}
+        </DropdownMenuCheckboxItem>
+      )}
+      {filters.includes("flagged") && (
+        <DropdownMenuCheckboxItem
+          checked={value.flagged === true}
+          onCheckedChange={(on) => onChange({ flagged: on ? true : undefined })}
+        >
+          <Flag className="size-4" strokeWidth={1.75} />
+          {m.tickets_filters_flagged_only()}
+        </DropdownMenuCheckboxItem>
+      )}
+      {filters.includes("archived") && (
+        <DropdownMenuCheckboxItem
+          checked={value.archived === true}
+          onCheckedChange={(on) =>
+            onChange({ archived: on ? true : undefined })
+          }
+        >
+          <Archive className="size-4" strokeWidth={1.75} />
+          {m.tickets_filters_archived_show()}
+        </DropdownMenuCheckboxItem>
+      )}
+      {active && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={clearFilters} className="cursor-pointer">
+            <X className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_clear_all()}
+          </DropdownMenuItem>
+        </>
+      )}
+    </>
   )
 }

@@ -3,8 +3,8 @@ import { Button } from "@pp/ui/button"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

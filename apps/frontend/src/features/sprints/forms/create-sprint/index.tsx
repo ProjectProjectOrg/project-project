@@ -10,7 +10,13 @@ import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useContext, useState, type FormEvent, type KeyboardEvent } from "react"
+import {
+  useContext,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
@@ -56,9 +62,12 @@ export function CreateSprintForm({
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [range, setRange] = useState<SprintDateDraft>({})
-  const [failure, setFailure] = useState<string | null>(null)
-  const [created, setCreated] = useState<Group["id"] | null>(null)
-  const [pending, setPending] = useState(false)
+  const [submission, setSubmission] = useState<
+    "idle" | "pending" | Readonly<{ error: string }>
+  >("idle")
+  const created = useRef<Group["id"] | null>(null)
+  const submitting = useRef(false)
+  const pending = submission === "pending"
   const create = useAtomSet(createSprintInProject, { mode: "promiseExit" })
   const trimmed = name.trim()
   const body = description.trim()
@@ -79,21 +88,15 @@ export function CreateSprintForm({
       }
     })
     if (Exit.isSuccess(exit)) return exit.value.id
-    setFailure(errorMessage(Cause.squash(exit.cause)))
+    setSubmission({ error: errorMessage(Cause.squash(exit.cause)) })
     return null
   }
 
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault()
-    if (!canSubmit) return
-    setFailure(null)
-    setPending(true)
-    const groupId = created ?? (await createSprint())
-    if (groupId === null) {
-      setPending(false)
-      return
-    }
-    setCreated(groupId)
+  const persist = async () => {
+    if (slug === null) return
+    const groupId = created.current ?? (await createSprint())
+    if (groupId === null) return
+    created.current = groupId
     if (completeFrom !== undefined) {
       const completion = await fireMutation(
         registry,
@@ -104,8 +107,7 @@ export function CreateSprintForm({
         { destination: { kind: "sprint", groupId } }
       )
       if (Result.isFailure(completion)) {
-        setPending(false)
-        setFailure(errorMessage(Cause.squash(completion.cause)))
+        setSubmission({ error: errorMessage(Cause.squash(completion.cause)) })
         return
       }
     }
@@ -117,15 +119,26 @@ export function CreateSprintForm({
     })
   }
 
+  const submit = (event?: FormEvent) => {
+    event?.preventDefault()
+    if (!canSubmit || submitting.current) return
+    submitting.current = true
+    setSubmission("pending")
+    void persist().finally(() => {
+      submitting.current = false
+      setSubmission((current) => (current === "pending" ? "idle" : current))
+    })
+  }
+
   const onSubmitShortcut = (event: KeyboardEvent) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
-      void submit()
+      submit()
     }
   }
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="flex flex-col">
+    <form onSubmit={submit} className="flex flex-col">
       <Composer.Title>
         <Input
           variant="bare"
@@ -137,7 +150,9 @@ export function CreateSprintForm({
           onKeyDown={onSubmitShortcut}
           onChange={(event) => {
             setName(event.target.value)
-            setFailure(null)
+            setSubmission((current) =>
+              typeof current === "object" ? "idle" : current
+            )
           }}
         />
       </Composer.Title>
@@ -153,7 +168,9 @@ export function CreateSprintForm({
       {completeFrom !== undefined && slug !== null && (
         <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
       )}
-      <Composer.Error>{failure}</Composer.Error>
+      <Composer.Error>
+        {typeof submission === "object" ? submission.error : null}
+      </Composer.Error>
       <Composer.Tray>
         <Composer.Footer>
           <SprintDatesPicker

@@ -18,10 +18,10 @@ import {
   Unlink,
   X
 } from "@pp/ui/icons"
-import * as Data from "effect/Data"
 import { useRef, useState, type ReactElement } from "react"
 
 import { clearBranch } from "@/features/github/atoms/github"
+import { BranchMenuRemoval } from "@/features/github/lib/branchMenuRemoval"
 import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -31,12 +31,6 @@ import { m } from "@/paraglide/messages"
 
 import { usePreferredBranchLink } from "./BranchChip"
 import { BranchPicker } from "./BranchPicker"
-
-export type BranchMenuRemoval = Data.TaggedEnum<{
-  ticket: {}
-  stack: Readonly<{ busy: boolean; onRemove: () => void }>
-}>
-export const BranchMenuRemoval = Data.taggedEnum<BranchMenuRemoval>()
 
 export type BranchMenuPr = Readonly<{ href: string; label: string }>
 
@@ -91,7 +85,16 @@ export function BranchMenu({
         >
           {openPr === null ? null : (
             <DropdownMenuItem
-              render={<a href={openPr.href} target="_blank" rel="noreferrer" />}
+              render={({ children, ...props }) => (
+                <a
+                  {...props}
+                  href={openPr.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {children}
+                </a>
+              )}
             >
               <GitPullRequestCreateArrow />
               {openPr.label}

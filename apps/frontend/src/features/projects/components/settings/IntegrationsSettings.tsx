@@ -2,8 +2,8 @@ import { useAtomSet } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
 import { getRouteApi } from "@tanstack/react-router"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

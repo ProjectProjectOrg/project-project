@@ -15,14 +15,17 @@ import {
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
 import { mutationErrorText } from "@/lib/mutationError"
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const subscriberNames = perLocale(Intl.ListFormat)
 
 const subscribersText = ({ subscribers }: TicketSubscribers) =>
   subscribers.length === 0
     ? m.tickets_subscribers_none()
     : m.tickets_subscribers_list({
-        names: new Intl.ListFormat(getLocale()).format(
+        names: subscriberNames(getLocale()).format(
           subscribers.map((user) => user.name || user.email)
         )
       })

@@ -37,7 +37,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
+import { pickDefaultSprint } from "@/features/sprints/lib/sprintTargets"
 import {
   backlogRequest,
   quickCreateBacklogTicket
@@ -208,16 +208,7 @@ function SectionCreatorForm({
     [sprintListResult]
   )
 
-  const groupIdFilter = query.groupId
-  const singleGroupIdFilter =
-    groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
-  const activeSprintId = isGroupId(singleGroupIdFilter)
-    ? singleGroupIdFilter
-    : null
-  const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
-  const hasSprints = sprints.some((s) => s.completedAt === null)
-  const showSprintAddon =
-    activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
+  const { activeSprintId, showSprintAddon } = sectionSprints(query, sprints)
   const epics = activeSprintId === null && parent === undefined
 
   const [title, setTitle] = useState("")
@@ -329,4 +320,18 @@ function SectionCreatorForm({
       </div>
     </form>
   )
+}
+
+function sectionSprints(query: TicketListQuery, sprints: ReadonlyArray<Group>) {
+  const groupIdFilter = query.groupId
+  const singleGroupIdFilter =
+    groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
+  const activeSprintId = isGroupId(singleGroupIdFilter)
+    ? singleGroupIdFilter
+    : null
+  const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
+  const hasSprints = sprints.some((s) => s.completedAt === null)
+  const showSprintAddon =
+    activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
+  return { activeSprintId, showSprintAddon }
 }

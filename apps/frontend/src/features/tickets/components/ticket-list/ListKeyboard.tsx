@@ -85,7 +85,7 @@ export function ListKeyboardProvider({
     }
   }))
 
-  const step = (to: 1 | -1, arrow: boolean) => (event: KeyboardEvent) => {
+  const step = (event: KeyboardEvent, to: 1 | -1, arrow: boolean) => {
     const target = event.target
     const focused =
       target instanceof Element && root.current?.contains(target)
@@ -104,10 +104,24 @@ export function ListKeyboardProvider({
     reveal(sections.current, next)
   }
   const manual = { preventDefault: false, stopPropagation: false } as const
-  useHotkey(appHotkeys["tickets.focus-next"], step(1, false), manual)
-  useHotkey(appHotkeys["tickets.focus-previous"], step(-1, false), manual)
-  useHotkey("ArrowDown", step(1, true), { ...manual, scope: "ticket-list" })
-  useHotkey("ArrowUp", step(-1, true), { ...manual, scope: "ticket-list" })
+  useHotkey(
+    appHotkeys["tickets.focus-next"],
+    (event) => step(event, 1, false),
+    manual
+  )
+  useHotkey(
+    appHotkeys["tickets.focus-previous"],
+    (event) => step(event, -1, false),
+    manual
+  )
+  useHotkey("ArrowDown", (event) => step(event, 1, true), {
+    ...manual,
+    scope: "ticket-list"
+  })
+  useHotkey("ArrowUp", (event) => step(event, -1, true), {
+    ...manual,
+    scope: "ticket-list"
+  })
 
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {

@@ -14,8 +14,8 @@ import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
@@ -33,8 +33,14 @@ import {
 } from "@/lib/errorMessage"
 import { useAppForm } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const testDate = perLocale(Intl.DateTimeFormat, {
+  dateStyle: "medium",
+  timeStyle: "short"
+})
 
 import { emailFormOpts } from "./opts"
 
@@ -128,10 +134,7 @@ export function OrgEmailForm({
                 description={
                   status.lastTest
                     ? m.org_email_last_test({
-                        date: new Intl.DateTimeFormat(getLocale(), {
-                          dateStyle: "medium",
-                          timeStyle: "short"
-                        }).format(status.lastTest.at)
+                        date: testDate(getLocale()).format(status.lastTest.at)
                       })
                     : status.settings
                       ? dirty

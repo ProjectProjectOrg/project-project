@@ -23,6 +23,7 @@ import {
   sprintTimerRequest
 } from "@/features/everhour/atoms/timeTracking"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { sprintStatusText } from "@/features/sprints/lib/sprintPresentation"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimateAmount,
@@ -31,8 +32,6 @@ import {
 } from "@/features/tickets/lib/estimateMeta"
 import { formatWorkDuration } from "@/lib/duration"
 import { m } from "@/paraglide/messages"
-
-import { sprintStatusText } from "./SprintChip"
 
 export const DONE_TONE = "bg-foreground/75"
 export const STARTED_TONE = "bg-foreground/30"

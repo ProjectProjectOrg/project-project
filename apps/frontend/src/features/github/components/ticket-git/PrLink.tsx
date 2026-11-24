@@ -39,15 +39,18 @@ export function PrLink({
   const Icon = pullRequestIcons[tone]
   return (
     <Badge
-      render={
+      render={({ children, ...props }) => (
         <a
+          {...props}
           href={url}
           draggable={false}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-        />
-      }
+        >
+          {children}
+        </a>
+      )}
       tone={badgeTone}
       size="xs"
     >

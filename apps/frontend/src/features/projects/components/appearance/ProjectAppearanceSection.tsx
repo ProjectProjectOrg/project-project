@@ -10,7 +10,7 @@ import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { transitions } from "@pp/ui/lib/springs"
 import * as Schema from "effect/Schema"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
 import { SettingsSection } from "@/components/shell/settings/SettingsSection"
@@ -24,7 +24,6 @@ import {
   AppearanceRow,
   EditorHeader
 } from "@/features/projects/components/appearance/AppearanceCard"
-import type { LiveIcon } from "@/features/projects/components/appearance/IconPreviewTile"
 import { RenderPreviews } from "@/features/projects/components/appearance/RenderPreviews"
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
@@ -36,10 +35,37 @@ import {
   bannerSource,
   bannerPresets
 } from "@/features/projects/lib/bannerPresets"
+import type { LiveIcon } from "@/features/projects/lib/iconDraft"
 import { useSave } from "@/hooks/useSave"
 import { m } from "@/paraglide/messages"
 
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
+
+function bannerRow(orgSlug: string, banner: ProjectBanner | null) {
+  const bannerPreset = bannerPresets.find(
+    (entry) => banner?.type === "preset" && entry.id === banner.preset
+  )
+  const bannerThumb = bannerSource(orgSlug, banner) ?? null
+
+  return {
+    thumb: (
+      <span className="relative block h-10 w-22 shrink-0 overflow-hidden rounded-md bg-active">
+        {bannerThumb ? (
+          <CroppedImage
+            src={bannerThumb}
+            crop={banner?.crop ?? bannerDefaults}
+            containerAspect={88 / 40}
+          />
+        ) : null}
+      </span>
+    ),
+    detail: bannerPreset
+      ? `${bannerPreset.label()} · ${bannerPreset.artist}`
+      : banner
+        ? m.project_appearance_banner_custom()
+        : m.project_appearance_banner_none()
+  }
+}
 
 export function ProjectAppearanceSection({
   name,
@@ -72,11 +98,6 @@ export function ProjectAppearanceSection({
   const fade = reduce ? { duration: 0 } : transitions.fade
   const fadeIn = reduce ? false : { opacity: 0 }
   const fadeOut = { opacity: 0 }
-
-  const bannerPreset = bannerPresets.find(
-    (entry) => banner?.type === "preset" && entry.id === banner.preset
-  )
-  const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
   const changeAffordance = canEdit ? (
     <Button
@@ -201,27 +222,10 @@ export function ProjectAppearanceSection({
                     transition={fade}
                   >
                     <AppearanceRow
-                      thumb={
-                        <span className="relative block h-10 w-22 shrink-0 overflow-hidden rounded-md bg-active">
-                          {bannerThumb ? (
-                            <CroppedImage
-                              src={bannerThumb}
-                              crop={banner?.crop ?? bannerDefaults}
-                              containerAspect={88 / 40}
-                            />
-                          ) : null}
-                        </span>
-                      }
+                      {...bannerRow(orgSlug, banner)}
                       shareId="banner"
                       thumbShareId="banner-result"
                       label={m.project_appearance_banner_row()}
-                      detail={
-                        bannerPreset
-                          ? `${bannerPreset.label()} · ${bannerPreset.artist}`
-                          : banner
-                            ? m.project_appearance_banner_custom()
-                            : m.project_appearance_banner_none()
-                      }
                       action={changeAffordance}
                       onActivate={openEditor("banner")}
                     />

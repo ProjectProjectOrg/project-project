@@ -13,7 +13,8 @@ export const predictRanks = (
   movingIds: ReadonlyArray<string>,
   position: TicketPosition
 ) => {
-  const others = ranked.filter((ticket) => !movingIds.includes(ticket.id))
+  const moving = new Set(movingIds)
+  const others = ranked.filter((ticket) => !moving.has(ticket.id))
   const anchorId = "after" in position ? position.after : position.before
   const index = others.findIndex((ticket) => ticket.id === anchorId)
   if (index < 0) return null

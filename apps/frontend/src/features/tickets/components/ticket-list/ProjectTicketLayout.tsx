@@ -53,6 +53,30 @@ type TicketLayoutState = Readonly<{
   reorder: StatusReorder
 }>
 
+function filtersFor(
+  groupId: GroupId | null,
+  isBoard: boolean,
+  hasEstimates: boolean
+) {
+  const scopeFilters: ReadonlyArray<FilterDimension> = groupId
+    ? isBoard
+      ? ["flagged", "blocked", "type", "assignee", "epic", "tags"]
+      : ["flagged", "blocked", "archived", "type", "assignee", "epic", "tags"]
+    : [
+        "flagged",
+        "blocked",
+        "archived",
+        "type",
+        "assignee",
+        "sprint",
+        "epic",
+        "tags"
+      ]
+  return !hasEstimates
+    ? scopeFilters
+    : ([...scopeFilters, "estimate"] satisfies ReadonlyArray<FilterDimension>)
+}
+
 export function ProjectTicketLayout({
   groupId,
   view,
@@ -70,9 +94,6 @@ export function ProjectTicketLayout({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
-  const actor = useProjectActor()
-  const canCreate = actor.call("tickets", "quickCreate")
-  const canAddToSprint = GroupPolicy.can(actor, "sprint", "add_ticket")
   const viewerId = useAtomValue(currentUserId)
   const preferencesKey = `${viewerId ?? ""}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
@@ -81,28 +102,19 @@ export function ProjectTicketLayout({
     DEFAULT_GROUPING
   )
   const scope = groupId ?? "backlog"
+  const grouped = !groupId && view !== "board"
+  const visible = view === "description" ? "hidden" : "visible"
   const reorder = useStatusReorder(
     orgSlug,
     slug,
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
-  const scopeFilters: ReadonlyArray<FilterDimension> = groupId
-    ? isBoard
-      ? ["flagged", "blocked", "type", "assignee", "epic", "tags"]
-      : ["flagged", "blocked", "archived", "type", "assignee", "epic", "tags"]
-    : [
-        "flagged",
-        "blocked",
-        "archived",
-        "type",
-        "assignee",
-        "sprint",
-        "epic",
-        "tags"
-      ]
-  const filterDimensions: ReadonlyArray<FilterDimension> =
-    project.estimation === "off" ? scopeFilters : [...scopeFilters, "estimate"]
+  const filterDimensions = filtersFor(
+    groupId,
+    isBoard,
+    project.estimation !== "off"
+  )
   const countsSource = {
     orgSlug,
     slug,
@@ -111,14 +123,7 @@ export function ProjectTicketLayout({
     grouping,
     query
   } as const
-  const counts = useViewTicketCounts(countsSource)
-  const refreshCounts = useAtomRefresh(viewCounts(countsSource))
-  const countError = Result.matchWithError(counts, {
-    onInitial: () => null,
-    onError: (error) => ({ error }),
-    onDefect: (error) => ({ error }),
-    onSuccess: () => null
-  })
+  const { counts, refreshCounts, countError } = useToolbarCounts(countsSource)
   return (
     <>
       <ViewFilterCommandScope
@@ -129,14 +134,10 @@ export function ProjectTicketLayout({
       />
       <PageContainer className="group/list gap-3">
         <StickyListBar>
-          <Activity mode={view === "description" ? "hidden" : "visible"}>
-            {groupId
-              ? canAddToSprint && (
-                  <SprintCreator key={groupId} groupId={groupId} />
-                )
-              : canCreate && <BacklogTicketCreator query={query} />}
+          <Activity mode={visible}>
+            <ProjectTicketCreator groupId={groupId} query={query} />
           </Activity>
-          <Activity mode={view === "description" ? "hidden" : "visible"}>
+          <Activity mode={visible}>
             <div>
               <TicketToolbar
                 scopeKey={scope}
@@ -151,14 +152,14 @@ export function ProjectTicketLayout({
                   isBoard ? (groupId ? "sprints" : "backlog") : undefined
                 }
                 onResetViewControls={
-                  !groupId && !isBoard && grouping !== DEFAULT_GROUPING
+                  grouped && grouping !== DEFAULT_GROUPING
                     ? () => setGrouping(DEFAULT_GROUPING)
                     : undefined
                 }
                 viewControls={
                   <>
                     <ViewSwitcher />
-                    {!groupId && !isBoard && (
+                    {grouped && (
                       <BacklogGroupingControl
                         value={grouping}
                         onChange={setGrouping}
@@ -193,6 +194,20 @@ export function ProjectTicketLayout({
   )
 }
 
+function ProjectTicketCreator({
+  groupId,
+  query
+}: Readonly<{ groupId: GroupId | null; query: TicketListQuery }>) {
+  const actor = useProjectActor()
+  if (groupId)
+    return GroupPolicy.can(actor, "sprint", "add_ticket") ? (
+      <SprintCreator key={groupId} groupId={groupId} />
+    ) : null
+  return actor.call("tickets", "quickCreate") ? (
+    <BacklogTicketCreator query={query} />
+  ) : null
+}
+
 function SprintCreator({ groupId }: Readonly<{ groupId: GroupId }>) {
   const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(
@@ -216,4 +231,19 @@ function SprintCreator({ groupId }: Readonly<{ groupId: GroupId }>) {
         />
       )
   })
+}
+
+function useToolbarCounts(
+  countsSource: Parameters<typeof useViewTicketCounts>[0]
+) {
+  const counts = useViewTicketCounts(countsSource)
+  const refreshCounts = useAtomRefresh(viewCounts(countsSource))
+  const countError = Result.matchWithError(counts, {
+    onInitial: () => null,
+    onError: (error) => ({ error }),
+    onDefect: (error) => ({ error }),
+    onSuccess: () => null
+  })
+
+  return { counts, refreshCounts, countError }
 }

@@ -13,13 +13,11 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SubTicketsChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
-import {
-  TicketPreview,
-  TicketPreviewTrigger
-} from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 import type { TicketPageSource } from "@/features/tickets/lib/ticketSearch"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"

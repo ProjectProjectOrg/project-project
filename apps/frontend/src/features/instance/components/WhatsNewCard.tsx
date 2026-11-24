@@ -22,7 +22,7 @@ import {
 } from "../lib/whatsNew"
 import { ChangelogVideo } from "./ChangelogVideo"
 
-export const releaseMeta = (version: string, date: string) =>
+const releaseMeta = (version: string, date: string) =>
   Option.match(DateTime.make(date), {
     onNone: () => displayVersion(version),
     onSome: (at) =>

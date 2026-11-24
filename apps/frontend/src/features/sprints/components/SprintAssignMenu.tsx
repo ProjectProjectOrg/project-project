@@ -1,9 +1,4 @@
-import {
-  pickActiveSprint,
-  pickEarliestPlannedSprint,
-  sprintState,
-  type Group
-} from "@pp/shared"
+import { sprintState, type Group } from "@pp/shared"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,32 +14,25 @@ import { CircleDashed, Plus } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { menuItemDetailClass } from "@pp/ui/menu-styles"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
-import * as DateTime from "effect/DateTime"
 import { useState, type ComponentProps, type ReactElement } from "react"
 
+import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
+import { sprintStateLabel } from "@/features/sprints/lib/sprintPresentation"
+import { eligibleSprints } from "@/features/sprints/lib/sprintTargets"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
-import { SprintStateIcon, sprintStateLabel } from "./SprintChip"
+import { SprintStateIcon } from "./SprintChip"
 
 type MenuProps = ComponentProps<typeof DropdownMenu>
 type ContentProps = ComponentProps<typeof DropdownMenuContent>
 
 const NO_SPRINT = "__no-sprint"
 
-function rangeText(s: Group) {
-  if (!s.startsAt || !s.endsAt) return ""
-  const fmt = new Intl.DateTimeFormat(getLocale(), {
-    month: "short",
-    day: "numeric"
-  })
-  return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
-}
-
 function sprintDetail(s: Group) {
-  const range = rangeText(s)
+  const range =
+    s.startsAt && s.endsAt ? formatSprintRange(s.startsAt, s.endsAt) : ""
   const state = sprintStateLabel(sprintState(s))
   return range === "" ? state : m.tickets_sprint_option_detail({ range, state })
 }
@@ -61,30 +49,6 @@ export type SprintAssignMenuProps = {
   onOpenChange?: MenuProps["onOpenChange"]
   finalFocus?: ContentProps["finalFocus"]
   tooltip?: string
-}
-
-export function pickDefaultSprint(
-  sprints: ReadonlyArray<Group>,
-  now: Date = DateTime.toDate(DateTime.nowUnsafe())
-) {
-  return (
-    pickActiveSprint(sprints, now) ??
-    pickEarliestPlannedSprint(sprints, now) ??
-    null
-  )
-}
-
-export const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
-  const now = DateTime.toDate(DateTime.nowUnsafe())
-  const stateOrder = { active: 0, planned: 1, completed: 2 } as const
-  return sprints
-    .filter((s) => s.completedAt === null)
-    .toSorted((a, b) => {
-      const sa = stateOrder[sprintState(a, now)]
-      const sb = stateOrder[sprintState(b, now)]
-      if (sa !== sb) return sa - sb
-      return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
-    })
 }
 
 export function SprintAssignMenu({

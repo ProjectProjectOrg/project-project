@@ -1,7 +1,6 @@
+import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRight } from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import type { ReactNode } from "react"
 
 type SettingsDisclosureItemProps = Readonly<{
@@ -17,13 +16,10 @@ export function SettingsDisclosureItem({
   onToggle,
   children
 }: SettingsDisclosureItemProps) {
-  const reduceMotion = useReducedMotion()
   return (
-    <div>
-      <button
+    <Collapsible.Root open={open} onOpenChange={onToggle}>
+      <Collapsible.Trigger
         type="button"
-        onClick={onToggle}
-        aria-expanded={open}
         className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-body font-semibold transition-colors hover:bg-hover active:bg-active"
       >
         <ChevronRight
@@ -34,21 +30,10 @@ export function SettingsDisclosureItem({
           strokeWidth={2}
         />
         <span>{label}</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            key="body"
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={transitions.presence}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2 px-4 pb-4">{children}</div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+      </Collapsible.Trigger>
+      <Collapsible.Panel className="h-[var(--collapsible-panel-height)] overflow-hidden opacity-100 transition-[height,opacity] duration-180 ease-standard data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0 motion-reduce:transition-none">
+        <div className="space-y-2 px-4 pb-4">{children}</div>
+      </Collapsible.Panel>
+    </Collapsible.Root>
   )
 }

@@ -5,10 +5,8 @@ import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsDisclosureItem } from "@/components/shell/settings/SettingsDisclosureItem"
-import {
-  SettingsGroup,
-  SettingsRow
-} from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
+import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { m } from "@/paraglide/messages"
 
@@ -19,7 +17,6 @@ export function SlackAppSetup({
   includeCreate
 }: Readonly<{ orgSlug: string; includeCreate: boolean }>) {
   const result = useAtomValue(slackManifest(slackOrgRequest(orgSlug)))
-  const [manifestOpen, setManifestOpen] = useState(false)
   return (
     <AsyncView
       result={result}
@@ -35,9 +32,16 @@ export function SlackAppSetup({
               <Button
                 size="sm"
                 trailingIcon={ExternalLink}
-                render={
-                  <a href={value.createUrl} target="_blank" rel="noreferrer" />
-                }
+                render={({ children, ...props }) => (
+                  <a
+                    {...props}
+                    href={value.createUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {children}
+                  </a>
+                )}
               >
                 {m.slack_create_app()}
               </Button>
@@ -60,12 +64,15 @@ export function SlackAppSetup({
               variant="tertiary"
               size="sm"
               leadingIcon={Download}
-              render={
+              render={({ children, ...props }) => (
                 <a
+                  {...props}
                   href="/icon/icon-512.png"
                   download="projectproject-slack.png"
-                />
-              }
+                >
+                  {children}
+                </a>
+              )}
             >
               {m.slack_download_icon()}
             </Button>
@@ -79,13 +86,16 @@ export function SlackAppSetup({
               variant="tertiary"
               size="sm"
               trailingIcon={ExternalLink}
-              render={
+              render={({ children, ...props }) => (
                 <a
+                  {...props}
                   href="https://docs.slack.dev/tools/bolt-python/creating-an-app/"
                   target="_blank"
                   rel="noreferrer"
-                />
-              }
+                >
+                  {children}
+                </a>
+              )}
             >
               {m.slack_setup_docs()}
             </Button>
@@ -93,28 +103,38 @@ export function SlackAppSetup({
               variant="tertiary"
               size="sm"
               trailingIcon={ExternalLink}
-              render={
+              render={({ children, ...props }) => (
                 <a
+                  {...props}
                   href="https://docs.slack.dev/authentication/sign-in-with-slack/"
                   target="_blank"
                   rel="noreferrer"
-                />
-              }
+                >
+                  {children}
+                </a>
+              )}
             >
               {m.slack_setup_oauth_docs()}
             </Button>
           </SettingsRow>
-          <SettingsDisclosureItem
-            label={m.slack_manifest_label()}
-            open={manifestOpen}
-            onToggle={() => setManifestOpen((open) => !open)}
-          >
-            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-caption tabular-nums">
-              {value.manifest}
-            </pre>
-          </SettingsDisclosureItem>
+          <ManifestDisclosure manifest={value.manifest} />
         </SettingsGroup>
       )}
     />
+  )
+}
+
+function ManifestDisclosure({ manifest }: Readonly<{ manifest: string }>) {
+  const [manifestOpen, setManifestOpen] = useState(false)
+  return (
+    <SettingsDisclosureItem
+      label={m.slack_manifest_label()}
+      open={manifestOpen}
+      onToggle={() => setManifestOpen((open) => !open)}
+    >
+      <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-caption tabular-nums">
+        {manifest}
+      </pre>
+    </SettingsDisclosureItem>
   )
 }

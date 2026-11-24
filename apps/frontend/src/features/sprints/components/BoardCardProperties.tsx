@@ -36,10 +36,7 @@ import {
   RelationChips,
   SubTicketsChip
 } from "@/features/tickets/components/ticket-preview/PreviewChips"
-import {
-  TicketPreview,
-  TicketPreviewTrigger
-} from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
@@ -48,6 +45,7 @@ import {
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"

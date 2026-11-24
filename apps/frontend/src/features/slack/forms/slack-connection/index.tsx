@@ -7,8 +7,8 @@ import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import { useState } from "react"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
@@ -90,107 +90,165 @@ export function SlackConnectionForm({
   return (
     <>
       {status.connection ? (
-        <SettingsSection>
-          <SettingsGroup>
-            <SettingsRow
-              icon={<IntegrationLogo kind="slack" />}
-              label={status.connection.teamName}
-              description={
-                <span className={cn(busy && "animate-pulse")}>
-                  {status.connection.lastError
-                    ? m.slack_connection_attention()
-                    : m.slack_workspace_connected()}
-                </span>
-              }
-              error={
-                status.connection.lastError === "credentials"
-                  ? m.slack_error_credentials()
-                  : status.connection.lastError
-                    ? m.slack_error_socket()
-                    : null
-              }
-            >
-              {editing ? null : (
-                <>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => {
-                      setStep("bot")
-                      setEditing(true)
-                    }}
-                  >
-                    {m.slack_replace()}
-                  </Button>
-                  <ConfirmButton.Root>
-                    <ConfirmButton.Trigger
-                      type="button"
-                      variant="tertiary"
-                      size="sm"
-                      disabled={busy}
-                    >
-                      {m.slack_disconnect()}
-                    </ConfirmButton.Trigger>
-                    <ConfirmButton.Confirm>
-                      <ConfirmButton.Action
-                        cancelLabel={m.common_cancel_button()}
-                        describeError={describeCause}
-                        prompt={m.slack_disconnect_confirm()}
-                        label={m.slack_disconnect()}
-                        onConfirm={async () => {
-                          const exit = await disconnect()
-                          if (Exit.isSuccess(exit)) {
-                            form.reset(draftFor(""))
-                            setStep("create")
-                          }
-                          return exit
-                        }}
-                      />
-                    </ConfirmButton.Confirm>
-                  </ConfirmButton.Root>
-                </>
-              )}
-            </SettingsRow>
-          </SettingsGroup>
-        </SettingsSection>
+        <WorkspaceConnection
+          connection={status.connection}
+          busy={busy}
+          editing={editing}
+          onEdit={() => {
+            setStep("bot")
+            setEditing(true)
+          }}
+          onDisconnect={async () => {
+            const exit = await disconnect()
+            if (Exit.isSuccess(exit)) {
+              form.reset(draftFor(""))
+              setStep("create")
+            }
+            return exit
+          }}
+        />
       ) : null}
       {!status.connection || editing ? (
-        <>
-          {step === "create" ? (
-            <CreateStep
-              frame={frame}
-              orgSlug={orgSlug}
-              onNext={() => setStep("bot")}
-            />
-          ) : null}
-          {step === "bot" ? (
-            <BotStep
-              form={form}
-              frame={frame}
-              onBack={status.connection ? undefined : () => setStep("create")}
-              onNext={() => setStep("app")}
-            />
-          ) : null}
-          {step === "app" ? (
-            <AppStep
-              form={form}
-              frame={frame}
-              onBack={() => setStep("bot")}
-              onNext={() => setStep("account")}
-            />
-          ) : null}
-          {step === "account" ? (
-            <AccountStep
-              form={form}
-              frame={frame}
-              submitting={saveState.waiting}
-              onBack={() => setStep("app")}
-            />
-          ) : null}
-        </>
+        <ConnectionStep
+          step={step}
+          setStep={setStep}
+          frame={frame}
+          orgSlug={orgSlug}
+          hasConnection={status.connection !== null}
+          form={form}
+          submitting={saveState.waiting}
+        />
       ) : null}
     </>
   )
+}
+
+function WorkspaceConnection({
+  connection,
+  busy,
+  editing,
+  onEdit,
+  onDisconnect
+}: Readonly<{
+  connection: NonNullable<SlackOrgStatus["connection"]>
+  busy: boolean
+  editing: boolean
+  onEdit: () => void
+  onDisconnect: () => Promise<Exit.Exit<unknown, unknown>>
+}>) {
+  return (
+    <SettingsSection>
+      <SettingsGroup>
+        <SettingsRow
+          icon={<IntegrationLogo kind="slack" />}
+          label={connection.teamName}
+          description={
+            <span className={cn(busy && "animate-pulse")}>
+              {connection.lastError
+                ? m.slack_connection_attention()
+                : m.slack_workspace_connected()}
+            </span>
+          }
+          error={
+            connection.lastError === "credentials"
+              ? m.slack_error_credentials()
+              : connection.lastError
+                ? m.slack_error_socket()
+                : null
+          }
+        >
+          {editing ? null : (
+            <>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="sm"
+                disabled={busy}
+                onClick={onEdit}
+              >
+                {m.slack_replace()}
+              </Button>
+              <ConfirmButton.Root>
+                <ConfirmButton.Trigger
+                  type="button"
+                  variant="tertiary"
+                  size="sm"
+                  disabled={busy}
+                >
+                  {m.slack_disconnect()}
+                </ConfirmButton.Trigger>
+                <ConfirmButton.Confirm>
+                  <ConfirmButton.Action
+                    cancelLabel={m.common_cancel_button()}
+                    describeError={describeCause}
+                    prompt={m.slack_disconnect_confirm()}
+                    label={m.slack_disconnect()}
+                    onConfirm={onDisconnect}
+                  />
+                </ConfirmButton.Confirm>
+              </ConfirmButton.Root>
+            </>
+          )}
+        </SettingsRow>
+      </SettingsGroup>
+    </SettingsSection>
+  )
+}
+
+function ConnectionStep({
+  step,
+  setStep,
+  frame,
+  orgSlug,
+  hasConnection,
+  form,
+  submitting
+}: Readonly<{
+  step: SetupStep
+  setStep: (step: SetupStep) => void
+  frame: StepFrame
+  orgSlug: string
+  hasConnection: boolean
+  form: SlackConnectionFormApi
+  submitting: boolean
+}>) {
+  switch (step) {
+    case "create":
+      return (
+        <CreateStep
+          frame={frame}
+          orgSlug={orgSlug}
+          onNext={() => setStep("bot")}
+        />
+      )
+    case "bot":
+      return (
+        <BotStep
+          form={form}
+          frame={frame}
+          onBack={hasConnection ? undefined : () => setStep("create")}
+          onNext={() => setStep("app")}
+        />
+      )
+    case "app":
+      return (
+        <AppStep
+          form={form}
+          frame={frame}
+          onBack={() => setStep("bot")}
+          onNext={() => setStep("account")}
+        />
+      )
+    case "account":
+      return (
+        <AccountStep
+          form={form}
+          frame={frame}
+          submitting={submitting}
+          onBack={() => setStep("app")}
+        />
+      )
+    default:
+      return step satisfies never
+  }
 }

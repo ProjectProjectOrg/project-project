@@ -1,5 +1,8 @@
 import type { LibraryOrigin } from "@pp/shared"
 
+import type { LibraryKind } from "@/features/library/lib/libraryModel"
+import { m } from "@/paraglide/messages"
+
 import type { LibraryLayer } from "../atoms/libraryScope"
 
 export type Placement = Readonly<{
@@ -95,3 +98,14 @@ export const creatableLayers = (
         ...(permissions.project ? (["project"] as const) : []),
         ...(permissions.org ? (["org"] as const) : [])
       ]) satisfies ReadonlyArray<LibraryLayer>
+
+export const noticeText = (notice: EntryNotice, kind: LibraryKind) => {
+  if (notice === null) return null
+  if (notice === "org-admins")
+    return kind === "type"
+      ? m.templates_types_notice_org_admins()
+      : m.templates_sections_notice_org_admins()
+  return kind === "type"
+    ? m.templates_types_notice_project_managers()
+    : m.templates_sections_notice_project_managers()
+}

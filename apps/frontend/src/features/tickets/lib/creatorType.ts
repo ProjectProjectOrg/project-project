@@ -11,6 +11,10 @@ import {
 import { blockChrome } from "@pp/ui/editor/blocks/block-chrome"
 import * as Data from "effect/Data"
 
+import { shortUnitList } from "@/features/tickets/lib/shortUnitList"
+import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
+
 import type { TypePrediction } from "./ticketRows"
 import { offersType, visibleTypes } from "./ticketTypes"
 
@@ -77,3 +81,13 @@ export const startingTypes = (
     ...offered.filter((type) => type.key !== current)
   ]
 }
+
+export const startText = (start: TypeStart) =>
+  TypeStart.$match(start, {
+    sections: ({ names }) =>
+      m.tickets_create_starts_with({
+        sections: shortUnitList(getLocale()).format(names)
+      }),
+    text: () => m.tickets_create_starts_with_text(),
+    empty: () => m.tickets_create_starts_with_empty()
+  })

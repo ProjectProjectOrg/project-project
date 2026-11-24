@@ -23,8 +23,8 @@ Pasting does it: a Figma or Paper URL becomes its node, any other URL a link. Th
 
 | `EditorServices` | |
 | --- | --- |
-| `useFigmaLinks(target)` | The ticket's Figma frames: name, file and thumbnail (`null` until loaded, and `lastModified` null while Figma hasn't answered, which polls) |
-| `useLinkPreview(url)` | A page's title and favicon, for links and their chips |
+| `FigmaLinks` | The ticket's Figma frames: name, file and thumbnail (`null` until loaded, and `lastModified` null while Figma hasn't answered, which polls) |
+| `LinkPreview` | A page's title and favicon, for links and their chips |
 
 In Markdown they stay links: `[Onboarding](https://www.figma.com/design/…)` (add `pp-density=compact` for the chip), `[Sign-in](https://app.paper.design/file/…)`.
 

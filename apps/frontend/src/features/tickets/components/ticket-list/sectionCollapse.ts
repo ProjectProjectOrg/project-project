@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react"
+import { useCallback, useMemo, useSyncExternalStore } from "react"
 
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
@@ -66,20 +66,12 @@ function toggleInList(ids: ReadonlyArray<string>, id: string) {
 }
 
 function useMemorySelect<T>(key: string, select: (value: MemorySnapshot) => T) {
-  const selectRef = useRef(select)
-  selectRef.current = select
   const subscribe = useCallback(
     (onStoreChange: () => void) => subscribeMemory(key, onStoreChange),
     [key]
   )
-  const getSnapshot = useCallback(
-    () => selectRef.current(getMemory(key)),
-    [key]
-  )
-  const getServerSnapshot = useCallback(
-    () => selectRef.current(emptyMemory),
-    []
-  )
+  const getSnapshot = useCallback(() => select(getMemory(key)), [key, select])
+  const getServerSnapshot = useCallback(() => select(emptyMemory), [select])
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const write = useCallback(
     (update: (current: MemorySnapshot) => MemorySnapshot) => {

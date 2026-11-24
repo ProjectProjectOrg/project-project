@@ -16,9 +16,11 @@ export type ReviewReadiness = Readonly<{
 export const failedFilesChosen = (
   failedAttachmentIds: ReadonlyArray<string>,
   skippedAttachmentIds: ReadonlyArray<string>
-) =>
-  failedAttachmentIds.length === 0 ||
-  failedAttachmentIds.some((id) => skippedAttachmentIds.includes(id))
+) => {
+  if (failedAttachmentIds.length === 0) return true
+  const skipped = new Set(skippedAttachmentIds)
+  return failedAttachmentIds.some((id) => skipped.has(id))
+}
 
 export const reviewNeeds = (readiness: ReviewReadiness) => {
   if (readiness.conflictCount > 0)

@@ -2,10 +2,10 @@ import { STATUS_DESCRIPTION_MAX_LENGTH } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { Input } from "@pp/ui/input"
-import { useState, type KeyboardEvent } from "react"
+import type { KeyboardEvent } from "react"
 
 import { StatusIconPicker } from "@/features/statuses/components/StatusIconPicker"
-import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
+import { STATUS_ICON_COMPONENTS } from "@/features/statuses/lib/statusIcons"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
@@ -15,28 +15,26 @@ export type { StatusEditorValues } from "./opts"
 
 type Props = Readonly<{
   initial: StatusEditorValues
+  busy: boolean
   identityLocked: boolean
   submitLabel: string
   error: string | null
-  onSubmit: (values: StatusEditorValues) => Promise<boolean>
+  onSubmit: (values: StatusEditorValues) => Promise<void>
   onCancel: () => void
 }>
 
 export function StatusEditorForm({
   initial,
+  busy,
   identityLocked,
   submitLabel,
   error,
   onSubmit,
   onCancel
 }: Props) {
-  const [busy, setBusy] = useState(false)
   const form = useAppForm({
     ...statusEditorFormOpts(initial),
-    onSubmit: async ({ value }) => {
-      setBusy(true)
-      if (!(await onSubmit(value))) setBusy(false)
-    }
+    onSubmit: ({ value }) => onSubmit(value)
   })
   const values = useFormValues(form)
 
@@ -155,7 +153,7 @@ function StatusGlyphBox({
   icon,
   color
 }: Readonly<{ icon: StatusEditorValues["icon"]; color: string }>) {
-  const Icon = getStatusIcon(icon)
+  const Icon = STATUS_ICON_COMPONENTS[icon]
   return (
     <span
       aria-hidden

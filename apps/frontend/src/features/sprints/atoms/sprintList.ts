@@ -195,10 +195,11 @@ const applyCompleteSprintResult = (
   return sprints.map((sprint) => {
     if (sprint.id === groupId) return result.target
     if (destination.kind === "sprint" && sprint.id === destination.groupId) {
-      const merged = [...sprint.tickets]
-      for (const id of carried) {
-        if (!merged.includes(id)) merged.push(id)
-      }
+      const existing = new Set(sprint.tickets)
+      const merged = [
+        ...sprint.tickets,
+        ...[...carried].filter((id) => !existing.has(id))
+      ]
       return {
         ...sprint,
         tickets: merged,
@@ -346,6 +347,7 @@ export const bulkAssignTicketSprint = Atom.family((req: SprintListRequest) =>
     name: "bulkAssignTicketSprint",
     predict: (sprints, { tickets, patch }: BulkUpdateTicketsInput) => {
       if (patch.sprint === undefined) return sprints
+      const selected = new Set(tickets)
       const now = DateTime.toDate(DateTime.nowUnsafe())
       return sprints.map((sprint) => {
         if (sprint.id === patch.sprint) {
@@ -358,12 +360,12 @@ export const bulkAssignTicketSprint = Atom.family((req: SprintListRequest) =>
             updatedAt: now
           }
         }
-        if (!sprint.tickets.some((id) => tickets.includes(id))) {
+        if (!sprint.tickets.some((id) => selected.has(id))) {
           return sprint
         }
         return {
           ...sprint,
-          tickets: sprint.tickets.filter((id) => !tickets.includes(id)),
+          tickets: sprint.tickets.filter((id) => !selected.has(id)),
           updatedAt: now
         }
       })

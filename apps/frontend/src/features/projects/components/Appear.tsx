@@ -1,9 +1,6 @@
 import { enter, exit, fadeOnly, hidden } from "@pp/ui/lib/widthPresence"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m as motion } from "motion/react"
 import type { ReactNode } from "react"
-
-export const morphFrom = { opacity: 0, filter: "blur(4px)" }
-export const morphTo = { opacity: 1, filter: "blur(0px)" }
 
 // A part only some pages show (the Sprints page's New sprint), coming and
 // going like a breadcrumb. `className` carries its distance from the part

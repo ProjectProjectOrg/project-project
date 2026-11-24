@@ -5,7 +5,7 @@ import { KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 
 import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"

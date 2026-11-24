@@ -96,15 +96,6 @@ export function StatusRow({
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
-  const meta = statusMetaFor(status.slug, statuses)
-  const Icon = meta.icon
-  const icon = (
-    <Icon
-      className={cn("size-4", meta.className)}
-      style={meta.color ? { color: meta.color } : undefined}
-      strokeWidth={1.75}
-    />
-  )
   const displayLabel = baseline
     ? statusLabelFor(status.slug, statuses)
     : status.label
@@ -114,6 +105,26 @@ export function StatusRow({
   const closeEditor = () => {
     setEditing(false)
     setEditError(null)
+  }
+
+  const saveStatus = async (draft: StatusEditorValues) => {
+    if (!isUnchanged(status, draft)) {
+      const exit = await update(updatePatch(draft, baseline))
+      if (Exit.isFailure(exit)) {
+        setEditError(
+          Option.match(Cause.findErrorOption(exit.cause), {
+            onNone: m.tickets_status_update_error_fallback,
+            onSome: (error) =>
+              statusSaveErrorMessage(
+                error,
+                m.tickets_status_update_error_fallback
+              )
+          })
+        )
+        return
+      }
+    }
+    closeEditor()
   }
 
   return (
@@ -147,30 +158,12 @@ export function StatusRow({
             color: status.color,
             description: status.description ?? ""
           }}
+          busy={updateState.waiting}
           identityLocked={baseline}
           submitLabel={m.tickets_status_save()}
           error={editError}
           onCancel={closeEditor}
-          onSubmit={async (draft) => {
-            if (!isUnchanged(status, draft)) {
-              const exit = await update(updatePatch(draft, baseline))
-              if (Exit.isFailure(exit)) {
-                setEditError(
-                  Option.match(Cause.findErrorOption(exit.cause), {
-                    onNone: m.tickets_status_update_error_fallback,
-                    onSome: (error) =>
-                      statusSaveErrorMessage(
-                        error,
-                        m.tickets_status_update_error_fallback
-                      )
-                  })
-                )
-                return false
-              }
-            }
-            closeEditor()
-            return true
-          }}
+          onSubmit={saveStatus}
         />
       ) : (
         <div
@@ -191,29 +184,13 @@ export function StatusRow({
               })}
             />
           )}
-          <span
-            className="flex size-8 shrink-0 items-center justify-center"
-            aria-hidden
-          >
-            {icon}
-          </span>
-          <div
-            className={cn(
-              "flex min-w-0 flex-1 flex-col px-2",
-              dataWaiting && "animate-pulse"
-            )}
-          >
-            <span className="truncate text-body">{displayLabel}</span>
-            <span
-              title={status.description ?? undefined}
-              className="truncate text-caption text-muted-foreground"
-            >
-              <span className="tabular-nums">
-                {m.tickets_status_phase_ticket_count({ count })}
-              </span>
-              {status.description ? ` · ${status.description}` : null}
-            </span>
-          </div>
+          <StatusDetails
+            status={status}
+            statuses={statuses}
+            displayLabel={displayLabel}
+            dataWaiting={dataWaiting}
+            count={count}
+          />
           {canManage ? (
             <Reveal>
               <StatusActionsMenu
@@ -230,6 +207,57 @@ export function StatusRow({
         </div>
       )}
     </Reorder.Item>
+  )
+}
+
+function StatusDetails({
+  status,
+  statuses,
+  displayLabel,
+  dataWaiting,
+  count
+}: Readonly<{
+  status: ProjectStatus
+  statuses: Props["statuses"]
+  displayLabel: string
+  dataWaiting: boolean
+  count: number
+}>) {
+  const meta = statusMetaFor(status.slug, statuses)
+  const Icon = meta.icon
+  const icon = (
+    <Icon
+      className={cn("size-4", meta.className)}
+      style={meta.color ? { color: meta.color } : undefined}
+      strokeWidth={1.75}
+    />
+  )
+  return (
+    <>
+      <span
+        className="flex size-8 shrink-0 items-center justify-center"
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col px-2",
+          dataWaiting && "animate-pulse"
+        )}
+      >
+        <span className="truncate text-body">{displayLabel}</span>
+        <span
+          title={status.description ?? undefined}
+          className="truncate text-caption text-muted-foreground"
+        >
+          <span className="tabular-nums">
+            {m.tickets_status_phase_ticket_count({ count })}
+          </span>
+          {status.description ? ` · ${status.description}` : null}
+        </span>
+      </div>
+    </>
   )
 }
 

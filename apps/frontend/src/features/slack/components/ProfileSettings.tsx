@@ -95,11 +95,14 @@ function ProfileRow({
       ) : (
         <Button
           size="sm"
-          render={
+          render={({ children, ...props }) => (
             <a
+              {...props}
               href={`/api/integrations/slack/oauth/start?orgSlug=${encodeURIComponent(profile.orgSlug)}`}
-            />
-          }
+            >
+              {children}
+            </a>
+          )}
         >
           {m.slack_profile_connect()}
         </Button>

@@ -10,10 +10,11 @@ import type {
   BulkTicketUpdateAtom,
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
+import { isFresh } from "@/features/tickets/lib/createdRow"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
-import { CreatedFlash, isFresh, RowEnter } from "./CreatedRow"
+import { CreatedFlash, RowEnter } from "./CreatedRow"
 import { useListKeyboardSection } from "./ListKeyboard"
 import {
   DraggableRow,

@@ -1,6 +1,12 @@
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore
+} from "react"
 
 type Snapshot<A> = Readonly<{ raw: string | null; value: A }>
 
@@ -123,24 +129,23 @@ export function useLocalStorageSelect<A, T>(
   select: (value: A) => T
 ) {
   const codecRef = useRef(codec)
-  codecRef.current = codec
   const initialRef = useRef(initial)
-  initialRef.current = initial
-  const selectRef = useRef(select)
-  selectRef.current = select
+  useLayoutEffect(() => {
+    codecRef.current = codec
+    initialRef.current = initial
+  }, [codec, initial])
 
   const subscribe = useCallback(
     (onStoreChange: () => void) => subscribeLocalStorage(key, onStoreChange),
     [key]
   )
   const getSnapshot = useCallback(
-    () =>
-      selectRef.current(codecRef.current.readSnapshot(key, initialRef.current)),
-    [key]
+    () => select(codec.readSnapshot(key, initial)),
+    [key, codec, initial, select]
   )
   const getServerSnapshot = useCallback(
-    () => selectRef.current(initialRef.current),
-    []
+    () => select(initial),
+    [initial, select]
   )
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const write = useCallback(

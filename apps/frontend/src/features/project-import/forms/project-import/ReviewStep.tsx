@@ -2,8 +2,11 @@ import type { ProjectImport } from "@pp/shared"
 
 import { StepFrame } from "@/components/shell/wizard/StepFrame"
 import { integrationList } from "@/features/project-import/lib/presentation"
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const numberFormat = perLocale(Intl.NumberFormat)
 
 import type { ProjectImportForm } from "./opts"
 
@@ -24,7 +27,7 @@ export function ReviewStep({
   onBack: () => void
   onNext: () => void
 }>) {
-  const format = new Intl.NumberFormat(getLocale())
+  const format = numberFormat(getLocale())
   const counts = [
     {
       label: m.project_import_review_tickets(),

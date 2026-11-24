@@ -4,7 +4,7 @@ import { Button } from "@pp/ui/button"
 import { Inbox, LogOut } from "@pp/ui/icons"
 import { Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useRef, useState } from "react"
+import { useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
@@ -41,7 +41,12 @@ export function WelcomePage() {
 function WelcomeContent() {
   const invites = useAtomValue(invitations())
   const [joining, setJoining] = useState(false)
-  const lastOffered = useRef<ReadonlyArray<UserInvitation>>([])
+  const [lastOffered, setLastOffered] = useState<ReadonlyArray<UserInvitation>>(
+    []
+  )
+  const current = Result.isSuccess(invites) ? invites.value : undefined
+  if (current && current.length > 0 && current !== lastOffered)
+    setLastOffered(current)
 
   return (
     <OnboardingShell icon={Inbox}>
@@ -49,8 +54,7 @@ function WelcomeContent() {
         onInitial: () => <WelcomeSkeleton />,
         onFailure: () => <WelcomeNoAccess />,
         onSuccess: ({ value }) => {
-          if (value.length > 0) lastOffered.current = value
-          const offered = joining ? lastOffered.current : value
+          const offered = joining ? lastOffered : value
           return offered.length > 0 ? (
             <WelcomeInviteList invites={offered} onJoining={setJoining} />
           ) : (

@@ -10,13 +10,13 @@ import {
   projectImportRequest,
   runProjectImport
 } from "@/features/project-import/atoms/projectImport"
-import {
-  projectImportStageForStatus,
-  ProjectImportShell,
-  type ProjectImportStage
-} from "@/features/project-import/components/ProjectImportShell"
+import { ProjectImportShell } from "@/features/project-import/components/ProjectImportShell"
 import { ProjectImportTerminalStep } from "@/features/project-import/components/ProjectImportTerminalStep"
 import { projectImportErrorMessage } from "@/features/project-import/lib/presentation"
+import {
+  projectImportStageForStatus,
+  type ProjectImportStage
+} from "@/features/project-import/lib/stages"
 import { describeCause } from "@/lib/errorMessage"
 import { useAppForm, validateAfterSubmit } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"

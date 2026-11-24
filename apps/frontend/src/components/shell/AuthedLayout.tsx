@@ -8,7 +8,7 @@ import {
   useParams
 } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState } from "react"
 
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs"

@@ -22,12 +22,12 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { stagedCount } from "@/features/tickets/lib/stagedChanges"
 import { m } from "@/paraglide/messages"
 
 import { groupBy } from "../ticket-list/selectionUndo"
 import {
   StagedChanges,
-  stagedCount,
   StagedMove,
   StagedRowCount,
   StagedValue

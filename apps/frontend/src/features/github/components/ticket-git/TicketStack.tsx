@@ -6,80 +6,29 @@ import type {
   StackLayerState,
   TicketDetail
 } from "@pp/shared"
-import {
-  AlertTriangle,
-  GitBranch,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-  Layers,
-  type IconType
-} from "@pp/ui/icons"
+import { Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
 import { useMemo, useState } from "react"
 
 import { unstackBranch } from "@/features/github/atoms/github"
+import { BranchMenuRemoval } from "@/features/github/lib/branchMenuRemoval"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { repoSlug } from "@/features/github/lib/repos"
+import {
+  stackPullRequestCount,
+  ownLayer,
+  layerTone,
+  TONES
+} from "@/features/github/lib/stackPresentation"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { BranchMenu, BranchMenuRemoval } from "./BranchMenu"
+import { BranchMenu } from "./BranchMenu"
 import { PANEL_CHROME } from "./gitPanelFrame"
-
-type LayerTone = "draft" | "open" | "merged" | "closed" | "none" | "deleted"
-
-export const layerTone = (layer: StackLayerState) => {
-  if (layer.deleted) return "deleted"
-  if (layer.pr === null) return "none"
-  if (layer.pr.state === "merged") return "merged"
-  if (layer.pr.state === "closed") return "closed"
-  return layer.pr.draft ? "draft" : "open"
-}
-
-export const TONES: Readonly<
-  Record<
-    LayerTone,
-    Readonly<{ icon: IconType; className: string; label: () => string }>
-  >
-> = {
-  draft: {
-    icon: GitPullRequestDraft,
-    className: "text-muted-foreground",
-    label: m.git_stack_state_draft
-  },
-  open: {
-    icon: GitPullRequest,
-    className: "text-state-success",
-    label: m.git_stack_state_open
-  },
-  merged: {
-    icon: GitMerge,
-    className: "text-state-merged",
-    label: m.git_stack_state_merged
-  },
-  closed: {
-    icon: GitPullRequestClosed,
-    className: "text-muted-foreground",
-    label: m.git_stack_state_closed
-  },
-  none: {
-    icon: GitBranch,
-    className: "text-muted-foreground",
-    label: m.git_stack_state_no_pr
-  },
-  deleted: {
-    icon: AlertTriangle,
-    className: "text-state-warning",
-    label: m.git_stack_state_deleted
-  }
-}
 
 const CHECKS = {
   failing: {
@@ -94,121 +43,6 @@ const CHECKS = {
 
 const checksNote = (checks: ChecksStatus | null) =>
   checks === "failing" || checks === "pending" ? CHECKS[checks] : undefined
-
-export const stackPullRequestCount = (
-  own: GitState | null,
-  stack: ReadonlyArray<StackLayerState>
-) => {
-  const ownPr =
-    own === null
-      ? []
-      : own.tag === "pr_merged"
-        ? ["merged"]
-        : own.tag === "pr_open" ||
-            own.tag === "pr_pending" ||
-            own.tag === "pr_closed"
-          ? ["other"]
-          : []
-  const layers = stack.flatMap((layer) =>
-    layer.pr === null ? [] : [layer.pr.state]
-  )
-  const all = [...ownPr, ...layers]
-  return {
-    merged: all.filter((state) => state === "merged").length,
-    total: all.length
-  }
-}
-
-export const stackSummary = (
-  own: GitState,
-  stack: ReadonlyArray<StackLayerState>
-) => {
-  const checks = [
-    ...(own.tag === "pr_open" ? [own.checks] : []),
-    ...stack.flatMap((layer) =>
-      layer.pr?.checks && layerTone(layer) !== "merged" ? [layer.pr.checks] : []
-    )
-  ]
-  return {
-    count: stackPullRequestCount(own, stack),
-    worstChecks:
-      checks.find((check) => check === "failing") ??
-      checks.find((check) => check === "pending") ??
-      checks.find((check) => check === "passing"),
-    anyOpen:
-      own.tag === "pr_open" ||
-      stack.some((layer) => {
-        const tone = layerTone(layer)
-        return tone === "open" || tone === "draft"
-      })
-  }
-}
-
-const pendingPr = (number: number, url: string) => ({
-  number,
-  url,
-  title: "",
-  state: "open" as const,
-  draft: false,
-  landed: false,
-  checks: null
-})
-
-const ownRow = (
-  branch: string,
-  base: string | null,
-  pr: StackLayerState["pr"]
-) => ({ branch, base, depth: 0, pr, deleted: false })
-
-export const ownLayer = (
-  state: GitState,
-  ticket: Pick<TicketDetail, "lastTransitionedPr">,
-  defaultBase: string
-) =>
-  Match.value(state).pipe(
-    Match.when({ tag: "no_branch" }, () => null),
-    Match.when({ tag: "stale_branch" }, (current) => ({
-      ...ownRow(current.name, null, null),
-      deleted: true
-    })),
-    Match.when({ tag: "branch_pending" }, (current) =>
-      ownRow(current.name, current.baseBranch, null)
-    ),
-    Match.when({ tag: "branch_no_pr" }, (current) =>
-      ownRow(current.name, current.baseBranch ?? defaultBase, null)
-    ),
-    Match.when({ tag: "pr_pending" }, (current) =>
-      ownRow(
-        current.branch,
-        current.baseBranch,
-        pendingPr(current.number, current.url)
-      )
-    ),
-    Match.when({ tag: "pr_open" }, (current) =>
-      ownRow(current.branch, current.baseBranch, {
-        ...pendingPr(current.number, current.url),
-        title: current.title,
-        draft: current.draft,
-        checks: current.checks
-      })
-    ),
-    Match.when({ tag: "pr_merged" }, (current) =>
-      ownRow(current.branch, current.baseBranch, {
-        ...pendingPr(current.number, current.url),
-        title: current.title,
-        state: "merged",
-        landed: ticket.lastTransitionedPr === current.number
-      })
-    ),
-    Match.when({ tag: "pr_closed" }, (current) =>
-      ownRow(current.branch, current.baseBranch, {
-        ...pendingPr(current.number, current.url),
-        title: current.title,
-        state: "closed"
-      })
-    ),
-    Match.exhaustive
-  )
 
 export function StackedBranches({
   ticket,
@@ -291,7 +125,6 @@ function StackLayerRow({
   const tone = layerTone(layer)
   const { icon: Icon, className, label: toneLabel } = TONES[tone]
   const label = toneLabel()
-  const checks = checksNote(layer.pr?.checks ?? null)
   const title = layer.pr?.title ?? ""
   const request = useMemo(
     () => ({ req: projectRequest(orgSlug, slug), id: ticket.id }),
@@ -304,19 +137,11 @@ function StackLayerRow({
   async function onRemove() {
     setBusy(true)
     setFailed(false)
-    const exit = await remove({ name: layer.branch })
-    setBusy(false)
+    const exit = await remove({ name: layer.branch }).finally(() =>
+      setBusy(false)
+    )
     if (Exit.isFailure(exit)) setFailed(true)
   }
-
-  const showBase = layer.base !== null && layer.base !== previousBranch
-  const notes = [
-    ...(tone === "none" || tone === "deleted"
-      ? [{ text: label, className }]
-      : []),
-    ...(checks ? [{ text: checks.label(), className: checks.className }] : [])
-  ]
-  const hasMeta = title !== "" || showBase || notes.length > 0
 
   return (
     <li
@@ -360,23 +185,7 @@ function StackLayerRow({
             {title === "" ? layer.branch : title}
           </span>
         </div>
-        {hasMeta && (
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-micro text-muted-foreground">
-            {title !== "" && (
-              <MiddleTruncate value={layer.branch} className="tabular-nums" />
-            )}
-            {showBase && (
-              <span className="truncate tabular-nums">
-                {m.git_stack_base({ base: layer.base ?? "" })}
-              </span>
-            )}
-            {notes.map((note) => (
-              <span key={note.text} className={note.className}>
-                {note.text}
-              </span>
-            ))}
-          </div>
-        )}
+        <StackLayerMeta layer={layer} previousBranch={previousBranch} />
         {failed && (
           <p role="alert" className="text-micro text-destructive">
             {m.git_stack_remove_error()}
@@ -387,19 +196,7 @@ function StackLayerRow({
         ticket={ticket}
         github={github}
         branch={layer.branch}
-        openPr={
-          canWrite &&
-          (layer.pr === null || layer.pr.state === "closed") &&
-          layer.base !== null
-            ? {
-                href: compareUrl(repoSlug, layer.base, layer.branch),
-                label:
-                  layer.pr?.state === "closed"
-                    ? m.git_open_new_pr_button()
-                    : m.git_open_pr_button()
-              }
-            : null
-        }
+        openPr={canWrite ? openPullRequest(layer, repoSlug) : null}
         removal={
           own
             ? BranchMenuRemoval.ticket()
@@ -408,4 +205,51 @@ function StackLayerRow({
       />
     </li>
   )
+}
+
+function openPullRequest(layer: StackLayerState, repo: string) {
+  if (layer.base === null || (layer.pr !== null && layer.pr.state !== "closed"))
+    return null
+  return {
+    href: compareUrl(repo, layer.base, layer.branch),
+    label:
+      layer.pr === null ? m.git_open_pr_button() : m.git_open_new_pr_button()
+  }
+}
+
+function StackLayerMeta({
+  layer,
+  previousBranch
+}: Readonly<{ layer: StackLayerState; previousBranch: string | null }>) {
+  const tone = layerTone(layer)
+  const { className, label: toneLabel } = TONES[tone]
+  const label = toneLabel()
+  const checks = checksNote(layer.pr?.checks ?? null)
+  const title = layer.pr?.title ?? ""
+  const showBase = layer.base !== null && layer.base !== previousBranch
+  const notes = [
+    ...(tone === "none" || tone === "deleted"
+      ? [{ text: label, className }]
+      : []),
+    ...(checks ? [{ text: checks.label(), className: checks.className }] : [])
+  ]
+  const hasMeta = title !== "" || showBase || notes.length > 0
+
+  return hasMeta ? (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-micro text-muted-foreground">
+      {title !== "" && (
+        <MiddleTruncate value={layer.branch} className="tabular-nums" />
+      )}
+      {showBase && (
+        <span className="truncate tabular-nums">
+          {m.git_stack_base({ base: layer.base ?? "" })}
+        </span>
+      )}
+      {notes.map((note) => (
+        <span key={note.text} className={note.className}>
+          {note.text}
+        </span>
+      ))}
+    </div>
+  ) : null
 }

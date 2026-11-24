@@ -13,6 +13,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Link } from "@tanstack/react-router"
 import { useMemo, type ReactNode } from "react"
 
+import {
+  sectionUseText,
+  usageBySection
+} from "@/features/library/lib/sectionUsage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -35,7 +39,6 @@ import {
   type LibraryPermissions
 } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
-import { usageBySection } from "../lib/sectionUsage"
 import { BlockStrip } from "./BlockSketch"
 import {
   ChangedHereBadge,
@@ -52,15 +55,6 @@ type GroupsProps = Readonly<{
   library: Library
   permissions: LibraryPermissions
 }>
-
-export const sectionUseText = (
-  types: ReadonlyArray<Readonly<{ name: string }>>
-) =>
-  types.length === 0
-    ? m.templates_sections_in_none()
-    : m.templates_sections_in({
-        types: types.map((type) => type.name).join(", ")
-      })
 
 export function ProjectTypeGroups({
   scope,
@@ -167,7 +161,8 @@ const splitByOwner = <A extends Parameters<typeof standingOf>[0]>(
   layer: LibraryScope["layer"]
 ) => {
   const { own } = groupEntries(entries, layer)
-  return { shared: entries.filter((entry) => !own.includes(entry)), own }
+  const owned = new Set(own)
+  return { shared: entries.filter((entry) => !owned.has(entry)), own }
 }
 
 const isSwitchable = (standing: EntryStanding) =>

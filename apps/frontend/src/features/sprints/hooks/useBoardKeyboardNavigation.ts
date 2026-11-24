@@ -71,7 +71,7 @@ export function useBoardKeyboardNavigation(
     }
   }, [enabled, ref, returnToTicket])
 
-  const enter = (arrow: boolean) => (event: globalThis.KeyboardEvent) => {
+  const enter = (arrow: boolean, event: globalThis.KeyboardEvent) => {
     const target = event.target
     if (target instanceof Node && ref.current?.contains(target)) return
     if (arrow && target !== document.body) return
@@ -79,20 +79,23 @@ export function useBoardKeyboardNavigation(
     startKeyboardMode()
     controller.current?.enter(event.key)
   }
+  const enterWithHotkey = (event: globalThis.KeyboardEvent) =>
+    enter(false, event)
+  const enterWithArrow = (event: globalThis.KeyboardEvent) => enter(true, event)
   const manual = {
     enabled,
     preventDefault: false,
     stopPropagation: false
   } as const
   const arrows = { ...manual, scope: "board" } as const
-  useHotkey(appHotkeys["board.left"], enter(false), manual)
-  useHotkey(appHotkeys["board.down"], enter(false), manual)
-  useHotkey(appHotkeys["board.up"], enter(false), manual)
-  useHotkey(appHotkeys["board.right"], enter(false), manual)
-  useHotkey("ArrowLeft", enter(true), arrows)
-  useHotkey("ArrowDown", enter(true), arrows)
-  useHotkey("ArrowUp", enter(true), arrows)
-  useHotkey("ArrowRight", enter(true), arrows)
+  useHotkey(appHotkeys["board.left"], enterWithHotkey, manual)
+  useHotkey(appHotkeys["board.down"], enterWithHotkey, manual)
+  useHotkey(appHotkeys["board.up"], enterWithHotkey, manual)
+  useHotkey(appHotkeys["board.right"], enterWithHotkey, manual)
+  useHotkey("ArrowLeft", enterWithArrow, arrows)
+  useHotkey("ArrowDown", enterWithArrow, arrows)
+  useHotkey("ArrowUp", enterWithArrow, arrows)
+  useHotkey("ArrowRight", enterWithArrow, arrows)
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {

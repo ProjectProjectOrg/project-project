@@ -8,11 +8,12 @@ import { ProgressCount } from "@pp/ui/progress-count"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
+import { RELATION_PREVIEW_LABELS } from "@/features/tickets/lib/relationGroups"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-import { RELATION_PREVIEW_LABELS } from "./TicketListPreviews"
-import { TicketPreview, TicketPreviewTrigger } from "./TicketPreview"
+import { TicketPreviewTrigger } from "./TicketPreview"
 
 type RelationCounts = Pick<
   Ticket,

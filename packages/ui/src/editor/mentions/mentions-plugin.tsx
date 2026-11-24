@@ -29,7 +29,7 @@ import {
 
 import { TypeaheadPortal } from "../../editor/typeahead-portal"
 import { m } from "../messages"
-import { useEditorServices } from "../services"
+import { useEditorServices, type MentionSearchResults } from "../services"
 import {
   MentionMenu,
   MentionMenuOption,
@@ -72,11 +72,33 @@ const ticketNote = (
 }
 
 export function MentionsPlugin() {
+  const [queryString, setQueryString] = useState<string | null>(null)
+  const { MentionSearch } = useEditorServices()
+  return (
+    <MentionSearch query={queryString}>
+      {(search) => (
+        <MentionTypeahead
+          search={search}
+          queryString={queryString}
+          setQueryString={setQueryString}
+        />
+      )}
+    </MentionSearch>
+  )
+}
+
+function MentionTypeahead({
+  search,
+  queryString,
+  setQueryString
+}: Readonly<{
+  search: MentionSearchResults
+  queryString: string | null
+  setQueryString: (query: string | null) => void
+}>) {
   const [editor] = useLexicalComposerContext()
   const scope = useMentionScope()
   const slug = scope?.slug ?? ""
-  const [queryString, setQueryString] = useState<string | null>(null)
-  const search = useEditorServices().useMentionSearch(queryString)
   const people = search.people.provider
   const tickets = search.tickets.provider
   const peopleResults = search.people.results

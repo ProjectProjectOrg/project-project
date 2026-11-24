@@ -6,7 +6,7 @@ import {
   justCreatedTicket,
   type JustCreatedTicket
 } from "@/features/tickets/atoms/createTicket"
-import { isFresh } from "@/features/tickets/components/ticket-list/CreatedRow"
+import { isFresh } from "@/features/tickets/lib/createdRow"
 
 export function useRevealCreated(
   scrollRef: RefObject<HTMLDivElement | null>,

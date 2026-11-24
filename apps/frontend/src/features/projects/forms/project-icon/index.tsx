@@ -1,13 +1,14 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { attachmentUrl, ProjectIcon, type ProjectIconImage } from "@pp/shared"
+import { useMountedRef } from "@pp/ui/hooks/useMountedRef"
 import { transitions } from "@pp/ui/lib/springs"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 import {
   uploadProjectImage,
@@ -18,24 +19,17 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { StepSummaryRow } from "@/features/projects/components/appearance/AppearanceCard"
-import {
-  IconPreviewTile,
-  LiveIcon
-} from "@/features/projects/components/appearance/IconPreviewTile"
+import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { CUTOUT_DEFAULT_TOLERANCE } from "@/features/projects/lib/iconCutout"
 import {
-  CUTOUT_DEFAULT_TOLERANCE,
-  hasAlpha
-} from "@/features/projects/lib/iconCutout"
-import {
-  analyseAt,
+  LiveIcon,
+  type IconDraftValues,
+  prepareIconFiles,
   appliedIconTreatment,
   buildIconImage,
-  compositeToBlob,
-  iconPreviewChanged,
-  CUTOUT_APPLY_MAX_EDGE
+  iconPreviewChanged
 } from "@/features/projects/lib/iconDraft"
-import { compressImage } from "@/features/projects/lib/imageCompression"
 import { useSave } from "@/hooks/useSave"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
@@ -50,6 +44,120 @@ const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 
 export type IconForm = ReactFormType<ReturnType<typeof iconFormOpts>>
 
+function useLiveIcon({
+  values,
+  icon,
+  iconImage,
+  fileName,
+  previewUrl,
+  onLiveChange
+}: Readonly<{
+  values: IconDraftValues
+  icon: string
+  iconImage: ProjectIconImage | null
+  fileName: string | null
+  previewUrl: string | null
+  onLiveChange: ((live: LiveIcon | null) => void) | undefined
+}>) {
+  const changed = iconPreviewChanged(
+    values,
+    { icon, iconImage },
+    fileName !== null,
+    CUTOUT_DEFAULT_TOLERANCE
+  )
+
+  const pickedEmoji = Predicate.isTagged(values.source, "emoji")
+    ? values.source.emoji
+    : null
+
+  useEffect(() => {
+    if (!onLiveChange) return undefined
+    onLiveChange(
+      !changed
+        ? null
+        : pickedEmoji !== null
+          ? LiveIcon.emoji({ emoji: pickedEmoji })
+          : previewUrl
+            ? LiveIcon.image({
+                src: previewUrl,
+                crop: values.crop,
+                treatment: values.treatment.kind
+              })
+            : null
+    )
+    return () => onLiveChange(null)
+  }, [
+    onLiveChange,
+    changed,
+    previewUrl,
+    values.crop,
+    pickedEmoji,
+    values.treatment.kind
+  ])
+
+  return pickedEmoji !== null
+    ? `${m.project_icon_source_emoji_tab()} · ${pickedEmoji}`
+    : (fileName ?? m.project_appearance_icon_custom())
+}
+
+function useProjectIconUpload() {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = projectRequest(orgSlug, slug)
+  const uploadReq = uploadProjectImageRequest(orgSlug, slug)
+  const save = useSave(useAtomSet(updateProject(req), { mode: "promiseExit" }))
+  const update = save.run
+  const upload = useAtomSet(uploadProjectImage(uploadReq), {
+    mode: "promiseExit"
+  })
+  const uploadState = useAtomValue(uploadProjectImage(uploadReq))
+  const busy = save.waiting || uploadState.waiting
+  const failed = save.error !== null || AsyncResult.isFailure(uploadState)
+
+  const mounted = useMountedRef()
+
+  const draft = useIconDraft()
+  const uploadImage = async (
+    bitmap: Parameters<typeof prepareIconFiles>[0],
+    file: File,
+    treatment: IconDraftValues["treatment"],
+    crop: IconDraftValues["crop"],
+    onUnclean: () => void
+  ) => {
+    let files: Awaited<ReturnType<typeof prepareIconFiles>>
+    try {
+      files = await prepareIconFiles(bitmap, file, treatment)
+    } catch {
+      if (mounted.current) draft.setRejected(true)
+      return null
+    }
+    if (!files) {
+      if (mounted.current) {
+        draft.markUnclean()
+        onUnclean()
+      }
+      return null
+    }
+    const { compressed, rendered, classification } = files
+    if (!mounted.current) return null
+    const uploadedSource = await upload({ file: compressed })
+    if (!mounted.current || Exit.isFailure(uploadedSource)) return null
+    const uploadedRendered = rendered
+      ? await upload({ file: rendered })
+      : uploadedSource
+    if (!mounted.current || Exit.isFailure(uploadedRendered)) return null
+
+    return update({
+      iconImage: buildIconImage({
+        classification,
+        sourceAttachmentId: uploadedSource.value.id,
+        renderedAttachmentId: uploadedRendered.value.id,
+        crop
+      })
+    })
+  }
+  return { orgSlug, draft, busy, failed, update, mounted, uploadImage }
+}
+
 export function ProjectIconForm({
   icon,
   iconImage,
@@ -63,54 +171,17 @@ export function ProjectIconForm({
   onDone?: () => void
   onLiveChange?: (live: LiveIcon | null) => void
 }) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = projectRequest(orgSlug, slug)
-  const uploadReq = uploadProjectImageRequest(orgSlug, slug)
-  const save = useSave(useAtomSet(updateProject(req), { mode: "promiseExit" }))
-  const update = save.run
-  const upload = useAtomSet(uploadProjectImage(uploadReq), {
-    mode: "promiseExit"
-  })
-  const uploadState = useAtomValue(uploadProjectImage(uploadReq))
-  const busy = save.waiting || uploadState.waiting
-  const failed = save.error !== null || AsyncResult.isFailure(uploadState)
-
-  const mounted = useRef(false)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-
+  const { orgSlug, draft, busy, failed, update, mounted, uploadImage } =
+    useProjectIconUpload()
   const [step, setStep] = useState(iconImage ? 1 : 0)
   const [treatmentBlocked, setTreatmentBlocked] = useState(false)
-  const draft = useIconDraft()
   const reduce = useReducedMotion() ?? false
   const fade = reduce ? { duration: 0 } : transitions.fade
   const fadeIn = reduce ? false : { opacity: 0, y: -4 }
   const fadeOut = { opacity: 0, y: 4 }
 
   const form = useAppForm({
-    ...iconFormOpts(icon, iconImage !== null),
-    defaultValues: {
-      ...iconFormOpts(icon, iconImage !== null).defaultValues,
-      source: {
-        _tag: iconImage ? ("image" as const) : ("emoji" as const),
-        emoji: icon,
-        objectUrl: iconImage
-          ? attachmentUrl(orgSlug, iconImage.sourceAttachmentId)
-          : null
-      },
-      crop: iconImage ? { ...iconImage.crop } : { x: 0.5, y: 0.5, zoom: 1 },
-      treatment: {
-        kind: iconImage?.type === "full_bleed" ? "full_bleed" : "sticker",
-        tolerance:
-          iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
-            ? iconImage.cutoutTolerance
-            : CUTOUT_DEFAULT_TOLERANCE
-      }
-    },
+    ...iconFormOpts(icon, iconImage, orgSlug),
     onSubmit: async ({ value }) => {
       if (busy) return
       draft.setRejected(false)
@@ -147,61 +218,14 @@ export function ProjectIconForm({
         return
       }
 
-      let compressed: File
-      let rendered: File | null = null
-      let classification: Parameters<typeof buildIconImage>[0]["classification"]
-      try {
-        const { source, alpha, clean } = analyseAt(
-          bitmap,
-          CUTOUT_APPLY_MAX_EDGE,
-          value.treatment.tolerance
-        )
-        const transparent = hasAlpha(source)
-        const wantsSticker = value.treatment.kind === "sticker"
-        if (wantsSticker && !clean) {
-          draft.markUnclean()
-          form.setFieldValue("treatment.kind", "full_bleed")
-          return
-        }
-        classification = {
-          treatment: value.treatment.kind,
-          clean,
-          transparent,
-          tolerance: value.treatment.tolerance
-        }
-        compressed = await compressImage(file, {
-          maxEdge: 1024,
-          hasAlpha: transparent,
-          quality: 0.85
-        })
-        if (!mounted.current) return
-        if (wantsSticker)
-          rendered = transparent
-            ? file
-            : new File([await compositeToBlob(source, alpha)], "icon.png", {
-                type: "image/png"
-              })
-      } catch {
-        if (mounted.current) draft.setRejected(true)
-        return
-      }
-      if (!mounted.current) return
-      const uploadedSource = await upload({ file: compressed })
-      if (!mounted.current || Exit.isFailure(uploadedSource)) return
-      const uploadedRendered = rendered
-        ? await upload({ file: rendered })
-        : uploadedSource
-      if (!mounted.current || Exit.isFailure(uploadedRendered)) return
-
-      const saved = await update({
-        iconImage: buildIconImage({
-          classification,
-          sourceAttachmentId: uploadedSource.value.id,
-          renderedAttachmentId: uploadedRendered.value.id,
-          crop: value.crop
-        })
-      })
-      if (mounted.current && Exit.isSuccess(saved)) onDone?.()
+      const saved = await uploadImage(
+        bitmap,
+        file,
+        value.treatment,
+        value.crop,
+        () => form.setFieldValue("treatment.kind", "full_bleed")
+      )
+      if (saved && mounted.current && Exit.isSuccess(saved)) onDone?.()
     }
   })
 
@@ -227,59 +251,24 @@ export function ProjectIconForm({
       </span>
     )
 
+  const primeFrom = useEffectEvent(draft.primeFrom)
   useEffect(() => {
     if (!iconImage) return
-    void draft.primeFrom(attachmentUrl(orgSlug, iconImage.sourceAttachmentId), {
-      treatment: iconImage.type === "sticker" ? "sticker" : "full_bleed",
-      tolerance:
-        iconImage.type === "sticker" && iconImage.cutoutTolerance !== null
-          ? iconImage.cutoutTolerance
-          : CUTOUT_DEFAULT_TOLERANCE
+    void primeFrom(attachmentUrl(orgSlug, iconImage.sourceAttachmentId), {
+      treatment: iconImage.type,
+      tolerance: appliedIconTreatment(iconImage, CUTOUT_DEFAULT_TOLERANCE)
+        .tolerance
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iconImage, orgSlug])
 
-  const changed = iconPreviewChanged(
+  const sourceDetail = useLiveIcon({
     values,
-    { icon, iconImage },
-    draft.fileName() !== null,
-    CUTOUT_DEFAULT_TOLERANCE
-  )
-
-  const pickedEmoji = Predicate.isTagged(values.source, "emoji")
-    ? values.source.emoji
-    : null
-
-  useEffect(() => {
-    if (!onLiveChange) return undefined
-    onLiveChange(
-      !changed
-        ? null
-        : pickedEmoji !== null
-          ? LiveIcon.emoji({ emoji: pickedEmoji })
-          : previewUrl
-            ? LiveIcon.image({
-                src: previewUrl,
-                crop: values.crop,
-                treatment: values.treatment.kind
-              })
-            : null
-    )
-    return () => onLiveChange(null)
-  }, [
-    onLiveChange,
-    changed,
+    icon,
+    iconImage,
+    fileName: draft.fileName(),
     previewUrl,
-    values.crop,
-    pickedEmoji,
-    values.treatment.kind
-  ])
-
-  const sourceDetail =
-    pickedEmoji !== null
-      ? `${m.project_icon_source_emoji_tab()} · ${pickedEmoji}`
-      : (draft.fileName() ?? m.project_appearance_icon_custom())
-
+    onLiveChange
+  })
   const removeImage = async () => {
     const saved = await update({ iconImage: null })
     if (mounted.current && Exit.isSuccess(saved)) onDone?.()

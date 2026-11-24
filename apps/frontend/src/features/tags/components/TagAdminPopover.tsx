@@ -7,7 +7,7 @@ import { Input } from "@pp/ui/input"
 import { transitions } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Schema from "effect/Schema"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState, type ReactElement } from "react"
 
 import { m } from "@/paraglide/messages"

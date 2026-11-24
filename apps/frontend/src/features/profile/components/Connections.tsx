@@ -3,10 +3,8 @@ import { getRouteApi } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import {
-  SettingsGroup,
-  SettingsSection
-} from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
+import { SettingsSection } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
 import { EverhourRows } from "@/features/everhour/components/EverhourRows"

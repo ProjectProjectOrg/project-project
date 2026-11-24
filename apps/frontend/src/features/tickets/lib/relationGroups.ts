@@ -5,6 +5,8 @@ import type {
   TicketRelations
 } from "@pp/shared"
 
+import { m } from "@/paraglide/messages"
+
 export type RelationGroupKey =
   | "blockedBy"
   | "blocking"
@@ -34,12 +36,12 @@ export const relationGroups = (relations: TicketRelations) =>
 export type RelationPreviewKind = Exclude<RelationGroupKey, "duplicateOf">
 
 const PREVIEW_GROUPS: Readonly<
-  Record<RelationPreviewKind, ReadonlyArray<RelationGroupKey>>
+  Record<RelationPreviewKind, ReadonlySet<RelationGroupKey>>
 > = {
-  blockedBy: ["blockedBy"],
-  blocking: ["blocking"],
-  related: ["related"],
-  duplicates: ["duplicateOf", "duplicates"]
+  blockedBy: new Set(["blockedBy"]),
+  blocking: new Set(["blocking"]),
+  related: new Set(["related"]),
+  duplicates: new Set(["duplicateOf", "duplicates"])
 }
 
 const OPEN_ONLY: ReadonlySet<RelationGroupKey> = new Set([
@@ -53,7 +55,7 @@ export function previewRelationGroups(
   finished: ReadonlySet<string>
 ) {
   return relationGroups(relations).flatMap((group) => {
-    if (!PREVIEW_GROUPS[relation].includes(group.key)) return []
+    if (!PREVIEW_GROUPS[relation].has(group.key)) return []
     const tickets = group.tickets.filter(
       (ticket) =>
         group.key === "duplicateOf" ||
@@ -151,3 +153,13 @@ export const openBlockers = (
   relations.blockedBy.filter(
     (ticket) => ticket.archivedAt === null && !finished.has(ticket.status)
   )
+
+export const RELATION_PREVIEW_LABELS: Readonly<
+  Record<RelationGroupKey, () => string>
+> = {
+  blockedBy: m.tickets_preview_blocked_by,
+  blocking: m.tickets_preview_blocking,
+  related: m.tickets_preview_related,
+  duplicateOf: m.tickets_preview_duplicate_of,
+  duplicates: m.tickets_preview_duplicates
+}

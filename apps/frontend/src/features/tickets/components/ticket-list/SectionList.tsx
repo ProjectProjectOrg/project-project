@@ -32,12 +32,12 @@ import type {
   BulkTicketUpdateAtom,
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
+import { isFresh } from "@/features/tickets/lib/createdRow"
 import type { ListDropTarget } from "@/features/tickets/lib/listDrop"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { isFresh } from "./CreatedRow"
 import { LandingFlash, useSectionDrop } from "./ListRowDrag"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"

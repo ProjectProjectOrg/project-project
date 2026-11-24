@@ -6,6 +6,7 @@ import {
   createRouter,
   RouterProvider
 } from "@tanstack/react-router"
+import { domMax, LazyMotion } from "motion/react"
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
@@ -82,6 +83,8 @@ if (!rootEl) throw new Error("Root element #root not found")
 
 ReactDOM.createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    <LazyMotion features={domMax}>
+      <App />
+    </LazyMotion>
   </StrictMode>
 )

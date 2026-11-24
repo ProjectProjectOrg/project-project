@@ -1,7 +1,7 @@
 import { formatTicketBlock } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { previewOverflows } from "./TicketHoverCard"
+import { previewOverflows } from "./ticketPreview"
 
 describe("previewOverflows", () => {
   it("ignores block tags and their delimiter lines", () => {

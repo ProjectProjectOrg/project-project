@@ -28,23 +28,16 @@ const options = DEFAULT_WORK_TYPES.map((workType) => ({
   label: workType.label
 }))
 
-export function SprintTimePanel({
-  orgSlug,
-  slug,
-  groupId
-}: {
+type SprintPanelProps = Readonly<{
   orgSlug: string
   slug: string
   groupId: GroupId
-}) {
+}>
+
+export function SprintTimePanel({ orgSlug, slug, groupId }: SprintPanelProps) {
   const timerReq = activeTimerRequest(orgSlug)
   const sprintReq = sprintTimerRequest(orgSlug, slug, groupId)
   const startKey = { timerReq, sprintReq }
-  const statusResult = useAtomValue(
-    everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
-  )
-  const canManage = useProjectActor().call("everhour", "connectProject")
-  const profileResult = useAtomValue(everhourProfileAtom)
   const activeTimerResult = useAtomValue(activeTimerAtom(timerReq))
   const start = useAtomSet(startSprintTimerAtom(startKey), {
     mode: "promiseExit"
@@ -55,6 +48,67 @@ export function SprintTimePanel({
   const [workType, setWorkType] = useState(options[0].key)
   const [showLog, setShowLog] = useState(false)
 
+  const busy =
+    startState.waiting || stopState.waiting || activeTimerResult.waiting
+  const timerError =
+    mutationErrorText(startState) ?? mutationErrorText(stopState)
+
+  const timer = Result.isSuccess(activeTimerResult)
+    ? activeTimerResult.value
+    : null
+  const running =
+    timer !== null && timer.ticketId === null && timer.groupId === groupId
+  return (
+    <SprintTimeAccess orgSlug={orgSlug} slug={slug}>
+      {Result.isSuccess(activeTimerResult) ? (
+        <div className="flex flex-col gap-2">
+          <TimeControls
+            value={workType}
+            onValueChange={setWorkType}
+            options={options}
+            running={running}
+            busy={busy}
+            error={timerError}
+            onStart={() => void start({ workTypeKey: workType })}
+            onStop={() => void stop()}
+            logOpen={showLog}
+            onLogOpenChange={setShowLog}
+          >
+            <LogTimeForm
+              orgSlug={orgSlug}
+              slug={slug}
+              ticketId={null}
+              groupId={groupId}
+              options={options}
+              defaultWorkType={workType}
+              onDone={() => setShowLog(false)}
+            />
+          </TimeControls>
+        </div>
+      ) : (
+        <AsyncView
+          result={activeTimerResult}
+          contained
+          onInitial={() => (
+            <div className="h-8 animate-pulse rounded bg-muted/40" />
+          )}
+          onSuccess={() => null}
+        />
+      )}
+    </SprintTimeAccess>
+  )
+}
+
+function SprintTimeAccess({
+  orgSlug,
+  slug,
+  children
+}: Readonly<{ orgSlug: string; slug: string; children: React.ReactNode }>) {
+  const statusResult = useAtomValue(
+    everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
+  )
+  const canManage = useProjectActor().call("everhour", "connectProject")
+  const profileResult = useAtomValue(everhourProfileAtom)
   const notConnected =
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
@@ -91,53 +145,5 @@ export function SprintTimePanel({
     return <ConnectEverhourInline />
   }
 
-  if (Result.isInitial(activeTimerResult)) {
-    return <div className="h-8 animate-pulse rounded bg-muted/40" />
-  }
-  if (Result.isFailure(activeTimerResult)) {
-    return (
-      <AsyncView
-        result={activeTimerResult}
-        contained
-        onInitial={() => null}
-        onSuccess={() => null}
-      />
-    )
-  }
-
-  const running =
-    activeTimerResult.value !== null &&
-    activeTimerResult.value.ticketId === null &&
-    activeTimerResult.value.groupId === groupId
-  const busy =
-    startState.waiting || stopState.waiting || activeTimerResult.waiting
-  const timerError =
-    mutationErrorText(startState) ?? mutationErrorText(stopState)
-
-  return (
-    <div className="flex flex-col gap-2">
-      <TimeControls
-        value={workType}
-        onValueChange={setWorkType}
-        options={options}
-        running={running}
-        busy={busy}
-        error={timerError}
-        onStart={() => void start({ workTypeKey: workType })}
-        onStop={() => void stop()}
-        logOpen={showLog}
-        onLogOpenChange={setShowLog}
-      >
-        <LogTimeForm
-          orgSlug={orgSlug}
-          slug={slug}
-          ticketId={null}
-          groupId={groupId}
-          options={options}
-          defaultWorkType={workType}
-          onDone={() => setShowLog(false)}
-        />
-      </TimeControls>
-    </div>
-  )
+  return children
 }

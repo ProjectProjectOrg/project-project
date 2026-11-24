@@ -1,20 +1,7 @@
-import type { PinTarget, SidebarPin } from "@pp/shared"
 import { SidebarRowGroup, SidebarSubRows } from "@pp/ui/sidebar"
 
 import { PinRow } from "@/features/pins/components/PinRow"
-import type { PinNode, PinPrediction } from "@/features/pins/lib/pins"
-
-// One row of the Pinned list: a pin, or the live row for what you're viewing.
-export type PinRowSpec = Readonly<{
-  key: string
-  target: PinTarget
-  display: PinPrediction
-  // The pin itself, when pinned (for reordering).
-  pin: SidebarPin | null
-  active: boolean
-  highlight?: boolean
-  onPinned?: () => void
-}>
+import { type PinRowSpec, type PinNode } from "@/features/pins/lib/pins"
 
 // A row and, under it, the rows of its sub-tickets (indented, with the
 // sidebar's sub-row line), as many levels as there are. The sub-rows stay
@@ -52,7 +39,3 @@ export function PinTree({
     </>
   )
 }
-
-// The pins at the top of a tree, in order: what the list reorders.
-export const topPins = (nodes: ReadonlyArray<PinNode<PinRowSpec>>) =>
-  nodes.flatMap((node) => (node.row.pin === null ? [] : [node.row.pin]))

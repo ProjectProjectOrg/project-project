@@ -6,10 +6,8 @@ import { TicketKey } from "@pp/ui/ticket-key"
 import { Link } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  TicketPreview,
-  TicketPreviewTrigger
-} from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 
 import { EpicLink } from "./EpicLabel"
 

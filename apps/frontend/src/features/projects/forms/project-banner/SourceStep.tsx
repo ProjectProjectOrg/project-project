@@ -1,16 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
-import { Database, Upload } from "@pp/ui/icons"
+import { Database } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Link } from "@tanstack/react-router"
-import { motion, useReducedMotion } from "motion/react"
-import { useRef, useState } from "react"
+import { m as motion, useReducedMotion } from "motion/react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
+import { ProjectImagePicker } from "@/features/projects/components/appearance/ProjectImagePicker"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { bannerPresets } from "@/features/projects/lib/bannerPresets"
 import { m } from "@/paraglide/messages"
@@ -34,8 +34,6 @@ export function BannerSourceStep({
 }) {
   const { orgSlug } = useProjectRoute()
   const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
   const reduce = useReducedMotion() ?? false
   const shared = reduce ? { duration: 0 } : transitions.morph
 
@@ -111,36 +109,12 @@ export function BannerSourceStep({
                         </div>
                       </div>
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        onDragOver={(event) => {
-                          event.preventDefault()
-                          setDragging(true)
+                      <ProjectImagePicker
+                        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+                        onPick={(file) => {
+                          if (onPickFile(file)) void group.handleSubmit()
                         }}
-                        onDragLeave={() => setDragging(false)}
-                        onDrop={(event) => {
-                          event.preventDefault()
-                          setDragging(false)
-                          const file = event.dataTransfer.files[0]
-                          if (file && onPickFile(file))
-                            void group.handleSubmit()
-                        }}
-                        variant="dropzone"
-                        size="dropzone"
-                        data-dragging={dragging}
-                      >
-                        <Upload
-                          className="mb-1 size-4 text-muted-foreground"
-                          strokeWidth={1.75}
-                        />
-                        <span className="text-body font-semibold">
-                          {m.project_icon_dropzone_title()}
-                        </span>
-                        <span className="text-caption text-muted-foreground">
-                          {m.project_icon_dropzone_hint()}
-                        </span>
-                      </Button>
+                      />
                     )
                   }
                 />
@@ -208,18 +182,6 @@ export function BannerSourceStep({
           <Button type="submit" size="sm" className="self-start">
             {m.project_appearance_continue()}
           </Button>
-
-          <input
-            ref={fileRef}
-            hidden
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              event.target.value = ""
-              if (file && onPickFile(file)) void group.handleSubmit()
-            }}
-          />
         </form>
       )}
     </form.FormGroup>

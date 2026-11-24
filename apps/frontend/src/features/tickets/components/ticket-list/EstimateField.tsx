@@ -25,7 +25,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Reveal } from "@pp/ui/reveal"
 import { TextSwap } from "@pp/ui/text-swap"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
-import { useId, useState, type FormEvent, type ReactElement } from "react"
+import {
+  useId,
+  useState,
+  type FormEvent,
+  type ReactElement,
+  type ComponentProps
+} from "react"
 
 import {
   ESTIMATE_UNIT_ICON,
@@ -69,6 +75,35 @@ export function EstimateChip({
     >
       <Icon className="size-3.5" strokeWidth={1.75} />
       {formatEstimateValue(active)}
+    </span>
+  )
+}
+
+// One width for an estimate with a value, so a list's estimate column and a
+// card's chips don't move as values come and go: the chip's icon and padding
+// (28px) plus two characters (points up to 99, XL) or four (time, as its
+// largest unit: "1.5d"). An empty estimate is just its icon.
+const twoCharChipWidth = "min-w-[calc(1.75rem+2ch)]"
+const timeChipWidth = "min-w-[calc(1.75rem+4ch)]"
+
+// A list row reserves that width for the column even while the row has no
+// estimate; the empty chip sits at its start, next to the tags.
+export function RowEstimate({
+  unit,
+  ...props
+}: Pick<
+  ComponentProps<typeof EstimateBadgeTrigger>,
+  "ticket" | "mode" | "onPatch"
+> &
+  Readonly<{ unit: EstimateUnit }>) {
+  return (
+    <span
+      className={cn(
+        "flex text-caption",
+        unit === "time" ? timeChipWidth : twoCharChipWidth
+      )}
+    >
+      <EstimateBadgeTrigger {...props} variant="compact" />
     </span>
   )
 }
@@ -182,18 +217,6 @@ function estimateTrigger(ticket: EstimateTicket, mode: EstimationMode) {
     </Button>
   )
 }
-
-// One width for an estimate with a value, so a list's estimate column and a
-// card's chips don't move as values come and go: the chip's icon and padding
-// (28px) plus two characters (points up to 99, XL) or four (time, as its
-// largest unit: "1.5d"). An empty estimate is just its icon.
-const twoCharChipWidth = "min-w-[calc(1.75rem+2ch)]"
-const timeChipWidth = "min-w-[calc(1.75rem+4ch)]"
-
-// A list row reserves that width for the column even while the row has no
-// estimate; the empty chip sits at its start, next to the tags.
-export const estimateColumnWidth = (unit: EstimateUnit) =>
-  unit === "time" ? timeChipWidth : twoCharChipWidth
 
 function compactEstimateTrigger(
   ticket: EstimateTicket,

@@ -6,7 +6,7 @@ import {
 } from "react"
 
 import { useEditorServices } from "../services"
-import { paintLinkFavicon } from "./link-favicon"
+import { paintLinkFavicon, type LinkPreviewView } from "./link-favicon"
 import { isBareUrlLabel } from "./link-preview-url"
 
 type PreviewLinkProps = Readonly<
@@ -18,14 +18,23 @@ type PreviewLinkProps = Readonly<
   }
 >
 
-export function PreviewLink({
+export function PreviewLink(props: PreviewLinkProps) {
+  const { LinkPreview } = useEditorServices()
+  return (
+    <LinkPreview url={props.url}>
+      {(preview) => <PreviewAnchor {...props} preview={preview} />}
+    </LinkPreview>
+  )
+}
+
+function PreviewAnchor({
   href,
-  url,
+  url: _url,
+  preview: { title, favicon },
   label,
   children,
   ...rest
-}: PreviewLinkProps) {
-  const { title, favicon } = useEditorServices().useLinkPreview(url)
+}: PreviewLinkProps & Readonly<{ preview: LinkPreviewView }>) {
   const ref = useRef<HTMLAnchorElement>(null)
 
   useLayoutEffect(() => {

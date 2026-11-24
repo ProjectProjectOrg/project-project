@@ -6,12 +6,13 @@ import { chipIconActionClass } from "@pp/ui/morph-icon-link"
 import * as Atom from "effect/reactivity/Atom"
 
 import type { FeedbackFileDraft } from "@/features/feedback/atoms/feedbackDraft"
+import { objectUrl } from "@/lib/objectUrl"
 import { m } from "@/paraglide/messages"
 
 const previewUrl = Atom.family((file: File) =>
   Atom.make((get) => {
-    const url = URL.createObjectURL(file)
-    get.addFinalizer(() => URL.revokeObjectURL(url))
+    const { url, release } = objectUrl(file)
+    get.addFinalizer(release)
     return url
   })
 )

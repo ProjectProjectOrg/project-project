@@ -4,7 +4,7 @@ import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { Switch } from "@pp/ui/switch"
 import { useRef, useState, type ComponentProps } from "react"
 
-import { useSettingsRow } from "@/components/shell/settings/SettingsSection"
+import { useSettingsRow } from "@/components/shell/settings/useSettingsRow"
 
 type SettingsTextFieldProps = Pick<
   ComponentProps<typeof Input>,

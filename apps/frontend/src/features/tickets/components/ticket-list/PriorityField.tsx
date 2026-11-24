@@ -20,7 +20,7 @@ import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
-export const priorityOptions = () =>
+const priorityOptions = () =>
   PRIORITY_ORDER.map((p) => {
     const pMeta = PRIORITY_META[p]
     const PIcon = pMeta.icon

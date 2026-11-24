@@ -40,9 +40,11 @@ export type LibrarySave = Readonly<{
   run: (task: Task) => Promise<void>
 }>
 
+const settled = Promise.resolve()
+
 export function useLibrarySave() {
   const registry = useContext(RegistryContext)
-  const chainRef = useRef<Promise<void>>(Promise.resolve())
+  const chainRef = useRef(settled)
   const pendingRef = useRef(0)
   const [status, setStatus] = useState<SaveStatus>("idle")
   const [error, setError] = useState<string | null>(null)

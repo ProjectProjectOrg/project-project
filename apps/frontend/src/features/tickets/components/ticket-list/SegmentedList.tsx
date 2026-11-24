@@ -50,6 +50,21 @@ import { useTicketPreview } from "./useTicketPreview"
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
+function hasSectionFilter(query: TicketListQuery, includeGroup: boolean) {
+  return (
+    (query.q !== undefined && query.q.length > 0) ||
+    (query.status?.length ?? 0) > 0 ||
+    (query.type?.length ?? 0) > 0 ||
+    (query.assignee?.length ?? 0) > 0 ||
+    (query.tags?.length ?? 0) > 0 ||
+    (includeGroup && (query.groupId?.length ?? 0) > 0) ||
+    query.hasBranch !== undefined ||
+    query.hasPr !== undefined ||
+    query.updatedAfter !== undefined ||
+    query.archived !== undefined
+  )
+}
+
 export function SegmentedList({
   query,
   members,
@@ -107,23 +122,14 @@ export function SegmentedList({
 
   const { counts, sections } = snapshot
   const byStatus = counts.byStatus
-  const hasActiveFilter =
-    (query.q !== undefined && query.q.length > 0) ||
-    (query.status?.length ?? 0) > 0 ||
-    (query.type?.length ?? 0) > 0 ||
-    (query.assignee?.length ?? 0) > 0 ||
-    (query.tags?.length ?? 0) > 0 ||
-    (empty === undefined && (query.groupId?.length ?? 0) > 0) ||
-    query.hasBranch !== undefined ||
-    query.hasPr !== undefined ||
-    query.updatedAfter !== undefined ||
-    query.archived !== undefined
+  const hasActiveFilter = hasSectionFilter(query, empty === undefined)
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
     const requested = query.status
     const allOrdered = boardStatusesFor(statuses)
     if (requested !== undefined && requested.length > 0) {
-      return allOrdered.filter((s) => requested.includes(s))
+      const selected = new Set(requested)
+      return allOrdered.filter((s) => selected.has(s))
     }
     if (!hasActiveFilter) return allOrdered
     return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)

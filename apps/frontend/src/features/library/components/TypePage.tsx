@@ -30,8 +30,7 @@ import { typeDraftOf } from "../lib/libraryModel"
 import {
   AsideGroup,
   CommitInput,
-  IconAndColorField,
-  MUTED_VALUE_CLASS,
+  DefinitionFields,
   NullablePriorityField,
   TemplateTagsField
 } from "./DefinitionAside"
@@ -211,34 +210,7 @@ function TypeEditor({
       }
       aside={
         <>
-          <AsideGroup>
-            <MetaRow label={m.templates_editor_icon_label()}>
-              <IconAndColorField
-                icon={type.icon}
-                color={type.color}
-                onIcon={(icon) => patch({ icon })}
-                onColor={(color) => patch({ color })}
-                disabled={!editable}
-              />
-            </MetaRow>
-            <MetaRow label={m.templates_editor_description_label()}>
-              {editable ? (
-                <CommitInput
-                  value={type.description}
-                  onCommit={(description) => patch({ description })}
-                  ariaLabel={m.templates_editor_description_label()}
-                  placeholder={m.templates_editor_description_placeholder()}
-                  maxLength={200}
-                />
-              ) : (
-                <span className={MUTED_VALUE_CLASS}>
-                  {type.description === ""
-                    ? m.templates_editor_none()
-                    : type.description}
-                </span>
-              )}
-            </MetaRow>
-          </AsideGroup>
+          <DefinitionFields entry={type} editable={editable} patch={patch} />
           <AsideGroup
             heading={m.templates_types_defaults_heading({ name: type.name })}
           >

@@ -95,6 +95,7 @@ export function AccountMenu({
         <DropdownMenuSeparator />
         <div
           data-menu-no-highlight
+          role="presentation"
           className="flex items-center justify-between gap-2 py-1 pr-1 pl-2 text-body text-muted-foreground"
           onClickCapture={(event) =>
             setThemeRevealOrigin(event.clientX, event.clientY)

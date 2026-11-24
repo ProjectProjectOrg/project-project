@@ -24,23 +24,13 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
+import { RELATION_PREVIEW_LABELS } from "@/features/tickets/lib/relationGroups"
 import {
   previewRelationGroups,
-  type RelationGroupKey,
   type RelationPreviewKind
 } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
-
-export const RELATION_PREVIEW_LABELS: Readonly<
-  Record<RelationGroupKey, () => string>
-> = {
-  blockedBy: m.tickets_preview_blocked_by,
-  blocking: m.tickets_preview_blocking,
-  related: m.tickets_preview_related,
-  duplicateOf: m.tickets_preview_duplicate_of,
-  duplicates: m.tickets_preview_duplicates
-}
 
 export function RelationsPreview({
   id,

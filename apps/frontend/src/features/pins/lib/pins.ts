@@ -186,3 +186,24 @@ export const ticketLinkOf = (display: PinPrediction) =>
   "ticket" in display
     ? { id: display.ticket.id, parent: display.ticket.parent ?? null }
     : null
+
+export const predictionOf = (pin: SidebarPin) =>
+  SidebarPin.isAnyOf(["ticket"])(pin)
+    ? { ticket: pin.ticket }
+    : { sprint: pin.sprint }
+
+// One row of the Pinned list: a pin, or the live row for what you're viewing.
+export type PinRowSpec = Readonly<{
+  key: string
+  target: PinTarget
+  display: PinPrediction
+  // The pin itself, when pinned (for reordering).
+  pin: SidebarPin | null
+  active: boolean
+  highlight?: boolean
+  onPinned?: () => void
+}>
+
+// The pins at the top of a tree, in order: what the list reorders.
+export const topPins = (nodes: ReadonlyArray<PinNode<PinRowSpec>>) =>
+  nodes.flatMap((node) => (node.row.pin === null ? [] : [node.row.pin]))
