@@ -21,26 +21,32 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
 
-import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
+import {
+  commandScopes,
+  commandMenuState
+} from "@/features/command-menu/atoms/commandMenu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
+import {
+  commandMenuRow,
+  pointedAt
+} from "@/features/command-menu/lib/commandMenu"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
-import { scopeSelectionClear } from "@/features/command-menu/lib/commandScopes"
+import {
+  scopeSelectionClear,
+  scopeSelectionUpdate
+} from "@/features/command-menu/lib/commandScopes"
 import {
   projectActor,
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
-import {
-  bulkArchiveTickets,
-  bulkDeleteTickets,
-  bulkUpdateTickets
-} from "@/features/tickets/atoms/bulkTickets"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
+import { runTicketRemoval } from "@/features/tickets/atoms/runTicketRemoval"
 import {
   archiveTicket,
-  deleteTicket,
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
@@ -482,11 +488,9 @@ export function TicketArchivePage({
     archiveTicket(ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)),
     { mode: "promiseExit" }
   )
-  const archiveMany = useAtomSet(
-    bulkArchiveTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug }),
-    { mode: "promiseExit" }
-  )
-  const clearSelection = scopeSelectionClear(useAtomValue(commandScopes))
+  const scopes = useAtomValue(commandScopes)
+  const row = pointedAt(commandMenuRow(useAtomValue(commandMenuState)), ticket)
+  const clearSelection = scopeSelectionClear(scopes)
   const many = context.selection.length > 1
   const [reason, setReason] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
@@ -529,20 +533,29 @@ export function TicketArchivePage({
         setPending(true)
         setFailure(null)
         const reasonInput = trimmed === "" ? {} : { reason: trimmed }
-        const failed = many
-          ? failureOf(
-              await archiveMany({
-                tickets: context.selection.map((each) => each.id),
-                ...reasonInput
-              })
-            )
-          : failureOf(await archive(reasonInput))
+        const selectionView = scopes.findLast(
+          (scope) => scope.selection?.() != null
+        )?.removalView
+        if (many || row?.remove) {
+          const tickets = many
+            ? context.selection.map((each) => each.id)
+            : [ticket.ticketId]
+          void runTicketRemoval(
+            env.registry,
+            ticket,
+            { kind: "archive", tickets, ...reasonInput },
+            (id) => (many ? selectionView?.(ticket.slug, id) : row?.remove)
+          )
+          if (many) clearSelection?.()
+          env.close()
+          return
+        }
+        const failed = failureOf(await archive(reasonInput))
         setPending(false)
         if (failed !== null) {
           setFailure(failed)
           return
         }
-        if (many) clearSelection?.()
         env.close()
       }}
     />
@@ -558,6 +571,7 @@ export function TicketFlagPage({
   onBack,
   env
 }: TicketPageProps) {
+  const editSelection = scopeSelectionUpdate(useAtomValue(commandScopes))
   const { userId } = useAtomValue(
     projectActor(projectRequest(ticket.orgSlug, ticket.slug))
   )
@@ -608,6 +622,15 @@ export function TicketFlagPage({
       )}
       onSelect={async () => {
         if (pending) return
+        if (many && editSelection !== null) {
+          void editSelection(
+            ticket.slug,
+            context.selection.map((each) => each.id),
+            { flag: trimmed === "" ? {} : { reason: trimmed } }
+          )
+          env.close()
+          return
+        }
         setPending(true)
         setFailure(null)
         const failed = many
@@ -644,18 +667,9 @@ export function TicketDeletePage({
   onBack,
   env
 }: TicketPageProps) {
-  const remove = useAtomSet(
-    deleteTicket(ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)),
-    { mode: "promiseExit" }
-  )
-  const removeMany = useAtomSet(
-    bulkDeleteTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug }),
-    { mode: "promiseExit" }
-  )
-  const clearSelection = scopeSelectionClear(useAtomValue(commandScopes))
+  const scopes = useAtomValue(commandScopes)
+  const row = pointedAt(commandMenuRow(useAtomValue(commandMenuState)), ticket)
   const many = context.selection.length > 1
-  const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
   const description = m.tickets_command_delete_description()
   const count = many ? 0 : (context.ticketDetail?.subTicketCount ?? 0)
   return (
@@ -664,7 +678,6 @@ export function TicketDeletePage({
       placeholder={description}
       description={description}
       onBack={onBack}
-      notice={failure}
       items={[
         {
           value: DELETE,
@@ -693,27 +706,34 @@ export function TicketDeletePage({
               }
             ])
       ]}
-      onSelect={async (item) => {
-        if (pending) return
-        setPending(true)
-        setFailure(null)
-        const failed = many
-          ? failureOf(
-              await removeMany({
-                tickets: context.selection.map((each) => each.id)
-              })
-            )
-          : failureOf(
-              await remove({ cascadeSubTickets: item.value === DELETE_CASCADE })
-            )
-        setPending(false)
-        if (failed !== null) {
-          setFailure(failed)
-          return
-        }
-        if (many) clearSelection?.()
+      onSelect={(item) => {
+        const tickets = many
+          ? context.selection.map((each) => each.id)
+          : [ticket.ticketId]
+        const leavingTicket = window.location.pathname.endsWith(
+          `/tickets/${ticket.ticketId}`
+        )
+        const selectionView = scopes.findLast(
+          (scope) => scope.selection?.() != null
+        )?.removalView
+        void runTicketRemoval(
+          env.registry,
+          ticket,
+          {
+            kind: "delete",
+            tickets,
+            cascadeSubTickets: item.value === DELETE_CASCADE
+          },
+          (id) =>
+            many
+              ? selectionView?.(ticket.slug, id)
+              : leavingTicket
+                ? undefined
+                : row?.remove
+        )
+        if (many) scopeSelectionClear(scopes)?.()
         env.close()
-        if (window.location.pathname.endsWith(`/tickets/${ticket.ticketId}`)) {
+        if (leavingTicket) {
           env.navigate(`/orgs/${ticket.orgSlug}/projects/${ticket.slug}`)
         }
       }}

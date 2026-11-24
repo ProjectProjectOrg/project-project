@@ -19,7 +19,7 @@ import { fireMutation } from "@/api/viewMutation"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
-  bulkAddTicketsToSprint,
+  bulkAssignTicketSprint,
   removeTicketsFromSprint,
   sprintList,
   sprintListRequest,
@@ -100,8 +100,8 @@ export function SprintField({
             addTickets({ groupId: s.id })
             return
           }
-          void fireMutation(registry, bulkAddTicketsToSprint(req), {
-            groupId: s.id,
+          void fireMutation(registry, bulkAssignTicketSprint(req), {
+            patch: { sprint: s.id },
             tickets: selection.selectedIds()
           })
         }}

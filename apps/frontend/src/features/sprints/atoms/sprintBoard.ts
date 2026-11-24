@@ -10,8 +10,10 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { viewMutation } from "@/api/viewMutation"
+import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
 import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
+import { deletedTicketIds } from "@/features/tickets/lib/deletedTickets"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
 import { compareByRank, predictRank } from "@/features/tickets/lib/ticketRank"
 import {
@@ -109,7 +111,26 @@ export const updateBoardTicket = Atom.family(
     })
 )
 
-export const boardTicketUpdates = bindRowMutation(updateBoardTicket)
+export const boardTicketUpdates = Atom.family((req: BoardRequest) => ({
+  patch: (id: TicketId) => updateBoardTicket({ req, id }),
+  ...ticketRowActions(
+    sprintBoard(req),
+    req.params,
+    (value, id, change) => ({
+      ...value,
+      tickets: value.tickets.map((ticket) =>
+        ticket.id === id ? applyTicketPatch(ticket, change) : ticket
+      )
+    }),
+    (value, input) => {
+      const ids = deletedTicketIds(value.tickets, input)
+      return {
+        ...value,
+        tickets: value.tickets.filter((ticket) => !ids.has(ticket.id))
+      }
+    }
+  )
+}))
 
 const predictedIdOf = (value: BoardValue, input: QuickCreateInput) =>
   placeholderId(

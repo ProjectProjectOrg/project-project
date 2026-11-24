@@ -16,13 +16,12 @@ import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import {
   assignTicketToSprint,
-  bulkAddTicketsToSprint,
+  bulkAssignTicketSprint,
   removeTicketFromSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
-import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import { m } from "@/paraglide/messages"
 
 import { groupBy } from "../ticket-list/selectionUndo"
@@ -134,13 +133,13 @@ export function TicketSprintCommands({
         groups.map(([id, group]) => ({ ids: group, patch: { sprint: id } }))
       )
     } else if (many && value === REMOVE) {
-      void fireMutation(registry, bulkUpdateTickets({ orgSlug, slug }), {
+      void fireMutation(registry, bulkAssignTicketSprint(req), {
         tickets: ids,
         patch: { sprint: null }
       })
     } else if (many && sprint !== undefined && sprint !== current) {
-      void fireMutation(registry, bulkAddTicketsToSprint(req), {
-        groupId: sprint.id,
+      void fireMutation(registry, bulkAssignTicketSprint(req), {
+        patch: { sprint: sprint.id },
         tickets: ids
       })
     } else if (value === REMOVE && current !== undefined) {

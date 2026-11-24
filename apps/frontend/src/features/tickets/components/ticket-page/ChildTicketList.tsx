@@ -52,6 +52,7 @@ export function ChildTicketList({
                       {
                         key: selectionKey(slug, ticket.id),
                         ticket,
+                        remove: childTicketUpdates(req).remove,
                         bulk: bulkUpdateChildTickets(req)
                       }
                     ]

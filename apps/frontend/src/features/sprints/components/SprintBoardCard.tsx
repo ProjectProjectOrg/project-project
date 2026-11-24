@@ -33,13 +33,14 @@ function SprintBoardCardImpl({
   ticket: Ticket
   members: ReadonlyArray<Member>
 }>) {
-  const onPatch = useAtomSet(update(ticket.id))
+  const onPatch = useAtomSet(update.patch(ticket.id))
   return (
     <BoardCardFields
       ticket={ticket}
       members={members}
       onPatch={onPatch}
-      failure={<UpdateFailureMarker update={update(ticket.id)} />}
+      actions={update}
+      failure={<UpdateFailureMarker update={update.patch(ticket.id)} />}
     />
   )
 }
@@ -48,17 +49,19 @@ function BoardCardFields({
   ticket,
   members,
   onPatch,
-  failure
+  failure,
+  actions
 }: Readonly<{
   ticket: Ticket
   members: ReadonlyArray<Member>
   onPatch: (patch: TicketEdit) => void
+  actions: Pick<TicketUpdates, "mark" | "remove">
   failure: ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
   useShownTicket(orgSlug, slug, ticket.id, from)
-  const pointAt = usePointedTicket(orgSlug, slug, ticket, onPatch)
+  const pointAt = usePointedTicket(orgSlug, slug, ticket, onPatch, actions)
   const preloadChildren = useChildTicketsPreload(ticket)
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
@@ -70,6 +73,7 @@ function BoardCardFields({
         ticket={ticket}
         members={members}
         onPatch={onPatch}
+        {...actions}
         fromList
       >
         <BoardCard

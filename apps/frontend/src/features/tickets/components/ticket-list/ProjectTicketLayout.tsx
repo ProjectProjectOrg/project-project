@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import type { GroupId, TicketListQuery } from "@pp/shared"
-import { BacklogGrouping } from "@pp/shared"
+import type { BacklogGrouping } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Activity, type ReactNode } from "react"
 
@@ -22,13 +22,13 @@ import {
 } from "@/features/sprints/hooks/useStatusReorder"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
-import { useProjectActor } from "@/hooks/useActor"
 import {
-  readLocalStorage,
-  createLocalStorageCodec,
-  useLocalStorageState,
-  writeLocalStorage
-} from "@/hooks/useLocalStorageState"
+  groupingCodec,
+  DEFAULT_GROUPING,
+  backlogGroupingKey
+} from "@/features/tickets/lib/backlogGrouping"
+import { useProjectActor } from "@/hooks/useActor"
+import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { m } from "@/paraglide/messages"
 
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
@@ -46,35 +46,6 @@ import {
 } from "./toolbar"
 import { ViewFilterCommandScope } from "./ViewFilterCommandScope"
 import { ViewSwitcher } from "./ViewSwitcher"
-
-const groupingCodec = createLocalStorageCodec(BacklogGrouping)
-const DEFAULT_GROUPING: BacklogGrouping = "sprint"
-
-const backlogGroupingKey = (preferencesKey: string) =>
-  `projectproject:backlog-grouping:${preferencesKey}`
-
-export const readBacklogGrouping = (
-  viewerId: string,
-  orgSlug: string,
-  slug: string
-) =>
-  readLocalStorage(
-    backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
-    groupingCodec,
-    DEFAULT_GROUPING
-  )
-
-export const writeBacklogGrouping = (
-  viewerId: string,
-  orgSlug: string,
-  slug: string,
-  grouping: BacklogGrouping
-) =>
-  writeLocalStorage(
-    backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
-    groupingCodec,
-    grouping
-  )
 
 type TicketLayoutState = Readonly<{
   grouping: BacklogGrouping

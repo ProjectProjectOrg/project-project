@@ -26,12 +26,18 @@ import {
   toBulkPatch,
   type TicketEdit
 } from "@/features/tickets/lib/ticketPatch"
-import { projectOfKey, selectAll } from "@/features/tickets/lib/ticketSelection"
+import { projectOfKey } from "@/features/tickets/lib/ticketSelection"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
-import { applySelected, type SelectionStore } from "./selectionStore"
+import {
+  allInOrder,
+  applySelected,
+  orderContaining,
+  selectFromOrder,
+  type SelectionStore
+} from "./selectionStore"
 
 /*
  * The bar that rises while tickets are selected (@pp/ui/selection-bar): a
@@ -66,11 +72,7 @@ export function SelectionBar({
   }, [undo, registry, store])
   // Everything the lists show in this selection's project: what "Select
   // all" would select, so it can say how much.
-  const everything = selectAll(
-    selection,
-    [...store.orders].flatMap((order) => order()),
-    null
-  ).keys.size
+  const everything = allInOrder(store, selection, null).keys.size
   return (
     <Bar
       label={m.tickets_selection_bar_label({ count })}
@@ -81,15 +83,20 @@ export function SelectionBar({
         everything > count
           ? {
               label: m.tickets_selection_select_all({ count: everything }),
-              onSelect: () =>
-                registry.set(
-                  store.selection,
-                  selectAll(
-                    registry.get(store.selection),
-                    [...store.orders].flatMap((order) => order()),
-                    null
-                  )
+              onSelect: () => {
+                const current = registry.get(store.selection)
+                const key = current.anchor
+                const origin =
+                  key === null
+                    ? undefined
+                    : orderContaining(store, key, store.views.get(key)?.remove)
+                selectFromOrder(
+                  registry,
+                  store,
+                  allInOrder(store, current, null),
+                  origin
                 )
+              }
             }
           : undefined
       }

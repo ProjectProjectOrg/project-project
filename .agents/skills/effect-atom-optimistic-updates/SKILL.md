@@ -71,7 +71,7 @@ Component: the view binds the family to its request and the row binds the id.
 const sections = useAtomValue(backlog(req))
 <Row update={backlogTicketUpdates(req)} ticket={ticket} />
 // inside Row
-const update = useAtomSet(props.update(ticket.id))
+const update = useAtomSet(props.update.patch(ticket.id))
 update({ priority: "high" })
 ```
 

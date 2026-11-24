@@ -94,7 +94,7 @@ function RowImpl({
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
   useShownTicket(orgSlug, slug, pending ? null : ticket.id, from)
-  const patchRow = useAtomSet(update(ticket.id))
+  const patchRow = useAtomSet(update.patch(ticket.id))
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
   const estimateUnit = estimationUnit(estimation)
@@ -113,7 +113,7 @@ function RowImpl({
     if (!previewOpen) setPreviewMounted(true)
     onPreviewOpenChange(ticket.id, !previewOpen)
   }
-  const pointAt = usePointedTicket(orgSlug, slug, ticket, patchRow)
+  const pointAt = usePointedTicket(orgSlug, slug, ticket, patchRow, update)
   const key = selectionKey(slug, ticket.id)
   const selectable = useTicketSelection(key)
   const selection = pending ? null : selectable
@@ -150,6 +150,8 @@ function RowImpl({
             ticket={ticket}
             members={members}
             onPatch={onPatch}
+            remove={update.remove}
+            mark={update.mark}
             fromList
           >
             <ListRow
@@ -266,7 +268,7 @@ function RowImpl({
               }
               trailing={
                 <>
-                  <UpdateFailureMarker update={update(ticket.id)} />
+                  <UpdateFailureMarker update={update.patch(ticket.id)} />
                   {shows("tags") && (
                     <span
                       data-row-field="labels"

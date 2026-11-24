@@ -17,6 +17,8 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
+import { ticketQueryFromSearch } from "../lib/ticketSearch"
+import { runTicketRemoval } from "./runTicketRemoval"
 import {
   loadMoreSprintSections,
   quickCreateSprintSectionsTicket,
@@ -25,6 +27,7 @@ import {
   type SprintSectionsValue,
   updateSprintSectionsTicket
 } from "./sprintSections"
+import { ticketActionFailures } from "./ticketActionFailures"
 
 const decodeTicketIdSync = Schema.decodeSync(TicketId)
 
@@ -115,6 +118,51 @@ const viewer = () =>
 const fetchStub = stubFetch()
 
 describe("ticket sprint sections", () => {
+  it("deleting an open ticket updates the destination list and keeps the failure there after navigation", async () => {
+    let rejectDelete: ((response: Response) => void) | undefined
+    fetchStub.set((input, init) => {
+      if (init?.method === "POST")
+        return new Promise<Response>((resolve) => {
+          rejectDelete = resolve
+        })
+      return Promise.resolve(
+        pathOf(input).endsWith("/sprint-sections")
+          ? snapshot([ticket])
+          : viewer()
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintSections(
+      sprintSectionsRequest("org", "project", ticketQueryFromSearch({}))
+    )
+    try {
+      const leaveList = registry.mount(view)
+      await vi.waitFor(() =>
+        expect(sprintSection(registry.get(view), groupId)?.count).toBe(1)
+      )
+      leaveList()
+      const save = runTicketRemoval(
+        registry,
+        req.params,
+        { kind: "delete", tickets: [ticket.id] },
+        () => undefined
+      )
+      registry.mount(view)
+      expect(sprintSection(registry.get(view), groupId)?.page.items).toEqual([])
+      await vi.waitFor(() => expect(rejectDelete).toBeDefined())
+      rejectDelete?.(new Response(null, { status: 500 }))
+      await save
+      await vi.waitFor(() => {
+        expect(sprintSection(registry.get(view), groupId)?.count).toBe(1)
+        expect(registry.get(ticketActionFailures("org"))).toMatchObject([
+          { slug: "project", input: { tickets: [ticket.id] } }
+        ])
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("keeps appended pages scoped to their query", async () => {
     const second = { ...ticket, id: decodeTicketIdSync("T-2") }
     fetchStub.set((input: RequestInfo | URL) => {

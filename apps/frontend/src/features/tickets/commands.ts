@@ -403,12 +403,21 @@ export const ticketCommands: ReadonlyArray<Command> = [
       ticketData.archivedAt !== null,
     run: ({ ticket }, env) => {
       if (ticket === null) return
-      env.execute(
-        unarchiveTicket(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        undefined
-      )
+      const row =
+        pointedAt(commandMenuRow(env.registry.get(commandMenuState)), ticket) ??
+        pointedAt(env.registry.get(pointedTicket), ticket)
+      if (row?.remove)
+        void row.remove(env.registry, {
+          kind: "unarchive",
+          tickets: [ticket.ticketId]
+        })
+      else
+        env.execute(
+          unarchiveTicket(
+            ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+          ),
+          undefined
+        )
       env.close()
     }
   }),

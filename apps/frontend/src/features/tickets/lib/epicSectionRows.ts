@@ -13,7 +13,7 @@ import {
   type UserId
 } from "@pp/shared"
 
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import type { TicketPrediction } from "@/features/tickets/lib/ticketPatch"
 
 import {
   insertByOrderKey,
@@ -81,7 +81,7 @@ const moveRow = (
 export const patchEpicSectionsRow = (
   value: EpicSectionsValue,
   id: TicketId,
-  patch: TicketEdit,
+  patch: TicketPrediction,
   query: TicketListQuery,
   now: Date
 ) => {

@@ -1,8 +1,10 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
+import { use } from "react"
 
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
@@ -15,6 +17,9 @@ import { flagFor } from "@/features/tickets/lib/ticketFlag"
 import { useProjectActor } from "@/hooks/useActor"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
+
+import { applySelected } from "./ticket-list/selectionStore"
+import { useSelectionStore } from "./ticket-list/TicketSelection"
 
 export type FlagTicketRequest = Readonly<{
   orgSlug: string
@@ -30,6 +35,8 @@ export function FlagTicket({
   request,
   onDone
 }: Readonly<{ request: FlagTicketRequest; onDone: () => void }>) {
+  const registry = use(RegistryContext)
+  const store = useSelectionStore()
   const { userId } = useProjectActor()
   const detail = useAtomValue(
     project(projectRequest(request.orgSlug, request.slug))
@@ -76,9 +83,20 @@ export function FlagTicket({
             })
           }
           const trimmed = reason.trim()
+          const patch = { flag: trimmed === "" ? {} : { reason: trimmed } }
+          if (store !== null) {
+            void applySelected(
+              registry,
+              store,
+              request.slug,
+              request.selection,
+              patch
+            )
+            return Promise.resolve(Exit.void)
+          }
           return updateMany({
             tickets: request.selection,
-            patch: { flag: trimmed === "" ? {} : { reason: trimmed } }
+            patch
           })
         }}
         waiting={many ? manyState.waiting : state.waiting}

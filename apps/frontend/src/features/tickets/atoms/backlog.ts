@@ -1,5 +1,6 @@
 import {
   matchesTicketQuery,
+  type BulkDeleteTicketsInput,
   type Ticket,
   type TicketCounts,
   type TicketId,
@@ -16,7 +17,7 @@ import * as Schema from "effect/Schema"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { viewMutation } from "@/api/viewMutation"
 import {
   createInSprint,
   sprintAssignmentKeys
@@ -25,7 +26,12 @@ import {
   createdRowInPlace,
   filtersBySprint
 } from "@/features/sprints/lib/inlineCreate"
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
+import {
+  deletedTicketIds,
+  subtractDeletedCounts
+} from "@/features/tickets/lib/deletedTickets"
+import type { TicketPrediction } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
   placeCreatedRow,
@@ -197,7 +203,7 @@ export const loadMoreBacklog = Atom.family(
 const patchRow = (
   value: BacklogValue,
   id: TicketId,
-  patch: TicketEdit,
+  patch: TicketPrediction,
   sort: TicketSort,
   now: Date
 ) => {
@@ -287,7 +293,53 @@ export const updateBacklogTicket = Atom.family(
     })
 )
 
-export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)
+const removeBacklogRows = (
+  value: BacklogValue,
+  input: BulkDeleteTicketsInput
+) => {
+  const rows = Object.values(value.sections).flatMap((page) => page.items)
+  const ids = deletedTicketIds(
+    rows.map((row) => row.ticket),
+    input
+  )
+  const removed = rows.filter((row) => ids.has(row.ticket.id))
+  return {
+    counts: subtractDeletedCounts(
+      value.counts,
+      removed.map((row) => row.ticket)
+    ),
+    sections: Object.fromEntries(
+      Object.entries(value.sections).map(([status, page]) => [
+        status,
+        {
+          ...page,
+          items: page.items.filter((row) => !ids.has(row.ticket.id))
+        }
+      ])
+    )
+  }
+}
+
+export const backlogTicketUpdates = Atom.family((req: BacklogRequest) => ({
+  patch: (id: TicketId) => updateBacklogTicket({ req, id }),
+  ...ticketRowActions(
+    backlog(req),
+    req.params,
+    (value, id, change) =>
+      req.query.blocked === false &&
+      change.incrementRelation === "openBlockerCount"
+        ? removeBacklogRows(value, { tickets: [id] })
+        : patchRow(
+            value,
+            id,
+            change,
+            req.query.sort,
+            DateTime.toDate(DateTime.nowUnsafe())
+          ),
+    removeBacklogRows,
+    req.query.archived === true
+  )
+}))
 
 export const bulkUpdateBacklogTickets = Atom.family((req: BacklogRequest) =>
   bulkTicketUpdate(backlog(req), {

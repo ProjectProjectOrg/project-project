@@ -1,5 +1,6 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
+import type { RemoveTickets } from "@/features/tickets/atoms/removeTickets"
 import type { Restore } from "@/features/tickets/components/ticket-list/selectionUndo"
 
 import {
@@ -20,6 +21,7 @@ export type ScopedSelection = Readonly<{
 export type CommandScope = Readonly<{
   ticket?: TicketContext
   selection?: () => ScopedSelection | null
+  removalView?: (slug: string, id: TicketId) => RemoveTickets | undefined
   clearSelection?: () => void
   // Applies a change to the selection and offers Undo: by the given
   // restore, or by what the selection knows of the tickets before it.

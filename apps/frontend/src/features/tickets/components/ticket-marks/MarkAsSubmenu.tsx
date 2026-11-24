@@ -28,8 +28,10 @@ import {
   ticketRequest,
   unmarkTicket
 } from "@/features/tickets/atoms/ticketDetail"
-import { useOpenTicketPage } from "@/features/tickets/components/ticket-menu/useOpenTicketPage"
-import { removableRelations } from "@/features/tickets/lib/relationGroups"
+import {
+  removableRelations,
+  type MarkPickKind
+} from "@/features/tickets/lib/relationGroups"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
@@ -39,17 +41,16 @@ import { m } from "@/paraglide/messages"
 import { MARK_KINDS } from "./markKinds"
 
 export function MarkAsSubmenu({
-  ticketId,
+  onMark,
   flagged,
   onFlag,
   onUnflag
 }: Readonly<{
-  ticketId: TicketId
+  onMark: (kind: MarkPickKind) => void
   flagged: boolean
   onFlag: () => void
   onUnflag: () => void
 }>) {
-  const openPage = useOpenTicketPage(ticketId)
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
@@ -81,7 +82,7 @@ export function MarkAsSubmenu({
           <Fragment key={kind}>
             {kind === "duplicateOf" && <DropdownMenuSeparator />}
             <DropdownMenuItem
-              onClick={() => openPage(`mark:${kind}`)}
+              onClick={() => onMark(kind)}
               className="cursor-pointer"
             >
               <Icon className="size-4" strokeWidth={1.75} />

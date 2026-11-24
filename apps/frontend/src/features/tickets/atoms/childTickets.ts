@@ -14,7 +14,9 @@ import type * as Registry from "effect/reactivity/AtomRegistry"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
+import { fireMutation, viewMutation } from "@/api/viewMutation"
+import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
+import { deletedTicketIds } from "@/features/tickets/lib/deletedTickets"
 import {
   insertByOrderKey,
   localOrderKey,
@@ -27,6 +29,7 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import { ticketContentKey } from "../lib/ticketContent"
+import { applyTicketPatch } from "../lib/ticketPatch"
 import { allPages } from "./allPages"
 import {
   bulkTicketUpdate,
@@ -221,7 +224,26 @@ export const updateChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
   })
 )
 
-export const childTicketUpdates = bindRowMutation(updateChildTicket)
+export const childTicketUpdates = Atom.family((req: ChildTicketsRequest) => ({
+  patch: (id: TicketId) => updateChildTicket({ req, id }),
+  ...ticketRowActions(
+    childTickets(req),
+    req.params,
+    (rows, id, change) =>
+      rows.map((row) =>
+        row.ticket.id === id
+          ? { ...row, ticket: applyTicketPatch(row.ticket, change) }
+          : row
+      ),
+    (value, input) => {
+      const ids = deletedTicketIds(
+        value.map((row) => row.ticket),
+        input
+      )
+      return value.filter((row) => !ids.has(row.ticket.id))
+    }
+  )
+}))
 
 export const bulkUpdateChildTickets = Atom.family((req: ChildTicketsRequest) =>
   bulkTicketUpdate(childTickets(req), {

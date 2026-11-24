@@ -176,10 +176,6 @@ export const replaceWith = <V>(_current: V, confirmed: V) => confirmed
 
 export const keepPredicted = <V>(current: V) => current
 
-export const bindRowMutation = <Req, Id, A extends object>(
-  family: (key: Readonly<{ req: Req; id: Id }>) => A
-) => Atom.family((req: Req) => (id: Id) => family({ req, id }))
-
 export const fireMutation = <A, E, I>(
   registry: Registry.AtomRegistry,
   atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, I>,

@@ -11,6 +11,7 @@ import {
   type PointerEvent
 } from "react"
 
+import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
@@ -25,7 +26,8 @@ export function usePointedTicket(
   orgSlug: string,
   slug: string,
   row: Ticket,
-  patch: (edit: TicketEdit) => void
+  patch: (edit: TicketEdit) => void,
+  actions?: Pick<TicketUpdates, "mark" | "remove">
 ) {
   const registry = useContext(RegistryContext)
   const search = useContext(TicketViewSourceContext)
@@ -40,8 +42,18 @@ export function usePointedTicket(
   )
   const enter = () => {
     const pointed = pointedAt(registry.get(pointedTicket), self)
-    if (pointed?.row !== row) {
-      registry.set(pointedTicket, { ...self, row, patch: stablePatch, search })
+    if (
+      pointed?.row !== row ||
+      pointed.remove !== actions?.remove ||
+      pointed.mark !== actions?.mark
+    ) {
+      registry.set(pointedTicket, {
+        ...self,
+        row,
+        patch: stablePatch,
+        ...actions,
+        search
+      })
     }
   }
   const leave = () => {

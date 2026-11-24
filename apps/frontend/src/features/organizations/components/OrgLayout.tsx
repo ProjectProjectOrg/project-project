@@ -8,6 +8,7 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { DeletedOrgPage } from "@/features/organizations/components/DeletedOrgPage"
+import { TicketActionFailures } from "@/features/tickets/components/TicketActionFailures"
 
 // Gates everything under an org, in the app and in its settings, on the
 // org existing and not being deleted.
@@ -27,7 +28,10 @@ export function OrgLayout({ orgSlug }: Readonly<{ orgSlug: string }>) {
       value.deletedAt !== null ? (
         <DeletedOrgPage orgSlug={orgSlug} />
       ) : (
-        <Outlet />
+        <>
+          <TicketActionFailures orgSlug={orgSlug} />
+          <Outlet />
+        </>
       )
   })
 }

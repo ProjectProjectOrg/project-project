@@ -44,7 +44,8 @@ export const applySelectedEdit = (
   ...ticket,
   status: edit.status ?? ticket.status,
   priority: edit.priority ?? ticket.priority,
-  type: edit.type ?? ticket.type,
+  type: edit.type === undefined ? ticket.type : edit.type,
+  flag: edit.flag === undefined ? ticket.flag : edit.flag,
   estimate: edit.estimate === undefined ? ticket.estimate : edit.estimate,
   tags:
     edit.tags === undefined

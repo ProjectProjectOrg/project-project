@@ -1,5 +1,11 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import { EPIC_TYPE, type GroupId, type TicketId, isEpicType } from "@pp/shared"
+import {
+  EPIC_TYPE,
+  type GroupId,
+  type LinkedTicket,
+  type TicketId,
+  isEpicType
+} from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
@@ -48,6 +54,7 @@ import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintFi
 import { startText } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
+import { linkedTicket } from "@/features/tickets/lib/relationGroups"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
@@ -136,15 +143,21 @@ export function CreateTicketForm({
       }
     })
     creatorType.settle(exit)
-    return Exit.map(exit, (ticket) => ticket.id)
+    return Exit.map(exit, linkedTicket)
   }
 
-  const link = async (id: TicketId) => {
+  const link = async (target: LinkedTicket) => {
     if (related?.kind === "epicOf") {
       const moved = await fireMutation(
         registry,
         updateTicketDetail(ticketRequest(orgSlug, slug, related.ticketId)),
-        { parent: parentRef({ id, title: trimmed, type: EPIC_TYPE }) }
+        {
+          parent: parentRef({
+            id: target.id,
+            title: target.title,
+            type: EPIC_TYPE
+          })
+        }
       )
       return Result.isFailure(moved) ? Exit.failCause(moved.cause) : Exit.void
     }
@@ -152,7 +165,7 @@ export function CreateTicketForm({
     const marked = await fireMutation(
       registry,
       markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
-      { kind: "blockedBy", target: id }
+      { kind: "blockedBy", target }
     )
     return Result.isFailure(marked) ? Exit.failCause(marked.cause) : Exit.void
   }
@@ -278,8 +291,8 @@ export function CreateTicketForm({
           editing: ({ failure }) => failure,
           creating: () => null,
           linking: () => null,
-          linkFailed: ({ id, failure }) =>
-            m.tickets_create_link_failed({ id, error: failure })
+          linkFailed: ({ ticket, failure }) =>
+            m.tickets_create_link_failed({ id: ticket.id, error: failure })
         })}
       </Composer.Error>
       <Composer.Tray>

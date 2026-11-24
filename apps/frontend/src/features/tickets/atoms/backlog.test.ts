@@ -25,12 +25,14 @@ import { applyTicketPatch } from "../lib/ticketPatch"
 import {
   backlog,
   backlogRequest,
+  backlogTicketUpdates,
   bulkUpdateBacklogTickets,
   encodeTicketListQuery,
   loadMoreBacklog,
   quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
+import { ticketActionFailures } from "./ticketActionFailures"
 
 const decodeUnknownUpdateTicketInputSync =
   Schema.decodeUnknownSync(UpdateTicketInput)
@@ -78,6 +80,176 @@ const sections = (items: ReadonlyArray<Ticket>) =>
 const fetchStub = stubFetch()
 
 describe("backlog optimistic update", () => {
+  it("shows both ends of a new blocker relation in the initiating list before the write returns", async () => {
+    const source = ticket
+    const target = makeTicket({ id: TicketId.make("T-2") })
+    const writes: Array<(response: Response) => void> = []
+    fetchStub.set((input, init) => {
+      if (init?.method === "POST")
+        return new Promise<Response>((resolve) => writes.push(resolve))
+      if (urlOf(input).endsWith("/statuses"))
+        return Promise.resolve(Response.json([]))
+      return Promise.resolve(sections([source, target]))
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          value: { counts: { total: 2 } }
+        })
+      )
+      const sent = backlogTicketUpdates(req).mark(registry, {
+        source,
+        target,
+        kind: "blockedBy"
+      })
+      expect(registry.get(view)).toMatchObject({
+        value: {
+          sections: {
+            todo: {
+              items: [
+                { ticket: { id: source.id, openBlockerCount: 1 } },
+                { ticket: { id: target.id, openBlockingCount: 1 } }
+              ]
+            }
+          }
+        }
+      })
+      await vi.waitFor(() => expect(writes).toHaveLength(1))
+      writes[0](new Response(null, { status: 500 }))
+      expect((await sent)._tag).toBe("Failure")
+      const result = registry.get(view)
+      if (!AsyncResult.isSuccess(result))
+        throw new Error("expected the list to survive a failed mark")
+      expect(
+        result.value.sections.todo.items.map(({ ticket }) => [
+          ticket.openBlockerCount ?? 0,
+          ticket.openBlockingCount ?? 0
+        ])
+      ).toEqual([
+        [0, 0],
+        [0, 0]
+      ])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it.each(["single", "bulk"] as const)(
+    "removes a %s selection immediately and retries the tickets the server kept",
+    async (mode) => {
+      const second = makeTicket({ id: decodeTicketIdSync("T-2") })
+      const selected = mode === "single" ? [ticket] : [ticket, second]
+      let served: ReadonlyArray<Ticket> = selected
+      const writes: Array<(response: Response) => void> = []
+      fetchStub.set((_input, init) =>
+        init?.method === "POST"
+          ? new Promise<Response>((resolve) => writes.push(resolve))
+          : Promise.resolve(sections(served))
+      )
+      const registry = AtomRegistry.make()
+      const view = backlog(req)
+      registry.mount(view)
+      try {
+        await vi.waitFor(() =>
+          expect(registry.get(view)).toMatchObject({
+            value: { counts: { total: selected.length } }
+          })
+        )
+        const remove = backlogTicketUpdates(req).remove(registry, {
+          kind: "delete",
+          tickets: selected.map((row) => row.id)
+        })
+        expect(registry.get(view)).toMatchObject({
+          value: { counts: { total: 0 }, sections: { todo: { items: [] } } }
+        })
+        await vi.waitFor(() => expect(writes).toHaveLength(1))
+        served = selected.slice(-1)
+        writes[0](new Response(null, { status: 500 }))
+        await remove
+        const failures = ticketActionFailures("acme")
+        await vi.waitFor(() => {
+          expect(registry.get(failures)).toHaveLength(1)
+          expect(registry.get(view)).toMatchObject({
+            value: {
+              counts: { total: 1 },
+              sections: { todo: { items: [{ ticket: { id: served[0].id } }] } }
+            }
+          })
+        })
+        registry.get(failures)[0].retry()
+        expect(registry.get(view)).toMatchObject({
+          value: { counts: { total: 0 } }
+        })
+        await vi.waitFor(() => expect(writes).toHaveLength(2))
+        served = []
+        writes[1](Response.json({ tickets: selected.map((row) => row.id) }))
+        await vi.waitFor(() =>
+          expect(registry.get(view)).toMatchObject({
+            waiting: false,
+            value: { counts: { total: 0 } }
+          })
+        )
+        expect(registry.get(failures)).toHaveLength(0)
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
+  it.each(["archive", "unarchive"] as const)(
+    "removes the selected rows from their %s view and restores them on failure",
+    async (kind) => {
+      const archived = kind === "unarchive"
+      const request = backlogRequest("acme", "web", {
+        sort: req.query.sort,
+        archived
+      })
+      const rows = [ticket, makeTicket({ id: decodeTicketIdSync("T-2") })].map(
+        (row) => (archived ? { ...row, archivedAt: ticket.createdAt } : row)
+      )
+      const selected = archived ? [rows[0].id] : rows.map((row) => row.id)
+      const writes: Array<(response: Response) => void> = []
+      fetchStub.set((_input, init) =>
+        init?.method === "POST"
+          ? new Promise<Response>((resolve) => writes.push(resolve))
+          : Promise.resolve(sections(rows))
+      )
+      const registry = AtomRegistry.make()
+      const view = backlog(request)
+      registry.mount(view)
+      try {
+        await vi.waitFor(() =>
+          expect(registry.get(view)).toMatchObject({
+            value: { counts: { total: 2 } }
+          })
+        )
+        const result = backlogTicketUpdates(request).remove(registry, {
+          kind,
+          tickets: selected
+        })
+        expect(registry.get(view)).toMatchObject({
+          value: { counts: { total: rows.length - selected.length } }
+        })
+        await vi.waitFor(() => expect(writes).toHaveLength(1))
+        writes[0](new Response(null, { status: 500 }))
+        await result
+        await vi.waitFor(() =>
+          expect(registry.get(view)).toMatchObject({
+            value: { counts: { total: 2 } }
+          })
+        )
+        expect(registry.get(ticketActionFailures("acme"))[0].input.kind).toBe(
+          kind
+        )
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
   it("holds the preview until the sections refetch lands", async () => {
     let served: ReadonlyArray<Ticket> = [ticket]
     let finish = (_r: Response) => {}

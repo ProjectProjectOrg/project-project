@@ -24,7 +24,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectEstimation,
@@ -38,7 +38,9 @@ import {
   createInSprint,
   sprintAssignmentKeys
 } from "@/features/sprints/atoms/sprintList"
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
+import { removeFromSections } from "@/features/tickets/lib/deletedTickets"
+import type { TicketPrediction } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
   patchTicketRow,
@@ -339,7 +341,7 @@ const moveSprintRow = (
 const patchRow = (
   value: SprintSectionsValue,
   id: TicketId,
-  patch: TicketEdit,
+  patch: TicketPrediction,
   query: TicketListQuery,
   now: Date
 ) => {
@@ -476,8 +478,34 @@ export const updateSprintSectionsTicket = Atom.family(
     })
 )
 
-export const sprintSectionsTicketUpdates = bindRowMutation(
-  updateSprintSectionsTicket
+export const sprintSectionsTicketUpdates = Atom.family(
+  (req: SprintSectionsRequest) => ({
+    patch: (id: TicketId) => updateSprintSectionsTicket({ req, id }),
+    ...ticketRowActions(
+      sprintSections(req),
+      req.params,
+      (value, id, change) =>
+        patchRow(
+          value,
+          id,
+          change,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        ),
+      (value, input) => ({
+        ...value,
+        ...removeFromSections(value, input, (section, removed) => ({
+          ...section,
+          estimates: removed.reduce(
+            (summary, ticket) =>
+              shiftEstimates(summary, ticket, null, value.viewer.phaseOf),
+            section.estimates
+          )
+        }))
+      }),
+      req.query.archived === true
+    )
+  })
 )
 
 export const bulkUpdateSprintSectionsTickets = Atom.family(

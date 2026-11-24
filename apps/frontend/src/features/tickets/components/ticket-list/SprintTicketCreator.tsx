@@ -45,7 +45,7 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
-  bulkAddTicketsToSprint,
+  bulkAssignTicketSprint,
   quickCreateInSprint,
   removeTicketFromSprint,
   sprintList,
@@ -105,8 +105,8 @@ export function SprintTicketCreator({
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
-  const bulkAdd = useAtomSet(bulkAddTicketsToSprint(sprintReq))
-  const bulkAddState = useAtomValue(bulkAddTicketsToSprint(sprintReq))
+  const bulkAdd = useAtomSet(bulkAssignTicketSprint(sprintReq))
+  const bulkAddState = useAtomValue(bulkAssignTicketSprint(sprintReq))
   const error =
     mutationErrorText(
       createState,
@@ -254,7 +254,10 @@ export function SprintTicketCreator({
 
   function addPendingEpic() {
     if (picker.selection.length === 0) return
-    bulkAdd({ groupId, tickets: picker.selection.map((ticket) => ticket.id) })
+    bulkAdd({
+      patch: { sprint: groupId },
+      tickets: picker.selection.map((ticket) => ticket.id)
+    })
     reset()
   }
 
