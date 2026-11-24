@@ -273,9 +273,11 @@ export function TicketPage({
               onStartType={(type) => onTypePatch({ type })}
             />
           ) : (
-            <Markdown figmaTarget={{ orgSlug, slug, ticketId: ticket.id }}>
-              {ticket.body}
-            </Markdown>
+            <div data-block-rail-inset className="px-3 py-2">
+              <Markdown figmaTarget={{ orgSlug, slug, ticketId: ticket.id }}>
+                {ticket.body}
+              </Markdown>
+            </div>
           )}
         </div>
 

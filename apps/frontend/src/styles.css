@@ -47,6 +47,9 @@
   );
   --block-rail-gap: 0.375rem;
 }
+.ticket-page [data-block-rail-inset] .ticket-block > .ticket-block-icon {
+  left: 8px;
+}
 .ticket-page main {
   --fs-body: 15px;
   --lh-body: 24px;
