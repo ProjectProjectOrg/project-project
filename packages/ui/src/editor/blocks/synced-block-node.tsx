@@ -29,20 +29,13 @@ import {
   useDecoratorSelection
 } from "../../editor/use-decorator-selection"
 import { MarkdownSegment } from "../markdown"
-import { m } from "../messages"
 import { useBlockLookup } from "./block-chrome"
-import {
-  EditorBlocksContext,
-  type EditorBlocksScope
-} from "./editor-blocks-context"
+import { EditorBlocksContext } from "./editor-blocks-context"
 import {
   SourceRemovedNote,
+  SyncedActions,
   SyncedChip,
-  SyncedChipAction,
-  SyncedChipNote,
-  managedInLabel,
-  syncedChipLabel,
-  syncedEditAction
+  syncedChipLabel
 } from "./synced-block"
 import {
   splitLeadingHeading,
@@ -276,8 +269,8 @@ function SyncedBlockView({
       <SyncedChip label={syncedChipLabel(mode, view.definition.origin)}>
         {scope !== null && (
           <SyncedActions
-            scope={scope}
-            view={view}
+            blocks={scope.blocks}
+            definition={view.definition}
             mode={mode}
             onDetach={() =>
               editor.dispatchCommand(DETACH_SYNCED_BLOCK_COMMAND, {
@@ -288,44 +281,6 @@ function SyncedBlockView({
           />
         )}
       </SyncedChip>
-    </>
-  )
-}
-
-function SyncedActions({
-  scope,
-  view,
-  mode,
-  onDetach
-}: Readonly<{
-  scope: EditorBlocksScope
-  view: Data.TaggedEnum.Value<SyncedView, "live">
-  mode: SyncedBlockMode
-  onDetach: () => void
-}>) {
-  if (mode === "reference")
-    return (
-      <SyncedChipAction
-        label={m.editor_synced_customize()}
-        onClick={onDetach}
-      />
-    )
-  const { origin, key } = view.definition
-  const edit = syncedEditAction(
-    scope.blocks.library,
-    origin,
-    scope.blocks.canEdit
-  )
-  return (
-    <>
-      {edit === "edit" && (
-        <SyncedChipAction
-          label={m.editor_synced_edit()}
-          onClick={() => scope.blocks.onEditDefinition("block", key, origin)}
-        />
-      )}
-      {edit === "managed" && <SyncedChipNote label={managedInLabel(origin)} />}
-      <SyncedChipAction label={m.editor_synced_detach()} onClick={onDetach} />
     </>
   )
 }

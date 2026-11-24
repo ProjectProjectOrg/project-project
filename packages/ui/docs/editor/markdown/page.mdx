@@ -31,7 +31,8 @@ import { Markdown } from "@pp/ui/editor/markdown"
 | `blocks` | `"frame"` (blocks with their icons, the default) or `"flat"` (blocks as plain sections) |
 | `figmaTarget` | The ticket its Figma links belong to: their names and thumbnails (`EditorServices` `useFigmaLinks`), and live embeds for rich links. Without it (previews, hover cards) every Figma link is a chip with the link's text |
 | `hideHints` | Hide template hint text in the reading view |
-| `onToggleTask` | Let readers tick checklist items. Receives the updated Markdown to save |
+| `onChange` | Receives updated Markdown when the reader ticks a task or detaches a synced section |
+| `sectionEditor` | Permissions and navigation for managing synced sections |
 
 ## Rules
 
@@ -43,7 +44,7 @@ Code blocks render their text and line numbers immediately. A language label sta
 
 ### Checkboxes are the Checkbox
 
-Task lists render the Checkbox component. A description with `onToggleTask` lets readers tick items directly, including in synced sections. Other surfaces show read-only checkboxes.
+Task lists render the Checkbox component. A description with `onChange` lets readers tick items directly, including in synced sections. Other surfaces show read-only checkboxes.
 
 ### Links show their page, unsafe ones are dropped
 

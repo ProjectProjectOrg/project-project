@@ -91,6 +91,8 @@ export function useDescriptionEditor(
     "idle"
   )
   const editorLoad = useRef<Promise<DescriptionEditor | null> | null>(null)
+  const pendingEdit = useRef<AbortController | null>(null)
+  useEffect(() => () => pendingEdit.current?.abort(), [])
   const { editing, startEditing, stopEditing } = useEditMode({
     editorRef,
     rootRef,
@@ -128,14 +130,53 @@ export function useDescriptionEditor(
       startEditing()
       return
     }
+    if (pendingEdit.current !== null) return
     const selection = readSelection(rootRef.current)
-    void ensureEditor().then((loaded) => {
-      if (loaded === null || rootRef.current === null) return
-      const editorRoot = editorRef.current?.getRootElement()
-      if (selection !== null && editorRoot)
-        selectDescriptionText(editorRoot, selection)
-      startEditing()
-    })
+    const request = new AbortController()
+    pendingEdit.current = request
+    setLoadState("loading")
+    const finish = () => {
+      request.abort()
+      pendingEdit.current = null
+    }
+    const cancel = () => {
+      finish()
+      setLoadState("idle")
+    }
+    const cancelOutside = (event: Event) => {
+      if (
+        event.target instanceof Node &&
+        !(rootRef.current?.contains(event.target) ?? false)
+      )
+        cancel()
+    }
+    const options = { signal: request.signal, capture: true }
+    document.addEventListener("pointerdown", cancelOutside, options)
+    document.addEventListener("focusin", cancelOutside, options)
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Escape") cancel()
+      },
+      options
+    )
+    void loadDescriptionEditor().then(
+      async () => {
+        if (request.signal.aborted || rootRef.current === null) return
+        finish()
+        const loaded = await ensureEditor()
+        if (loaded === null || rootRef.current === null) return
+        const editorRoot = editorRef.current?.getRootElement()
+        if (selection !== null && editorRoot)
+          selectDescriptionText(editorRoot, selection)
+        startEditing()
+      },
+      () => {
+        if (request.signal.aborted || rootRef.current === null) return
+        finish()
+        setLoadState("failed")
+      }
+    )
   }
 
   useHotkey(appHotkeys["tickets.edit-description"], edit, {

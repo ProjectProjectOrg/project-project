@@ -41,6 +41,7 @@ export function useProjectChanges(
     connectedProjects.set(registry, connected)
     let needsResync =
       connected.has(url) || document.visibilityState !== "visible"
+    let catchUpOnHeartbeat = false
     let source: EventSource | null = null
     let streaming = false
     let retry: number | undefined
@@ -94,6 +95,7 @@ export function useProjectChanges(
         heard()
         delay = 1000
         if (needsResync) apply(resyncKeys(params))
+        catchUpOnHeartbeat = !needsResync
         needsResync = false
         connected.add(url)
         stream(true)
@@ -101,12 +103,17 @@ export function useProjectChanges(
       next.addEventListener("message", (event: MessageEvent<unknown>) => {
         heard()
         const changes = decodeChanges(event.data)
-        if (Option.isSome(changes))
-          apply([
-            ...new Set(
-              changes.value.flatMap((change) => changeKeys(params, change))
-            )
-          ])
+        if (Option.isNone(changes)) return
+        if (catchUpOnHeartbeat && changes.value.length === 0) {
+          catchUpOnHeartbeat = false
+          apply(resyncKeys(params))
+          return
+        }
+        apply([
+          ...new Set(
+            changes.value.flatMap((change) => changeKeys(params, change))
+          )
+        ])
       })
       next.addEventListener("error", () => {
         needsResync = true

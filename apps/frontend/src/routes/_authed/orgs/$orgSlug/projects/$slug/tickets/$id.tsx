@@ -123,20 +123,26 @@ export const Route = createFileRoute(
             ticketDetail(ticketRequest(orgSlug, slug, id))
           ),
           Registry.getResult(registry, project(projectRequest(orgSlug, slug))),
-          Registry.getResult(
-            registry,
-            statusesFor(statusesRequest(orgSlug, slug))
+          Effect.exit(
+            Registry.getResult(
+              registry,
+              statusesFor(statusesRequest(orgSlug, slug))
+            )
           ),
-          Registry.getResult(
-            registry,
-            projectLibraryFor(projectLibraryRequest(orgSlug, slug))
+          Effect.exit(
+            Registry.getResult(
+              registry,
+              projectLibraryFor(projectLibraryRequest(orgSlug, slug))
+            )
           ),
-          Registry.getResult(
-            registry,
-            tagEditor(tagEditorRequest(orgSlug, slug, id))
+          Effect.exit(
+            Registry.getResult(
+              registry,
+              tagEditor(tagEditorRequest(orgSlug, slug, id))
+            )
           )
         ],
-        { concurrency: "unbounded", mode: "result" }
+        { concurrency: "unbounded" }
       ),
       { signal: abortController.signal }
     )

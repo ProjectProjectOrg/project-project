@@ -36,8 +36,10 @@ import {
   useBlockLookup
 } from "./blocks/block-chrome"
 import { BlockFrame } from "./blocks/block-frame"
+import type { EditorBlocks } from "./blocks/editor-blocks"
 import {
   SourceRemovedNote,
+  SyncedActions,
   SyncedChip,
   syncedChipLabel
 } from "./blocks/synced-block"
@@ -114,7 +116,8 @@ export function Markdown({
   size = "default",
   figmaTarget = null,
   hideHints = false,
-  onToggleTask
+  onChange,
+  sectionEditor
 }: Readonly<{
   children: string
   className?: string
@@ -122,7 +125,8 @@ export function Markdown({
   size?: MarkdownSize
   figmaTarget?: TicketTarget | null
   hideHints?: boolean
-  onToggleTask?: (markdown: string) => void
+  onChange?: (markdown: string) => void
+  sectionEditor?: EditorBlocks
 }>) {
   const morphId = useId()
   const segments = parseTicketBlocks(children)
@@ -147,19 +151,23 @@ export function Markdown({
             const plain = TicketBlockSegment.$is("markdown")(segment)
             const text = plain ? segment.text : segment.content
             const display = hideHints && !plain ? stripHints(text) : text
+            const replace =
+              onChange &&
+              ((replacement: TicketBlockSegment) =>
+                onChange(
+                  serializeTicketBlocks(segments.with(index, replacement))
+                ))
             const toggle =
-              onToggleTask === undefined
-                ? undefined
-                : (source: string, line: number) => {
-                    const next = toggleTaskAtLine(source, line)
-                    if (next === source) return
-                    const replacement = plain
-                      ? TicketBlockSegment.markdown({ text: next })
-                      : TicketBlockSegment.block({ ...segment, content: next })
-                    onToggleTask(
-                      serializeTicketBlocks(segments.with(index, replacement))
-                    )
-                  }
+              replace &&
+              ((source: string, line: number) => {
+                const next = toggleTaskAtLine(source, line)
+                if (next === source) return
+                replace(
+                  plain
+                    ? TicketBlockSegment.markdown({ text: next })
+                    : TicketBlockSegment.block({ ...segment, content: next })
+                )
+              })
             const toggleLine = toggle && ((line: number) => toggle(text, line))
             if (plain || !framed)
               return (
@@ -178,6 +186,17 @@ export function Markdown({
                   snapshot={segment.content}
                   morphId={id}
                   onToggleTask={toggle}
+                  sectionEditor={sectionEditor}
+                  onDetach={
+                    replace &&
+                    ((content) =>
+                      replace(
+                        TicketBlockSegment.block({
+                          type: segment.type,
+                          content
+                        })
+                      ))
+                  }
                 />
               )
             const heading = blankBlockHeading(display)
@@ -207,12 +226,16 @@ function SyncedMarkdownBlock({
   blockType,
   snapshot,
   morphId,
-  onToggleTask
+  onToggleTask,
+  sectionEditor,
+  onDetach
 }: Readonly<{
   blockType: string
   snapshot: string
   morphId: string
   onToggleTask?: (content: string, line: number) => void
+  sectionEditor?: EditorBlocks
+  onDetach?: (content: string) => void
 }>) {
   const lookup = useBlockLookup()
   const view = syncedView(lookup, blockType, snapshot, "synced")
@@ -238,7 +261,16 @@ function SyncedMarkdownBlock({
           onToggleTask && ((line) => onToggleTask(view.content, line))
         }
       />
-      <SyncedChip label={syncedChipLabel("synced", origin)} />
+      <SyncedChip label={syncedChipLabel("synced", origin)}>
+        {sectionEditor && onDetach && (
+          <SyncedActions
+            blocks={sectionEditor}
+            definition={view.definition}
+            mode="synced"
+            onDetach={() => onDetach(view.content)}
+          />
+        )}
+      </SyncedChip>
     </BlockFrame>
   )
 }

@@ -110,6 +110,19 @@ it("refreshes comments only when the first connection receives a change that nam
   await waitFor(() => expect(reads()).toBe(2))
 })
 
+it("catches up once on the first heartbeat without repeating the opening reads", async () => {
+  const { wrapper, reads } = await mountComments()
+  renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
+  open()
+  await act(async () => {})
+  expect(reads()).toBe(1)
+  send("[]")
+  await waitFor(() => expect(reads()).toBe(2))
+  send("[]")
+  await act(async () => {})
+  expect(reads()).toBe(2)
+})
+
 it("closes while hidden and catches up on reopening", async () => {
   const { wrapper, reads } = await mountComments()
   renderHook(() => useProjectChanges("org", "project", () => {}), { wrapper })
@@ -215,7 +228,7 @@ it("reopens and catches up when the stream falls silent", async () => {
   expect(first.readyState).toBe(FakeEventSource.CLOSED)
   open()
   vi.useRealTimers()
-  await waitFor(() => expect(reads()).toBe(2))
+  await waitFor(() => expect(reads()).toBe(3))
 })
 
 it("rewarms once a second after changes and at most every ten seconds", async () => {

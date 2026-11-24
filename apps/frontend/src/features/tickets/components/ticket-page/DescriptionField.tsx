@@ -6,6 +6,7 @@ import {
   type TicketDetail,
   type TypeKey
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { AttachmentAvailabilityProvider } from "@pp/ui/editor/attachments/availability"
 import { LibraryContext, lookupFor } from "@pp/ui/editor/blocks/block-chrome"
 import { Markdown } from "@pp/ui/editor/markdown"
@@ -186,14 +187,16 @@ export function DescriptionField({
     editor.templates.selectFirstDescriptionHint(instance, lookup)
   }, [autoFocus, editor, editorRef, library, lookup])
 
+  const [readEditFailed, setReadEditFailed] = useState(false)
   const saveBody = async (next: string) => {
     const exit = await update({ body: next })
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
     setBodyDraft((draft) => (draft === next ? null : draft))
+    setReadEditFailed(false)
   }
 
   const taskSave = useRef(0)
-  const saveTask = (next: string) => {
+  const saveReadEdit = (next: string) => {
     const save = ++taskSave.current
     setBodyDraft(next)
     setSaveStatus("saving")
@@ -202,7 +205,10 @@ export function DescriptionField({
     }
     void saveBody(next).then(
       () => finish("saved"),
-      () => finish("failed")
+      () => {
+        if (save === taskSave.current) setReadEditFailed(true)
+        finish("failed")
+      }
     )
   }
 
@@ -283,7 +289,8 @@ export function DescriptionField({
                   <Markdown
                     figmaTarget={target}
                     hideHints
-                    onToggleTask={saveTask}
+                    onChange={saveReadEdit}
+                    sectionEditor={blocks}
                   >
                     {body}
                   </Markdown>
@@ -306,10 +313,13 @@ export function DescriptionField({
           {m.tickets_description_editor_load_failed()}
         </p>
       )}
-      {Editor === undefined && saveStatus === "failed" && (
-        <p role="alert" className="mt-2 px-3 text-caption text-destructive">
-          {m.editor_save_failed()}
-        </p>
+      {readEditFailed && (
+        <div className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive">
+          <span role="alert">{m.editor_save_failed()}</span>
+          <Button variant="ghost" size="xs" onClick={() => saveReadEdit(body)}>
+            {m.error_page_retry_button()}
+          </Button>
+        </div>
       )}
       {definitionError !== null && (
         <p
