@@ -636,11 +636,13 @@ export const quickCreateSprintSectionsTicket = Atom.family(
       name: "quickCreateSprintSectionsTicket",
       predict: (value, input: QuickCreateInput) =>
         insertCreated(req, key, value, input),
-      call: (_client, input, get) =>
+      call: (_client, input, get, updateView) =>
         createInSprint(
           req.params,
           quickCreatePayload(input),
-          assignedSprintId(key)
+          assignedSprintId(key),
+          (ticket) =>
+            updateView((value) => confirmCreated(key, value, ticket, input))
         ).pipe(
           Effect.tap((created) =>
             Effect.sync(() =>

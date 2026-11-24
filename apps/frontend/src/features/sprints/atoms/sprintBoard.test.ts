@@ -20,7 +20,12 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
-import { boardRequest, sprintBoard, updateBoardTicket } from "./sprintBoard"
+import {
+  boardRequest,
+  quickCreateBoardTicket,
+  sprintBoard,
+  updateBoardTicket
+} from "./sprintBoard"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
 
@@ -51,6 +56,7 @@ const group: Group = {
 }
 
 const encodeGroup = Schema.encodeSync(GroupDetail)
+const encodeTicketDetail = Schema.encodeSync(TicketDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
 const encodeTicketUpdate = (ticket: TicketDetail) =>
   encodeTicketUpdateResultSync({ ticket, orderKey: null })
@@ -124,6 +130,71 @@ describe("sprintBoard", () => {
         ])
       })
     } finally {
+      registry.dispose()
+    }
+  })
+
+  it("shows the created ticket ID while sprint assignment is pending", async () => {
+    let finishAssignment!: (response: Response) => void
+    const assignment = new Promise<Response>((resolve) => {
+      finishAssignment = resolve
+    })
+    const created = makeTicketDetail(ticketB)
+    const registry = AtomRegistry.make()
+    const view = sprintBoard(req)
+    const mutation = quickCreateBoardTicket(req)
+    fetchStub.set((input, init) =>
+      routeByPath(
+        input,
+        [
+          [
+            (_url, method) => method === "POST",
+            async () => Response.json(encodeTicketDetail(created))
+          ],
+          [(_url, method) => method === "PATCH", () => assignment],
+          [
+            (url) => url.pathname.endsWith("/tickets"),
+            async () => Response.json([])
+          ],
+          [
+            () => true,
+            async () => Response.json(encodeGroup(asGroupDetail(group)))
+          ]
+        ],
+        init
+      )
+    )
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      registry.set(mutation, {
+        payload: { title: created.title },
+        prediction: {
+          clientId: "draft",
+          createdBy: "user-1",
+          projectPrefix: "T",
+          estimation: "off"
+        }
+      })
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          value: { tickets: [{ id: created.id }] }
+        })
+      )
+      expect(registry.get(mutation).waiting).toBe(true)
+      finishAssignment(new Response(null, { status: 500 }))
+      await vi.waitFor(() =>
+        expect(registry.get(mutation)).toMatchObject({
+          waiting: false,
+          value: { id: created.id, sprintAssignmentFailed: true }
+        })
+      )
+      expect(registry.get(view)).toMatchObject({ value: { tickets: [] } })
+    } finally {
+      finishAssignment(new Response(null, { status: 500 }))
       registry.dispose()
     }
   })

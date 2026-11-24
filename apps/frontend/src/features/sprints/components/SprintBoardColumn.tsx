@@ -320,6 +320,7 @@ function CardSlot({
             className="rounded-lg"
           >
             <SprintBoardCard
+              pendingKey={inert}
               update={update}
               ticket={ticket}
               members={members}

@@ -12,7 +12,10 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 import { ticketRowActions } from "@/features/tickets/atoms/markRowRelation"
-import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
+import {
+  coalescingTicketUpdate,
+  recordCreatedKey
+} from "@/features/tickets/atoms/ticketRows"
 import { deletedTicketIds } from "@/features/tickets/lib/deletedTickets"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
 import { compareByRank, predictRank } from "@/features/tickets/lib/ticketRank"
@@ -38,7 +41,7 @@ const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export type BoardValue = Readonly<{
-  tickets: ReadonlyArray<Ticket>
+  tickets: ReadonlyArray<Ticket & Readonly<{ creationKey?: string }>>
   completedAt: Date | null
 }>
 
@@ -59,14 +62,13 @@ const boardView = (req: BoardRequest) => {
   return Atom.readable(
     (get) => {
       const combined = AsyncResult.all([get(sprint), get(ticketsQuery(req))])
-      return AsyncResult.map(
-        combined,
-        ([group, tickets]) =>
-          ({
-            tickets: tickets.toSorted(compareByRank),
-            completedAt: group.completedAt
-          }) satisfies BoardValue
-      )
+      return AsyncResult.map(combined, ([group, tickets]) => {
+        const board: BoardValue = {
+          tickets: tickets.toSorted(compareByRank),
+          completedAt: group.completedAt
+        }
+        return board
+      })
     },
     (refresh) => {
       refresh(sprint)
@@ -143,23 +145,18 @@ const predictedIdOf = (value: BoardValue, input: QuickCreateInput) =>
     input.prediction.projectPrefix
   )
 
-const predictedIds = new Map<string, TicketId>()
-const cardKeys = new Map<TicketId, string>()
-
-export const boardCardKey = (ticket: Ticket) =>
-  cardKeys.get(ticket.id) ?? ticket.id
-
 const insertPredicted = (value: BoardValue, input: QuickCreateInput) => {
   const position = input.payload.position
   const id = predictedIdOf(value, input)
-  predictedIds.set(input.prediction.clientId, id)
-  cardKeys.set(id, input.prediction.clientId)
-  const ticket = predictedTicket(
-    input,
-    id,
-    input.payload.status ?? TicketStatus.make("todo"),
-    DateTime.toDate(DateTime.nowUnsafe())
-  )
+  const ticket = {
+    ...predictedTicket(
+      input,
+      id,
+      input.payload.status ?? TicketStatus.make("todo"),
+      DateTime.toDate(DateTime.nowUnsafe())
+    ),
+    creationKey: input.prediction.clientId
+  }
   const rank =
     position === undefined ? null : predictRank(value.tickets, id, position)
   return {
@@ -175,26 +172,38 @@ export const quickCreateBoardTicket = Atom.family((req: BoardRequest) =>
   viewMutation(sprintBoard(req), {
     name: "quickCreateBoardTicket",
     predict: insertPredicted,
-    call: (_client, input: QuickCreateInput) =>
+    call: (_client, input: QuickCreateInput, get, updateView) =>
       createInSprint(
-        { orgSlug: req.params.orgSlug, slug: req.params.slug },
+        req.params,
         quickCreatePayload(input),
-        req.params.id
-      ),
-    confirm: (value, created, input) => {
-      const predicted = predictedIds.get(input.prediction.clientId)
-      predictedIds.delete(input.prediction.clientId)
-      cardKeys.set(created.id, input.prediction.clientId)
-      return {
-        ...value,
-        tickets: value.tickets
-          .filter(
-            (ticket) => ticket.id !== created.id && ticket.id !== predicted
+        req.params.id,
+        (created) => {
+          recordCreatedKey(
+            get,
+            scopeOf(req),
+            created.id,
+            input.prediction.clientId,
+            false
           )
-          .concat(created.sprintAssignmentFailed ? [] : [created])
-          .toSorted(compareByRank)
-      }
-    },
+          updateView((value) => ({
+            ...value,
+            tickets: value.tickets
+              .map((ticket) =>
+                ticket.creationKey === input.prediction.clientId
+                  ? created
+                  : ticket
+              )
+              .toSorted(compareByRank)
+          }))
+        }
+      ),
+    confirm: (value, created) =>
+      created.sprintAssignmentFailed
+        ? {
+            ...value,
+            tickets: value.tickets.filter((ticket) => ticket.id !== created.id)
+          }
+        : value,
     publish: () => [
       ...Keys.ticketsChanged(scopeOf(req)),
       ...sprintAssignmentKeys(scopeOf(req), req.params.id)

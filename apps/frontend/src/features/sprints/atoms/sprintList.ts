@@ -8,6 +8,7 @@ import {
   type CreateGroupInput,
   type Group,
   type QuickCreateTicketInput,
+  type TicketDetail,
   type TicketId,
   type UpdateGroupInput,
   type UpdateGroupTicketsOutput
@@ -464,11 +465,13 @@ export const sprintAssignmentKeys = (
 export const createInSprint = Effect.fnUntraced(function* (
   params: SprintListRequest["params"],
   payload: QuickCreateTicketInput,
-  groupId: GroupId | undefined
+  groupId: GroupId | undefined,
+  onCreated?: (ticket: TicketDetail) => void
 ) {
   const created = yield* Api.use((client) =>
     client.tickets.quickCreate({ params, payload })
   )
+  if (groupId !== undefined) onCreated?.(created)
   const assignment = yield* Effect.exit(
     groupId === undefined
       ? Effect.void
