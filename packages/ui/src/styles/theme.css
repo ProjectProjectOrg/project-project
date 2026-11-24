@@ -531,6 +531,13 @@
   @apply surface-lit;
   background-color: transparent;
 }
+[data-scrolling]
+  [data-slot="list-row"][data-hover-highlight]:not(
+    [data-keyboard-navigation] *
+  ) {
+  background-color: var(--hover-overlay);
+  transition-duration: 0s;
+}
 @layer base {
   /* --field-fill, not --field: on-surface redeclares --field from this. */
   :where([data-slot="input-group"]) > * {

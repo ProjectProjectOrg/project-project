@@ -323,7 +323,6 @@ export function ListRow({
         className={cn(
           "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) py-2 pr-3 pl-(--list-pad-start) text-left outline-none",
           itemSurfaceClass,
-          "not-in-data-keyboard-navigation:in-data-scrolling:data-[hover-highlight]:bg-hover-overlay not-in-data-keyboard-navigation:in-data-scrolling:data-[hover-highlight]:duration-0",
           variant === "standalone" && ownHover,
           variant === "standalone" &&
             "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:surface-lit data-selected:bg-foreground/6",
