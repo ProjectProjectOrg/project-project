@@ -123,15 +123,11 @@ export function ListHoverScope({
     const paused =
       container.closest("[data-scroll-root]")?.hasAttribute("data-scrolling") ??
       false
-    const instant = paused || scrolled.current
-    scrolled.current = paused
-    const retained = targetRow.current
-    const row = paused
-      ? retained && container.contains(retained)
-        ? retained
-        : null
-      : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
-    if (!paused && at && !row) {
+    if (paused) return
+    const instant = scrolled.current
+    scrolled.current = false
+    const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
+    if (at && !row) {
       const under = document.elementFromPoint(at.x, at.y)
       if (!under || !container.contains(under)) point.current = null
     }
@@ -257,14 +253,12 @@ export function ListHoverScope({
       }}
       className={cn("relative", className)}
     >
-      {(!scrolled.current || hovered !== null) && (
-        <FluidHoverHighlight
-          hover={hover}
-          instant={hovered?.instant}
-          onArrive={arrive}
-          className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
-        />
-      )}
+      <FluidHoverHighlight
+        hover={hover}
+        instant={hovered?.instant}
+        onArrive={arrive}
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scrolling:invisible"
+      />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
   )
@@ -329,6 +323,7 @@ export function ListRow({
         className={cn(
           "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) py-2 pr-3 pl-(--list-pad-start) text-left outline-none",
           itemSurfaceClass,
+          "not-in-data-keyboard-navigation:in-data-scrolling:data-[hover-highlight]:bg-hover-overlay not-in-data-keyboard-navigation:in-data-scrolling:data-[hover-highlight]:duration-0",
           variant === "standalone" && ownHover,
           variant === "standalone" &&
             "isolate rounded-[20px] transition-colors [corner-shape:var(--button-corner)] in-data-keyboard-navigation:duration-0 has-[[data-item-link]:focus-visible]:duration-0 not-data-selected:has-[[data-item-link]:focus-visible]:surface-lit data-selected:bg-foreground/6",
