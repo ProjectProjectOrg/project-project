@@ -7,6 +7,17 @@ import {
   MdastShortcutsExtension
 } from "@lexical/mdast"
 import {
+  $createTableSelectionFrom,
+  TableNode,
+  TableCellNode,
+  TableExtension
+} from "@lexical/table"
+import {
+  $nodesOfType,
+  $setSelection,
+  FORMAT_TEXT_COMMAND,
+  IS_BOLD,
+  SKIP_SCROLL_INTO_VIEW_TAG,
   $getRoot,
   $getSelection,
   $isRangeSelection,
@@ -15,7 +26,7 @@ import {
   type AnyLexicalExtension,
   type LexicalNode
 } from "lexical"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, onTestFinished, vi } from "vitest"
 
 import { parseMarkdown } from "../editor/markdown-parser"
 import { AttachmentExtension } from "./attachments/attachment-extension"
@@ -23,9 +34,11 @@ import { TicketBlockMarkdownExtension } from "./blocks/ticket-block-markdown"
 import { $isTicketBlockNode } from "./blocks/ticket-block-node"
 import { AUTO_LINK_MATCHERS } from "./editor-transformers"
 import { FigmaExtension } from "./figma/figma-extension"
+import { readToolbar } from "./formatting-toolbar-state"
 import { MarkdownExtension } from "./markdown-extension"
 import { MentionExtension } from "./mentions/mention-extension"
 import { createCoalescedSaveQueue, nextMarkdownChange } from "./save-queue"
+import { editorTheme } from "./theme"
 
 function matchAutoLink(text: string) {
   for (const matcher of AUTO_LINK_MATCHERS) {
@@ -39,6 +52,7 @@ function markdownEditor(extras: ReadonlyArray<AnyLexicalExtension> = []) {
   return buildEditorFromExtensions(
     defineExtension({
       name: "lexical-editor-test",
+      theme: editorTheme,
       dependencies: [
         MarkdownExtension,
         MentionExtension,
@@ -220,6 +234,64 @@ describe("AUTO_LINK_MATCHERS", () => {
   it("does not match bare domains without www", () => {
     expect(matchAutoLink("example.com")).toBeNull()
   })
+})
+
+it("offers inline formatting across a selection of table cells", () => {
+  const editor = markdownEditor([TableExtension])
+  const root = document.createElement("div")
+  root.tabIndex = 0
+  document.body.append(root)
+  editor.setRootElement(root)
+  onTestFinished(() => {
+    editor.setRootElement(null)
+    root.remove()
+  })
+  root.focus()
+  editor.update(
+    () => {
+      $convertFromMarkdownString("| A | **B** |\n| --- | --- |\n| C | D |")
+    },
+    { discrete: true, tag: SKIP_SCROLL_INTO_VIEW_TAG }
+  )
+  editor.update(
+    () => {
+      const [table] = $nodesOfType(TableNode)
+      const cells = $nodesOfType(TableCellNode)
+      if (!table || !cells[0] || !cells[1] || !cells[3])
+        throw new Error("Expected a 2×2 table")
+      const secondParagraph = cells[1].getFirstChild()
+      if ($isElementNode(secondParagraph))
+        secondParagraph.setTextFormat(IS_BOLD)
+      $setSelection($createTableSelectionFrom(table, cells[0], cells[3]))
+    },
+    { discrete: true }
+  )
+  expect(readToolbar(editor, null)?.formats.has("bold")).toBe(false)
+  editor.update(
+    () => {
+      editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")
+    },
+    { discrete: true }
+  )
+  const saved = editor.read(() => $convertToMarkdownString())
+  editor.update(
+    () => {
+      $convertFromMarkdownString(saved)
+    },
+    { discrete: true, tag: SKIP_SCROLL_INTO_VIEW_TAG }
+  )
+  expect(
+    editor.read(() =>
+      $getRoot()
+        .getAllTextNodes()
+        .map((node) => [node.getTextContent(), node.hasFormat("bold")])
+    )
+  ).toEqual([
+    ["A", true],
+    ["B", true],
+    ["C", true],
+    ["D", true]
+  ])
 })
 
 describe("markdown round trips", () => {

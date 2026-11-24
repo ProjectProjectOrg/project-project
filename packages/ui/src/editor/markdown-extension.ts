@@ -22,6 +22,7 @@ import {
   type MdastNode
 } from "@lexical/mdast"
 import { QuoteNode } from "@lexical/rich-text"
+import { getCSSFromStyleObject } from "@lexical/selection"
 import { $isTableCellNode, $isTableNode } from "@lexical/table"
 import {
   $createLineBreakNode,
@@ -31,6 +32,7 @@ import {
   $isParagraphNode,
   $isTextNode,
   configExtension,
+  getStyleObjectFromCSS,
   IS_BOLD,
   IS_ITALIC,
   IS_STRIKETHROUGH,
@@ -371,6 +373,16 @@ const $exportImage: MdastExportHandler = (node) =>
 export const MarkdownExtension = defineExtension({
   name: "@pp/markdown",
   nodes: [ImageNode],
+  register: (editor) =>
+    editor.registerNodeTransform(TextNode, (node) => {
+      const style = node.getStyle()
+      if (!style.includes("color") || !node.getParents().some($isTableCellNode))
+        return
+      const properties = getStyleObjectFromCSS(style)
+      if (properties.color === undefined) return
+      delete properties.color
+      node.setStyle(getCSSFromStyleObject(properties))
+    }),
   dependencies: [
     MdastCommonMarkExtension,
     MdastAutolinkLiteralExtension,

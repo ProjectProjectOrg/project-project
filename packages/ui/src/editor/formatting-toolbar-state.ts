@@ -2,9 +2,11 @@ import { $isCodeNode } from "@lexical/code-core"
 import { $isLinkNode } from "@lexical/link"
 import { $isListNode, ListNode } from "@lexical/list"
 import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text"
+import { $isTableCellNode, $isTableSelection } from "@lexical/table"
 import { $getNearestNodeOfType } from "@lexical/utils"
 import {
   $getSelection,
+  $isParagraphNode,
   $isRangeSelection,
   type LexicalEditor,
   type RangeSelection,
@@ -69,12 +71,9 @@ export type ToolbarAlign = "start" | "center"
 
 export type SelectionAnchor = Readonly<{ rect: DOMRect; align: ToolbarAlign }>
 
-export type Toolbar = SelectionAnchor &
-  Readonly<{
-    formats: ReadonlySet<TextFormatType>
-    link: boolean
-    block: BasicBlockKind | null
-  }>
+export type ToolbarState = Readonly<NonNullable<ReturnType<typeof readState>>>
+
+export type Toolbar = SelectionAnchor & ToolbarState
 
 export function $blockOf(selection: RangeSelection) {
   const anchor = selection.anchor.getNode()
@@ -97,8 +96,6 @@ export function $blockOf(selection: RangeSelection) {
   return null
 }
 
-export type ToolbarState = Omit<Toolbar, keyof SelectionAnchor>
-
 export const selectionAnchor = (range: Range) => {
   const lines = [...range.getClientRects()].filter((line) => line.width > 0)
   const [first] = lines
@@ -113,36 +110,64 @@ export const selectionAnchor = (range: Range) => {
       } satisfies SelectionAnchor)
 }
 
+const activeFormats = (hasFormat: (format: TextFormat) => boolean) =>
+  new Set(
+    TEXT_FORMATS.flatMap(({ format }) => (hasFormat(format) ? [format] : []))
+  )
+
 export function readState(editor: LexicalEditor) {
   return editor.getEditorState().read(() => {
     const selection = $getSelection()
-    if (!$isRangeSelection(selection) || selection.isCollapsed()) return null
-    if (selection.getTextContent().trim() === "") return null
-    const parent = selection.anchor.getNode().getParent()
+    if (!$isTableSelection(selection) && !$isRangeSelection(selection))
+      return null
+    if (selection.isCollapsed() || selection.getTextContent().trim() === "")
+      return null
+    if ($isTableSelection(selection)) {
+      const paragraph = selection
+        .getNodes()
+        .find($isTableCellNode)
+        ?.getFirstChild()
+      return {
+        kind: "cells" as const,
+        formats: activeFormats(
+          (format) =>
+            $isParagraphNode(paragraph) && paragraph.hasTextFormat(format)
+        ),
+        cellKey: selection.anchor.key
+      }
+    }
     return {
-      formats: new Set(
-        TEXT_FORMATS.flatMap(({ format }) =>
-          selection.hasFormat(format) ? [format] : []
-        )
-      ),
-      link: $isLinkNode(parent),
+      kind: "text" as const,
+      formats: activeFormats((format) => selection.hasFormat(format)),
+      link: $isLinkNode(selection.anchor.getNode().getParent()),
       block: $blockOf(selection)
-    } satisfies ToolbarState
+    }
   })
 }
 
 export function readToolbar(editor: LexicalEditor, focused: Toolbar | null) {
   if (focused !== null) {
     const state = readState(editor)
-    return state === null ? focused : { ...focused, ...state }
+    return state === null
+      ? focused
+      : { rect: focused.rect, align: focused.align, ...state }
   }
   const root = editor.getRootElement()
-  const native = window.getSelection()
-  if (root === null || native === null || native.rangeCount === 0) return null
-  if (!root.contains(native.anchorNode)) return null
-  if (!root.contains(document.activeElement)) return null
+  if (!root?.contains(document.activeElement)) return null
   const state = readState(editor)
   if (state === null) return null
+  if (state.kind === "cells") {
+    const cell = editor.getElementByKey(state.cellKey)
+    return (
+      cell && {
+        ...state,
+        rect: cell.getBoundingClientRect(),
+        align: "start" as const
+      }
+    )
+  }
+  const native = window.getSelection()
+  if (!native?.rangeCount || !root.contains(native.anchorNode)) return null
   return { ...selectionAnchor(native.getRangeAt(0)), ...state }
 }
 

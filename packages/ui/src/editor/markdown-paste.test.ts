@@ -184,6 +184,21 @@ describe("Markdown paste", () => {
     expect(markdown(editor)).toBe("**bold**")
   })
 
+  it("pastes spreadsheet cells in the editor text color and keeps emphasis", () => {
+    const editor = createPasteEditor()
+    paste(
+      editor,
+      pasteEvent(
+        "Total",
+        '<table><tr><td style="color:#888;font-weight:bold">Total</td></tr></table>'
+      )
+    )
+    expect(editor.read(() => $getRoot().getAllTextNodes()[0]?.getStyle())).toBe(
+      ""
+    )
+    expect(markdown(editor)).toContain("| **Total** |")
+  })
+
   it("keeps Markdown literal inside code blocks", () => {
     const editor = createPasteEditor("", true)
     paste(editor, pasteEvent("**bold**"))
