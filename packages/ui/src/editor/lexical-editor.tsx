@@ -284,28 +284,6 @@ export function LexicalEditor({
   }, [])
 
   const submitHint = useId()
-  const [contentEditable] = useState(() => (
-    <div className="relative">
-      <ContentEditable
-        className={cn(
-          "lexical-content outline-none",
-          compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
-        )}
-        aria-label={placeholder}
-        aria-describedby={onSubmit === undefined ? undefined : submitHint}
-        aria-placeholder={placeholder}
-        placeholder={
-          <div
-            data-slot="editor-placeholder"
-            className="pointer-events-none absolute top-0 left-0 text-muted-foreground select-none"
-          >
-            {placeholder}
-          </div>
-        }
-      />
-    </div>
-  ))
-
   const figmaOrgSlug = attachments?.orgSlug
   const figmaProjectSlug = attachments?.slug
   const figmaTicketId = attachments?.ticketId
@@ -338,10 +316,26 @@ export function LexicalEditor({
       )}
     >
       <EditorBlocksProvider blocks={blocks}>
-        <LexicalExtensionComposer
-          extension={extension}
-          contentEditable={contentEditable}
-        >
+        <LexicalExtensionComposer extension={extension} contentEditable={null}>
+          <div className="relative">
+            <ContentEditable
+              className={cn(
+                "lexical-content outline-none",
+                compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
+              )}
+              aria-label={editable ? placeholder : undefined}
+              aria-describedby={onSubmit === undefined ? undefined : submitHint}
+              aria-placeholder={placeholder}
+              placeholder={
+                <div
+                  data-slot="editor-placeholder"
+                  className="pointer-events-none absolute top-0 left-0 text-muted-foreground select-none"
+                >
+                  {placeholder}
+                </div>
+              }
+            />
+          </div>
           {editorRef !== undefined ? (
             <EditorRefPlugin editorRef={editorRef} />
           ) : null}
