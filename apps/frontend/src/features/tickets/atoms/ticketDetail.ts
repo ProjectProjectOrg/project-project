@@ -68,6 +68,10 @@ export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
+export const ticketReadEditFailed = Atom.family((_req: TicketRequest) =>
+  Atom.make(false).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   coalescingTicketUpdate(ticketDetail(req), {
     name: "updateTicketDetail",

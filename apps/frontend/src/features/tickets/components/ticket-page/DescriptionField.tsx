@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtom, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   expandType,
   typeFor,
@@ -31,6 +31,7 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
+  ticketReadEditFailed,
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
@@ -187,7 +188,7 @@ export function DescriptionField({
     editor.templates.selectFirstDescriptionHint(instance, lookup)
   }, [autoFocus, editor, editorRef, library, lookup])
 
-  const [readEditFailed, setReadEditFailed] = useState(false)
+  const [readEditFailed, setReadEditFailed] = useAtom(ticketReadEditFailed(req))
   const saveBody = async (next: string) => {
     const exit = await update({ body: next })
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)

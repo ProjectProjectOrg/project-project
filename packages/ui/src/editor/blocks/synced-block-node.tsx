@@ -1,5 +1,4 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import * as Data from "effect/Data"
 import {
   $applyNodeReplacement,
   $createNodeSelection,
