@@ -521,17 +521,22 @@ html.dark .prose-md {
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .image-control-reveal {
     transform: translate(var(--reveal-x, 0), var(--reveal-y, 0));
-    transition: opacity 120ms ease-out, transform 120ms ease-out;
+    transition:
+      opacity 120ms ease-out,
+      transform 120ms ease-out;
   }
 
-  .group\/reveal:is(:hover, :focus-within, :has([data-resizing])) .image-control-reveal,
+  .group\/reveal:is(:hover, :focus-within, :has([data-resizing]))
+    .image-control-reveal,
   .image-control-reveal[aria-expanded="true"] {
     transform: translate(0, 0);
     opacity: 1;
   }
 }
 
-:root:active-view-transition-type(attachment-viewer)::view-transition-new(root) {
+:root:active-view-transition-type(attachment-viewer)::view-transition-new(
+    root
+  ) {
   animation: attachment-viewer-fade 180ms ease-out;
 }
 
@@ -556,6 +561,10 @@ html.dark .prose-md {
 }
 
 @keyframes attachment-viewer-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

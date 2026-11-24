@@ -207,7 +207,7 @@ function FigmaSelectable({
     const from = paragraphHeight.current
     paragraphHeight.current = 0
     const paragraph = surface.current?.closest("p")
-    if (!compact || reduceMotion || !paragraph || !from) return
+    if (!compact || reduceMotion || !paragraph || !from) return undefined
     const to = paragraph.getBoundingClientRect().height
     const animation = paragraph.animate(
       [{ height: `${from}px` }, { height: `${to}px` }],

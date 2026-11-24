@@ -12,10 +12,12 @@ export const isAttachmentDeletable = (row: {
 
 export const ATTACHMENT_MIN_WIDTH = 96
 
-export const clampAttachmentWidth = (input: Readonly<{
-  width: number
-  containerWidth: number
-}>) =>
+export const clampAttachmentWidth = (
+  input: Readonly<{
+    width: number
+    containerWidth: number
+  }>
+) =>
   Math.round(
     Math.min(input.containerWidth, Math.max(input.width, ATTACHMENT_MIN_WIDTH))
   )

@@ -38,7 +38,14 @@ export function EmbedMenu({
       {action}
       {url && (
         <DropdownMenuItem
-          render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+          render={
+            <a
+              aria-label={openLabel}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
         >
           <ExternalLink />
           {openLabel}
@@ -69,7 +76,9 @@ export function EmbedMenu({
             render={
               <Badge
                 size="xs"
-                render={<button type="button" />}
+                render={
+                  <button type="button" aria-label={m.editor_embed_actions()} />
+                }
                 className={cn(
                   "size-5 justify-center p-0 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 before:absolute before:-inset-0.5 has-[>svg:first-child]:pl-0 aria-expanded:opacity-100 [@media(hover:none)]:opacity-100",
                   expanded

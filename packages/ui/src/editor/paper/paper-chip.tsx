@@ -2,7 +2,6 @@ import { Badge } from "../../components/badge"
 import { m } from "../messages"
 import { PaperGlyph } from "./paper-glyph"
 
-// Figma and attachment chips), and a 24px target that opens it in Paper.
 export function PaperChip({
   url,
   label
@@ -12,6 +11,7 @@ export function PaperChip({
     <Badge
       render={
         <a
+          aria-label={name}
           href={url}
           target="_blank"
           rel="noopener noreferrer"

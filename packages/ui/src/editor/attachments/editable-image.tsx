@@ -1,6 +1,5 @@
 import { attachmentDownloadSrc } from "@pp/shared"
-import { animate, useReducedMotion } from "motion/react"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useCallback, type ReactNode } from "react"
 import { flushSync, createPortal } from "react-dom"
 
 import { Badge } from "../../components/badge"
@@ -30,6 +29,7 @@ import {
 import { chipIconActionClass } from "../../components/morph-icon-link"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
+import { useImageZoom } from "./useImageZoom"
 
 const imageActionClass =
   "size-8 justify-center rounded-[16px] p-0 has-[>svg:first-child]:pl-0 [&>svg]:size-3.5"
@@ -50,40 +50,15 @@ export function EditableImage({
   onRemove: () => void
 }>) {
   const viewer = useRef<HTMLDivElement>(null)
-  const [zoom, setZoom] = useState(100)
-  const viewport = useRef<HTMLDivElement>(null)
-  const scale = useRef(100)
-  const zoomAt = (next: number, clientX: number, clientY: number) => {
-    const el = viewport.current
-    if (!el) return
-    const value = Math.min(400, Math.max(100, next))
-    const ratio = value / scale.current
-    const rect = el.getBoundingClientRect()
-    const x = clientX - rect.left
-    const y = clientY - rect.top
-    const left = (el.scrollLeft + x) * ratio - x
-    const top = (el.scrollTop + y) * ratio - y
-    scale.current = value
-    flushSync(() => setZoom(value))
-    el.scrollTo(left, top)
-  }
-
-  const animation = useRef<ReturnType<typeof animate<number>> | null>(null)
-  const reduceMotion = useReducedMotion()
-  const toggleZoom = (x: number, y: number) => {
-    animation.current?.stop()
-    const target = scale.current > 100 ? 100 : 200
-    if (reduceMotion) {
-      zoomAt(target, x, y)
-      return
-    }
-    animation.current = animate(scale.current, target, {
-      duration: 0.18,
-      ease: "easeOut",
-      onUpdate: (value) => zoomAt(value, x, y)
-    })
-  }
-
+  const {
+    zoom,
+    viewport,
+    scale,
+    toggleZoom,
+    animation,
+    setZoom,
+    reduceMotion
+  } = useImageZoom()
   const source = useRef<HTMLSpanElement>(null)
   const returnFocus = useRef<HTMLElement | null>(null)
   const fullImage = useRef<HTMLImageElement>(null)
@@ -153,73 +128,27 @@ export function EditableImage({
     })
   }
   const pendingExpand = useRef<number | undefined>(undefined)
-  const cancelExpand = () => {
+  const cancelExpand = useCallback(() => {
     window.clearTimeout(pendingExpand.current)
     pendingExpand.current = undefined
-  }
-  useEffect(() => cancelExpand, [])
+  }, [])
+  useEffect(() => cancelExpand, [cancelExpand])
   const openViewer = (trigger: HTMLElement | null) => {
     cancelExpand()
     returnFocus.current = trigger
     changeViewer(true)
   }
 
-  useEffect(() => {
-    const el = viewport.current
-    if (!el) return
-    let gestureStart = 0
-    const wheel = (event: WheelEvent) => {
-      if (!event.ctrlKey) return
-      animation.current?.stop()
-      event.preventDefault()
-      if (!gestureStart)
-        zoomAt(
-          scale.current * Math.exp(-event.deltaY / 100),
-          event.clientX,
-          event.clientY
-        )
-    }
-    const gesture = (event: Event) => {
-      animation.current?.stop()
-      event.preventDefault()
-      if (event.type === "gestureend") {
-        gestureStart = 0
-        return
-      }
-      if (event.type === "gesturestart") gestureStart = scale.current
-      if (
-        "scale" in event &&
-        typeof event.scale === "number" &&
-        event instanceof MouseEvent
-      )
-        zoomAt(gestureStart * event.scale, event.clientX, event.clientY)
-      else if ("scale" in event && typeof event.scale === "number") {
-        const rect = el.getBoundingClientRect()
-        zoomAt(
-          gestureStart * event.scale,
-          "clientX" in event && typeof event.clientX === "number"
-            ? event.clientX
-            : rect.left + rect.width / 2,
-          "clientY" in event && typeof event.clientY === "number"
-            ? event.clientY
-            : rect.top + rect.height / 2
-        )
-      }
-    }
-    el.addEventListener("wheel", wheel, { passive: false })
-    const events = ["gesturestart", "gesturechange", "gestureend"]
-    for (const name of events)
-      el.addEventListener(name, gesture, { passive: false })
-    return () => {
-      animation.current?.stop()
-      el.removeEventListener("wheel", wheel)
-      for (const name of events) el.removeEventListener(name, gesture)
-    }
-  }, [])
   const fileActions = (
     <>
       <DropdownMenuItem
-        render={<a href={attachmentDownloadSrc(url)} download={filename} />}
+        render={
+          <a
+            aria-label={m.editor_attachment_download()}
+            href={attachmentDownloadSrc(url)}
+            download={filename}
+          />
+        }
       >
         <Download aria-hidden="true" />
         {m.editor_attachment_download()}
@@ -282,7 +211,7 @@ export function EditableImage({
           <Badge
             size="xs"
             className="max-w-full min-w-0 shrink select-none active:scale-[0.97]"
-            render={<button type="button" />}
+            render={<button type="button" aria-label={filename} />}
             onClick={(event) => {
               cancelExpand()
               if (event.detail === 0) {
@@ -301,7 +230,6 @@ export function EditableImage({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label={m.editor_attachment_actions()}
             className={cn(
               "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-data-[viewer-transition]/reveal:invisible aria-expanded:opacity-100 [@media(hover:none)]:opacity-100",
               children
@@ -311,12 +239,18 @@ export function EditableImage({
             render={
               children ? (
                 <Badge
-                  render={<button type="button" />}
+                  render={
+                    <button
+                      type="button"
+                      aria-label={m.editor_attachment_actions()}
+                    />
+                  }
                   className={imageActionClass}
                 />
               ) : (
                 <button
                   type="button"
+                  aria-label={m.editor_attachment_actions()}
                   className={cn(
                     chipIconActionClass,
                     "size-5 rounded-[10px] bg-foreground/10 text-foreground [corner-shape:var(--button-corner)] before:absolute before:-inset-0.5 hover:bg-foreground/15"
@@ -334,6 +268,7 @@ export function EditableImage({
       {createPortal(
         <div
           ref={viewer}
+          role="region"
           popover="manual"
           tabIndex={-1}
           onKeyDown={(event) => {
@@ -395,10 +330,14 @@ export function EditableImage({
             {Math.round(zoom)}%
           </Badge>
           <Badge
-            render={<button type="button" />}
+            render={
+              <button
+                type="button"
+                aria-label={m.editor_attachment_exit_fullscreen()}
+              />
+            }
             className={cn(imageActionClass, "absolute top-4 right-4")}
             data-image-viewer-close=""
-            aria-label={m.editor_attachment_exit_fullscreen()}
             onClick={() => changeViewer(false)}
           >
             <X aria-hidden="true" />
