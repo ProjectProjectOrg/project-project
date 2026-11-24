@@ -18,41 +18,24 @@ export function ScrollFloor() {
     floor.setAttribute("aria-hidden", "")
     floor.style.cssText =
       "position:absolute;left:0;width:1px;height:1px;visibility:hidden;pointer-events:none"
-    const contentBottom = () => content.offsetTop + content.offsetHeight
-    let held = 0
-    let lastTop = root.scrollTop
-    let lastBottom = contentBottom()
-    const hold = (extent: number) => {
-      held = extent
-      if (extent === 0) return floor.remove()
-      floor.style.top = `${extent - 1}px`
-      if (!floor.isConnected) root.append(floor)
+    root.append(floor)
+    const followScroll = () => {
+      floor.style.top = `${Math.max(0, root.scrollTop + root.clientHeight - 1)}px`
     }
-    const sync = () => {
-      const bottom = contentBottom()
-      const view = root.clientHeight
-      if (bottom < lastBottom && root.scrollTop < lastTop && bottom > lastTop) {
-        hold(Math.max(held, lastTop + view))
-        root.scrollTop = lastTop
-      } else if (held > 0) {
-        const extent = Math.min(held, root.scrollTop + view)
-        hold(extent > bottom ? extent : 0)
+    const onResize = () => {
+      if (root.scrollTop >= content.offsetTop + content.offsetHeight) {
+        floor.style.top = "0px"
       }
-      lastTop = root.scrollTop
-      lastBottom = bottom
+      followScroll()
     }
-    const onScroll = () => {
-      const top = root.scrollTop
-      if (held || top < lastTop) sync()
-      else lastTop = top
-    }
-    const resizes = new ResizeObserver(sync)
+    followScroll()
+    const resizes = new ResizeObserver(onResize)
     resizes.observe(content)
     resizes.observe(root)
-    root.addEventListener("scroll", onScroll, { capture: true, passive: true })
+    root.addEventListener("scroll", followScroll, { passive: true })
     return () => {
       resizes.disconnect()
-      root.removeEventListener("scroll", onScroll, true)
+      root.removeEventListener("scroll", followScroll)
       floor.remove()
     }
   }, [])
