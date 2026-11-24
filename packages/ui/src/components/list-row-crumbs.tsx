@@ -147,7 +147,6 @@ function useLevel(
       current.current = next
       setLevel(next)
     }
-    measure()
     const observer = new ResizeObserver(measure)
     observer.observe(slot)
     const title = slot.querySelector(titleSelector)

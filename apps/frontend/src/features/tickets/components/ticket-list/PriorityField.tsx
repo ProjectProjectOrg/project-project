@@ -8,7 +8,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
-import type { ReactElement } from "react"
+import type { ComponentProps, ReactElement } from "react"
 
 import {
   PRIORITY_LABELS,
@@ -67,15 +67,24 @@ export function PriorityMenu({
         className={className}
         finalFocus={false}
       >
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next) => {
-            if (next !== value) onChange(next)
-          }}
-          items={priorityOptions()}
-        />
+        <PriorityOptions value={value} onChange={onChange} />
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function PriorityOptions({
+  value,
+  onChange
+}: Pick<ComponentProps<typeof PriorityMenu>, "value" | "onChange">) {
+  return (
+    <DropdownMenuRadioGroup
+      value={value}
+      onValueChange={(next) => {
+        if (next !== value) onChange(next)
+      }}
+      items={priorityOptions()}
+    />
   )
 }
 

@@ -1,22 +1,19 @@
+import { TICKET_LIST_LIMIT } from "@pp/shared"
 import { listRowHeight } from "@pp/ui/list-row"
-import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import {
   memo,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type ReactNode
 } from "react"
-import { flushSync } from "react-dom"
 
-import { useDeferredOverscan } from "./useDeferredOverscan"
+import { usePreparedRows } from "../../hooks/usePreparedRows"
 
-const OVERSCAN = 12
-const MOUNT_MARGIN = 336
-const UNMOUNT_MARGIN = 3000
 const ROW_GAP = 4
+const ROW_STRIDE = listRowHeight + ROW_GAP
+const PAGE_HEIGHT = TICKET_LIST_LIMIT * ROW_STRIDE
 
 export function VirtualRows({
   rowKeys,
@@ -25,7 +22,7 @@ export function VirtualRows({
   reveal,
   scrollTo = null,
   children
-}: {
+}: Readonly<{
   rowKeys: ReadonlyArray<string>
   className: string
   activeIndex: number
@@ -34,104 +31,15 @@ export function VirtualRows({
   // from a field that keeps it).
   scrollTo?: Readonly<{ index: number }> | null
   children: (index: number) => ReactNode
-}) {
-  "use no memo"
-
+}>) {
   const listRef = useRef<HTMLUListElement>(null)
-  const [scrollMargin, setScrollMargin] = useState<number | null>(null)
-  const [nearViewport, setNearViewport] = useState(false)
+  const count = rowKeys.length
+  const range = usePreparedRows(listRef, count, ROW_STRIDE)
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const revealed = useRef<Readonly<{ index: number }> | null>(null)
   const revealIndex = reveal?.index ?? -1
   const scrolled = useRef<Readonly<{ index: number }> | null>(null)
   const scrollIndex = scrollTo?.index ?? -1
-  const getScrollElement = useCallback(
-    () => listRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null,
-    []
-  )
-  const getItemKey = useCallback((index: number) => rowKeys[index], [rowKeys])
-  const overscan = useDeferredOverscan(getScrollElement, OVERSCAN)
-  // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
-  const virtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
-    count: rowKeys.length,
-    getScrollElement,
-    getItemKey,
-    estimateSize: () => listRowHeight,
-    gap: ROW_GAP,
-    overscan,
-    enabled: scrollMargin !== null,
-    scrollMargin: scrollMargin ?? 0,
-    rangeExtractor: useCallback(
-      (range) => {
-        const indexes = new Set(
-          nearViewport ? defaultRangeExtractor(range) : []
-        )
-        for (const index of [
-          focusedIndex,
-          activeIndex,
-          revealIndex,
-          scrollIndex
-        ]) {
-          if (index >= 0 && index < rowKeys.length) indexes.add(index)
-        }
-        return [...indexes].toSorted((a, b) => a - b)
-      },
-      [
-        focusedIndex,
-        activeIndex,
-        revealIndex,
-        scrollIndex,
-        rowKeys.length,
-        nearViewport
-      ]
-    )
-  })
-
-  useLayoutEffect(() => {
-    const list = listRef.current
-    const root = getScrollElement()
-    const content = list?.closest("[data-scroll-content]")
-    if (!list || !root || !content) return undefined
-    let margin = 0
-    let height = 0
-    let viewportHeight = 0
-    let hidden = false
-    // Layout is read here, before React writes anything; reading scrollTop
-    // inside the state updater forced a layout on every scroll frame.
-    const updateNearViewport = () => {
-      if (hidden) return
-      const scrollTop = root.scrollTop
-      setNearViewport((current) => {
-        const band = current ? UNMOUNT_MARGIN : MOUNT_MARGIN
-        return (
-          margin < scrollTop + viewportHeight + band &&
-          margin + height > scrollTop - band
-        )
-      })
-    }
-    // A list in a collapsed (display: none) section has no box: it keeps the
-    // rows it has, so opening it again is instant, and mounts none until then.
-    const measure = () => {
-      hidden = list.getClientRects().length === 0
-      if (hidden) return
-      const listRect = list.getBoundingClientRect()
-      const rootRect = root.getBoundingClientRect()
-      margin = listRect.top - rootRect.top + root.scrollTop
-      height = listRect.height
-      viewportHeight = root.clientHeight
-      setScrollMargin(margin)
-      updateNearViewport()
-    }
-    measure()
-    const observer = new ResizeObserver(() => flushSync(measure))
-    observer.observe(content)
-    observer.observe(root)
-    root.addEventListener("scroll", updateNearViewport, { passive: true })
-    return () => {
-      observer.disconnect()
-      root.removeEventListener("scroll", updateNearViewport)
-    }
-  }, [getScrollElement])
 
   useLayoutEffect(() => {
     if (reveal === null || reveal === revealed.current) return
@@ -152,11 +60,17 @@ export function VirtualRows({
     )
     if (!row) return
     scrolled.current = scrollTo
-    const root = getScrollElement()
+    const root = row.closest<HTMLElement>("[data-scroll-root]")
     if (root) bringIntoView(root, row)
   })
 
-  const rows = virtualizer.getVirtualItems()
+  const pinned = [activeIndex, focusedIndex, revealIndex, scrollIndex]
+  const indexes = new Set<number>()
+  for (let i = range.start; i < Math.min(range.end, count); i++) indexes.add(i)
+  for (const i of pinned) {
+    if (i >= 0 && i < count) indexes.add(i)
+  }
+  const rows = [...indexes].toSorted((a, b) => a - b)
   return (
     <ul
       ref={listRef}
@@ -165,23 +79,19 @@ export function VirtualRows({
       data-loaded-rows={rowKeys.length}
       data-mounted-rows={rows.length}
       style={{
-        gridTemplateRows: `repeat(${rowKeys.length}, ${listRowHeight}px)`
+        contain: "size layout",
+        height: Math.max(0, count * ROW_STRIDE - ROW_GAP),
+        gridTemplateRows: `${listRowHeight}px`
       }}
     >
-      {rows.map((row) => (
-        <li
-          key={row.key}
-          className="col-span-full grid grid-cols-subgrid"
-          style={{
-            gridRow: row.index + 1,
-            scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
-          }}
-          aria-posinset={row.index + 1}
-          aria-setsize={rowKeys.length}
-          onFocusCapture={() => setFocusedIndex(row.index)}
-        >
-          <RowSlot index={row.index} render={children} />
-        </li>
+      {rows.map((index) => (
+        <RowSlot
+          key={rowKeys[index]}
+          index={index}
+          count={count}
+          onFocus={setFocusedIndex}
+          render={children}
+        />
       ))}
     </ul>
   )
@@ -216,9 +126,31 @@ const bringIntoView = (root: HTMLElement, row: HTMLElement) => {
 // rows whose data didn't change skip that render.
 const RowSlot = memo(function RowSlot({
   index,
+  count,
+  onFocus,
   render
-}: Readonly<{ index: number; render: (index: number) => ReactNode }>) {
-  return render(index)
+}: Readonly<{
+  index: number
+  count: number
+  onFocus: (index: number) => void
+  render: (index: number) => ReactNode
+}>) {
+  return (
+    <li
+      className="col-span-full grid grid-cols-subgrid"
+      style={{
+        gridRow: 1,
+        position: "relative",
+        transform: `translateY(${index * ROW_STRIDE}px)`,
+        scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
+      }}
+      aria-posinset={index + 1}
+      aria-setsize={count}
+      onFocusCapture={() => onFocus(index)}
+    >
+      {render(index)}
+    </li>
+  )
 })
 
 export function AutoLoad({
@@ -247,7 +179,7 @@ export function AutoLoad({
       },
       {
         root: element.closest(rootSelector),
-        rootMargin: "0px 0px 1200px 0px"
+        rootMargin: `0px 0px ${PAGE_HEIGHT}px 0px`
       }
     )
     observer.observe(element)

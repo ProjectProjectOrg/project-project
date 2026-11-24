@@ -1032,14 +1032,30 @@ function TooltipGroupTrigger({
   tooltip,
   ...props
 }: TriggerProps & Readonly<{ tooltip: React.ReactNode }>) {
-  const id = React.useId()
   const placement = React.useContext(GroupPlacementContext) ?? DEFAULT_PLACEMENT
+  return (
+    <HostedTooltipTrigger {...props} tooltip={tooltip} placement={placement} />
+  )
+}
+
+function HostedTooltipTrigger({
+  tooltip,
+  placement,
+  contentClassName,
+  ...props
+}: TriggerProps &
+  Readonly<{
+    tooltip: React.ReactNode
+    placement: Placement
+    contentClassName?: string
+  }>) {
+  const id = React.useId()
   return useTrigger(
     id,
     () => ({
       content: tooltip,
       placement,
-      className: undefined,
+      className: contentClassName,
       kind: "tooltip"
     }),
     props
@@ -1153,22 +1169,27 @@ function ShortcutTooltip({
   keyLabels: KeyLabels
   children: React.ReactElement
 }>) {
+  const side = React.useContext(HoverSideContext) ?? DEFAULT_PLACEMENT.side
   if (!React.use(ShortcutTooltipsContext)) return children
   return (
-    <Tooltip>
-      <TooltipTrigger render={children} />
-      <TooltipContent className="flex items-center gap-2">
-        {label ?? hotkey.meta?.name}
-        {hotkey.hotkey !== null && (
-          <KbdShortcut
-            keys={hotkey.hotkey}
-            keyLabels={keyLabels}
-            size="sm"
-            aria-hidden
-          />
-        )}
-      </TooltipContent>
-    </Tooltip>
+    <HostedTooltipTrigger
+      render={children}
+      placement={{ ...DEFAULT_PLACEMENT, side }}
+      contentClassName="flex items-center gap-2"
+      tooltip={
+        <>
+          {label ?? hotkey.meta?.name}
+          {hotkey.hotkey !== null && (
+            <KbdShortcut
+              keys={hotkey.hotkey}
+              keyLabels={keyLabels}
+              size="sm"
+              aria-hidden
+            />
+          )}
+        </>
+      }
+    />
   )
 }
 
