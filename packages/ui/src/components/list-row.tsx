@@ -49,12 +49,8 @@ import { HoverSide } from "./tooltip"
 // virtualized backlog): 24px fields and 8px above and below.
 export const listRowHeight = 40
 
-// The title keeps at least 10rem; past that the chips' column gives way
-// (it's as wide as the widest row's chips), so a row with many tags never
-// squeezes the titles to nothing. The grid is the `list` container: below
-// 48rem a row's tags fold into one chip (Chip's `show`).
 export const listGridClassName =
-  "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_minmax(0,auto)_auto_auto]"
+  "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_auto_auto]"
 
 const InHoverScopeContext = createContext(false)
 
@@ -364,17 +360,19 @@ export function ListRow({
         </fieldset>
         <div
           className={cn(
-            "row-start-1 flex min-w-0 items-center self-stretch pl-1",
+            "row-start-1 grid min-w-0 grid-cols-[minmax(10rem,1fr)_minmax(0,auto)] items-center gap-x-(--list-row-gap) self-stretch",
             ticketColumns ? "col-start-5" : "col-span-3 col-start-3"
           )}
         >
-          {title}
-        </div>
-        {/* Squeezed, chips that no longer fit wrap onto a second line that
-          is clipped away, so whole chips drop out instead of being cut in
-          half. The 4px padding on every side keeps focus rings inside the clip. */}
-        <div className="-m-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden p-1 [&>fieldset>span:empty]:hidden">
-          {trailing}
+          <div className="flex min-w-0 items-center self-stretch pl-1">
+            {title}
+          </div>
+          {/* Squeezed, chips that no longer fit wrap onto a second line that
+            is clipped away, so whole chips drop out instead of being cut in
+            half. The 4px padding on every side keeps focus rings inside the clip. */}
+          <div className="-m-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden p-1 [&>fieldset>span:empty]:hidden">
+            {trailing}
+          </div>
         </div>
         <fieldset disabled={disabled} className="contents">
           <div className="flex justify-end">{estimate}</div>

@@ -2,7 +2,7 @@ export const meta = {
   title: "List row",
   group: "Primitives",
   description:
-    "A ticket in a list: the backlog, a sprint's list, a ticket's sub-tickets and the dashboard. One row of the list's grid, with a slot per column so every row lines up; the app fills the slots with its fields.",
+    "A ticket in a list: the backlog, a sprint's list, a ticket's sub-tickets and the dashboard. One row of the list's grid, with aligned fields and room for its own chips; the app fills the slots with its fields.",
   sources: [
     {
       kind: "own",
@@ -20,7 +20,7 @@ The rows a list shows: interactive ones first (hover a row, tick its checkbox), 
 
 ## Usage
 
-The list sets `listGridClassName` on the element that holds its rows; each `ListRow` is a subgrid of it, so status, key, title and the trailing columns line up across rows and sections.
+The list sets `listGridClassName` on the element that holds its rows; each `ListRow` uses that grid to align status, key, estimate and assignee across rows and sections. The title and chips share the space between them.
 
 ```tsx
 import { ItemLink } from "@pp/ui/item-link"
@@ -98,7 +98,7 @@ A row is 40px: 24px fields and 8px above and below (`listRowHeight`, which the v
 
 ### Tags fold before the title shrinks
 
-The title column keeps at least 10rem, and the list grid is the `list` container. Below 48rem a row's tags fold into one chip: every tag's dot and the count (`ChipDots` on a `show="narrow"` chip), with the names on hover. The named chips and their "+N" take `show="wide"`. If the chips still don't fit, whole chips drop out rather than being cut in half.
+Each title takes the space left by its own row’s chips and keeps at least 10rem, and the list grid is the `list` container. Below 48rem a row's tags fold into one chip: every tag's dot and the count (`ChipDots` on a `show="narrow"` chip), with the names on hover. The named chips and their "+N" take `show="wide"`. If the chips still don't fit, whole chips drop out rather than being cut in half.
 
 ### Placeholders wait for the hover
 
