@@ -11,7 +11,7 @@ export const feedbackStatus = Atom.family((orgSlug: string) =>
   })
 )
 
-export const uploadFeedbackAttachment = Atom.family((orgSlug: string) =>
+export const uploadFeedbackAttachment = (orgSlug: string) =>
   Api.runtime.fn(
     Effect.fn("uploadFeedbackAttachment")(function* (file: File) {
       const form = new FormData()
@@ -21,7 +21,6 @@ export const uploadFeedbackAttachment = Atom.family((orgSlug: string) =>
       )
     })
   )
-)
 
 export const submitFeedback = Atom.family((orgSlug: string) =>
   Api.runtime.fn(
