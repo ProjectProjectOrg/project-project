@@ -15,6 +15,8 @@ import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 // "Keyboard shortcuts" in cmd+k: every app hotkey, grouped and searchable.
 // Shortcuts that don't apply on this page are listed but disabled: no
 // handler is mounted or enabled, or none of its commands applies here.
+// While this sheet is open its menu suspends every page hotkey, so a
+// suspended one still counts as available.
 export function ShortcutSheetPage({
   context,
   chip,
@@ -38,7 +40,9 @@ export function ShortcutSheetPage({
               icon: CommandKeyIcon,
               shortcut: appHotkey.hotkey,
               disabled:
-                status !== "active" || unavailable.has(appHotkey.id)
+                status === "inactive" ||
+                status === "disabled" ||
+                unavailable.has(appHotkey.id)
             }
           ]
     )
