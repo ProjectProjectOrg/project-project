@@ -8,7 +8,14 @@ import {
 } from "@pp/ui/board-drag"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import { useReducedMotion } from "motion/react"
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react"
 
 import { m } from "@/paraglide/messages"
 
@@ -30,6 +37,7 @@ import {
 } from "./VirtualCardSlots"
 
 const LOAD_AHEAD = 10
+const DRAFT_TRANSITION_MS = 180
 
 const ticketId = (ticket: Ticket) => ticket.id
 
@@ -80,6 +88,21 @@ export function VirtualSprintCards({
   )
   const count = Math.max(total, tickets.length) + (draftIndex >= 0 ? 1 : 0)
   const draftKey = draft?.key
+  const hasDraft = draft !== null
+  const [animateDraftExit, setAnimateDraftExit] = useState(false)
+  useEffect(() => {
+    if (hasDraft) {
+      setAnimateDraftExit(true)
+    } else if (animateDraftExit) {
+      const timer = window.setTimeout(
+        () => setAnimateDraftExit(false),
+        DRAFT_TRANSITION_MS
+      )
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [hasDraft, animateDraftExit])
+
   const getItemKey = useCallback(
     (index: number) => {
       if (index === draftIndex && draftKey !== undefined) return draftKey
@@ -166,9 +189,9 @@ export function VirtualSprintCards({
         className="relative w-full overflow-clip"
         style={{
           transition:
-            overflowing || reducedMotion
+            overflowing || reducedMotion || !(hasDraft || animateDraftExit)
               ? undefined
-              : "height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+              : `height ${DRAFT_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
           height:
             virtualizer.getTotalSize() +
             (showDropGap && drag?.index != null && sourceIndex < 0
