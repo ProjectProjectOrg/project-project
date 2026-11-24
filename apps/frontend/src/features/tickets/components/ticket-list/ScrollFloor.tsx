@@ -41,13 +41,18 @@ export function ScrollFloor() {
       lastTop = root.scrollTop
       lastBottom = bottom
     }
+    const onScroll = () => {
+      const top = root.scrollTop
+      if (held || top < lastTop) sync()
+      else lastTop = top
+    }
     const resizes = new ResizeObserver(sync)
     resizes.observe(content)
     resizes.observe(root)
-    root.addEventListener("scroll", sync, { passive: true })
+    root.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => {
       resizes.disconnect()
-      root.removeEventListener("scroll", sync)
+      root.removeEventListener("scroll", onScroll, true)
       floor.remove()
     }
   }, [])

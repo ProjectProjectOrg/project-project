@@ -19,7 +19,7 @@ import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
 import { Reveal } from "@pp/ui/reveal"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as Match from "effect/Match"
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
@@ -231,11 +231,6 @@ export function AssigneeSelect({
   className?: string
 }>) {
   const resolved = resolveAssignees(value, members)
-  const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
-  const clear = () => {
-    if (onClear !== undefined) onClear()
-    else if (value.length > 0) onChange([])
-  }
 
   const label =
     variant === "chip"
@@ -264,52 +259,72 @@ export function AssigneeSelect({
         finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
-        <DropdownMenuInput
-          placeholder={m.tickets_assignee_search_placeholder()}
-          aria-label={m.tickets_assignee_search_placeholder()}
+        <AssigneeOptions
+          value={value}
+          members={members}
+          onChange={onChange}
+          onClear={onClear}
         />
-        <DropdownMenuList>
-          <AssignMeItem
-            assignees={value}
-            members={members}
-            onChange={onChange}
-          />
-          <DropdownMenuCheckboxItem
-            label={m.tickets_assignee_unassigned()}
-            checked={value.length === 0}
-            onCheckedChange={clear}
-          >
-            <UserRound className="size-4" strokeWidth={1.75} />
-            {m.tickets_assignee_unassigned()}
-          </DropdownMenuCheckboxItem>
-          {members.map((member) => (
-            <DropdownMenuCheckboxItem
-              key={member.id}
-              label={
-                member.username
-                  ? `${member.name} ${member.username}`
-                  : member.name
-              }
-              checked={value.includes(member.id)}
-              onCheckedChange={() => toggle(member.id)}
-            >
-              <MemberAvatar member={member} size={20} />
-              <div className="min-w-0 leading-tight">
-                <div className="truncate text-body">{member.name}</div>
-                {member.username && (
-                  <div className="truncate text-micro text-muted-foreground tabular-nums">
-                    @{member.username}
-                  </div>
-                )}
-              </div>
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuList>
-        <DropdownMenuEmpty>
-          {m.tickets_assignee_search_empty()}
-        </DropdownMenuEmpty>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function AssigneeOptions({
+  value,
+  members,
+  onChange,
+  onClear
+}: Pick<
+  ComponentProps<typeof AssigneeSelect>,
+  "value" | "members" | "onChange" | "onClear"
+>) {
+  const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
+  const clear = () => {
+    if (onClear !== undefined) onClear()
+    else if (value.length > 0) onChange([])
+  }
+  return (
+    <>
+      <DropdownMenuInput
+        placeholder={m.tickets_assignee_search_placeholder()}
+        aria-label={m.tickets_assignee_search_placeholder()}
+      />
+      <DropdownMenuList>
+        <AssignMeItem assignees={value} members={members} onChange={onChange} />
+        <DropdownMenuCheckboxItem
+          label={m.tickets_assignee_unassigned()}
+          checked={value.length === 0}
+          onCheckedChange={clear}
+        >
+          <UserRound className="size-4" strokeWidth={1.75} />
+          {m.tickets_assignee_unassigned()}
+        </DropdownMenuCheckboxItem>
+        {members.map((member) => (
+          <DropdownMenuCheckboxItem
+            key={member.id}
+            label={
+              member.username
+                ? `${member.name} ${member.username}`
+                : member.name
+            }
+            checked={value.includes(member.id)}
+            onCheckedChange={() => toggle(member.id)}
+          >
+            <MemberAvatar member={member} size={20} />
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-body">{member.name}</div>
+              {member.username && (
+                <div className="truncate text-micro text-muted-foreground tabular-nums">
+                  @{member.username}
+                </div>
+              )}
+            </div>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuList>
+      <DropdownMenuEmpty>{m.tickets_assignee_search_empty()}</DropdownMenuEmpty>
+    </>
   )
 }
 

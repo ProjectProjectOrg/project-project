@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "@pp/ui/theme.css";
 
+[data-scroll-root][data-scrolling] > [data-scroll-content]::after {
+  content: "";
+  @apply absolute inset-0 z-50;
+}
+
 [data-page-banner] [data-page-header] {
   text-shadow:
     0 0 8px var(--page),

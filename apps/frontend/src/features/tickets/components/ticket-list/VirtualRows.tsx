@@ -1,22 +1,19 @@
+import { TICKET_LIST_LIMIT } from "@pp/shared"
 import { listRowHeight } from "@pp/ui/list-row"
-import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import {
   memo,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type ReactNode
 } from "react"
-import { flushSync } from "react-dom"
 
-import { useDeferredOverscan } from "./useDeferredOverscan"
+import { usePreparedRows } from "../../hooks/usePreparedRows"
 
-const OVERSCAN = 12
-const MOUNT_MARGIN = 336
-const UNMOUNT_MARGIN = 3000
 const ROW_GAP = 4
+const ROW_STRIDE = listRowHeight + ROW_GAP
+const PAGE_HEIGHT = TICKET_LIST_LIMIT * ROW_STRIDE
 
 export function VirtualRows({
   rowKeys,
@@ -25,7 +22,7 @@ export function VirtualRows({
   reveal,
   scrollTo = null,
   children
-}: {
+}: Readonly<{
   rowKeys: ReadonlyArray<string>
   className: string
   activeIndex: number
@@ -34,156 +31,92 @@ export function VirtualRows({
   // from a field that keeps it).
   scrollTo?: Readonly<{ index: number }> | null
   children: (index: number) => ReactNode
-}) {
-  "use no memo"
-
-  const listRef = useRef<HTMLUListElement>(null)
-  const [scrollMargin, setScrollMargin] = useState<number | null>(null)
-  const [nearViewport, setNearViewport] = useState(false)
+}>) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const count = rowKeys.length
+  const range = usePreparedRows(listRef, count, ROW_STRIDE)
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const revealed = useRef<Readonly<{ index: number }> | null>(null)
   const revealIndex = reveal?.index ?? -1
   const scrolled = useRef<Readonly<{ index: number }> | null>(null)
   const scrollIndex = scrollTo?.index ?? -1
-  const getScrollElement = useCallback(
-    () => listRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null,
-    []
-  )
-  const getItemKey = useCallback((index: number) => rowKeys[index], [rowKeys])
-  const overscan = useDeferredOverscan(getScrollElement, OVERSCAN)
-  // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
-  const virtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
-    count: rowKeys.length,
-    getScrollElement,
-    getItemKey,
-    estimateSize: () => listRowHeight,
-    gap: ROW_GAP,
-    overscan,
-    enabled: scrollMargin !== null,
-    scrollMargin: scrollMargin ?? 0,
-    rangeExtractor: useCallback(
-      (range) => {
-        const indexes = new Set(
-          nearViewport ? defaultRangeExtractor(range) : []
-        )
-        for (const index of [
-          focusedIndex,
-          activeIndex,
-          revealIndex,
-          scrollIndex
-        ]) {
-          if (index >= 0 && index < rowKeys.length) indexes.add(index)
-        }
-        return [...indexes].toSorted((a, b) => a - b)
-      },
-      [
-        focusedIndex,
-        activeIndex,
-        revealIndex,
-        scrollIndex,
-        rowKeys.length,
-        nearViewport
-      ]
-    )
-  })
-
-  useLayoutEffect(() => {
-    const list = listRef.current
-    const root = getScrollElement()
-    const content = list?.closest("[data-scroll-content]")
-    if (!list || !root || !content) return undefined
-    let margin = 0
-    let height = 0
-    let viewportHeight = 0
-    let hidden = false
-    // Layout is read here, before React writes anything; reading scrollTop
-    // inside the state updater forced a layout on every scroll frame.
-    const updateNearViewport = () => {
-      if (hidden) return
-      const scrollTop = root.scrollTop
-      setNearViewport((current) => {
-        const band = current ? UNMOUNT_MARGIN : MOUNT_MARGIN
-        return (
-          margin < scrollTop + viewportHeight + band &&
-          margin + height > scrollTop - band
-        )
-      })
-    }
-    // A list in a collapsed (display: none) section has no box: it keeps the
-    // rows it has, so opening it again is instant, and mounts none until then.
-    const measure = () => {
-      hidden = list.getClientRects().length === 0
-      if (hidden) return
-      const listRect = list.getBoundingClientRect()
-      const rootRect = root.getBoundingClientRect()
-      margin = listRect.top - rootRect.top + root.scrollTop
-      height = listRect.height
-      viewportHeight = root.clientHeight
-      setScrollMargin(margin)
-      updateNearViewport()
-    }
-    measure()
-    const observer = new ResizeObserver(() => flushSync(measure))
-    observer.observe(content)
-    observer.observe(root)
-    root.addEventListener("scroll", updateNearViewport, { passive: true })
-    return () => {
-      observer.disconnect()
-      root.removeEventListener("scroll", updateNearViewport)
-    }
-  }, [getScrollElement])
 
   useLayoutEffect(() => {
     if (reveal === null || reveal === revealed.current) return
-    const row = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${reveal.index + 1}"]`
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>(
+      `:scope > ul > li[aria-posinset="${reveal.index + 1}"]`
     )
     const link = row?.querySelector<HTMLElement>("[data-item-link]")
-    if (!row || !link) return
+    if (!list || !row || !link) return
     revealed.current = reveal
     link.focus({ preventScroll: true })
-    row.scrollIntoView({ block: "nearest" })
+    bringIntoView(list, row, reveal.index, "nearest")
   })
 
   useLayoutEffect(() => {
     if (scrollTo === null || scrollTo === scrolled.current) return
-    const row = listRef.current?.querySelector<HTMLElement>(
-      `:scope > [aria-posinset="${scrollTo.index + 1}"]`
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>(
+      `:scope > ul > li[aria-posinset="${scrollTo.index + 1}"]`
     )
-    if (!row) return
+    if (!list || !row) return
     scrolled.current = scrollTo
-    const root = getScrollElement()
-    if (root) bringIntoView(root, row)
+    bringIntoView(list, row, scrollTo.index, "created")
   })
 
-  const rows = virtualizer.getVirtualItems()
+  const pinned = [activeIndex, focusedIndex, revealIndex, scrollIndex]
+  const indexes = new Set<number>()
+  for (let i = range.start; i < Math.min(range.end, count); i++) indexes.add(i)
+  for (const i of pinned) {
+    if (i >= 0 && i < count) indexes.add(i)
+  }
+  const rows = [...indexes].toSorted((a, b) => a - b)
+  const first = Math.min(range.start, count)
+  const length = Math.min(range.end, count) - first
+  const windowHeight = Math.max(0, length * ROW_STRIDE - ROW_GAP)
+  const inset = `min(0px, calc(var(--scroll-viewport-height) - ${windowHeight}px))`
   return (
-    <ul
+    <div
       ref={listRef}
-      className={className}
       data-virtual-rows
-      data-loaded-rows={rowKeys.length}
+      data-loaded-rows={count}
       data-mounted-rows={rows.length}
       style={{
-        gridTemplateRows: `repeat(${rowKeys.length}, ${listRowHeight}px)`
+        height: Math.max(0, count * ROW_STRIDE - ROW_GAP),
+        overflow: "clip"
       }}
     >
-      {rows.map((row) => (
-        <li
-          key={row.key}
-          className="col-span-full grid grid-cols-subgrid"
-          style={{
-            gridRow: row.index + 1,
-            scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
-          }}
-          aria-posinset={row.index + 1}
-          aria-setsize={rowKeys.length}
-          onFocusCapture={() => setFocusedIndex(row.index)}
-        >
-          <RowSlot index={row.index} render={children} />
-        </li>
-      ))}
-    </ul>
+      <div aria-hidden style={{ height: first * ROW_STRIDE }} />
+      <ul
+        className={className}
+        style={{
+          position: "sticky",
+          top: inset,
+          bottom: inset,
+          height: windowHeight,
+          gridTemplateRows: rows.length > length ? "0px" : undefined,
+          gridAutoRows: ROW_STRIDE,
+          rowGap: 0,
+          alignContent: "start"
+        }}
+      >
+        {rows.map((index) => (
+          <RowSlot
+            key={rowKeys[index]}
+            index={index}
+            count={count}
+            pinnedOffset={
+              index < first || index >= first + length
+                ? (index - first) * ROW_STRIDE
+                : undefined
+            }
+            onFocus={setFocusedIndex}
+            render={children}
+          />
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -201,24 +134,61 @@ const visibleBand = (root: HTMLElement, row: HTMLElement) => {
   }
 }
 
-// Jumps (no smooth scroll) so a row out of view lands about a third of the
-// way down the readable band, with room around it, rather than flush against
-// an edge.
-const bringIntoView = (root: HTMLElement, row: HTMLElement) => {
+const bringIntoView = (
+  list: HTMLElement,
+  row: HTMLElement,
+  index: number,
+  placement: "nearest" | "created"
+) => {
+  const root = list.closest<HTMLElement>("[data-scroll-root]")
+  if (!root) return
   const band = visibleBand(root, row)
-  const rect = row.getBoundingClientRect()
-  if (rect.top >= band.top && rect.bottom <= band.bottom) return
-  const target = band.top + (band.bottom - band.top) / 3
-  root.scrollTop += rect.top - target
+  const top = list.getBoundingClientRect().top + index * ROW_STRIDE
+  if (top >= band.top && top + listRowHeight <= band.bottom) return
+  const target =
+    placement === "created"
+      ? band.top + (band.bottom - band.top) / 3
+      : top < band.top
+        ? band.top
+        : band.bottom - listRowHeight
+  root.scrollTop += top - target
 }
 
 // The list re-renders on its own when its position or the viewport moves;
 // rows whose data didn't change skip that render.
 const RowSlot = memo(function RowSlot({
   index,
+  pinnedOffset,
+  count,
+  onFocus,
   render
-}: Readonly<{ index: number; render: (index: number) => ReactNode }>) {
-  return render(index)
+}: Readonly<{
+  index: number
+  pinnedOffset: number | undefined
+  count: number
+  onFocus: (index: number) => void
+  render: (index: number) => ReactNode
+}>) {
+  return (
+    <li
+      className="col-span-full grid grid-cols-subgrid"
+      style={{
+        height: listRowHeight,
+        gridRow: pinnedOffset === undefined ? undefined : 1,
+        position: "relative",
+        transform:
+          pinnedOffset === undefined
+            ? undefined
+            : `translateY(${pinnedOffset}px)`,
+        scrollMarginTop: `calc(var(--list-sticky-top, 0px) + ${listRowHeight + ROW_GAP}px)`
+      }}
+      aria-posinset={index + 1}
+      aria-setsize={count}
+      onFocusCapture={() => onFocus(index)}
+    >
+      {render(index)}
+    </li>
+  )
 })
 
 export function AutoLoad({
@@ -247,7 +217,7 @@ export function AutoLoad({
       },
       {
         root: element.closest(rootSelector),
-        rootMargin: "0px 0px 1200px 0px"
+        rootMargin: `0px 0px ${PAGE_HEIGHT}px 0px`
       }
     )
     observer.observe(element)

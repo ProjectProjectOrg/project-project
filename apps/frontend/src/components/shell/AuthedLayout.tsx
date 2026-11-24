@@ -80,7 +80,7 @@ function Shell({ user }: { user: User }) {
                 />
                 <div
                   data-scroll-content
-                  className="flex min-h-full flex-col p-6 pt-3 in-data-scrolling:pointer-events-none"
+                  className="relative flex min-h-full flex-col p-6 pt-3"
                 >
                   <PageBar user={user} />
                   <Outlet />

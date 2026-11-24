@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Ticket, TicketStatus } from "@pp/shared"
+import type { ProjectStatus, Ticket, TicketStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { type MouseEvent } from "react"
+import { type ComponentProps, type MouseEvent } from "react"
 
 import {
   statusesFor,
@@ -120,6 +120,44 @@ export function StatusSelect({
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)
   const statusLabel = statusLabelFor(value, statuses)
+  return (
+    <DropdownMenu disabled={disabled}>
+      <StatusTrigger
+        meta={meta}
+        label={statusLabel}
+        disabled={disabled}
+        stopPropagation={stopPropagation}
+        showLabel={showLabel}
+        blocked={blocked}
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="max-w-72 min-w-44"
+        finalFocus={false}
+      >
+        <StatusOptions
+          statuses={statuses}
+          selected={selected}
+          onChange={onChange}
+          manageAction={manageAction}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function StatusOptions({
+  statuses,
+  selected,
+  onChange,
+  manageAction
+}: Pick<
+  ComponentProps<typeof StatusSelect>,
+  "selected" | "onChange" | "manageAction"
+> &
+  Readonly<{ statuses: ReadonlyArray<ProjectStatus> }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate()
   const statusOptions = boardStatusesFor(statuses).map((status) => {
     const sMeta = statusMetaFor(status, statuses)
@@ -141,47 +179,32 @@ export function StatusSelect({
     }
   })
   return (
-    <DropdownMenu disabled={disabled}>
-      <StatusTrigger
-        meta={meta}
-        label={statusLabel}
-        disabled={disabled}
-        stopPropagation={stopPropagation}
-        showLabel={showLabel}
-        blocked={blocked}
+    <>
+      <DropdownMenuRadioGroup
+        value={selected}
+        onValueChange={(next) => {
+          if (next !== selected) onChange(next)
+        }}
+        items={statusOptions}
       />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="max-w-72 min-w-44"
-        finalFocus={false}
-      >
-        <DropdownMenuRadioGroup
-          value={selected}
-          onValueChange={(next) => {
-            if (next !== selected) onChange(next)
-          }}
-          items={statusOptions}
-        />
-        {manageAction && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() =>
-                void navigate({
-                  to: "/settings/orgs/$orgSlug/projects/$slug/workflow",
-                  params: { orgSlug, slug }
-                })
-              }
-              className="cursor-pointer"
-            >
-              {m.tickets_status_manage_link()}
-              <ArrowRight className="ml-auto size-3.5" />
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      {manageAction && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() =>
+              void navigate({
+                to: "/settings/orgs/$orgSlug/projects/$slug/workflow",
+                params: { orgSlug, slug }
+              })
+            }
+            className="cursor-pointer"
+          >
+            {m.tickets_status_manage_link()}
+            <ArrowRight className="ml-auto size-3.5" />
+          </DropdownMenuItem>
+        </>
+      )}
+    </>
   )
 }
 
