@@ -88,3 +88,29 @@ it("undo restores the previous body while it is untouched", async () => {
   expect(handle.restore).toHaveBeenCalledWith(PREVIOUS)
   expect(hook.result.current.note).toBeNull()
 })
+
+it("submits the latest type when a previous selection is waiting for the editor", async () => {
+  let finishLoading = () => {}
+  const loading = new Promise<void>((resolve) => {
+    finishLoading = resolve
+  })
+  const onPatch = vi.fn<TypePatch>(async () => Exit.succeed(undefined))
+  const { hook, handle } = setup(onPatch)
+  hook.result.current.descriptionRef.current = {
+    ...handle,
+    swapTemplate: async (_from, to) => {
+      if (to === null) return null
+      await loading
+      return null
+    }
+  }
+
+  await act(async () => {
+    const first = hook.result.current.onTypePatch({ type: TypeKey.make("bug") })
+    await hook.result.current.onTypePatch({ type: null })
+    finishLoading()
+    await first
+  })
+
+  expect(onPatch.mock.calls).toEqual([[{ type: null }]])
+})

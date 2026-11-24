@@ -17,6 +17,7 @@ export function useTemplateSwap(
   onPatch: TypePatch
 ) {
   const descriptionRef = useRef<DescriptionHandle>(null)
+  const typeSelection = useRef(0)
   const [note, setNote] = useState<TemplateSwapNote | null>(null)
 
   useEffect(() => {
@@ -38,14 +39,19 @@ export function useTemplateSwap(
   }
 
   const onTypePatch = async (patch: TicketEdit) => {
+    const selection = patch.type === undefined ? null : ++typeSelection.current
+    const isCurrent = () =>
+      selection === null || selection === typeSelection.current
     const retyped = patch.type !== undefined && patch.type !== ticketType
     const swap =
       patch.type === undefined || !retyped
         ? null
         : ((await descriptionRef.current?.swapTemplate(
             ticketType,
-            patch.type
+            patch.type,
+            isCurrent
           )) ?? null)
+    if (!isCurrent()) return
     if (retyped) setNote(swap)
     void onPatch(patch).then((exit) => {
       if (swap !== null && Exit.isFailure(exit)) rollBack(swap)

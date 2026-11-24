@@ -57,7 +57,8 @@ export type TemplateSwapNote = Readonly<{
 export type DescriptionHandle = Readonly<{
   swapTemplate: (
     from: TypeKey | null,
-    to: TypeKey | null
+    to: TypeKey | null,
+    isCurrent: () => boolean
   ) => Promise<TemplateSwapNote | null>
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
@@ -128,12 +129,17 @@ export function DescriptionField({
   }
 
   useImperativeHandle(ref, () => ({
-    swapTemplate: async (from, to) => {
+    swapTemplate: async (from, to, isCurrent) => {
       if (library === null || to === null || typeFor(library, to) === null)
         return null
       const loaded = await ensureEditor()
       const instance = editorRef.current
-      if (loaded === null || instance === null || rootRef.current === null)
+      if (
+        !isCurrent() ||
+        loaded === null ||
+        instance === null ||
+        rootRef.current === null
+      )
         return null
       const { readDescription, replaceWithTemplate, templateSwap } =
         loaded.templates
