@@ -86,7 +86,7 @@ Rows are subgrids of the list's grid, so a long key or a wide estimate in one ro
 
 ### One highlight glides between rows
 
-Inside a `ListHoverScope` (the backlog wraps all its sections in one) the hover is a single highlight that slides from row to row under the pointer, like the sidebar's, instead of each row lighting up on its own. It holds across the 4px gap between rows but drops over a section header, so a header never lights the row next to it. While a row has a menu or preview card open, the highlight stays on that row when the pointer moves into the popup, and the row doesn't add a fill of its own, so it's never lit twice. Outside a scope (a sub-ticket list, the dashboard) a row fills itself.
+Inside a `ListHoverScope` (the backlog wraps all its sections in one) the hover is a single highlight that slides from row to row under the pointer, like the sidebar's, instead of each row lighting up on its own. During a scroll, the highlight stays on its ticket. When scrolling stops, it snaps to the row under the pointer. It holds across the 4px gap between rows but drops over a section header, so a header never lights the row next to it. While a row has a menu or preview card open, the highlight stays on that row when the pointer moves into the popup, and the row doesn't add a fill of its own, so it's never lit twice. Outside a scope (a sub-ticket list, the dashboard) a row fills itself.
 
 ### Hover is instant, keyboard navigation has no fade
 

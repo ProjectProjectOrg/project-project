@@ -58,13 +58,14 @@ const InHoverScopeContext = createContext(false)
 // between rows, but not a section header.
 const HOVER_REACH = 6
 
-type Hovered = Readonly<{ index: number; rect: ItemRect }>
+type Hovered = Readonly<{ index: number; rect: ItemRect; instant: boolean }>
 
 const sameHovered = (a: Hovered | null, b: Hovered | null) =>
   a === b ||
   (a !== null &&
     b !== null &&
     a.index === b.index &&
+    a.instant === b.instant &&
     a.rect.top === b.rect.top &&
     a.rect.left === b.rect.left &&
     a.rect.width === b.rect.width &&
@@ -107,6 +108,7 @@ export function ListHoverScope({
   const nextId = useRef(0)
   const point = useRef<Readonly<{ x: number; y: number }> | null>(null)
   const frame = useRef(0)
+  const scrolled = useRef(false)
   const sessionRef = useRef(0)
   const targetRow = useRef<HTMLElement | null>(null)
   const targetRect = useRef<ItemRect | null>(null)
@@ -121,8 +123,11 @@ export function ListHoverScope({
     const paused =
       container.closest("[data-scroll-root]")?.hasAttribute("data-scrolling") ??
       false
+    const instant = paused || scrolled.current
+    scrolled.current = paused
+    const retained = targetRow.current
     const row = paused
-      ? null
+      ? retained && container.contains(retained) ? retained : null
       : ((at && rowAt(container, at.x, at.y)) ?? openPopupRow(container))
     if (!paused && at && !row) {
       const under = document.elementFromPoint(at.x, at.y)
@@ -150,6 +155,7 @@ export function ListHoverScope({
     const r = row.getBoundingClientRect()
     const next = {
       index,
+      instant,
       rect: {
         top: (r.top - box.top) / scale,
         left: (r.left - box.left) / scale,
@@ -184,7 +190,7 @@ export function ListHoverScope({
     }
     root.addEventListener("scroll", onScroll, { passive: true })
     const scrolling = new MutationObserver(() => {
-      if (scrollRoot?.hasAttribute("data-scrolling")) sessionRef.current += 1
+      if (scrollRoot?.hasAttribute("data-scrolling")) scrolled.current = true
       schedule()
     })
     if (scrollRoot) {
@@ -228,7 +234,7 @@ export function ListHoverScope({
       ref={ref}
       data-slot="list-hover-scope"
       onMouseEnter={() => {
-        sessionRef.current += 1
+        if (!targetRow.current) sessionRef.current += 1
       }}
       onMouseMove={(event) => {
         // Menus and cards opened from a row are portaled, but React still
@@ -251,8 +257,9 @@ export function ListHoverScope({
     >
       <FluidHoverHighlight
         hover={hover}
+        instant={hovered?.instant}
         onArrive={arrive}
-        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scrolling:invisible"
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
