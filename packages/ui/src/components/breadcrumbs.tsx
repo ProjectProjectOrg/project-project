@@ -355,7 +355,12 @@ function BreadcrumbItem({
               loading ? "opacity-100" : "opacity-0"
             )}
           >
-            <span className="block h-4 skeleton rounded bg-muted/60" />
+            <span
+              className={cn(
+                "block h-4 rounded bg-muted/60",
+                loading && "skeleton"
+              )}
+            />
           </span>
         </span>
         {loading && loadingLabel !== undefined ? (

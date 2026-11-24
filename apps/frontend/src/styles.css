@@ -118,6 +118,10 @@
   transition-delay: 0.25s;
 }
 
+.pp-loader-overlay:not([data-active="true"]) .pp-loader {
+  animation-play-state: paused;
+}
+
 /* With several tickets selected, hovering (or focusing) a selected row's
    field lights the same field on every selected row: what a change there
    will touch (features/tickets/lib/selectionKeys.ts). */
