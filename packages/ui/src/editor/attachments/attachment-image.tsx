@@ -40,26 +40,30 @@ export function AttachmentImage({
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
-  const dragStart = useRef<{ width: number; container: number } | null>(null)
+  const dragStart = useRef<{
+    width: number
+    container: number
+    direction: number
+  } | null>(null)
 
   const measure = (offsetX: number) => {
     const img = imgRef.current
     const start = dragStart.current
     if (!img || !start) return ATTACHMENT_MIN_WIDTH
     return clampAttachmentWidth({
-      width: start.width + offsetX,
-      naturalWidth: img.naturalWidth,
-      naturalHeight: img.naturalHeight,
+      width: start.width + offsetX * start.direction,
       containerWidth: start.container
     })
   }
 
-  const onPanStart = () => {
+  const onPanStart = (direction: number) => {
     const img = imgRef.current
     if (!img) return
     const width = img.getBoundingClientRect().width
+    setDragWidth(width)
     dragStart.current = {
       width,
+      direction,
       container: contentWidth(editor.getRootElement()) ?? width
     }
   }
@@ -83,11 +87,15 @@ export function AttachmentImage({
   const effectiveWidth = dragWidth ?? width
 
   return (
-    <span className="relative block w-fit max-w-full">
+    <span
+      data-resizing={dragWidth !== null ? "" : undefined}
+      className="relative block w-fit max-w-full"
+    >
       <img
         ref={imgRef}
         src={url}
         alt={alt}
+        draggable={false}
         decoding="async"
         style={attachmentWidthStyle(effectiveWidth)}
         className={cn(
@@ -96,15 +104,26 @@ export function AttachmentImage({
         )}
         onError={onBroken}
       />
-      <motion.span
-        role="presentation"
-        aria-hidden="true"
-        data-attachment-resize="true"
-        onPanStart={onPanStart}
-        onPan={onPan}
-        onPanEnd={onPanEnd}
-        className="invisible absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-focus-within/editing:visible before:absolute before:-inset-x-2 before:inset-y-0 before:content-[''] hover:bg-foreground/80 sm:block hitbox-hover:opacity-100"
-      />
+      {(["left", "right"] as const).map((side) => (
+        <motion.span
+          key={side}
+          role="presentation"
+          aria-hidden="true"
+          data-attachment-resize="true"
+          onPointerDown={(event) => event.preventDefault()}
+          onPanStart={() => onPanStart(side === "left" ? -1 : 1)}
+          onPan={onPan}
+          onPanEnd={onPanEnd}
+          className={cn(
+            "absolute top-1/2 grid size-6 -translate-y-1/2 cursor-ew-resize touch-none items-center opacity-0 mix-blend-difference before:h-6 before:w-[3px] before:rounded-full before:bg-white before:opacity-40 before:transition-opacity hover:before:opacity-100 hitbox-hover:opacity-100 [@media(hover:none)]:opacity-100",
+            side === "left"
+              ? "left-0 justify-items-start pl-1 [--reveal-x:-3px]"
+              : "right-0 justify-items-end pr-1 [--reveal-x:3px]",
+            "image-control-reveal",
+            dragWidth !== null && "opacity-100 before:opacity-100"
+          )}
+        />
+      ))}
     </span>
   )
 }

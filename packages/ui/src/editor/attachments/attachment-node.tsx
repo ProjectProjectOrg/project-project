@@ -33,6 +33,7 @@ import {
 } from "./attachment-labels"
 import { AttachmentSelectable } from "./attachment-selectable"
 import { useAttachmentResolves } from "./availability"
+import { EditableImage } from "./editable-image"
 
 export type AttachmentKind = "image" | "file"
 
@@ -108,7 +109,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   createDOM() {
     const span = document.createElement("span")
     span.setAttribute("data-attachment-kind", this.__kind)
-    span.style.display = "inline-block"
+    span.style.display = this.__kind === "image" ? "block" : "inline-block"
     span.style.verticalAlign = "middle"
     span.style.maxWidth = "100%"
     return span
@@ -287,25 +288,45 @@ function AttachmentSettled({
     !unplayable
   const clipRadius = density === "compact" ? 10 : 18
 
+  const toggleDensity = () =>
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if (!$isAttachmentNode(node)) return
+      node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
+    })
+
   return (
     <AttachmentSelectable
       nodeKey={nodeKey}
       deletable
       density={density}
       clipRadius={video ? clipRadius : undefined}
-      onToggleDensity={() =>
-        editor.update(() => {
-          const node = $getNodeByKey(nodeKey)
-          if (!$isAttachmentNode(node)) return
-          node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
-        })
-      }
+      image={kind === "image" && !missing}
+      onToggleDensity={toggleDensity}
     >
       {missing ? (
         <AttachmentUnavailable
           label={m.editor_attachment_unavailable()}
           variant={density === "compact" ? "inline" : "block"}
         />
+      ) : kind === "image" ? (
+        <EditableImage
+          url={url}
+          alt={alt}
+          filename={filename}
+          onExpand={toggleDensity}
+          onRemove={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}
+        >
+          {density === "rich" ? (
+            <AttachmentImage
+              url={url}
+              alt={alt}
+              width={width}
+              nodeKey={nodeKey}
+              onBroken={() => setBroken(true)}
+            />
+          ) : null}
+        </EditableImage>
       ) : density === "compact" ? (
         <AttachmentChip
           url={url}
@@ -314,14 +335,6 @@ function AttachmentSettled({
           kind={kind}
           morphId={morphId}
           downloadLabel={m.editor_attachment_download()}
-          onBroken={() => setBroken(true)}
-        />
-      ) : kind === "image" ? (
-        <AttachmentImage
-          url={url}
-          alt={alt}
-          width={width}
-          nodeKey={nodeKey}
           onBroken={() => setBroken(true)}
         />
       ) : video ? (

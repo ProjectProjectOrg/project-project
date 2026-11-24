@@ -55,7 +55,7 @@ export class ImageNode extends DecoratorNode<ReactElement> {
 
   createDOM() {
     const element = document.createElement("span")
-    element.className = "inline-block align-top"
+    element.className = "block"
     return element
   }
 
@@ -75,6 +75,7 @@ export class ImageNode extends DecoratorNode<ReactElement> {
         alt={alt ?? ""}
         title={title ?? undefined}
         className={ATTACHMENT_IMAGE_CLASS}
+        draggable={false}
         loading="lazy"
         decoding="async"
       />

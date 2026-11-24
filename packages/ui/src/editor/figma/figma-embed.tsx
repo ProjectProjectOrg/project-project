@@ -1,13 +1,11 @@
 import { figmaEmbedUrl, type FigmaRef } from "@pp/shared"
-import { motion } from "motion/react"
 
 import {
   attachmentFooterClass,
   attachmentSurfaceClass
 } from "../../components/attachment-tile"
 import { ExternalLink } from "../../components/icons"
-import { MorphIconLink } from "../../components/morph-icon-link"
-import { transitions } from "../../lib/springs"
+import { chipIconActionClass } from "../../components/morph-icon-link"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import type { TicketTarget } from "../services"
@@ -71,7 +69,7 @@ function FigmaEmbedContent({
 
   // The attachments' surface (an 18px lit squircle): the live frame in a
   // well 4px in, the name and an open link in the row under it, like a
-  // file's tile. The name and link morph to and from the chip.
+  // file's tile.
   return (
     <span className={cn(attachmentSurfaceClass, "block w-[38rem] max-w-full")}>
       <span className="block px-1 pt-1">
@@ -90,34 +88,28 @@ function FigmaEmbedContent({
         className={attachmentFooterClass}
         title={metadata?.fileName ?? resolvedName}
       >
-        <motion.span
-          layout="position"
-          transition={transitions.morph}
-          className="flex shrink-0 items-center"
-        >
+        <span className="flex shrink-0 items-center">
           <FigmaGlyph className="h-3.5" />
-        </motion.span>
-        <motion.span
-          layoutId={`${morphId}-name`}
-          layout="position"
-          transition={transitions.morph}
+        </span>
+        <span
           className={cn(
             "min-w-0 flex-1 truncate",
             name.length === 0 && "text-muted-foreground"
           )}
         >
           {resolvedName}
-        </motion.span>
-        <MorphIconLink
-          layoutId={`${morphId}-open`}
+        </span>
+        <a
           href={url}
           target="_blank"
           rel="noreferrer noopener"
           data-figma-action="open"
-          label={m.figma_embed_open_in_figma()}
-          icon={ExternalLink}
-          className="my-0"
-        />
+          data-chip-action=""
+          aria-label={m.figma_embed_open_in_figma()}
+          className={cn(chipIconActionClass, "my-0")}
+        >
+          <ExternalLink className="size-3" strokeWidth={1.75} />
+        </a>
       </span>
     </span>
   )

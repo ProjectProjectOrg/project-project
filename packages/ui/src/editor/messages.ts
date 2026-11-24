@@ -20,16 +20,23 @@ export type EditorMessages = Readonly<{
   common_key_tab: () => string
   common_key_win: () => string
   common_scroll_area_label: () => string
+  editor_attachment_actions: () => string
+  editor_attachment_collapse: () => string
   editor_attachment_download: () => string
   editor_code_language: () => string
   editor_code_language_plain: () => string
+  editor_attachment_exit_fullscreen: () => string
+  editor_attachment_expand: () => string
   editor_attachment_format_generic: () => string
   editor_attachment_format_gzip: () => string
   editor_attachment_format_pdf: () => string
   editor_attachment_format_tar: () => string
   editor_attachment_format_video: () => string
   editor_attachment_format_zip: () => string
+  editor_attachment_fullscreen: () => string
   editor_attachment_remove: () => string
+  editor_attachment_remove_confirm: () => string
+  editor_attachment_removing: () => string
   editor_attachment_retry: () => string
   editor_attachment_too_large: (
     inputs: Readonly<{ limit: string | number }>
@@ -40,6 +47,8 @@ export type EditorMessages = Readonly<{
   editor_attachment_uploading: () => string
   editor_attachment_view_compact: () => string
   editor_attachment_view_rich: () => string
+  editor_attachment_zoom_in: () => string
+  editor_attachment_zoom_out: () => string
   editor_block_announce_detached: (inputs: Readonly<{ name: string }>) => string
   editor_block_announce_duplicated: (
     inputs: Readonly<{ name: string }>
@@ -107,6 +116,9 @@ export type EditorMessages = Readonly<{
   editor_format_unlink: () => string
   editor_line_placeholder: () => string
   editor_paper_default_name: () => string
+  editor_embed_actions: () => string
+  editor_embed_remove_confirm: () => string
+  editor_embed_rename: () => string
   editor_paper_edit_name: () => string
   editor_paper_name_input_label: () => string
   editor_paper_open: () => string

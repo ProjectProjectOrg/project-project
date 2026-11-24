@@ -1,5 +1,4 @@
 import type { FigmaRef } from "@pp/shared"
-import { motion } from "motion/react"
 import { useState } from "react"
 
 import { Badge } from "../../components/badge"
@@ -10,7 +9,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "../../components/popover"
-import { transitions } from "../../lib/springs"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import type { TicketTarget } from "../services"
@@ -74,6 +72,7 @@ export function FigmaChip({
 }
 
 type FigmaChipProps = Readonly<{
+  onExpand?: () => void
   reference: FigmaRef | null
   url?: string
   label: string
@@ -93,7 +92,8 @@ function FigmaChipContent({
   url,
   label,
   morphId,
-  metadata
+  metadata,
+  onExpand
 }: FigmaChipProps & {
   metadata: ReturnType<typeof useFigmaMetadata>
 }) {
@@ -103,7 +103,7 @@ function FigmaChipContent({
     return (
       <Badge
         size="xs"
-        className="inline-chip mx-0.5 max-w-full gap-1 text-caption text-muted-foreground"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption text-muted-foreground select-none"
       >
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
@@ -122,27 +122,18 @@ function FigmaChipContent({
 
   const nameParts = (
     <>
-      <motion.span
-        layout="position"
-        transition={transitions.morph}
-        // A 12px box like the open icon's, so the logo sits as far from
-        // the start as the icon does from the end.
-        className="flex size-3 shrink-0 items-center justify-center"
-      >
+      <span className="flex size-3 shrink-0 items-center justify-center">
         <FigmaGlyph className="h-3" />
-      </motion.span>
-      <motion.span
-        layoutId={`${morphId}-name`}
-        layout="position"
-        transition={transitions.morph}
+      </span>
+      <span
         className={cn("truncate", name.length === 0 && "text-muted-foreground")}
       >
         {resolvedName}
-      </motion.span>
+      </span>
     </>
   )
   const open =
-    url === undefined ? null : (
+    url === undefined || onExpand ? null : (
       <MorphIconLink
         layoutId={`${morphId}-open`}
         href={url}
@@ -159,7 +150,10 @@ function FigmaChipContent({
     return (
       <Badge
         size="xs"
-        className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
+        render={
+          onExpand ? <button type="button" onClick={onExpand} /> : undefined
+        }
         title={metadata?.fileName ?? resolvedName}
       >
         {nameParts}
@@ -173,7 +167,7 @@ function FigmaChipContent({
   return (
     <Badge
       size="xs"
-      className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
+      className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
       title={metadata?.fileName ?? resolvedName}
       contentEditable={false}
     >
@@ -181,9 +175,17 @@ function FigmaChipContent({
         <PopoverTrigger
           openOnHover
           delay={HOVER_DELAY_MS}
-          nativeButton={false}
+          nativeButton={Boolean(onExpand)}
           render={
-            <span className="focus-ring -my-0.5 -ml-1.5 inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-1.5" />
+            onExpand ? (
+              <button
+                type="button"
+                onClick={onExpand}
+                className="focus-ring inline-flex min-w-0 items-center gap-1"
+              />
+            ) : (
+              <span className="focus-ring -my-0.5 -ml-1.5 inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-1.5" />
+            )
           }
         >
           {nameParts}

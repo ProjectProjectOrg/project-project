@@ -13,7 +13,7 @@ export const meta = {
 
 ## Overview
 
-Hover the Figma chip for its thumbnail.
+Hover the Figma chip for its thumbnail and click to expand the frame. Click the Paper chip to open its file. In the editor, the trailing menu and right-click menu offer the same actions, including inline renaming for Paper and removal with confirmation for both embeds.
 
 <Demo name="overview" title="In a description" />
 
@@ -32,7 +32,7 @@ In Markdown they stay links: `[Onboarding](https://www.figma.com/design/…)` (a
 
 ### Two densities, like attachments
 
-A Figma frame is a chip in the text (compact) or Figma's live embed on its own line (rich), and the editor toggles between them; the chip's hover shows the frame's thumbnail once Figma has answered. The rich embed sits on the attachments' surface (an 18px lit squircle, the frame in a well, its name and an open link in the row under it), and the name and link glide between the two. Paper files are chips, styled like Figma's. Read-only [Markdown](/editor/markdown) shows the same chips and embeds.
+A Figma frame is a chip in the text (compact) or Figma's live embed on its own line (rich), and the editor toggles between them; the chip's hover shows the frame's thumbnail once Figma has answered. The rich embed sits on the attachments' surface (an 18px lit squircle, the frame in a well, its name and an open link in the row under it), and switching density fades out the current view before the other appears at its final size. Paper files are chips, styled like Figma's. Read-only [Markdown](/editor/markdown) shows the same chips and embeds.
 
 ### Names come from the source
 

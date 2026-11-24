@@ -334,63 +334,22 @@ describe("attachmentViewParams density", () => {
 })
 
 describe("clampAttachmentWidth", () => {
-  const landscape = { naturalWidth: 2400, naturalHeight: 1800 }
-
-  it("keeps a width inside every bound", () => {
-    expect(
-      clampAttachmentWidth({ width: 400, containerWidth: 800, ...landscape })
-    ).toBe(400)
+  it("lets an image reach the full description width", () => {
+    expect(clampAttachmentWidth({ width: 5000, containerWidth: 700 })).toBe(700)
   })
 
-  it("clamps to the container width when the image is wide enough that height never binds", () => {
-    expect(
-      clampAttachmentWidth({
-        width: 5000,
-        containerWidth: 700,
-        naturalWidth: 4000,
-        naturalHeight: 1000
-      })
-    ).toBe(700)
+  it("keeps a width inside the resize bounds", () => {
+    expect(clampAttachmentWidth({ width: 400, containerWidth: 800 })).toBe(400)
   })
 
-  it("lets the height ceiling bind before the container for a 4:3 image", () => {
-    expect(
-      clampAttachmentWidth({ width: 5000, containerWidth: 700, ...landscape })
-    ).toBe(512)
+  it("keeps the resize handle usable at small widths", () => {
+    expect(clampAttachmentWidth({ width: 10, containerWidth: 800 })).toBe(
+      ATTACHMENT_MIN_WIDTH
+    )
   })
 
-  it("clamps a tall image so its height stays within the max height", () => {
-    expect(
-      clampAttachmentWidth({
-        width: 5000,
-        containerWidth: 4000,
-        naturalWidth: 400,
-        naturalHeight: 1200
-      })
-    ).toBe(128)
-  })
-
-  it("clamps up to the minimum width", () => {
-    expect(
-      clampAttachmentWidth({ width: 10, containerWidth: 800, ...landscape })
-    ).toBe(ATTACHMENT_MIN_WIDTH)
-  })
-
-  it("never returns less than the minimum even in a tiny container", () => {
-    expect(
-      clampAttachmentWidth({ width: 10, containerWidth: 20, ...landscape })
-    ).toBe(ATTACHMENT_MIN_WIDTH)
-  })
-
-  it("falls back to the container when natural dimensions are unknown", () => {
-    expect(
-      clampAttachmentWidth({
-        width: 5000,
-        containerWidth: 640,
-        naturalWidth: 0,
-        naturalHeight: 0
-      })
-    ).toBe(640)
+  it("fits descriptions narrower than the minimum image width", () => {
+    expect(clampAttachmentWidth({ width: 100, containerWidth: 20 })).toBe(20)
   })
 })
 
