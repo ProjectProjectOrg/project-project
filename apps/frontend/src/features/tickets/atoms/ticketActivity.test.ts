@@ -1,9 +1,11 @@
+import { it } from "@effect/vitest"
 import { TicketDetail, TicketId, TicketUpdateResult } from "@pp/shared"
 import { makeTicketDetail } from "@pp/shared/tickets/testing"
+import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
@@ -74,41 +76,62 @@ describe("ticketActivity", () => {
     }
   })
 
-  it("refetches after the ticket page saves an edit", async () => {
-    const fetched: Array<string | null> = []
-    fetchStub.set((input, init) => {
-      if (init?.method === "PATCH") {
-        return Promise.resolve(
-          Response.json(
-            encodeTicketUpdateResultSync({
-              ticket: { ...ticket, body: "After" },
-              orderKey: null
-            })
+  it.live("refetches once after overlapping ticket edits settle", () =>
+    Effect.gen(function* () {
+      const fetched: Array<string | null> = []
+      const releases: Array<() => void> = []
+      let writes = 0
+      fetchStub.set(async (input, init) => {
+        if (init?.method === "PATCH") {
+          writes += 1
+          await new Promise<void>((resolve) => releases.push(resolve))
+          return Promise.resolve(
+            Response.json(
+              encodeTicketUpdateResultSync({
+                ticket: {
+                  ...ticket,
+                  body: writes === 1 ? "After" : ticket.body
+                },
+                orderKey: null
+              })
+            )
           )
+        }
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+          "http://localhost"
         )
+        if (!url.pathname.endsWith("/activity")) {
+          return Promise.resolve(Response.json(encodeTicketDetailSync(ticket)))
+        }
+        fetched.push(url.searchParams.get("cursor"))
+        return Promise.resolve(
+          Response.json({ items: [], people: [], nextCursor: null })
+        )
+      })
+      const registry = AtomRegistry.make()
+      const update = updateTicketDetail(ticketRequest("acme", "web", ticketId))
+      registry.mount(ticketActivity(req))
+      registry.mount(update)
+      try {
+        yield* Effect.promise(() =>
+          vi.waitFor(() => expect(fetched).toEqual([null]))
+        )
+        registry.set(update, { body: "After" })
+        yield* Effect.promise(() => vi.waitFor(() => expect(writes).toBe(1)))
+        registry.set(update, { body: ticket.body })
+        releases.shift()?.()
+        yield* Effect.promise(() => vi.waitFor(() => expect(writes).toBe(2)))
+        yield* Effect.sleep(450)
+        expect(fetched).toEqual([null])
+        releases.shift()?.()
+        yield* Effect.promise(() =>
+          vi.waitFor(() => expect(fetched).toEqual([null, null]))
+        )
+      } finally {
+        for (const release of releases) release()
+        registry.dispose()
       }
-      const url = new URL(
-        input instanceof Request ? input.url : String(input),
-        "http://localhost"
-      )
-      if (!url.pathname.endsWith("/activity")) {
-        return Promise.resolve(Response.json(encodeTicketDetailSync(ticket)))
-      }
-      fetched.push(url.searchParams.get("cursor"))
-      return Promise.resolve(
-        Response.json({ items: [], people: [], nextCursor: null })
-      )
     })
-    const registry = AtomRegistry.make()
-    const update = updateTicketDetail(ticketRequest("acme", "web", ticketId))
-    registry.mount(ticketActivity(req))
-    registry.mount(update)
-    try {
-      await vi.waitFor(() => expect(fetched).toEqual([null]))
-      registry.set(update, { body: "After" })
-      await vi.waitFor(() => expect(fetched).toEqual([null, null]))
-    } finally {
-      registry.dispose()
-    }
-  })
+  )
 })

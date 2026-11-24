@@ -5,6 +5,7 @@ import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
+import { useMemo } from "react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { commentThreads } from "@/features/comments/lib/commentThreads"
@@ -20,6 +21,7 @@ import {
 import { TicketTimeline } from "@/features/tickets/components/TicketTimeline"
 import { useActivityOrder } from "@/features/tickets/hooks/useActivityOrder"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
+import { ticketContentKey } from "@/features/tickets/lib/ticketContent"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -38,7 +40,18 @@ export function CommentsSection({
   const canComment = useProjectActor().call("ticketComments", "create")
   const [order, setOrder] = useActivityOrder()
 
-  const rows = Result.isSuccess(result) ? result.value : []
+  const rows = Result.isSuccess(result) ? result.value : undefined
+  const threads = useMemo(
+    () =>
+      commentThreads(rows ?? []).map((thread) => ({
+        key: thread.root.key,
+        at: thread.root.comment.createdAt,
+        lastAt: (thread.replies.at(-1) ?? thread.root).comment.createdAt,
+        appear: thread.root.pending,
+        value: thread
+      })),
+    [rows]
+  )
 
   const orderLabel =
     order === "asc"
@@ -69,15 +82,10 @@ export function CommentsSection({
         </div>
         <div className="flex flex-col gap-4">
           <TicketTimeline
+            key={ticketContentKey({ orgSlug, slug, id: ticketId })}
             ticketId={ticketId}
             order={order}
-            comments={commentThreads(rows).map((thread) => ({
-              key: thread.root.key,
-              at: thread.root.comment.createdAt,
-              lastAt: (thread.replies.at(-1) ?? thread.root).comment.createdAt,
-              appear: thread.root.pending,
-              value: thread
-            }))}
+            comments={threads}
             renderComment={({ value: thread }) => (
               <AnimatePresence initial={true}>
                 <CommentThread

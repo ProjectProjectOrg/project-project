@@ -54,7 +54,7 @@ import {
 | Part | Holds |
 | --- | --- |
 | `Timeline` | the list and its rail; `--timeline-inset` sets where the rows start (0 by default) |
-| `TimelineEvent` | one event: `mark` (20px), `actor`, the line, `time` |
+| `TimelineEvent` | one event with `mark` (20px), `actor`, the line and `time`. Set `appear` for a new arrival and wrap keyed events in `AnimatePresence` to ease out removed rows |
 | `TimelineRun` | a folded run: `marks` (20px, stacked), `label`, `time`, `open` and `onOpenChange`; its children are the folded events, in the order to show them |
 | `TimelineEntry` | a slot for something that isn't an event: a comment; `appear` when it was just placed eases its room open (through `TimelineAppear`) |
 | `TimelineMark` | puts something on the rail (a comment's avatar) |
@@ -90,6 +90,12 @@ A run's opened changes and a comment's replies sit one step in (22px), and the r
 A run of changes folds into one row: the people in it as a 20px stack and "Ana and 2 others made 6 changes". It opens in place, right under itself, in either order, so the row you clicked never moves. The fold eases open over 340ms on the house curve while the changes fade in 40ms apart, and the rail eases out into the indent with it (and back on close). Reduced motion opens it at once.
 
 ## Examples
+
+### Live activity
+
+Check “Test sign-in on mobile” or raise the priority. Undo the edit quickly to keep the timeline quiet, or wait for the activity to appear and undo it to see the row ease closed. Each field simulates a 350 ms save.
+
+<Demo name="live-activity" title="Edit a ticket" />
 
 ### States
 

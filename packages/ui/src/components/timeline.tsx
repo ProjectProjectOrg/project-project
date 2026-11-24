@@ -199,7 +199,11 @@ export function TimelineFold({
           className="overflow-clip"
         >
           <Rows data-slot="timeline-fold" className={className}>
-            {rows}
+            {list ? (
+              <AnimatePresence initial={false}>{rows}</AnimatePresence>
+            ) : (
+              rows
+            )}
           </Rows>
         </motion.div>
       )}
@@ -212,21 +216,27 @@ export function TimelineFold({
 // `appear` animates; what was already there shows as it is.
 export function TimelineAppear({
   appear,
+  exit = false,
   className,
   children
-}: Readonly<{ appear: boolean; className?: string; children: ReactNode }>) {
-  const rail = use(RailContext)
-  const reduce = useReducedMotion() ?? false
-  const [arriving] = useState(appear && !reduce)
-  useLayoutEffect(() => {
-    if (arriving) rail?.follow(FOLD_SECONDS * 1000 + 80)
-  }, [arriving, rail])
-  if (!arriving) return <div className={className}>{children}</div>
+}: Readonly<{
+  appear: boolean
+  exit?: boolean
+  className?: string
+  children: ReactNode
+}>) {
+  const follow = useTimelineRailFollow()
+  const reduce = useReducedMotion()
+  const [arriving] = useState(appear)
+  if (reduce || (!arriving && !exit))
+    return <div className={className}>{children}</div>
   return (
     <motion.div
-      initial={{ height: 0 }}
+      initial={arriving ? { height: 0 } : false}
       animate={{ height: "auto" }}
+      exit={exit ? { height: 0 } : undefined}
       transition={{ duration: FOLD_SECONDS, ease: EASE }}
+      onAnimationStart={() => follow(FOLD_SECONDS * 1000 + 80)}
       data-rail-clip
       className="overflow-clip"
     >
@@ -248,6 +258,7 @@ export const timelineFoldSeconds = FOLD_SECONDS
 // One event: the actor's 20px mark on the rail, then "Ana set status …
 // · 2h ago" in one muted line with the names and values in ink.
 export function TimelineEvent({
+  appear,
   mark,
   actor,
   time,
@@ -256,25 +267,25 @@ export function TimelineEvent({
   ...props
 }: Omit<ComponentProps<"li">, "children"> &
   Readonly<{
+    appear?: boolean
     mark: ReactNode
     actor: ReactNode
     time?: ReactNode
     children: ReactNode
   }>) {
   return (
-    <li
-      data-slot="timeline-event"
-      className={cn(
-        "grid grid-cols-[20px_minmax(0,1fr)] gap-x-2 py-2 pl-(--timeline-inset)",
-        className
-      )}
-      {...props}
-    >
-      <TimelineMark className="h-5">{mark}</TimelineMark>
-      <div className={lineClass}>
-        {actor} {children}
-        <Time time={time} />
-      </div>
+    <li data-slot="timeline-event" className={className} {...props}>
+      <TimelineAppear
+        appear={appear ?? false}
+        exit={appear !== undefined}
+        className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2 py-2 pl-(--timeline-inset)"
+      >
+        <TimelineMark className="h-5">{mark}</TimelineMark>
+        <div className={lineClass}>
+          {actor} {children}
+          <Time time={time} />
+        </div>
+      </TimelineAppear>
     </li>
   )
 }

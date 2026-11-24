@@ -17,7 +17,8 @@ import {
   TimelineSkeleton
 } from "@pp/ui/timeline"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useState, type ReactNode } from "react"
+import { AnimatePresence } from "motion/react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import claudeLogo from "@/assets/logos/claude.svg"
 import codexDarkLogo from "@/assets/logos/codex_dark.svg"
@@ -161,10 +162,16 @@ function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
 
 function EventRow({
   line: { actor, at, line },
+  appear,
   lookups
-}: Readonly<{ line: TimelineLine; lookups: ActivityLookups }>) {
+}: Readonly<{
+  line: TimelineLine
+  appear?: boolean
+  lookups: ActivityLookups
+}>) {
   return (
     <TimelineEvent
+      appear={appear}
       mark={<ActorMark actor={actor} />}
       actor={<ActorName actor={actor} />}
       time={<TimelineTime at={at} />}
@@ -177,28 +184,22 @@ function EventRow({
 // A run of changes: the older ones fold into one row that opens right under
 // itself, in either order; the newest stay out (timelineRows decides how
 // many fold).
-function RunRows({
-  lines,
-  fold,
+function FoldedRun({
+  folded,
+  seenThrough,
   order,
   lookups
 }: Readonly<{
-  lines: ReadonlyArray<TimelineLine>
-  fold: number
+  seenThrough: number
+  folded: ReadonlyArray<TimelineLine>
   order: TimelineOrder
   lookups: ActivityLookups
 }>) {
   const [open, setOpen] = useState(false)
-  const inOrder = (rows: ReadonlyArray<TimelineLine>) =>
-    (order === "asc" ? rows : rows.toReversed()).map((line) => (
-      <EventRow key={line.key} line={line} lookups={lookups} />
-    ))
-  if (fold === 0) return inOrder(lines)
-  const folded = lines.slice(0, fold)
   const [lead = null, ...rest] = people(folded)
   const others = rest.length
   const newest = folded.at(-1)
-  const run = (
+  return (
     <TimelineRun
       marks={
         <>
@@ -217,27 +218,22 @@ function RunRows({
                 ? m.tickets_activity_run_others_one()
                 : m.tickets_activity_run_others_many({ count: others })
             }`}{" "}
-          {m.tickets_activity_run_changes({ count: fold })}
+          {m.tickets_activity_run_changes({ count: folded.length })}
         </>
       }
       time={newest && <TimelineTime at={newest.at} />}
       open={open}
       onOpenChange={setOpen}
     >
-      {inOrder(folded)}
+      {(order === "asc" ? folded : folded.toReversed()).map((line) => (
+        <EventRow
+          key={line.key}
+          line={line}
+          appear={line.at.getTime() > seenThrough}
+          lookups={lookups}
+        />
+      ))}
     </TimelineRun>
-  )
-  const kept = inOrder(lines.slice(fold))
-  return order === "asc" ? (
-    <>
-      {run}
-      {kept}
-    </>
-  ) : (
-    <>
-      {kept}
-      {run}
-    </>
   )
 }
 
@@ -262,6 +258,32 @@ export function TicketTimeline<C>({
   const project = useProject()
   const types = useTicketTypes(orgSlug, slug)
 
+  const newest = AsyncResult.isSuccess(result)
+    ? (result.value.items[0]?.occurredAt.getTime() ?? -Infinity)
+    : undefined
+  const [head, setHead] = useState({ newest, previous: newest })
+  if (
+    newest !== undefined &&
+    (head.newest === undefined || newest > head.newest)
+  ) {
+    setHead({ newest, previous: head.newest })
+  }
+  const seenThrough = head.previous
+
+  const activity = AsyncResult.isSuccess(result) ? result.value : undefined
+  const rows = useMemo(
+    () =>
+      timelineRows(
+        timelineEvents({
+          activity: activity?.items ?? [],
+          hasOlder: activity?.hasOlder ?? false,
+          comments
+        }),
+        order
+      ),
+    [activity, comments, order]
+  )
+
   if (AsyncResult.isInitial(result)) {
     return <TimelineSkeleton label={m.tickets_activity_loading()} />
   }
@@ -272,30 +294,45 @@ export function TicketTimeline<C>({
     tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : [],
     types
   }
-  const { items, hasOlder } = AsyncResult.isSuccess(result)
-    ? result.value
-    : { items: [], hasOlder: false }
-  const events = timelineEvents({ activity: items, comments, hasOlder })
-  const rows = timelineRows(events, order)
 
   return (
     <div className="space-y-3">
       <Timeline className="[--timeline-inset:var(--ticket-box-offset)]">
-        {rows.map((row) =>
-          TimelineRow.$is("comment")(row) ? (
-            <TimelineEntry key={row.key} appear={row.comment.appear}>
-              {renderComment(row.comment)}
-            </TimelineEntry>
-          ) : (
-            <RunRows
-              key={row.key}
-              lines={row.lines}
-              fold={row.fold}
-              order={order}
-              lookups={lookups}
-            />
-          )
-        )}
+        <AnimatePresence initial={false}>
+          {rows.flatMap((row) => {
+            if (TimelineRow.$is("comment")(row)) {
+              return [
+                <TimelineEntry key={row.key} appear={row.comment.appear}>
+                  {renderComment(row.comment)}
+                </TimelineEntry>
+              ]
+            }
+            const events = row.lines
+              .slice(row.fold)
+              .map((line) => (
+                <EventRow
+                  key={line.key}
+                  line={line}
+                  appear={
+                    seenThrough !== undefined && line.at.getTime() > seenThrough
+                  }
+                  lookups={lookups}
+                />
+              ))
+            if (row.fold > 0) {
+              events.unshift(
+                <FoldedRun
+                  key={`fold:${row.key}`}
+                  folded={row.lines.slice(0, row.fold)}
+                  seenThrough={seenThrough ?? Infinity}
+                  order={order}
+                  lookups={lookups}
+                />
+              )
+            }
+            return order === "asc" ? events : events.toReversed()
+          })}
+        </AnimatePresence>
       </Timeline>
       {AsyncResult.isFailure(result) && (
         <p role="alert" className="text-body text-destructive">
