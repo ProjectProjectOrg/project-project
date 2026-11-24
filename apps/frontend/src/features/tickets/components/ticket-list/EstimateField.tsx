@@ -9,13 +9,20 @@ import {
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Chip } from "@pp/ui/chip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Reveal } from "@pp/ui/reveal"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
@@ -35,8 +42,6 @@ import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { QuickPoints } from "./QuickPoints"
-
-const NO_ESTIMATE = "__no-estimate"
 
 type EstimateTicket = Readonly<{ estimate: Estimate | null }>
 
@@ -113,50 +118,39 @@ function SizeSelect({
 }>) {
   const current =
     ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
-  const sizeOptions = ESTIMATE_SIZES.map((value, index) => ({
-    value,
-    textValue: value,
-    label: value,
-    separated: index === ESTIMATE_SIZES.length - 1 && ticket.estimate !== null
-  }))
-  const clearOptions =
-    ticket.estimate === null
-      ? []
-      : [
-          {
-            value: NO_ESTIMATE,
-            textValue: m.tickets_estimate_clear(),
-            label: (
-              <>
-                <X className="size-4" strokeWidth={1.75} />
-                {m.tickets_estimate_clear()}
-              </>
-            )
-          }
-        ]
   return (
-    <Select
-      items={[...sizeOptions, ...clearOptions]}
-      value={current}
-      onValueChange={(value) => {
-        if (value === NO_ESTIMATE) {
-          onPatch({ estimate: null })
-          return
-        }
-        const size = ESTIMATE_SIZES.find((entry) => entry === value)
-        if (size !== undefined && size !== current) {
-          onPatch({ estimate: { unit: "tshirt", value: size } })
-        }
-      }}
-      contentProps={{ align: "start", className: "w-40", finalFocus: false }}
-    >
+    <DropdownMenu>
       <ShortcutTooltip
         hotkey={appHotkeys["tickets.estimate"]}
         keyLabels={keyLabels()}
       >
-        <SelectTrigger render={trigger} />
+        <DropdownMenuTrigger render={trigger} />
       </ShortcutTooltip>
-    </Select>
+      <DropdownMenuContent align="start" className="w-40" finalFocus={false}>
+        <DropdownMenuRadioGroup
+          items={ESTIMATE_SIZES.map((value) => ({
+            value,
+            label: value,
+            closeOnClick: true
+          }))}
+          value={current}
+          onValueChange={(size) => {
+            if (size !== current) {
+              onPatch({ estimate: { unit: "tshirt", value: size } })
+            }
+          }}
+        />
+        {ticket.estimate !== null && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onPatch({ estimate: null })}>
+              <X className="size-4" strokeWidth={1.75} />
+              {m.tickets_estimate_clear()}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

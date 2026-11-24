@@ -1,7 +1,12 @@
 import type { Project } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { ChevronDown } from "@pp/ui/icons"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
@@ -66,28 +71,39 @@ export function ProjectSelect({
     )
   }
   return (
-    <Select
-      items={projects.map((entry) => ({
-        value: entry.slug,
-        textValue: entry.name,
-        label: (
-          <span className="flex min-w-0 items-center gap-2">
-            <ProjectTile orgSlug={orgSlug} project={entry} />
-            <span className="truncate">{entry.name}</span>
-          </span>
-        )
-      }))}
-      value={value}
-      onValueChange={onChange}
-      contentProps={{ align: "start", className: "w-56" }}
-    >
-      <SelectTrigger
-        aria-label={m.tickets_create_project_aria_label({ project: label })}
-        render={<Button type="button" variant="ghost" tone="strong" />}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            tone="strong"
+            aria-label={m.tickets_create_project_aria_label({
+              project: label
+            })}
+          />
+        }
       >
         {shown}
         <ChevronDown className="size-3" strokeWidth={1.75} />
-      </SelectTrigger>
-    </Select>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuRadioGroup
+          items={projects.map((entry) => ({
+            value: entry.slug,
+            textValue: entry.name,
+            closeOnClick: true,
+            label: (
+              <span className="flex min-w-0 items-center gap-2">
+                <ProjectTile orgSlug={orgSlug} project={entry} />
+                <span className="truncate">{entry.name}</span>
+              </span>
+            )
+          }))}
+          value={value}
+          onValueChange={onChange}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

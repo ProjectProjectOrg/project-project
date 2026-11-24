@@ -47,6 +47,7 @@ import {
   selectFromOrder,
   type SelectionEntry,
   createSelectionStore,
+  resetSelection,
   type SelectionStore
 } from "./selectionStore"
 
@@ -60,13 +61,14 @@ export function TicketSelectionProvider({
   resetKey,
   children
 }: Readonly<{ resetKey: string; children: ReactNode }>) {
-  const [store, setStore] = useState(createSelectionStore)
-  const [storeKey, setStoreKey] = useState(resetKey)
-  if (storeKey !== resetKey) {
-    setStoreKey(resetKey)
-    setStore(createSelectionStore())
-  }
+  const [store] = useState(createSelectionStore)
   const registry = use(RegistryContext)
+  const shownKey = useRef(resetKey)
+  useLayoutEffect(() => {
+    if (shownKey.current === resetKey) return
+    shownKey.current = resetKey
+    resetSelection(registry, store)
+  }, [registry, store, resetKey])
   const count = useAtomValue(store.count)
   const selecting = count > 0
   const scope = useMemo(

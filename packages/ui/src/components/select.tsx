@@ -36,7 +36,6 @@ export type SelectOption<Value extends string> = Readonly<{
   icon?: IconComponent
   separated?: boolean
   disabled?: boolean
-  onAction?: () => void
 }>
 
 type SelectBaseProps<Value extends string> = Readonly<{
@@ -74,11 +73,6 @@ export type SelectProps<Value extends string = string> =
   | SingleSelectProps<Value>
   | MultipleSelectProps<Value>
 
-type ChoiceValue<Items extends ReadonlyArray<SelectOption<string>>> = Exclude<
-  Items[number],
-  Readonly<{ onAction: () => void }>
->["value"]
-
 // The chosen value, or several with `multiple`, or null while none is.
 type Chosen = string | ReadonlyArray<string> | null
 
@@ -95,7 +89,7 @@ const SelectItemsContext = createContext<SelectShared>({
 })
 
 function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
-  props: SelectProps<ChoiceValue<Items>> & Readonly<{ items: Items }>
+  props: SelectProps<Items[number]["value"]> & Readonly<{ items: Items }>
 ) {
   const {
     items,
@@ -127,8 +121,6 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
       : undefined,
     modal: false
   }
-  const actionFor = (value: string) =>
-    items.find((item) => item.value === value)?.onAction
   const content = (
     <SelectContent
       {...(size === "compact" ? compactContentProps : undefined)}
@@ -142,7 +134,6 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
           icon={item.icon}
           separated={item.separated}
           disabled={item.disabled}
-          indicator={item.onAction === undefined}
         >
           {item.label}
         </SelectItem>
@@ -157,13 +148,7 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
         multiple
         value={props.value}
         defaultValue={props.defaultValue}
-        onValueChange={(next, details) => {
-          const action = next.map(actionFor).find(Boolean)
-          if (action) {
-            details.cancel()
-            action()
-            return
-          }
+        onValueChange={(next) => {
           setUncontrolled(next)
           props.onValueChange?.(next)
         }}
@@ -183,14 +168,8 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
       {...shared}
       value={props.value}
       defaultValue={props.defaultValue}
-      onValueChange={(next, details) => {
+      onValueChange={(next) => {
         if (next === null) return
-        const action = actionFor(next)
-        if (action) {
-          details.cancel()
-          action()
-          return
-        }
         setUncontrolled(next)
         props.onValueChange?.(next)
       }}
@@ -398,7 +377,6 @@ type SelectItemProps = Omit<
     label?: string
     icon?: IconComponent
     separated?: boolean
-    indicator?: boolean
   }>
 
 // The chosen row marks itself like a DropdownMenu radio row: a dot pops into
@@ -421,7 +399,6 @@ function SelectItem({
   label,
   icon: Icon,
   separated = false,
-  indicator = true,
   ...props
 }: SelectItemProps) {
   const item = (
@@ -431,17 +408,15 @@ function SelectItem({
       className={cn(menuItemClass, "group/choice", choiceItemClass, className)}
       {...props}
     >
-      {indicator ? (
-        <SelectPrimitive.ItemIndicator
-          keepMounted
-          aria-hidden
-          className={choiceIndicatorClass}
-        >
-          <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
-            <circle cx="8" cy="8" r="3" className={choiceDotClass} />
-          </svg>
-        </SelectPrimitive.ItemIndicator>
-      ) : null}
+      <SelectPrimitive.ItemIndicator
+        keepMounted
+        aria-hidden
+        className={choiceIndicatorClass}
+      >
+        <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
+          <circle cx="8" cy="8" r="3" className={choiceDotClass} />
+        </svg>
+      </SelectPrimitive.ItemIndicator>
       {Icon ? <Icon size={16} strokeWidth={1.5} /> : null}
       <SelectPrimitive.ItemText className="flex min-w-0 flex-1 items-center gap-2 truncate">
         {children}

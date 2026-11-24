@@ -288,6 +288,7 @@ function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
   if (!item) return
   event.preventDefault()
   event.stopPropagation()
+  item.focus()
   item.click()
 }
 

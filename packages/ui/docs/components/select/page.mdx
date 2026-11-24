@@ -2,7 +2,7 @@ export const meta = {
   title: "Select",
   group: "Primitives",
   description:
-    "Pick one value (or several) from a list that opens under a trigger. Shares the dropdown menu's surface and sliding highlight. Used for filters, view options and settings rows.",
+    "A form field that picks one value (or several) from a list under a trigger: settings rows, imports and forms. Shares the dropdown menu's surface and sliding highlight. Pickers on tickets, toolbars and composers are dropdown menus instead.",
   sources: [
     {
       kind: "base-ui",
@@ -43,7 +43,7 @@ import { Select, SelectTrigger } from "@pp/ui/select"
 
 | Prop            | Type                                                                 | Default     |
 | --------------- | -------------------------------------------------------------------- | ----------- |
-| `items`         | `{ value, label, textValue?, icon?, separated?, disabled?, onAction? }[]` |             |
+| `items`         | `{ value, label, textValue?, icon?, separated?, disabled? }[]`       |             |
 | `value`         | `Value \| null` (`Value[]` with `multiple`)                         |             |
 | `defaultValue`  | `Value \| null` (`Value[]` with `multiple`)                         |             |
 | `onValueChange` | `(value) => void`                                                    |             |
@@ -55,8 +55,6 @@ import { Select, SelectTrigger } from "@pp/ui/select"
 | `disabled`      | `boolean`                                                            | `false`     |
 | `name`          | `string`                                                             |             |
 | `required`      | `boolean`                                                            | `false`     |
-
-An item with `onAction` runs it instead of becoming the value, and shows no tick.
 
 `SelectTrigger`:
 
@@ -71,6 +69,10 @@ An item with `onAction` runs it instead of becoming the value, and shows no tick
 | `render`        | `ReactElement` (own trigger)  |              |
 
 ## Rules
+
+### Select is for forms; pickers are menus
+
+Use a Select where the value belongs to a form or a settings row: Git automation, a Jira or project import, a member's role, the log-time form. Anything you pick while working (a ticket's type or estimate, grouping and ordering in a toolbar, the type in a composer, the org and project switchers) is a `DropdownMenu` with a `DropdownMenuRadioGroup`. Menus give every picker the same keys (1 to 9, then 0, pick a row), can hold actions after the choices ("Edit types…", "Clear"), and nest as submenus in a ticket's menu; a Select can do none of these.
 
 - The trigger is a `Button` with `variant="field"`: the Input's `--field` fill and hairline, corners at half the height, the shared focus ring, a 97% press. The chevron turns over while the list is open.
 - The chosen row marks itself like a dropdown radio row: a leading dot and a semibold label, no row fill and no trailing tick.
@@ -98,9 +100,3 @@ The Jira import maps each Jira status to a project status with compact selects. 
 The role badge in the members list is the trigger itself, through `render`, so a role changes in place.
 
 <Demo name="member-roles" title="Member roles" />
-
-### Ticket type
-
-The type field on a ticket: a ghost trigger with the type's glyph, "No type" after a separator, and an "Edit types…" row with `onAction` that runs instead of becoming the value.
-
-<Demo name="ticket-type" title="Ticket type" />

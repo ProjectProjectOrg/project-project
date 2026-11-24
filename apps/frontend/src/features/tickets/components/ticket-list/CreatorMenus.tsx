@@ -1,7 +1,12 @@
 import type { Group, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { CircleDashed } from "@pp/ui/icons"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useRef, type RefObject } from "react"
 
@@ -20,7 +25,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
-import { typeActionItems, typeMenuItems } from "./TypeField"
+import { TypeMenuActionItem, typeMenuItems } from "./TypeField"
 
 type CreatorMenuProps = Readonly<{
   expanded: boolean
@@ -49,32 +54,42 @@ function useCreatorMenuFocus(inputRef: RefObject<HTMLElement | null>) {
   return { onOpenChange: handleOpenChange, finalFocus }
 }
 
-export function useCreatorTypeItems(
-  orgSlug: string,
-  slug: string,
-  epics: boolean,
+function CreatorTypeOptions({
+  orgSlug,
+  slug,
+  type,
+  lastUsed,
+  epics,
+  onTypeChange
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  type: TypeKey | null
   lastUsed: TypeKey | null | undefined
-) {
+  epics: boolean
+  onTypeChange: (type: TypeKey | null) => void
+}>) {
   const types = useTicketTypes(orgSlug, slug)
   const editing = useTypeEditing(orgSlug, slug)
-  return {
-    types,
-    items: [
-      ...typeMenuItems(types, {
-        epics,
-        lastUsed,
-        separateNone: editing.canEdit
-      }),
-      ...typeActionItems(
-        editing.canEdit
-          ? {
-              label: m.tickets_create_type_edit_types(),
-              onAction: editing.openTypes
-            }
-          : null
-      )
-    ]
-  }
+  return (
+    <>
+      <DropdownMenuRadioGroup
+        items={typeMenuItems(types, { epics, lastUsed })}
+        value={typeOptionValue(type)}
+        onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
+      />
+      <TypeMenuActionItem
+        action={
+          editing.canEdit
+            ? {
+                label: m.tickets_create_type_edit_types(),
+                onAction: editing.openTypes
+              }
+            : null
+        }
+      />
+    </>
+  )
 }
 
 export function CreatorTypeMenu({
@@ -92,23 +107,12 @@ export function CreatorTypeMenu({
     onTypeChange: (type: TypeKey | null) => void
   }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const { types, items } = useCreatorTypeItems(orgSlug, slug, epics, lastUsed)
-  const shown = resolveType(types, type)
+  const shown = resolveType(useTicketTypes(orgSlug, slug), type)
   const label = typeName(shown)
   const focus = useCreatorMenuFocus(inputRef)
   return (
-    <Select
-      items={items}
-      value={typeOptionValue(type)}
-      onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
-      onOpenChange={focus.onOpenChange}
-      contentProps={{
-        align: "start",
-        className: "w-56",
-        finalFocus: focus.finalFocus
-      }}
-    >
-      <SelectTrigger
+    <DropdownMenu onOpenChange={focus.onOpenChange}>
+      <DropdownMenuTrigger
         render={
           <CreatorChip
             expanded={expanded}
@@ -119,7 +123,21 @@ export function CreatorTypeMenu({
           />
         }
       />
-    </Select>
+      <DropdownMenuContent
+        align="start"
+        className="w-56"
+        finalFocus={focus.finalFocus}
+      >
+        <CreatorTypeOptions
+          orgSlug={orgSlug}
+          slug={slug}
+          type={type}
+          lastUsed={lastUsed}
+          epics={epics}
+          onTypeChange={onTypeChange}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -138,17 +156,11 @@ export function CreatorTypeSelect({
   epics: boolean
   onTypeChange: (type: TypeKey | null) => void
 }>) {
-  const { types, items } = useCreatorTypeItems(orgSlug, slug, epics, lastUsed)
-  const shown = resolveType(types, type)
+  const shown = resolveType(useTicketTypes(orgSlug, slug), type)
   const label = typeName(shown)
   return (
-    <Select
-      items={items}
-      value={typeOptionValue(type)}
-      onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
-      contentProps={{ align: "start", className: "w-56" }}
-    >
-      <SelectTrigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
         render={
           <Button
             type="button"
@@ -164,8 +176,18 @@ export function CreatorTypeSelect({
         >
           {label}
         </TextSwap>
-      </SelectTrigger>
-    </Select>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <CreatorTypeOptions
+          orgSlug={orgSlug}
+          slug={slug}
+          type={type}
+          lastUsed={lastUsed}
+          epics={epics}
+          onTypeChange={onTypeChange}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

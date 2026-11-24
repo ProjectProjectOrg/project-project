@@ -126,6 +126,18 @@ export const visibleCommands = <C extends Command>(
     )
   )
 
+export const unavailableHotkeys = (
+  commands: ReadonlyArray<Command>,
+  context: CommandContext
+) => {
+  const hotkeyIds = (list: ReadonlyArray<Command>) =>
+    list.flatMap((command) =>
+      command.hotkey === undefined ? [] : [command.hotkey.id]
+    )
+  const available = new Set(hotkeyIds(visibleCommands(commands, context)))
+  return new Set(hotkeyIds(commands).filter((id) => !available.has(id)))
+}
+
 export const runCommand = (
   command: Command,
   context: CommandContext,

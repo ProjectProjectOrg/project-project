@@ -113,6 +113,16 @@ export const orderContaining = (
       entries.some((entry) => entry.key === key && entry.remove === view)
     )
 
+export const resetSelection = (
+  registry: AtomRegistry,
+  store: SelectionStore
+) => {
+  if (registry.get(store.selection) !== emptySelection)
+    registry.set(store.selection, emptySelection)
+  if (registry.get(store.failure) !== null) registry.set(store.failure, null)
+  if (registry.get(store.outcome) !== null) registry.set(store.outcome, null)
+}
+
 export const updateSelected = (
   registry: AtomRegistry,
   store: SelectionStore,
@@ -204,7 +214,7 @@ export const applySelected = (
 ) => {
   const selection = registry.get(store.selection)
   const sent = updateSelected(registry, store, slug, tickets, patch)
-  registry.set(store.outcome, {
+  const outcome: SelectionOutcome = {
     count: tickets.length,
     pending: false,
     selection,
@@ -216,9 +226,11 @@ export const applySelected = (
               void updateSelected(registry, store, slug, each.ids, each.patch)
             registry.set(store.outcome, null)
           }
-  })
+  }
+  registry.set(store.outcome, outcome)
   return sent.then((ok) => {
-    if (!ok) registry.set(store.outcome, null)
+    if (!ok && registry.get(store.outcome) === outcome)
+      registry.set(store.outcome, null)
     return ok
   })
 }
