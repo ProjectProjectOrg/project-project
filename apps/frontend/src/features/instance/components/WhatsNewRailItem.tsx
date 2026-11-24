@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Megaphone } from "@pp/ui/icons"
 import { SidebarRailItem } from "@pp/ui/sidebar"
-import { Link, useMatchRoute } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { m } from "@/paraglide/messages"
@@ -10,10 +10,9 @@ import { instanceChangelog } from "../atoms/instance"
 import { useWhatsNewSeen } from "../hooks/useWhatsNewSeen"
 import { hasUnseen } from "../lib/whatsNew"
 
-export function WhatsNewRailItem() {
+export function WhatsNewRailItem({ active }: Readonly<{ active: boolean }>) {
   const changelog = useAtomValue(instanceChangelog)
   const { lastSeen } = useWhatsNewSeen()
-  const active = useMatchRoute()({ to: "/changelog" }) !== false
   const unseen =
     !active &&
     AsyncResult.isSuccess(changelog) &&

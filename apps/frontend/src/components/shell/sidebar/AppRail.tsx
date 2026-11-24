@@ -49,7 +49,7 @@ export function AppRail({
       }
       bottom={
         <>
-          <WhatsNewRailItem />
+          <WhatsNewRailItem active={SidebarScope.$is("changelog")(scope)} />
           {orgSlug === null ? null : <SearchItem orgSlug={orgSlug} />}
           <AccountMenu user={user} orgSlug={orgSlug} />
         </>

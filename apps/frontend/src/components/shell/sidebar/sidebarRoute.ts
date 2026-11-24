@@ -11,6 +11,7 @@ export type ProjectRoute = Readonly<{
 }>
 
 export type SidebarScope = Data.TaggedEnum<{
+  changelog: {}
   dashboard: Readonly<{ page: "overview" | "projects" | null }>
   project: Readonly<{
     slug: string
@@ -49,6 +50,8 @@ export function sidebarScope(
   orgSlug: string | null,
   fromSprint: string | undefined
 ) {
+  if (pathname === "/changelog" || pathname.startsWith("/changelog/"))
+    return SidebarScope.changelog()
   if (orgSlug === null) return SidebarScope.none()
   const settingsPrefix = `/settings/orgs/${orgSlug}/projects/`
   if (pathname.startsWith(settingsPrefix)) {
