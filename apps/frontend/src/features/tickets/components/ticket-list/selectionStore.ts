@@ -218,7 +218,7 @@ export const applySelected = (
 ) => {
   const selection = registry.get(store.selection)
   const sent = updateSelected(registry, store, slug, tickets, patch)
-  registry.set(store.outcome, {
+  const outcome: SelectionOutcome = {
     count: tickets.length,
     pending: false,
     selection,
@@ -230,9 +230,12 @@ export const applySelected = (
               void updateSelected(registry, store, slug, each.ids, each.patch)
             registry.set(store.outcome, null)
           }
-  })
+  }
+  registry.set(store.outcome, outcome)
+  // A failure takes back only its own Undo, not a newer edit's.
   return sent.then((ok) => {
-    if (!ok) registry.set(store.outcome, null)
+    if (!ok && registry.get(store.outcome) === outcome)
+      registry.set(store.outcome, null)
     return ok
   })
 }
