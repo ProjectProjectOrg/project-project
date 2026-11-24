@@ -107,6 +107,7 @@ export default function InlineCreate() {
       </BoardCardList>
       <BoardColumnAddButton
         label="New ticket"
+        folded={draft !== null}
         onClick={() => open(tickets.length)}
       />
     </div>

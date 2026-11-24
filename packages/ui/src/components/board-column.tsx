@@ -280,7 +280,7 @@ export function BoardColumnAddButton({
       data-board-column-add
       inert={folded}
       className={cn(
-        "shrink-0 px-2 pb-2 transition-opacity duration-150 ease-standard",
+        "shrink-0 px-2 pb-2",
         pinned ? "pt-2" : "-mt-1",
         folded && "opacity-0"
       )}
