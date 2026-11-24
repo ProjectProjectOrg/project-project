@@ -64,7 +64,7 @@ export function usePreparedRows(
     }
     const update = (event: "scroll" | "resize" | "rest") => {
       const scrolling = event === "scroll"
-      const sync = event === "resize"
+      const sync = event !== "rest"
       const top = root.scrollTop
       if (lastTop !== top) forward = top > lastTop
       lastTop = top
