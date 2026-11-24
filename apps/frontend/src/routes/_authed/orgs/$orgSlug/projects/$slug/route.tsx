@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Crumb } from "@/components/shell/Breadcrumbs"
+import { pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
 import { ProjectLayout } from "@/features/projects/components/ProjectLayout"
 import { mountProject } from "@/features/projects/lib/mountProject"
 import { m } from "@/paraglide/messages"
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
     mountProject(context.registry, orgSlug, slug)
+    context.registry.mount(pinsFor(pinsRequest(orgSlug)))()
     return {
       crumb: [
         Crumb.static({
