@@ -2037,6 +2037,9 @@ input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
       transparent 72px
     );
   }
+  [data-board-column-add] {
+    transition: opacity 150ms var(--ease-standard);
+  }
   .board-column-count {
     background: oklch(from var(--column-tone) l calc(c * 0.6) h / 0.16);
     color: oklch(from var(--column-tone) min(l, 0.46) c h);
