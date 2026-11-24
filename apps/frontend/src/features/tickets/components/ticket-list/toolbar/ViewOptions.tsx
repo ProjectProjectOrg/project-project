@@ -97,7 +97,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
         }}
         className="flex max-h-[var(--available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0"
       >
-        <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain p-3">
+        <div className="min-h-0 space-y-2 overflow-y-auto overscroll-none p-3">
           {viewControls}
           {showSort && <Ordering />}
           {boardScope && (
