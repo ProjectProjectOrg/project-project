@@ -128,75 +128,85 @@ export function TicketPage({
           template={{ ticket, body: bodyDraft ?? ticket.body }}
           onDeleted={goToProject}
         >
-          <aside className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5">
-            <fieldset disabled={!canEdit} className="contents">
-              <MetaRow
-                inset="control"
-                label={m.tickets_page_group_properties()}
-              >
-                <StatusSelect
-                  value={ticket.status}
-                  onChange={(status) => updateTicket({ status })}
-                  disabled={!canEdit}
-                  blocked={blocked}
-                  showLabel
-                />
-                <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
-                <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
-                <AssigneePicker
-                  ticket={ticket}
-                  members={members}
-                  onPatch={updateTicket}
-                />
-              </MetaRow>
-              <MetaRow label={m.tickets_page_group_time()}>
-                {estimation !== "off" && (
-                  <div className="-ml-2.5 [&_[data-slot=button]]:h-7">
-                    <EstimateBadgeTrigger
-                      ticket={ticket}
-                      mode={estimation}
-                      onPatch={updateTicket}
-                    />
-                  </div>
-                )}
-                {actor.call("everhour", "ticketTime") && (
-                  <TicketTimeSection ticket={ticket} />
-                )}
-              </MetaRow>
-              <MetaRow inset="control" label={m.tickets_page_meta_tags()}>
-                <TagEditor
-                  ticket={ticket}
-                  canManageTags={actor.call("tags", "create")}
-                />
-              </MetaRow>
-              <MetaRow inset="control" label={m.tickets_page_group_planning()}>
-                {!isEpic(ticket) && <SprintBadgeTrigger ticketId={ticket.id} />}
-                {!isEpic(ticket) && hierarchy.subTicketOf === null && (
-                  <EpicField
+          <aside className="min-w-0 lg:min-h-[calc(100dvh-8rem)]">
+            <div className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5">
+              <fieldset disabled={!canEdit} className="contents">
+                <MetaRow
+                  inset="control"
+                  label={m.tickets_page_group_properties()}
+                >
+                  <StatusSelect
+                    value={ticket.status}
+                    onChange={(status) => updateTicket({ status })}
+                    disabled={!canEdit}
+                    blocked={blocked}
+                    showLabel
+                  />
+                  <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+                  <PriorityBadgeTrigger
                     ticket={ticket}
-                    editable={canEdit}
                     onPatch={updateTicket}
                   />
-                )}
-              </MetaRow>
-              <TicketRelationRows
-                ticketId={ticket.id}
-                relations={ticket.relations}
-                members={members}
-                editable={canEdit}
-              />
-            </fieldset>
-            {github && (
-              <MetaRow inset="control" label={m.tickets_page_meta_git()}>
-                <TicketGitPanel
-                  ticket={ticket}
-                  github={github}
-                  branchTemplate={null}
-                  variant="ghost"
+                  <AssigneePicker
+                    ticket={ticket}
+                    members={members}
+                    onPatch={updateTicket}
+                  />
+                </MetaRow>
+                <MetaRow label={m.tickets_page_group_time()}>
+                  {estimation !== "off" && (
+                    <div className="-ml-2.5 [&_[data-slot=button]]:h-7">
+                      <EstimateBadgeTrigger
+                        ticket={ticket}
+                        mode={estimation}
+                        onPatch={updateTicket}
+                      />
+                    </div>
+                  )}
+                  {actor.call("everhour", "ticketTime") && (
+                    <TicketTimeSection ticket={ticket} />
+                  )}
+                </MetaRow>
+                <MetaRow inset="control" label={m.tickets_page_meta_tags()}>
+                  <TagEditor
+                    ticket={ticket}
+                    canManageTags={actor.call("tags", "create")}
+                  />
+                </MetaRow>
+                <MetaRow
+                  inset="control"
+                  label={m.tickets_page_group_planning()}
+                >
+                  {!isEpic(ticket) && (
+                    <SprintBadgeTrigger ticketId={ticket.id} />
+                  )}
+                  {!isEpic(ticket) && hierarchy.subTicketOf === null && (
+                    <EpicField
+                      ticket={ticket}
+                      editable={canEdit}
+                      onPatch={updateTicket}
+                    />
+                  )}
+                </MetaRow>
+                <TicketRelationRows
+                  ticketId={ticket.id}
+                  relations={ticket.relations}
+                  members={members}
+                  editable={canEdit}
                 />
-              </MetaRow>
-            )}
-            <TicketDesignLinks ticket={ticket} />
+              </fieldset>
+              {github && (
+                <MetaRow inset="control" label={m.tickets_page_meta_git()}>
+                  <TicketGitPanel
+                    ticket={ticket}
+                    github={github}
+                    branchTemplate={null}
+                    variant="ghost"
+                  />
+                </MetaRow>
+              )}
+              <TicketDesignLinks ticket={ticket} />
+            </div>
           </aside>
         </TicketContextMenu>
       }
