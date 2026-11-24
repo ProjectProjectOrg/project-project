@@ -72,9 +72,7 @@ export function useFeedbackFiles(orgSlug: string, route: string) {
     drafts,
     rejection,
     uploading: drafts.some((draft) => draft.state === "uploading"),
-    readyIds: drafts.flatMap((draft) =>
-      draft.state === "ready" ? [draft.id] : []
-    ),
+    ready: drafts.filter((draft) => draft.state === "ready"),
     add,
     remove
   }

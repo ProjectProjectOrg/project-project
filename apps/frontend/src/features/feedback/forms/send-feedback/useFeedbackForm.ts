@@ -52,7 +52,7 @@ export function useFeedbackForm(
         title: value.title.trim(),
         description: value.description.trim(),
         route: initial.route,
-        attachmentIds: files.readyIds
+        attachments: files.ready
       })
       if (Exit.isSuccess(exit)) {
         onSent()
