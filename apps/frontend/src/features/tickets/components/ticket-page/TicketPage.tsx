@@ -116,39 +116,52 @@ export function TicketPage({
           template={template}
           onDeleted={goToProject}
         >
-          <aside className="min-w-0 lg:min-h-[calc(100dvh-8rem)]">
+          <aside
+            data-ticket-page={ticket.id}
+            className="min-w-0 lg:min-h-[calc(100dvh-8rem)]"
+          >
             <div className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5">
               <fieldset disabled={!canEdit} className="contents">
                 <MetaRow
                   inset="control"
                   label={m.tickets_page_group_properties()}
                 >
-                  <StatusSelect
-                    value={ticket.status}
-                    onChange={(status) => updateTicket({ status })}
-                    disabled={!canEdit}
-                    blocked={blocked}
-                    showLabel
-                  />
-                  <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
-                  <PriorityBadgeTrigger
-                    ticket={ticket}
-                    onPatch={updateTicket}
-                  />
-                  <AssigneePicker
-                    ticket={ticket}
-                    members={members}
-                    onPatch={updateTicket}
-                  />
+                  <span data-ticket-field="status" className="contents">
+                    <StatusSelect
+                      value={ticket.status}
+                      onChange={(status) => updateTicket({ status })}
+                      disabled={!canEdit}
+                      blocked={blocked}
+                      showLabel
+                    />
+                  </span>
+                  <span data-ticket-field="type" className="contents">
+                    <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+                  </span>
+                  <span data-ticket-field="priority" className="contents">
+                    <PriorityBadgeTrigger
+                      ticket={ticket}
+                      onPatch={updateTicket}
+                    />
+                  </span>
+                  <span data-ticket-field="assignee" className="contents">
+                    <AssigneePicker
+                      ticket={ticket}
+                      members={members}
+                      onPatch={updateTicket}
+                    />
+                  </span>
                 </MetaRow>
                 <MetaRow label={m.tickets_page_group_time()}>
                   {estimation !== "off" && (
                     <div className="-ml-2.5 [&_[data-slot=button]]:h-7">
-                      <EstimateBadgeTrigger
-                        ticket={ticket}
-                        mode={estimation}
-                        onPatch={updateTicket}
-                      />
+                      <span data-ticket-field="estimate" className="contents">
+                        <EstimateBadgeTrigger
+                          ticket={ticket}
+                          mode={estimation}
+                          onPatch={updateTicket}
+                        />
+                      </span>
                     </div>
                   )}
                   {actor.call("everhour", "ticketTime") && (
@@ -166,14 +179,18 @@ export function TicketPage({
                   label={m.tickets_page_group_planning()}
                 >
                   {!isEpic(ticket) && (
-                    <SprintBadgeTrigger ticketId={ticket.id} />
+                    <span data-ticket-field="sprint" className="contents">
+                      <SprintBadgeTrigger ticketId={ticket.id} />
+                    </span>
                   )}
                   {!isEpic(ticket) && hierarchy.subTicketOf === null && (
-                    <EpicField
-                      ticket={ticket}
-                      editable={canEdit}
-                      onPatch={updateTicket}
-                    />
+                    <span data-ticket-field="epic" className="contents">
+                      <EpicField
+                        ticket={ticket}
+                        editable={canEdit}
+                        onPatch={updateTicket}
+                      />
+                    </span>
                   )}
                 </MetaRow>
                 <TicketRelationRows

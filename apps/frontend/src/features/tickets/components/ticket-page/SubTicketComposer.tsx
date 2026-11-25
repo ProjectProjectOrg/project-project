@@ -32,6 +32,7 @@ import {
   createChildTicket
 } from "@/features/tickets/atoms/childTickets"
 import { TicketFieldChips } from "@/features/tickets/components/create-ticket/TicketFieldChips"
+import { useCreatorFocus } from "@/features/tickets/components/ticket-list/useCreatorFocus"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import {
   DEFAULT_TICKET_FIELDS,
@@ -64,6 +65,8 @@ export function SubTicketComposer({
   const [failure, setFailure] = useState<string | null>(null)
   const creatorType = useCreatorType({ orgSlug, slug, epics: false })
   const titleInput = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const { active } = useCreatorFocus(formRef, undefined, true)
   const description = useRef("")
   useEffect(() => titleInput.current?.focus(), [])
   const inEpic = isEpic(parent)
@@ -123,6 +126,8 @@ export function SubTicketComposer({
 
   return (
     <form
+      ref={formRef}
+      data-ticket-composer={active || undefined}
       onSubmit={(event) => void submit(event)}
       className="flex flex-col overflow-hidden rounded-xl border border-border/60 surface-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] [corner-shape:var(--button-corner)]"
     >

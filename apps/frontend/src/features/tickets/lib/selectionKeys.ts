@@ -42,6 +42,32 @@ export const openRowField = (
   return true
 }
 
+// The page field each key opens: the row's, plus the ones only the page shows.
+const PAGE_FIELDS = {
+  ...ROW_FIELDS,
+  "tickets.type": "type",
+  "tickets.estimate": "estimate",
+  "tickets.parent": "epic"
+} as const
+
+// On a ticket's page, a field's key presses the page's own control for it
+// (data-ticket-field) instead of opening ⌘K, or the sub-ticket composer's
+// while it's the last thing used; false when the page isn't showing that
+// ticket or the field, or the field can't be edited.
+export const openPageField = (hotkey: string, ticketId: TicketId) => {
+  const field = Object.entries(PAGE_FIELDS).find(([id]) => id === hotkey)?.[1]
+  if (field === undefined) return false
+  const scope =
+    document.querySelector("[data-ticket-composer]") ??
+    document.querySelector(`[data-ticket-page="${CSS.escape(ticketId)}"]`)
+  const control = scope?.querySelector<HTMLButtonElement>(
+    `[data-ticket-field="${field}"] button`
+  )
+  if (!control || control.disabled) return false
+  control.click()
+  return true
+}
+
 // Lights the field under the pointer (or focus) on every selected row, by
 // naming it on the list's root.
 export const lightRowFields = (root: HTMLElement) => {

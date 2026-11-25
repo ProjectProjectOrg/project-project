@@ -1,3 +1,4 @@
+import { belowMenuBackdrop, isMenuBackdrop } from "@pp/ui/lib/menuBackdrop"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
@@ -42,13 +43,21 @@ export function useCreatorFocus(
     }
     const onPointerDown = (e: PointerEvent) => {
       const container = containerRef.current
-      if (container && !ownsNode(container, e.target)) leave()
+      if (!container) return
+      // An open menu's backdrop takes the click; what's under it counts.
+      // Capture, so this reads it before the menu closes and unmarks it.
+      const target = isMenuBackdrop(e.target)
+        ? (belowMenuBackdrop(e) ?? null)
+        : e.target
+      if (!ownsNode(container, target)) return leave()
+      activeRef.current = true
+      setActive(true)
     }
     document.addEventListener("focusin", onFocusIn)
-    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("pointerdown", onPointerDown, true)
     return () => {
       document.removeEventListener("focusin", onFocusIn)
-      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("pointerdown", onPointerDown, true)
     }
   }, [containerRef, leave])
 
