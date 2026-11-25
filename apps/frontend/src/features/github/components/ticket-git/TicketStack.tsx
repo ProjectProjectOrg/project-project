@@ -64,7 +64,7 @@ export function StackedBranches({
   const rows = bottom === null ? stack : [bottom, ...stack]
   const count = stackPullRequestCount(own, stack)
   return (
-    <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
+    <div className={variant === "bordered" ? PANEL_CHROME : "pl-2"}>
       <section
         className="flex flex-col gap-1.5"
         aria-label={m.git_stack_heading()}
@@ -87,10 +87,12 @@ export function StackedBranches({
           ))}
         </ul>
         <span
-          className="inline-flex items-center gap-1 text-micro text-muted-foreground"
+          className="inline-flex items-center gap-2 text-micro text-muted-foreground"
           title={m.git_stack_count_title(count)}
         >
-          <Layers className="size-3" aria-hidden />
+          <span className="flex w-3.5 shrink-0 justify-center">
+            <Layers className="size-3" aria-hidden />
+          </span>
           {m.git_stack_count(count)}
         </span>
       </section>
