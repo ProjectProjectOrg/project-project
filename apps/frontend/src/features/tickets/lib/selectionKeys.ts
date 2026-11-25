@@ -58,7 +58,7 @@ export const openPageField = (hotkey: string, ticketId: TicketId) => {
   const control = scope?.querySelector<HTMLButtonElement>(
     `[data-ticket-field="${field}"] button`
   )
-  if (!control || control.disabled) return false
+  if (!control || control.matches(":disabled")) return false
   control.click()
   return true
 }
