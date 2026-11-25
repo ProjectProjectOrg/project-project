@@ -65,6 +65,7 @@ describe("coalesceActivity", () => {
     expect(coalesceActivity(newestFirst([first, second]))).toEqual([
       {
         ...second,
+        id: first.id,
         change: {
           kind: "estimate_changed",
           from: null,
@@ -102,12 +103,12 @@ describe("coalesceActivity", () => {
     expect(coalesceActivity(newestFirst([typed, cleared]))).toEqual([])
   })
 
-  it("collapses a burst of description edits by one person", () => {
+  it("collapses a burst of description edits into one entry that keeps its first id", () => {
     const first = entry(0, edited)
     const second = entry(5 * 60, edited)
     const third = entry(14 * 60, edited)
     expect(coalesceActivity(newestFirst([first, second, third]))).toEqual([
-      third
+      { ...third, id: first.id }
     ])
   })
 
@@ -140,7 +141,7 @@ describe("coalesceActivity", () => {
     const first = entry(0, moved("todo", "in_progress"))
     const second = entry(30, moved("in_progress", "done"))
     expect(coalesceActivity(newestFirst([first, second]))).toEqual([
-      { ...second, change: moved("todo", "done") }
+      { ...second, id: first.id, change: moved("todo", "done") }
     ])
   })
 
