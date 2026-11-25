@@ -4,7 +4,10 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { use } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { openRowField } from "@/features/tickets/lib/selectionKeys"
+import {
+  openPageField,
+  openRowField
+} from "@/features/tickets/lib/selectionKeys"
 
 import { commandContext } from "../atoms/commandContext"
 import {
@@ -44,12 +47,14 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     if (
       id !== undefined &&
       target.ticket !== null &&
-      openRowField(
+      (openRowField(
         id,
         target.ticket.slug,
         target.selection,
         pointed?.ticketId ?? null
-      )
+      ) ||
+        (target.selection.length === 0 &&
+          openPageField(id, target.ticket.ticketId)))
     )
       return
     const key = {

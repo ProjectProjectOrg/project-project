@@ -168,6 +168,10 @@ A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its wa
 
 A pick from the keyboard (Enter, or a row's digit) closes the menu in 80ms instead of 150ms, the submenu's fade: the hand is already on the next key, and a full fade reads as lag, while no fade at all leaves the trigger's new value rolling in on its own. A digit also moves the highlight to its row first, so a menu that stays open shows the pick where you're looking.
 
+### A keyboard close returns focus to the trigger
+
+`finalFocus={false}` keeps focus off the trigger after a pointer close, so a mouse pick doesn't leave a ring or its tooltip on the chip. A close from the keyboard (Escape, or a pick with Enter or a digit) still returns focus to the trigger, so Tab carries on from there instead of the top of the page.
+
 ### Hover and press match the buttons
 
 The highlight that glides between rows takes `--menu-hover` on hover and `--menu-active` while pressed: a fixed lightness step from the popup's fill (see Interaction states), so they show on the plain and the raised menu alike. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.

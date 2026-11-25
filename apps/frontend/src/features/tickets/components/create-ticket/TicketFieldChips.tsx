@@ -37,38 +37,48 @@ export function TicketFieldChips({
   const estimation = Result.isSuccess(detail) ? detail.value.estimation : "off"
   return (
     <>
-      <StatusSelect
-        manageAction={false}
-        value={value.status ?? DEFAULT_STATUS}
-        onChange={(status) => onChange({ status })}
-        showLabel
-      />
-      <fieldset disabled={typeLocked} className="contents">
-        <CreatorTypeSelect
-          orgSlug={orgSlug}
-          slug={slug}
-          type={creatorType.type}
-          lastUsed={creatorType.lastUsed}
-          epics={creatorType.epics}
-          onTypeChange={creatorType.pick}
+      <span data-ticket-field="status" className="contents">
+        <StatusSelect
+          manageAction={false}
+          value={value.status ?? DEFAULT_STATUS}
+          onChange={(status) => onChange({ status })}
+          showLabel
         />
-      </fieldset>
-      <PrioritySelect
-        value={value.priority ?? creatorType.prediction?.priority ?? "med"}
-        onChange={(priority) => onChange({ priority })}
-        showLabel
-      />
-      <AssigneeSelect
-        value={value.assignees}
-        onChange={(assignees) => onChange({ assignees })}
-        members={members}
-        variant="chip"
-      />
-      <EstimateBadgeTrigger
-        ticket={{ estimate: value.estimate }}
-        mode={estimation}
-        onPatch={(patch) => onChange({ estimate: patch.estimate ?? null })}
-      />
+      </span>
+      <span data-ticket-field="type" className="contents">
+        <fieldset disabled={typeLocked} className="contents">
+          <CreatorTypeSelect
+            orgSlug={orgSlug}
+            slug={slug}
+            type={creatorType.type}
+            lastUsed={creatorType.lastUsed}
+            epics={creatorType.epics}
+            onTypeChange={creatorType.pick}
+          />
+        </fieldset>
+      </span>
+      <span data-ticket-field="priority" className="contents">
+        <PrioritySelect
+          value={value.priority ?? creatorType.prediction?.priority ?? "med"}
+          onChange={(priority) => onChange({ priority })}
+          showLabel
+        />
+      </span>
+      <span data-ticket-field="assignee" className="contents">
+        <AssigneeSelect
+          value={value.assignees}
+          onChange={(assignees) => onChange({ assignees })}
+          members={members}
+          variant="chip"
+        />
+      </span>
+      <span data-ticket-field="estimate" className="contents">
+        <EstimateBadgeTrigger
+          ticket={{ estimate: value.estimate }}
+          mode={estimation}
+          onPatch={(patch) => onChange({ estimate: patch.estimate ?? null })}
+        />
+      </span>
     </>
   )
 }

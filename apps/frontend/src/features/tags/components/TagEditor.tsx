@@ -144,63 +144,65 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           />
         )
       })}
-      <DropdownMenu
-        filterable={{
-          value: draft,
-          onValueChange: (next) => setDraft(next.toLowerCase())
-        }}
-        onOpenChange={(open) => {
-          const trigger = triggerRef.current
-          if (!open || !trigger) return
-          const bounds = trigger.getBoundingClientRect()
-          setAnchor({
-            getBoundingClientRect: () => bounds,
-            contextElement: trigger
-          })
-        }}
-        onOpenChangeComplete={(open) => {
-          if (!open) setDraft("")
-        }}
-      >
-        <ShortcutTooltip
-          hotkey={appHotkeys["tickets.tags"]}
-          keyLabels={keyLabels()}
+      <span data-ticket-field="labels" className="contents">
+        <DropdownMenu
+          filterable={{
+            value: draft,
+            onValueChange: (next) => setDraft(next.toLowerCase())
+          }}
+          onOpenChange={(open) => {
+            const trigger = triggerRef.current
+            if (!open || !trigger) return
+            const bounds = trigger.getBoundingClientRect()
+            setAnchor({
+              getBoundingClientRect: () => bounds,
+              contextElement: trigger
+            })
+          }}
+          onOpenChangeComplete={(open) => {
+            if (!open) setDraft("")
+          }}
         >
-          <DropdownMenuTrigger
-            ref={triggerRef}
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                tone={displayed.length === 0 ? "muted" : "strong"}
-                size={displayed.length === 0 ? undefined : "icon-sm"}
-                aria-label={m.tags_add_button()}
-              >
-                <Plus className="size-3.5" strokeWidth={1.75} />
-                {displayed.length === 0 ? m.tags_add_button() : null}
-              </Button>
-            }
-          />
-        </ShortcutTooltip>
-        <DropdownMenuContent
-          anchor={anchor}
-          align="start"
-          sideOffset={6}
-          className="w-56"
-        >
-          <TagMenuBody
-            tags={registry}
-            applied={displayedNames}
-            draft={draft}
-            canCreate={canManageTags}
-            error={mutationErrorText(createState)}
-            onToggle={(name) =>
-              ticketHasTag(name) ? removeFromTicket(name) : addTag(name)
-            }
-            onCreate={(name) => void createAndApply(name)}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+          <ShortcutTooltip
+            hotkey={appHotkeys["tickets.tags"]}
+            keyLabels={keyLabels()}
+          >
+            <DropdownMenuTrigger
+              ref={triggerRef}
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  tone={displayed.length === 0 ? "muted" : "strong"}
+                  size={displayed.length === 0 ? undefined : "icon-sm"}
+                  aria-label={m.tags_add_button()}
+                >
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                  {displayed.length === 0 ? m.tags_add_button() : null}
+                </Button>
+              }
+            />
+          </ShortcutTooltip>
+          <DropdownMenuContent
+            anchor={anchor}
+            align="start"
+            sideOffset={6}
+            className="w-56"
+          >
+            <TagMenuBody
+              tags={registry}
+              applied={displayedNames}
+              draft={draft}
+              canCreate={canManageTags}
+              error={mutationErrorText(createState)}
+              onToggle={(name) =>
+                ticketHasTag(name) ? removeFromTicket(name) : addTag(name)
+              }
+              onCreate={(name) => void createAndApply(name)}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </span>
       {deleteError && (
         <p role="alert" className="basis-full text-caption text-destructive">
           {deleteError}
