@@ -1,15 +1,16 @@
 import { ArrowRight } from "@pp/ui/icons"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
-import { commandItem } from "@/features/command-menu/components/RootCommands"
+import { commandItem } from "@/features/command-menu/lib/commandItem"
 import {
   runCommand,
   visibleCommands
 } from "@/features/command-menu/lib/commands"
+import { goTo, sprintPath } from "@/features/sprints/lib/sprintCommands"
 import { m } from "@/paraglide/messages"
 
 import { SprintContextChip, type SprintPageProps } from "./SprintCommandPages"
-import { goTo, sprintPath, useSprintActions } from "./SprintCommandScopes"
+import { useSprintActions } from "./SprintCommandScopes"
 
 export function SprintPlanPage({
   context,

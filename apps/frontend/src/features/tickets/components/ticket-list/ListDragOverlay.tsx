@@ -4,10 +4,10 @@ import type { Ticket, TicketId } from "@pp/shared"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
+import { isRowDragData } from "@/features/tickets/lib/rowDragData"
 import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
 import { useIgnoreListHover } from "./ListKeyboard"
-import { isRowDragData } from "./ListRowDrag"
 import { RowDragPreview } from "./RowDragPreview"
 
 const GRAB_X = 24

@@ -201,32 +201,23 @@ export function SprintBadgeTrigger({
   ticketId: TicketId
   className?: string
 }) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = sprintListRequest(orgSlug, slug)
-  const list = useAtomValue(sprintList(req))
-  const membership = useAtomValue(sprintMembership(req))
-  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
-  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
-  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }), {
-    mode: "promiseExit"
-  })
-  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
-  const sprints = Result.isSuccess(list) ? list.value : []
-  const hasAnyEligible = sprints.some((s) => s.completedAt === null)
-  const current = Result.isSuccess(membership)
-    ? (membership.value.get(ticketId) ?? null)
-    : null
-  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
-  const actor = useProjectActor()
-  const canMove = GroupPolicy.can(actor, "sprint", "remove_ticket")
-  const canPlan = GroupPolicy.can(actor, "sprint", "manage")
-  const label = failed
-    ? m.tickets_sprint_assign_error_fallback()
-    : (current?.name ?? m.tickets_sprint_none())
-
-  if (creating || (!hasAnyEligible && Result.isSuccess(list) && canPlan)) {
+  const {
+    orgSlug,
+    slug,
+    sprints,
+    current,
+    failed,
+    canMove,
+    canPlan,
+    hasAnyEligible,
+    label,
+    loaded,
+    addTickets,
+    removeTickets
+  } = useSprintAssignment(ticketId)
+  if (creating || (!hasAnyEligible && loaded && canPlan)) {
     return (
       <NewSprintPopover
         open={creating}
@@ -290,4 +281,44 @@ export function SprintBadgeTrigger({
       )}
     </PickerField>
   )
+}
+
+function useSprintAssignment(ticketId: TicketId) {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = sprintListRequest(orgSlug, slug)
+  const list = useAtomValue(sprintList(req))
+  const membership = useAtomValue(sprintMembership(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
+  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }), {
+    mode: "promiseExit"
+  })
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
+  const sprints = Result.isSuccess(list) ? list.value : []
+  const hasAnyEligible = sprints.some((s) => s.completedAt === null)
+  const current = Result.isSuccess(membership)
+    ? (membership.value.get(ticketId) ?? null)
+    : null
+  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
+  const actor = useProjectActor()
+  const canMove = GroupPolicy.can(actor, "sprint", "remove_ticket")
+  const canPlan = GroupPolicy.can(actor, "sprint", "manage")
+  const label = failed
+    ? m.tickets_sprint_assign_error_fallback()
+    : (current?.name ?? m.tickets_sprint_none())
+
+  return {
+    orgSlug,
+    slug,
+    sprints,
+    current,
+    failed,
+    canMove,
+    canPlan,
+    hasAnyEligible,
+    label,
+    loaded: Result.isSuccess(list),
+    addTickets,
+    removeTickets
+  }
 }

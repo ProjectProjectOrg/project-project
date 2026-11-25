@@ -9,7 +9,7 @@ import type {
   TicketStatus,
   TypeKey
 } from "@pp/shared"
-import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
+import { finishedStatusSlugs } from "@pp/shared"
 import { OctagonMinus } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
@@ -50,16 +50,12 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import { previewOverflows } from "@/features/tickets/lib/ticketPreview"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
-
-export const previewOverflows = (body: string) => {
-  const text = flattenTicketBlocks(body)
-  return text.split("\n").length > 6 || text.length > 320
-}
 
 type TicketHoverCardScope = {
   readonly orgSlug: string

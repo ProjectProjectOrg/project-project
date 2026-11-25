@@ -6,7 +6,7 @@ import type { MentionScope } from "./scope"
 /*
  * A kind of thing "@" can mention (people, tickets) and how its menu group
  * looks. The search behind it is the app's (EditorServices
- * useMentionSearch).
+ * MentionSearch).
  */
 
 export type MentionCandidate = Readonly<{

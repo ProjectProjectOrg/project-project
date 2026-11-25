@@ -5,7 +5,7 @@ import * as Predicate from "effect/Predicate"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
   everhourProjectRequest,

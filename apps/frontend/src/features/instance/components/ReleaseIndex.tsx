@@ -1,6 +1,6 @@
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 import { type MouseEvent, useLayoutEffect, useRef, useState } from "react"
 
 import { m } from "@/paraglide/messages"
@@ -64,9 +64,9 @@ export function ReleaseIndex({
         {mark === null ? null : (
           <motion.span
             aria-hidden
-            className="absolute top-0 left-0 w-0.5 -translate-x-px rounded-full bg-foreground"
+            className="absolute top-0 left-0 h-px w-0.5 origin-top -translate-x-px rounded-full bg-foreground"
             initial={false}
-            animate={{ y: mark.y, height: mark.height }}
+            animate={{ y: mark.y, scaleY: mark.height }}
             transition={reduce ? { duration: 0 } : spring.moderate}
           />
         )}

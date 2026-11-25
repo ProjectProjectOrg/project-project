@@ -7,15 +7,17 @@ import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
+import {
+  noticeText,
+  creatableLayers
+} from "@/features/library/lib/entryStanding"
 import { m } from "@/paraglide/messages"
 
 import { libraryView, type LibraryScope } from "../atoms/libraryScope"
 import { useLibraryPermissions } from "../hooks/useLibraryPermissions"
-import { creatableLayers } from "../lib/entryStanding"
 import { LibraryNewLink } from "./LibraryEntryLink"
 import { OrgSectionList, OrgTypeList } from "./OrgEntryList"
 import { ProjectSectionGroups, ProjectTypeGroups } from "./ProjectEntryGroups"
-import { noticeText } from "./ScopeBox"
 
 export type LibraryTab = "types" | "sections"
 

@@ -2,7 +2,7 @@ import type { WorkTypeOption } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Clock3, Play, Square } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 
 import { WorkTypeSelect } from "@/features/everhour/components/WorkTypeSelect"
 import * as m from "@/paraglide/messages"
@@ -21,7 +21,7 @@ export interface TimeControlsProps {
   children: React.ReactNode
 }
 
-export const disclosureMotion = (reduceMotion: boolean) =>
+const disclosureMotion = (reduceMotion: boolean) =>
   reduceMotion
     ? {
         initial: false as const,

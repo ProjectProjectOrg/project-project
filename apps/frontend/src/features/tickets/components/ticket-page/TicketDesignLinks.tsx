@@ -1,16 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
-import {
-  figmaRefKey,
-  figmaSrc,
-  parseFigmaUrl,
-  type FigmaRef,
-  type TicketDetail
-} from "@pp/shared"
+import { figmaRefKey, type TicketDetail } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { FigmaGlyph, figmaDisplayName } from "@pp/ui/editor/figma/figma-chip"
-import { useFigmaMetadata } from "@pp/ui/editor/figma/figma-metadata"
+import { FigmaMetadata } from "@pp/ui/editor/figma/figma-metadata"
 import { PaperGlyph } from "@pp/ui/editor/paper/paper-glyph"
-import { isPaperDesignUrl } from "@pp/ui/editor/paper/paper-url"
 import type { TicketTarget } from "@pp/ui/editor/services"
 import { ExternalLink } from "@pp/ui/icons"
 import * as Data from "effect/Data"
@@ -21,58 +14,11 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
+import {
+  TicketDesignLink,
+  extractTicketDesignLinks
+} from "@/features/tickets/lib/ticketDesignLinks"
 import { m } from "@/paraglide/messages"
-
-export type TicketDesignLink = Data.TaggedEnum<{
-  figma: Readonly<{
-    url: string
-    label: string
-    reference: FigmaRef
-  }>
-  paper: Readonly<{ url: string; label: string }>
-}>
-export const TicketDesignLink = Data.taggedEnum<TicketDesignLink>()
-
-const DESIGN_LINK_RE =
-  /\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s)<>"']+)/gi
-
-const unescapeLabel = (label: string) => label.replace(/\\(.)/g, "$1")
-
-const trimBareUrl = (url: string) => url.replace(/[.,;:!?}\]_*~]+$/g, "")
-
-export function extractTicketDesignLinks(markdown: string) {
-  const seen = new Set<string>()
-  const links: Array<TicketDesignLink> = []
-
-  for (const match of markdown.matchAll(DESIGN_LINK_RE)) {
-    const markdownUrl = match[2]
-    const url = markdownUrl ?? trimBareUrl(match[3] ?? "")
-    const label = markdownUrl === undefined ? "" : unescapeLabel(match[1] ?? "")
-    const figmaReference = parseFigmaUrl(url)
-
-    if (figmaReference !== null) {
-      const key = `figma:${figmaRefKey(figmaReference)}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      links.push(
-        TicketDesignLink.figma({
-          url: figmaSrc(url),
-          label,
-          reference: figmaReference
-        })
-      )
-      continue
-    }
-
-    if (!isPaperDesignUrl(url)) continue
-    const key = `paper:${url}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    links.push(TicketDesignLink.paper({ url, label }))
-  }
-
-  return links
-}
 
 function LinkContents({
   glyph,
@@ -105,33 +51,38 @@ function FigmaDesignLink({
   link: Data.TaggedEnum.Value<TicketDesignLink, "figma">
   request: TicketTarget
 }) {
-  const metadata = useFigmaMetadata(link.reference, request)
-  const name = figmaDisplayName({
-    resolved: metadata?.name ?? null,
-    label: link.label,
-    slug: link.reference.slug
-  })
-  const resolvedName = name || m.figma_chip_loading()
-
   return (
-    <Button
-      variant="ghost"
-      className="w-fit max-w-full justify-start"
-      size="inline"
-      render={
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          title={metadata?.fileName ?? resolvedName}
-        />
-      }
-    >
-      <LinkContents
-        glyph={<FigmaGlyph className="h-3.5" />}
-        name={resolvedName}
-      />
-    </Button>
+    <FigmaMetadata reference={link.reference} target={request}>
+      {(metadata) => {
+        const name = figmaDisplayName({
+          resolved: metadata?.name ?? null,
+          label: link.label,
+          slug: link.reference.slug
+        })
+        const resolvedName = name || m.figma_chip_loading()
+
+        return (
+          <Button
+            variant="ghost"
+            className="w-fit max-w-full justify-start"
+            size="inline"
+            render={
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={metadata?.fileName ?? resolvedName}
+              />
+            }
+          >
+            <LinkContents
+              glyph={<FigmaGlyph className="h-3.5" />}
+              name={resolvedName}
+            />
+          </Button>
+        )
+      }}
+    </FigmaMetadata>
   )
 }
 

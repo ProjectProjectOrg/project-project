@@ -12,7 +12,7 @@ import { Link } from "@tanstack/react-router"
 import {
   AnimatePresence,
   MotionConfig,
-  motion,
+  m as motion,
   useReducedMotion
 } from "motion/react"
 import { useRef, type ReactNode } from "react"
@@ -122,6 +122,7 @@ function StageRail({
 }>) {
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
+  const reachable = new Set(navigable)
 
   return (
     <nav
@@ -151,7 +152,7 @@ function StageRail({
               interactive={
                 onStage !== undefined &&
                 index !== currentIndex &&
-                navigable.includes(stage)
+                reachable.has(stage)
               }
               registerItem={hover.registerItem}
               onSelect={() => onStage?.(stage)}

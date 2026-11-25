@@ -23,6 +23,8 @@ const presets = () =>
     { label: m.tickets_archive_preset_obsolete(), icon: Clock }
   ] satisfies ReadonlyArray<ArchivePreset>
 
+const focusDetails = (field: HTMLTextAreaElement | null) => field?.focus()
+
 export function ArchiveForm({
   ticket,
   onArchive,
@@ -72,8 +74,7 @@ export function ArchiveForm({
         <form.Field name="details">
           {(field) => (
             <textarea
-              // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the popover
-              autoFocus
+              ref={focusDetails}
               value={field.value}
               onChange={(event) => field.handleChange(event.target.value)}
               onBlur={field.handleBlur}

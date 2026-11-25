@@ -1,3 +1,4 @@
+import { attachmentUrl, type ProjectIconImage } from "@pp/shared"
 import { createValidator } from "@tanstack/react-form"
 import * as Schema from "effect/Schema"
 
@@ -5,6 +6,7 @@ import {
   CUTOUT_DEFAULT_TOLERANCE,
   CUTOUT_MAX_TOLERANCE
 } from "@/features/projects/lib/iconCutout"
+import { appliedIconTreatment } from "@/features/projects/lib/iconDraft"
 import { appFormOptions } from "@/lib/form"
 
 export const IconSource = Schema.TaggedUnion({
@@ -54,19 +56,22 @@ export const stepValidator = createValidator({
   ]
 })
 
-export const iconFormOpts = (icon: string, hasImage: boolean) =>
+export const iconFormOpts = (
+  icon: string,
+  iconImage: ProjectIconImage | null,
+  orgSlug: string
+) =>
   appFormOptions.looseSchema(iconFormSchema, {
     defaultValues: {
       source: {
-        _tag: hasImage ? "image" : "emoji",
+        _tag: iconImage ? "image" : "emoji",
         emoji: icon,
-        objectUrl: null
+        objectUrl: iconImage
+          ? attachmentUrl(orgSlug, iconImage.sourceAttachmentId)
+          : null
       },
-      crop: { x: 0.5, y: 0.5, zoom: 1 },
-      treatment: {
-        kind: "sticker",
-        tolerance: CUTOUT_DEFAULT_TOLERANCE
-      }
+      crop: iconImage ? { ...iconImage.crop } : { x: 0.5, y: 0.5, zoom: 1 },
+      treatment: appliedIconTreatment(iconImage, CUTOUT_DEFAULT_TOLERANCE)
     },
     validators: [
       {

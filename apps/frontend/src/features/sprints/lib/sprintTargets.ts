@@ -1,6 +1,12 @@
-import { sprintState, type Group, type GroupId } from "@pp/shared"
+import {
+  pickActiveSprint,
+  pickEarliestPlannedSprint,
+  sprintState,
+  type Group,
+  type GroupId
+} from "@pp/shared"
 
-import { timeOr } from "./sprintDates"
+import { nowDate, timeOr } from "./sprintDates"
 
 const STATE_ORDER = { completed: 0, active: 1, planned: 2 } as const
 
@@ -26,4 +32,28 @@ export function sprintNeighbours(
     previous: index > 0 ? ordered[index - 1] : null,
     next: index >= 0 ? (ordered[index + 1] ?? null) : null
   }
+}
+
+export function pickDefaultSprint(
+  sprints: ReadonlyArray<Group>,
+  now: Date = nowDate()
+) {
+  return (
+    pickActiveSprint(sprints, now) ??
+    pickEarliestPlannedSprint(sprints, now) ??
+    null
+  )
+}
+
+export const eligibleSprints = (sprints: ReadonlyArray<Group>) => {
+  const now = nowDate()
+  const stateOrder = { active: 0, planned: 1, completed: 2 } as const
+  return sprints
+    .filter((s) => s.completedAt === null)
+    .toSorted((a, b) => {
+      const sa = stateOrder[sprintState(a, now)]
+      const sb = stateOrder[sprintState(b, now)]
+      if (sa !== sb) return sa - sb
+      return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+    })
 }

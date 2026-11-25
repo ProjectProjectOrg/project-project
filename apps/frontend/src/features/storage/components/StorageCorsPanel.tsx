@@ -2,10 +2,8 @@ import { CodeSnippet } from "@pp/ui/code-snippet"
 import { useMemo, useState } from "react"
 
 import { SettingsDisclosureItem } from "@/components/shell/settings/SettingsDisclosureItem"
-import {
-  SettingsGroup,
-  SettingsSection
-} from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
+import { SettingsSection } from "@/components/shell/settings/SettingsSection"
 import { m } from "@/paraglide/messages"
 
 type CorsProvider = Readonly<{

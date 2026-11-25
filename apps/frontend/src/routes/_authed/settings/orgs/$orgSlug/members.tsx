@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { settingsPage } from "@/components/shell/settings/SettingsLayout"
+import { settingsPage } from "@/components/shell/settings/settingsPage"
 import { OrgMembersSettings } from "@/features/members/components/OrgMembersSettings"
 import { orgMembers, orgRequest } from "@/features/organizations/atoms/orgs"
 import { m } from "@/paraglide/messages"

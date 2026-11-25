@@ -9,10 +9,10 @@ import { Crown, Link2, LogOut, Trash2 } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { MemberAvatar, type AvatarSubject } from "@pp/ui/member-avatar"
 import * as Exit from "effect/Exit"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
-import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
   AddMemberForm,
   MemberMenuSpacer,

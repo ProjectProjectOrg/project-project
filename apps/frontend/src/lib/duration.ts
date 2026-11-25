@@ -1,5 +1,11 @@
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const durationList = perLocale(Intl.ListFormat, {
+  style: "long",
+  type: "unit"
+})
 
 export const WORK_DAY_HOURS = 8
 export const WORK_WEEK_DAYS = 5
@@ -97,10 +103,7 @@ export const formatWorkDurationShort = (seconds: number) => {
 
 export const formatWorkDurationLong = (seconds: number) => {
   const { weeks, days, hours, minutes } = workParts(seconds)
-  return new Intl.ListFormat(getLocale(), {
-    style: "long",
-    type: "unit"
-  }).format([
+  return durationList(getLocale()).format([
     ...(weeks > 0 ? [m.time_duration_weeks_long({ weeks })] : []),
     ...(days > 0 ? [m.time_duration_days_long({ days })] : []),
     ...(hours > 0 ? [m.time_duration_hours_long({ hours })] : []),

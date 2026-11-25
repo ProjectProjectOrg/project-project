@@ -1,20 +1,7 @@
 import { cn } from "@pp/ui/lib/utils"
-import * as Data from "effect/Data"
 
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
-import type { IconCrop, IconTreatment } from "@/features/projects/lib/iconDraft"
-
-export type LiveIcon = Data.TaggedEnum<{
-  emoji: Readonly<{ emoji: string }>
-  image: Readonly<{
-    src: string
-    crop: IconCrop
-    treatment: IconTreatment
-  }>
-}>
-export const LiveIcon = Data.taggedEnum<LiveIcon>()
-
-export type LiveImageIcon = Data.TaggedEnum.Value<LiveIcon, "image">
+import type { LiveImageIcon } from "@/features/projects/lib/iconDraft"
 
 export function LiveIconImage({ live }: { live: LiveImageIcon }) {
   return (

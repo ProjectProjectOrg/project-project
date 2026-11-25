@@ -94,94 +94,91 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
   const [workType, setWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
 
+  if (!Result.isSuccess(panelResult)) {
+    return (
+      <AsyncView
+        result={panelResult}
+        contained
+        onInitial={() => (
+          <div className="h-16 animate-pulse rounded bg-muted/40" />
+        )}
+        onSuccess={() => null}
+      />
+    )
+  }
+  const panel = panelResult.value
+  const waiting = panelResult.waiting
+  if (!panel.profile.connected) return <ConnectEverhourInline />
+  const options = panel.workTypes
+  if (options.length === 0) {
+    return (
+      <p className="text-caption text-muted-foreground">
+        {m.time_no_sprint_hint()}
+      </p>
+    )
+  }
+  const effectiveWorkType = workType ?? options[0].key
+  const running =
+    panel.activeTimer !== null && panel.activeTimer.ticketId === ticket.id
+  const busy = waiting || startState.waiting || stopState.waiting
+
   return (
-    <AsyncView
-      result={panelResult}
-      contained
-      onInitial={() => (
-        <div className="h-16 animate-pulse rounded bg-muted/40" />
-      )}
-      onSuccess={({ value: panel, waiting }) => {
-        if (!panel.profile.connected) return <ConnectEverhourInline />
-        const options = panel.workTypes
-        if (options.length === 0) {
-          return (
-            <p className="text-caption text-muted-foreground">
-              {m.time_no_sprint_hint()}
-            </p>
-          )
+    <div className="flex flex-col gap-3">
+      <div
+        className={
+          busy
+            ? "flex animate-pulse items-center gap-5 tabular-nums"
+            : "flex items-center gap-5 tabular-nums"
         }
-        const effectiveWorkType = workType ?? options[0].key
-        const running =
-          panel.activeTimer !== null && panel.activeTimer.ticketId === ticket.id
-        const busy =
-          startState.waiting || stopState.waiting || panelResult.waiting
-        const timePulse = waiting || startState.waiting || stopState.waiting
+      >
+        <TrackedFigure
+          label={m.time_tracked_total()}
+          seconds={panel.time.totalSeconds}
+        />
+        <TrackedFigure
+          label={m.time_tracked_yours()}
+          seconds={panel.time.userSeconds}
+        />
+        <Popover>
+          <PopoverTrigger
+            aria-label={m.time_sync_explainer()}
+            render={
+              <Button variant="ghost" size="square-7" className="ml-auto" />
+            }
+          >
+            <Info className="h-4 w-4" />
+          </PopoverTrigger>
+          <PopoverContent className="w-72">
+            <p className="text-caption text-muted-foreground">
+              {m.time_sync_explainer()}
+            </p>
+          </PopoverContent>
+        </Popover>
+      </div>
 
-        return (
-          <div className="flex flex-col gap-3">
-            <div
-              className={
-                timePulse
-                  ? "flex animate-pulse items-center gap-5 tabular-nums"
-                  : "flex items-center gap-5 tabular-nums"
-              }
-            >
-              <TrackedFigure
-                label={m.time_tracked_total()}
-                seconds={panel.time.totalSeconds}
-              />
-              <TrackedFigure
-                label={m.time_tracked_yours()}
-                seconds={panel.time.userSeconds}
-              />
-              <Popover>
-                <PopoverTrigger
-                  aria-label={m.time_sync_explainer()}
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="square-7"
-                      className="ml-auto"
-                    />
-                  }
-                >
-                  <Info className="h-4 w-4" />
-                </PopoverTrigger>
-                <PopoverContent className="w-72">
-                  <p className="text-caption text-muted-foreground">
-                    {m.time_sync_explainer()}
-                  </p>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <TimeControls
-              value={effectiveWorkType}
-              onValueChange={setWorkType}
-              options={options}
-              running={running}
-              busy={busy}
-              error={timerError}
-              onStart={() => void start({ workTypeKey: effectiveWorkType })}
-              onStop={() => void stop()}
-              logOpen={showLog}
-              onLogOpenChange={setShowLog}
-            >
-              <LogTimeForm
-                orgSlug={orgSlug}
-                slug={slug}
-                ticketId={ticket.id}
-                request={req}
-                options={options}
-                defaultWorkType={effectiveWorkType}
-                onDone={() => setShowLog(false)}
-              />
-            </TimeControls>
-          </div>
-        )
-      }}
-    />
+      <TimeControls
+        value={effectiveWorkType}
+        onValueChange={setWorkType}
+        options={options}
+        running={running}
+        busy={busy}
+        error={timerError}
+        onStart={() => void start({ workTypeKey: effectiveWorkType })}
+        onStop={() => void stop()}
+        logOpen={showLog}
+        onLogOpenChange={setShowLog}
+      >
+        <LogTimeForm
+          orgSlug={orgSlug}
+          slug={slug}
+          ticketId={ticket.id}
+          request={req}
+          options={options}
+          defaultWorkType={effectiveWorkType}
+          onDone={() => setShowLog(false)}
+        />
+      </TimeControls>
+    </div>
   )
 }
 

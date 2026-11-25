@@ -85,25 +85,13 @@ export function TicketPage({
   const patchTicket = useAtomSet(updateTicketDetail(req), {
     mode: "promiseExit"
   })
-  const archiveTicketSet = useAtomSet(archiveTicket(req), {
-    mode: "promiseExit"
-  })
-  const archiveState = useAtomValue(archiveTicket(req))
-  const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
-  const unarchiveState = useAtomValue(unarchiveTicket(req))
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const actor = useProjectActor()
   const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
   const hierarchy = ticketHierarchy(ticket)
-  const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
-  const blocked =
-    openBlockers(
-      ticket.relations,
-      new Set(
-        finishedStatusSlugs(Result.isSuccess(statuses) ? statuses.value : [])
-      )
-    ).length > 0
+  const blocked = useBlockedTicket(orgSlug, slug, ticket)
+  const template = { ticket, body: bodyDraft ?? ticket.body }
   const navigate = useNavigate()
   const goToProject = () =>
     void navigate({
@@ -125,7 +113,7 @@ export function TicketPage({
           ticket={ticket}
           members={members}
           onPatch={updateTicket}
-          template={{ ticket, body: bodyDraft ?? ticket.body }}
+          template={template}
           onDeleted={goToProject}
         >
           <aside className="min-w-0 lg:min-h-[calc(100dvh-8rem)]">
@@ -214,28 +202,13 @@ export function TicketPage({
         <>
           {stepper}
           {actor.call("tickets", "archive") && (
-            <ArchiveTicketControl
-              ticket={ticket}
-              archived={ticket.archivedAt !== null}
-              onArchive={archiveTicketSet}
-              onUnarchive={unarchiveTicketSet}
-              waiting={
-                ticket.archivedAt !== null
-                  ? unarchiveState.waiting
-                  : archiveState.waiting
-              }
-              failed={
-                ticket.archivedAt !== null
-                  ? Result.isFailure(unarchiveState)
-                  : Result.isFailure(archiveState)
-              }
-            />
+            <TicketArchive ticket={ticket} />
           )}
           <TicketMenuButton
             ticket={ticket}
             members={members}
             onPatch={updateTicket}
-            template={{ ticket, body: bodyDraft ?? ticket.body }}
+            template={template}
             onDeleted={goToProject}
           />
         </>
@@ -299,5 +272,46 @@ export function TicketPage({
         />
       </main>
     </TicketPageShell>
+  )
+}
+
+function TicketArchive({ ticket }: Readonly<{ ticket: TicketDetail }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = ticketRequest(orgSlug, slug, ticket.id)
+  const archiveTicketSet = useAtomSet(archiveTicket(req), {
+    mode: "promiseExit"
+  })
+  const archiveState = useAtomValue(archiveTicket(req))
+  const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
+  const unarchiveState = useAtomValue(unarchiveTicket(req))
+  return (
+    <ArchiveTicketControl
+      ticket={ticket}
+      archived={ticket.archivedAt !== null}
+      onArchive={archiveTicketSet}
+      onUnarchive={unarchiveTicketSet}
+      waiting={
+        ticket.archivedAt !== null
+          ? unarchiveState.waiting
+          : archiveState.waiting
+      }
+      failed={
+        ticket.archivedAt !== null
+          ? Result.isFailure(unarchiveState)
+          : Result.isFailure(archiveState)
+      }
+    />
+  )
+}
+
+function useBlockedTicket(orgSlug: string, slug: string, ticket: TicketDetail) {
+  const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  return (
+    openBlockers(
+      ticket.relations,
+      new Set(
+        finishedStatusSlugs(Result.isSuccess(statuses) ? statuses.value : [])
+      )
+    ).length > 0
   )
 }

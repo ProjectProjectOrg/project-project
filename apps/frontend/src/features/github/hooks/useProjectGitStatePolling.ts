@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GitStatesResponse } from "@pp/shared"
 import { useVisibleInterval } from "@pp/ui/hooks/useVisibleInterval"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 
 import {
   invalidateGitStateTickets,
@@ -30,7 +30,9 @@ export function useProjectGitStatePolling(
   const waiting = useRef(reading)
   const seen = useRef<GitStatesResponse | undefined>(undefined)
   const scheduled = useRef<number | undefined>(undefined)
-  waiting.current = reading
+  useLayoutEffect(() => {
+    waiting.current = reading
+  }, [reading])
 
   useEffect(() => {
     if (!enabled || !AsyncResult.isSuccess(states) || states.waiting) return

@@ -18,7 +18,6 @@ import {
 import { Check, Plus } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
-import type { ListboxState } from "@pp/ui/menu-listbox"
 import { MenuNote } from "@pp/ui/menu-note"
 import { popupSurfaceClass } from "@pp/ui/menu-styles"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
@@ -28,12 +27,12 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
 import {
   useContext,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
+  useLayoutEffect,
+  type RefObject,
   type FormEvent,
   type KeyboardEvent,
   type Ref
@@ -128,7 +127,6 @@ export function SprintTicketCreator({
   const pendingEpic = picker.epic
   const inputRef = useRef<HTMLInputElement>(null)
   const keysRef = useRef<ListKeys>(null)
-  const [menuListbox, setMenuListbox] = useState<ListboxState | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const { active: expanded } = useCreatorFocus(formRef)
   const trimmed = title.trim()
@@ -309,7 +307,103 @@ export function SprintTicketCreator({
     />
   )
 
-  const dropdown = dropdownOpen ? (
+  return (
+    <HotkeysProvider scope="ticket-list">
+      <TicketCreatorShell
+        inputRef={inputRef}
+        formRef={formRef}
+        value={title}
+        onValueChange={(v) => {
+          picker.close()
+          setTitle(v)
+          setListDismissed(false)
+        }}
+        onFocus={() => {
+          setInputFocused(true)
+          setListDismissed(false)
+        }}
+        onBlur={() => {
+          setInputFocused(false)
+          setAdded(new Set())
+        }}
+        onKeyDown={onKeyDown}
+        onSubmit={onSubmit}
+        expanded={expanded}
+        placeholder={m.sprints_combobox_placeholder()}
+        ariaLabel={m.sprints_combobox_placeholder()}
+        busy={submitting}
+        maxLength={200}
+        error={error}
+        listbox={null}
+        leadingAddons={[typeAddon]}
+        belowInput={
+          <>
+            {dropdownOpen && (
+              <SprintTicketOptions
+                menuItems={menuItems}
+                items={items}
+                picker={picker}
+                keysRef={keysRef}
+                inputRef={inputRef}
+                results={results}
+                note={note}
+                commit={commit}
+                addPendingEpic={addPendingEpic}
+              />
+            )}
+            <AutoHeight>
+              {expanded && (
+                <div className="flex items-center gap-3 px-3 pt-1.5">
+                  <StartsWithLine start={creatorType.start} />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={addDetails}
+                    className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0"
+                  >
+                    {m.tickets_create_add_details()}
+                    <KbdShortcut
+                      size="sm"
+                      keys="mod+enter"
+                      keyLabels={keyLabels()}
+                    />
+                  </button>
+                </div>
+              )}
+            </AutoHeight>
+            <span role="status" className="sr-only">
+              {announcement}
+            </span>
+          </>
+        }
+      />
+    </HotkeysProvider>
+  )
+}
+
+function SprintTicketOptions({
+  menuItems,
+  items,
+  picker,
+  keysRef,
+  inputRef,
+  results,
+  note,
+  commit,
+  addPendingEpic
+}: Readonly<{
+  menuItems: ReadonlyArray<CommandMenuItemData>
+  items: ReadonlyMap<string, Item>
+  picker: ReturnType<typeof useEpicPicker>
+  keysRef: Ref<ListKeys>
+  inputRef: RefObject<HTMLInputElement | null>
+  results: ReturnType<typeof useAddableTicketSearch>["results"]
+  note: MenuNoteContent | null
+  commit: (item: Item | undefined) => Promise<void>
+  addPendingEpic: () => void
+}>) {
+  const pendingEpic = picker.epic
+  return (
     <div
       className={cn(
         popupSurfaceClass,
@@ -333,7 +427,7 @@ export function SprintTicketCreator({
           ref={keysRef}
           hasMore={results.hasMore}
           loadMore={results.loadMore}
-          onListboxChange={setMenuListbox}
+          inputRef={inputRef}
         />
         <div
           className="flex min-h-0 flex-1 flex-col"
@@ -402,67 +496,6 @@ export function SprintTicketCreator({
         )}
       </CommandMenu>
     </div>
-  ) : null
-
-  return (
-    <HotkeysProvider scope="ticket-list">
-      <TicketCreatorShell
-        inputRef={inputRef}
-        formRef={formRef}
-        value={title}
-        onValueChange={(v) => {
-          picker.close()
-          setTitle(v)
-          setListDismissed(false)
-        }}
-        onFocus={() => {
-          setInputFocused(true)
-          setListDismissed(false)
-        }}
-        onBlur={() => {
-          setInputFocused(false)
-          setAdded(new Set())
-        }}
-        onKeyDown={onKeyDown}
-        onSubmit={onSubmit}
-        expanded={expanded}
-        placeholder={m.sprints_combobox_placeholder()}
-        ariaLabel={m.sprints_combobox_placeholder()}
-        busy={submitting}
-        maxLength={200}
-        error={error}
-        listbox={menuListbox}
-        leadingAddons={[typeAddon]}
-        belowInput={
-          <>
-            {dropdown}
-            <AutoHeight>
-              {expanded && (
-                <div className="flex items-center gap-3 px-3 pt-1.5">
-                  <StartsWithLine start={creatorType.start} />
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={addDetails}
-                    className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md text-caption text-muted-foreground transition-colors hover:text-foreground hover:duration-0"
-                  >
-                    {m.tickets_create_add_details()}
-                    <KbdShortcut
-                      size="sm"
-                      keys="mod+enter"
-                      keyLabels={keyLabels()}
-                    />
-                  </button>
-                </div>
-              )}
-            </AutoHeight>
-            <span role="status" className="sr-only">
-              {announcement}
-            </span>
-          </>
-        }
-      />
-    </HotkeysProvider>
   )
 }
 
@@ -470,27 +503,37 @@ function CommandMenuKeys({
   ref,
   hasMore,
   loadMore,
-  onListboxChange
+  inputRef
 }: Readonly<{
   ref: Ref<ListKeys>
   hasMore: boolean
   loadMore: () => void
-  onListboxChange: (listbox: ListboxState | null) => void
+  inputRef: RefObject<HTMLInputElement | null>
 }>) {
   const { move, rows, highlight, select, listId } = useCommandMenu()
-  const index = useSyncExternalStore(
-    highlight.subscribe,
-    highlight.get,
-    () => null
-  )
-  useEffect(() => {
-    onListboxChange({
-      id: listId,
-      open: true,
-      activeId: index === null ? null : commandMenuItemId(listId, index)
-    })
-  }, [listId, index, onListboxChange])
-  useEffect(() => () => onListboxChange(null), [onListboxChange])
+  useLayoutEffect(() => {
+    const input = inputRef.current
+    if (!input) return undefined
+    const syncHighlight = () => {
+      const index = highlight.get()
+      if (index === null) input.removeAttribute("aria-activedescendant")
+      else
+        input.setAttribute(
+          "aria-activedescendant",
+          commandMenuItemId(listId, index)
+        )
+    }
+    input.setAttribute("aria-controls", listId)
+    input.setAttribute("aria-expanded", "true")
+    syncHighlight()
+    const unsubscribe = highlight.subscribe(syncHighlight)
+    return () => {
+      unsubscribe()
+      input.setAttribute("aria-expanded", "false")
+      input.removeAttribute("aria-controls")
+      input.removeAttribute("aria-activedescendant")
+    }
+  }, [inputRef, highlight, listId])
   useImperativeHandle(
     ref,
     () => ({

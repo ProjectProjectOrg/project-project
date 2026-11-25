@@ -6,7 +6,7 @@ import * as Match from "effect/Match"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useEffect, useMemo, useRef, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -94,7 +94,7 @@ export function TicketDetail() {
       useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, urlId)))
     )
   )
-  const autoFocusBody = useRef(search.focusBody === "1").current
+  const [autoFocusBody] = useState(() => search.focusBody === "1")
 
   useEffect(() => {
     if (!autoFocusBody) return

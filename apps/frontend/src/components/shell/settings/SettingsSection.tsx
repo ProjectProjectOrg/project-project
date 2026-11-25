@@ -1,14 +1,7 @@
-import { useRender } from "@base-ui/react/use-render"
 import { cn } from "@pp/ui/lib/utils"
-import {
-  createContext,
-  use,
-  useId,
-  useMemo,
-  type ComponentProps,
-  type MouseEvent,
-  type ReactNode
-} from "react"
+import { useId, useMemo, type MouseEvent, type ReactNode } from "react"
+
+import { SettingsRowContext } from "./useSettingsRow"
 
 type SettingsSectionProps = Readonly<{
   title?: ReactNode
@@ -49,38 +42,6 @@ export function SettingsSection({
       {children}
     </section>
   )
-}
-
-export function SettingsGroup({
-  className,
-  render,
-  ...props
-}: ComponentProps<"div"> & { render?: useRender.RenderProp }) {
-  const group = useRender({
-    defaultTagName: "div",
-    render,
-    props: {
-      ...props,
-      className: cn(
-        "tertiary-tiles divide-y divide-border overflow-hidden rounded-lg border border-border surface-card",
-        className
-      )
-    }
-  })
-  return group
-}
-
-type SettingsRowIds = Readonly<{
-  labelId: string
-  descriptionId: string | undefined
-}>
-
-const SettingsRowContext = createContext<SettingsRowIds | null>(null)
-
-export function useSettingsRow() {
-  const ids = use(SettingsRowContext)
-  if (!ids) throw new Error("useSettingsRow must be used inside SettingsRow")
-  return ids
 }
 
 // A row holding a switch toggles it from anywhere on the row: the whole row
@@ -130,8 +91,8 @@ export function SettingsRow({
 
   return (
     <SettingsRowContext value={ids}>
-      {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a pointer shortcut only: keyboard users reach the switch itself */}
       <div
+        role="presentation"
         onClick={toggleRowSwitch}
         className={cn(
           "flex min-h-14 gap-x-4 gap-y-3 px-4 py-3",

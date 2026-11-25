@@ -1,9 +1,7 @@
 import { getRouteApi } from "@tanstack/react-router"
 
-import {
-  SettingsGroup,
-  SettingsSection
-} from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
+import { SettingsSection } from "@/components/shell/settings/SettingsSection"
 import { GitAutomationSettings } from "@/features/github/components/GitAutomationSettings"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { EstimationSettings } from "@/features/projects/components/settings/EstimationSettings"

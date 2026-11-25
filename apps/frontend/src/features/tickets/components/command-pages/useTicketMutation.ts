@@ -43,7 +43,8 @@ export function useTicketMutation(
   const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)
-    const current = edited.filter((each) => tickets.includes(each.id))
+    const selected = new Set(tickets)
+    const current = edited.filter((each) => selected.has(each.id))
     return {
       current: sharedTicketFields(current),
       update: (edit: TicketEdit) => {

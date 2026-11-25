@@ -1476,6 +1476,13 @@
     --chip-shift: calc(0.5ex - 0.5cap);
   }
 }
+[data-board-assignee-visible]
+  [data-slot="board-assignee"]
+  [data-slot="reveal"] {
+  opacity: 1;
+  transition-duration: 0ms;
+}
+
 @layer components {
   .inline-chip {
     position: relative;

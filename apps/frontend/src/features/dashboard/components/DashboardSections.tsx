@@ -38,6 +38,7 @@ import {
   recentTicketsRequest,
   recentTicketUpdates,
   type CountedColumn,
+  type OrgTicketsValue,
   type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { GroupingMenu } from "@/features/tickets/components/ticket-list/GroupingMenu"
@@ -155,8 +156,8 @@ function MyTicketsList({
 }
 
 function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
-  const preview = useTicketPreview()
   const [expanded, setExpanded] = useState(false)
+  const preview = useTicketPreview()
   const result = useAtomValue(myTickets(req))
   const refresh = useAtomRefresh(myTickets(req))
   return (
@@ -166,43 +167,64 @@ function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
         <ReadFailure failure={failure} onRetry={refresh} />
       )}
       onInitial={() => <RowsSkeleton count={4} />}
-      onSuccess={({ value }) =>
-        value.tickets.length === 0 ? (
-          <EmptyTickets />
-        ) : (
-          <>
-            <DashboardRows
-              orgSlug={req.params.orgSlug}
-              tickets={
-                expanded
-                  ? value.tickets
-                  : value.tickets.slice(0, COMPACT_TICKET_LIMIT)
-              }
-              update={myTicketUpdates(req)}
-              preview={preview}
-            />
-            {expanded ? (
-              <>
-                <MyTicketsPagination
-                  req={req}
-                  nextCursor={value.nextCursor}
-                  loaded={value.tickets.length}
-                  total={value.total}
-                />
-                <ShowLessButton onCollapse={() => setExpanded(false)} />
-              </>
-            ) : (
-              value.total > COMPACT_TICKET_LIMIT && (
-                <RevealMoreButton
-                  remaining={value.total - COMPACT_TICKET_LIMIT}
-                  onReveal={() => setExpanded(true)}
-                />
-              )
-            )}
-          </>
-        )
-      }
+      onSuccess={({ value }) => (
+        <FlatTicketRows
+          req={req}
+          value={value}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          preview={preview}
+        />
+      )}
     />
+  )
+}
+
+function FlatTicketRows({
+  req,
+  value,
+  expanded,
+  setExpanded,
+  preview
+}: Readonly<{
+  req: MyTicketsRequest
+  value: OrgTicketsValue
+  expanded: boolean
+  setExpanded: (expanded: boolean) => void
+  preview: ReturnType<typeof useTicketPreview>
+}>) {
+  const limit = expanded ? undefined : COMPACT_TICKET_LIMIT
+  return value.tickets.length === 0 ? (
+    <EmptyTickets />
+  ) : (
+    <>
+      <DashboardRows
+        orgSlug={req.params.orgSlug}
+        tickets={
+          limit === undefined ? value.tickets : value.tickets.slice(0, limit)
+        }
+        update={myTicketUpdates(req)}
+        preview={preview}
+      />
+      {expanded ? (
+        <>
+          <MyTicketsPagination
+            req={req}
+            nextCursor={value.nextCursor}
+            loaded={value.tickets.length}
+            total={value.total}
+          />
+          <ShowLessButton onCollapse={() => setExpanded(false)} />
+        </>
+      ) : (
+        value.total > COMPACT_TICKET_LIMIT && (
+          <RevealMoreButton
+            remaining={value.total - COMPACT_TICKET_LIMIT}
+            onReveal={() => setExpanded(true)}
+          />
+        )
+      )}
+    </>
   )
 }
 

@@ -1,5 +1,8 @@
-import { TicketStatus } from "@pp/shared"
-import type { GithubConnection, TicketDetail } from "@pp/shared"
+import {
+  TicketStatus,
+  type GithubConnection,
+  type TicketDetail
+} from "@pp/shared"
 import {
   DropdownMenuGroup,
   DropdownMenuInput,
@@ -41,7 +44,7 @@ export function CreateBranchSubmenu({
   const [name, setName] = useState(suggestedName)
   const defaultBase = github.defaultBaseBranch ?? "main"
   const [base, setBase] = useState(defaultBase)
-  const [status, setStatus] = useState(TicketStatus.make("in_progress"))
+  const [status, setStatus] = useState(() => TicketStatus.make("in_progress"))
   const branchName = sanitizeBranchName(name)
 
   function submit() {

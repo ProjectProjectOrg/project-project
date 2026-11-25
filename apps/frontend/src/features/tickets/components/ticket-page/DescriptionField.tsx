@@ -23,7 +23,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type Ref
+  type Ref,
+  type ReactNode
 } from "react"
 
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
@@ -91,7 +92,6 @@ export function DescriptionField({
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
-  const canConnectStorage = useOrgActor(orgSlug).call("storage", "connect")
   const target = { orgSlug, slug, ticketId: ticket.id }
   const involved = useTicketParticipants(ticket.id)
   const library = blocks?.library ?? null
@@ -128,6 +128,274 @@ export function DescriptionField({
       )
   }
 
+  useDescriptionHandle(
+    ref,
+    { editor, editorRef, ensureEditor, edit },
+    library,
+    lookup,
+    rootRef
+  )
+
+  const landedRef = useRef(false)
+  useEffect(() => {
+    const instance = editorRef.current
+    if (
+      !autoFocus ||
+      library === null ||
+      editor === null ||
+      instance === null ||
+      landedRef.current
+    )
+      return
+    landedRef.current = true
+    editor.templates.selectFirstDescriptionHint(instance, lookup)
+  }, [autoFocus, editor, editorRef, library, lookup])
+
+  const [readEditFailed, setReadEditFailed] = useAtom(ticketReadEditFailed(req))
+  const saveBody = async (next: string) => {
+    const exit = await update({ body: next })
+    if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+    setBodyDraft((draft) => (draft === next ? null : draft))
+    setReadEditFailed(false)
+  }
+
+  const taskSave = useRef(0)
+  const saveReadEdit = (next: string) => {
+    const save = ++taskSave.current
+    setBodyDraft(next)
+    setSaveStatus("saving")
+    const finish = (status: SaveStatus) => {
+      if (save === taskSave.current) setSaveStatus(status)
+    }
+    void saveBody(next).then(
+      () => finish("saved"),
+      () => {
+        if (save === taskSave.current) setReadEditFailed(true)
+        finish("failed")
+      }
+    )
+  }
+
+  const empty = SLASH_COMMAND_ONLY.test(body.trim())
+  const canStart =
+    library !== null && startingTypes(types, ticket.type).length > 0
+  const offersStarts = canStart && empty
+  const Editor = editor?.Editor
+
+  return (
+    <DescriptionSurface
+      rootRef={rootRef}
+      editing={editing}
+      empty={empty}
+      loading={loadState === "loading"}
+      onEdit={edit}
+      feedback={
+        <DescriptionFeedback
+          loadFailed={loadState === "failed"}
+          readEditFailed={readEditFailed}
+          onRetry={() => saveReadEdit(body)}
+          definitionError={definitionError}
+          onDismiss={() => setDefinitionError(null)}
+          orgSlug={orgSlug}
+          storageActive={storageActive}
+        />
+      }
+    >
+      <div className={cn("relative flow-root", canStart && "min-h-15")}>
+        <DescriptionActions
+          editing={editing}
+          loading={loadState === "loading"}
+          status={saveStatus}
+          onEdit={edit}
+          onDone={stopEditing}
+        />
+        <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
+          <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
+            {Editor !== undefined ? (
+              <Editor
+                key={`${slug}/${ticket.id}`}
+                markdown={body}
+                onDraftChange={setBodyDraft}
+                onChange={saveBody}
+                onStatusChange={setSaveStatus}
+                autoFocus={autoFocus ? "start" : false}
+                placeholder={m.tickets_description_placeholder()}
+                attachments={{ ...target, uploadsEnabled: storageActive }}
+                blocks={blocks}
+                editorRef={editorRef}
+                editable={editing}
+              />
+            ) : empty ? (
+              <p
+                data-slot="editor-placeholder"
+                className="text-body text-muted-foreground"
+              >
+                {m.tickets_description_placeholder()}
+              </p>
+            ) : (
+              <LibraryContext value={library}>
+                <Markdown
+                  figmaTarget={target}
+                  hideHints
+                  onChange={saveReadEdit}
+                  sectionEditor={blocks}
+                >
+                  {body}
+                </Markdown>
+              </LibraryContext>
+            )}
+          </AttachmentAvailabilityProvider>
+        </MentionScopeProvider>
+        {offersStarts && (
+          <DescriptionTypeStarts
+            types={types}
+            ticketType={ticket.type}
+            onStart={(key) => void startAs(key)}
+            className="mt-2"
+          />
+        )}
+      </div>
+    </DescriptionSurface>
+  )
+}
+
+function DescriptionSurface({
+  rootRef,
+  editing,
+  empty,
+  loading,
+  onEdit,
+  feedback,
+  children
+}: Readonly<{
+  rootRef: Parameters<typeof useDescriptionEditor>[0]
+  editing: boolean
+  empty: boolean
+  loading: boolean
+  onEdit: () => void
+  feedback: ReactNode
+  children: ReactNode
+}>) {
+  return (
+    <div
+      ref={rootRef}
+      role="presentation"
+      tabIndex={-1}
+      aria-busy={loading || undefined}
+      className={cn(
+        // States like a bare field: an empty description's placeholder steps
+        // up on hover, and further while editing.
+        "relative py-2 outline-none [&_[data-slot=editor-placeholder]]:transition-colors [&_[data-slot=editor-placeholder]]:duration-150",
+        editing &&
+          "[&_[data-slot=editor-placeholder]]:text-(--placeholder-focus)",
+        !editing &&
+          empty &&
+          "hover:[&_[data-slot=editor-placeholder]]:text-(--placeholder-hover) hover:[&_[data-slot=editor-placeholder]]:duration-0"
+      )}
+    >
+      <div
+        data-block-rail-host
+        data-block-rail-inset
+        role="presentation"
+        className={cn(
+          "relative px-3 [&_.lexical-content]:min-h-0",
+          (editing || empty) && "cursor-text"
+        )}
+        onClick={(event) => {
+          if (editing || !empty) return
+          if (
+            event.target instanceof Element &&
+            event.target.closest(INTERACTIVE)
+          )
+            return
+          onEdit()
+        }}
+      >
+        {children}
+      </div>
+      {feedback}
+    </div>
+  )
+}
+
+function DescriptionFeedback({
+  loadFailed,
+  readEditFailed,
+  onRetry,
+  definitionError,
+  onDismiss,
+  orgSlug,
+  storageActive
+}: Readonly<{
+  loadFailed: boolean
+  readEditFailed: boolean
+  onRetry: () => void
+  definitionError: string | null
+  onDismiss: () => void
+  orgSlug: string
+  storageActive: boolean
+}>) {
+  const canConnectStorage = useOrgActor(orgSlug).call("storage", "connect")
+  return (
+    <>
+      {loadFailed && (
+        <p role="alert" className="mt-2 px-3 text-caption text-destructive">
+          {m.tickets_description_editor_load_failed()}
+        </p>
+      )}
+      {readEditFailed && (
+        <div className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive">
+          <span role="alert">{m.editor_save_failed()}</span>
+          <Button variant="ghost" size="xs" onClick={onRetry}>
+            {m.error_page_retry_button()}
+          </Button>
+        </div>
+      )}
+      {definitionError !== null && (
+        <p
+          role="alert"
+          className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
+        >
+          {m.editor_block_make_definition_failed({ reason: definitionError })}
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded px-1 text-muted-foreground transition-[color,scale] duration-100 hover:text-foreground active:scale-97"
+          >
+            {m.editor_block_make_definition_dismiss()}
+          </button>
+        </p>
+      )}
+      {!storageActive && canConnectStorage && (
+        <div className="mt-2 px-3">
+          <Link
+            to="/settings/orgs/$orgSlug/integrations/storage"
+            params={{ orgSlug }}
+            className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
+          >
+            {m.editor_attachment_connect_prompt()}
+          </Link>
+        </div>
+      )}
+    </>
+  )
+}
+
+function useDescriptionHandle(
+  ref: Ref<DescriptionHandle> | undefined,
+  {
+    editor,
+    editorRef,
+    ensureEditor,
+    edit
+  }: Pick<
+    ReturnType<typeof useDescriptionEditor>,
+    "editor" | "editorRef" | "ensureEditor" | "edit"
+  >,
+  library: Parameters<typeof lookupFor>[0],
+  lookup: ReturnType<typeof lookupFor>,
+  rootRef: Parameters<typeof useDescriptionEditor>[0]
+) {
   useImperativeHandle(ref, () => ({
     swapTemplate: async (from, to, isCurrent) => {
       if (library === null || to === null || typeFor(library, to) === null)
@@ -178,182 +446,4 @@ export function DescriptionField({
       )
     }
   }))
-
-  const landedRef = useRef(false)
-  useEffect(() => {
-    const instance = editorRef.current
-    if (
-      !autoFocus ||
-      library === null ||
-      editor === null ||
-      instance === null ||
-      landedRef.current
-    )
-      return
-    landedRef.current = true
-    editor.templates.selectFirstDescriptionHint(instance, lookup)
-  }, [autoFocus, editor, editorRef, library, lookup])
-
-  const [readEditFailed, setReadEditFailed] = useAtom(ticketReadEditFailed(req))
-  const saveBody = async (next: string) => {
-    const exit = await update({ body: next })
-    if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-    setBodyDraft((draft) => (draft === next ? null : draft))
-    setReadEditFailed(false)
-  }
-
-  const taskSave = useRef(0)
-  const saveReadEdit = (next: string) => {
-    const save = ++taskSave.current
-    setBodyDraft(next)
-    setSaveStatus("saving")
-    const finish = (status: SaveStatus) => {
-      if (save === taskSave.current) setSaveStatus(status)
-    }
-    void saveBody(next).then(
-      () => finish("saved"),
-      () => {
-        if (save === taskSave.current) setReadEditFailed(true)
-        finish("failed")
-      }
-    )
-  }
-
-  const empty = SLASH_COMMAND_ONLY.test(body.trim())
-  const canStart =
-    library !== null && startingTypes(types, ticket.type).length > 0
-  const offersStarts = canStart && empty
-  const Editor = editor?.Editor
-
-  return (
-    <div
-      ref={rootRef}
-      role="presentation"
-      tabIndex={-1}
-      aria-busy={loadState === "loading" || undefined}
-      className={cn(
-        // States like a bare field: an empty description's placeholder steps
-        // up on hover, and further while editing.
-        "relative py-2 outline-none [&_[data-slot=editor-placeholder]]:transition-colors [&_[data-slot=editor-placeholder]]:duration-150",
-        editing &&
-          "[&_[data-slot=editor-placeholder]]:text-(--placeholder-focus)",
-        !editing &&
-          empty &&
-          "hover:[&_[data-slot=editor-placeholder]]:text-(--placeholder-hover) hover:[&_[data-slot=editor-placeholder]]:duration-0"
-      )}
-    >
-      <div
-        data-block-rail-host
-        data-block-rail-inset
-        role="presentation"
-        className={cn(
-          "relative px-3 [&_.lexical-content]:min-h-0",
-          (editing || empty) && "cursor-text"
-        )}
-        onClick={(event) => {
-          if (editing || !empty) return
-          if (
-            event.target instanceof Element &&
-            event.target.closest(INTERACTIVE)
-          )
-            return
-          edit()
-        }}
-      >
-        <div className={cn("relative flow-root", canStart && "min-h-15")}>
-          <DescriptionActions
-            editing={editing}
-            loading={loadState === "loading"}
-            status={saveStatus}
-            onEdit={edit}
-            onDone={stopEditing}
-          />
-          <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
-            <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
-              {Editor !== undefined ? (
-                <Editor
-                  key={`${slug}/${ticket.id}`}
-                  markdown={body}
-                  onDraftChange={setBodyDraft}
-                  onChange={saveBody}
-                  onStatusChange={setSaveStatus}
-                  autoFocus={autoFocus ? "start" : false}
-                  placeholder={m.tickets_description_placeholder()}
-                  attachments={{ ...target, uploadsEnabled: storageActive }}
-                  blocks={blocks}
-                  editorRef={editorRef}
-                  editable={editing}
-                />
-              ) : empty ? (
-                <p
-                  data-slot="editor-placeholder"
-                  className="text-body text-muted-foreground"
-                >
-                  {m.tickets_description_placeholder()}
-                </p>
-              ) : (
-                <LibraryContext value={library}>
-                  <Markdown
-                    figmaTarget={target}
-                    hideHints
-                    onChange={saveReadEdit}
-                    sectionEditor={blocks}
-                  >
-                    {body}
-                  </Markdown>
-                </LibraryContext>
-              )}
-            </AttachmentAvailabilityProvider>
-          </MentionScopeProvider>
-          {offersStarts && (
-            <DescriptionTypeStarts
-              types={types}
-              ticketType={ticket.type}
-              onStart={(key) => void startAs(key)}
-              className="mt-2"
-            />
-          )}
-        </div>
-      </div>
-      {loadState === "failed" && (
-        <p role="alert" className="mt-2 px-3 text-caption text-destructive">
-          {m.tickets_description_editor_load_failed()}
-        </p>
-      )}
-      {readEditFailed && (
-        <div className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive">
-          <span role="alert">{m.editor_save_failed()}</span>
-          <Button variant="ghost" size="xs" onClick={() => saveReadEdit(body)}>
-            {m.error_page_retry_button()}
-          </Button>
-        </div>
-      )}
-      {definitionError !== null && (
-        <p
-          role="alert"
-          className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
-        >
-          {m.editor_block_make_definition_failed({ reason: definitionError })}
-          <button
-            type="button"
-            onClick={() => setDefinitionError(null)}
-            className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-97"
-          >
-            {m.editor_block_make_definition_dismiss()}
-          </button>
-        </p>
-      )}
-      {!storageActive && canConnectStorage && (
-        <div className="mt-2 px-3">
-          <Link
-            to="/settings/orgs/$orgSlug/integrations/storage"
-            params={{ orgSlug }}
-            className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
-          >
-            {m.editor_attachment_connect_prompt()}
-          </Link>
-        </div>
-      )}
-    </div>
-  )
 }

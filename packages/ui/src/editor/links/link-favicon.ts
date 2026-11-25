@@ -4,7 +4,7 @@ import type { LinkPreview } from "@pp/shared"
  * A link's favicon, painted onto the link itself (prose.css draws it from
  * the data attributes and --link-favicon), and the preview a link shows:
  * its page title and favicon. The app loads previews (EditorServices
- * useLinkPreview); these are how they look.
+ * LinkPreview); these are how they look.
  */
 
 export type LinkFavicon = Readonly<

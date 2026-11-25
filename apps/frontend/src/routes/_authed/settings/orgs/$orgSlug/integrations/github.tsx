@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { GithubIntegrationPage } from "@/features/github/components/GithubIntegrationPage"
 import { m } from "@/paraglide/messages"
 

@@ -3,7 +3,7 @@ import { ChevronRight, Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { useHotkey } from "@tanstack/react-hotkeys"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
 
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
@@ -142,11 +142,11 @@ function Collapse({
   const reduce = useReducedMotion() ?? false
   return (
     <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={
-        open ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }
-      }
-      exit={{ height: 0, opacity: 0 }}
+      layout
+      style={{ height: open ? "auto" : 0, originY: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: open ? 1 : 0 }}
+      exit={{ opacity: 0 }}
       transition={reduce ? { duration: 0 } : transitions.morph}
       inert={!open}
       className="overflow-hidden"

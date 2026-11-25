@@ -75,8 +75,8 @@ export const normalizeEstimateFilter = (
   mode: EstimationMode,
   values: ReadonlyArray<EstimateFilterValue> | undefined
 ) => {
-  const supported = estimateFilterValues(mode)
-  const normalized = values?.filter((value) => supported.includes(value))
+  const supported = new Set(estimateFilterValues(mode))
+  const normalized = values?.filter((value) => supported.has(value))
   return normalized?.length ? normalized : undefined
 }
 

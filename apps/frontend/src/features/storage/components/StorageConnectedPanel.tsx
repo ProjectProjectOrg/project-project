@@ -5,8 +5,8 @@ import { ConfirmButton } from "@pp/ui/confirm-button"
 import { FolderOpen } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

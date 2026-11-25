@@ -89,19 +89,25 @@ export function LinkFaviconsPlugin() {
     )
   }, [])
 
+  const { LinkPreview } = useEditorServices()
   return [...new Set(links.values())].map((url) => (
-    <FaviconSource key={url} url={url} onResolve={report} />
+    <LinkPreview key={url} url={url}>
+      {({ favicon }) => (
+        <FaviconSource url={url} favicon={favicon} onResolve={report} />
+      )}
+    </LinkPreview>
   ))
 }
 
 function FaviconSource({
+  favicon,
   url,
   onResolve
 }: Readonly<{
   url: string
+  favicon: LinkFavicon
   onResolve: (url: string, favicon: LinkFavicon) => void
 }>) {
-  const { favicon } = useEditorServices().useLinkPreview(url)
   useLayoutEffect(() => onResolve(url, favicon), [url, favicon, onResolve])
   return null
 }

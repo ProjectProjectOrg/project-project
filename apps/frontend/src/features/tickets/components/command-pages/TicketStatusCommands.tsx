@@ -18,6 +18,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { stagedCount } from "@/features/tickets/lib/stagedChanges"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
@@ -25,7 +26,6 @@ import { m } from "@/paraglide/messages"
 import { groupBy } from "../ticket-list/selectionUndo"
 import {
   StagedChanges,
-  stagedCount,
   StagedMove,
   StagedRowCount,
   StagedValue

@@ -12,7 +12,7 @@ import { transitions } from "@pp/ui/lib/springs"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState } from "react"
 
 import { PageContainer, PageHeader } from "@/components/shell/Page"

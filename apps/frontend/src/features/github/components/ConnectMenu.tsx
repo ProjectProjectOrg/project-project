@@ -155,11 +155,7 @@ function SetupNote() {
   return (
     <>
       <MenuNote tone={status === null ? "error" : "muted"}>
-        {status === null
-          ? m.github_chip_install_app_failed_error()
-          : installed
-            ? m.github_chip_no_accounts()
-            : m.github_chip_install_app_required()}
+        {setupMessage(status === null, installed)}
       </MenuNote>
       {error ? <MenuNote tone="error">{error}</MenuNote> : null}
       <DropdownMenuSeparator />
@@ -170,19 +166,12 @@ function SetupNote() {
             : m.github_chip_install_app_ask_admin()}
         </MenuNote>
       ) : onlyApp !== undefined && !installed ? (
-        <DropdownMenuItem
-          closeOnClick={false}
-          onClick={() =>
+        <InstallAppItem
+          waiting={waiting}
+          onInstall={() =>
             void install({ appId: onlyApp.id, returnProjectSlug: slug })
           }
-        >
-          <GithubIcon />
-          <span className={cn(waiting && "animate-pulse")}>
-            {waiting
-              ? m.github_chip_install_app_loading()
-              : m.github_chip_install_app_button()}
-          </span>
-        </DropdownMenuItem>
+        />
       ) : (
         <DropdownMenuItem
           render={
@@ -197,5 +186,28 @@ function SetupNote() {
         </DropdownMenuItem>
       )}
     </>
+  )
+}
+
+function setupMessage(failed: boolean, installed: boolean) {
+  if (failed) return m.github_chip_install_app_failed_error()
+  return installed
+    ? m.github_chip_no_accounts()
+    : m.github_chip_install_app_required()
+}
+
+function InstallAppItem({
+  waiting,
+  onInstall
+}: Readonly<{ waiting: boolean; onInstall: () => void }>) {
+  return (
+    <DropdownMenuItem closeOnClick={false} onClick={onInstall}>
+      <GithubIcon />
+      <span className={cn(waiting && "animate-pulse")}>
+        {waiting
+          ? m.github_chip_install_app_loading()
+          : m.github_chip_install_app_button()}
+      </span>
+    </DropdownMenuItem>
   )
 }

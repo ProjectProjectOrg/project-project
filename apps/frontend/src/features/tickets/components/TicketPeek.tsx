@@ -78,6 +78,27 @@ export function TicketPeek({
   if (Result.isSuccess(result) && result.value !== shown) {
     setShown(result.value)
   }
+  if (Result.isFailure(result)) {
+    return (
+      <p role="alert" className="p-4 text-body text-destructive">
+        {m.tickets_peek_load_failed()}
+      </p>
+    )
+  }
+  const ticket = Result.isSuccess(result) ? result.value : shown
+  if (ticket === null) return <PeekSkeleton />
+  return <LoadedTicketPeek ticket={ticket} scope={scope} prefetch={prefetch} />
+}
+
+function LoadedTicketPeek({
+  ticket,
+  scope,
+  prefetch
+}: Readonly<{
+  ticket: TicketDetail
+  scope: TicketPeekScope
+  prefetch: ReadonlyArray<TicketId>
+}>) {
   const statusesResult = useAtomValue(
     statusesFor(statusesRequest(scope.orgSlug, scope.slug))
   )
@@ -88,15 +109,6 @@ export function TicketPeek({
     ? statusesResult.value
     : NO_STATUSES
   const types = useTicketTypes(scope.orgSlug, scope.slug)
-  if (Result.isFailure(result)) {
-    return (
-      <p role="alert" className="p-4 text-body text-destructive">
-        {m.tickets_peek_load_failed()}
-      </p>
-    )
-  }
-  const ticket = Result.isSuccess(result) ? result.value : shown
-  if (ticket === null) return <PeekSkeleton />
   const status = statusMetaFor(ticket.status, statuses)
   const priority = PRIORITY_META[ticket.priority]
   const type = resolveType(types, ticket.type)

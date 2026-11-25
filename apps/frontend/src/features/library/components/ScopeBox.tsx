@@ -5,12 +5,15 @@ import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
 import type { ReactNode } from "react"
 
+import {
+  noticeText,
+  type EntryView
+} from "@/features/library/lib/entryStanding"
 import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { orgScope, type LibraryScope } from "../atoms/libraryScope"
 import { useScopeProjectName } from "../hooks/useLibraryPermissions"
-import type { EntryNotice, EntryView } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
 import { LibraryEntryLink } from "./LibraryEntryLink"
 
@@ -36,17 +39,6 @@ type Copy = Readonly<{
   title: string | null
   body: string | null
 }>
-
-export const noticeText = (notice: EntryNotice, kind: LibraryKind) => {
-  if (notice === null) return null
-  if (notice === "org-admins")
-    return kind === "type"
-      ? m.templates_types_notice_org_admins()
-      : m.templates_sections_notice_org_admins()
-  return kind === "type"
-    ? m.templates_types_notice_project_managers()
-    : m.templates_sections_notice_project_managers()
-}
 
 const upstreamNotice = ({ scope, kind, view }: ScopeBoxProps) => {
   if (scope.layer === "project" && view.standing === "shared")
@@ -126,12 +118,10 @@ const copyFor = (
 }
 
 export function ScopeBox(props: ScopeBoxProps) {
-  const { scope, kind, entry, view, actions } = props
+  const { scope, view, actions } = props
   const project = useScopeProjectName(scope)
   const copy = copyFor(props, project)
   const notice = upstreamNotice(props)
-  const hasActions =
-    view.canFork || view.canEditUpstream || view.canRevert || view.canShow
   if (copy.title === null && notice === null) return null
 
   return (
@@ -150,86 +140,96 @@ export function ScopeBox(props: ScopeBoxProps) {
         {notice === null ? null : (
           <p className="text-body text-muted-foreground">{notice}</p>
         )}
-        {hasActions ? (
-          <div
-            className={cn(
-              "mt-2 flex flex-wrap items-center gap-2",
-              actions.waiting && "animate-pulse"
-            )}
-          >
-            {view.canFork ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={actions.waiting}
-                onClick={() => void actions.fork()}
-              >
-                {scope.layer === "project"
-                  ? m.templates_types_fork_project({ project })
-                  : m.templates_types_fork_org()}
-              </Button>
-            ) : null}
-            {view.canEditUpstream ? (
-              <Button
-                variant="tertiary"
-                size="sm"
-                render={
-                  <LibraryEntryLink
-                    scope={orgScope(scope.req.params.orgSlug)}
-                    kind={kind}
-                    entryKey={entry.key}
-                  />
-                }
-              >
-                {m.templates_types_edit_all_projects()}
-              </Button>
-            ) : null}
-            {view.canShow ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={actions.waiting}
-                onClick={() => void actions.restore()}
-              >
-                {m.templates_types_show_again()}
-              </Button>
-            ) : null}
-            {view.canRevert ? (
-              <ConfirmButton.Root flow className="flex-wrap gap-2">
-                <ConfirmButton.Trigger
-                  type="button"
-                  variant="tertiary"
-                  size="sm"
-                >
-                  {scope.layer === "project"
-                    ? m.templates_types_revert_project()
-                    : m.templates_types_revert_org()}
-                </ConfirmButton.Trigger>
-                <ConfirmButton.Confirm className="flex-wrap">
-                  <ConfirmButton.Action
-                    cancelLabel={m.common_cancel_button()}
-                    describeError={describeCause}
-                    prompt={
-                      scope.layer === "project"
-                        ? m.templates_types_revert_project_confirm({ project })
-                        : m.templates_types_revert_org_confirm()
-                    }
-                    label={m.templates_types_revert_confirm_label()}
-                    onConfirm={() => actions.restore().then(Exit.isSuccess)}
-                  />
-                </ConfirmButton.Confirm>
-              </ConfirmButton.Root>
-            ) : null}
-          </div>
-        ) : null}
+        <ScopeButtons {...props} project={project} />
         {actions.error === null ? null : (
           <p role="alert" className="text-caption text-destructive">
             {actions.error}
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function ScopeButtons({
+  scope,
+  kind,
+  entry,
+  view,
+  actions,
+  project
+}: ScopeBoxProps & Readonly<{ project: string }>) {
+  const hasActions =
+    view.canFork || view.canEditUpstream || view.canRevert || view.canShow
+  if (!hasActions) return null
+  return (
+    <div
+      className={cn(
+        "mt-2 flex flex-wrap items-center gap-2",
+        actions.waiting && "animate-pulse"
+      )}
+    >
+      {view.canFork ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={actions.waiting}
+          onClick={() => void actions.fork()}
+        >
+          {scope.layer === "project"
+            ? m.templates_types_fork_project({ project })
+            : m.templates_types_fork_org()}
+        </Button>
+      ) : null}
+      {view.canEditUpstream ? (
+        <Button
+          variant="tertiary"
+          size="sm"
+          render={
+            <LibraryEntryLink
+              scope={orgScope(scope.req.params.orgSlug)}
+              kind={kind}
+              entryKey={entry.key}
+            />
+          }
+        >
+          {m.templates_types_edit_all_projects()}
+        </Button>
+      ) : null}
+      {view.canShow ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={actions.waiting}
+          onClick={() => void actions.restore()}
+        >
+          {m.templates_types_show_again()}
+        </Button>
+      ) : null}
+      {view.canRevert ? (
+        <ConfirmButton.Root flow className="flex-wrap gap-2">
+          <ConfirmButton.Trigger type="button" variant="tertiary" size="sm">
+            {scope.layer === "project"
+              ? m.templates_types_revert_project()
+              : m.templates_types_revert_org()}
+          </ConfirmButton.Trigger>
+          <ConfirmButton.Confirm className="flex-wrap">
+            <ConfirmButton.Action
+              cancelLabel={m.common_cancel_button()}
+              describeError={describeCause}
+              prompt={
+                scope.layer === "project"
+                  ? m.templates_types_revert_project_confirm({ project })
+                  : m.templates_types_revert_org_confirm()
+              }
+              label={m.templates_types_revert_confirm_label()}
+              onConfirm={() => actions.restore().then(Exit.isSuccess)}
+            />
+          </ConfirmButton.Confirm>
+        </ConfirmButton.Root>
+      ) : null}
     </div>
   )
 }

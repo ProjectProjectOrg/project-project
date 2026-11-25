@@ -2,16 +2,19 @@ import { useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import type { ReactNode } from "react"
 
+import {
+  asIsText,
+  entryUsage,
+  type UsageProject
+} from "@/features/library/lib/orgUsage"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { m } from "@/paraglide/messages"
 
 import { projectScope } from "../atoms/libraryScope"
 import { libraryUsage, libraryUsageRequest } from "../atoms/libraryUsage"
 import type { LibraryKind } from "../lib/libraryModel"
-import { entryUsage, type UsageProject } from "../lib/orgUsage"
 import { AsideGroup, MUTED_VALUE_CLASS } from "./DefinitionAside"
 import { LibraryEntryLink, LibraryListLink } from "./LibraryEntryLink"
-import { asIsText } from "./OrgEntryList"
 import { ProjectChip } from "./ProjectChip"
 
 const LINK_CLASS =

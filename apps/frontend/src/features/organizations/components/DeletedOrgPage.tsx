@@ -16,11 +16,13 @@ import {
   restoreOrg
 } from "@/features/organizations/atoms/orgs"
 import { useOrgActor } from "@/hooks/useActor"
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-const formatDate = (date: Date) =>
-  new Intl.DateTimeFormat(getLocale(), { dateStyle: "long" }).format(date)
+const longDate = perLocale(Intl.DateTimeFormat, { dateStyle: "long" })
+
+const formatDate = (date: Date) => longDate(getLocale()).format(date)
 
 export function DeletedOrgPage({ orgSlug }: { orgSlug: string }) {
   const result = useAtomValue(orgDetail(orgRequest(orgSlug)))

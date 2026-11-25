@@ -1,5 +1,5 @@
 import { spring } from "@pp/ui/lib/springs"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import type { ReactNode } from "react"
 
 const shown = { opacity: 1, scale: 1, filter: "blur(0px)" }

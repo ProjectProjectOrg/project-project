@@ -1,13 +1,11 @@
 import type { ProjectBanner, ProjectIconImage, ProjectTone } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
 
-import {
-  LiveIconImage,
-  LiveIcon
-} from "@/features/projects/components/appearance/IconPreviewTile"
+import { LiveIconImage } from "@/features/projects/components/appearance/IconPreviewTile"
 import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { LiveIcon } from "@/features/projects/lib/iconDraft"
 import { m } from "@/paraglide/messages"
 
 export function RenderPreviews({

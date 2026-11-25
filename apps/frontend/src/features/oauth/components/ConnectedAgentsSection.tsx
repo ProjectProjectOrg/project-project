@@ -10,8 +10,8 @@ import { useMemo, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsDisclosureItem } from "@/components/shell/settings/SettingsDisclosureItem"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
@@ -27,10 +27,6 @@ import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
 export function ConnectedAgentsSection() {
-  const req = oauthApplicationsRequest()
-  const applicationsAtom = oauthApplicationsAtom(req)
-  const applications = useAtomValue(applicationsAtom)
-  const refresh = useAtomRefresh(applicationsAtom)
   const [revokeErrors, setRevokeErrors] = useState<
     Readonly<Record<string, string | undefined>>
   >({})
@@ -38,48 +34,84 @@ export function ConnectedAgentsSection() {
   return (
     <>
       <SettingsSection>
-        <AsyncView
-          result={applications}
-          contained
-          reset={refresh}
-          onInitial={() => <SettingsSkeleton rows={2} />}
-          onSuccess={({ value, waiting }) => (
-            <SettingsGroup
-              className={cn(
-                waiting && "animate-pulse motion-reduce:animate-none"
-              )}
-            >
-              {value.length === 0 ? (
-                <SettingsRow
-                  label={
-                    <span className="font-normal text-muted-foreground">
-                      {m.profile_connected_agents_empty()}
-                    </span>
-                  }
-                />
-              ) : (
-                value.map((app) => (
-                  <AgentRow
-                    key={app.id}
-                    app={app}
-                    req={req}
-                    error={revokeErrors[app.id]}
-                    onError={(error) =>
-                      setRevokeErrors((errors) => ({
-                        ...errors,
-                        [app.id]: error
-                      }))
-                    }
-                  />
-                ))
-              )}
-            </SettingsGroup>
-          )}
+        <ConnectedAgents
+          errors={revokeErrors}
+          onError={(id, error) =>
+            setRevokeErrors((errors) => ({ ...errors, [id]: error }))
+          }
         />
       </SettingsSection>
       <InstallCliSection />
       <ConnectMcpDisclosure />
     </>
+  )
+}
+
+type RevokeFeedback = Readonly<{
+  errors: Readonly<Record<string, string | undefined>>
+  onError: (id: string, error: string | undefined) => void
+}>
+
+function ConnectedAgents(feedback: RevokeFeedback) {
+  const req = oauthApplicationsRequest()
+  const applicationsAtom = oauthApplicationsAtom(req)
+  const applications = useAtomValue(applicationsAtom)
+  const refresh = useAtomRefresh(applicationsAtom)
+  return (
+    <AsyncView
+      result={applications}
+      contained
+      reset={refresh}
+      onInitial={() => <SettingsSkeleton rows={2} />}
+      onSuccess={({ value, waiting }) => (
+        <ConnectedAgentRows
+          applications={value}
+          waiting={waiting}
+          req={req}
+          {...feedback}
+        />
+      )}
+    />
+  )
+}
+
+function ConnectedAgentRows({
+  applications,
+  waiting,
+  req,
+  errors,
+  onError
+}: RevokeFeedback &
+  Readonly<{
+    applications: ReadonlyArray<OAuthApplication>
+    waiting: boolean
+    req: OAuthApplicationsRequest
+  }>) {
+  const rows = applications.map((app) => (
+    <AgentRow
+      key={app.id}
+      app={app}
+      req={req}
+      error={errors[app.id]}
+      onError={(error) => onError(app.id, error)}
+    />
+  ))
+  return (
+    <SettingsGroup
+      className={cn(waiting && "animate-pulse motion-reduce:animate-none")}
+    >
+      {applications.length === 0 ? (
+        <SettingsRow
+          label={
+            <span className="font-normal text-muted-foreground">
+              {m.profile_connected_agents_empty()}
+            </span>
+          }
+        />
+      ) : (
+        rows
+      )}
+    </SettingsGroup>
   )
 }
 

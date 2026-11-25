@@ -26,6 +26,22 @@ import { WhatsNewCard } from "@/features/instance/components/WhatsNewCard"
 import { ProjectBannerWarmup } from "@/features/projects/components/ProjectBannerWarmup"
 import { useScopedProject } from "@/features/projects/hooks/useScopedProject"
 
+function settingsScope(
+  routeScope: SidebarScope,
+  inSettings: boolean,
+  settingsProject: Readonly<{ slug: string }> | null
+) {
+  return inSettings &&
+    !SidebarScope.$is("project")(routeScope) &&
+    settingsProject !== null
+    ? SidebarScope.project({
+        slug: settingsProject.slug,
+        route: { page: "settings", sub: null },
+        viewing: null
+      })
+    : routeScope
+}
+
 export function Sidebar({ user }: Readonly<{ user: User }>) {
   return (
     <aside className="row-span-2 hidden lg:flex">
@@ -35,44 +51,18 @@ export function Sidebar({ user }: Readonly<{ user: User }>) {
 }
 
 export function SidebarContent({ user }: Readonly<{ user: User }>) {
-  const { orgSlug: routeOrgSlug, slug } = useParams({ strict: false })
-  const orgSlug = routeOrgSlug ?? user.activeOrgSlug
-  const location = useLocation()
-  const { sprint } = useSearch({ strict: false })
-  const inSettings = useMatches({
-    select: (matches) => isSettingsPath(matches.at(-1)?.pathname ?? "")
-  })
-  const [backHref, setBackHref] = useState<string | null>(null)
-  if (!isSettingsPath(location.pathname) && backHref !== location.href)
-    setBackHref(location.href)
-
-  // In settings the rail switches projects: the one the settings show is
-  // lit, and every tile opens its own project's settings.
-  const { project: settingsProject, projects } = useScopedProject(
+  const {
     orgSlug,
-    slug ?? null
-  )
-  const routeScope = sidebarScope(location.pathname, orgSlug, sprint)
-  const scope =
-    inSettings &&
-    !SidebarScope.$is("project")(routeScope) &&
-    settingsProject !== null
-      ? SidebarScope.project({
-          slug: settingsProject.slug,
-          route: { page: "settings", sub: null },
-          viewing: null
-        })
-      : routeScope
-  const inProject = SidebarScope.$is("project")(scope) ? scope : null
-  const project =
-    inProject === null
-      ? undefined
-      : projects.find((candidate) => candidate.slug === inProject.slug)
-  const panelKey = inSettings
-    ? SETTINGS_PANEL
-    : project === undefined
-      ? DASHBOARD_PANEL
-      : project.slug
+    slug,
+    inSettings,
+    backHref,
+    settingsProject,
+    projects,
+    scope,
+    inProject,
+    project,
+    panelKey
+  } = useSidebarRoute(user)
   const transition = usePanelTransition(panelKey, railOrder(projects))
 
   return (
@@ -126,4 +116,51 @@ export function SidebarContent({ user }: Readonly<{ user: User }>) {
       </SidebarPanel>
     </div>
   )
+}
+
+function useSidebarRoute(user: User) {
+  const { orgSlug: routeOrgSlug, slug } = useParams({ strict: false })
+  const orgSlug = routeOrgSlug ?? user.activeOrgSlug
+  const location = useLocation()
+  const { sprint } = useSearch({ strict: false })
+  const inSettings = useMatches({
+    select: (matches) => isSettingsPath(matches.at(-1)?.pathname ?? "")
+  })
+  const [backHref, setBackHref] = useState<string | null>(null)
+  if (!isSettingsPath(location.pathname) && backHref !== location.href)
+    setBackHref(location.href)
+
+  // In settings the rail switches projects: the one the settings show is
+  // lit, and every tile opens its own project's settings.
+  const { project: settingsProject, projects } = useScopedProject(
+    orgSlug,
+    slug ?? null
+  )
+  const scope = settingsScope(
+    sidebarScope(location.pathname, orgSlug, sprint),
+    inSettings,
+    settingsProject
+  )
+  const inProject = SidebarScope.$is("project")(scope) ? scope : null
+  const project =
+    inProject === null
+      ? undefined
+      : projects.find((candidate) => candidate.slug === inProject.slug)
+  const panelKey = inSettings
+    ? SETTINGS_PANEL
+    : project === undefined
+      ? DASHBOARD_PANEL
+      : project.slug
+  return {
+    orgSlug,
+    slug,
+    inSettings,
+    backHref,
+    settingsProject,
+    projects,
+    scope,
+    inProject,
+    project,
+    panelKey
+  }
 }

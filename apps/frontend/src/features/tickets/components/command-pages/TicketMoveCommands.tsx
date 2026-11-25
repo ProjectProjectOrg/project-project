@@ -33,6 +33,7 @@ import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import type { TicketPageProps } from "./TicketFieldCommands"
+import { useCommandAction } from "./useCommandAction"
 
 const NO_PROJECTS: ReadonlyArray<Project> = []
 
@@ -141,7 +142,7 @@ function MoveStatusStep({
     destination.slug
   )
   const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const run = useCommandAction()
   const ready = MoveDestination.$is("ready")(target) ? target : null
   const statuses = ready?.statuses ?? []
   const defaultStatus = ready?.defaultStatus ?? null
@@ -173,21 +174,20 @@ function MoveStatusStep({
         })
       }))}
       onSelect={async (item) => {
-        if (pending) return
         const status = statuses.find((entry) => entry.slug === item.value)
         if (status === undefined) return
-        setPending(true)
-        setFailure(null)
-        const exit = await move({
-          toProject: destination.slug,
-          status: status.slug
+        await run(async () => {
+          setFailure(null)
+          const exit = await move({
+            toProject: destination.slug,
+            status: status.slug
+          })
+          if (Exit.isFailure(exit)) {
+            setFailure(errorMessage(Cause.squash(exit.cause)))
+            return
+          }
+          onMoved()
         })
-        setPending(false)
-        if (Exit.isFailure(exit)) {
-          setFailure(errorMessage(Cause.squash(exit.cause)))
-          return
-        }
-        onMoved()
       }}
       renderItem={(item) => {
         const meta = statusMetaFor(item.value, statuses)

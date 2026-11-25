@@ -14,7 +14,7 @@ import { transitions } from "../../lib/springs"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import type { TicketTarget } from "../services"
-import { useFigmaMetadata } from "./figma-metadata"
+import { FigmaMetadata, type useFigmaMetadata } from "./figma-metadata"
 
 const HOVER_DELAY_MS = 450
 
@@ -69,7 +69,9 @@ export function FigmaChip({
   return request === null ? (
     <FigmaChipContent {...props} metadata={null} />
   ) : (
-    <ResolvedFigmaChip {...props} request={request} />
+    <FigmaMetadata target={request} reference={props.reference}>
+      {(metadata) => <FigmaChipContent {...props} metadata={metadata} />}
+    </FigmaMetadata>
   )
 }
 
@@ -79,14 +81,6 @@ type FigmaChipProps = Readonly<{
   label: string
   morphId: string
 }>
-
-function ResolvedFigmaChip({
-  request,
-  ...props
-}: FigmaChipProps & { request: TicketTarget }) {
-  const metadata = useFigmaMetadata(props.reference, request)
-  return <FigmaChipContent {...props} metadata={metadata} />
-}
 
 function FigmaChipContent({
   reference,

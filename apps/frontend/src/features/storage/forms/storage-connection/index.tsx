@@ -3,8 +3,8 @@ import type { OrgStorageStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import * as Exit from "effect/Exit"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { ProjectSettingsLayout } from "@/features/projects/components/ProjectLayout"
 import { mountProject } from "@/features/projects/lib/mountProject"
 

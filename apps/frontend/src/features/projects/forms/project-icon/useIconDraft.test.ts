@@ -28,6 +28,7 @@ vi.mock("@/features/projects/lib/iconDraft", async (importOriginal) => {
       ) => {
         built.calls += 1
         return {
+          release: () => undefined,
           cutoutUrl: `blob:cutout-${tolerance}`,
           fullUrl: `blob:full-${tolerance}`,
           clean: true,
@@ -109,6 +110,7 @@ it("discards an older tolerance render when returning to the cached tolerance", 
   await act(async () => {
     latest = await result.current.restyle("full_bleed", TOLERANCE)
     pending.resolve({
+      release: () => undefined,
       cutoutUrl: "blob:stale-cutout",
       fullUrl: "blob:stale-full",
       clean: true,
@@ -140,11 +142,7 @@ it("revokes preview URLs produced after the editor unmounts", async () => {
     await import("@/features/projects/lib/iconDraft")
   const pending = deferred<Awaited<ReturnType<typeof buildDraftPreview>>>()
   vi.mocked(buildDraftPreview).mockReturnValueOnce(pending.promise)
-  const revoke = vi.fn()
-  vi.stubGlobal("URL", {
-    createObjectURL: () => "blob:source",
-    revokeObjectURL: revoke
-  })
+  const release = vi.fn<() => void>()
   const { result, unmount } = renderHook(() => useIconDraft())
   let accepting: Promise<AcceptedIcon | null>
   await act(async () => {
@@ -153,6 +151,7 @@ it("revokes preview URLs produced after the editor unmounts", async () => {
   })
   unmount()
   pending.resolve({
+    release,
     cutoutUrl: "blob:late-cutout",
     fullUrl: "blob:late-full",
     clean: true,
@@ -161,8 +160,7 @@ it("revokes preview URLs produced after the editor unmounts", async () => {
     treatment: "sticker"
   })
   expect(await accepting!).toBeNull()
-  expect(revoke).toHaveBeenCalledWith("blob:late-cutout")
-  expect(revoke).toHaveBeenCalledWith("blob:late-full")
+  expect(release).toHaveBeenCalledOnce()
 })
 
 it("never reports a saved source as a newly picked file during priming", async () => {
@@ -194,6 +192,7 @@ it("never reports a saved source as a newly picked file during priming", async (
   expect(result.current.fileName()).toBeNull()
   await act(async () => {
     pending.resolve({
+      release: () => undefined,
       cutoutUrl: "blob:saved-cutout",
       fullUrl: "blob:saved-full",
       clean: true,
@@ -210,6 +209,7 @@ it("keeps the saved treatment when a saved source reclassifies", async () => {
   const { buildDraftPreview } =
     await import("@/features/projects/lib/iconDraft")
   vi.mocked(buildDraftPreview).mockResolvedValueOnce({
+    release: () => undefined,
     cutoutUrl: "blob:saved-cutout",
     fullUrl: "blob:saved-full",
     clean: false,

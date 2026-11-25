@@ -8,8 +8,11 @@ import * as Match from "effect/Match"
 import * as Schema from "effect/Schema"
 
 import { errorMessage } from "@/lib/errorMessage"
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const integrationNames = perLocale(Intl.ListFormat, { type: "conjunction" })
 
 type Integration = ProjectImport["integrations"][number]
 
@@ -21,7 +24,7 @@ const INTEGRATION_LABELS = {
 } satisfies Record<Integration, () => string>
 
 export const integrationList = (integrations: ReadonlyArray<Integration>) =>
-  new Intl.ListFormat(getLocale(), { type: "conjunction" }).format(
+  integrationNames(getLocale()).format(
     integrations.map((integration) => INTEGRATION_LABELS[integration]())
   )
 

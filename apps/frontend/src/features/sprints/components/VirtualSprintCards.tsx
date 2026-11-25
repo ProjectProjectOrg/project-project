@@ -17,6 +17,10 @@ import {
   type ReactNode
 } from "react"
 
+import {
+  dropGapTop,
+  ESTIMATED_CARD_HEIGHT
+} from "@/features/sprints/lib/draftSlots"
 import { m } from "@/paraglide/messages"
 
 import { useDeferredOverscan } from "../../tickets/components/ticket-list/useDeferredOverscan"
@@ -29,8 +33,6 @@ import {
 import { draftSlots, withKeptIndexes } from "../lib/draftSlots"
 import {
   DraftSlot,
-  dropGapTop,
-  ESTIMATED_CARD_HEIGHT,
   InsertGaps,
   PlaceholderSlot,
   TicketSlot
@@ -46,6 +48,68 @@ export type CardsDraft = Readonly<{
   index: number
   node: ReactNode
 }>
+
+function virtualListStyle(
+  totalSize: number,
+  drag: ReturnType<typeof useBoardDropGap>,
+  sourceIndex: number,
+  animate: boolean
+) {
+  return {
+    transition: animate
+      ? `height ${DRAFT_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+      : undefined,
+    height:
+      totalSize + (drag?.index != null && sourceIndex < 0 ? drag.height : 0)
+  }
+}
+
+function useDraftExit(hasDraft: boolean) {
+  const [animateDraftExit, setAnimateDraftExit] = useState(hasDraft)
+  if (hasDraft && !animateDraftExit) setAnimateDraftExit(true)
+  useEffect(() => {
+    if (hasDraft || !animateDraftExit) return undefined
+    const timer = window.setTimeout(
+      () => setAnimateDraftExit(false),
+      DRAFT_TRANSITION_MS
+    )
+    return () => window.clearTimeout(timer)
+  }, [hasDraft, animateDraftExit])
+  return hasDraft || animateDraftExit
+}
+
+function useCardSlots(
+  tickets: ReadonlyArray<Ticket>,
+  total: number,
+  draft: CardsDraft | null,
+  focusedId: string | null,
+  keyOf: (ticket: Ticket) => string
+) {
+  const draftIndex = draft === null ? -1 : Math.min(draft.index, tickets.length)
+  const { ticketIndexOf, slotIndexOf } = draftSlots(draftIndex)
+  const focusedIndex = slotIndexOf(
+    tickets.findIndex((ticket) => ticket.id === focusedId)
+  )
+  const count = Math.max(total, tickets.length) + (draftIndex >= 0 ? 1 : 0)
+  const draftKey = draft?.key
+  const getItemKey = useCallback(
+    (index: number) => {
+      if (index === draftIndex && draftKey !== undefined) return draftKey
+      const ticket = tickets[draftSlots(draftIndex).ticketIndexOf(index)]
+      return ticket ? keyOf(ticket) : `placeholder-${index}`
+    },
+    [tickets, draftIndex, draftKey, keyOf]
+  )
+  return {
+    draftIndex,
+    draftKey,
+    getItemKey,
+    focusedIndex,
+    slotIndexOf,
+    ticketIndexOf,
+    count
+  }
+}
 
 export function VirtualSprintCards({
   tickets,
@@ -81,36 +145,16 @@ export function VirtualSprintCards({
   const getScrollElement = useCallback(() => scrollRef.current, [])
   const overscan = useDeferredOverscan(getScrollElement, 4)
   const [focusedId, setFocusedId] = useState<string | null>(null)
-  const draftIndex = draft === null ? -1 : Math.min(draft.index, tickets.length)
-  const { ticketIndexOf, slotIndexOf } = draftSlots(draftIndex)
-  const focusedIndex = slotIndexOf(
-    tickets.findIndex((ticket) => ticket.id === focusedId)
-  )
-  const count = Math.max(total, tickets.length) + (draftIndex >= 0 ? 1 : 0)
-  const draftKey = draft?.key
-  const hasDraft = draft !== null
-  const [animateDraftExit, setAnimateDraftExit] = useState(false)
-  useEffect(() => {
-    if (hasDraft) {
-      setAnimateDraftExit(true)
-    } else if (animateDraftExit) {
-      const timer = window.setTimeout(
-        () => setAnimateDraftExit(false),
-        DRAFT_TRANSITION_MS
-      )
-      return () => window.clearTimeout(timer)
-    }
-    return undefined
-  }, [hasDraft, animateDraftExit])
-
-  const getItemKey = useCallback(
-    (index: number) => {
-      if (index === draftIndex && draftKey !== undefined) return draftKey
-      const ticket = tickets[draftSlots(draftIndex).ticketIndexOf(index)]
-      return ticket ? keyOf(ticket) : `placeholder-${index}`
-    },
-    [tickets, draftIndex, draftKey, keyOf]
-  )
+  const {
+    draftIndex,
+    draftKey,
+    getItemKey,
+    focusedIndex,
+    slotIndexOf,
+    ticketIndexOf,
+    count
+  } = useCardSlots(tickets, total, draft, focusedId, keyOf)
+  const animateDraftExit = useDraftExit(draft !== null)
   // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
     count,
@@ -159,17 +203,24 @@ export function VirtualSprintCards({
   const nearEnd =
     tickets.length < total &&
     ticketIndexOf(rows.at(-1)?.index ?? 0) >= tickets.length - LOAD_AHEAD
-  const showInsertGaps =
-    onInsertAt !== undefined && draftIndex < 0 && drag === null
-  const gapStart = showDropGap
-    ? dropGapTop(
-        rows,
-        drag,
-        sourceIndex,
-        slotIndexOf,
-        virtualizer.getTotalSize()
-      )
-    : null
+  const insert = draftIndex < 0 && drag === null ? onInsertAt : undefined
+  const visibleDrag = showDropGap ? drag : null
+  const gapStart = dropGapTop(
+    rows,
+    visibleDrag,
+    sourceIndex,
+    slotIndexOf,
+    virtualizer.getTotalSize()
+  )
+  const offset = (index: number) =>
+    boardDropOffset(visibleDrag, index, sourceIndex)
+  const stopMotion = Boolean(reducedMotion) || virtualizer.isScrolling
+  const listStyle = virtualListStyle(
+    virtualizer.getTotalSize(),
+    visibleDrag,
+    sourceIndex,
+    !overflowing && !reducedMotion && animateDraftExit
+  )
   return (
     <BoardCardList
       scrollLabel={m.common_scroll_area_label()}
@@ -185,29 +236,12 @@ export function VirtualSprintCards({
         }
       }}
     >
-      <ul
-        className="relative w-full overflow-clip"
-        style={{
-          transition:
-            overflowing || reducedMotion || !(hasDraft || animateDraftExit)
-              ? undefined
-              : `height ${DRAFT_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          height:
-            virtualizer.getTotalSize() +
-            (showDropGap && drag?.index != null && sourceIndex < 0
-              ? drag.height
-              : 0)
-        }}
-      >
+      <ul className="relative w-full overflow-clip" style={listStyle}>
         {gapStart !== null && drag && (
           <BoardDropGap top={gapStart} height={drag.height} />
         )}
-        {showInsertGaps && (
-          <InsertGaps
-            rows={rows}
-            loaded={tickets.length}
-            onInsertAt={onInsertAt}
-          />
+        {insert && (
+          <InsertGaps rows={rows} loaded={tickets.length} onInsertAt={insert} />
         )}
         {rows.map((row) =>
           row.index === draftIndex && draft !== null ? (
@@ -215,12 +249,8 @@ export function VirtualSprintCards({
               key={row.key}
               row={row}
               measure={virtualizer.measureElement}
-              offset={
-                showDropGap
-                  ? boardDropOffset(drag, draftIndex - 0.5, sourceIndex)
-                  : 0
-              }
-              reducedMotion={Boolean(reducedMotion) || virtualizer.isScrolling}
+              offset={offset(draftIndex - 0.5)}
+              reducedMotion={stopMotion}
               resetKey={filterKey}
             >
               {draft.node}
@@ -235,13 +265,9 @@ export function VirtualSprintCards({
               position={ticketIndexOf(row.index) + 1}
               size={Math.max(total, tickets.length)}
               measure={virtualizer.measureElement}
-              offset={
-                showDropGap
-                  ? boardDropOffset(drag, ticketIndexOf(row.index), sourceIndex)
-                  : 0
-              }
+              offset={offset(ticketIndexOf(row.index))}
               hidden={drag?.id === tickets[ticketIndexOf(row.index)].id}
-              reducedMotion={Boolean(reducedMotion) || virtualizer.isScrolling}
+              reducedMotion={stopMotion}
               resetKey={filterKey}
               onFocus={setFocusedId}
             >

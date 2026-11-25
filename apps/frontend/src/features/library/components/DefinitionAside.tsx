@@ -26,6 +26,7 @@ import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
 
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
@@ -279,7 +280,7 @@ function TagChips({
               type="button"
               aria-label={m.templates_editor_tag_remove_aria({ tag })}
               onClick={() => onRemove(tag)}
-              className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-97"
+              className="text-muted-foreground transition-[color,scale] duration-100 hover:text-foreground active:scale-97"
             >
               <X className="size-3" strokeWidth={1.75} />
             </button>
@@ -302,6 +303,7 @@ function ProjectTagPicker({
   onChange: (tags: ReadonlyArray<TagName>) => void
 }>) {
   const result = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
+  const selected = new Set(value)
   const names = AsyncResult.isSuccess(result)
     ? result.value.map((tag) => tag.name)
     : []
@@ -330,7 +332,7 @@ function ProjectTagPicker({
           names.map((name) => (
             <DropdownMenuCheckboxItem
               key={name}
-              checked={value.includes(name)}
+              checked={selected.has(name)}
               onCheckedChange={(checked) =>
                 onChange(
                   checked
@@ -428,5 +430,56 @@ export function AsideGroup({
       )}
       {children}
     </section>
+  )
+}
+
+export function DefinitionFields({
+  entry,
+  editable,
+  patch
+}: Readonly<{
+  entry: Readonly<{
+    icon: BlockIconName
+    color: LibraryColor
+    description: string
+  }>
+  editable: boolean
+  patch: (
+    update: Readonly<{
+      icon?: BlockIconName
+      color?: LibraryColor
+      description?: string
+    }>
+  ) => void
+}>) {
+  return (
+    <AsideGroup>
+      <MetaRow label={m.templates_editor_icon_label()}>
+        <IconAndColorField
+          icon={entry.icon}
+          color={entry.color}
+          onIcon={(icon) => patch({ icon })}
+          onColor={(color) => patch({ color })}
+          disabled={!editable}
+        />
+      </MetaRow>
+      <MetaRow label={m.templates_editor_description_label()}>
+        {editable ? (
+          <CommitInput
+            value={entry.description}
+            onCommit={(description) => patch({ description })}
+            ariaLabel={m.templates_editor_description_label()}
+            placeholder={m.templates_editor_description_placeholder()}
+            maxLength={200}
+          />
+        ) : (
+          <span className={MUTED_VALUE_CLASS}>
+            {entry.description === ""
+              ? m.templates_editor_none()
+              : entry.description}
+          </span>
+        )}
+      </MetaRow>
+    </AsideGroup>
   )
 }

@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, type ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

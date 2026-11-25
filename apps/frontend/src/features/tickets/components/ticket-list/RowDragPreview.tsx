@@ -6,6 +6,7 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
+import { shortUnitList } from "@/features/tickets/lib/shortUnitList"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -52,10 +53,7 @@ function TicketPreview({
 }
 
 function StackPreview({ ids }: Readonly<{ ids: ReadonlyArray<TicketId> }>) {
-  const shown = new Intl.ListFormat(getLocale(), {
-    style: "short",
-    type: "unit"
-  }).format(ids.slice(0, SHOWN_IDS))
+  const shown = shortUnitList(getLocale()).format(ids.slice(0, SHOWN_IDS))
   const more = ids.length - SHOWN_IDS
   return (
     <div className="relative pb-2">

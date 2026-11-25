@@ -16,16 +16,14 @@ import type { MouseEvent } from "react"
 
 import { richChipColors } from "@/features/auth/atoms/auth"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
-import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { withoutTicketId } from "@/features/github/lib/branchPicker"
 import { connectedRepos, ticketRepo } from "@/features/github/lib/repos"
+import { ownLayer } from "@/features/github/lib/stackPresentation"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  TicketPreview,
-  TicketPreviewTrigger
-} from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
+import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 import { m } from "@/paraglide/messages"
 
 import { GitChipMenu } from "./GitChipMenu"

@@ -22,6 +22,14 @@ export function ScrollFloor() {
     const followScroll = () => {
       floor.style.top = `${Math.max(0, root.scrollTop + root.clientHeight - 1)}px`
     }
+    let frame: number | undefined
+    const onScroll = () => {
+      if (frame !== undefined) return
+      frame = requestAnimationFrame(() => {
+        frame = undefined
+        followScroll()
+      })
+    }
     const onResize = () => {
       if (root.scrollTop >= content.offsetTop + content.offsetHeight) {
         floor.style.top = "0px"
@@ -32,10 +40,11 @@ export function ScrollFloor() {
     const resizes = new ResizeObserver(onResize)
     resizes.observe(content)
     resizes.observe(root)
-    root.addEventListener("scroll", followScroll, { passive: true })
+    root.addEventListener("scroll", onScroll, { passive: true })
     return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame)
       resizes.disconnect()
-      root.removeEventListener("scroll", followScroll)
+      root.removeEventListener("scroll", onScroll)
       floor.remove()
     }
   }, [])

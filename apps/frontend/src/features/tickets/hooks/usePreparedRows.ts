@@ -53,14 +53,7 @@ export function usePreparedRows(
       scheduleIdle()
     }
     const scheduleIdle = () => {
-      if (cancelIdle) return
-      if (window.requestIdleCallback !== undefined) {
-        const id = requestIdleCallback(prepare)
-        cancelIdle = () => cancelIdleCallback(id)
-      } else {
-        const id = window.setTimeout(prepare, 32)
-        cancelIdle = () => window.clearTimeout(id)
-      }
+      if (!cancelIdle) cancelIdle = scheduleIdlePreparation(prepare)
     }
     const update = (event: "scroll" | "resize" | "rest") => {
       const scrolling = event === "scroll"
@@ -132,11 +125,20 @@ export function usePreparedRows(
     root.addEventListener("scrollend", onScrollEnd)
     return () => {
       root.removeEventListener("scrollend", onScrollEnd)
-      cancelIdle?.()
+      stopIdle()
       observer.disconnect()
       root.removeEventListener("scroll", onScroll)
     }
   }, [listRef, count, stride])
 
   return mounted
+}
+
+function scheduleIdlePreparation(prepare: (deadline?: IdleDeadline) => void) {
+  if (window.requestIdleCallback !== undefined) {
+    const idle = window.requestIdleCallback(prepare)
+    return () => window.cancelIdleCallback(idle)
+  }
+  const timer = window.setTimeout(prepare, 32)
+  return () => window.clearTimeout(timer)
 }

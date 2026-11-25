@@ -29,13 +29,13 @@ import {
   childTicketsRequest,
   createChildTicket
 } from "@/features/tickets/atoms/childTickets"
+import { TicketFieldChips } from "@/features/tickets/components/create-ticket/TicketFieldChips"
+import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import {
   DEFAULT_TICKET_FIELDS,
-  TicketFieldChips,
   ticketFieldsPayload,
   type TicketFields
-} from "@/features/tickets/components/create-ticket/TicketFieldChips"
-import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
+} from "@/features/tickets/lib/ticketFields"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"

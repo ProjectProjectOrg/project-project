@@ -39,7 +39,7 @@ export function SprintListKeyboard({
       focused.blur()
   })
 
-  const step = (to: 1 | -1) => () => {
+  const step = (to: 1 | -1) => {
     const element = root.current
     if (element === null) return
     const rows = shownRows(element)
@@ -51,15 +51,15 @@ export function SprintListKeyboard({
     startKeyboardMode()
     next.querySelector<HTMLElement>(LINK)?.focus()
   }
-  const press = (selector: string) => () => {
+  const press = (selector: string) => {
     const row = root.current === null ? null : currentRow(root.current)
     row?.querySelector<HTMLElement>(selector)?.click()
   }
-  useHotkey(appHotkeys["sprints.focus-next"], step(1))
-  useHotkey(appHotkeys["sprints.focus-previous"], step(-1))
-  useHotkey(appHotkeys["sprints.open"], press(LINK))
-  useHotkey(appHotkeys["sprints.dates"], press("[data-sprint-dates]"))
-  useHotkey(appHotkeys["sprints.start"], press("[data-sprint-start]"))
+  useHotkey(appHotkeys["sprints.focus-next"], () => step(1))
+  useHotkey(appHotkeys["sprints.focus-previous"], () => step(-1))
+  useHotkey(appHotkeys["sprints.open"], () => press(LINK))
+  useHotkey(appHotkeys["sprints.dates"], () => press("[data-sprint-dates]"))
+  useHotkey(appHotkeys["sprints.start"], () => press("[data-sprint-start]"))
 
   return (
     <HotkeysProvider scope="sprint-list">

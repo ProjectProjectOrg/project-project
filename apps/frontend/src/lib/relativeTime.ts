@@ -1,8 +1,11 @@
 import * as DateTime from "effect/DateTime"
 import { useSyncExternalStore } from "react"
 
+import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+
+const relativeTime = perLocale(Intl.RelativeTimeFormat, { numeric: "auto" })
 
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["year", 60 * 60 * 24 * 365],
@@ -19,7 +22,7 @@ const nowMillis = () => DateTime.toEpochMillis(DateTime.nowUnsafe())
 export function formatRelative(date: Date, now = nowMillis()) {
   const diff = (date.getTime() - now) / 1000
   if (Math.abs(diff) < 60) return m.common_time_just_now()
-  const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" })
+  const rtf = relativeTime(getLocale())
   for (const [unit, secs] of UNITS) {
     if (Math.abs(diff) >= secs) {
       return rtf.format(Math.round(diff / secs), unit)

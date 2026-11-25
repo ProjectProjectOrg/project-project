@@ -1,12 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { LastProjectPmBlocked } from "@pp/shared"
-import type {
-  AssignableRole,
-  Member,
-  PendingProjectMember,
-  Role
+import {
+  LastProjectPmBlocked,
+  type AssignableRole,
+  type Member,
+  type PendingProjectMember
 } from "@pp/shared"
-import { Briefcase, ShieldCheck, UserRound } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
@@ -14,13 +12,13 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useState } from "react"
 
-import type { RoleMeta } from "@/features/members/components/MemberList"
 import {
   AddMemberRow,
   MemberRowView,
   MembersSection,
   PendingRowView
 } from "@/features/members/components/MembersSection"
+import { ROLE_META } from "@/features/members/lib/roles"
 import { invitationUrl } from "@/features/organizations/lib/invitations"
 import {
   addMember,
@@ -35,24 +33,6 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
-
-export const ROLE_META: Readonly<Record<Role, RoleMeta>> = {
-  pm: {
-    label: () => m.members_role_pm(),
-    icon: ShieldCheck,
-    tone: "muted"
-  },
-  developer: {
-    label: () => m.members_role_developer(),
-    icon: UserRound,
-    tone: "muted"
-  },
-  client: {
-    label: () => m.members_role_client(),
-    icon: Briefcase,
-    tone: "muted"
-  }
-}
 
 const ASSIGN_LABELS: Readonly<Record<AssignableRole, () => string>> = {
   pm: () => m.members_make_pm(),

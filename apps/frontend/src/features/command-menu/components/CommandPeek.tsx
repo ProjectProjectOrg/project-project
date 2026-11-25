@@ -5,55 +5,11 @@ import {
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
 import { EyeOff } from "@pp/ui/icons"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import {
-  animate,
-  useMotionValue,
-  useReducedMotion,
-  useTransform
-} from "motion/react"
-import { useLayoutEffect, useState, type ReactNode } from "react"
+import { useLayoutEffect, type ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
 
 const PEEK_SETTLE_MS = 60
-const PEEK_MIN_VIEWPORT = 720
-const WIPE = { type: "spring", visualDuration: 0.16, bounce: 0 } as const
-const OPEN_WIDTH = 42
-const CLOSED_WIDTH = 100
-
-export const peekFits = () => window.innerWidth >= PEEK_MIN_VIEWPORT
-
-export function usePeekWipe() {
-  const reduceMotion = useReducedMotion() ?? false
-  const width = useMotionValue(CLOSED_WIDTH)
-  const listWidth = useTransform(width, (value) => `${value}%`)
-  const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  const toggle = (next: boolean) => {
-    if (next === open) return
-    setOpen(next)
-    if (next) setMounted(true)
-    const target = next ? OPEN_WIDTH : CLOSED_WIDTH
-    if (reduceMotion) {
-      width.jump(target)
-      if (!next) setMounted(false)
-      return
-    }
-    void animate(width, target, WIPE).then(() => {
-      if (width.get() === CLOSED_WIDTH) setMounted(false)
-    })
-  }
-
-  return {
-    mounted,
-    active: open,
-    style: { width: listWidth },
-    open: () => toggle(true),
-    close: () => toggle(false)
-  }
-}
-
 export function TrackHighlight({
   onChange
 }: Readonly<{ onChange: (row: CommandMenuItemData | undefined) => void }>) {
@@ -71,7 +27,7 @@ export function PeekWarmer({
   const [value] = useDebouncedValue(row?.value ?? null, {
     wait: WARM_DELAY_MS
   })
-  return value === null ? null : warm(value)
+  return value === null ? null : <>{warm(value)}</>
 }
 
 export function CommandPeekPane({

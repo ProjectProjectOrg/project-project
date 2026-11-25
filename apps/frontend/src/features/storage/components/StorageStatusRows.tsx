@@ -1,8 +1,8 @@
 import type { OrgStorageStatus } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

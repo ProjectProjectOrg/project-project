@@ -5,7 +5,7 @@ import {
   formatClock,
   startSecondInterval,
   timerEntryMotion
-} from "./RunningTimerIndicator"
+} from "@/features/everhour/lib/timer"
 
 describe("formatClock", () => {
   it.each([

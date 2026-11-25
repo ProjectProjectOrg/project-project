@@ -2,12 +2,14 @@ import { useAtomValue } from "@effect/atom-react"
 import type { TicketId, User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { CommentComposer as Composer } from "@pp/ui/comment"
+import { KbdShortcut } from "@pp/ui/kbd"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useId, useRef, useState } from "react"
 
 import { me } from "@/features/auth/atoms/auth"
 import { useCommentDraft } from "@/features/comments/hooks/useCommentDraft"
 import { loadLexicalEditor } from "@/features/editor/components/LexicalEditor"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const SETTLE_FRAMES = 30
@@ -76,6 +78,7 @@ function ReadyCommentComposer({
       submit={
         <Button size="sm" onClick={submit} disabled={!body.trim()}>
           {m.comments_composer_submit()}
+          <KbdShortcut size="sm" keys="mod+enter" keyLabels={keyLabels()} />
         </Button>
       }
     >
@@ -88,7 +91,7 @@ function ReadyCommentComposer({
             aria-label={m.comments_composer_placeholder()}
             aria-describedby={submitHint}
             placeholder={m.comments_composer_placeholder()}
-            className="block w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
+            className="block min-h-6 w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
             onFocus={openEditor}
             onChange={(event) => setBody(event.currentTarget.value)}
             onKeyDown={(event) => {

@@ -9,7 +9,6 @@ import {
   useState,
   type RefObject
 } from "react"
-import { flushSync } from "react-dom"
 
 import { loadLexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { appHotkeys } from "@/lib/appHotkeys"
@@ -88,11 +87,27 @@ export function useDescriptionEditor(
   const editorRef = useRef<LexicalEditor | null>(null)
   const [editor, setEditor] = useState<DescriptionEditor | null>(null)
   const [loadState, setLoadState] = useState<"idle" | "loading" | "failed">(
-    "idle"
+    autoFocus ? "loading" : "idle"
   )
   const editorLoad = useRef<Promise<DescriptionEditor | null> | null>(null)
+  const notifyMounted = useRef<
+    ((loaded: DescriptionEditor | null) => void) | null
+  >(null)
+  useEffect(() => {
+    if (editorRef.current !== null && editor !== null) {
+      notifyMounted.current?.(editor)
+      notifyMounted.current = null
+    }
+  }, [editor])
   const pendingEdit = useRef<AbortController | null>(null)
-  useEffect(() => () => pendingEdit.current?.abort(), [])
+  useEffect(
+    () => () => {
+      pendingEdit.current?.abort()
+      notifyMounted.current?.(null)
+      notifyMounted.current = null
+    },
+    []
+  )
   const { editing, startEditing, stopEditing } = useEditMode({
     editorRef,
     rootRef,
@@ -101,18 +116,18 @@ export function useDescriptionEditor(
   })
   const activeEditing = editor !== null && editing
 
-  const ensureEditor = useCallback(() => {
-    if (editor !== null) return Promise.resolve(editor)
+  const mountEditor = useCallback(() => {
     if (editorLoad.current !== null) return editorLoad.current
-    setLoadState("loading")
+    if (editor !== null) return Promise.resolve(editor)
     const pending = loadDescriptionEditor()
       .then((loaded) => {
         if (rootRef.current === null) return null
-        flushSync(() => {
-          setEditor(loaded)
-          setLoadState("idle")
+        const mounted = new Promise<DescriptionEditor | null>((resolve) => {
+          notifyMounted.current = resolve
         })
-        return loaded
+        setEditor(loaded)
+        setLoadState("idle")
+        return mounted
       })
       .catch(() => {
         if (rootRef.current !== null) setLoadState("failed")
@@ -124,6 +139,11 @@ export function useDescriptionEditor(
     editorLoad.current = pending
     return pending
   }, [editor, rootRef])
+
+  const ensureEditor = () => {
+    if (editor === null) setLoadState("loading")
+    return mountEditor()
+  }
 
   const edit = () => {
     if (editorRef.current !== null) {
@@ -163,8 +183,9 @@ export function useDescriptionEditor(
     void loadDescriptionEditor().then(
       async () => {
         if (request.signal.aborted || rootRef.current === null) return
+        const loaded = await mountEditor()
+        if (request.signal.aborted) return
         finish()
-        const loaded = await ensureEditor()
         if (loaded === null || rootRef.current === null) return
         const editorRoot = editorRef.current?.getRootElement()
         if (selection !== null && editorRoot)
@@ -184,7 +205,7 @@ export function useDescriptionEditor(
     requireReset: true
   })
 
-  const openForNewTicket = useEffectEvent(() => void ensureEditor())
+  const openForNewTicket = useEffectEvent(() => void mountEditor())
   useEffect(() => {
     if (autoFocus) {
       openForNewTicket()

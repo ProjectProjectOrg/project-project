@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { extractTicketDesignLinks, TicketDesignLink } from "./TicketDesignLinks"
+import { extractTicketDesignLinks, TicketDesignLink } from "./ticketDesignLinks"
 
 const FIGMA_KEY = "AbCdEfGhIjKlMnOp"
 

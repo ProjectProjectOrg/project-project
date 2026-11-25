@@ -1,22 +1,10 @@
 // @vitest-environment jsdom
-import { TicketId, type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
+import { type FigmaLinkMetadata, type FigmaRef } from "@pp/shared"
 import { act, cleanup, renderHook } from "@testing-library/react"
-import * as Schema from "effect/Schema"
-import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import {
-  EditorServicesProvider,
-  type EditorServices,
-  type TicketTarget
-} from "../services"
 import { useFigmaMetadata } from "./figma-metadata"
 
-const request: TicketTarget = {
-  orgSlug: "org",
-  slug: "project",
-  ticketId: Schema.decodeSync(TicketId)("T-1")
-}
 const refA: FigmaRef = {
   kind: "design",
   fileKey: "a",
@@ -40,16 +28,7 @@ const advanceSeconds = (seconds: number) => {
 
 const setup = () => {
   const refresh = vi.fn()
-  // Only Figma links are used here; Figma hasn't answered for any of them.
-  const services = {
-    useFigmaLinks: () => ({ links: [], refresh })
-  } as unknown as EditorServices
-  const wrapper = ({ children }: Readonly<{ children: ReactNode }>) => (
-    <EditorServicesProvider services={services}>
-      {children}
-    </EditorServicesProvider>
-  )
-  return { refresh, wrapper }
+  return { links: [], refresh }
 }
 
 afterEach(() => {
@@ -60,8 +39,9 @@ afterEach(() => {
 describe("useFigmaMetadata", () => {
   it("stops polling unresolved metadata after fifteen refreshes", () => {
     vi.useFakeTimers()
-    const { refresh, wrapper } = setup()
-    renderHook(() => useFigmaMetadata(refA, request), { wrapper })
+    const source = setup()
+    const { refresh } = source
+    renderHook(() => useFigmaMetadata(refA, source))
 
     advanceSeconds(30)
 
@@ -71,13 +51,13 @@ describe("useFigmaMetadata", () => {
 
   it("polls again after switching to another reference and back", () => {
     vi.useFakeTimers()
-    const { refresh, wrapper } = setup()
+    const source = setup()
+    const { refresh } = source
     const { rerender } = renderHook<
       FigmaLinkMetadata | null,
       Readonly<{ ref: FigmaRef | null }>
-    >(({ ref }) => useFigmaMetadata(ref, request), {
-      initialProps: { ref: refA },
-      wrapper
+    >(({ ref }) => useFigmaMetadata(ref, source), {
+      initialProps: { ref: refA }
     })
     advanceSeconds(30)
     refresh.mockClear()
@@ -91,12 +71,12 @@ describe("useFigmaMetadata", () => {
 
   it("gives a new reference its own refresh budget", () => {
     vi.useFakeTimers()
-    const { refresh, wrapper } = setup()
+    const source = setup()
+    const { refresh } = source
     const { rerender } = renderHook(
-      ({ ref }) => useFigmaMetadata(ref, request),
+      ({ ref }) => useFigmaMetadata(ref, source),
       {
-        initialProps: { ref: refA },
-        wrapper
+        initialProps: { ref: refA }
       }
     )
     advanceSeconds(30)

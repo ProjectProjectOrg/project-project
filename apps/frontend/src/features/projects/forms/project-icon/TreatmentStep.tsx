@@ -4,11 +4,9 @@ import { Slider } from "@pp/ui/slider"
 import type { ReactNode } from "react"
 
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"
-import {
-  IconPreviewTile,
-  LiveIcon
-} from "@/features/projects/components/appearance/IconPreviewTile"
+import { IconPreviewTile } from "@/features/projects/components/appearance/IconPreviewTile"
 import { CUTOUT_MAX_TOLERANCE } from "@/features/projects/lib/iconCutout"
+import { LiveIcon } from "@/features/projects/lib/iconDraft"
 import type { IconTreatment } from "@/features/projects/lib/iconDraft"
 import { useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"

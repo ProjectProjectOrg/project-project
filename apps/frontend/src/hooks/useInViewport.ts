@@ -1,26 +1,20 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
-interface Options {
+type Options = Readonly<{
   rootMargin?: string
   threshold?: number | number[]
-}
+}>
 
 export function useInViewport<T extends Element>(options: Options = {}) {
-  const ref = useRef<T | null>(null)
-  const [inView, setInView] = useState(false)
+  const [node, setNode] = useState<T | null>(null)
+  const [intersecting, setIntersecting] = useState(false)
+  const supported = typeof IntersectionObserver !== "undefined"
 
   useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    if (typeof IntersectionObserver === "undefined") {
-      setInView(true)
-      return
-    }
+    if (!node || !supported) return
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          setInView(entry.isIntersecting)
-        }
+        for (const entry of entries) setIntersecting(entry.isIntersecting)
       },
       {
         rootMargin: options.rootMargin ?? "100px",
@@ -29,7 +23,7 @@ export function useInViewport<T extends Element>(options: Options = {}) {
     )
     observer.observe(node)
     return () => observer.disconnect()
-  }, [options.rootMargin, options.threshold])
+  }, [node, supported, options.rootMargin, options.threshold])
 
-  return [ref, inView] as const
+  return [setNode, supported ? intersecting : node !== null] as const
 }

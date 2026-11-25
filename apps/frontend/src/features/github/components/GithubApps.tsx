@@ -15,8 +15,8 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { ChevronDown, ExternalLink } from "@pp/ui/icons"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

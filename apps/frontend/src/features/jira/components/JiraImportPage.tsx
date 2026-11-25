@@ -6,7 +6,7 @@ import type {
   TypeDefinition
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useState, type ReactNode } from "react"
+import { useReducer, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -78,7 +78,10 @@ export function JiraImportPage({
     refreshMigration()
     refreshLibrary()
   }
-  const [generation, setGeneration] = useState(0)
+  const [formGeneration, advanceFormGeneration] = useReducer(
+    (current: number) => current + 1,
+    0
+  )
   return (
     <AsyncView
       result={AsyncResult.all([result, libraryResult])}
@@ -95,12 +98,12 @@ export function JiraImportPage({
       )}
       onSuccess={({ value: [detail, orgLibrary] }) => (
         <JiraImportView
-          key={`${detail.id}:${detail.requirements === null}:${generation}`}
+          key={`${formGeneration}:${detail.id}:${detail.requirements === null}`}
           orgSlug={orgSlug}
           detail={detail}
           types={jiraTypeOptions(orgLibrary.types)}
           onReload={() => {
-            setGeneration((current) => current + 1)
+            advanceFormGeneration()
             refreshMigration()
           }}
         />

@@ -17,13 +17,13 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
+import { stagedCount } from "@/features/tickets/lib/stagedChanges"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { groupBy } from "../ticket-list/selectionUndo"
 import {
   StagedChanges,
-  stagedCount,
   StagedMove,
   StagedRowCount,
   StagedValue

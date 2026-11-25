@@ -6,17 +6,17 @@ import { useMemo } from "react"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import { Command } from "@/features/command-menu/lib/commands"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
+import {
+  goTo,
+  sprintPath,
+  viewCommands
+} from "@/features/sprints/lib/sprintCommands"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
-import {
-  goTo,
-  sprintPath,
-  viewCommands,
-  type ScopeProps
-} from "./SprintCommandScopes"
+import { type ScopeProps } from "./SprintCommandScopes"
 
 const BACKLOG_ROUTE = "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
 

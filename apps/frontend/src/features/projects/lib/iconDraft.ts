@@ -1,4 +1,5 @@
 import type { AttachmentId, ProjectIconImage } from "@pp/shared"
+import * as Data from "effect/Data"
 import * as Predicate from "effect/Predicate"
 
 import type { IconSource } from "@/features/projects/forms/project-icon/opts"
@@ -8,6 +9,9 @@ import {
   CUTOUT_PREVIEW_EDGE,
   type RgbaImage
 } from "@/features/projects/lib/iconCutout"
+import { objectUrl } from "@/lib/objectUrl"
+
+import { compressImage } from "./imageCompression"
 
 export type IconTreatment = "sticker" | "full_bleed"
 
@@ -156,6 +160,43 @@ export const compositeToBlob = (
   )
 }
 
+export async function prepareIconFiles(
+  bitmap: ImageBitmap,
+  file: File,
+  treatment: IconDraftValues["treatment"]
+) {
+  const { source, alpha, clean } = analyseAt(
+    bitmap,
+    CUTOUT_APPLY_MAX_EDGE,
+    treatment.tolerance
+  )
+  const transparent = hasAlpha(source)
+  const wantsSticker = treatment.kind === "sticker"
+  if (wantsSticker && !clean) return null
+  const compressed = await compressImage(file, {
+    maxEdge: 1024,
+    hasAlpha: transparent,
+    quality: 0.85
+  })
+  const rendered = wantsSticker
+    ? transparent
+      ? file
+      : new File([await compositeToBlob(source, alpha)], "icon.png", {
+          type: "image/png"
+        })
+    : null
+  return {
+    compressed,
+    rendered,
+    classification: {
+      treatment: treatment.kind,
+      clean,
+      transparent,
+      tolerance: treatment.tolerance
+    }
+  }
+}
+
 export const buildDraftPreview = async (
   bitmap: ImageBitmap,
   requestedTreatment: IconTreatment,
@@ -177,14 +218,35 @@ export const buildDraftPreview = async (
   const cutoutBlob = transparent
     ? fullBlob
     : await compositeToBlob(source, alpha)
-  const full = URL.createObjectURL(fullBlob)
-  const cutout = transparent ? full : URL.createObjectURL(cutoutBlob)
-  return {
-    cutoutUrl: cutout,
-    fullUrl: full,
-    clean,
-    reason,
-    transparent,
-    treatment
+  const full = objectUrl(fullBlob)
+  try {
+    const cutout = transparent ? full : objectUrl(cutoutBlob)
+    return {
+      cutoutUrl: cutout.url,
+      fullUrl: full.url,
+      release: () => {
+        if (cutout !== full) cutout.release()
+        full.release()
+      },
+      clean,
+      reason,
+      transparent,
+      treatment
+    }
+  } catch (error) {
+    full.release()
+    throw error
   }
 }
+
+export type LiveIcon = Data.TaggedEnum<{
+  emoji: Readonly<{ emoji: string }>
+  image: Readonly<{
+    src: string
+    crop: IconCrop
+    treatment: IconTreatment
+  }>
+}>
+export const LiveIcon = Data.taggedEnum<LiveIcon>()
+
+export type LiveImageIcon = Data.TaggedEnum.Value<LiveIcon, "image">

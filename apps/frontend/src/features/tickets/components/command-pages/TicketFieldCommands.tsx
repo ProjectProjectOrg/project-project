@@ -77,6 +77,7 @@ import {
   StagedValue,
   useStagedToggles
 } from "./StagedChanges"
+import { useCommandAction } from "./useCommandAction"
 import { useTicketMutation } from "./useTicketMutation"
 
 export type TicketPageProps = CommandPageProps &
@@ -269,7 +270,7 @@ export function TicketTagsPage({
   ).call("tags", "create")
   const [query, setQuery] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const run = useCommandAction()
   const tags = Result.isSuccess(result) ? result.value : []
   const applied = current?.tags ?? []
   const newName = Option.filter(
@@ -334,15 +335,15 @@ export function TicketTagsPage({
       ]}
       onSelect={async (item) => {
         if (item.value === CREATE_TAG) {
-          if (Option.isNone(newName) || pending) return
-          setPending(true)
-          setFailure(null)
-          const exit = await create({ name: newName.value })
-          setPending(false)
-          if (Exit.isFailure(exit))
-            setFailure(errorMessage(Cause.squash(exit.cause)))
-          else if (many) staged.toggle(newName.value)
-          else update({ tags: { add: [newName.value] } })
+          if (Option.isNone(newName)) return
+          await run(async () => {
+            setFailure(null)
+            const exit = await create({ name: newName.value })
+            if (Exit.isFailure(exit))
+              setFailure(errorMessage(Cause.squash(exit.cause)))
+            else if (many) staged.toggle(newName.value)
+            else update({ tags: { add: [newName.value] } })
+          })
           return
         }
         const tag = tags.find((candidate) => candidate.name === item.value)
@@ -494,7 +495,7 @@ export function TicketArchivePage({
   const many = context.selection.length > 1
   const [reason, setReason] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const run = useCommandAction()
   const trimmed = reason.trim()
   return (
     <CommandFrame
@@ -529,34 +530,33 @@ export function TicketArchivePage({
         </CommandMenuItem>
       )}
       onSelect={async () => {
-        if (pending) return
-        setPending(true)
-        setFailure(null)
-        const reasonInput = trimmed === "" ? {} : { reason: trimmed }
-        const selectionView = scopes.findLast(
-          (scope) => scope.selection?.() != null
-        )?.removalView
-        if (many || row?.remove) {
-          const tickets = many
-            ? context.selection.map((each) => each.id)
-            : [ticket.ticketId]
-          void runTicketRemoval(
-            env.registry,
-            ticket,
-            { kind: "archive", tickets, ...reasonInput },
-            (id) => (many ? selectionView?.(ticket.slug, id) : row?.remove)
-          )
-          if (many) clearSelection?.()
+        await run(async () => {
+          setFailure(null)
+          const reasonInput = trimmed === "" ? {} : { reason: trimmed }
+          const selectionView = scopes.findLast(
+            (scope) => scope.selection?.() != null
+          )?.removalView
+          if (many || row?.remove) {
+            const tickets = many
+              ? context.selection.map((each) => each.id)
+              : [ticket.ticketId]
+            void runTicketRemoval(
+              env.registry,
+              ticket,
+              { kind: "archive", tickets, ...reasonInput },
+              (id) => (many ? selectionView?.(ticket.slug, id) : row?.remove)
+            )
+            if (many) clearSelection?.()
+            env.close()
+            return
+          }
+          const failed = failureOf(await archive(reasonInput))
+          if (failed !== null) {
+            setFailure(failed)
+            return
+          }
           env.close()
-          return
-        }
-        const failed = failureOf(await archive(reasonInput))
-        setPending(false)
-        if (failed !== null) {
-          setFailure(failed)
-          return
-        }
-        env.close()
+        })
       }}
     />
   )
@@ -588,7 +588,7 @@ export function TicketFlagPage({
   const many = context.selection.length > 1
   const [reason, setReason] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const run = useCommandAction()
   const trimmed = reason.trim()
   return (
     <CommandFrame
@@ -621,7 +621,6 @@ export function TicketFlagPage({
         </CommandMenuItem>
       )}
       onSelect={async () => {
-        if (pending) return
         if (many && editSelection !== null) {
           void editSelection(
             ticket.slug,
@@ -631,30 +630,30 @@ export function TicketFlagPage({
           env.close()
           return
         }
-        setPending(true)
-        setFailure(null)
-        const failed = many
-          ? failureOf(
-              await updateMany({
-                tickets: context.selection.map((each) => each.id),
-                patch: { flag: trimmed === "" ? {} : { reason: trimmed } }
-              })
-            )
-          : failureOf(
-              await update({
-                flag: flagFor(
-                  trimmed,
-                  userId,
-                  DateTime.toDate(DateTime.nowUnsafe())
-                )
-              })
-            )
-        setPending(false)
-        if (failed !== null) {
-          setFailure(failed)
-          return
-        }
-        env.close()
+        await run(async () => {
+          setFailure(null)
+          const failed = many
+            ? failureOf(
+                await updateMany({
+                  tickets: context.selection.map((each) => each.id),
+                  patch: { flag: trimmed === "" ? {} : { reason: trimmed } }
+                })
+              )
+            : failureOf(
+                await update({
+                  flag: flagFor(
+                    trimmed,
+                    userId,
+                    DateTime.toDate(DateTime.nowUnsafe())
+                  )
+                })
+              )
+          if (failed !== null) {
+            setFailure(failed)
+            return
+          }
+          env.close()
+        })
       }}
     />
   )

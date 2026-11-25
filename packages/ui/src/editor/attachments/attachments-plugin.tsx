@@ -5,8 +5,7 @@ import {
   attachmentSrc,
   attachmentViewParams,
   isAllowedAttachmentContentType,
-  isRasterImageContentType,
-  type TicketId
+  isRasterImageContentType
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
@@ -20,30 +19,34 @@ import {
   DROP_COMMAND,
   PASTE_COMMAND
 } from "lexical"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useMountedRef } from "../../hooks/useMountedRef"
 import { m } from "../messages"
-import { useEditorServices } from "../services"
+import {
+  useEditorServices,
+  type TicketTarget,
+  type UploadAttachment
+} from "../services"
 import { AttachmentNode, $createAttachmentNode } from "./attachment-node"
 import { PastedPart, splitPastedAttachments } from "./pasted-attachments"
 import { staleUploadIds } from "./stale-uploads"
 
-export interface AttachmentsPluginProps {
-  readonly orgSlug: string
-  readonly slug: string
-  readonly ticketId: TicketId
+export type AttachmentsPluginProps = TicketTarget
+
+export function AttachmentsPlugin(target: AttachmentsPluginProps) {
+  const { AttachmentUpload } = useEditorServices()
+  return (
+    <AttachmentUpload target={target}>
+      {(upload) => <AttachmentCommands upload={upload} />}
+    </AttachmentUpload>
+  )
 }
 
-export function AttachmentsPlugin({
-  orgSlug,
-  slug,
-  ticketId
-}: AttachmentsPluginProps) {
+function AttachmentCommands({
+  upload
+}: Readonly<{ upload: UploadAttachment }>) {
   const [editor] = useLexicalComposerContext()
-  const upload = useEditorServices().useUploadAttachment(
-    useMemo(() => ({ orgSlug, slug, ticketId }), [orgSlug, slug, ticketId])
-  )
   const [rejection, setRejection] = useState<string | null>(null)
   const pendingFiles = useRef(new Map<string, File>())
   const inFlight = useRef(new Map<string, AbortController>())

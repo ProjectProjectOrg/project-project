@@ -1,3 +1,5 @@
+import { objectUrl } from "@/lib/objectUrl"
+
 export type BannerRenderVariant = "header" | "card" | "row"
 
 export type BannerRenderIdentity = Readonly<{
@@ -24,6 +26,7 @@ export type BannerRenderLease = Readonly<{
 
 type RenderEntry = Readonly<{
   render: ReadyBannerRender
+  releaseUrl: () => void
   leases: Set<symbol>
 }>
 
@@ -66,7 +69,7 @@ const dispose = (entry: RenderEntry) => {
   if (entry.leases.size > 0 || memory.get(scopeOf(entry.render.key)) === entry)
     return
   resources.delete(entry.render.url)
-  URL.revokeObjectURL(entry.render.url)
+  entry.releaseUrl()
 }
 
 const matchesIdentity = (
@@ -209,26 +212,26 @@ export const prepareBannerRender = async (
   generation = bannerRenderGeneration(key.project)
 ) => {
   if (!isCurrent(key.project, generation)) return null
-  const url = URL.createObjectURL(blob)
+  const { url, release: releaseUrl } = objectUrl(blob)
   const image = new Image()
   image.src = url
   try {
     await image.decode()
   } catch {
-    URL.revokeObjectURL(url)
+    releaseUrl()
     return null
   }
   if (!isCurrent(key.project, generation)) {
-    URL.revokeObjectURL(url)
+    releaseUrl()
     return null
   }
   const existing = peekBannerRender(key)
   if (existing && bannerRenderUrl(existing.key) === bannerRenderUrl(key)) {
-    URL.revokeObjectURL(url)
+    releaseUrl()
     return { render: existing, release: retainBannerRender(existing.url) }
   }
   const render = { key, url, image }
-  const entry: RenderEntry = { render, leases: new Set() }
+  const entry: RenderEntry = { render, releaseUrl, leases: new Set() }
   const scope = scopeOf(key)
   const previous = memory.get(scope)
   memory.delete(scope)

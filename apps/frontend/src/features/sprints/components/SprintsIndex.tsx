@@ -29,6 +29,10 @@ import {
 import { useSprintPhaseCounts } from "@/features/sprints/hooks/useSprintPhaseCounts"
 import { nowDate, startSprintPatch } from "@/features/sprints/lib/sprintDates"
 import { sprintOverview } from "@/features/sprints/lib/sprintOverview"
+import {
+  SPRINT_STATE_META,
+  sprintStatusText
+} from "@/features/sprints/lib/sprintPresentation"
 import { sprintSectionAnchor } from "@/features/tickets/lib/sprintSectionAnchor"
 import { useProjectActor } from "@/hooks/useActor"
 import { appHotkeys } from "@/lib/appHotkeys"
@@ -36,11 +40,7 @@ import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { NewSprintButton } from "./NewSprintButton"
-import {
-  SPRINT_STATE_META,
-  sprintStatusText,
-  SprintStateIcon
-} from "./SprintChip"
+import { SprintStateIcon } from "./SprintChip"
 import { SprintDatesField } from "./SprintHeaderFields"
 import { SprintListKeyboard } from "./SprintListKeyboard"
 import { SprintContextMenu } from "./SprintMenu"

@@ -17,7 +17,7 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
-import { motion, useReducedMotion } from "motion/react"
+import { m as motion, useReducedMotion } from "motion/react"
 import { useEffect, useMemo, useState } from "react"
 
 import {
@@ -37,6 +37,11 @@ import {
 } from "@/features/everhour/atoms/timeTracking"
 import { TimeControls } from "@/features/everhour/components/TimeControls"
 import { LogTimeForm } from "@/features/everhour/forms/log-time"
+import {
+  formatClock,
+  timerEntryMotion,
+  startSecondInterval
+} from "@/features/everhour/lib/timer"
 import {
   sprintList,
   sprintListRequest
@@ -65,41 +70,16 @@ const elapsedSeconds = (startedAt: Date) =>
     )
   )
 
-const padClockPart = (value: number) => `${value}`.padStart(2, "0")
-
-export const formatClock = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-  return hours > 0
-    ? `${hours}:${padClockPart(minutes)}:${padClockPart(secs)}`
-    : `${minutes}:${padClockPart(secs)}`
-}
-
-export const timerEntryMotion = (reduceMotion: boolean) =>
-  reduceMotion
-    ? { initial: false as const, animate: { opacity: 1 } }
-    : { initial: { opacity: 0, y: -2 }, animate: { opacity: 1, y: 0 } }
-
-export const startSecondInterval = (update: () => void) => {
-  update()
-  const interval = window.setInterval(update, 1000)
-  return () => window.clearInterval(interval)
-}
-
 function useElapsed(startedAt: Date | null) {
   const [seconds, setSeconds] = useState(() =>
     startedAt ? elapsedSeconds(startedAt) : 0
   )
   useEffect(() => {
-    if (!startedAt) {
-      setSeconds(0)
-      return undefined
-    }
+    if (!startedAt) return undefined
     const update = () => setSeconds(elapsedSeconds(startedAt))
     return startSecondInterval(update)
   }, [startedAt])
-  return seconds
+  return startedAt === null ? 0 : seconds
 }
 
 function routeContext(pathname: string, orgSlug: string) {
@@ -228,22 +208,7 @@ function ConnectedProjectTimerIndicator({
   const sprintsResult = useAtomValue(
     sprintList(sprintListRequest(orgSlug, slug))
   )
-  const timerReq = activeTimerRequest(orgSlug)
-  const ticketReq = ticketTimeRequest(
-    orgSlug,
-    slug,
-    ticketId ?? placeholderTicketId
-  )
-  const ticketWorkTypesResult = useAtomValue(
-    ticketId !== null
-      ? workTypesForTicketAtom(ticketReq)
-      : defaultWorkTypesResultAtom
-  )
-  const stop = useAtomSet(stopTimerAtom(timerReq), { mode: "promiseExit" })
-  const stopState = useAtomValue(stopTimerAtom(timerReq))
-  const reduceMotion = useReducedMotion()
   const [open, setOpen] = useState(false)
-  const [pickedWorkType, setPickedWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
   const [pickedGroupId, setPickedGroupId] = useState<GroupId | null>(null)
   const elapsed = useElapsed(timer ? timer.startedAt : null)
@@ -257,96 +222,27 @@ function ConnectedProjectTimerIndicator({
   const effectiveSprint =
     pickedSprint ?? defaultSprint(sprints, routeGroupId, timer, slug)
   const effectiveGroupId = effectiveSprint?.id ?? null
-  const runningForSelected =
-    timer !== null &&
-    timer.slug === slug &&
-    (ticketId !== null
-      ? timer.ticketId === ticketId
-      : timer.ticketId === null &&
-        effectiveGroupId !== null &&
-        timer.groupId === effectiveGroupId)
-  const sprintReq = sprintTimerRequest(
+  const {
+    workType,
+    setPickedWorkType,
+    availableOptions,
+    busy,
+    timerError,
+    start,
+    stop
+  } = useTimerActions(
     orgSlug,
     slug,
-    effectiveGroupId ?? placeholderGroupId
+    ticketId,
+    effectiveGroupId,
+    timer,
+    timerWaiting
   )
-  const startKey = { timerReq, sprintReq }
-  const start = useAtomSet(startSprintTimerAtom(startKey), {
-    mode: "promiseExit"
-  })
-  const startState = useAtomValue(startSprintTimerAtom(startKey))
-  const ticketStartKey = { timerReq, ticketReq }
-  const startTicket = useAtomSet(startActiveTicketTimerAtom(ticketStartKey), {
-    mode: "promiseExit"
-  })
-  const startTicketState = useAtomValue(
-    startActiveTicketTimerAtom(ticketStartKey)
-  )
-  const ticketOptionsLoading =
-    ticketId !== null && Result.isInitial(ticketWorkTypesResult)
-  const availableOptions = useMemo(
-    () =>
-      ticketId !== null
-        ? Result.isSuccess(ticketWorkTypesResult)
-          ? ticketWorkTypesResult.value
-          : []
-        : options,
-    [ticketId, ticketWorkTypesResult]
-  )
-  const workType =
-    [pickedWorkType, timer?.workTypeKey].find((key) =>
-      availableOptions.some((option) => option.key === key)
-    ) ??
-    availableOptions[0]?.key ??
-    options[0].key
-  const busy =
-    timerWaiting ||
-    startState.waiting ||
-    startTicketState.waiting ||
-    stopState.waiting ||
-    ticketOptionsLoading
-  const timerError =
-    mutationErrorText(ticketId !== null ? startTicketState : startState) ??
-    mutationErrorText(stopState)
 
   if (Result.isInitial(profileResult)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
   }
   if (!connected) return null
-
-  const label = timer ? timerLabel(timer) : m.time_timer_idle()
-  const visibleLabel = timer?.ticketId ? (
-    <TicketIdText id={timer.ticketId}>{label}</TicketIdText>
-  ) : (
-    label
-  )
-  const trigger = (
-    <button
-      type="button"
-      aria-label={
-        timer ? m.time_timer_running_on({ label }) : m.time_timer_open()
-      }
-      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-97"
-    >
-      <Timer
-        className="size-4 shrink-0 text-muted-foreground"
-        strokeWidth={1.75}
-      />
-      <motion.span
-        initial={timerEntryMotion(reduceMotion ?? false).initial}
-        animate={timerEntryMotion(reduceMotion ?? false).animate}
-        transition={transitions.fade}
-        className="flex min-w-0 items-center gap-2"
-      >
-        <span className="max-w-40 truncate text-body">{visibleLabel}</span>
-        {timer ? (
-          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
-            {formatClock(elapsed)}
-          </span>
-        ) : null}
-      </motion.span>
-    </button>
-  )
 
   return (
     <Popover
@@ -356,7 +252,7 @@ function ConnectedProjectTimerIndicator({
         if (!next) setShowLog(false)
       }}
     >
-      <PopoverTrigger render={trigger} />
+      <TimerTrigger timer={timer} elapsed={elapsed} />
       <PopoverContent
         align="end"
         sideOffset={8}
@@ -369,7 +265,7 @@ function ConnectedProjectTimerIndicator({
                 {m.time_timer_popover_title()}
               </div>
               <div className="truncate text-caption text-muted-foreground">
-                {visibleLabel}
+                <TimerLabel timer={timer} />
               </div>
             </div>
             {timer ? (
@@ -402,14 +298,15 @@ function ConnectedProjectTimerIndicator({
               value={workType}
               onValueChange={setPickedWorkType}
               options={availableOptions}
-              running={runningForSelected}
+              running={matchesSelection(
+                timer,
+                slug,
+                ticketId,
+                effectiveGroupId
+              )}
               busy={busy}
               error={timerError}
-              onStart={() =>
-                ticketId !== null
-                  ? void startTicket({ workTypeKey: workType })
-                  : void start({ workTypeKey: workType })
-              }
+              onStart={start}
               onStop={() => void stop()}
               logOpen={showLog}
               onLogOpenChange={setShowLog}
@@ -470,4 +367,143 @@ function SprintSelect({
       />
     </Select>
   )
+}
+
+function TimerLabel({ timer }: Readonly<{ timer: ActiveTimer | null }>) {
+  const label = timer ? timerLabel(timer) : m.time_timer_idle()
+  return timer?.ticketId ? (
+    <TicketIdText id={timer.ticketId}>{label}</TicketIdText>
+  ) : (
+    label
+  )
+}
+
+function TimerTrigger({
+  timer,
+  elapsed
+}: Readonly<{ timer: ActiveTimer | null; elapsed: number }>) {
+  const reduceMotion = useReducedMotion() ?? false
+  const trigger = (
+    <button
+      type="button"
+      aria-label={
+        timer
+          ? m.time_timer_running_on({ label: timerLabel(timer) })
+          : m.time_timer_open()
+      }
+      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-97"
+    >
+      <Timer
+        className="size-4 shrink-0 text-muted-foreground"
+        strokeWidth={1.75}
+      />
+      <motion.span
+        initial={timerEntryMotion(reduceMotion).initial}
+        animate={timerEntryMotion(reduceMotion).animate}
+        transition={transitions.fade}
+        className="flex min-w-0 items-center gap-2"
+      >
+        <span className="max-w-40 truncate text-body">
+          <TimerLabel timer={timer} />
+        </span>
+        {timer ? (
+          <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
+            {formatClock(elapsed)}
+          </span>
+        ) : null}
+      </motion.span>
+    </button>
+  )
+  return <PopoverTrigger render={trigger} />
+}
+
+function matchesSelection(
+  timer: ActiveTimer | null,
+  slug: string,
+  ticketId: TicketId | null,
+  effectiveGroupId: GroupId | null
+) {
+  return (
+    timer !== null &&
+    timer.slug === slug &&
+    (ticketId !== null
+      ? timer.ticketId === ticketId
+      : timer.ticketId === null &&
+        effectiveGroupId !== null &&
+        timer.groupId === effectiveGroupId)
+  )
+}
+
+function useTimerActions(
+  orgSlug: string,
+  slug: string,
+  ticketId: TicketId | null,
+  effectiveGroupId: GroupId | null,
+  timer: ActiveTimer | null,
+  timerWaiting: boolean
+) {
+  const timerReq = activeTimerRequest(orgSlug)
+  const ticketReq = ticketTimeRequest(
+    orgSlug,
+    slug,
+    ticketId ?? placeholderTicketId
+  )
+  const ticketWorkTypesResult = useAtomValue(
+    ticketId !== null
+      ? workTypesForTicketAtom(ticketReq)
+      : defaultWorkTypesResultAtom
+  )
+  const stop = useAtomSet(stopTimerAtom(timerReq), { mode: "promiseExit" })
+  const stopState = useAtomValue(stopTimerAtom(timerReq))
+  const [pickedWorkType, setPickedWorkType] = useState<string | null>(null)
+  const sprintReq = sprintTimerRequest(
+    orgSlug,
+    slug,
+    effectiveGroupId ?? placeholderGroupId
+  )
+  const startKey = { timerReq, sprintReq }
+  const start = useAtomSet(startSprintTimerAtom(startKey), {
+    mode: "promiseExit"
+  })
+  const startState = useAtomValue(startSprintTimerAtom(startKey))
+  const ticketStartKey = { timerReq, ticketReq }
+  const startTicket = useAtomSet(startActiveTicketTimerAtom(ticketStartKey), {
+    mode: "promiseExit"
+  })
+  const startTicketState = useAtomValue(
+    startActiveTicketTimerAtom(ticketStartKey)
+  )
+  const ticketOptionsLoading =
+    ticketId !== null && Result.isInitial(ticketWorkTypesResult)
+  const availableOptions = Result.isSuccess(ticketWorkTypesResult)
+    ? ticketWorkTypesResult.value
+    : []
+  const workType =
+    [pickedWorkType, timer?.workTypeKey].find((key) =>
+      availableOptions.some((option) => option.key === key)
+    ) ??
+    availableOptions[0]?.key ??
+    options[0].key
+  const busy =
+    timerWaiting ||
+    startState.waiting ||
+    startTicketState.waiting ||
+    stopState.waiting ||
+    ticketOptionsLoading
+  const timerError =
+    mutationErrorText(ticketId !== null ? startTicketState : startState) ??
+    mutationErrorText(stopState)
+
+  return {
+    workType,
+    setPickedWorkType,
+    availableOptions,
+    busy,
+    timerError,
+    stop,
+    start: () =>
+      ticketId !== null
+        ? void startTicket({ workTypeKey: workType })
+        : void start({ workTypeKey: workType })
+  }
 }

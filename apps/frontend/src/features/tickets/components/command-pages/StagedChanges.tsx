@@ -4,6 +4,7 @@ import { ArrowRight, Minus, Plus } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { useState, type ReactNode } from "react"
 
+import { type StagedLine } from "@/features/tickets/lib/stagedChanges"
 import { keyLabels } from "@/lib/keyLabels"
 
 /*
@@ -12,12 +13,6 @@ import { keyLabels } from "@/lib/keyLabels"
  * per group of tickets ("3  Todo → Done"), and Apply (or Mod+Enter) sends
  * it.
  */
-
-export type StagedLine = Readonly<{
-  key: string
-  count: number
-  change: ReactNode
-}>
 
 export function StagedChanges({
   lines,
@@ -75,16 +70,6 @@ export function StagedRowCount({ count }: Readonly<{ count?: number }>) {
     </span>
   )
 }
-
-// How many tickets a pick changes (each is on one line), or, before
-// anything is staged, the whole selection.
-export const stagedCount = (
-  lines: ReadonlyArray<StagedLine>,
-  selected: number
-) =>
-  lines.length === 0
-    ? selected
-    : lines.reduce((sum, line) => sum + line.count, 0)
 
 // One value, as a line shows it: its icon and name.
 export function StagedValue({

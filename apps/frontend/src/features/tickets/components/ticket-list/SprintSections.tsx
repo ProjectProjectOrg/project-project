@@ -247,19 +247,9 @@ function SprintSection({
   }
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
-  const dates = sprint && formatSprintDates(sprintDateDraft(sprint))
   const selectedStatuses = query.status
   const anchor = sprint ? sprintSectionAnchor(sprint.id) : undefined
-  const hash = useLocation({ select: (location) => location.hash })
-  const anchorRef = useRef<HTMLDivElement>(null)
-  const targeted = anchor !== undefined && hash === anchor && !waiting
-  useEffect(() => {
-    if (!targeted) return undefined
-    const frame = requestAnimationFrame(() =>
-      anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
-    )
-    return () => cancelAnimationFrame(frame)
-  }, [targeted])
+  const anchorRef = useSprintAnchor(anchor, waiting)
   return (
     <div
       ref={anchorRef}
@@ -286,37 +276,12 @@ function SprintSection({
             />
           ),
           detail: sprint ? (
-            <>
-              {dates && (
-                <Chip>
-                  <CalendarRange
-                    className="size-3 shrink-0"
-                    strokeWidth={1.75}
-                  />
-                  {dates}
-                </Chip>
-              )}
-              {estimates && (
-                <SprintProgress
-                  sprint={sprint}
-                  summary={estimates}
-                  onShowUnestimated={() =>
-                    props.onQueryChange({ ...props.query, estimate: ["none"] })
-                  }
-                />
-              )}
-              {state === "planned" && (
-                <SprintPlanSummary
-                  sprint={sprint}
-                  onFilterAssignee={(assignee) =>
-                    props.onQueryChange({
-                      ...props.query,
-                      assignee: [assignee]
-                    })
-                  }
-                />
-              )}
-            </>
+            <SprintHeadingDetail
+              sprint={sprint}
+              estimates={estimates}
+              query={props.query}
+              onQueryChange={props.onQueryChange}
+            />
           ) : undefined
         }}
         canCreate={state !== "completed"}
@@ -384,5 +349,60 @@ function SprintSectionPagination({
       failed={Result.isFailure(state)}
       loadMore={() => loadMore()}
     />
+  )
+}
+
+function useSprintAnchor(anchor: string | undefined, waiting: boolean) {
+  const hash = useLocation({ select: (location) => location.hash })
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const targeted = anchor !== undefined && hash === anchor && !waiting
+  useEffect(() => {
+    if (!targeted) return undefined
+    const frame = requestAnimationFrame(() =>
+      anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [targeted])
+  return anchorRef
+}
+
+function SprintHeadingDetail({
+  sprint,
+  estimates,
+  query,
+  onQueryChange
+}: Pick<SprintSectionProps, "estimates" | "query" | "onQueryChange"> &
+  Readonly<{ sprint: NonNullable<SprintSectionProps["sprint"]> }>) {
+  const dates = formatSprintDates(sprintDateDraft(sprint))
+  const state = sprintState(sprint)
+  return (
+    <>
+      {dates && (
+        <Chip>
+          <CalendarRange className="size-3 shrink-0" strokeWidth={1.75} />
+          {dates}
+        </Chip>
+      )}
+      {estimates && (
+        <SprintProgress
+          sprint={sprint}
+          summary={estimates}
+          onShowUnestimated={() =>
+            onQueryChange({ ...query, estimate: ["none"] })
+          }
+        />
+      )}
+      {state === "planned" && (
+        <SprintPlanSummary
+          sprint={sprint}
+          onFilterAssignee={(assignee) =>
+            onQueryChange({
+              ...query,
+              assignee: [assignee]
+            })
+          }
+        />
+      )}
+    </>
   )
 }

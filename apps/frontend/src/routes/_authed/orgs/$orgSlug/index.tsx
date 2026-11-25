@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Crumb } from "@/components/shell/Breadcrumbs"
+import { Crumb } from "@/components/shell/crumb"
 import { Dashboard } from "@/features/dashboard/components/Dashboard"
 import { preloadDashboard } from "@/features/dashboard/lib/preloadDashboard"
 import { m } from "@/paraglide/messages"

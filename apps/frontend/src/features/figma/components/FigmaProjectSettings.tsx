@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { FigmaProjectIntegrationStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
@@ -52,27 +53,20 @@ export function FigmaProjectSettings({ canManage }: { canManage: boolean }) {
   )
 }
 
+type FigmaProjectProps = Readonly<{
+  status: FigmaProjectIntegrationStatus
+  waiting: boolean
+  canManage: boolean
+}>
+
 function FigmaProjectContent({
   status,
   waiting,
   canManage
-}: {
-  status: {
-    connected: boolean
-    handle: string | null
-    lastCheckError: string | null
-    storageConnected: boolean
-  }
-  waiting: boolean
-  canManage: boolean
-}) {
+}: FigmaProjectProps) {
   const { orgSlug, slug } = useProjectRoute()
   const req = figmaProjectRequest(orgSlug, slug)
   const canSetUpStorage = useOrgActor(orgSlug).call("storage", "connect")
-  const [accessToken, setAccessToken] = useState("")
-  const connect = useAtomSet(connectFigmaProjectAtom(req), {
-    mode: "promiseExit"
-  })
   const disconnect = useAtomSet(disconnectFigmaProjectAtom(req))
   const connectState = useAtomValue(connectFigmaProjectAtom(req))
   const disconnectState = useAtomValue(disconnectFigmaProjectAtom(req))
@@ -84,14 +78,6 @@ function FigmaProjectContent({
     ? figmaStatusErrorMessage(status.lastCheckError)
     : mutationError
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const trimmed = accessToken.trim()
-    if (!trimmed || !status.storageConnected) return
-    const exit = await connect({ accessToken: trimmed })
-    if (Exit.isSuccess(exit)) setAccessToken("")
-  }
-
   return (
     <SettingsRow
       icon={<IntegrationLogo kind="figma" />}
@@ -101,17 +87,7 @@ function FigmaProjectContent({
           {canManage && !status.connected ? <FigmaTokenWalkthrough /> : null}
         </span>
       }
-      description={
-        <span className={cn(busy && "animate-pulse")}>
-          {status.connected && status.handle ? (
-            <span className="tabular-nums">{status.handle}</span>
-          ) : status.storageConnected ? (
-            m.figma_project_description()
-          ) : (
-            m.figma_project_storage_required()
-          )}
-        </span>
-      }
+      description={<FigmaStatusDescription status={status} busy={busy} />}
       error={error}
     >
       {canManage && status.connected ? (
@@ -127,28 +103,7 @@ function FigmaProjectContent({
         </Button>
       ) : null}
       {canManage && !status.connected && status.storageConnected ? (
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(event) => void submit(event)}
-        >
-          <Input
-            type="password"
-            value={accessToken}
-            autoComplete="off"
-            placeholder={m.figma_project_token_label()}
-            aria-label={m.figma_project_token_label()}
-            onChange={(event) => setAccessToken(event.target.value)}
-            className="h-8 w-56"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            loading={connectState.waiting}
-            disabled={busy || !accessToken.trim()}
-          >
-            {m.figma_project_connect_button()}
-          </Button>
-        </form>
+        <FigmaTokenForm req={req} busy={busy} waiting={connectState.waiting} />
       ) : null}
       {canManage && !status.storageConnected && canSetUpStorage ? (
         <Button
@@ -165,5 +120,69 @@ function FigmaProjectContent({
         </Button>
       ) : null}
     </SettingsRow>
+  )
+}
+
+function FigmaStatusDescription({
+  status,
+  busy
+}: Readonly<{ status: FigmaProjectProps["status"]; busy: boolean }>) {
+  return (
+    <span className={cn(busy && "animate-pulse")}>
+      {status.connected && status.handle ? (
+        <span className="tabular-nums">{status.handle}</span>
+      ) : status.storageConnected ? (
+        m.figma_project_description()
+      ) : (
+        m.figma_project_storage_required()
+      )}
+    </span>
+  )
+}
+
+function FigmaTokenForm({
+  req,
+  busy,
+  waiting
+}: Readonly<{
+  req: ReturnType<typeof figmaProjectRequest>
+  busy: boolean
+  waiting: boolean
+}>) {
+  const [accessToken, setAccessToken] = useState("")
+  const connect = useAtomSet(connectFigmaProjectAtom(req), {
+    mode: "promiseExit"
+  })
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmed = accessToken.trim()
+    if (!trimmed) return
+    const exit = await connect({ accessToken: trimmed })
+    if (Exit.isSuccess(exit)) setAccessToken("")
+  }
+
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(event) => void submit(event)}
+    >
+      <Input
+        type="password"
+        value={accessToken}
+        autoComplete="off"
+        placeholder={m.figma_project_token_label()}
+        aria-label={m.figma_project_token_label()}
+        onChange={(event) => setAccessToken(event.target.value)}
+        className="h-8 w-56"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        loading={waiting}
+        disabled={busy || !accessToken.trim()}
+      >
+        {m.figma_project_connect_button()}
+      </Button>
+    </form>
   )
 }

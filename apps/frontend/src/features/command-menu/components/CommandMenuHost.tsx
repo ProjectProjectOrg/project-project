@@ -36,7 +36,7 @@ import {
   scopeView,
   type CommandScope
 } from "../lib/commandScopes"
-import { COMMAND_PAGES } from "../pages"
+import { CommandSubpage } from "../pages"
 import { commandRegistry } from "../registry"
 import { CommandHotkeys } from "./CommandHotkeys"
 import { RootCommands } from "./RootCommands"
@@ -204,6 +204,5 @@ function CommandMenuPage({
       />
     )
   }
-  const Page = COMMAND_PAGES[page]
-  return <Page {...props} />
+  return <CommandSubpage page={page} {...props} />
 }

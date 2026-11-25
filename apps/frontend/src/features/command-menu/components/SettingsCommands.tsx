@@ -1,3 +1,4 @@
+import { commandItem } from "@/features/command-menu/lib/commandItem"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
 import { m } from "@/paraglide/messages"
 
@@ -9,7 +10,6 @@ import {
   settingsCommands
 } from "../settingsCommands"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
-import { commandItem } from "./RootCommands"
 
 const isIntegration = (command: Command) => command.id.includes(".integration.")
 

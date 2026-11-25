@@ -46,7 +46,7 @@ import { TicketSprintCommands } from "@/features/tickets/components/command-page
 import { TicketStatusCommands } from "@/features/tickets/components/command-pages/TicketStatusCommands"
 import { TicketSubTicketPage } from "@/features/tickets/components/command-pages/TicketSubTicketPage"
 import {
-  viewFilterDimensionPage,
+  ViewFilterDimensionPage,
   ViewFilterPage
 } from "@/features/tickets/components/command-pages/ViewFilterCommands"
 import { CreateTicketPage } from "@/features/tickets/components/create-ticket/CreateTicketPage"
@@ -138,7 +138,7 @@ const sprintPage = (Page: ComponentType<SprintPageProps>) =>
     )
   }
 
-export const COMMAND_PAGES: Readonly<
+const COMMAND_PAGES: Readonly<
   Record<Exclude<CommandPage, "root">, ComponentType<CommandPageProps>>
 > = {
   ticketStatus: TicketStatusPage,
@@ -178,12 +178,24 @@ export const COMMAND_PAGES: Readonly<
   shortcuts: ShortcutSheetPage,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,
-  "filter:type": viewFilterDimensionPage("type"),
-  "filter:assignee": viewFilterDimensionPage("assignee"),
-  "filter:sprint": viewFilterDimensionPage("sprint"),
-  "filter:epic": viewFilterDimensionPage("epic"),
-  "filter:estimate": viewFilterDimensionPage("estimate"),
-  "filter:tags": viewFilterDimensionPage("tags"),
+  "filter:type": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="type" />
+  ),
+  "filter:assignee": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="assignee" />
+  ),
+  "filter:sprint": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="sprint" />
+  ),
+  "filter:epic": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="epic" />
+  ),
+  "filter:estimate": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="estimate" />
+  ),
+  "filter:tags": (props) => (
+    <ViewFilterDimensionPage {...props} dimension="tags" />
+  ),
   sprintSchedule: sprintPage(SprintSchedulePage),
   sprintComplete: sprintPage(SprintCompletePage),
   sprintLength: sprintPage(SprintLengthPage),
@@ -196,4 +208,12 @@ export const COMMAND_PAGES: Readonly<
   "mark:blocking": markPage("blocking"),
   "mark:related": markPage("related"),
   "mark:duplicateOf": markPage("duplicateOf")
+}
+
+export function CommandSubpage({
+  page,
+  ...props
+}: CommandPageProps & Readonly<{ page: keyof typeof COMMAND_PAGES }>) {
+  const Page = COMMAND_PAGES[page]
+  return <Page {...props} />
 }

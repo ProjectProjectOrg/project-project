@@ -2,10 +2,10 @@ import { useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus, StatusPhase } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Reorder } from "motion/react"
-import { useMemo, useRef, useState } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
   statusesFor,
   statusesRequest
@@ -77,7 +77,9 @@ function PhasedStatuses({
   const order = dragOrder ?? entries
   const dragging = dragOrder !== null
   const orderRef = useRef(order)
-  orderRef.current = order
+  useLayoutEffect(() => {
+    orderRef.current = order
+  }, [order])
   const [creating, setCreating] = useState<StatusPhase | null>(null)
 
   const phaseCounts: Record<StatusPhase, number> = {

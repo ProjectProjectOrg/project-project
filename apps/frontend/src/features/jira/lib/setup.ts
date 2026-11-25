@@ -352,10 +352,12 @@ export const rareLabelIndexes = (
 export const skipTags = (
   tags: ReadonlyArray<TagChoice>,
   indexes: ReadonlyArray<number>
-) =>
-  tags.map((choice, index) =>
-    indexes.includes(index) ? setTagSkipped(choice, true) : choice
+) => {
+  const skipped = new Set(indexes)
+  return tags.map((choice, index) =>
+    skipped.has(index) ? setTagSkipped(choice, true) : choice
   )
+}
 
 export const byImpact = (
   indexes: ReadonlyArray<number>,

@@ -1,16 +1,19 @@
 import { figmaRefKey, type FigmaRef } from "@pp/shared"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import { useVisibleInterval } from "../../hooks/useVisibleInterval"
-import { useEditorServices, type TicketTarget } from "../services"
+import {
+  useEditorServices,
+  type FigmaLinks,
+  type TicketTarget
+} from "../services"
 
 const MAX_REFRESHES = 15
 
 export const useFigmaMetadata = (
   ref: FigmaRef | null,
-  target: TicketTarget
+  { links, refresh }: FigmaLinks
 ) => {
-  const { links, refresh } = useEditorServices().useFigmaLinks(target)
   const refKey = ref === null ? null : figmaRefKey(ref)
   const metadata =
     refKey === null || links === null
@@ -35,4 +38,29 @@ export const useFigmaMetadata = (
 
   if (ref === null || links === null) return null
   return metadata
+}
+
+type MetadataProps = Readonly<{
+  reference: FigmaRef | null
+  children: (metadata: ReturnType<typeof useFigmaMetadata>) => ReactNode
+}>
+
+export function FigmaMetadata({
+  target,
+  ...props
+}: MetadataProps & Readonly<{ target: TicketTarget }>) {
+  const { FigmaLinks } = useEditorServices()
+  return (
+    <FigmaLinks target={target}>
+      {(links) => <ResolvedMetadata {...props} links={links} />}
+    </FigmaLinks>
+  )
+}
+
+function ResolvedMetadata({
+  reference,
+  children,
+  links
+}: MetadataProps & Readonly<{ links: FigmaLinks }>) {
+  return children(useFigmaMetadata(reference, links))
 }

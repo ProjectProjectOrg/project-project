@@ -41,9 +41,12 @@ export function EditSprintForm({
     updateSprint({ req: sprintListRequest(orgSlug, slug), groupId: sprint.id }),
     { mode: "promiseExit" }
   )
-  const [name, setName] = useState(sprint.name)
-  const [description, setDescription] = useState(body)
-  const [range, setRange] = useState<SprintDateDraft>(sprintDateDraft(sprint))
+  const [nameDraft, setName] = useState<string | null>(null)
+  const name = nameDraft ?? sprint.name
+  const [descriptionDraft, setDescription] = useState<string | null>(null)
+  const [range, setRange] = useState<SprintDateDraft>(() =>
+    sprintDateDraft(sprint)
+  )
   const [failure, setFailure] = useState<string | null>(null)
   const trimmed = name.trim()
 
@@ -51,7 +54,7 @@ export function EditSprintForm({
     event?.preventDefault()
     if (trimmed === "") return
     const dates = sprintDatesPatch(sprint, range)
-    const goal = description.trim()
+    const goal = (descriptionDraft ?? body).trim()
     if (trimmed !== sprint.name || goal !== body.trim() || dates !== null) {
       const exit = await update({ ...dates, name: trimmed, body: goal })
       if (Exit.isFailure(exit)) {

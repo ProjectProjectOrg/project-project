@@ -132,3 +132,24 @@ function withHiddenInPlace(
   let next = 0
   return all.map((s) => (movedSet.has(s) ? moved[next++] : s))
 }
+
+// A column's grip: pressing it starts the drag, letting go saves the order,
+// and its arrow keys move the column one place.
+export type ColumnReorder = Readonly<{
+  start: () => void
+  end: () => void
+  move: (delta: -1 | 1) => void
+}>
+
+export const columnReorder = (
+  reorder: StatusReorder | null,
+  order: ReadonlyArray<StatusSlug>,
+  status: StatusSlug
+) =>
+  reorder === null
+    ? undefined
+    : ({
+        start: reorder.enterReorder,
+        end: reorder.saveReorder,
+        move: (delta) => reorder.moveStatus(order, status, delta)
+      } satisfies ColumnReorder)

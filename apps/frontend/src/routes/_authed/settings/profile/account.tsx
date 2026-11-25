@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { settingsPage } from "@/components/shell/settings/SettingsLayout"
+import { settingsPage } from "@/components/shell/settings/settingsPage"
 import { Account } from "@/features/profile/components/Account"
 import { m } from "@/paraglide/messages"
 

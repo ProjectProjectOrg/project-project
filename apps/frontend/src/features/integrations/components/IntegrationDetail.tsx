@@ -51,7 +51,7 @@ export function IntegrationCard({
       <span className="flex items-start justify-between gap-2">
         <IntegrationLogo kind={kind} />
         <ArrowRight
-          className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+          className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-[translate,opacity] group-hover:translate-x-0 group-hover:opacity-100"
           strokeWidth={1.75}
         />
       </span>

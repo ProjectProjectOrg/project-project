@@ -154,8 +154,9 @@ export function LeftBehindBlock({
   const forced = requirements.attachments.filter(
     (attachment) => attachment.forcedSkipReason !== null
   )
+  const failedIds = new Set(failedAttachmentIds)
   const failed = requirements.attachments.filter((attachment) =>
-    failedAttachmentIds.includes(attachment.jiraAttachmentId)
+    failedIds.has(attachment.jiraAttachmentId)
   )
   const restricted = hasRestrictedContent(requirements)
   const skippedTags = draft.setup.tags.flatMap((tag) =>

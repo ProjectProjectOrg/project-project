@@ -22,7 +22,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
+import { pickDefaultSprint } from "@/features/sprints/lib/sprintTargets"
 import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"

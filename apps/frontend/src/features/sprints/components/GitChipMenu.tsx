@@ -32,13 +32,13 @@ import { Fragment, useRef, useState, type ReactNode } from "react"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { RemoveBranchItem } from "@/features/github/components/ticket-git/BranchMenu"
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
+import { compareUrl } from "@/features/github/lib/branchUrl"
+import { canStackOn } from "@/features/github/lib/stacking"
 import {
   layerTone,
   stackPullRequestCount,
   TONES
-} from "@/features/github/components/ticket-git/TicketStack"
-import { compareUrl } from "@/features/github/lib/branchUrl"
-import { canStackOn } from "@/features/github/lib/stacking"
+} from "@/features/github/lib/stackPresentation"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -63,25 +63,7 @@ const pullRequestOf = (state: GitState) =>
     ? state
     : null
 
-export function GitChipMenu({
-  state,
-  stack,
-  layers,
-  github,
-  ticket,
-  children
-}: Readonly<{
-  state: GitState
-  stack: ReadonlyArray<StackLayerState>
-  layers: ReadonlyArray<StackLayerState>
-  github: GithubConnection
-  ticket: MenuTicket
-  children: ReactNode
-}>) {
-  const actor = useProjectActor()
-  const canClear = actor.call("tickets", "clearBranch")
-  const anchor = useRef<HTMLSpanElement>(null)
-  const [stacking, setStacking] = useState(false)
+function branchActions(state: GitState, github: GithubConnection) {
   const branch = branchOf(state)
   const pr = pullRequestOf(state)
   const repo = `${github.repoOwner}/${github.repoName}`
@@ -106,6 +88,30 @@ export function GitChipMenu({
     state.tag === "branch_pending" ||
     state.tag === "pr_open" ||
     state.tag === "pr_pending"
+  return { branch, pr, repo, createPr, live }
+}
+
+export function GitChipMenu({
+  state,
+  stack,
+  layers,
+  github,
+  ticket,
+  children
+}: Readonly<{
+  state: GitState
+  stack: ReadonlyArray<StackLayerState>
+  layers: ReadonlyArray<StackLayerState>
+  github: GithubConnection
+  ticket: MenuTicket
+  children: ReactNode
+}>) {
+  const actor = useProjectActor()
+  const canClear = actor.call("tickets", "clearBranch")
+  const anchor = useRef<HTMLSpanElement>(null)
+  const [stacking, setStacking] = useState(false)
+  const actions = branchActions(state, github)
+  const { branch, pr, createPr } = actions
   const canStack =
     actor.call("tickets", "stackBranch") &&
     (stack.length > 0 || canStackOn(state))
@@ -120,57 +126,7 @@ export function GitChipMenu({
       />
     ) : (
       (createPr !== null || pr !== null || branch !== null) && (
-        <Fragment key="open">
-          {createPr !== null && (
-            <DropdownMenuItem
-              render={
-                <a
-                  href={createPr.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={createPr.label}
-                />
-              }
-            >
-              <GitPullRequestCreateArrow strokeWidth={1.75} />
-              {createPr.label}
-            </DropdownMenuItem>
-          )}
-          {pr !== null && (
-            <DropdownMenuItem
-              render={
-                <a
-                  href={pr.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={m.tickets_command_open_pr()}
-                />
-              }
-            >
-              <ArrowUpRight strokeWidth={1.75} />
-              {m.tickets_command_open_pr()}
-            </DropdownMenuItem>
-          )}
-          {branch !== null && live && (
-            <OpenBranchItem repo={repo} branch={branch} />
-          )}
-          {branch !== null && (
-            <DropdownMenuItem
-              onClick={() => void navigator.clipboard.writeText(branch)}
-            >
-              <Copy strokeWidth={1.75} />
-              {m.git_copy_branch_name_label()}
-            </DropdownMenuItem>
-          )}
-          {pr !== null && pr.tag !== "pr_closed" && (
-            <DropdownMenuItem
-              onClick={() => void navigator.clipboard.writeText(pr.url)}
-            >
-              <LinkIcon strokeWidth={1.75} />
-              {m.git_copy_pr_link_label()}
-            </DropdownMenuItem>
-          )}
-        </Fragment>
+        <BranchActions key="open" {...actions} />
       )
     ),
     canStack && (
@@ -217,6 +173,68 @@ export function GitChipMenu({
         />
       )}
     </>
+  )
+}
+
+function BranchActions({
+  branch,
+  pr,
+  repo,
+  createPr,
+  live
+}: ReturnType<typeof branchActions>) {
+  return (
+    <Fragment>
+      {createPr !== null && (
+        <DropdownMenuItem
+          render={
+            <a
+              href={createPr.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={createPr.label}
+            />
+          }
+        >
+          <GitPullRequestCreateArrow strokeWidth={1.75} />
+          {createPr.label}
+        </DropdownMenuItem>
+      )}
+      {pr !== null && (
+        <DropdownMenuItem
+          render={
+            <a
+              href={pr.url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={m.tickets_command_open_pr()}
+            />
+          }
+        >
+          <ArrowUpRight strokeWidth={1.75} />
+          {m.tickets_command_open_pr()}
+        </DropdownMenuItem>
+      )}
+      {branch !== null && live && (
+        <OpenBranchItem repo={repo} branch={branch} />
+      )}
+      {branch !== null && (
+        <DropdownMenuItem
+          onClick={() => void navigator.clipboard.writeText(branch)}
+        >
+          <Copy strokeWidth={1.75} />
+          {m.git_copy_branch_name_label()}
+        </DropdownMenuItem>
+      )}
+      {pr !== null && pr.tag !== "pr_closed" && (
+        <DropdownMenuItem
+          onClick={() => void navigator.clipboard.writeText(pr.url)}
+        >
+          <LinkIcon strokeWidth={1.75} />
+          {m.git_copy_pr_link_label()}
+        </DropdownMenuItem>
+      )}
+    </Fragment>
   )
 }
 

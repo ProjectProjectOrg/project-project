@@ -12,7 +12,7 @@ import {
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useRef, useState } from "react"
+import { useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
@@ -53,6 +53,7 @@ export function InvitePage() {
     onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => (
       <InviteResolver
+        key={invitationId}
         invitationId={invitationId}
         activeOrgSlug={value.activeOrgSlug}
       />
@@ -67,7 +68,11 @@ type InviteResolverProps = Readonly<{
 
 function InviteResolver({ invitationId, activeOrgSlug }: InviteResolverProps) {
   const pending = useAtomValue(invitations())
-  const resolved = useRef<UserInvitation | null>(null)
+  const [resolved, setResolved] = useState<UserInvitation | null>(null)
+  const found = Result.isSuccess(pending)
+    ? pending.value.find((invite) => invite.id === invitationId)
+    : undefined
+  if (found && found !== resolved) setResolved(found)
 
   return Result.matchWithError(pending, {
     onInitial: () => (
@@ -85,10 +90,7 @@ function InviteResolver({ invitationId, activeOrgSlug }: InviteResolverProps) {
     ),
     onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => {
-      const invite =
-        value.find((invitation) => invitation.id === invitationId) ??
-        resolved.current
-      resolved.current = invite
+      const invite = found ?? resolved
       return (
         <OnboardingShell icon={MailCheck}>
           {invite ? (
@@ -135,10 +137,17 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
     m.auth_invite_accept_error
   )
 
-  const onAccept = async () => {
+  const runAction = (
+    action: "accept" | "decline",
+    run: () => Promise<void>
+  ) => {
     setError(null)
-    setPending("accept")
-    try {
+    setPending(action)
+    return run().finally(() => setPending(null))
+  }
+
+  const onAccept = () =>
+    runAction("accept", async () => {
       const acceptExit = await accept()
       if (Exit.isFailure(acceptExit)) return
       const activeExit = await activateOrg(invite.orgSlug)
@@ -151,25 +160,17 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
         params: { orgSlug: invite.orgSlug },
         replace: true
       })
-    } finally {
-      setPending(null)
-    }
-  }
+    })
 
-  const onDecline = async () => {
-    setError(null)
-    setPending("decline")
-    try {
+  const onDecline = () =>
+    runAction("decline", async () => {
       const declineExit = await decline()
       if (Exit.isFailure(declineExit)) {
         setError(m.auth_invite_decline_error())
         return
       }
       await navigate({ to: "/welcome", replace: true })
-    } finally {
-      setPending(null)
-    }
-  }
+    })
 
   const initial = invite.orgName.trim().charAt(0).toUpperCase() || "·"
 

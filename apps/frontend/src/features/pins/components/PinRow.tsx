@@ -1,16 +1,14 @@
 import { useAtomSet } from "@effect/atom-react"
-import { SidebarPin, sprintState, type PinTarget } from "@pp/shared"
+import { sprintState, type PinTarget } from "@pp/shared"
 import { Pin, PinOff } from "@pp/ui/icons"
 import { SidebarRow, SidebarRowAction } from "@pp/ui/sidebar"
 import { Link } from "@tanstack/react-router"
 
 import { pinItem, pinsRequest, unpinItem } from "@/features/pins/atoms/pins"
 import type { PinPrediction } from "@/features/pins/lib/pins"
-import {
-  countdownLabel,
-  SprintStateIcon
-} from "@/features/sprints/components/SprintChip"
+import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
 import { sprintCountdown } from "@/features/sprints/lib/sprintDates"
+import { countdownLabel } from "@/features/sprints/lib/sprintPresentation"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useShownTicket } from "@/features/tickets/hooks/useShownTicket"
 import { m } from "@/paraglide/messages"
@@ -24,11 +22,6 @@ type PinRowProps = Readonly<{
   highlight?: boolean
   onPinned?: () => void
 }>
-
-export const predictionOf = (pin: SidebarPin) =>
-  SidebarPin.isAnyOf(["ticket"])(pin)
-    ? { ticket: pin.ticket }
-    : { sprint: pin.sprint }
 
 export function PinRow(props: PinRowProps & Readonly<{ pinned: boolean }>) {
   const req = pinsRequest(props.orgSlug)

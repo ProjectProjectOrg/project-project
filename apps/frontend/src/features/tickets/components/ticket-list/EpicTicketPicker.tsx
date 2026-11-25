@@ -7,7 +7,7 @@ import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useState, type KeyboardEvent } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -137,9 +137,9 @@ export function EpicTicketPicker({
       .length ?? 0
   return (
     <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
+      initial={{ clipPath: "inset(0 0 100% 0)", opacity: 0 }}
+      animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1 }}
+      exit={{ clipPath: "inset(0 0 100% 0)", opacity: 0 }}
       transition={transitions.layout}
       className="overflow-hidden"
     >

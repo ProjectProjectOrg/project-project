@@ -7,8 +7,8 @@ import { ListRow, ListRowTitle, listGridClassName } from "@pp/ui/list-row"
 import { StatusGlyph } from "@pp/ui/status-glyph"
 import { TicketKey } from "@pp/ui/ticket-key"
 
+import { SettingsGroup } from "@/components/shell/settings/SettingsGroup"
 import {
-  SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"

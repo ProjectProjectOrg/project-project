@@ -4,12 +4,12 @@ import { ArrowRight, Layers, LoaderCircle, type IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 
+import { withoutTicketId } from "@/features/github/lib/branchPicker"
 import {
   layerTone,
   stackSummary,
   TONES
-} from "@/features/github/components/ticket-git/TicketStack"
-import { withoutTicketId } from "@/features/github/lib/branchPicker"
+} from "@/features/github/lib/stackPresentation"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { m } from "@/paraglide/messages"
 

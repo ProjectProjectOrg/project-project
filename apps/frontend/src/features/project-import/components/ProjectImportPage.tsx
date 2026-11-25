@@ -10,10 +10,8 @@ import {
 } from "@/features/project-import/atoms/projectImport"
 import { ProjectImportWizard } from "@/features/project-import/forms/project-import"
 
-import {
-  projectImportStageForStatus,
-  ProjectImportShell
-} from "./ProjectImportShell"
+import { projectImportStageForStatus } from "../lib/stages"
+import { ProjectImportShell } from "./ProjectImportShell"
 import { ProjectImportTerminalStep } from "./ProjectImportTerminalStep"
 
 const routeApi = getRouteApi(

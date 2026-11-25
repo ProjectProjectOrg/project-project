@@ -3,7 +3,7 @@ import { Button } from "@pp/ui/button"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Link } from "@tanstack/react-router"
 
-import { ROLE_META } from "@/features/members/components/ProjectMembersSection"
+import { ROLE_META } from "@/features/members/lib/roles"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { m } from "@/paraglide/messages"

@@ -54,7 +54,7 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
   const [projectSlug, setProjectSlug] = useState<string | null>(null)
   const [sort, setSort] = useState<AttachmentSort>("created_desc")
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
 
   const req = orgAttachmentsRequest(orgSlug, {
     ...(status === "all" ? {} : { status }),
@@ -63,7 +63,6 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
     page
   })
 
-  const listResult = useAtomValue(orgAttachments(req))
   const summaryResult = useAtomValue(orgAttachmentsSummary(req))
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult)
@@ -113,50 +112,78 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
           }}
         />
 
-        <AsyncView
-          result={listResult}
-          contained
-          onInitial={() => <TableSkeleton />}
-          onSuccess={({ value, waiting }) => (
-            <AttachmentsTable
-              orgSlug={orgSlug}
-              rows={value.items}
-              page={page}
-              total={value.total}
-              onPageChange={(next) => {
-                setPage(next)
-                setSelected(new Set())
-              }}
-              waiting={waiting}
-              filtered={status !== "all" || projectSlug !== null}
-              selected={prunedSelection(selected, value.items)}
-              onToggle={(id) =>
-                setSelected((current) => toggleSelection(current, id))
-              }
-              onToggleAll={() =>
-                setSelected((current) =>
-                  allDeletableSelected(current, value.items)
-                    ? new Set()
-                    : new Set(deletableIds(value.items))
-                )
-              }
-              onDelete={async (removed) => {
-                setPage(
-                  pageAfterRemoval({
-                    page,
-                    pageSize: ORG_ATTACHMENTS_PAGE_SIZE,
-                    total: value.total,
-                    removed
-                  })
-                )
-                setSelected(new Set())
-              }}
-              request={req}
-            />
-          )}
+        <AttachmentResults
+          req={req}
+          page={page}
+          setPage={setPage}
+          selected={selected}
+          setSelected={setSelected}
+          filtered={status !== "all" || projectSlug !== null}
         />
       </div>
     </AttachmentStorageGate>
+  )
+}
+
+function AttachmentResults({
+  req,
+  page,
+  setPage,
+  selected,
+  setSelected,
+  filtered
+}: Readonly<{
+  req: ReturnType<typeof orgAttachmentsRequest>
+  page: number
+  setPage: (page: number) => void
+  selected: ReadonlySet<string>
+  setSelected: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>
+  filtered: boolean
+}>) {
+  const listResult = useAtomValue(orgAttachments(req))
+  return (
+    <AsyncView
+      result={listResult}
+      contained
+      onInitial={() => <TableSkeleton />}
+      onSuccess={({ value, waiting }) => (
+        <AttachmentsTable
+          orgSlug={req.params.orgSlug}
+          rows={value.items}
+          page={page}
+          total={value.total}
+          onPageChange={(next) => {
+            setPage(next)
+            setSelected(new Set())
+          }}
+          waiting={waiting}
+          filtered={filtered}
+          selected={prunedSelection(selected, value.items)}
+          onToggle={(id) =>
+            setSelected((current) => toggleSelection(current, id))
+          }
+          onToggleAll={() =>
+            setSelected((current) =>
+              allDeletableSelected(current, value.items)
+                ? new Set()
+                : new Set(deletableIds(value.items))
+            )
+          }
+          onDelete={async (removed) => {
+            setPage(
+              pageAfterRemoval({
+                page,
+                pageSize: ORG_ATTACHMENTS_PAGE_SIZE,
+                total: value.total,
+                removed
+              })
+            )
+            setSelected(new Set())
+          }}
+          request={req}
+        />
+      )}
+    />
   )
 }
 

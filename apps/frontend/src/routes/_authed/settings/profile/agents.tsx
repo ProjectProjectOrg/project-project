@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
-import { settingsPage } from "@/components/shell/settings/SettingsLayout"
+import { settingsPage } from "@/components/shell/settings/settingsPage"
 import {
   oauthApplicationsAtom,
   oauthApplicationsRequest

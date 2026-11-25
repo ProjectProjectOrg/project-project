@@ -25,7 +25,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useRef, useState, type KeyboardEvent } from "react"
+import { useRef, useLayoutEffect, useState, type KeyboardEvent } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -42,16 +42,14 @@ import {
   startSprintPatch,
   type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
+import { shortDateFormatter } from "@/features/sprints/lib/sprintDates"
+import { sprintStatusText } from "@/features/sprints/lib/sprintPresentation"
 import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
 import { NewSprintPopover } from "./NewSprintPopover"
-import {
-  shortDateFormatter,
-  sprintStatusText,
-  SprintStateIcon
-} from "./SprintChip"
+import { SprintStateIcon } from "./SprintChip"
 import { SprintDatesPicker } from "./SprintDatesPicker"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
@@ -168,7 +166,11 @@ export function SprintNameField({
   const updateState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const saving = updateState.waiting
   const failed = Result.isFailure(updateState)
+  const input = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState(false)
+  useLayoutEffect(() => {
+    if (!disabled && editing) input.current?.focus()
+  }, [disabled, editing])
   const [draft, setDraft] = useState(sprint.name)
 
   async function commit() {
@@ -215,7 +217,8 @@ export function SprintNameField({
   return (
     <div className="relative w-full min-w-0">
       <input
-        autoFocus
+        ref={input}
+        aria-label={m.sprints_command_rename()}
         value={draft}
         disabled={saving}
         onChange={(e) => setDraft(e.target.value)}
@@ -273,7 +276,9 @@ export function SprintDatesField({
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
-  const [draft, setDraft] = useState<SprintDateDraft>(sprintDateDraft(sprint))
+  const [draft, setDraft] = useState<SprintDateDraft>(() =>
+    sprintDateDraft(sprint)
+  )
 
   const fmt = shortDateFormatter()
   const label =

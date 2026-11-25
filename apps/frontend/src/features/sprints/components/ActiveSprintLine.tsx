@@ -12,9 +12,10 @@ import {
   SprintCountdown,
   sprintCountdown
 } from "@/features/sprints/lib/sprintDates"
+import { countdownLabel } from "@/features/sprints/lib/sprintPresentation"
 import { m } from "@/paraglide/messages"
 
-import { countdownLabel, SprintStateIcon } from "./SprintChip"
+import { SprintStateIcon } from "./SprintChip"
 
 export function ActiveSprintLine() {
   const { orgSlug, slug } = useProjectRoute()

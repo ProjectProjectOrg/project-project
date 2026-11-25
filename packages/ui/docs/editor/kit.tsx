@@ -187,24 +187,29 @@ const LINK_TITLES: Readonly<Record<string, string>> = {
   "https://commonmark.org/": "CommonMark: a strongly defined Markdown spec"
 }
 
-const useSampleMentionSearch: EditorServices["useMentionSearch"] = (query) =>
-  useMemo(
-    () => ({
-      people: {
-        provider: people,
-        results: { items: search("user", query), status: "ready" as const }
-      },
-      tickets: {
-        provider: tickets,
-        results: { items: search("ticket", query), status: "ready" as const }
-      }
-    }),
-    [query]
+const SampleMentionSearch: EditorServices["MentionSearch"] = ({
+  query,
+  children
+}) =>
+  children(
+    useMemo(
+      () => ({
+        people: {
+          provider: people,
+          results: { items: search("user", query), status: "ready" as const }
+        },
+        tickets: {
+          provider: tickets,
+          results: { items: search("ticket", query), status: "ready" as const }
+        }
+      }),
+      [query]
+    )
   )
 
 export const SAMPLE_SERVICES: EditorServices = {
   navigate: () => undefined,
-  useMentionSearch: useSampleMentionSearch,
+  MentionSearch: SampleMentionSearch,
   mentionHref: {
     user: () => "#people",
     ticket: (_scope, id) => `#${id}`
@@ -240,12 +245,14 @@ export const SAMPLE_SERVICES: EditorServices = {
       {id} · {commentId}
     </p>
   ),
-  useLinkPreview: (url) => ({
-    title: LINK_TITLES[url] ?? null,
-    favicon: { kind: "fallback", cached: true }
-  }),
-  useUploadAttachment: () => uploadLocally,
-  useFigmaLinks: () => ({ links: FIGMA_LINKS, refresh: () => undefined }),
+  LinkPreview: ({ url, children }) =>
+    children({
+      title: LINK_TITLES[url] ?? null,
+      favicon: { kind: "fallback", cached: true }
+    }),
+  AttachmentUpload: ({ children }) => children(uploadLocally),
+  FigmaLinks: ({ children }) =>
+    children({ links: FIGMA_LINKS, refresh: () => undefined }),
   openBlockGallery: () => undefined
 }
 

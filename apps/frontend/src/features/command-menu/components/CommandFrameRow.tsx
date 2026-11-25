@@ -56,7 +56,10 @@ export function CommandFrameRow({
           </span>
         )}
         {parent?.map((part, index) => (
-          <span key={index} className="flex shrink-0 items-center gap-1">
+          <span
+            key={JSON.stringify(parent.slice(0, index + 1))}
+            className="flex shrink-0 items-center gap-1"
+          >
             <span className="text-muted-foreground">{part}</span>
             <ChevronRight
               className="size-3.5 shrink-0 text-muted-foreground"

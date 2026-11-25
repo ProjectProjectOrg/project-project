@@ -24,7 +24,7 @@ import { cn } from "@pp/ui/lib/utils"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion } from "motion/react"
+import { m as motion } from "motion/react"
 import { useContext, useEffect, useMemo, useRef } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -34,10 +34,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { HiddenColumnsEmpty } from "@/features/sprints/components/HiddenColumnsEmpty"
-import {
-  columnReorder,
-  SprintBoardColumn
-} from "@/features/sprints/components/SprintBoardColumn"
+import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardColumns } from "@/features/sprints/hooks/useBoardColumns"
 import { useBoardDraft } from "@/features/sprints/hooks/useBoardDraft"
 import {
@@ -45,6 +42,7 @@ import {
   useBoardKeyboardNavigation
 } from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
+import { columnReorder } from "@/features/sprints/hooks/useStatusReorder"
 import type { StatusReorder } from "@/features/sprints/hooks/useStatusReorder"
 import { visibleColumns } from "@/features/sprints/lib/boardColumns"
 import {
@@ -75,8 +73,6 @@ import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 import { useExpandSubTicketsCommand } from "./useExpandSubTicketsCommand"
-
-const NO_TICKETS: ReadonlyArray<Ticket> = []
 
 type BacklogBoardProps = Readonly<{
   query: TicketListQuery
@@ -123,17 +119,11 @@ function BacklogBoardContent({
     [orgSlug, slug, query]
   )
   const ref = useRef<HTMLDivElement>(null)
-  const actor = useProjectActor()
-  const canMove = TicketPolicy.canChange(actor, { status: true })
-  const manual =
-    query.sort.key === "manual" &&
-    TicketPolicy.canChange(actor, { content: true })
-  const canDrag = canMove || manual
+  const { canMove, canDrag, canCreate, manual } = useBoardPermissions(query)
   const draft = useBoardDraft()
   const createTicket = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const canCreate = actor.call("tickets", "quickCreate")
   const columnCreate = (status: ProjectStatus["slug"]) =>
     canCreate && (status === "todo" || canMove)
       ? draft.forColumn(status, {
@@ -153,24 +143,26 @@ function BacklogBoardContent({
   const { height, hasRightOverflow } = useBoardViewport(ref)
   useBoardAutoScroll(ref, !reorderMode && canDrag)
 
-  const registry = useContext(RegistryContext)
-
   const layout = useBoardColumns("backlog")
+  const collapsed = new Set(layout.collapsed)
   const statusSlugs = useMemo(
     () => visibleColumns(boardStatusesFor(statuses), layout.hidden),
     [statuses, layout.hidden]
   )
 
-  const order =
-    dragOrder === null
-      ? statusSlugs
-      : dragOrder.flatMap((slug) =>
-          statusSlugs.filter((status) => status === slug)
-        )
+  const order = useMemo(
+    () =>
+      dragOrder === null
+        ? statusSlugs
+        : dragOrder.flatMap((slug) =>
+            statusSlugs.filter((status) => status === slug)
+          ),
+    [dragOrder, statusSlugs]
+  )
 
   const columns = useMemo(
-    () => buildColumns(snapshot, statusSlugs),
-    [snapshot, statusSlugs]
+    () => buildColumns(snapshot, order),
+    [snapshot, order]
   )
 
   const inertTicketIds = useMemo(
@@ -183,25 +175,7 @@ function BacklogBoardContent({
     [columns]
   )
 
-  const columnsRef = useRef(columns)
-  columnsRef.current = columns
-
-  useBoardCardDrop(!reorderMode && canDrag, (src, dst) => {
-    if (!isDragData(src) || !isDropData(dst)) return
-    if (DropData.guards.card(dst) && dst.id === src.id) return
-    const row = columnsRef.current
-      .find((column) => column.status === src.status)
-      ?.rows.find((r) => r.ticket.id === src.id)
-    if (!row || row.pending) return
-    const status = dst.status !== src.status ? dst.status : undefined
-    if (status !== undefined && !canMove) return
-    const column =
-      columnsRef.current.find((c) => c.status === dst.status)?.tickets ?? []
-    const position = manual ? boardMove(column, column, src.id, dst) : undefined
-    const edit = boardEdit(status, position)
-    if (edit === null) return
-    registry.set(updateBacklogTicket({ req, id: src.id }), edit)
-  })
+  useBacklogCardDrop(req, columns, !reorderMode && canDrag, canMove, manual)
 
   const keyboard = useBoardKeyboardNavigation(
     ref,
@@ -236,8 +210,8 @@ function BacklogBoardContent({
               onReorder={(next) => reorder?.setDragOrder(next)}
               className="flex h-full gap-3"
             >
-              {order.map((status, columnIndex) => {
-                const column = columns.find((c) => c.status === status)
+              {columns.map((column, columnIndex) => {
+                const { status } = column
                 return (
                   <SprintBoardColumn
                     key={status}
@@ -245,9 +219,9 @@ function BacklogBoardContent({
                     update={backlogTicketUpdates(req)}
                     status={status}
                     statuses={statuses}
-                    tickets={column?.tickets ?? NO_TICKETS}
+                    tickets={column.tickets}
                     filterKey={encodeTicketListQuery(query)}
-                    count={column?.count ?? 0}
+                    count={column.count}
                     members={members}
                     isDraggable={canDrag}
                     ordered={manual}
@@ -255,12 +229,12 @@ function BacklogBoardContent({
                     lastFlash={null}
                     reorderMode={reorderMode}
                     reorder={columnReorder(reorder, order, status)}
-                    collapsed={layout.collapsed.includes(status)}
+                    collapsed={collapsed.has(status)}
                     onToggleCollapsed={() => layout.toggleCollapsed(status)}
                     create={columnCreate(status)}
-                    keyOf={column?.keyOf}
+                    keyOf={column.keyOf}
                     footer={(nearEnd) =>
-                      column?.nextCursor != null ? (
+                      column.nextCursor !== null ? (
                         <ColumnLoadMore
                           req={req}
                           status={status}
@@ -311,6 +285,21 @@ function buildColumns(
   })
 }
 
+function useBoardPermissions(query: BacklogBoardProps["query"]) {
+  const actor = useProjectActor()
+  const canMove = TicketPolicy.canChange(actor, { status: true })
+  const manual =
+    query.sort.key === "manual" &&
+    TicketPolicy.canChange(actor, { content: true })
+  const canDrag = canMove || manual
+  return {
+    canMove,
+    manual,
+    canDrag,
+    canCreate: actor.call("tickets", "quickCreate")
+  }
+}
+
 function ColumnLoadMore({
   req,
   status,
@@ -352,4 +341,30 @@ function ColumnLoadMore({
       )}
     </>
   )
+}
+
+function useBacklogCardDrop(
+  req: BacklogRequest,
+  columns: ReadonlyArray<BoardColumn>,
+  enabled: boolean,
+  canMove: boolean,
+  manual: boolean
+) {
+  const registry = useContext(RegistryContext)
+
+  useBoardCardDrop(enabled, (src, dst) => {
+    if (!isDragData(src) || !isDropData(dst)) return
+    if (DropData.guards.card(dst) && dst.id === src.id) return
+    const row = columns
+      .find((column) => column.status === src.status)
+      ?.rows.find((r) => r.ticket.id === src.id)
+    if (!row || row.pending) return
+    const status = dst.status !== src.status ? dst.status : undefined
+    if (status !== undefined && !canMove) return
+    const column = columns.find((c) => c.status === dst.status)?.tickets ?? []
+    const position = manual ? boardMove(column, column, src.id, dst) : undefined
+    const edit = boardEdit(status, position)
+    if (edit === null) return
+    registry.set(updateBacklogTicket({ req, id: src.id }), edit)
+  })
 }
