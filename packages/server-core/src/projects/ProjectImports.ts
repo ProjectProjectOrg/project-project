@@ -36,6 +36,7 @@ import {
   StorageNotConnected,
   type ProjectExportManifest,
   type ProjectImport,
+  type Role,
   type RunProjectImportInput,
   ProjectIdentifierTaken,
   ProjectImportInvalid,
@@ -1248,7 +1249,7 @@ export const importPlan = (
       createdAt: source?.createdAt ?? createdAt
     } satisfies HiddenProject.PendingAttachment
   })
-  const members = new Map<string, "pm" | "developer" | "client">()
+  const members = new Map<string, Role>()
   for (const m of manifest.members) {
     const target = mapping.users.get(m.userId)
     if (target !== undefined) members.set(target, m.role)

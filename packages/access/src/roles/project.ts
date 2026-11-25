@@ -51,10 +51,20 @@ export const client = projectStatement.role({
   attachment: ["upload"]
 })
 
-export const ProjectRoleName = Schema.Literals(["pm", "developer", "client"])
+export const tester = developer
+
+export const ProjectRoleName = Schema.Literals([
+  "pm",
+  "developer",
+  "tester",
+  "client"
+])
 
 export type ProjectRoleName = typeof ProjectRoleName.Type
 
-export const projectRoles = { pm, developer, client } satisfies Readonly<
-  Record<ProjectRoleName, Statement.Role<ProjectResources>>
->
+export const projectRoles = {
+  pm,
+  developer,
+  tester,
+  client
+} satisfies Readonly<Record<ProjectRoleName, Statement.Role<ProjectResources>>>

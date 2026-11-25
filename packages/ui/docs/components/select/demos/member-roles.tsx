@@ -1,5 +1,11 @@
 import { Badge } from "@pp/ui/badge"
-import { Briefcase, ShieldCheck, UserRound, type IconType } from "@pp/ui/icons"
+import {
+  Briefcase,
+  FlaskConical,
+  ShieldCheck,
+  UserRound,
+  type IconType
+} from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
@@ -8,12 +14,13 @@ import { useState } from "react"
 const ROLES = {
   pm: { label: "PM", icon: ShieldCheck },
   developer: { label: "Developer", icon: UserRound },
+  tester: { label: "Tester", icon: FlaskConical },
   client: { label: "Client", icon: Briefcase }
 } as const satisfies Record<string, { label: string; icon: IconType }>
 
 type Role = keyof typeof ROLES
 
-const ROLE_KEYS: ReadonlyArray<Role> = ["pm", "developer", "client"]
+const ROLE_KEYS: ReadonlyArray<Role> = ["pm", "developer", "tester", "client"]
 
 const ITEMS = ROLE_KEYS.map((role) => {
   const { label, icon: Icon } = ROLES[role]

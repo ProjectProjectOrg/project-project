@@ -65,7 +65,7 @@ describe("roleOnProject", () => {
 
   it("gives org members and guests exactly their project role", () => {
     for (const orgRole of ["member", "guest"] as const) {
-      for (const projectRole of ["pm", "developer", "client"] as const) {
+      for (const projectRole of Project.ProjectRoleName.literals) {
         expect(grantsOf(orgRole, projectRole)).toStrictEqual(
           Option.some(Project.projectRoles[projectRole].grants)
         )

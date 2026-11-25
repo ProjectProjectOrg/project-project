@@ -14,7 +14,7 @@ _Avoid_: Workspace, team, tenant (in UI)
 `owner`, `admin`, `member` or `guest`. Governs the org: its people, integrations and projects.
 
 **Project role**:
-`pm`, `developer` or `client`. One per person per project. A project always keeps at least one PM.
+`pm`, `developer`, `tester` or `client`. One per person per project. A project always keeps at least one PM.
 _Avoid_: Project admin, project owner
 
 **Member**:
