@@ -36,7 +36,13 @@ export function BackButton({ fallback, label, className }: BackButtonProps) {
     <Button
       variant="ghost"
       className={className}
-      render={<Link {...fallback} onClick={handleClick} />}
+      render={
+        <Link
+          {...fallback}
+          activeOptions={{ exact: true }}
+          onClick={handleClick}
+        />
+      }
     >
       <ChevronLeft className="size-4" strokeWidth={1.75} />
       <span>{label ?? m.common_back_button()}</span>
