@@ -6,7 +6,9 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type FocusEvent,
+  type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type Ref
 } from "react"
 
@@ -25,7 +27,7 @@ import { LogoLoader } from "./logo"
 const buttonVariants = cva(
   [
     "group relative inline-flex cursor-pointer items-center justify-center whitespace-nowrap outline-none",
-    "motion-safe:transition-control motion-safe:duration-100 motion-safe:active:scale-[0.97]",
+    "motion-safe:transition-control motion-safe:duration-100 motion-safe:active:scale-[var(--press-scale,0.97)]",
     // Disabled keeps pointer events so the not-allowed cursor shows; hover
     // and press styles are guarded with not-disabled. Loading is disabled
     // too, but stays at full strength with a progress cursor.
@@ -308,6 +310,17 @@ function LoadingSwap({
   )
 }
 
+const PRESS_TRAVEL_PX = 3
+
+// A fixed 0.97 moves the edges of a wide button several pixels. Cap the
+// press at PRESS_TRAVEL_PX across, so long labels press like short ones.
+function setPressScale(button: HTMLElement) {
+  button.style.setProperty(
+    "--press-scale",
+    String(Math.max(0.97, 1 - PRESS_TRAVEL_PX / button.offsetWidth))
+  )
+}
+
 function Button({
   className,
   variant,
@@ -336,6 +349,8 @@ function Button({
   onMouseLeave,
   onFocus,
   onBlur,
+  onPointerDown,
+  onKeyDown,
   ...props
 }: ButtonProps) {
   const isDither = variant === "dither"
@@ -360,6 +375,15 @@ function Button({
   const handleBlur = (e: FocusEvent<HTMLButtonElement>) => {
     if (needsDitherHover) setIsFocused(false)
     onBlur?.(e)
+  }
+  const handlePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    setPressScale(e.currentTarget)
+    onPointerDown?.(e)
+  }
+  // Space presses through :active too, so it measures like a pointer.
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === " " && !e.repeat) setPressScale(e.currentTarget)
+    onKeyDown?.(e)
   }
 
   const isIconOnly =
@@ -490,6 +514,8 @@ function Button({
       onMouseLeave: handleMouseLeave,
       onFocus: handleFocus,
       onBlur: handleBlur,
+      onPointerDown: handlePointerDown,
+      onKeyDown: handleKeyDown,
       children: composedChildren
     }
   })
