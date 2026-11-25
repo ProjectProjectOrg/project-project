@@ -2065,4 +2065,24 @@ input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
   .board-column-wash[data-over] {
     box-shadow: inset 0 0 0 1.5px oklch(from var(--column-tone) l c h / 0.6);
   }
+  [data-refusing] [data-board-slot],
+  [data-refusing] [data-slot="list-row"] {
+    opacity: 0.4;
+    transition: opacity 150ms var(--ease-standard);
+  }
+  [data-refusing="over"] {
+    outline: 1.5px dashed oklch(from var(--muted-foreground) l c h / 0.55);
+    outline-offset: -1.5px;
+  }
+  .status-lock-note {
+    background: color-mix(in oklch, var(--muted) 85%, transparent);
+    color: var(--muted-foreground);
+    transition:
+      color 150ms var(--ease-standard),
+      background-color 150ms var(--ease-standard);
+  }
+  .status-lock-note[data-over] {
+    background: var(--muted);
+    color: var(--foreground);
+  }
 }

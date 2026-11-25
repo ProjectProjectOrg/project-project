@@ -1,0 +1,33 @@
+export const meta = {
+  title: "Locked status",
+  group: "Patterns",
+  description:
+    "A status that only takes tickets from git automation or a PM. It shows a lock at rest, refuses a drop before the card is let go, and stays listed but unavailable in pickers.",
+  sources: [
+    {
+      kind: "own",
+      name: "StatusLock, StatusLockNote",
+      note: "lock with its reason, and the note a locked target shows during a drag",
+    },
+  ],
+};
+
+## Board
+
+Drag a card from Todo or In progress towards In review or Done. As a developer the locked columns dim their cards and say why as soon as the drag starts; over them the edge turns dashed and the cursor shows the drop isn't possible. As a PM they take the drop and say you are the exception. Cards already in a locked column still reorder.
+
+<Demo name="board" title="Board" className="min-h-[30rem] place-items-start" />
+
+<Demo name="board-states" title="Board states" className="place-items-start" />
+
+## List
+
+<Demo name="list" title="Status groups" className="place-items-start" />
+
+## Picker
+
+<Demo name="picker" title="Status picker" className="min-h-96 place-items-start" />
+
+## Setting
+
+<Demo name="settings" title="Workflow settings" className="place-items-start" />

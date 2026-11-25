@@ -50,6 +50,7 @@ type ListSectionHeaderProps = Readonly<{
   countLabel: string
   // Muted text at the end of the heading: a sprint's dates, its points.
   detail?: ReactNode
+  lock?: ReactNode
   collapsed: boolean
   onToggleCollapsed: () => void
   // The chevron's name, for example "Collapse In progress".
@@ -100,6 +101,7 @@ export function ListSectionHeader({
   count,
   countLabel,
   detail,
+  lock,
   collapsed,
   onToggleCollapsed,
   collapseLabel,
@@ -203,6 +205,15 @@ export function ListSectionHeader({
                     >
                       <TextSwap>{String(count)}</TextSwap>
                     </span>
+                    {lock ? (
+                      // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- keeps a click on the lock from toggling the section
+                      <span
+                        className="-ml-1 flex"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {lock}
+                      </span>
+                    ) : null}
                     {detail ? (
                       // Chips (<Chip>): dates, estimates, capacity, each
                       // with its own hover. Clicks on them don't toggle.

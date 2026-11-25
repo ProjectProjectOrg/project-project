@@ -228,7 +228,8 @@ export function useBoardCardDrag({
   id,
   status,
   enabled,
-  ordered = true
+  ordered = true,
+  refusesMoves = false
 }: Readonly<{
   slot: RefObject<HTMLElement | null>
   card: RefObject<HTMLElement | null>
@@ -236,6 +237,7 @@ export function useBoardCardDrag({
   status: string
   enabled: boolean
   ordered?: boolean
+  refusesMoves?: boolean
 }>) {
   const [dragging, setDragging] = useState(false)
   const landing = useContext(BoardLanding)
@@ -301,6 +303,7 @@ export function useBoardCardDrag({
     const stopDrop = dropTargetForElements({
       element:
         element.closest<HTMLElement>(`[${boardSlotAttribute}]`) ?? element,
+      canDrop: ({ source }) => acceptsCard(source.data, status, refusesMoves),
       getData: ({ input, element: target }) => {
         const rect = target.getBoundingClientRect()
         const edge =
@@ -312,7 +315,7 @@ export function useBoardCardDrag({
       stopDrag()
       stopDrop()
     }
-  }, [slot, card, id, status, enabled, ordered, setLanding])
+  }, [slot, card, id, status, enabled, ordered, refusesMoves, setLanding])
   return dragging
 }
 
@@ -321,13 +324,15 @@ export function useBoardCardDrag({
 export function useBoardColumnDrop(
   element: HTMLElement | null,
   status: string,
-  enabled: boolean
+  enabled: boolean,
+  refusesMoves = false
 ) {
   const [over, setOver] = useState(false)
   useEffect(() => {
     if (!enabled || !element) return undefined
     const stopDrop = dropTargetForElements({
       element,
+      canDrop: ({ source }) => acceptsCard(source.data, status, refusesMoves),
       getData: () => BoardColumnDropData.make({ status })
     })
     const update = ({
@@ -350,8 +355,60 @@ export function useBoardColumnDrop(
       stopMonitor()
       setOver(false)
     }
-  }, [element, status, enabled])
+  }, [element, status, enabled, refusesMoves])
   return over
+}
+
+const acceptsCard = (
+  source: Record<string | symbol, unknown>,
+  status: string,
+  refusesMoves: boolean
+) => !refusesMoves || (isBoardCardDrag(source) && source.status === status)
+
+export type BoardColumnRefusal = "dragging" | "over" | null
+
+// A column that refuses cards from other columns (a locked status): while
+// such a card is dragged it says "dragging", and "over" while the pointer
+// is inside it, so the column can say why before the card is let go.
+export function useBoardColumnRefusal(
+  element: HTMLElement | null,
+  status: string,
+  refusesMoves: boolean
+) {
+  const [refusal, setRefusal] = useState<BoardColumnRefusal>(null)
+  useEffect(() => {
+    if (!refusesMoves || !element) return undefined
+    const update = ({
+      source,
+      location
+    }: Readonly<{
+      source: { data: Record<string | symbol, unknown> }
+      location: { current: { input: { clientX: number; clientY: number } } }
+    }>) => {
+      if (!isBoardCardDrag(source.data) || source.data.status === status) {
+        setRefusal(null)
+        return
+      }
+      const { clientX, clientY } = location.current.input
+      const rect = element.getBoundingClientRect()
+      const inside =
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      setRefusal(inside ? "over" : "dragging")
+    }
+    const stop = monitorForElements({
+      onDragStart: update,
+      onDrag: update,
+      onDrop: () => setRefusal(null)
+    })
+    return () => {
+      stop()
+      setRefusal(null)
+    }
+  }, [element, status, refusesMoves])
+  return refusal
 }
 
 // The drop itself, once per board: where a card was let go. A card dropped
