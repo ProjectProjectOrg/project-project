@@ -180,24 +180,24 @@ function FigmaSelectable({
   const surface = useRef<HTMLSpanElement>(null)
   const paragraphHeight = useRef(0)
   const toggleDensity = useCallback(() => {
-    if (density === "rich" && surface.current) {
-      paragraphHeight.current =
-        surface.current.closest("p")?.getBoundingClientRect().height ?? 0
-      const rect = surface.current.getBoundingClientRect()
-      Object.assign(surface.current.style, {
-        position: "fixed",
-        top: `${rect.top}px`,
-        left: `${rect.left}px`,
-        width: `${rect.width}px`,
-        height: `${rect.height}px`,
-        margin: "0",
-        pointerEvents: "none"
-      })
-    }
     editor.update(() => {
       const node = $getNodeByKey(nodeKey)
-      if (!$isFigmaNode(node)) return
-      node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
+      if (!$isFigmaNode(node) || node.getDensity() !== density) return
+      if (density === "rich" && surface.current) {
+        paragraphHeight.current =
+          surface.current.closest("p")?.getBoundingClientRect().height ?? 0
+        const rect = surface.current.getBoundingClientRect()
+        Object.assign(surface.current.style, {
+          position: "fixed",
+          top: `${rect.top}px`,
+          left: `${rect.left}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+          margin: "0",
+          pointerEvents: "none"
+        })
+      }
+      node.setDensity(density === "compact" ? "rich" : "compact")
     })
   }, [density, editor, nodeKey])
 

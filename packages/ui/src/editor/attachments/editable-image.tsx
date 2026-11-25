@@ -225,7 +225,15 @@ export function EditableImage({
               if (event.detail === 0) {
                 onKeyboardExpand()
               } else if (event.detail === 1) {
-                pendingExpand.current = window.setTimeout(onExpand, 250)
+                const trigger = event.currentTarget
+                pendingExpand.current = window.setTimeout(() => {
+                  if (document.activeElement === trigger) {
+                    trigger
+                      .closest<HTMLElement>('[contenteditable="true"]')
+                      ?.focus({ preventScroll: true })
+                  }
+                  onExpand()
+                }, 250)
               }
             }}
             onDoubleClick={(event) => openViewer(event.currentTarget)}
