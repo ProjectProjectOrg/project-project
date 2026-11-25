@@ -16,10 +16,11 @@ import {
 import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
+import { PickerFieldValue } from "@pp/ui/picker-field"
 import { Reveal } from "@pp/ui/reveal"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as Match from "effect/Match"
-import type { ComponentProps, ReactNode } from "react"
+import type { ComponentProps } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
@@ -82,38 +83,13 @@ function Avatars({
   )
 }
 
-function TriggerVisual({
-  variant,
-  resolved
-}: {
-  variant: AssigneeVariant
-  resolved: ReadonlyArray<Member>
-}) {
-  const empty = resolved.length === 0
-  if (variant === "chip") {
-    return (
-      <>
-        {empty && <UserRound className="size-3.5" strokeWidth={1.75} />}
-        <Avatars resolved={resolved} size={18} />
-        <span>{chipLabel(resolved)}</span>
-      </>
-    )
-  }
-  return (
-    <>
-      {empty && <UserRound className="size-3" strokeWidth={1.75} />}
-      <Avatars resolved={resolved} size={20} />
-    </>
-  )
-}
-
 function Trigger({
   variant,
   empty,
   label,
   value,
   className,
-  children
+  resolved
 }: {
   variant: AssigneeVariant
   empty: boolean
@@ -121,8 +97,9 @@ function Trigger({
   // The assignees' names, shown with the shortcut like status and priority.
   value: string
   className?: string
-  children: ReactNode
+  resolved: ReadonlyArray<Member>
 }) {
+  const hasAvatars = resolved.length > 0
   if (variant === "chip") {
     return (
       <ShortcutTooltip
@@ -132,14 +109,19 @@ function Trigger({
       >
         <DropdownMenuTrigger
           render={
-            <Button
-              type="button"
-              variant="ghost"
-              tone={empty ? "muted" : "strong"}
+            <PickerFieldValue
+              empty={empty}
+              label={chipLabel(resolved)}
+              iconKey={resolved.map((member) => member.id).join(",")}
+              icon={
+                hasAvatars ? (
+                  <Avatars resolved={resolved} size={18} />
+                ) : (
+                  <UserRound className="size-3.5" strokeWidth={1.75} />
+                )
+              }
               aria-label={label}
-            >
-              {children}
-            </Button>
+            />
           }
         />
       </ShortcutTooltip>
@@ -166,7 +148,8 @@ function Trigger({
             // Square around one face, as wide as a stack of them.
             className={cn("w-auto min-w-6", className)}
           >
-            {children}
+            {!hasAvatars && <UserRound className="size-3" strokeWidth={1.75} />}
+            <Avatars resolved={resolved} size={20} />
           </Button>
         }
       />
@@ -249,9 +232,8 @@ export function AssigneeSelect({
             : resolved.map((member) => member.name).join(", ")
         }
         className={className}
-      >
-        <TriggerVisual variant={variant} resolved={resolved} />
-      </Trigger>
+        resolved={resolved}
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}

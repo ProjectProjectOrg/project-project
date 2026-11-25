@@ -118,14 +118,12 @@ function Field({
           render={
             <PickerFieldValue
               empty={current === null}
+              truncate
+              label={current?.name ?? emptyLabel}
+              icon={current?.icon ?? emptyIcon}
               aria-label={`${noun}: ${current?.name ?? emptyLabel}`}
               className={cn("h-7", hovered && "bg-hover text-foreground")}
-            >
-              {current?.icon ?? emptyIcon}
-              <span className="max-w-[24ch] truncate">
-                {current?.name ?? emptyLabel}
-              </span>
-            </PickerFieldValue>
+            />
           }
         />
         <DropdownMenuContent

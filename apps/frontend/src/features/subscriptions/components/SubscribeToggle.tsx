@@ -2,6 +2,7 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Bell } from "@pp/ui/icons"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 
@@ -14,6 +15,8 @@ import {
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { perLocale } from "@/lib/perLocale"
 import { m } from "@/paraglide/messages"
@@ -79,7 +82,15 @@ export function SubscribeToggle({
             }
           />
           <TooltipContent>
-            {error ?? subscribersText(subscribers)}
+            <span className="flex items-center gap-2">
+              <span>{error ?? subscribersText(subscribers)}</span>
+              <KbdShortcut
+                keys={appHotkeys["tickets.subscribe"].defaultHotkey}
+                keyLabels={keyLabels()}
+                size="sm"
+                aria-hidden
+              />
+            </span>
           </TooltipContent>
         </Tooltip>
       )}

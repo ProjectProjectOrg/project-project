@@ -9,6 +9,7 @@ import {
 import { Plus, X } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -31,6 +32,8 @@ import {
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
@@ -159,21 +162,26 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           if (!open) setDraft("")
         }}
       >
-        <DropdownMenuTrigger
-          ref={triggerRef}
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              tone={displayed.length === 0 ? "muted" : "strong"}
-              size={displayed.length === 0 ? undefined : "icon-sm"}
-              aria-label={m.tags_add_button()}
-            >
-              <Plus className="size-3.5" strokeWidth={1.75} />
-              {displayed.length === 0 ? m.tags_add_button() : null}
-            </Button>
-          }
-        />
+        <ShortcutTooltip
+          hotkey={appHotkeys["tickets.tags"]}
+          keyLabels={keyLabels()}
+        >
+          <DropdownMenuTrigger
+            ref={triggerRef}
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                tone={displayed.length === 0 ? "muted" : "strong"}
+                size={displayed.length === 0 ? undefined : "icon-sm"}
+                aria-label={m.tags_add_button()}
+              >
+                <Plus className="size-3.5" strokeWidth={1.75} />
+                {displayed.length === 0 ? m.tags_add_button() : null}
+              </Button>
+            }
+          />
+        </ShortcutTooltip>
         <DropdownMenuContent
           anchor={anchor}
           align="start"

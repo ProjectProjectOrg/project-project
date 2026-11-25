@@ -53,6 +53,7 @@ export function EpicField({
   )
   const epics = Result.isSuccess(result) ? result.value : []
   const parent = ticket.parent
+  const label = parent?.title ?? m.tickets_epic_add_chip()
   const [query, setQuery] = useState("")
   const emptyMessage = Result.matchWithError(result, {
     onInitial: () => m.tickets_epic_loading(),
@@ -120,33 +121,28 @@ export function EpicField({
       >
         <ShortcutTooltip
           hotkey={appHotkeys["tickets.parent"]}
-          label={parent?.title ?? m.tickets_epic_add_chip()}
+          label={label}
           keyLabels={keyLabels()}
         >
           <DropdownMenuTrigger
             render={
               <PickerFieldValue
                 empty={parent === null}
+                truncate
+                label={label}
+                icon={
+                  parent === null ? (
+                    <Plus className="size-3.5" strokeWidth={1.75} />
+                  ) : (
+                    <Layers className="size-3.5" strokeWidth={1.75} />
+                  )
+                }
                 aria-label={
                   parent === null
                     ? m.tickets_epic_add_chip()
                     : m.tickets_epic_change_aria_label()
                 }
-              >
-                {parent === null ? (
-                  <>
-                    <Plus className="size-3.5" strokeWidth={1.75} />
-                    <span>{m.tickets_epic_add_chip()}</span>
-                  </>
-                ) : (
-                  <>
-                    <Layers className="size-3.5" strokeWidth={1.75} />
-                    <span className="max-w-[24ch] truncate">
-                      {parent.title}
-                    </span>
-                  </>
-                )}
-              </PickerFieldValue>
+              />
             }
           />
         </ShortcutTooltip>

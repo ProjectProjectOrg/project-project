@@ -17,7 +17,7 @@
    highlight (the row it marks data-hover-highlight), so they light up in the
    same frame it sets off for that row; elsewhere, the row's own hover. */
 @custom-variant row-hover (&:is(:where(.group\/reveal)[data-hover-highlight] *, :where(.group\/reveal):not(:where([data-slot="list-hover-scope"] *)):hover *));
-@custom-variant lead (&:has(> :is(svg, [data-slot=avatar], [data-slot=avatar-group]):first-child));
+@custom-variant lead (&:has(> :is(svg, [data-slot=avatar], [data-slot=avatar-group], [data-leading-icon]):first-child));
 
 /* Button's transition: everything that changes on hover and press, but not
    the outline, so the focus ring appears at once instead of growing in. */

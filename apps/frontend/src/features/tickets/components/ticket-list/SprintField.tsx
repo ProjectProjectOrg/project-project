@@ -10,7 +10,6 @@ import {
   PickerFieldOpen,
   PickerFieldValue
 } from "@pp/ui/picker-field"
-import { TextSwap } from "@pp/ui/text-swap"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useState } from "react"
@@ -170,25 +169,18 @@ export function SprintSelect({
       selectedId={current?.id ?? null}
       onSelect={(sprint) => onChange(sprint?.id ?? null)}
       trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          tone={current ? "strong" : "muted"}
+        <PickerFieldValue
+          empty={current === null}
+          label={label}
+          icon={
+            current ? (
+              <SprintStateIcon sprint={current} size="sm" />
+            ) : (
+              <CircleDashed className="size-3.5" strokeWidth={1.75} />
+            )
+          }
           aria-label={m.tickets_sprint_chip_aria({ name: label })}
-        >
-          <TextSwap
-            className="gap-1.5"
-            icon={
-              current ? (
-                <SprintStateIcon sprint={current} size="sm" />
-              ) : (
-                <CircleDashed className="size-3.5" strokeWidth={1.75} />
-              )
-            }
-          >
-            {label}
-          </TextSwap>
-        </Button>
+        />
       }
     />
   )
@@ -250,20 +242,22 @@ export function SprintBadgeTrigger({
           trigger={
             <PickerFieldValue
               empty={current === null}
+              truncate
+              label={label}
+              icon={
+                current ? (
+                  <SprintStateIcon sprint={current} size="sm" />
+                ) : (
+                  <CircleDashed className="size-3.5" strokeWidth={1.75} />
+                )
+              }
               tone={failed ? "error" : undefined}
               onClick={(e) => e.stopPropagation()}
               aria-label={
                 failed ? label : m.tickets_sprint_chip_aria({ name: label })
               }
               className={className}
-            >
-              {current ? (
-                <SprintStateIcon sprint={current} size="sm" />
-              ) : (
-                <CircleDashed className="size-3.5" strokeWidth={1.75} />
-              )}
-              <span className="max-w-[24ch] truncate">{label}</span>
-            </PickerFieldValue>
+            />
           }
         />
       </fieldset>

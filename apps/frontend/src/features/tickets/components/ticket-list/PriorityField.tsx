@@ -7,8 +7,9 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
+import { PickerFieldValue } from "@pp/ui/picker-field"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
-import type { ComponentProps, ReactElement } from "react"
+import type { ComponentProps, MouseEvent, ReactElement } from "react"
 
 import {
   PRIORITY_LABELS,
@@ -104,25 +105,36 @@ export function PrioritySelect({
   const meta = PRIORITY_META[value]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[value]()
+  const icon = (
+    <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
+  )
+  const triggerProps = {
+    onClick: (event: MouseEvent) => stopPropagation && event.stopPropagation(),
+    "aria-label": m.tickets_priority_aria_label({ label: priorityLabel })
+  }
   return (
     <PriorityMenu
       value={selected}
       onChange={onChange}
       label={priorityLabel}
       trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          tone="strong"
-          size={showLabel ? undefined : "square-6"}
-          onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-        >
-          <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
-          {showLabel && (
-            <span className="text-foreground">{priorityLabel}</span>
-          )}
-        </Button>
+        showLabel ? (
+          <PickerFieldValue
+            label={priorityLabel}
+            icon={icon}
+            {...triggerProps}
+          />
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            tone="strong"
+            size="square-6"
+            {...triggerProps}
+          >
+            {icon}
+          </Button>
+        )
       }
     />
   )
@@ -167,17 +179,18 @@ export function PriorityBadgeTrigger({
       onChange={(priority) => onPatch({ priority })}
       className="w-40"
       trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          tone="strong"
+        <PickerFieldValue
+          label={priorityLabel}
+          icon={
+            <Icon
+              className={cn("size-3.5", meta.className)}
+              strokeWidth={1.75}
+            />
+          }
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
           className={className}
-        >
-          <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
-          <span>{priorityLabel}</span>
-        </Button>
+        />
       }
     />
   )
