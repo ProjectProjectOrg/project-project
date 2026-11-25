@@ -324,9 +324,6 @@ if (typeof document !== "undefined") {
   )
 }
 
-// finalFocus={false} keeps focus off the trigger after a pointer close; a
-// keyboard close (Escape, Enter on an item) still returns it there, so
-// tabbing carries on from the trigger instead of the top of the page.
 const closedFromKeyboard = () => lastInputKeyboard
 
 function DropdownMenuPopup({

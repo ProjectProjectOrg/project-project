@@ -42,7 +42,6 @@ export const openRowField = (
   return true
 }
 
-// The page field each key opens: the row's, plus the ones only the page shows.
 const PAGE_FIELDS = {
   ...ROW_FIELDS,
   "tickets.type": "type",
@@ -50,10 +49,6 @@ const PAGE_FIELDS = {
   "tickets.parent": "epic"
 } as const
 
-// On a ticket's page, a field's key presses the page's own control for it
-// (data-ticket-field) instead of opening ⌘K, or the sub-ticket composer's
-// while it's the last thing used; false when the page isn't showing that
-// ticket or the field, or the field can't be edited.
 export const openPageField = (hotkey: string, ticketId: TicketId) => {
   const field = Object.entries(PAGE_FIELDS).find(([id]) => id === hotkey)?.[1]
   if (field === undefined) return false

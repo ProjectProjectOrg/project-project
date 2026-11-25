@@ -42,8 +42,7 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     const pointed = registry.get(pointedTicket)
     const target = commandTarget(orgSlug, current, pointed)
     // With several selected, a field's key opens that field on a selected
-    // row (the rows are the toolbar), and on a ticket's page the page's own
-    // field, not ⌘K.
+    // row (the rows are the toolbar), not ⌘K.
     const id = commands[0]?.hotkey?.id
     if (
       id !== undefined &&

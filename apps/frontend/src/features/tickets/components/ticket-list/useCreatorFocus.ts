@@ -44,8 +44,7 @@ export function useCreatorFocus(
     const onPointerDown = (e: PointerEvent) => {
       const container = containerRef.current
       if (!container) return
-      // An open menu's backdrop takes the click; what's under it counts.
-      // Capture, so this reads it before the menu closes and unmarks it.
+      // Capture phase: closing the menu strips the backdrop's marker.
       const target = isMenuBackdrop(e.target)
         ? (belowMenuBackdrop(e) ?? null)
         : e.target
