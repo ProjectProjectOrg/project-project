@@ -1,5 +1,5 @@
 import { attachmentDownloadSrc } from "@pp/shared"
-import { useEffect, useRef, useCallback, type ReactNode } from "react"
+import { useEffect, useRef, useCallback, useState, type ReactNode } from "react"
 import { flushSync, createPortal } from "react-dom"
 
 import { Badge } from "../../components/badge"
@@ -27,6 +27,7 @@ import {
   X
 } from "../../components/icons"
 import { chipIconActionClass } from "../../components/morph-icon-link"
+import { PopupHotkeyScope } from "../../components/popup-hotkey-scope"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import { useImageZoom } from "./useImageZoom"
@@ -49,6 +50,7 @@ export function EditableImage({
   onExpand: () => void
   onRemove: () => void
 }>) {
+  const [viewerOpen, setViewerOpen] = useState(false)
   const viewer = useRef<HTMLDivElement>(null)
   const {
     zoom,
@@ -74,10 +76,14 @@ export function EditableImage({
         )
           document.activeElement.blur()
         panel.hidePopover()
+        setViewerOpen(false)
         return
       }
       scale.current = 100
-      flushSync(() => setZoom(100))
+      flushSync(() => {
+        setZoom(100)
+        setViewerOpen(true)
+      })
       panel.showPopover()
       viewport.current?.scrollTo(0, 0)
       panel.focus({ preventScroll: true })
@@ -268,7 +274,7 @@ export function EditableImage({
       {createPortal(
         <div
           ref={viewer}
-          role="region"
+          role="dialog"
           popover="manual"
           tabIndex={-1}
           onKeyDown={(event) => {
@@ -296,67 +302,69 @@ export function EditableImage({
           aria-label={filename}
           className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none bg-background p-4 text-foreground outline-none"
         >
-          <div
-            ref={viewport}
-            className="size-full overflow-auto overscroll-contain"
-          >
-            <button
-              type="button"
-              aria-label={
-                zoom > 100
-                  ? m.editor_attachment_zoom_out()
-                  : m.editor_attachment_zoom_in()
-              }
-              style={{ width: `${zoom}%`, height: `${zoom}%` }}
-              className={cn(
-                "[container-type:size] grid place-items-center",
-                zoom > 100 ? "cursor-zoom-out" : "cursor-zoom-in"
-              )}
-              onClick={(event) => {
-                const rect = viewport.current?.getBoundingClientRect()
-                if (rect)
-                  toggleZoom(
-                    event.detail ? event.clientX : rect.left + rect.width / 2,
-                    event.detail ? event.clientY : rect.top + rect.height / 2
-                  )
-              }}
+          <PopupHotkeyScope open={viewerOpen}>
+            <div
+              ref={viewport}
+              className="size-full overflow-auto overscroll-contain"
             >
-              <img
-                ref={fullImage}
-                onLoad={(event) => {
-                  const img = event.currentTarget
-                  img.style.setProperty(
-                    "--image-aspect",
-                    String(img.naturalWidth / img.naturalHeight)
-                  )
-                }}
-                src={url}
-                alt={alt || filename}
-                loading={children ? "eager" : "lazy"}
-                draggable={false}
-                className="h-auto w-[min(100cqw,calc(100cqh*var(--image-aspect,1)))]"
-              />
-            </button>
-          </div>
-          <Badge
-            data-image-viewer-zoom=""
-            className="pointer-events-none absolute top-4 left-4 h-8 rounded-[16px] px-2.5 tabular-nums"
-          >
-            {Math.round(zoom)}%
-          </Badge>
-          <Badge
-            render={
               <button
                 type="button"
-                aria-label={m.editor_attachment_exit_fullscreen()}
-              />
-            }
-            className={cn(imageActionClass, "absolute top-4 right-4")}
-            data-image-viewer-close=""
-            onClick={() => changeViewer(false)}
-          >
-            <X aria-hidden="true" />
-          </Badge>
+                aria-label={
+                  zoom > 100
+                    ? m.editor_attachment_zoom_out()
+                    : m.editor_attachment_zoom_in()
+                }
+                style={{ width: `${zoom}%`, height: `${zoom}%` }}
+                className={cn(
+                  "[container-type:size] grid place-items-center",
+                  zoom > 100 ? "cursor-zoom-out" : "cursor-zoom-in"
+                )}
+                onClick={(event) => {
+                  const rect = viewport.current?.getBoundingClientRect()
+                  if (rect)
+                    toggleZoom(
+                      event.detail ? event.clientX : rect.left + rect.width / 2,
+                      event.detail ? event.clientY : rect.top + rect.height / 2
+                    )
+                }}
+              >
+                <img
+                  ref={fullImage}
+                  onLoad={(event) => {
+                    const img = event.currentTarget
+                    img.style.setProperty(
+                      "--image-aspect",
+                      String(img.naturalWidth / img.naturalHeight)
+                    )
+                  }}
+                  src={url}
+                  alt={alt || filename}
+                  loading={children ? "eager" : "lazy"}
+                  draggable={false}
+                  className="h-auto w-[min(100cqw,calc(100cqh*var(--image-aspect,1)))]"
+                />
+              </button>
+            </div>
+            <Badge
+              data-image-viewer-zoom=""
+              className="pointer-events-none absolute top-4 left-4 h-8 rounded-[16px] px-2.5 tabular-nums"
+            >
+              {Math.round(zoom)}%
+            </Badge>
+            <Badge
+              render={
+                <button
+                  type="button"
+                  aria-label={m.editor_attachment_exit_fullscreen()}
+                />
+              }
+              className={cn(imageActionClass, "absolute top-4 right-4")}
+              data-image-viewer-close=""
+              onClick={() => changeViewer(false)}
+            >
+              <X aria-hidden="true" />
+            </Badge>
+          </PopupHotkeyScope>
         </div>,
         document.body
       )}

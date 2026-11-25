@@ -71,7 +71,12 @@ function FigmaEmbedContent({
   // well 4px in, the name and an open link in the row under it, like a
   // file's tile.
   return (
-    <span className={cn(attachmentSurfaceClass, "block w-[38rem] max-w-full")}>
+    <span
+      className={cn(
+        attachmentSurfaceClass,
+        "block w-[38rem] max-w-full group-data-[figma-selected]/hitbox:outline-1 group-data-[figma-selected]/hitbox:-outline-offset-1 group-data-[figma-selected]/hitbox:outline-ring"
+      )}
+    >
       <span className="block px-1 pt-1">
         <span className="relative block aspect-video w-full overflow-hidden rounded-[14px] bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] corner-squircle">
           <iframe

@@ -258,7 +258,10 @@ function FigmaSelectable({
               )
             }
           >
-            <span data-figma-content="true" className="flex [--chip-shift:0px]">
+            <span
+              data-figma-content="true"
+              className="flex [--chip-shift:0px] group-data-[figma-selected]/hitbox:[&>.pp-badge]:inset-ring-1 group-data-[figma-selected]/hitbox:[&>.pp-badge]:inset-ring-ring"
+            >
               {compact ? (
                 <FigmaChip
                   onExpand={toggleDensity}
