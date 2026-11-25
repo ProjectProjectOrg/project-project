@@ -41,6 +41,7 @@ export function EditableImage({
   filename,
   children,
   onExpand,
+  onKeyboardExpand,
   onRemove
 }: Readonly<{
   url: string
@@ -48,6 +49,7 @@ export function EditableImage({
   filename: string
   children: ReactNode
   onExpand: () => void
+  onKeyboardExpand: () => void
   onRemove: () => void
 }>) {
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -166,7 +168,7 @@ export function EditableImage({
         confirmLabel={m.editor_attachment_remove_confirm()}
         busyLabel={m.editor_attachment_removing()}
         onConfirm={onRemove}
-        describeError={m.editor_attachment_remove_confirm}
+        describeError={m.editor_embed_remove_failed}
       />
     </>
   )
@@ -221,7 +223,7 @@ export function EditableImage({
             onClick={(event) => {
               cancelExpand()
               if (event.detail === 0) {
-                onExpand()
+                onKeyboardExpand()
               } else if (event.detail === 1) {
                 pendingExpand.current = window.setTimeout(onExpand, 250)
               }
@@ -236,6 +238,7 @@ export function EditableImage({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger
+            data-attachment-expanded-actions={children ? "" : undefined}
             className={cn(
               "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-data-[viewer-transition]/reveal:invisible aria-expanded:opacity-100 [@media(hover:none)]:opacity-100",
               children

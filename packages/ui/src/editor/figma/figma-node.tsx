@@ -204,6 +204,19 @@ function FigmaSelectable({
   const reduceMotion = useReducedMotion()
   const compact = density === "compact"
   useLayoutEffect(() => {
+    if (!compact && surface.current?.style.position === "fixed") {
+      for (const property of [
+        "position",
+        "top",
+        "left",
+        "width",
+        "height",
+        "margin",
+        "pointer-events"
+      ]) {
+        surface.current.style.removeProperty(property)
+      }
+    }
     const from = paragraphHeight.current
     paragraphHeight.current = 0
     const paragraph = surface.current?.closest("p")

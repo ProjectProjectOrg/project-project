@@ -13,7 +13,7 @@ import {
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { useState, type ReactElement } from "react"
+import { useLayoutEffect, useRef, useState, type ReactElement } from "react"
 
 import { AttachmentChip } from "../../components/attachment-chip"
 import {
@@ -288,6 +288,16 @@ function AttachmentSettled({
     !unplayable
   const clipRadius = density === "compact" ? 10 : 18
 
+  const focusAfterExpand = useRef(false)
+  useLayoutEffect(() => {
+    if (density !== "rich" || !focusAfterExpand.current) return
+    focusAfterExpand.current = false
+    editor
+      .getElementByKey(nodeKey)
+      ?.querySelector<HTMLElement>("[data-attachment-expanded-actions]")
+      ?.focus({ preventScroll: true })
+  }, [density, editor, nodeKey])
+
   const toggleDensity = () =>
     editor.update(() => {
       const node = $getNodeByKey(nodeKey)
@@ -315,6 +325,10 @@ function AttachmentSettled({
           alt={alt}
           filename={filename}
           onExpand={toggleDensity}
+          onKeyboardExpand={() => {
+            focusAfterExpand.current = true
+            toggleDensity()
+          }}
           onRemove={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}
         >
           {density === "rich" ? (

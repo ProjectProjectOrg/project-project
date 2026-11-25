@@ -9,6 +9,7 @@ import {
   attachmentWidthStyle
 } from "../../editor/attachment-image-style"
 import { cn } from "../../lib/utils"
+import { m } from "../messages"
 import { $isAttachmentNode } from "./attachment-node"
 
 // An image attachment in the editor: sized to its saved width, resizable, and broken-aware.
@@ -73,15 +74,19 @@ export function AttachmentImage({
     setDragWidth(measure(info.offset.x))
   }
 
+  const saveWidth = (next: number) => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if ($isAttachmentNode(node)) node.setWidth(next)
+    })
+  }
+
   const onPanEnd: MotionProps["onPanEnd"] = (_event, info) => {
     if (!dragStart.current) return
     const next = measure(info.offset.x)
     dragStart.current = null
     setDragWidth(null)
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey)
-      if ($isAttachmentNode(node)) node.setWidth(next)
-    })
+    saveWidth(next)
   }
 
   const effectiveWidth = dragWidth ?? width
@@ -105,17 +110,31 @@ export function AttachmentImage({
         onError={onBroken}
       />
       {(["left", "right"] as const).map((side) => (
-        <motion.span
+        <motion.button
           key={side}
-          role="presentation"
-          aria-hidden="true"
+          type="button"
+          aria-label={
+            side === "left"
+              ? m.editor_attachment_narrow()
+              : m.editor_attachment_widen()
+          }
+          onClick={(event) => {
+            if (event.detail !== 0 || !imgRef.current) return
+            const current = imgRef.current.getBoundingClientRect().width
+            saveWidth(
+              clampAttachmentWidth({
+                width: current + (side === "left" ? -32 : 32),
+                containerWidth: contentWidth(editor.getRootElement()) ?? current
+              })
+            )
+          }}
           data-attachment-resize="true"
           onPointerDown={(event) => event.preventDefault()}
           onPanStart={() => onPanStart(side === "left" ? -1 : 1)}
           onPan={onPan}
           onPanEnd={onPanEnd}
           className={cn(
-            "absolute top-1/2 grid size-6 -translate-y-1/2 cursor-ew-resize touch-none items-center opacity-0 mix-blend-difference before:h-6 before:w-[3px] before:rounded-full before:bg-white before:opacity-40 before:transition-opacity hover:before:opacity-100 hitbox-hover:opacity-100 [@media(hover:none)]:opacity-100",
+            "absolute top-1/2 grid size-6 -translate-y-1/2 cursor-ew-resize touch-none items-center opacity-0 mix-blend-difference before:h-6 before:w-[3px] before:rounded-full before:bg-white before:opacity-40 before:transition-opacity hover:before:opacity-100 focus-visible:opacity-100 focus-visible:before:opacity-100 hitbox-hover:opacity-100 [@media(hover:none)]:opacity-100",
             side === "left"
               ? "left-0 justify-items-start pl-1 [--reveal-x:-3px]"
               : "right-0 justify-items-end pr-1 [--reveal-x:3px]",

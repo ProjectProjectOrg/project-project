@@ -57,7 +57,7 @@ export function EmbedMenu({
         label={m.editor_attachment_remove()}
         confirmLabel={m.editor_embed_remove_confirm()}
         busyLabel={m.editor_attachment_removing()}
-        describeError={m.editor_embed_remove_confirm}
+        describeError={m.editor_embed_remove_failed}
         onConfirm={onRemove}
       />
     </>
