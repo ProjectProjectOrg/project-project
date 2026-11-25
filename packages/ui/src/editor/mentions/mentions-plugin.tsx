@@ -3,7 +3,10 @@ import { LexicalTypeaheadMenuPlugin } from "@lexical/react/LexicalTypeaheadMenuP
 import { mergeRegister } from "@lexical/utils"
 import {
   TextNode,
+  $createTextNode,
   $getSelection,
+  $isLineBreakNode,
+  $isTextNode,
   $isRangeSelection,
   $isElementNode,
   BLUR_COMMAND,
@@ -160,7 +163,16 @@ function MentionTypeahead({
         )
         if (nodeToReplace) nodeToReplace.replace(node)
         else sel.insertNodes([node])
-        node.selectNext()
+        const next = node.getNextSibling()
+        if (next === null || $isLineBreakNode(next)) {
+          const space = $createTextNode(" ")
+          node.insertAfter(space)
+          space.selectEnd()
+        } else if ($isTextNode(next) && next.getTextContent().startsWith(" ")) {
+          next.select(1, 1)
+        } else {
+          node.selectNext(0, 0)
+        }
         closeMenu()
       })
     },

@@ -7,6 +7,8 @@ import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/elemen
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import { Reorder, useDragControls, type HTMLMotionProps } from "motion/react"
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -58,6 +60,13 @@ const COLUMN_WIDTH = 288
 const COLLAPSED_WIDTH = 40
 const reorderFade = { duration: 0.2, ease: [0.32, 0.72, 0, 1] } as const
 
+type CardLanding = Readonly<{ id: string; x: number; y: number }>
+const BoardLanding = createContext<CardLanding | null>(null)
+const SetBoardLanding = createContext<((landing: CardLanding) => void) | null>(
+  null
+)
+const assigneeReveal = '[data-slot="board-assignee"] [data-slot="reveal"]'
+
 // The board's row of columns. While a column is dragged (reordering) the
 // row keeps the width it had, so the scroller doesn't jump as the column
 // leaves the flow.
@@ -76,6 +85,19 @@ export function BoardColumns<T extends string>({
     children: ReactNode
   }>) {
   const row = useRef<HTMLDivElement>(null)
+  const [landing, setLanding] = useState<CardLanding | null>(null)
+  useLayoutEffect(() => {
+    if (!landing) return
+    const clear = () => setLanding(null)
+    window.addEventListener("pointermove", clear, true)
+    window.addEventListener("scroll", clear, true)
+    window.addEventListener("blur", clear)
+    return () => {
+      window.removeEventListener("pointermove", clear, true)
+      window.removeEventListener("scroll", clear, true)
+      window.removeEventListener("blur", clear)
+    }
+  }, [landing])
   useLayoutEffect(() => {
     const element = row.current
     if (!element) return
@@ -95,7 +117,9 @@ export function BoardColumns<T extends string>({
       className={className}
       {...props}
     >
-      {children}
+      <SetBoardLanding value={setLanding}>
+        <BoardLanding value={landing}>{children}</BoardLanding>
+      </SetBoardLanding>
     </Reorder.Group>
   )
 }
@@ -214,15 +238,29 @@ export function useBoardCardDrag({
   ordered?: boolean
 }>) {
   const [dragging, setDragging] = useState(false)
+  const landing = useContext(BoardLanding)
+  const setLanding = useContext(SetBoardLanding)
+  useLayoutEffect(() => {
+    const element = card.current
+    if (landing?.id !== id || !element) return
+    const { x, y } = landing
+    if (!element.contains(document.elementFromPoint(x, y))) return
+    element.setAttribute("data-board-assignee-visible", "")
+    return () => element.removeAttribute("data-board-assignee-visible")
+  }, [card, id, landing])
   useEffect(() => {
     const element = slot.current
     const handle = card.current
     if (!enabled || !element || !handle) return undefined
+    let showAssignee = false
     const source = (element: HTMLElement) =>
       draggable({
         element,
         getInitialData: () => BoardCardDragData.make({ id, status }),
         onGenerateDragPreview: ({ location, nativeSetDragImage }) => {
+          const reveal = handle.querySelector(assigneeReveal)
+          showAssignee =
+            reveal !== null && Number(getComputedStyle(reveal).opacity) > 0
           setCustomNativeDragPreview({
             nativeSetDragImage,
             getOffset: preserveOffsetOnSource({
@@ -235,12 +273,22 @@ export function useBoardCardDrag({
               if (!(clone instanceof HTMLElement)) return
               clone.style.width = `${rect.width}px`
               clone.style.height = `${rect.height}px`
+              clone.toggleAttribute("data-board-assignee-visible", showAssignee)
               container.appendChild(clone)
             }
           })
         },
         onDragStart: () => setDragging(true),
-        onDrop: () => setDragging(false)
+        onDrop: ({ location }) => {
+          setDragging(false)
+          if (
+            showAssignee &&
+            location.current.dropTargets.some(({ data }) => isBoardDrop(data))
+          ) {
+            const { clientX: x, clientY: y } = location.current.input
+            setLanding?.({ id, x, y })
+          }
+        }
       })
     const link = handle.querySelector<HTMLElement>("[data-item-link]")
     const stops = [source(handle), ...(link ? [source(link)] : [])]
@@ -264,7 +312,7 @@ export function useBoardCardDrag({
       stopDrag()
       stopDrop()
     }
-  }, [slot, card, id, status, enabled, ordered])
+  }, [slot, card, id, status, enabled, ordered, setLanding])
   return dragging
 }
 

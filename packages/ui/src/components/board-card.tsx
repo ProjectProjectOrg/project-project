@@ -89,7 +89,10 @@ export function BoardCard({
               {assignee ? (
                 // A 24px target around a 20px face; -mr-0.5 sets the face
                 // as far from the card's right edge as from its top.
-                <span className="-mr-0.5 ml-auto flex shrink-0 items-center">
+                <span
+                  data-slot="board-assignee"
+                  className="-mr-0.5 ml-auto flex shrink-0 items-center"
+                >
                   {assignee}
                 </span>
               ) : null}

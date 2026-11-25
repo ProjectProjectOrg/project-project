@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react"
 import type { CommentId, TicketId, User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { CommentReplyBox } from "@pp/ui/comment"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -11,6 +12,7 @@ import { me } from "@/features/auth/atoms/auth"
 import { useCommentDraft } from "@/features/comments/hooks/useCommentDraft"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type ReplyProps = Readonly<{
@@ -58,6 +60,7 @@ function ReadyReplyComposer({
       submit={
         <Button size="sm" onClick={submit} disabled={!ready}>
           {m.comments_reply_submit()}
+          <KbdShortcut size="sm" keys="mod+enter" keyLabels={keyLabels()} />
         </Button>
       }
     >
