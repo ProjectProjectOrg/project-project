@@ -3,9 +3,12 @@ import { Button } from "@pp/ui/button"
 import { Markdown } from "@pp/ui/editor/markdown"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Flag } from "@pp/ui/icons"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 export function FlagNote({
@@ -51,9 +54,15 @@ export function FlagNote({
         </span>
       </div>
       {onRemove !== null && (
-        <Button type="button" variant="ghost" size="xs" onClick={onRemove}>
-          {m.tickets_mark_remove_flag()}
-        </Button>
+        <ShortcutTooltip
+          hotkey={appHotkeys["tickets.flag"]}
+          label={m.tickets_mark_remove_flag()}
+          keyLabels={keyLabels()}
+        >
+          <Button type="button" variant="ghost" size="xs" onClick={onRemove}>
+            {m.tickets_mark_remove_flag()}
+          </Button>
+        </ShortcutTooltip>
       )}
     </div>
   )

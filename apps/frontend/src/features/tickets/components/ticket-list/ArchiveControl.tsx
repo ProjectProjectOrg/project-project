@@ -3,6 +3,7 @@ import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { Archive, ArchiveRestore } from "@pp/ui/icons"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useState } from "react"
 
 import {
@@ -10,6 +11,8 @@ import {
   type ArchiveExit,
   type ArchiveTicket
 } from "@/features/tickets/forms/archive-ticket"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 export function ArchiveTicketControl({
@@ -87,19 +90,23 @@ function ArchivePopover({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={m.tickets_archive_action_aria_label()}
-            title={m.tickets_archive_action_aria_label()}
-          >
-            <Archive strokeWidth={1.75} />
-          </Button>
-        }
-      />
+      <ShortcutTooltip
+        hotkey={appHotkeys["tickets.archive"]}
+        keyLabels={keyLabels()}
+      >
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={m.tickets_archive_action_aria_label()}
+            >
+              <Archive strokeWidth={1.75} />
+            </Button>
+          }
+        />
+      </ShortcutTooltip>
       <Composer.Popover align="end">
         <ArchiveForm
           ticket={ticket}

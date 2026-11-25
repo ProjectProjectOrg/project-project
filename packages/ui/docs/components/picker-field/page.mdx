@@ -2,7 +2,7 @@ export const meta = {
   title: "Picker field",
   group: "Primitives",
   description:
-    "A value you can change and also go to: a ticket's sprint and epic. The value opens a picker that only picks; going there is a chevron that comes in beside it on hover or focus.",
+    "A trigger that animates its selected value. For values you can also open, such as a ticket’s sprint or epic, a chevron appears beside the trigger on hover or focus.",
   sources: [
     {
       kind: "own",
@@ -20,7 +20,7 @@ Hover a field for its chevron, click the value for its picker. Under it, each st
 
 ## Usage
 
-The field holds the trigger and the chevron; the picker is a filterable `DropdownMenu` the app fills.
+Use `PickerFieldValue` as the trigger for a picker. When the value also has a destination, group the trigger and the chevron in `PickerField`.
 
 ```tsx
 import {
@@ -42,10 +42,13 @@ import {
   <DropdownMenu filterable={{ value: query, onValueChange: setQuery }}>
     <DropdownMenuTrigger
       render={
-        <PickerFieldValue empty={epic === null} aria-label={m.tickets_epic_change_aria_label()}>
-          <Layers className="size-3.5" strokeWidth={1.75} />
-          <span className="max-w-[24ch] truncate">{epic.title}</span>
-        </PickerFieldValue>
+        <PickerFieldValue
+          empty={epic === null}
+          truncate
+          label={epic?.title ?? m.tickets_epic_add_chip()}
+          icon={<Layers className="size-3.5" strokeWidth={1.75} />}
+          aria-label={m.tickets_epic_change_aria_label()}
+        />
       }
     />
     <DropdownMenuContent align="start" sideOffset={6} className="w-max max-w-80 min-w-60">
@@ -72,7 +75,11 @@ A row's detail goes in `<span data-menu-meta className={menuItemDetailClass}>` a
 | Part | Prop | Type |
 | --- | --- | --- |
 | `PickerField` | `children` | the trigger's menu and the chevron |
-| `PickerFieldValue` | `empty` | `boolean`: no value yet, so the label is muted |
+| `PickerFieldValue` | `label` | `string`: the current value or the empty label |
+| | `icon` | `ReactNode`: the optional leading icon |
+| | `iconKey` | `string`: the icon's identity when it can change independently of the label |
+| | `truncate` | `boolean`: cap the label at 24 characters of width |
+| | `empty` | `boolean`: no value yet, so the label is muted |
 | | `tone` | Button's tone, for a field that reports a problem (`"error"`); otherwise from `empty` |
 | | Button's props | it's a ghost Button, used as the menu's trigger |
 | `PickerFieldOpen` | `label` | `string`: tooltip and accessible name ("Open epic") |
@@ -81,6 +88,10 @@ A row's detail goes in `<span data-menu-meta className={menuItemDetailClass}>` a
 | `DropdownMenuInput` | `shortcut` | `ReactNode`: the keys that open this picker, at the search's end |
 
 ## Rules
+
+### The value animates in the trigger
+
+`PickerFieldValue` uses `TextSwap` to roll the label and crossfade its icon. Keep the trigger mounted across changes so it can animate from the previous value. Set `truncate` on long labels to leave room for the open button.
 
 ### Pick in the menu, open beside it
 

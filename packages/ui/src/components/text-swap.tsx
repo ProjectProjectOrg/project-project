@@ -1,7 +1,13 @@
 import "@scritto/react"
 import type { Scritto as ScrittoElement } from "@scritto/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode
+} from "react"
 
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
@@ -49,6 +55,7 @@ type TextSwapProps = Readonly<{
   // Let a long value wrap onto more lines. Otherwise it stays on one line,
   // clipped at the width it's given.
   wrap?: boolean
+  truncate?: boolean
   animate?: boolean
   className?: string
 }>
@@ -60,12 +67,15 @@ function TextSwap({
   speed = "normal",
   announce = false,
   wrap = false,
+  truncate = false,
   animate = true,
   className
 }: TextSwapProps) {
+  const hasIcon = icon != null
   const swap = (
     <span
       data-slot="text-swap"
+      data-leading-icon={hasIcon || undefined}
       // Empty text (a value rolling out to nothing) has nothing to read.
       aria-hidden={announce || children === "" || undefined}
       className={cn(
@@ -74,12 +84,23 @@ function TextSwap({
         className
       )}
     >
-      {icon != null && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
-      <span className={wrap ? "max-w-full min-w-0" : "min-w-0 overflow-x-clip"}>
+      {hasIcon && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
+      <span
+        data-slot="text-swap-label"
+        className={cn(
+          "min-w-0",
+          truncate
+            ? "truncate has-[>scritto-text]:text-clip"
+            : wrap
+              ? "max-w-full"
+              : "overflow-x-clip"
+        )}
+      >
         <SwapText
           value={children}
           duration={DURATION[speed]}
           wrap={wrap}
+          truncate={truncate}
           animate={animate}
         />
       </span>
@@ -87,7 +108,11 @@ function TextSwap({
   )
   if (!announce) return swap
   return (
-    <span aria-live="polite" className="flex min-w-0">
+    <span
+      aria-live="polite"
+      data-leading-icon={hasIcon || undefined}
+      className="flex min-w-0"
+    >
       <span className="sr-only">{children}</span>
       {swap}
     </span>
@@ -102,24 +127,30 @@ function SwapText({
   value,
   duration,
   wrap,
+  truncate,
   animate
 }: Readonly<{
   value: string
   duration: number
   wrap: boolean
+  truncate: boolean
   animate: boolean
 }>) {
-  const [first] = useState(value)
-  const [live, setLive] = useState(false)
-  if (!live && value === first) return value
-  if (!live) setLive(true)
+  const [swap, setSwap] = useState({ from: value, live: false })
+  const settle = useCallback(
+    (from: string) => setSwap({ from, live: false }),
+    []
+  )
+  if (!swap.live && swap.from === value) return value
+  if (!swap.live) setSwap({ ...swap, live: true })
   return (
     <LiveText
-      from={first}
+      from={swap.from}
       value={value}
       duration={duration}
       wrap={wrap}
       animate={animate}
+      onSettled={truncate ? settle : undefined}
     />
   )
 }
@@ -132,13 +163,15 @@ function LiveText({
   value,
   duration,
   wrap,
-  animate
+  animate,
+  onSettled
 }: Readonly<{
   from: string
   value: string
   duration: number
   wrap: boolean
   animate: boolean
+  onSettled?: (value: string) => void
 }>) {
   const ref = useRef<HTMLElement>(null)
   const started = useRef(false)
@@ -151,7 +184,24 @@ function LiveText({
       element.update(from, false)
     }
     element.update(value, animate)
-  }, [from, value, duration, animate])
+    if (onSettled === undefined) return
+    let cancelled = false
+    const frame = window.requestAnimationFrame(() => {
+      const animations = [
+        ...element.getAnimations(),
+        ...(element.shadowRoot?.getAnimations() ?? [])
+      ]
+      void Promise.allSettled(
+        animations.map((animation) => animation.finished)
+      ).then(() => {
+        if (!cancelled) onSettled(value)
+      })
+    })
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+    }
+  }, [from, value, duration, animate, onSettled])
   return (
     <scritto-text
       ref={ref}

@@ -2,6 +2,7 @@ import { isEpic, type Member, type Ticket } from "@pp/shared"
 import { ChevronRight, Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useHotkey } from "@tanstack/react-hotkeys"
 import { AnimatePresence, m as motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
@@ -9,6 +10,7 @@ import { useState, type ReactNode } from "react"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
 import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { AddChildTicketButton } from "./AddChildTicketButton"
@@ -63,6 +65,7 @@ function ChildrenSection({
   })
 
   const empty = editable && count === 0
+  const showAddShortcut = empty && !adding
   const expanded = empty ? adding : open
   const epic = isEpic(parent)
   const heading = empty
@@ -72,6 +75,32 @@ function ChildrenSection({
     : epic
       ? m.tickets_epic_tickets_heading()
       : m.tickets_sub_tickets_heading()
+  const headingButton = (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-keyshortcuts={
+        showAddShortcut
+          ? appHotkeys["tickets.add-sub-ticket"].defaultHotkey
+          : undefined
+      }
+      onClick={() =>
+        empty ? setAdding((current) => !current) : setOpen(!open)
+      }
+      className="group focus-ring inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-title-compact/5 text-muted-foreground transition-colors outline-none [corner-shape:var(--button-corner)] hover:bg-hover hover:text-foreground"
+    >
+      {empty && <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />}
+      <span className={cn(!empty && "text-foreground")}>{heading}</span>
+      {count > 0 && <span className="tabular-nums">{count}</span>}
+      {!empty && (
+        <ChevronRight
+          className="size-3.5 transition-transform group-aria-expanded:rotate-90"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      )}
+    </button>
+  )
 
   return (
     <section className="flex flex-col border-b border-border/60 pb-4">
@@ -80,32 +109,23 @@ function ChildrenSection({
         <h2>
           {/* The section's heading, so a plain button in the title's type
               with the ghost button's hover, not a restyled Button. */}
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={() =>
-              empty ? setAdding((current) => !current) : setOpen(!open)
-            }
-            className="group focus-ring inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-title-compact/5 text-muted-foreground transition-colors outline-none [corner-shape:var(--button-corner)] hover:bg-hover hover:text-foreground"
-          >
-            {empty && (
-              <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />
-            )}
-            <span className={cn(!empty && "text-foreground")}>{heading}</span>
-            {count > 0 && <span className="tabular-nums">{count}</span>}
-            {!empty && (
-              <ChevronRight
-                className="size-3.5 transition-transform group-aria-expanded:rotate-90"
-                strokeWidth={1.75}
-                aria-hidden
-              />
-            )}
-          </button>
+          {showAddShortcut ? (
+            <ShortcutTooltip
+              hotkey={appHotkeys["tickets.add-sub-ticket"]}
+              label={heading}
+              keyLabels={keyLabels()}
+            >
+              {headingButton}
+            </ShortcutTooltip>
+          ) : (
+            headingButton
+          )}
         </h2>
         {editable && !empty && (
           <AddChildTicketButton
             parent={parent}
             onCreate={startAdding}
+            shortcutEnabled={!adding}
             className="mr-2 ml-auto"
           />
         )}

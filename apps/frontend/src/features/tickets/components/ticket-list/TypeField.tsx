@@ -1,5 +1,4 @@
 import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
-import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,8 +8,9 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { Settings2 } from "@pp/ui/icons"
-import { TextSwap } from "@pp/ui/text-swap"
-import type { ComponentProps, ReactElement, ReactNode } from "react"
+import { PickerFieldValue } from "@pp/ui/picker-field"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
+import type { ComponentProps, ReactElement } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { typeMenuItems } from "@/features/tickets/components/ticket-list/typeMenuItems"
@@ -24,6 +24,8 @@ import {
   typeName,
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
+import { appHotkeys } from "@/lib/appHotkeys"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type MenuContentProps = ComponentProps<typeof DropdownMenuContent>
@@ -56,7 +58,7 @@ function TypePicker({
   align,
   finalFocus,
   trigger,
-  children
+  showShortcut = false
 }: Readonly<{
   types: ReadonlyArray<TypeDefinition>
   value: TypeKey | null
@@ -65,11 +67,21 @@ function TypePicker({
   align: MenuContentProps["align"]
   finalFocus?: MenuContentProps["finalFocus"]
   trigger: ReactElement
-  children: ReactNode
+  showShortcut?: boolean
 }>) {
+  const menuTrigger = <DropdownMenuTrigger render={trigger} />
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
+      {showShortcut ? (
+        <ShortcutTooltip
+          hotkey={appHotkeys["tickets.type"]}
+          keyLabels={keyLabels()}
+        >
+          {menuTrigger}
+        </ShortcutTooltip>
+      ) : (
+        menuTrigger
+      )}
       <DropdownMenuContent
         align={align}
         finalFocus={finalFocus}
@@ -115,23 +127,15 @@ export function TypeSelect({
       align="end"
       finalFocus={false}
       trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          tone="strong"
+        <PickerFieldValue
+          label={label}
+          icon={<TypeGlyph type={type} className="size-3.5" />}
           onClick={(e) => e.stopPropagation()}
           aria-label={ariaLabel ?? m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
-    >
-      <TextSwap
-        className="gap-1.5"
-        icon={<TypeGlyph type={type} className="size-3.5" />}
-      >
-        {label}
-      </TextSwap>
-    </TypePicker>
+    />
   )
 }
 
@@ -165,23 +169,16 @@ export function TypeBadgeTrigger({
       }
       align="start"
       finalFocus={false}
+      showShortcut
       trigger={
-        <Button
-          type="button"
-          variant="ghost"
-          tone="strong"
+        <PickerFieldValue
+          label={label}
+          icon={<TypeGlyph type={type} className="size-3" />}
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
-    >
-      <TextSwap
-        className="gap-1.5"
-        icon={<TypeGlyph type={type} className="size-3" />}
-      >
-        {label}
-      </TextSwap>
-    </TypePicker>
+    />
   )
 }

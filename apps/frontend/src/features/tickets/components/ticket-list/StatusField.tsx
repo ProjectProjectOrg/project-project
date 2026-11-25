@@ -11,6 +11,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { ArrowRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+import { PickerFieldValue } from "@pp/ui/picker-field"
 import { ShortcutTooltip } from "@pp/ui/tooltip"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -54,6 +55,17 @@ function StatusTrigger({
       strokeWidth={1.75}
     />
   )
+  const glyph = blocked ? (
+    <span className="relative inline-flex">
+      {icon}
+      <span
+        aria-hidden
+        className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
+      />
+    </span>
+  ) : (
+    icon
+  )
   const triggerProps = {
     onClick: (e: MouseEvent) => {
       if (stopPropagation) e.stopPropagation()
@@ -69,28 +81,21 @@ function StatusTrigger({
     >
       <DropdownMenuTrigger
         render={
-          <Button
-            type="button"
-            variant="ghost"
-            tone="strong"
-            size={showLabel ? undefined : "square-6"}
-            {...triggerProps}
-          />
+          showLabel ? (
+            <PickerFieldValue label={label} icon={glyph} {...triggerProps} />
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              tone="strong"
+              size="square-6"
+              {...triggerProps}
+            >
+              {glyph}
+            </Button>
+          )
         }
-      >
-        {blocked ? (
-          <span className="relative inline-flex">
-            {icon}
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
-            />
-          </span>
-        ) : (
-          icon
-        )}
-        {showLabel && <span>{label}</span>}
-      </DropdownMenuTrigger>
+      />
     </ShortcutTooltip>
   )
 }

@@ -9,6 +9,7 @@ import {
 import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
 import { ListPlus, Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
+import { ShortcutTooltip } from "@pp/ui/tooltip"
 
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
@@ -31,39 +32,61 @@ export function useAttachExistingTicket(parent: Parent) {
 export function AddChildTicketButton({
   parent,
   onCreate,
+  shortcutEnabled,
   className
-}: Readonly<{ parent: Parent; onCreate: () => void; className?: string }>) {
+}: Readonly<{
+  parent: Parent
+  onCreate: () => void
+  shortcutEnabled: boolean
+  className?: string
+}>) {
   const attachExisting = useAttachExistingTicket(parent)
   const label = isEpic(parent)
     ? m.tickets_children_add_ticket()
     : m.tickets_children_add_sub_ticket()
+  const shortcut = appHotkeys["tickets.add-sub-ticket"]
+  const trigger = (
+    <ContextMenuTrigger
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          size="square-7"
+          aria-label={label}
+          aria-keyshortcuts={
+            shortcutEnabled ? shortcut.defaultHotkey : undefined
+          }
+          onClick={onCreate}
+          className={cn("motion-safe:active:scale-100", className)}
+        />
+      }
+    >
+      <Plus className="size-4" strokeWidth={1.75} />
+    </ContextMenuTrigger>
+  )
   return (
     <ContextMenu>
-      <ContextMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="square-7"
-            aria-label={label}
-            aria-keyshortcuts={
-              appHotkeys["tickets.add-sub-ticket"].defaultHotkey
-            }
-            onClick={onCreate}
-            className={cn("motion-safe:active:scale-100", className)}
-          />
-        }
-      >
-        <Plus className="size-4" strokeWidth={1.75} />
-      </ContextMenuTrigger>
+      {shortcutEnabled ? (
+        <ShortcutTooltip
+          hotkey={shortcut}
+          label={label}
+          keyLabels={keyLabels()}
+        >
+          {trigger}
+        </ShortcutTooltip>
+      ) : (
+        trigger
+      )}
       <ContextMenuContent className="w-56">
         <DropdownMenuItem onClick={onCreate}>
           <Plus className="size-4" strokeWidth={1.75} />
           {label}
-          <DropdownMenuShortcut
-            keys={appHotkeys["tickets.add-sub-ticket"].defaultHotkey}
-            keyLabels={keyLabels()}
-          />
+          {shortcutEnabled && (
+            <DropdownMenuShortcut
+              keys={shortcut.defaultHotkey}
+              keyLabels={keyLabels()}
+            />
+          )}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={attachExisting}>
           <ListPlus className="size-4" strokeWidth={1.75} />

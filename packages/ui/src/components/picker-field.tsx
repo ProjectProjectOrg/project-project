@@ -3,6 +3,7 @@ import type { ComponentProps, ReactElement } from "react"
 import { cn } from "../lib/utils"
 import { Button } from "./button"
 import { ChevronRight } from "./icons"
+import { TextSwap } from "./text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
 export function PickerField({ className, ...props }: ComponentProps<"div">) {
@@ -20,10 +21,16 @@ export function PickerField({ className, ...props }: ComponentProps<"div">) {
 
 export function PickerFieldValue({
   empty = false,
+  label,
+  icon,
+  iconKey,
+  truncate = false,
   tone,
   className,
   ...props
-}: Readonly<{ empty?: boolean }> & ComponentProps<typeof Button>) {
+}: Readonly<{ empty?: boolean; label: string; truncate?: boolean }> &
+  Pick<ComponentProps<typeof TextSwap>, "icon" | "iconKey"> &
+  Omit<ComponentProps<typeof Button>, "children">) {
   return (
     <Button
       type="button"
@@ -34,7 +41,19 @@ export function PickerFieldValue({
         className
       )}
       {...props}
-    />
+    >
+      <TextSwap
+        icon={icon}
+        iconKey={iconKey}
+        truncate={truncate}
+        className={cn(
+          "gap-1.5",
+          truncate && "**:data-[slot=text-swap-label]:max-w-[24ch]"
+        )}
+      >
+        {label}
+      </TextSwap>
+    </Button>
   )
 }
 

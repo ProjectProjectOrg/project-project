@@ -21,6 +21,7 @@ import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
+import { PickerFieldValue } from "@pp/ui/picker-field"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Reveal } from "@pp/ui/reveal"
 import { TextSwap } from "@pp/ui/text-swap"
@@ -200,21 +201,14 @@ function estimateTrigger(ticket: EstimateTicket, mode: EstimationMode) {
         : m.tickets_estimate_empty()
   const Icon = active !== null ? ESTIMATE_UNIT_ICON[active.unit] : Plus
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      tone={active === null ? "muted" : "strong"}
+    <PickerFieldValue
+      empty={active === null}
+      label={label}
+      icon={<Icon className="size-3.5" strokeWidth={1.75} />}
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
-    >
-      <TextSwap
-        className="gap-1.5"
-        icon={<Icon className="size-3.5" strokeWidth={1.75} />}
-      >
-        {label}
-      </TextSwap>
-    </Button>
+    />
   )
 }
 

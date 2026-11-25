@@ -5,6 +5,8 @@ import { Composer } from "@pp/ui/composer"
 import { MentionScopeProvider } from "@pp/ui/editor/mentions/scope"
 import { Link2 } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
+import { KbdShortcut } from "@pp/ui/kbd"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -38,6 +40,7 @@ import {
 } from "@/features/tickets/lib/ticketFields"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { errorMessage } from "@/lib/errorMessage"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import { useAttachExistingTicket } from "./AddChildTicketButton"
@@ -64,6 +67,10 @@ export function SubTicketComposer({
   const description = useRef("")
   useEffect(() => titleInput.current?.focus(), [])
   const inEpic = isEpic(parent)
+  const cancelLabel = m.common_cancel_button()
+  const createLabel = inEpic
+    ? m.tickets_create_dialog_submit()
+    : m.tickets_children_create_sub_ticket()
   const attachExisting = useAttachExistingTicket(parent)
   const trimmed = title.trim()
 
@@ -177,15 +184,59 @@ export function SubTicketComposer({
           >
             {m.tickets_children_attach_button()}
           </Button>
-          <Composer.Actions>
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-              {m.common_cancel_button()}
-            </Button>
-            <Button type="submit" size="sm" disabled={trimmed === ""}>
-              {inEpic
-                ? m.tickets_create_dialog_submit()
-                : m.tickets_children_create_sub_ticket()}
-            </Button>
+          <Composer.Actions onKeyDown={onKeyDown}>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-keyshortcuts="Escape"
+                    onClick={onClose}
+                  >
+                    {cancelLabel}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {cancelLabel}
+                  <KbdShortcut
+                    keys="Escape"
+                    keyLabels={keyLabels()}
+                    size="sm"
+                    aria-hidden
+                  />
+                </span>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                disabled={trimmed === ""}
+                render={
+                  <Button
+                    type="submit"
+                    size="sm"
+                    aria-keyshortcuts="Meta+Enter Control+Enter"
+                    disabled={trimmed === ""}
+                  >
+                    {createLabel}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                <span className="flex items-center gap-2">
+                  {createLabel}
+                  <KbdShortcut
+                    keys="Mod+Enter"
+                    keyLabels={keyLabels()}
+                    size="sm"
+                    aria-hidden
+                  />
+                </span>
+              </TooltipContent>
+            </Tooltip>
           </Composer.Actions>
         </Composer.Footer>
       </Composer.Tray>

@@ -9,6 +9,7 @@ import {
   User,
   X
 } from "@pp/ui/icons"
+import { TextSwap } from "@pp/ui/text-swap"
 import type { ReactNode } from "react"
 
 function Row({
@@ -72,6 +73,14 @@ export default function Overview() {
         </Button>
         <Button variant="ghost" tone="strong" leadingIcon={Calendar}>
           Due date
+        </Button>
+        <Button variant="ghost" tone="strong">
+          <TextSwap
+            className="gap-1.5"
+            icon={<CircleDot className="size-3.5" />}
+          >
+            Todo
+          </TextSwap>
         </Button>
       </Row>
       <Row caption="Icon sizes">
