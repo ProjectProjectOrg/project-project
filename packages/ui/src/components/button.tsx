@@ -312,8 +312,6 @@ function LoadingSwap({
 
 const PRESS_TRAVEL_PX = 3
 
-// A fixed 0.97 moves the edges of a wide button several pixels. Cap the
-// press at PRESS_TRAVEL_PX across, so long labels press like short ones.
 function setPressScale(button: HTMLElement) {
   button.style.setProperty(
     "--press-scale",
@@ -380,7 +378,6 @@ function Button({
     setPressScale(e.currentTarget)
     onPointerDown?.(e)
   }
-  // Space presses through :active too, so it measures like a pointer.
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === " " && !e.repeat) setPressScale(e.currentTarget)
     onKeyDown?.(e)
