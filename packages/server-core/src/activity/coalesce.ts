@@ -100,6 +100,7 @@ export const coalesceActivity = (
       run.oldestAt = at
       run.entry = {
         ...run.entry,
+        id: entry.id,
         change: startingFrom(run.entry.change, entry.change)
       }
       continue
