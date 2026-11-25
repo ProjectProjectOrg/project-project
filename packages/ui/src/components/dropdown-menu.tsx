@@ -314,6 +314,21 @@ function StartOnChecked() {
   return <span ref={anchorRef} hidden data-menu-chrome />
 }
 
+let lastInputKeyboard = false
+if (typeof document !== "undefined") {
+  document.addEventListener("keydown", () => (lastInputKeyboard = true), true)
+  document.addEventListener(
+    "pointerdown",
+    () => (lastInputKeyboard = false),
+    true
+  )
+}
+
+// finalFocus={false} keeps focus off the trigger after a pointer close; a
+// keyboard close (Escape, Enter on an item) still returns it there, so
+// tabbing carries on from the trigger instead of the top of the page.
+const closedFromKeyboard = () => lastInputKeyboard
+
 function DropdownMenuPopup({
   highlightFirst = false,
   className,
@@ -323,6 +338,7 @@ function DropdownMenuPopup({
   sideOffset = 4,
   anchor,
   collisionAvoidance,
+  finalFocus,
   onClick,
   onKeyDown,
   children,
@@ -342,6 +358,7 @@ function DropdownMenuPopup({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          finalFocus={finalFocus === false ? closedFromKeyboard : finalFocus}
           onKeyDownCapture={pickNumberedItem}
           onClick={(event) => {
             onClick?.(event)
