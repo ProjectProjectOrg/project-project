@@ -37,12 +37,14 @@ import { m } from "@/paraglide/messages"
 const ASSIGN_LABELS: Readonly<Record<AssignableRole, () => string>> = {
   pm: () => m.members_make_pm(),
   developer: () => m.members_make_developer(),
+  tester: () => m.members_make_tester(),
   client: () => m.members_make_client()
 }
 
 const ASSIGNABLE_ROLES = [
   "pm",
   "developer",
+  "tester",
   "client"
 ] satisfies ReadonlyArray<AssignableRole>
 

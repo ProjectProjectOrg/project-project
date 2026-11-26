@@ -231,7 +231,7 @@ Tagged errors map to the same taxonomy on every surface. Each failure a caller h
 Access lives in Postgres, not in markdown, at two levels:
 
 - **Org roles** (`owner`, `admin`, `member`, `guest`) govern the org: its people, integrations and projects.
-- **Project roles** (`pm`, `developer`, `client`) govern one project. One per person per project, and only people in the org can hold one.
+- **Project roles** (`pm`, `developer`, `tester`, `client`) govern one project. One per person per project, and only people in the org can hold one.
 
 What each role grants is defined in `packages/access/src/roles`: `org.ts` and `project.ts` hold the grants, and `effective.ts` combines them into a person's role on a project. Rules that depend on the data, such as comment authorship, ticket splits and sprint moves, live in `packages/access/src/policies`. Read those files for the current matrix; don't copy it here.
 

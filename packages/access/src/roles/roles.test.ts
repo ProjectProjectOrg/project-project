@@ -64,45 +64,65 @@ const projectMatrix: ReadonlyArray<
   [
     "view board, tickets, sprints and docs",
     { ticket: ["read"], docs: ["read"] },
-    ["pm", "developer", "client"]
+    ["pm", "developer", "tester", "client"]
   ],
-  ["create tickets", { ticket: ["create"] }, ["pm", "developer", "client"]],
+  [
+    "create tickets",
+    { ticket: ["create"] },
+    ["pm", "developer", "tester", "client"]
+  ],
   [
     "edit any ticket's content",
     { ticket: ["update"] },
-    ["pm", "developer", "client"]
+    ["pm", "developer", "tester", "client"]
   ],
   [
     "change status and assignee",
     { ticket: ["transition", "assign"] },
-    ["pm", "developer", "client"]
+    ["pm", "developer", "tester", "client"]
   ],
   ["delete tickets", { ticket: ["delete"] }, ["pm"]],
-  ["comment", { comment: ["create"] }, ["pm", "developer", "client"]],
+  ["comment", { comment: ["create"] }, ["pm", "developer", "tester", "client"]],
   [
     "edit and delete their own comments",
     { comment: ["update_own", "delete_own"] },
-    ["pm", "developer", "client"]
+    ["pm", "developer", "tester", "client"]
   ],
   ["edit or delete others' comments", { comment: ["moderate"] }, ["pm"]],
-  ["manage epics", { epic: ["manage"] }, ["pm", "developer"]],
+  ["manage epics", { epic: ["manage"] }, ["pm", "developer", "tester"]],
   ["plan sprints and milestones", { sprint: ["manage"] }, ["pm"]],
   [
     "add tickets to a sprint",
     { sprint: ["add_ticket"] },
-    ["pm", "developer", "client"]
+    ["pm", "developer", "tester", "client"]
   ],
   ["take tickets out of a sprint", { sprint: ["remove_ticket"] }, ["pm"]],
   [
     "see GitHub state, branches and PRs",
     { github: ["read"] },
-    ["pm", "developer"]
+    ["pm", "developer", "tester"]
   ],
-  ["create branches and PRs", { github: ["write"] }, ["pm", "developer"]],
-  ["log time and see totals", { time: ["read", "log"] }, ["pm", "developer"]],
-  ["see Figma links", { figma: ["read"] }, ["pm", "developer", "client"]],
-  ["attach files", { attachment: ["upload"] }, ["pm", "developer", "client"]],
-  ["edit docs", { docs: ["write"] }, ["pm", "developer"]],
+  [
+    "create branches and PRs",
+    { github: ["write"] },
+    ["pm", "developer", "tester"]
+  ],
+  [
+    "log time and see totals",
+    { time: ["read", "log"] },
+    ["pm", "developer", "tester"]
+  ],
+  [
+    "see Figma links",
+    { figma: ["read"] },
+    ["pm", "developer", "tester", "client"]
+  ],
+  [
+    "attach files",
+    { attachment: ["upload"] },
+    ["pm", "developer", "tester", "client"]
+  ],
+  ["edit docs", { docs: ["write"] }, ["pm", "developer", "tester"]],
   ["manage tags, statuses and workflow", { workflow: ["manage"] }, ["pm"]],
   ["manage project blocks and templates", { library: ["manage"] }, ["pm"]],
   [
