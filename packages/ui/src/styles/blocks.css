@@ -19,7 +19,8 @@
   position: relative;
   padding: 6px 8px;
   margin-inline: -8px;
-  border-radius: var(--radius-md);
+  border-radius: 16px;
+  corner-shape: squircle;
   transition-property: background-color, box-shadow;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
@@ -56,7 +57,6 @@
 
 [data-block-rail-inset] .ticket-block {
   padding-inline-start: 2rem;
-  border-radius: calc(var(--radius-xl) - 4px);
 }
 [data-block-rail-inset] .lexical-content > .ticket-block:first-child {
   margin-top: -4px;
@@ -72,19 +72,22 @@
 .prose-md.block-gutter
   .lexical-content[contenteditable="true"]
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: var(--hover);
+  --surface: var(--hover);
+  background-color: var(--surface);
+  @apply on-surface;
 }
 .prose-md.block-gutter:has(.lexical-content:focus)
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: var(--surface-3);
-  box-shadow: var(--shadow-2);
+  --surface: var(--surface-3);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-1);
   transition-duration: 0ms;
+  @apply on-surface;
 }
 .prose-md .ticket-block[data-dragging] {
-  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
-  outline: 1px dashed var(--border);
-  outline-offset: -1px;
+  --surface: var(--surface-1);
+  background-color: var(--surface);
 }
 .prose-md .ticket-block[data-dragging] > * {
   visibility: hidden;
@@ -97,7 +100,7 @@
 }
 @keyframes ticket-block-flash {
   from {
-    background-color: var(--accent);
+    background-color: var(--tint);
   }
 }
 @keyframes ticket-block-land {
@@ -128,4 +131,17 @@
 }
 .prose-md .ticket-block [data-hint-empty] > br {
   display: none;
+}
+/* Keeps the <br>: an empty checklist item needs it to take a click's caret. */
+.prose-md
+  .ticket-block
+  :is(.lexical-li-checked, .lexical-li-unchecked)[data-hint-empty]
+  > br {
+  display: inline;
+}
+.prose-md
+  .ticket-block
+  :is(.lexical-li-checked, .lexical-li-unchecked)[data-hint-empty]::after {
+  display: block;
+  margin-top: -1lh;
 }
