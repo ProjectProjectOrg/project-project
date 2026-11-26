@@ -539,6 +539,7 @@ export const makeAuth = (settings: AuthSettings, db: AuthDb) => {
         consentPage: "/oauth/consent",
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
+        clientRegistrationDefaultApplicationType: "infer",
         // Refresh tokens rotate on every use. Without an overlap window, a
         // second presentation of an already-rotated token is treated as a
         // breach and `invalidateRefreshFamily` deletes *every* refresh token
