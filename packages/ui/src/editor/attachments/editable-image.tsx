@@ -1,5 +1,5 @@
 import { attachmentDownloadSrc } from "@pp/shared"
-import { useEffect, useRef, useCallback, useState, type ReactNode } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import { flushSync, createPortal } from "react-dom"
 
 import { Badge } from "../../components/badge"
@@ -41,7 +41,6 @@ export function EditableImage({
   filename,
   children,
   onExpand,
-  onKeyboardExpand,
   onRemove
 }: Readonly<{
   url: string
@@ -49,7 +48,6 @@ export function EditableImage({
   filename: string
   children: ReactNode
   onExpand: () => void
-  onKeyboardExpand: () => void
   onRemove: () => void
 }>) {
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -135,14 +133,7 @@ export function EditableImage({
       restoreFocus()
     })
   }
-  const pendingExpand = useRef<number | undefined>(undefined)
-  const cancelExpand = useCallback(() => {
-    window.clearTimeout(pendingExpand.current)
-    pendingExpand.current = undefined
-  }, [])
-  useEffect(() => cancelExpand, [cancelExpand])
   const openViewer = (trigger: HTMLElement | null) => {
-    cancelExpand()
     returnFocus.current = trigger
     changeViewer(true)
   }
@@ -220,25 +211,8 @@ export function EditableImage({
             size="xs"
             className="max-w-full min-w-0 shrink select-none group-data-[attachment-selected]/hitbox:inset-ring-1 group-data-[attachment-selected]/hitbox:inset-ring-ring active:scale-[0.97]"
             render={<button type="button" aria-label={filename} />}
-            onClick={(event) => {
-              cancelExpand()
-              if (event.detail === 0) {
-                onKeyboardExpand()
-              } else if (event.detail === 1) {
-                const trigger = event.currentTarget
-                pendingExpand.current = window.setTimeout(() => {
-                  if (document.activeElement === trigger) {
-                    trigger
-                      .closest<HTMLElement>('[contenteditable="true"]')
-                      ?.focus({ preventScroll: true })
-                  }
-                  onExpand()
-                }, 250)
-              }
-            }}
-            onDoubleClick={(event) => openViewer(event.currentTarget)}
-            onBlur={cancelExpand}
-            title={m.editor_attachment_expand()}
+            onClick={(event) => openViewer(event.currentTarget)}
+            title={m.editor_attachment_fullscreen()}
           >
             <ImageIcon aria-hidden="true" />
             <span className="truncate">{filename}</span>

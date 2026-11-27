@@ -277,7 +277,6 @@ function FigmaSelectable({
             >
               {compact ? (
                 <FigmaChip
-                  onExpand={toggleDensity}
                   request={request}
                   reference={reference}
                   url={url}

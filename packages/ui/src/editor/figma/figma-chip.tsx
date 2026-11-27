@@ -72,7 +72,6 @@ export function FigmaChip({
 }
 
 type FigmaChipProps = Readonly<{
-  onExpand?: () => void
   reference: FigmaRef | null
   url?: string
   label: string
@@ -92,8 +91,7 @@ function FigmaChipContent({
   url,
   label,
   morphId,
-  metadata,
-  onExpand
+  metadata
 }: FigmaChipProps & {
   metadata: ReturnType<typeof useFigmaMetadata>
 }) {
@@ -133,7 +131,7 @@ function FigmaChipContent({
     </>
   )
   const open =
-    url === undefined || onExpand ? null : (
+    url === undefined ? null : (
       <MorphIconLink
         layoutId={`${morphId}-open`}
         href={url}
@@ -151,9 +149,6 @@ function FigmaChipContent({
       <Badge
         size="xs"
         className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
-        render={
-          onExpand ? <button type="button" onClick={onExpand} /> : undefined
-        }
         title={metadata?.fileName ?? resolvedName}
       >
         {nameParts}
@@ -175,17 +170,9 @@ function FigmaChipContent({
         <PopoverTrigger
           openOnHover
           delay={HOVER_DELAY_MS}
-          nativeButton={Boolean(onExpand)}
+          nativeButton={false}
           render={
-            onExpand ? (
-              <button
-                type="button"
-                onClick={onExpand}
-                className="focus-ring inline-flex min-w-0 items-center gap-1"
-              />
-            ) : (
-              <span className="focus-ring -my-0.5 -ml-1.5 inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-1.5" />
-            )
+            <span className="focus-ring -my-0.5 -ml-1.5 inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-1.5" />
           }
         >
           {nameParts}

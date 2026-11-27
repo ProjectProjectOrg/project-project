@@ -324,9 +324,8 @@ function AttachmentSettled({
           url={url}
           alt={alt}
           filename={filename}
-          onExpand={toggleDensity}
-          onKeyboardExpand={() => {
-            focusAfterExpand.current = true
+          onExpand={() => {
+            focusAfterExpand.current = density === "compact"
             toggleDensity()
           }}
           onRemove={() => editor.update(() => $getNodeByKey(nodeKey)?.remove())}
