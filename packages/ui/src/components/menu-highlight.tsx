@@ -37,6 +37,7 @@ const RESTING = "data-menu-resting"
 const HELD = "data-menu-held"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const SUBMENU_POPUP = "[data-slot=dropdown-menu-sub-content]"
+const HOST = "data-menu-highlight-host"
 const AIMING = "data-menu-aiming"
 const AIM_REST_MS = 100
 const HIGHLIGHT_INSET = 1
@@ -73,7 +74,7 @@ const toneOf = (element: HTMLElement) =>
 
 const firstOwned = (container: HTMLElement, selector: string) =>
   Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
-    (candidate) => candidate.closest("[data-menu-highlight-host]") === container
+    (candidate) => candidate.closest(`[${HOST}]`) === container
   )
 
 export const chosenRow = (container: HTMLElement) =>
@@ -81,8 +82,7 @@ export const chosenRow = (container: HTMLElement) =>
     ? firstOwned(container, CHOSEN_ROW)
     : undefined
 
-const ownerOf = (element: Element) =>
-  element.closest("[data-menu-highlight-host]")
+const ownerOf = (element: Element) => element.closest(`[${HOST}]`)
 
 // The row under the pointer, from one hit test instead of measuring every
 // row. A submenu over the point hides this menu's rows, as it does on screen.
@@ -172,7 +172,6 @@ function observeHighlight(
   container: HTMLElement,
   measure: (pointer: Point | null) => void
 ) {
-  container.setAttribute("data-menu-highlight-host", "")
   let pointer: Point | null = null
   let frame = 0
   const remeasure = () => {
@@ -239,7 +238,6 @@ function observeHighlight(
     document.removeEventListener("keydown", yieldToKeys, { capture: true })
     mutations.disconnect()
     resizes?.disconnect()
-    container.removeAttribute("data-menu-highlight-host")
   }
 }
 
@@ -280,7 +278,9 @@ function useHighlightRect(
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
     if (!container) return undefined
-    return whileOpen(container, () => {
+    // Claimed while mounted, so a reopening submenu never takes its list's rows.
+    container.setAttribute(HOST, "")
+    const stopWatching = whileOpen(container, () => {
       let lit: HTMLElement | undefined
       // Measured outside setState: React runs updaters during render, where
       // every layout read is a forced one.
@@ -309,6 +309,10 @@ function useHighlightRect(
         setState((previous) => nextHighlight(previous, null))
       }
     })
+    return () => {
+      stopWatching()
+      container.removeAttribute(HOST)
+    }
   }, [anchorRef, placeRef, selector, restOnFirst])
 
   return state
