@@ -837,6 +837,8 @@ const make = Effect.gen(function* () {
     const sections = (yield* sprintSectionMembers(query)).filter(({ key }) =>
       keys.includes(key)
     )
+    if (sections.length < keys.length)
+      return groupMembers(yield* groups.documents(), keys)
     return {
       sprints: sections.flatMap(({ members }) => members.sprints),
       tickets: [],

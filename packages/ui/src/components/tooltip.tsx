@@ -215,7 +215,10 @@ const tooltipStore = {
     if (performance.now() < scrollQuietUntil) return
     clearTimers()
     if (isWarm()) show(id, "hover")
-    else showTimer = window.setTimeout(() => show(id, "hover"), OPEN_DELAY)
+    else
+      showTimer = window.setTimeout(() => {
+        if (registrations.has(id)) show(id, "hover")
+      }, OPEN_DELAY)
   },
   hoverEnd(id: string) {
     window.clearTimeout(showTimer)
@@ -1518,8 +1521,11 @@ function HoverDelegate({
         tooltipStore.dismiss()
         return
       }
-      if (trigger.getAttribute("aria-haspopup") === "menu") return
       const id = register(trigger)
+      if (trigger.getAttribute("aria-haspopup") === "menu") {
+        if (id !== null) tooltipStore.popupOpened(id)
+        return
+      }
       if (id !== null && cards.get(id)?.openOnClick) tooltipStore.click(id)
     }
     const onFocusIn = (event: FocusEvent) => {

@@ -191,8 +191,9 @@ export function ListHoverScope({
     const scrollRoot = container?.closest("[data-scroll-root]")
     const root = scrollRoot ?? window
     const onScroll = () => {
+      const wasHeld = held.current !== null
       held.current = null
-      if (point.current) schedule()
+      if (point.current || wasHeld) schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
     const scrolling = new MutationObserver(() => {

@@ -1817,8 +1817,10 @@
 [data-slot="avatar-group"] > :not(:last-child) {
   --avatar-initials-inset: calc(var(--avatar-overlap) + var(--avatar-gap));
 }
-[data-slot="avatar-fallback"] {
-  padding-right: var(--avatar-initials-inset, 0px);
+@layer components {
+  [data-slot="avatar-fallback"] {
+    padding-right: var(--avatar-initials-inset, 0px);
+  }
 }
 
 @layer base {

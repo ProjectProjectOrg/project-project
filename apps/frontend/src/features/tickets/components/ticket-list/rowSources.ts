@@ -55,7 +55,8 @@ export function useFollowRow<T extends Target>(
           return
         }
         setTarget((current) => {
-          if (current === null) return current
+          if (current === null || !ticketRow.contains(current.row))
+            return current
           const source = sources.get(ticketRow) ?? current.source
           const anchor =
             latest.current.anchorOf?.(current, ticketRow) ?? current.anchor

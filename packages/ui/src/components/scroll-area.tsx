@@ -24,7 +24,7 @@ type ScrollAreaProps = ComponentProps<"div"> &
   Readonly<{
     viewportClassName?: string
     viewportProps?: ViewportProps
-    viewportRender?: ReactElement<Record<string, unknown>>
+    viewportRender?: ReactElement<object>
     contentClassName?: string
     insetScrollbar?: boolean
     orientation?: Orientation
@@ -45,12 +45,13 @@ function ScrollArea({
   ...props
 }: ScrollAreaProps) {
   const isTouch = useTouchPrimary()
+  const { ref: viewportRef, ...viewportPropsWithoutRef } = viewportProps ?? {}
   const nativeViewport = useRender({
     defaultTagName: "div",
     render: viewportRender,
-    ref: viewportProps?.ref,
+    ref: viewportRef,
     props: {
-      ...viewportProps,
+      ...viewportPropsWithoutRef,
       "data-slot": "scroll-area-viewport",
       className: cn(
         "size-full rounded-[inherit]",

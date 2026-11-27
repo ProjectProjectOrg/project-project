@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import { hasModifier, isKeyboardNavigating } from "@pp/ui/lib/keyboard"
+import { isKeyboardNavigating } from "@pp/ui/lib/keyboard"
 import { HoverDelegate } from "@pp/ui/tooltip"
 import { useRouter } from "@tanstack/react-router"
 import {
@@ -38,7 +38,20 @@ const fieldAnchor = (field: FieldMenuState, ticketRow: Element) =>
     ? field.anchor
     : ticketRow.querySelector<HTMLElement>(
         `[data-row-menu="${field.kind}"]`
-      )) ?? field.anchor
+      )) ?? field.row
+
+const rowTarget = (
+  sources: ReturnType<typeof createRowSources>,
+  element: Element
+) => {
+  const ticketRow = element.closest("[data-ticket-id]")
+  const source = ticketRow === null ? undefined : sources.get(ticketRow)
+  const row = ticketRow?.querySelector<HTMLElement>('[data-slot="list-row"]')
+  if (source === undefined || !row) return null
+  return { source, row, anchor: row } satisfies Target
+}
+
+type MenuAt = Parameters<ReturnType<typeof useTicketContextMenu>["showAt"]>[0]
 
 const TICKET_PREVIEW_DELAY_MS = 550
 const PRELOAD_DELAY_MS = 50
@@ -69,13 +82,6 @@ export function RowControls({
   useFollowRow(sources, menuTarget, setMenuTarget)
   useFollowRow(sources, gitTarget, setGitTarget)
 
-  const targetOf = (element: Element) => {
-    const ticketRow = element.closest("[data-ticket-id]")
-    const source = ticketRow === null ? undefined : sources.get(ticketRow)
-    const row = ticketRow?.querySelector<HTMLElement>('[data-slot="list-row"]')
-    if (source === undefined || !row) return null
-    return { source, row, anchor: row } satisfies Target
-  }
   const toggle = (target: Target, extend: boolean) => {
     if (store !== null)
       toggleRowSelection(
@@ -86,20 +92,22 @@ export function RowControls({
         extend
       )
   }
-  const openTicketMenu = (
-    target: Target,
-    at: Parameters<typeof ticketMenu.showAt>[0]
-  ) => {
+  const openTicketMenu = (target: Target, at: MenuAt) => {
     setPreview(null)
     setMenuTarget(target)
     ticketMenu.showAt(at)
+  }
+  const openGitMenu = (target: Target, chip: HTMLElement, at: MenuAt) => {
+    setPreview(null)
+    setGitTarget({ ...target, anchor: chip })
+    gitMenu.showAt(at)
   }
   const hidePreview = () =>
     setPreview((current) =>
       current?.open ? { ...current, open: false } : current
     )
   useRowEvents(root, {
-    targetOf,
+    targetOf: (element) => rowTarget(sources, element),
     preload: ({ source }) =>
       void router
         .preloadRoute({
@@ -155,13 +163,8 @@ export function RowControls({
       event.preventDefault()
       const at = pointAnchor(event.clientX, event.clientY)
       const chip = element.closest<HTMLElement>("[data-git-chip]")
-      if (chip === null) {
-        openTicketMenu(target, at)
-        return
-      }
-      setPreview(null)
-      setGitTarget({ ...target, anchor: chip })
-      gitMenu.showAt(at)
+      if (chip === null) openTicketMenu(target, at)
+      else openGitMenu(target, chip, at)
     },
     keyDown: (event, target, element) => {
       if (
@@ -173,15 +176,21 @@ export function RowControls({
       ) {
         event.preventDefault()
         event.stopPropagation()
-        openTicketMenu(target, target.row)
+        const chip = element.closest<HTMLElement>("[data-git-chip]")
+        if (chip === null) openTicketMenu(target, target.row)
+        else openGitMenu(target, chip, chip)
         return
       }
-      if (event.key !== " " || hasModifier(event)) return
-      if (element.matches("[data-row-select]")) {
-        event.preventDefault()
-        toggle(target, false)
-      } else if (element.matches("[data-item-link]")) {
-        event.preventDefault()
+      if (event.key !== " " || event.metaKey || event.ctrlKey || event.altKey)
+        return
+      const select = element.matches("[data-row-select]")
+      if (!select && (event.shiftKey || !element.matches("[data-item-link]")))
+        return
+      event.preventDefault()
+      if (event.repeat) return
+      if (select) {
+        toggle(target, event.shiftKey)
+      } else {
         setPreview((current) =>
           current?.open && current.source.key === target.source.key
             ? { ...current, open: false }

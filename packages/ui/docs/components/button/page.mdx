@@ -68,7 +68,7 @@ Every other prop goes to the rendered `button`.
 `buttonClassName({ variant, size, tone, className })` returns the classes `Button` itself renders, corners and key inset included. Use it only where mounting a component per item costs too much (a virtualized list's row fields): the element looks the same, and stays in step when the variants change. It brings no press scale measurement, loading swap or icon props.
 
 ```tsx
-<button type="button" className={buttonClassName({ variant: "ghost", tone: "strong", size: "square-6" })}>
+<button type="button" aria-label={statusLabel} className={buttonClassName({ variant: "ghost", tone: "strong", size: "square-6" })}>
   <StatusIcon />
 </button>
 ```

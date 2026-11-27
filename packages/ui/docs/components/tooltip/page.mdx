@@ -82,7 +82,7 @@ A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. `Tooltip
 A long list (a virtualized ticket list) can't mount a trigger per field: each one registers with the host and watches its element. There, mount one `HoverDelegate` for the list and declare the tooltips on the elements. `data-tooltip` is the label and `data-tooltip-keys` a hotkey shown beside it; `data-hover-card` marks a hover card trigger, whose content `card` returns when it opens (`content`, the card's `className`, and `openOnClick` for cards that also open on a click). Delay, warm-up, grace, glide, focus, touch and placement are the same as for mounted triggers, and the labels still come from the app's messages, through the attributes.
 
 ```tsx
-<HoverDelegate root={list} side="bottom" keyLabels={keyLabels()} card={previewCard} />
+<HoverDelegate root={list} side="bottom" keyLabels={keyLabels()} card={(trigger) => previewCard(registry, trigger)} />
 <button data-tooltip={statusLabel} data-tooltip-keys="S" aria-label={…}>…</button>
 ```
 
