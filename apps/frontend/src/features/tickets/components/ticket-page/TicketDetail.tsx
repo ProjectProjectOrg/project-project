@@ -122,7 +122,7 @@ export function TicketDetail() {
   )
 }
 
-function LoadedTicket({
+export function LoadedTicket({
   req,
   stepper,
   from,

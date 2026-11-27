@@ -23,6 +23,12 @@ describe("sidebarScope", () => {
     )
   })
 
+  it("puts the inbox in the dashboard scope", () => {
+    expect(sidebarScope("/orgs/acme/inbox", "acme", undefined)).toEqual(
+      SidebarScope.dashboard({ page: "inbox" })
+    )
+  })
+
   it("keeps org settings and profile out of every scope", () => {
     expect(
       sidebarScope("/settings/orgs/acme/general", "acme", undefined)

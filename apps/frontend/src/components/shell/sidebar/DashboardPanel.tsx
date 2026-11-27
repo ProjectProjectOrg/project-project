@@ -1,8 +1,16 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { Project } from "@pp/shared"
-import { LayoutDashboard, LayoutGrid, Settings } from "@pp/ui/icons"
+import { Inbox, LayoutDashboard, LayoutGrid, Settings } from "@pp/ui/icons"
 import { SidebarPanelBody, SidebarRow } from "@pp/ui/sidebar"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Link } from "@tanstack/react-router"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 
+import {
+  inboxCountRequest,
+  unreadInboxCount
+} from "@/features/inbox/atoms/inbox"
+import { useInboxCountPolling } from "@/features/inbox/hooks/useInboxPolling"
 import { DashboardPins } from "@/features/pins/components/DashboardPins"
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -13,7 +21,7 @@ export function DashboardPanel({
   projects
 }: Readonly<{
   orgSlug: string | null
-  page: "overview" | "projects" | null
+  page: "overview" | "inbox" | "projects" | null
   projects: ReadonlyArray<Project>
 }>) {
   return (
@@ -32,6 +40,7 @@ export function DashboardPanel({
               />
             }
           />
+          <InboxRow orgSlug={orgSlug} active={page === "inbox"} />
           <SidebarRow
             icon={<LayoutGrid />}
             label={m.chrome_sidebar_all_projects()}
@@ -49,6 +58,32 @@ export function DashboardPanel({
         </SidebarPanelBody>
       )}
     </>
+  )
+}
+
+function InboxRow({
+  orgSlug,
+  active
+}: Readonly<{ orgSlug: string; active: boolean }>) {
+  useInboxCountPolling(orgSlug)
+  const result = useAtomValue(unreadInboxCount(inboxCountRequest(orgSlug)))
+  const unread = AsyncResult.isSuccess(result) ? result.value : 0
+  return (
+    <SidebarRow
+      icon={<Inbox />}
+      label={m.chrome_sidebar_inbox()}
+      active={active}
+      meta={
+        unread === 0 ? null : <TextSwap speed="fast">{String(unread)}</TextSwap>
+      }
+      render={
+        <Link
+          activeOptions={{ exact: true, includeSearch: false }}
+          to="/orgs/$orgSlug/inbox"
+          params={{ orgSlug }}
+        />
+      }
+    />
   )
 }
 

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, LayoutDashboard, Settings } from "@pp/ui/icons"
+import { ArrowLeftRight, Inbox, LayoutDashboard, Settings } from "@pp/ui/icons"
 
 import { Command } from "@/features/command-menu/lib/commands"
 import { appHotkeys } from "@/lib/appHotkeys"
@@ -14,6 +14,18 @@ export const organizationCommands: ReadonlyArray<Command> = [
     keywords: ["home", "my tickets", "assigned", "mine"],
     run: ({ orgSlug }, env) => {
       env.navigate(`/orgs/${orgSlug}`)
+      env.close()
+    }
+  }),
+  Command.run({
+    id: "org.inbox",
+    hotkey: appHotkeys["nav.inbox"],
+    group: "navigation",
+    label: m.chrome_command_menu_go_inbox,
+    icon: Inbox,
+    keywords: ["notifications", "mentions", "assigned", "updates"],
+    run: ({ orgSlug }, env) => {
+      env.navigate(`/orgs/${orgSlug}/inbox`)
       env.close()
     }
   }),

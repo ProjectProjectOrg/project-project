@@ -8,6 +8,7 @@ const ticket = m.tickets_command_group()
 const view = m.chrome_command_menu_group_view()
 const navigation = m.chrome_command_menu_group_navigation()
 const board = m.sprints_command_group()
+const inbox = m.inbox_command_group()
 
 export const appHotkeys = defineAppHotkeys({
   "app.command-menu": {
@@ -21,6 +22,10 @@ export const appHotkeys = defineAppHotkeys({
   "nav.dashboard": {
     hotkey: ["G", "D"],
     meta: { name: m.chrome_command_menu_go_dashboard(), group: navigation }
+  },
+  "nav.inbox": {
+    hotkey: ["G", "I"],
+    meta: { name: m.chrome_command_menu_go_inbox(), group: navigation }
   },
   "nav.backlog": {
     hotkey: ["G", "B"],
@@ -218,6 +223,31 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "Shift+S",
     scope: "sprint-list",
     meta: { name: m.sprints_start_button(), group: board }
+  },
+  "inbox.next": {
+    hotkey: "J",
+    scope: "inbox",
+    meta: { name: m.inbox_shortcut_next(), group: inbox }
+  },
+  "inbox.previous": {
+    hotkey: "K",
+    scope: "inbox",
+    meta: { name: m.inbox_shortcut_previous(), group: inbox }
+  },
+  "inbox.toggle-read": {
+    hotkey: "U",
+    scope: "inbox",
+    meta: { name: m.inbox_shortcut_toggle_read(), group: inbox }
+  },
+  "inbox.delete": {
+    hotkey: "Backspace",
+    scope: "inbox",
+    meta: { name: m.inbox_shortcut_delete(), group: inbox }
+  },
+  "inbox.mark-all-read": {
+    hotkey: "Shift+R",
+    scope: "inbox",
+    meta: { name: m.inbox_shortcut_mark_all_read(), group: inbox }
   }
 })
 
