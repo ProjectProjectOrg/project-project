@@ -1,5 +1,11 @@
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
-import { createContext, useContext, type ComponentProps } from "react"
+import { useRender } from "@base-ui/react/use-render"
+import {
+  createContext,
+  useContext,
+  type ComponentProps,
+  type ReactElement
+} from "react"
 
 import { useTouchPrimary } from "../hooks/useTouchPrimary"
 import { cn } from "../lib/utils"
@@ -18,6 +24,9 @@ type ScrollAreaProps = ComponentProps<"div"> &
   Readonly<{
     viewportClassName?: string
     viewportProps?: ViewportProps
+    viewportRender?: ReactElement<object>
+    contentClassName?: string
+    insetScrollbar?: boolean
     orientation?: Orientation
     roleDescription?: string
   }>
@@ -27,12 +36,39 @@ function ScrollArea({
   children,
   viewportClassName,
   viewportProps,
+  viewportRender,
+  contentClassName,
+  insetScrollbar = false,
   orientation = "vertical",
   roleDescription,
   ref,
   ...props
 }: ScrollAreaProps) {
   const isTouch = useTouchPrimary()
+  const { ref: viewportRef, ...viewportPropsWithoutRef } = viewportProps ?? {}
+  const nativeViewport = useRender({
+    defaultTagName: "div",
+    render: viewportRender,
+    ref: viewportRef,
+    props: {
+      ...viewportPropsWithoutRef,
+      "data-slot": "scroll-area-viewport",
+      className: cn(
+        "size-full rounded-[inherit]",
+        VIEWPORT_FOCUS,
+        orientation === "vertical" && "overflow-y-auto",
+        orientation === "horizontal" && "overflow-x-auto",
+        orientation === "both" && "overflow-auto",
+        viewportClassName
+      ),
+      tabIndex: 0,
+      children: (
+        <div data-slot="scroll-area-content" className={contentClassName}>
+          {children}
+        </div>
+      )
+    }
+  })
 
   return (
     <ScrollAreaContext.Provider value={isTouch}>
@@ -45,22 +81,7 @@ function ScrollArea({
           className={cn("relative overflow-hidden", className)}
           {...props}
         >
-          <div
-            {...viewportProps}
-            data-slot="scroll-area-viewport"
-            className={cn(
-              "size-full rounded-[inherit]",
-              VIEWPORT_FOCUS,
-              orientation === "vertical" && "overflow-y-auto",
-              orientation === "horizontal" && "overflow-x-auto",
-              orientation === "both" && "overflow-auto",
-              viewportClassName
-            )}
-            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll viewport takes focus so the keyboard can scroll it
-            tabIndex={0}
-          >
-            {children}
-          </div>
+          {nativeViewport}
         </div>
       ) : (
         <ScrollAreaPrimitive.Root
@@ -71,6 +92,7 @@ function ScrollArea({
         >
           <ScrollAreaPrimitive.Viewport
             {...viewportProps}
+            render={viewportRender}
             data-slot="scroll-area-viewport"
             className={cn(
               "size-full rounded-[inherit]",
@@ -78,12 +100,25 @@ function ScrollArea({
               viewportClassName
             )}
           >
-            <ScrollAreaPrimitive.Content>
+            <ScrollAreaPrimitive.Content
+              data-slot="scroll-area-content"
+              className={contentClassName}
+            >
               {children}
             </ScrollAreaPrimitive.Content>
           </ScrollAreaPrimitive.Viewport>
-          {orientation !== "horizontal" && <ScrollBar orientation="vertical" />}
-          {orientation !== "vertical" && <ScrollBar orientation="horizontal" />}
+          {orientation !== "horizontal" && (
+            <ScrollBar
+              orientation="vertical"
+              className={insetScrollbar ? "py-2" : undefined}
+            />
+          )}
+          {orientation !== "vertical" && (
+            <ScrollBar
+              orientation="horizontal"
+              className={insetScrollbar ? "px-2" : undefined}
+            />
+          )}
           {orientation === "both" && <ScrollAreaPrimitive.Corner />}
         </ScrollAreaPrimitive.Root>
       )}

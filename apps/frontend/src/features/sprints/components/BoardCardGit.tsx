@@ -108,8 +108,7 @@ function GitChip({
   >
 }>) {
   if (state.tag === "no_branch") return null
-  const own = ownLayer(state, ticket, github.defaultBaseBranch ?? "main")
-  const layers = own === null ? stack : [own, ...stack]
+  const layers = gitLayers(state, stack, ticket, github)
   return (
     <GitChipMenu
       state={state}
@@ -129,6 +128,38 @@ function GitChip({
       />
     </GitChipMenu>
   )
+}
+
+const gitLayers = (
+  state: GitState,
+  stack: ReadonlyArray<StackLayerState>,
+  ticket: Pick<
+    Ticket,
+    "id" | "type" | "title" | "status" | "lastTransitionedPr"
+  >,
+  github: GithubConnection
+) => {
+  const own = ownLayer(state, ticket, github.defaultBaseBranch ?? "main")
+  return own === null ? stack : [own, ...stack]
+}
+
+export function useGitMenu(
+  ticket: Parameters<typeof BoardCardGit>[0]["ticket"]
+) {
+  const { orgSlug, slug } = useProjectRoute()
+  const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
+  const { state, stack } = useTicketGit(orgSlug, slug, ticket)
+  const github = Result.isSuccess(projectResult)
+    ? ticketRepo(projectResult.value, ticket.repoId)
+    : null
+  if (github === null || !state || state.tag === "no_branch") return null
+  return {
+    state,
+    stack,
+    layers: gitLayers(state, stack, ticket, github),
+    github,
+    ticket
+  }
 }
 
 function GitChipFace({

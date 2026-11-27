@@ -6,12 +6,12 @@ export const trackScrolling = (element: HTMLElement | null) => {
   let dragging = false
   const onScrollEnd = () => {
     window.clearTimeout(settle)
-    element.removeAttribute("data-scrolling")
+    element.removeAttribute("data-scroll-active")
   }
   const onScroll = () => {
     // Drop targets must stay hit-testable during any drag, files included.
     if (dragging) return
-    element.toggleAttribute("data-scrolling", true)
+    element.toggleAttribute("data-scroll-active", true)
     window.clearTimeout(settle)
     settle = window.setTimeout(onScrollEnd, SETTLE)
   }
@@ -38,6 +38,6 @@ export const trackScrolling = (element: HTMLElement | null) => {
     document.removeEventListener("drop", onDragEnd, true)
     document.removeEventListener("mousemove", onDragEnd, true)
     window.clearTimeout(settle)
-    delete element.dataset.scrolling
+    delete element.dataset.scrollActive
   }
 }

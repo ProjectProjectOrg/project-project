@@ -243,6 +243,19 @@ const KBD_INSET: Partial<Record<ButtonSize, string>> = {
   lg: "has-[[data-slot=kbd][data-size=sm]]:pr-2.5 has-[[data-slot=kbd][data-size=default]]:pr-2"
 }
 
+function buttonClassName({
+  className,
+  ...variants
+}: VariantProps<typeof buttonVariants> & Readonly<{ className?: string }>) {
+  const size = variants.size ?? "md"
+  return cn(
+    buttonVariants(variants),
+    BUTTON_RADIUS[size] ?? "rounded-[20px]",
+    KBD_INSET[size],
+    className
+  )
+}
+
 type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> &
   VariantProps<typeof buttonVariants> & {
     ref?: Ref<HTMLButtonElement>
@@ -409,20 +422,15 @@ function Button({
     style,
     onAnimationEnd
   )
-  const compClassName = cn(
-    buttonVariants({
-      variant,
-      size,
-      tone,
-      bleed,
-      iconLeft: !isIconOnly && !!LeadingIcon,
-      iconRight: !isIconOnly && !!TrailingIcon
-    }),
-    BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]",
-    KBD_INSET[size ?? "md"],
-    countdownClass,
-    className
-  )
+  const compClassName = buttonClassName({
+    variant,
+    size,
+    tone,
+    bleed,
+    iconLeft: !isIconOnly && !!LeadingIcon,
+    iconRight: !isIconOnly && !!TrailingIcon,
+    className: cn(countdownClass, className)
+  })
   const leadingIconNode = LeadingIcon && (
     <LeadingIcon
       size={iconSize}
@@ -520,5 +528,5 @@ function Button({
 
 Button.displayName = "Button"
 
-export { Button, buttonVariants }
+export { Button, buttonClassName, buttonVariants }
 export type { ButtonCountdown, ButtonProps }

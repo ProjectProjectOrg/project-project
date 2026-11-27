@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "@pp/ui/theme.css";
 
-[data-scroll-root][data-scrolling] > [data-scroll-content]::after {
+[data-scroll-root][data-scroll-active] [data-scroll-content]::after {
   content: "";
   @apply absolute inset-0 z-50;
 }
@@ -125,16 +125,14 @@
 /* With several tickets selected, hovering (or focusing) a selected row's
    field lights the same field on every selected row: what a change there
    will touch (features/tickets/lib/selectionKeys.ts). */
-[data-lit-field="status"] [data-row-selected] [data-row-field="status"] button,
+[data-lit-field="status"] [data-row-selected] button[data-row-field="status"],
 [data-lit-field="priority"]
   [data-row-selected]
-  [data-row-field="priority"]
-  button,
+  button[data-row-field="priority"],
 [data-lit-field="assignee"]
   [data-row-selected]
-  [data-row-field="assignee"]
-  button,
-[data-lit-field="sprint"] [data-row-selected] [data-row-field="sprint"] button,
+  button[data-row-field="assignee"],
+[data-lit-field="sprint"] [data-row-selected] button[data-row-field="sprint"],
 [data-lit-field="labels"] [data-row-selected] [data-row-field="labels"] button {
   background-color: var(--active);
 }

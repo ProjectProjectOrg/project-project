@@ -77,23 +77,37 @@ function Checkbox({
 function CheckboxIndicator({
   checked,
   disabled = false,
-  className
-}: Readonly<{ checked: boolean; disabled?: boolean; className?: string }>) {
+  variant = "default",
+  className,
+  ...props
+}: Omit<React.ComponentProps<"span">, "children"> &
+  Readonly<{
+    checked: boolean
+    disabled?: boolean
+    variant?: keyof typeof variants
+  }>) {
   return (
     <span
       aria-hidden
       data-slot="checkbox-indicator"
       data-checked={checked ? "" : undefined}
       data-disabled={disabled ? "" : undefined}
-      className={cn(checkboxClass(), className)}
+      className={cn(checkboxClass(variant), focusRing, className)}
+      {...props}
     >
-      <Box />
+      {variant === "quiet" ? (
+        <span aria-hidden className={quietBoxClass}>
+          <Box dash={false} />
+        </span>
+      ) : (
+        <Box dash={false} />
+      )}
     </span>
   )
 }
 
 // The fill and the mark, drawn over the box.
-function Box() {
+function Box({ dash = true }: Readonly<{ dash?: boolean }>) {
   return (
     <>
       <span aria-hidden className={fillClass} />
@@ -103,14 +117,16 @@ function Box() {
         className="relative size-full overflow-visible"
       >
         <path pathLength={1} d={CHECK_PATH} className={checkboxCheckClass} />
-        <path
-          pathLength={1}
-          d="M5 8 H11"
-          className={cn(
-            markClass,
-            "group-data-indeterminate/checkbox:delay-60 group-data-indeterminate/checkbox:duration-160 group-data-indeterminate/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
-          )}
-        />
+        {dash && (
+          <path
+            pathLength={1}
+            d="M5 8 H11"
+            className={cn(
+              markClass,
+              "group-data-indeterminate/checkbox:delay-60 group-data-indeterminate/checkbox:duration-160 group-data-indeterminate/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
+            )}
+          />
+        )}
       </svg>
     </>
   )

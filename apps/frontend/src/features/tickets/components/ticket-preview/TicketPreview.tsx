@@ -1,3 +1,4 @@
+import { useRender } from "@base-ui/react/use-render"
 import { RegistryContext } from "@effect/atom-react"
 import { type TicketId } from "@pp/shared"
 import {
@@ -5,10 +6,12 @@ import {
   HoverCardContent,
   HoverCardTrigger
 } from "@pp/ui/hover-card"
+import type { DelegatedCard } from "@pp/ui/tooltip"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import { useContext, type ComponentProps } from "react"
+import { use, type ComponentProps } from "react"
 
+import type { ProjectRequest } from "@/features/projects/atoms/projects"
 import {
   ProjectContext,
   useProjectRequest,
@@ -27,6 +30,7 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { InListRow } from "@/features/tickets/components/ticket-list/inListRow"
 import { TicketPreviewBody } from "@/features/tickets/components/TicketHoverCard"
 import { TicketPreview } from "@/features/tickets/lib/ticketPreview"
 
@@ -34,28 +38,34 @@ import { FlagPreview } from "./FlagPreview"
 import { TagListPreview, TagPreview } from "./TagPreviews"
 import { RelationsPreview, SubTicketsPreview } from "./TicketListPreviews"
 
+type TriggerProps = Readonly<{ preview: TicketPreview }> &
+  Omit<ComponentProps<typeof HoverCardTrigger>, "openOnClick">
+
 // A chip or link that previews on hover (and on focus). Chips whose preview
 // holds more than they say (lists, a flag's reason) also open on click, for
 // the keyboard and touch.
-export function TicketPreviewTrigger({
-  preview,
-  onClick,
-  ...props
-}: Readonly<{ preview: TicketPreview }> &
-  Omit<ComponentProps<typeof HoverCardTrigger>, "openOnClick">) {
+export function TicketPreviewTrigger(props: TriggerProps) {
+  return use(InListRow) ? (
+    <DelegatedPreviewTrigger {...props} />
+  ) : (
+    <MountedPreviewTrigger {...props} />
+  )
+}
+
+function MountedPreviewTrigger({ preview, onClick, ...props }: TriggerProps) {
   const project = useProjectRequest()
-  const warm = useWarmPreview()
+  const registry = use(RegistryContext)
   const opensOnClick = OPENS_ON_CLICK[preview._tag]
   return (
     <HoverCard>
       <HoverCardTrigger
         openOnClick={opensOnClick}
         aria-haspopup={opensOnClick ? "dialog" : undefined}
-        onPointerEnter={() => warm(preview)}
+        onPointerEnter={() => warmPreview(registry, project, preview)}
         onClick={(event) => {
           if (opensOnClick) {
             event.stopPropagation()
-            warm(preview)
+            warmPreview(registry, project, preview)
           }
           onClick?.(event)
         }}
@@ -71,30 +81,76 @@ export function TicketPreviewTrigger({
   )
 }
 
-function useWarmPreview() {
-  const registry = useContext(RegistryContext)
-  const { orgSlug, slug } = useProjectRoute()
+const delegatedPreviews = new WeakMap<
+  Element,
+  Readonly<{ preview: TicketPreview; project: ProjectRequest }>
+>()
+
+function DelegatedPreviewTrigger({
+  preview,
+  render,
+  onClick: _onClick,
+  ...props
+}: TriggerProps) {
+  const project = useProjectRequest()
+  return useRender({
+    defaultTagName: "a",
+    render,
+    ref: (element: Element | null) => {
+      if (element !== null) delegatedPreviews.set(element, { preview, project })
+    },
+    props: {
+      "data-slot": "hover-card-trigger",
+      "data-hover-card": "",
+      "aria-haspopup": OPENS_ON_CLICK[preview._tag] ? "dialog" : undefined,
+      ...props
+    }
+  })
+}
+
+export const previewCard = (
+  registry: Registry.AtomRegistry,
+  trigger: Element
+) => {
+  const found = delegatedPreviews.get(trigger)
+  if (found === undefined) return null
+  warmPreview(registry, found.project, found.preview)
+  return {
+    content: (
+      <ProjectContext value={found.project}>
+        <PreviewContent preview={found.preview} />
+      </ProjectContext>
+    ),
+    className: PREVIEW_WIDTHS[found.preview._tag],
+    openOnClick: OPENS_ON_CLICK[found.preview._tag]
+  } satisfies DelegatedCard
+}
+
+const warmPreview = (
+  registry: Registry.AtomRegistry,
+  project: ProjectRequest,
+  preview: TicketPreview
+) => {
+  const { orgSlug, slug } = project.params
   const detail = ({ id }: Readonly<{ id: TicketId }>) =>
     Registry.getResult(registry, ticketDetail(ticketRequest(orgSlug, slug, id)))
-  return (preview: TicketPreview) => {
-    const loaded = TicketPreview.$match(preview, {
-      ticket: detail,
-      relations: detail,
-      subTickets: ({ id }) =>
-        Registry.getResult(
-          registry,
-          childTickets(childTicketsRequest(orgSlug, slug, id))
-        ),
-      flag: () => null,
-      tag: () =>
-        Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug))),
-      tags: () => null,
-      pullRequest: () => null,
-      stack: () => null
-    })
-    if (loaded === null) return
-    void Effect.runPromise(Effect.ignore(loaded))
-  }
+  const loaded = TicketPreview.$match(preview, {
+    ticket: detail,
+    relations: detail,
+    subTickets: ({ id }) =>
+      Registry.getResult(
+        registry,
+        childTickets(childTicketsRequest(orgSlug, slug, id))
+      ),
+    flag: () => null,
+    tag: () =>
+      Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug))),
+    tags: () => null,
+    pullRequest: () => null,
+    stack: () => null
+  })
+  if (loaded === null) return
+  void Effect.runPromise(Effect.ignore(loaded))
 }
 
 const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["_tag"], string>> = {

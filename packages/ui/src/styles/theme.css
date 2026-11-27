@@ -433,7 +433,7 @@
   --switch-thumb-off: oklch(1 0 0 / 45%);
 }
 
-@utility on-surface {
+@utility on-surface-mix {
   --hover: color-mix(in srgb, var(--surface), var(--ink) var(--mix-hover));
   --hover-overlay: color-mix(in srgb, var(--ink) var(--mix-hover), transparent);
   --active-overlay: color-mix(
@@ -488,6 +488,9 @@
     var(--surface),
     var(--ink) var(--mix-button-tertiary-active)
   );
+}
+@utility on-surface {
+  @apply on-surface-mix;
   --field: oklch(from var(--surface) calc(min(0.995, l + 0.02)) c h);
   --field-hover: oklch(from var(--field) calc(l - 0.035) c h);
   --field-focus: oklch(from var(--field) calc(l - 0.02) c h);
@@ -531,8 +534,9 @@
   @apply surface-lit;
   background-color: transparent;
 }
-[data-scrolling]
-  [data-slot="list-row"][data-hover-highlight]:not(
+/* Highlight attribute first: Chrome restyles by the first one when data-scroll-active flips. */
+[data-scroll-active]
+  [data-hover-highlight][data-slot="list-row"]:not(
     [data-selected],
     [data-keyboard-navigation] *
   ) {
@@ -540,11 +544,11 @@
   transition-duration: 0s;
 }
 @layer base {
-  /* --field-fill, not --field: on-surface redeclares --field from this. */
-  :where([data-slot="input-group"]) > * {
+  /* Not on-surface: the group's own --field must stay its parent's. */
+  :where([data-slot="input-group"]) {
     --surface-rest: var(--field-fill);
     --surface: var(--surface-rest);
-    @apply on-surface;
+    @apply on-surface-mix;
   }
 }
 :root {
@@ -1810,8 +1814,13 @@
 }
 
 /* Centre the initials in the part of a stacked avatar the cutout leaves. */
-[data-slot="avatar-group"] > :not(:last-child) [data-slot="avatar-fallback"] {
-  padding-right: calc(var(--avatar-overlap) + var(--avatar-gap));
+[data-slot="avatar-group"] > :not(:last-child) {
+  --avatar-initials-inset: calc(var(--avatar-overlap) + var(--avatar-gap));
+}
+@layer components {
+  [data-slot="avatar-fallback"] {
+    padding-right: var(--avatar-initials-inset, 0px);
+  }
 }
 
 @layer base {

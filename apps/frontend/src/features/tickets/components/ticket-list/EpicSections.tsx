@@ -4,7 +4,6 @@ import {
   EPIC_TYPE,
   type EpicSectionKey,
   type Member,
-  type TicketId,
   type TicketListQuery,
   TicketListSource,
   TicketStatus
@@ -46,7 +45,6 @@ import { useListRowAutoScroll } from "./ListRowDrag"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import { SectionList, TicketPagination } from "./SectionList"
 import { queryHasActiveFilter } from "./SprintSections"
-import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
 
@@ -63,7 +61,6 @@ export function EpicSections(props: Props) {
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
   useListRowAutoScroll(listElement)
   const snapshotReq = epicSectionsRequest(orgSlug, slug, props.query, props.by)
-  const preview = useTicketPreview()
   const snapshotResult = useAtomValue(epicSections(snapshotReq))
   const refresh = useAtomRefresh(epicSections(snapshotReq))
   const [previous, setPrevious] = useState<Readonly<{
@@ -126,9 +123,6 @@ export function EpicSections(props: Props) {
               snapshotReq={active.req}
               section={section}
               waiting={snapshotResult.waiting}
-              activePreviewId={preview.activePreviewId}
-              onPreviewPointerEnter={preview.onPreviewPointerEnter}
-              onPreviewOpenChange={preview.onPreviewOpenChange}
             />
           ))}
         </TicketViewSourceContext>
@@ -159,9 +153,6 @@ type EpicSectionProps = Props &
     snapshotReq: EpicSectionsRequest
     section: EpicSectionValue
     waiting: boolean
-    activePreviewId: TicketId | null
-    onPreviewPointerEnter: (id: TicketId) => void
-    onPreviewOpenChange: (id: TicketId, open: boolean) => void
   }>
 
 function EpicSection({
@@ -169,9 +160,6 @@ function EpicSection({
   snapshotReq,
   section,
   waiting,
-  activePreviewId,
-  onPreviewPointerEnter,
-  onPreviewOpenChange,
   ...props
 }: EpicSectionProps) {
   const [collapsed, onToggleCollapsed] = useCollapsedInRecord(
@@ -245,9 +233,6 @@ function EpicSection({
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
         members={props.members}
-        activePreviewId={activePreviewId}
-        onPreviewPointerEnter={onPreviewPointerEnter}
-        onPreviewOpenChange={onPreviewOpenChange}
       />
     </div>
   )

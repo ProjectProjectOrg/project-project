@@ -63,6 +63,16 @@ import { Plus } from "@pp/ui/icons"
 
 Every other prop goes to the rendered `button`.
 
+### Classes without the component
+
+`buttonClassName({ variant, size, tone, className })` returns the classes `Button` itself renders, corners and key inset included. Use it only where mounting a component per item costs too much (a virtualized list's row fields): the element looks the same, and stays in step when the variants change. It brings no press scale measurement, loading swap or icon props.
+
+```tsx
+<button type="button" aria-label={statusLabel} className={buttonClassName({ variant: "ghost", tone: "strong", size: "square-6" })}>
+  <StatusIcon />
+</button>
+```
+
 ## Rules
 
 ### A leading icon or avatar sits closer to the edge

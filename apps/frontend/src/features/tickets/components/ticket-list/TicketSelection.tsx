@@ -21,6 +21,7 @@ import { pointedTicket } from "@/features/command-menu/atoms/commandMenu"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
+import type { RemoveTickets } from "@/features/tickets/atoms/removeTickets"
 import { lightRowFields } from "@/features/tickets/lib/selectionKeys"
 import {
   toBulkPatch,
@@ -39,6 +40,7 @@ import {
 import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
+import { RowControls } from "./RowControls"
 import { SelectionBar } from "./SelectionBar"
 import {
   allInOrder,
@@ -52,9 +54,6 @@ import {
 } from "./selectionStore"
 
 const SelectionContext = createContext<SelectionStore | null>(null)
-const OrderContext = createContext<
-  (() => ReadonlyArray<SelectionEntry>) | null
->(null)
 const notSelected = Atom.make(false)
 
 export function TicketSelectionProvider({
@@ -148,7 +147,7 @@ export function TicketSelectionProvider({
   return (
     <SelectionContext value={store}>
       <div ref={root} className="contents">
-        {children}
+        <RowControls root={root}>{children}</RowControls>
         <AnimatePresence>
           {selecting && (
             <SelectionBar
@@ -237,7 +236,7 @@ export function SelectionOrder({
       store.orders.delete(order)
     }
   }, [store, order])
-  return <OrderContext value={order}>{children}</OrderContext>
+  return children
 }
 
 export function useClearSelectionWhen(value: string) {
@@ -337,28 +336,35 @@ export function useSelectionActions(key: string) {
   }
 }
 
-export function useTicketSelection(key: string) {
+export function useRowSelectionState(key: string) {
   const store = use(SelectionContext)
-  const order = use(OrderContext)
-  const registry = use(RegistryContext)
   const selected = useAtomValue(
     store === null ? notSelected : store.isSelected(key)
   )
-  if (store === null) return null
+  const count = useAtomValue(store !== null && selected ? store.count : noCount)
   return {
+    selectable: store !== null,
     selected,
-    toggle: (extend: boolean) => {
-      const entries = order?.()
-      selectFromOrder(
-        registry,
-        store,
-        toggleSelection(
-          registry.get(store.selection),
-          key,
-          extend ? entries?.map((entry) => entry.key) : undefined
-        ),
-        entries
-      )
-    }
+    acting: selected && count > 1
   }
+}
+
+export const toggleRowSelection = (
+  registry: AtomRegistry,
+  store: SelectionStore,
+  key: string,
+  view: RemoveTickets,
+  extend: boolean
+) => {
+  const entries = orderContaining(store, key, view)
+  selectFromOrder(
+    registry,
+    store,
+    toggleSelection(
+      registry.get(store.selection),
+      key,
+      extend ? entries?.map((entry) => entry.key) : undefined
+    ),
+    entries
+  )
 }

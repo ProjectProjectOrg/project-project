@@ -38,7 +38,8 @@ function sprintDetail(s: Group) {
 }
 
 export type SprintAssignMenuProps = {
-  trigger: ReactElement
+  trigger?: ReactElement
+  anchor?: ContentProps["anchor"]
   sprints: ReadonlyArray<Group>
   // null: in no sprint. undefined: tickets in different sprints, so
   // nothing is marked.
@@ -60,7 +61,8 @@ export function SprintAssignMenu({
   open,
   onOpenChange,
   finalFocus,
-  tooltip
+  tooltip,
+  anchor
 }: SprintAssignMenuProps) {
   const [query, setQuery] = useState("")
   const eligible = eligibleSprints(sprints)
@@ -102,7 +104,7 @@ export function SprintAssignMenu({
         if (!isOpen) setQuery("")
       }}
     >
-      {tooltip === undefined ? (
+      {trigger === undefined ? null : tooltip === undefined ? (
         <DropdownMenuTrigger render={trigger} />
       ) : (
         <ShortcutTooltip
@@ -114,6 +116,7 @@ export function SprintAssignMenu({
         </ShortcutTooltip>
       )}
       <DropdownMenuContent
+        anchor={anchor}
         align="start"
         sideOffset={6}
         finalFocus={finalFocus ?? false}

@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { listEditBetween, type Member, type TicketId } from "@pp/shared"
-import { Button } from "@pp/ui/button"
+import { Button, buttonClassName } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -25,13 +25,13 @@ import type { ComponentProps } from "react"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { appHotkeys } from "@/lib/appHotkeys"
+import { appHotkeys, hotkeyKeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
 
-function resolveAssignees(
+export function resolveAssignees(
   assignees: ReadonlyArray<string>,
   members: ReadonlyArray<Member>
 ) {
@@ -40,7 +40,7 @@ function resolveAssignees(
     .filter((member): member is Member => !!member)
 }
 
-function rowLabel(resolved: ReadonlyArray<Member>) {
+export function rowLabel(resolved: ReadonlyArray<Member>) {
   if (resolved.length === 0) {
     return m.tickets_assignees_row_unassigned_aria_label()
   }
@@ -58,7 +58,7 @@ function chipLabel(resolved: ReadonlyArray<Member>) {
   )
 }
 
-function Avatars({
+export function Avatars({
   resolved,
   size,
   className
@@ -99,7 +99,6 @@ function Trigger({
   className?: string
   resolved: ReadonlyArray<Member>
 }) {
-  const hasAvatars = resolved.length > 0
   if (variant === "chip") {
     return (
       <ShortcutTooltip
@@ -114,7 +113,7 @@ function Trigger({
               label={chipLabel(resolved)}
               iconKey={resolved.map((member) => member.id).join(",")}
               icon={
-                hasAvatars ? (
+                resolved.length > 0 ? (
                   <Avatars resolved={resolved} size={18} />
                 ) : (
                   <UserRound className="size-3.5" strokeWidth={1.75} />
@@ -140,22 +139,81 @@ function Trigger({
         render={
           <Button
             type="button"
-            variant={empty ? "outline" : "ghost"}
-            tone={empty ? "muted" : "strong"}
-            size="square-6"
+            {...rowButton(empty)}
             onClick={(e) => e.stopPropagation()}
             aria-label={label}
-            // Square around one face, as wide as a stack of them.
-            className={cn("w-auto min-w-6", className)}
+            className={cn(rowButtonClass, className)}
           >
-            {!hasAvatars && <UserRound className="size-3" strokeWidth={1.75} />}
-            <Avatars resolved={resolved} size={20} />
+            <RowFace resolved={resolved} />
           </Button>
         }
       />
     </ShortcutTooltip>
   )
   return empty ? <Reveal>{trigger}</Reveal> : trigger
+}
+
+const rowButton = (empty: boolean) =>
+  ({
+    variant: empty ? "outline" : "ghost",
+    tone: empty ? "muted" : "strong",
+    size: "square-6"
+  }) as const
+
+// Square around one face, as wide as a stack of them.
+const rowButtonClass = "w-auto min-w-6"
+
+function RowFace({ resolved }: Readonly<{ resolved: ReadonlyArray<Member> }>) {
+  return (
+    <>
+      {resolved.length === 0 && (
+        <UserRound className="size-3" strokeWidth={1.75} />
+      )}
+      <Avatars resolved={resolved} size={20} />
+    </>
+  )
+}
+
+const emptyRowButtonClass = buttonClassName({
+  ...rowButton(true),
+  className: rowButtonClass
+})
+
+const filledRowButtonClass = buttonClassName({
+  ...rowButton(false),
+  className: rowButtonClass
+})
+
+export const assigneeNames = (resolved: ReadonlyArray<Member>) =>
+  resolved.length === 0
+    ? m.tickets_assignee_unassigned()
+    : resolved.map((member) => member.name).join(", ")
+
+export function AssigneeRowButton({
+  assignees,
+  members,
+  ...props
+}: Readonly<{
+  assignees: ReadonlyArray<string>
+  members: ReadonlyArray<Member>
+}> &
+  Omit<ComponentProps<"button">, "children">) {
+  const resolved = resolveAssignees(assignees, members)
+  const empty = assignees.length === 0
+  const button = (
+    <button
+      type="button"
+      aria-haspopup="menu"
+      aria-label={rowLabel(resolved)}
+      data-tooltip={assigneeNames(resolved)}
+      data-tooltip-keys={hotkeyKeys("tickets.assign")}
+      className={empty ? emptyRowButtonClass : filledRowButtonClass}
+      {...props}
+    >
+      <RowFace resolved={resolved} />
+    </button>
+  )
+  return empty ? <Reveal>{button}</Reveal> : button
 }
 
 export function AssignMeItem({
@@ -226,29 +284,37 @@ export function AssigneeSelect({
         variant={variant}
         empty={value.length === 0}
         label={label}
-        value={
-          resolved.length === 0
-            ? m.tickets_assignee_unassigned()
-            : resolved.map((member) => member.name).join(", ")
-        }
+        value={assigneeNames(resolved)}
         className={className}
         resolved={resolved}
       />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-56"
-        finalFocus={false}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <AssigneeOptions
-          value={value}
-          members={members}
-          onChange={onChange}
-          onClear={onClear}
-        />
-      </DropdownMenuContent>
+      <AssigneeMenuContent
+        value={value}
+        members={members}
+        onChange={onChange}
+        onClear={onClear}
+      />
     </DropdownMenu>
+  )
+}
+
+export function AssigneeMenuContent({
+  anchor,
+  finalFocus = false,
+  ...options
+}: ComponentProps<typeof AssigneeOptions> &
+  Pick<ComponentProps<typeof DropdownMenuContent>, "anchor" | "finalFocus">) {
+  return (
+    <DropdownMenuContent
+      anchor={anchor}
+      align="start"
+      sideOffset={6}
+      className="w-56"
+      finalFocus={finalFocus}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <AssigneeOptions {...options} />
+    </DropdownMenuContent>
   )
 }
 

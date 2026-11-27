@@ -4,7 +4,6 @@ import {
   SPRINT_SECTION_UNSCHEDULED,
   type Member,
   type ProjectStatus,
-  type TicketId,
   type TicketListQuery,
   type TicketStatus,
   type TicketParent
@@ -38,7 +37,8 @@ import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-import { LandingFlash, useSectionDrop } from "./ListRowDrag"
+import { LandingFlash } from "./CreatedRow"
+import { useSectionDrop } from "./ListRowDrag"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
 import { SectionTicketCreator } from "./SectionTicketCreator"
@@ -53,9 +53,6 @@ export function SectionList({
   collapsed,
   onToggleCollapsed,
   members,
-  activePreviewId,
-  onPreviewPointerEnter,
-  onPreviewOpenChange,
   heading,
   canCreate = true,
   pagination,
@@ -85,9 +82,6 @@ export function SectionList({
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
-  activePreviewId: TicketId | null
-  onPreviewPointerEnter: (ticketId: TicketId) => void
-  onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
@@ -130,6 +124,15 @@ export function SectionList({
     setCreating(true)
   }
   const onDismissCreate = () => setCreating(false)
+  const more = pagination ?? (
+    <SectionPagination
+      req={req}
+      collapsed={collapsed}
+      status={status}
+      page={page}
+      count={count}
+    />
+  )
 
   return (
     <div
@@ -169,9 +172,12 @@ export function SectionList({
 
       <ListSectionBody collapsed={collapsed}>
         {items.length === 0 ? (
-          <div className="px-3 py-4 text-center text-caption text-muted-foreground">
-            {emptyMessage ?? "—"}
-          </div>
+          <>
+            <div className="px-3 py-4 text-center text-caption text-muted-foreground">
+              {emptyMessage ?? "—"}
+            </div>
+            {more}
+          </>
         ) : (
           <SectionRows
             items={items}
@@ -184,19 +190,8 @@ export function SectionList({
               query.parent?.length === 1 ? query.parent[0] : undefined
             }
             showSprint={!inOneSprint}
-            activePreviewId={activePreviewId}
-            onPreviewPointerEnter={onPreviewPointerEnter}
-            onPreviewOpenChange={onPreviewOpenChange}
-          />
-        )}
-
-        {pagination ?? (
-          <SectionPagination
-            req={req}
-            collapsed={collapsed}
-            status={status}
-            page={page}
-            count={count}
+            total={page.nextCursor === null ? 0 : count}
+            footer={more}
           />
         )}
       </ListSectionBody>

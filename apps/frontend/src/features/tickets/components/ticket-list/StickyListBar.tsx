@@ -46,7 +46,7 @@ export function StickyListBar({
     update()
     const observer = new ResizeObserver(schedule)
     observer.observe(bar)
-    const content = root.querySelector(":scope > [data-scroll-content]")
+    const content = root.querySelector("[data-scroll-content]")
     if (content) observer.observe(content)
     return () => {
       cancelAnimationFrame(frame)

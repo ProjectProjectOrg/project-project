@@ -141,37 +141,46 @@ export function TicketContextMenu({
   children,
   ...menu
 }: TicketMenuProps & Readonly<{ children: ReactElement<ContextTarget> }>) {
-  const {
-    anchor,
-    open,
-    instant,
-    openAt,
-    onKeyDown,
-    onOpenChange,
-    suppressNativeMenu
-  } = useTicketContextMenu()
-  const [flow, setFlow] = useState<Flow>(null)
+  const context = useTicketContextMenu()
   return (
     <>
       {cloneElement(children, {
-        "data-popup-open": open ? "" : undefined,
-        onContextMenu: openAt,
+        "data-popup-open": context.open ? "" : undefined,
+        onContextMenu: context.openAt,
         onKeyDown: (event) => {
           children.props.onKeyDown?.(event)
-          onKeyDown(event)
+          context.onKeyDown(event)
         }
       })}
-      <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <TicketPointerMenu {...menu} context={context} />
+    </>
+  )
+}
+
+export function TicketPointerMenu({
+  context,
+  ...menu
+}: TicketMenuProps &
+  Readonly<{ context: ReturnType<typeof useTicketContextMenu> }>) {
+  const [flow, setFlow] = useState<Flow>(null)
+  return (
+    <>
+      <DropdownMenu open={context.open} onOpenChange={context.onOpenChange}>
         <PointerMenuContent
-          anchor={anchor ?? undefined}
-          instant={instant}
+          anchor={context.anchor ?? undefined}
+          instant={context.instant}
           className="w-52"
-          onContextMenu={suppressNativeMenu}
+          onContextMenu={context.suppressNativeMenu}
         >
           <TicketMenuItems {...menu} onFlow={setFlow} />
         </PointerMenuContent>
       </DropdownMenu>
-      <TicketMenuFlows {...menu} flow={flow} onFlow={setFlow} anchor={anchor} />
+      <TicketMenuFlows
+        {...menu}
+        flow={flow}
+        onFlow={setFlow}
+        anchor={context.anchor}
+      />
     </>
   )
 }

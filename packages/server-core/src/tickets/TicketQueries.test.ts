@@ -1011,6 +1011,48 @@ it.effect(
   }
 )
 
+it.effect(
+  "later pages of the unscheduled section leave out a completed sprint's tickets",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const { documents } = docs
+    for (let index = 1; index <= 55; index++) {
+      documents.set(
+        `T-${index}`,
+        makeTicketDocument(`T-${index}`, { title: `ticket ${index}` })
+      )
+    }
+    const completed = sprintGroup(
+      "G-1",
+      ["T-53", "T-54", "T-55"],
+      isoDate("2026-04-01T00:00:00.000Z")
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(documents),
+      groups: makeFakeSprintGroups([completed], documents)
+    })
+    return Effect.gen(function* () {
+      const queries = yield* TicketQueries.TicketQueries
+      const query = { sort: { key: "id", dir: "asc" } } as const
+      const snapshot = yield* queries.sprintSections(query)
+      const unscheduled = snapshot.sections.find(
+        (section) => section.key === "unscheduled"
+      )
+      const next = yield* queries.list({
+        ...query,
+        section: { groupId: ["ungrouped"] },
+        cursor: unscheduled?.page.nextCursor ?? undefined
+      })
+      const ids = [...(unscheduled?.page.items ?? []), ...next.items].map(
+        ({ ticket }) => ticket.id
+      )
+      expect(unscheduled?.count).toBe(52)
+      expect(ids).toHaveLength(52)
+      expect(ids).not.toContain("T-53")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("sprintSections lists sections in backlog order", () => {
   const docs = makeFakeTicketDocs([])
   const completed = sprintGroup("G-1", [], isoDate("2026-04-01T00:00:00.000Z"))

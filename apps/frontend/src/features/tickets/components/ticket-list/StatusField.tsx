@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectStatus, Ticket, TicketStatus } from "@pp/shared"
+import type { ProjectStatus, TicketStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
@@ -27,10 +27,42 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { appHotkeys } from "@/lib/appHotkeys"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
+
+export function StatusGlyph({
+  meta,
+  blocked,
+  showLabel
+}: Readonly<{
+  meta: ReturnType<typeof statusMetaFor>
+  blocked: boolean
+  showLabel?: boolean
+}>) {
+  const Icon = meta.icon
+  const icon = (
+    <Icon
+      className={showLabel ? cn("size-3.5", meta.className) : meta.className}
+      style={meta.color ? { color: meta.color } : undefined}
+      strokeWidth={1.75}
+    />
+  )
+  return blocked ? (
+    <span className="relative inline-flex">
+      {icon}
+      <span
+        aria-hidden
+        className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
+      />
+    </span>
+  ) : (
+    icon
+  )
+}
+
+export const statusFieldLabel = (label: string, disabled: boolean) =>
+  disabled ? label : m.tickets_status_aria_label({ label })
 
 function StatusTrigger({
   meta,
@@ -47,30 +79,14 @@ function StatusTrigger({
   showLabel?: boolean
   blocked: boolean
 }>) {
-  const Icon = meta.icon
-  const icon = (
-    <Icon
-      className={showLabel ? cn("size-3.5", meta.className) : meta.className}
-      style={meta.color ? { color: meta.color } : undefined}
-      strokeWidth={1.75}
-    />
-  )
-  const glyph = blocked ? (
-    <span className="relative inline-flex">
-      {icon}
-      <span
-        aria-hidden
-        className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
-      />
-    </span>
-  ) : (
-    icon
+  const glyph = (
+    <StatusGlyph meta={meta} blocked={blocked} showLabel={showLabel} />
   )
   const triggerProps = {
     onClick: (e: MouseEvent) => {
       if (stopPropagation) e.stopPropagation()
     },
-    "aria-label": disabled ? label : m.tickets_status_aria_label({ label }),
+    "aria-label": statusFieldLabel(label, disabled),
     disabled
   }
   return (
@@ -135,20 +151,32 @@ export function StatusSelect({
         showLabel={showLabel}
         blocked={blocked}
       />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="max-w-72 min-w-44"
-        finalFocus={false}
-      >
-        <StatusOptions
-          statuses={statuses}
-          selected={selected}
-          onChange={onChange}
-          manageAction={manageAction}
-        />
-      </DropdownMenuContent>
+      <StatusMenuContent
+        statuses={statuses}
+        selected={selected}
+        onChange={onChange}
+        manageAction={manageAction}
+      />
     </DropdownMenu>
+  )
+}
+
+export function StatusMenuContent({
+  anchor,
+  finalFocus = false,
+  ...options
+}: ComponentProps<typeof StatusOptions> &
+  Pick<ComponentProps<typeof DropdownMenuContent>, "anchor" | "finalFocus">) {
+  return (
+    <DropdownMenuContent
+      anchor={anchor}
+      align="start"
+      sideOffset={6}
+      className="max-w-72 min-w-44"
+      finalFocus={finalFocus}
+    >
+      <StatusOptions {...options} />
+    </DropdownMenuContent>
   )
 }
 
@@ -210,29 +238,5 @@ function StatusOptions({
         </>
       )}
     </>
-  )
-}
-
-export function StatusButton({
-  ticket,
-  selected,
-  stopPropagation,
-  onPatch,
-  disabled = false
-}: {
-  ticket: Ticket
-  selected?: TicketStatus | null
-  stopPropagation?: boolean
-  onPatch: (patch: TicketEdit) => void
-  disabled?: boolean
-}) {
-  return (
-    <StatusSelect
-      value={ticket.status}
-      selected={selected === undefined ? ticket.status : selected}
-      disabled={disabled}
-      stopPropagation={stopPropagation}
-      onChange={(status) => onPatch({ status })}
-    />
   )
 }

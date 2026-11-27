@@ -74,3 +74,9 @@ A parent checkbox shows the mixed state while only some of its children are on.
 A little larger with a lighter ring. Ticket rows use it, where it only appears on hover.
 
 <Demo name="quiet" title="Quiet" />
+
+### Indicator
+
+`CheckboxIndicator` is the box alone, with no input of its own: for an item that is itself the control (a toggle row with `aria-pressed`), or for markup that can't mount a checkbox per item. It takes `variant` like the checkbox, and every other prop goes to its `span`. A virtualized ticket row gives it `role="checkbox"`, `aria-checked`, `tabIndex`, a label and `aria-hidden={undefined}` (it is hidden by default), and its list handles the toggle.
+
+<Demo name="indicator" title="Indicator" />

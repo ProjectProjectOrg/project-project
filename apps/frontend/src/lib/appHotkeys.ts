@@ -226,3 +226,8 @@ declare module "@tanstack/react-hotkeys" {
     appHotkeys: typeof appHotkeys
   }
 }
+
+export const hotkeyKeys = (id: keyof typeof appHotkeys) => {
+  const { hotkey } = appHotkeys[id]
+  return typeof hotkey === "string" ? hotkey : undefined
+}

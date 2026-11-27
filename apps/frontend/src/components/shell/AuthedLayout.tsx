@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { User } from "@pp/shared"
 import { trackScrolling } from "@pp/ui/lib/scrolling"
+import { ScrollArea } from "@pp/ui/scroll-area"
 import {
   Navigate,
   Outlet,
@@ -67,11 +68,13 @@ function Shell({ user }: { user: User }) {
               {/* layoutScroll: layout animations inside measure against the
                   page, not the viewport, so the scroll reset on navigation
                   doesn't fly them in from where the page used to be. */}
-              <motion.div
-                layoutScroll
-                ref={trackScrolling}
-                data-scroll-root
-                className="relative isolate min-w-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-y-none"
+              <ScrollArea
+                className="min-w-0 flex-1"
+                insetScrollbar
+                viewportRender={<motion.div layoutScroll />}
+                viewportProps={{ ref: trackScrolling, "data-scroll-root": "" }}
+                viewportClassName="relative isolate overscroll-y-none"
+                contentClassName="relative flex min-h-full flex-col"
               >
                 <div
                   ref={setBackdrop}
@@ -80,13 +83,13 @@ function Shell({ user }: { user: User }) {
                 />
                 <div
                   data-scroll-content
-                  className="relative flex min-h-full flex-col p-6 pt-3"
+                  className="relative flex flex-1 flex-col p-6 pt-3"
                 >
                   <PageBar user={user} />
                   <Outlet />
                 </div>
                 <div data-scroll-spacer aria-hidden />
-              </motion.div>
+              </ScrollArea>
             </PageBackdropContext>
           </div>
         </main>
