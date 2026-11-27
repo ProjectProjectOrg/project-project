@@ -80,6 +80,7 @@ export const InboxRevisionQuery = Schema.Struct({
 })
 
 export const InboxRevisionPayload = Schema.Struct({ revision: InboxRevision })
+export type InboxRevisionPayload = typeof InboxRevisionPayload.Type
 
 export const InboxReadAllPayload = Schema.Struct({
   upTo: Schema.DateFromString

@@ -15,6 +15,12 @@ export const Keys = {
   slackProject: (scope: string) => key(`slack-project/${scope}`),
   slackProfiles: () => key("slack-profiles"),
   orgEmail: (orgSlug: string) => key(`org-email/${orgSlug}`),
+  inbox: (orgSlug: string) => key(`inbox/${orgSlug}`),
+  inboxCount: (orgSlug: string) => key(`inbox-count/${orgSlug}`),
+  inboxChanged: (orgSlug: string) => [
+    Keys.inbox(orgSlug),
+    Keys.inboxCount(orgSlug)
+  ],
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId) => key(`ticket-content/${scope}/${id}`),
   /** Any list/section/board projection of this project's tickets. */
