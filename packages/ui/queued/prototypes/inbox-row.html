@@ -1,0 +1,796 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inbox row directions</title>
+    <style>
+      @font-face {
+        font-family: "Allo";
+        font-style: normal;
+        font-weight: 100 900;
+        src: url("../../node_modules/allo-font/fonts/webfonts/AlloVariable.woff2")
+          format("woff2-variations");
+      }
+      .light {
+        --ink: black;
+        --background: oklch(0.94 0 0);
+        --page: oklch(0.968 0 0);
+        --foreground: oklch(0.145 0 0);
+        --muted-foreground: oklch(0.48 0 0);
+        --ring: oklch(0.58 0 0);
+        --segment-line: oklch(0 0 0 / 6%);
+        --kbd-glow: oklch(1 0 0 / 70%);
+        --avatar-edge: oklch(0.145 0 0 / 0.1);
+        --mix-hover: 4.5%;
+        --mix-active: 7.9%;
+        --mix-chip: 5.5%;
+        --orb-a: oklch(0.86 0 0);
+        --orb-b: oklch(0.62 0 0);
+        --resolved: oklch(0.48 0.12 135);
+        color-scheme: light;
+      }
+      .dark {
+        --ink: white;
+        --background: oklch(0.145 0 0);
+        --page: oklch(0.219 0 0);
+        --foreground: oklch(0.985 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --ring: oklch(0.556 0 0);
+        --segment-line: oklch(1 0 0 / 6%);
+        --kbd-glow: oklch(1 0 0 / 9%);
+        --avatar-edge: oklch(1 0 0 / 0.1);
+        --mix-hover: 6%;
+        --mix-active: 12%;
+        --mix-chip: 5%;
+        --orb-a: oklch(0.5 0 0);
+        --orb-b: oklch(0.32 0 0);
+        --resolved: oklch(0.78 0.12 135);
+        color-scheme: dark;
+      }
+      .light,
+      .dark {
+        --surface: var(--page);
+        --hover: color-mix(
+          in srgb,
+          var(--surface),
+          var(--ink) var(--mix-hover)
+        );
+        --active: color-mix(
+          in srgb,
+          var(--surface),
+          var(--ink) var(--mix-active)
+        );
+        --chip: color-mix(in srgb, var(--surface), var(--ink) var(--mix-chip));
+        background: var(--page);
+        color: var(--foreground);
+      }
+      :root {
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --corner: superellipse(1.5);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        font-variation-settings: "ROND" 0;
+      }
+      body {
+        margin: 0;
+        font-family: Allo, ui-sans-serif, system-ui, sans-serif;
+        font-size: 13px;
+        line-height: 20px;
+        -webkit-font-smoothing: antialiased;
+      }
+      svg {
+        display: block;
+      }
+      .doc {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0;
+      }
+      .doc > h1 {
+        font-size: 28px;
+        line-height: 34px;
+        font-weight: 600;
+        margin: 0 0 6px;
+      }
+      .doc > p {
+        margin: 0 0 32px;
+        opacity: 0.7;
+        max-width: 72ch;
+      }
+      .direction {
+        margin-bottom: 56px;
+        container-type: inline-size;
+      }
+      .direction h2 {
+        font-size: 16px;
+        line-height: 22px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .direction .why {
+        margin: 0 0 16px;
+        opacity: 0.7;
+        max-width: 80ch;
+      }
+      .pair {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr);
+      }
+      @container (min-width: 760px) {
+        .pair {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+      }
+      .theme {
+        border-radius: 20px;
+        corner-shape: var(--corner);
+        padding: 12px 8px 16px;
+      }
+      .pane-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px 0 16px;
+        margin-bottom: 4px;
+      }
+      .pane-head b {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .count {
+        font-size: 11px;
+        line-height: 1;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 9px;
+        corner-shape: var(--corner);
+        background: color-mix(in oklab, var(--foreground) 6%, transparent);
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .pane-head .spacer {
+        flex: 1;
+      }
+      .ghost {
+        font: inherit;
+        font-size: 12px;
+        height: 24px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 12px;
+        corner-shape: var(--corner);
+        background: transparent;
+        color: var(--muted-foreground);
+        transition:
+          background-color 150ms,
+          color 150ms,
+          scale 100ms;
+        cursor: pointer;
+      }
+      .ghost:hover {
+        background: var(--hover);
+        color: var(--foreground);
+        transition-duration: 0ms, 0ms, 100ms;
+      }
+      .ghost:active {
+        scale: 0.97;
+      }
+      .label {
+        font-size: 11px;
+        line-height: 14px;
+        color: var(--muted-foreground);
+        padding: 12px 16px 4px;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 2px;
+      }
+
+      .row {
+        --surface: var(--page);
+        position: relative;
+        display: grid;
+        column-gap: 10px;
+        align-items: center;
+        border-radius: 14px;
+        corner-shape: var(--corner);
+        padding: 8px 10px 8px 22px;
+        min-height: 56px;
+        cursor: default;
+        transition: background-color 150ms var(--ease);
+      }
+      .row:hover,
+      .row[data-force~="hover"] {
+        background: var(--hover);
+        transition-duration: 0ms;
+      }
+      .row[data-selected] {
+        background: var(--active);
+      }
+      .row[data-force~="focus"] {
+        outline: 2px solid var(--ring);
+        outline-offset: -2px;
+      }
+      .dot {
+        position: absolute;
+        left: 9px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin-top: -3px;
+        border-radius: 50%;
+        background: var(--foreground);
+        transition:
+          scale 150ms var(--ease),
+          opacity 150ms;
+      }
+      .row:not([data-unread]) .dot {
+        scale: 0.4;
+        opacity: 0;
+      }
+      .line1,
+      .line2 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .line2 {
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .key {
+        font-size: 12px;
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+        flex: none;
+      }
+      .title {
+        color: var(--foreground);
+      }
+      .row[data-unread] .title,
+      .row[data-unread] .strong {
+        font-weight: 600;
+      }
+      .row:not([data-unread]) .title {
+        color: color-mix(in oklab, var(--foreground) 78%, var(--page));
+      }
+      .time {
+        flex: none;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+        min-width: 32px;
+        text-align: right;
+      }
+      .actions {
+        display: none;
+        gap: 2px;
+        margin: -4px -4px -4px 0;
+      }
+      .row:hover .actions,
+      .row[data-force~="hover"] .actions {
+        display: flex;
+      }
+      .row:hover .time,
+      .row[data-force~="hover"] .time {
+        display: none;
+      }
+      .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        padding: 0;
+        border-radius: 14px;
+        corner-shape: var(--corner);
+        background: transparent;
+        color: var(--muted-foreground);
+        cursor: pointer;
+        transition:
+          background-color 150ms,
+          color 150ms;
+      }
+      .icon-btn svg {
+        width: 16px;
+        height: 16px;
+        transition: scale 100ms;
+      }
+      .icon-btn:hover {
+        background: color-mix(
+          in srgb,
+          var(--hover),
+          var(--ink) var(--mix-hover)
+        );
+        color: var(--foreground);
+        transition-duration: 0ms;
+      }
+      .icon-btn:active svg {
+        scale: 0.97;
+      }
+      .reason {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--foreground);
+        font-weight: 500;
+      }
+      .reason svg {
+        width: 12px;
+        height: 12px;
+      }
+      .reason.quiet {
+        color: var(--muted-foreground);
+        font-weight: 400;
+      }
+      .sep {
+        flex: none;
+        opacity: 0.6;
+      }
+      .resolved {
+        color: var(--resolved);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex: none;
+      }
+      .resolved svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .orb {
+        position: relative;
+        flex: none;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        corner-shape: squircle;
+        background: radial-gradient(
+          circle at 35% 30%,
+          var(--orb-a),
+          var(--orb-b)
+        );
+        color: var(--foreground);
+        font-weight: 600;
+        box-shadow: inset 0 0 0 1px var(--avatar-edge);
+      }
+      .orb.s20 {
+        width: 20px;
+        height: 20px;
+        font-size: 9px;
+      }
+      .orb.s28 {
+        width: 28px;
+        height: 28px;
+        font-size: 10px;
+      }
+      .orb .glyph {
+        position: absolute;
+        right: -4px;
+        bottom: -4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--surface);
+        color: var(--foreground);
+      }
+      .row:hover .orb .glyph,
+      .row[data-force~="hover"] .orb .glyph {
+        background: var(--hover);
+      }
+      .row[data-selected] .orb .glyph {
+        background: var(--active);
+      }
+      .orb .glyph svg {
+        width: 11px;
+        height: 11px;
+      }
+      .system {
+        background: var(--chip);
+        color: var(--muted-foreground);
+      }
+      .system svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .well {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        corner-shape: var(--corner);
+        display: grid;
+        place-items: center;
+        background: var(--chip);
+        box-shadow: inset 0 -1px 2px var(--kbd-glow);
+        color: var(--muted-foreground);
+      }
+      .row[data-direct] .well {
+        color: var(--foreground);
+      }
+      .well svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      .a .row {
+        grid-template-columns: 20px minmax(0, 1fr);
+        row-gap: 2px;
+      }
+      .a .row .orb {
+        grid-row: 1;
+        align-self: center;
+      }
+      .a .line2 {
+        grid-column: 2;
+      }
+
+      .b .row,
+      .c .row {
+        grid-template-columns: 28px minmax(0, 1fr);
+        row-gap: 2px;
+      }
+      .b .row > .well,
+      .c .row > .orb {
+        grid-row: 1 / span 2;
+      }
+      .b .line1,
+      .b .line2,
+      .c .line1,
+      .c .line2 {
+        grid-column: 2;
+      }
+      .c .line1 .who {
+        flex: none;
+        color: var(--foreground);
+      }
+      .c .row[data-unread] .who {
+        font-weight: 600;
+      }
+      .c .line1 .said {
+        color: var(--muted-foreground);
+      }
+      .c .row[data-unread] .said.text {
+        color: var(--foreground);
+      }
+
+      .states {
+        margin-top: 12px;
+      }
+      .states .theme {
+        padding: 8px;
+      }
+      .states ul {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      @container (min-width: 760px) {
+        .states ul {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          column-gap: 8px;
+        }
+      }
+      .cap {
+        font-size: 11px;
+        line-height: 14px;
+        color: var(--muted-foreground);
+        padding: 8px 10px 2px 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      <h1>Inbox row</h1>
+      <p>
+        PP-405: one entry per thing you clear on its own. One ticket can show up
+        several times (an assignment, a row per mention thread, a single updates
+        rollup), so a row has to say which ticket it's about and why it's there,
+        and siblings must not read as duplicates. Every direction shows the same
+        data, with the real tokens and Allo. Hover a row for its actions. The
+        third PP-352 row is the selected one, just replied to.
+      </p>
+      <div id="root"></div>
+    </div>
+
+    <script>
+      const I = {
+        at: '<svg viewBox="0 0 24 24" fill="none"><path d="M15.6 8.40033V12.9003C15.6 14.3915 16.8088 15.6003 18.3 15.6003C19.7912 15.6003 21 14.3915 21 12.9003V12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C14.0265 21 15.8965 20.3302 17.4009 19.2M15.6 12.0003C15.6 13.9886 13.9882 15.6003 12 15.6003C10.0118 15.6003 8.4 13.9886 8.4 12.0003C8.4 10.0121 10.0118 8.40033 12 8.40033C13.9882 8.40033 15.6 10.0121 15.6 12.0003Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/></svg>',
+        assign:
+          '<svg viewBox="0 0 24 24" fill="none"><path d="M3 20.5002C3.28417 16.8058 6.3 13.7193 10.0008 13.5379C10.3134 13.5226 10.6446 13.5097 11 13.5L11.995 13.5663C12.6939 13.6129 13.3665 13.7543 14 13.9777" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/><path d="M18 15.5V21.5M21 18.5L15 18.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/><circle cx="11" cy="7" r="4" stroke="currentColor" stroke-width="1.75"/></svg>',
+        bell: '<svg viewBox="0 0 24 24" fill="none"><path d="M15.5 18C15.5 19.933 13.933 21.5 12 21.5C10.067 21.5 8.5 19.933 8.5 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/><path d="M19.2311 18H4.76887C3.79195 18 3 17.208 3 16.2311C3 15.762 3.18636 15.3121 3.51809 14.9803L4.12132 14.3771C4.68393 13.8145 5 13.0514 5 12.2558V9.5C5 5.63401 8.13401 2.5 12 2.5C15.866 2.5 19 5.634 19 9.5V12.2558C19 13.0514 19.3161 13.8145 19.8787 14.3771L20.4819 14.9803C20.8136 15.3121 21 15.762 21 16.2311C21 17.208 20.208 18 19.2311 18Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/></svg>',
+        tick: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 14L8.5 17.5L19 6.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/></svg>',
+        read: '<svg viewBox="0 0 24 24" fill="none"><path d="M2 19L8.91302 14.2905C11.4387 12.5698 12.5613 12.5698 15.087 14.2905L22 19" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M2.01592 14.551C2.08186 17.5843 2.11484 19.1009 3.24611 20.2241C4.37738 21.3473 5.95183 21.3862 9.10072 21.4641C11.0393 21.512 12.9607 21.512 14.8993 21.4641C18.0482 21.3862 19.6226 21.3473 20.7539 20.2241C21.8852 19.1009 21.9181 17.5843 21.9841 14.551C22.0053 13.5753 22.0053 12.6058 21.9841 11.6301C21.9181 8.59685 21.8852 7.08022 20.7539 5.95703C19.6226 4.83384 18.0482 4.79494 14.8993 4.71713C12.9607 4.66923 11.0393 4.66923 9.10072 4.71713C5.95183 4.79494 4.37738 4.83384 3.24611 5.95703C2.11484 7.08022 2.08186 8.59685 2.01592 11.6301C1.99469 12.6058 1.99469 13.5753 2.01592 14.551Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></svg>',
+        mute: '<svg viewBox="0 0 24 24" fill="none"><path d="M15.5 18C15.5 19.933 13.933 21.5 12 21.5C10.067 21.5 8.5 19.933 8.5 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M2 2L22 22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 18H4.76887C3.79195 18 3 17.208 3 16.2311C3 15.762 3.18636 15.3121 3.51809 14.9803L4.12132 14.3771C4.68393 13.8145 5 13.0514 5 12.2558V9.5C5 8.5 5.2 7.6 5.6 6.8M8 3.6C9.1 2.9 10.5 2.5 12 2.5C15.866 2.5 19 5.634 19 9.5V12.2558C19 13 19.3 13.8 19.9 14.4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
+        pr: '<svg viewBox="0 0 24 24" fill="none"><path d="M6 8L6 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/><path d="M18 16V12C18 9.17156 18 7.75735 17.1213 6.87867C16.2426 5.99999 14.8284 5.99999 12 5.99999L11 5.99999M11 5.99999C11 5.29976 12.9943 3.99152 13.5 3.49999M11 5.99999C11 6.70022 12.9943 8.00846 13.5 8.49999" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"/><circle cx="6" cy="18" r="2" stroke="currentColor" stroke-width="1.75"/><circle cx="6" cy="6" r="2" stroke="currentColor" stroke-width="1.75"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="1.75"/></svg>'
+      }
+
+      const entries = [
+        {
+          kind: "mention",
+          unread: true,
+          who: "Maya",
+          ini: "M",
+          key: "PP-405",
+          title:
+            "Work through assignments, mentions and updates as separate inbox entries",
+          text: "@luuk can the reply stay visible after the entry clears?",
+          time: "2m"
+        },
+        {
+          kind: "assigned",
+          unread: true,
+          who: "Maya",
+          ini: "M",
+          key: "PP-405",
+          title:
+            "Work through assignments, mentions and updates as separate inbox entries",
+          time: "5m"
+        },
+        {
+          kind: "mention",
+          unread: false,
+          selected: true,
+          resolved: true,
+          who: "Sanne",
+          ini: "S",
+          key: "PP-352",
+          title: "Inbox tools for agents and pp",
+          text: "Should list_inbox page by entry or by ticket?",
+          time: "40m"
+        },
+        {
+          kind: "description",
+          unread: true,
+          who: "Wouter",
+          ini: "W",
+          key: "PP-392",
+          title:
+            "The inbox and your own subscriptions sync into a private local copy",
+          time: "1h"
+        },
+        {
+          kind: "updates",
+          unread: false,
+          who: "GitHub",
+          system: true,
+          key: "PP-351",
+          title: "Inbox page with the ticket alongside and an unread count",
+          text: "Moved to Code review",
+          more: 3,
+          time: "3h"
+        },
+        {
+          kind: "mention",
+          unread: false,
+          who: "Jesse",
+          ini: "J",
+          key: "PP-405",
+          title:
+            "Work through assignments, mentions and updates as separate inbox entries",
+          text: "Is the observed revision per entry or per ticket?",
+          time: "Tue"
+        }
+      ]
+
+      const reasonIcon = (e) =>
+        e.kind === "assigned"
+          ? I.assign
+          : e.kind === "updates"
+            ? e.system
+              ? I.pr
+              : I.bell
+            : I.at
+
+      const reasonText = (e) =>
+        ({
+          mention: "Mentioned",
+          description: "Mentioned in description",
+          assigned: "Assigned",
+          updates: "Updates"
+        })[e.kind]
+
+      const verb = (e) =>
+        ({
+          mention: "",
+          description: "mentioned you in the description",
+          assigned: "assigned you",
+          updates: ""
+        })[e.kind]
+
+      const actions = (e) =>
+        `<span class="actions">${
+          e.kind === "updates"
+            ? `<button class="icon-btn" aria-label="Unsubscribe">${I.mute}</button>`
+            : ""
+        }<button class="icon-btn" aria-label="Mark as read">${I.read}</button>${
+          e.kind === "updates"
+            ? ""
+            : `<button class="icon-btn" aria-label="Done">${I.tick}</button>`
+        }</span>`
+
+      const orb = (e, size, glyph) =>
+        e.system
+          ? `<span class="orb s${size} system" aria-hidden>${I.pr}</span>`
+          : `<span class="orb s${size}" aria-hidden>${e.ini}${
+              glyph ? `<span class="glyph">${reasonIcon(e)}</span>` : ""
+            }</span>`
+
+      const more = (e) =>
+        e.more ? ` <span style="opacity:.7">+${e.more}</span>` : ""
+
+      const resolvedLine = `<span class="resolved">${I.tick}Replied</span><span class="sep">·</span><span class="grow">Cleared from your inbox</span>`
+
+      const attrs = (e, force) =>
+        [
+          e.unread ? "data-unread" : "",
+          e.selected ? "data-selected" : "",
+          e.kind === "updates" ? "" : "data-direct",
+          force ? `data-force="${force}"` : ""
+        ].join(" ")
+
+      const A = (e, force) => `
+        <li class="row" ${attrs(e, force)}>
+          <span class="dot"></span>
+          ${orb(e, 20, false)}
+          <div class="line1">
+            <span class="key">${e.key}</span>
+            <span class="title grow">${e.title}</span>
+            <span class="time">${e.time}</span>${actions(e)}
+          </div>
+          <div class="line2">
+            ${
+              e.resolved
+                ? resolvedLine
+                : `<span class="reason ${e.kind === "updates" ? "quiet" : ""}">${reasonIcon(e)}${reasonText(e)}</span>
+                   <span class="sep">·</span>
+                   <span class="grow">${e.who}${e.text ? `: ${e.text}` : ""}${more(e)}</span>`
+            }
+          </div>
+        </li>`
+
+      const B = (e, force) => `
+        <li class="row" ${attrs(e, force)}>
+          <span class="dot"></span>
+          <span class="well" aria-hidden>${reasonIcon(e)}</span>
+          <div class="line1">
+            <span class="title grow">${e.title}</span>
+            <span class="time">${e.time}</span>${actions(e)}
+          </div>
+          <div class="line2">
+            <span class="key">${e.key}</span>
+            ${
+              e.resolved
+                ? resolvedLine
+                : `<span class="grow"><span class="${e.kind === "updates" ? "" : "strong"}" style="color:var(--foreground)">${e.who}</span>${
+                    e.text ? `: ${e.text}` : ` ${verb(e)}`
+                  }${more(e)}</span>`
+            }
+          </div>
+        </li>`
+
+      const C = (e, force) => `
+        <li class="row" ${attrs(e, force)}>
+          <span class="dot"></span>
+          ${orb(e, 28, true)}
+          <div class="line1">
+            <span class="grow">
+              <span class="who">${e.who}</span>
+              ${
+                e.resolved
+                  ? `<span class="said">· you replied</span>`
+                  : e.text
+                    ? `<span class="said ${e.kind === "updates" ? "" : "text"}">${e.text}</span>`
+                    : `<span class="said">${verb(e)}</span>`
+              }
+            </span>
+            ${more(e)}
+            <span class="time">${e.time}</span>${actions(e)}
+          </div>
+          <div class="line2">
+            ${
+              e.resolved
+                ? `<span class="resolved">${I.tick}Cleared</span><span class="sep">·</span>`
+                : ""
+            }
+            <span class="key">${e.key}</span>
+            <span class="grow">${e.title}</span>
+          </div>
+        </li>`
+
+      const directions = [
+        {
+          id: "a",
+          name: "A · Ticket first",
+          why: "The ticket leads: key and title on top, a small actor orb beside it. The second line says why you're here (a reason glyph and word: Assigned, Mentioned, Updates) and then who and what. Siblings for one ticket share a first line and differ on the second. The closest to Linear's inbox.",
+          render: A
+        },
+        {
+          id: "b",
+          name: "B · Reason well, no avatars",
+          why: "No faces. A quiet chip-filled well holds the reason glyph, so the left edge scans as @ / assign / bell. Title on top, then the key, the actor and the excerpt. The most restrained, and siblings tell apart by the glyph alone. It loses who at a glance.",
+          render: B
+        },
+        {
+          id: "c",
+          name: "C · Message first",
+          why: "The entry leads, like a message: actor and what they said, with the reason as a small glyph on the avatar. The ticket drops to the second line as context. It fits the PP-405 idea that the entry, not the ticket, is the thing you clear. Mentions read as conversation, but long titles get less room.",
+          render: C
+        }
+      ]
+
+      const pane = (theme, d) => `
+        <div class="theme ${theme}">
+          <div class="pane-head"><b>Inbox</b><span class="count">3</span><span class="spacer"></span><button class="ghost">Mark all read</button></div>
+          <div class="label">Today</div>
+          <ul>${entries
+            .slice(0, 5)
+            .map((e) => d.render(e))
+            .join("")}</ul>
+          <div class="label">Earlier</div>
+          <ul>${entries
+            .slice(5)
+            .map((e) => d.render(e))
+            .join("")}</ul>
+        </div>`
+
+      const pinned = [
+        ["Unread", { ...entries[0] }],
+        ["Read", { ...entries[0], unread: false }],
+        ["Hover (mention)", entries[0], "hover"],
+        ["Hover (updates)", entries[4], "hover"],
+        ["Selected", { ...entries[1], selected: true }],
+        ["Focus", entries[3], "focus"],
+        ["Replied, still in place", entries[2]],
+        ["Updates, read until next visit", entries[4]]
+      ]
+
+      const states = (theme, d) => `
+        <div class="theme ${theme}">
+          <ul>${pinned
+            .map(
+              ([cap, e, f]) =>
+                `<div><div class="cap">${cap}</div>${d.render(e, f)}</div>`
+            )
+            .join("")}</ul>
+        </div>`
+
+      document.getElementById("root").innerHTML = directions
+        .map(
+          (d) => `
+        <section class="direction ${d.id}">
+          <h2>${d.name}</h2>
+          <p class="why">${d.why}</p>
+          <div class="pair">${pane("light", d)}${pane("dark", d)}</div>
+          <div class="pair states">${states("light", d)}${states("dark", d)}</div>
+        </section>`
+        )
+        .join("")
+    </script>
+  </body>
+</html>

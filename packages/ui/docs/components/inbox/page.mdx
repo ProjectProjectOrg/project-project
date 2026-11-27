@@ -1,0 +1,178 @@
+export const meta = {
+  title: "Inbox",
+  group: "Primitives",
+  description:
+    "The inbox's rows, one per entry: an assignment, a thread that mentions you, or a ticket's rolled-up updates. The message leads and the ticket sits under it, because one ticket can have several entries.",
+  sources: [
+    {
+      kind: "own",
+      name: "Inbox",
+      note: "Direction C (message first) from the PP-405 prototype"
+    }
+  ]
+}
+
+## Overview
+
+The top list is live: move across it for the gliding highlight, right-click a row for its menu. Below it, each state is pinned.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+`Inbox` is a set of parts you compose. `Inbox.List` holds the groups and gives them one gliding hover (`ListHoverScope`). `Inbox.Group` labels a run of entries ("Today", "Earlier"). `Inbox.Row` takes the entry's state (`unread`, `selected`) and its parts read it from the row, so nothing is passed down twice. The app keeps the data, the mutations and the keyboard navigation.
+
+```tsx
+import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+import { AtSign, BellOff, InboxRemove, InboxUnread, Pin } from "@pp/ui/icons"
+import { Inbox } from "@pp/ui/inbox"
+import { ItemLink } from "@pp/ui/item-link"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { TicketKey } from "@pp/ui/ticket-key"
+
+<Inbox.Header>
+  <Inbox.Heading count={unreadCount} countLabel={m.inbox_unread_count({ count: unreadCount })}>
+    {m.inbox_title()}
+  </Inbox.Heading>
+  <Inbox.HeaderActions>
+    <ShortcutTooltip hotkey={appHotkeys["inbox.mark-all-read"]} keyLabels={keyLabels()}>
+      <Button variant="ghost" size="sm" disabled={unreadCount === 0} onClick={markAllRead}>
+        <InboxUnread strokeWidth={1.75} className="size-4" />
+        {m.inbox_mark_all_read()}
+      </Button>
+    </ShortcutTooltip>
+  </Inbox.HeaderActions>
+</Inbox.Header>
+<Inbox.List>
+  <Inbox.Group label={m.inbox_group_today()}>
+    <Inbox.Row unread={entry.unread} selected={entry.id === selectedId}>
+      <ItemLink render={<Link to="/orgs/$orgSlug/inbox" search={{ entry: entry.id }} />} aria-label={label} />
+      <Inbox.Avatar reason={<AtSign strokeWidth={2} />}>
+        <MemberAvatar member={entry.actor} size={28} />
+      </Inbox.Avatar>
+      <Inbox.Message>
+        <Inbox.Text>
+          <Inbox.Actor>{actorName}</Inbox.Actor>
+          <Inbox.Summary kind="said">
+            <Inbox.Mention>@luuk</Inbox.Mention> can the reply stay visible?
+          </Inbox.Summary>
+        </Inbox.Text>
+        <Inbox.Time><TimelineTime at={entry.latestAt} compact /></Inbox.Time>
+      </Inbox.Message>
+      <Inbox.Ticket>
+        <TicketKey value={entry.ticket.id} />
+        <Inbox.Title>{entry.ticket.title}</Inbox.Title>
+      </Inbox.Ticket>
+      <Inbox.ContextMenu>
+        <DropdownMenuItem onClick={markRead}>
+          <InboxUnread strokeWidth={1.75} />
+          {m.inbox_mark_read()}
+          <DropdownMenuShortcut keys="u" keyLabels={keyLabels} />
+        </DropdownMenuItem>
+        <DropdownMenuConfirmItem
+          icon={<InboxRemove strokeWidth={1.75} />}
+          label={m.inbox_delete()}
+          confirmLabel={m.inbox_delete_confirm()}
+          busyLabel={m.common_deleting_button()}
+          describeError={describeCause}
+          onConfirm={remove}
+        />
+        <DropdownMenuItem onClick={unsubscribe}>
+          <BellOff strokeWidth={1.75} />
+          {m.inbox_unsubscribe()}
+          <DropdownMenuShortcut keys="shift+u" keyLabels={keyLabels} />
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={pin}>
+          <Pin strokeWidth={1.75} />
+          {m.inbox_pin()}
+        </DropdownMenuItem>
+        <CopySubmenu ticket={entry.ticket} />
+      </Inbox.ContextMenu>
+    </Inbox.Row>
+  </Inbox.Group>
+</Inbox.List>
+```
+
+| Part | Props | What it is |
+| --- | --- | --- |
+| `Inbox.Header` | | The list pane's top bar, 48px, its title lined up with the rows' avatars |
+| `Inbox.Heading` | `count`, `countLabel` | "Inbox" at title size, with the unread count beside it in muted caption figures. The count rolls when it changes (`TextSwap`) and is hidden at 0; `countLabel` is what a screen reader hears for it |
+| `Inbox.HeaderActions` | | The header's buttons, at its end: Mark all read |
+| `Inbox.List` | | The list: one gliding hover over every group |
+| `Inbox.Group` | `label` | A run of entries under a quiet caption |
+| `Inbox.Row` | `unread`, `selected`, `ref` | One entry. Draws the unread dot and sets `data-unread` / `data-selected` for its parts. Put an `ItemLink` first in it; its `aria-label` says the entry is unread, since the dot is only seen |
+| `Inbox.Avatar` | `reason` | The avatar column (a 28px `MemberAvatar`, or a logo for GitHub and agents), with the reason glyph on its corner: `AtSign` for a mention, `UserPlus` for an assignment, none for updates |
+| `Inbox.Message` | | The first line |
+| `Inbox.Text` | | Who and what, cut off at the end |
+| `Inbox.Actor` | | Who; semibold while unread, and followed by a colon when the summary is something said |
+| `Inbox.Summary` | `kind`: `"said" \| "event"` | What they said or did. `said` reads in the foreground while unread; `event` ("assigned you") stays muted. Mentioned members in it are `Inbox.Mention`s |
+| `Inbox.Mention` | | A mentioned member's handle (`@luuk`) in the excerpt, in blue |
+| `Inbox.Count` | | "+3" for an updates rollup |
+| `Inbox.Time` | | The time of the latest activity, at the end of the line |
+| `Inbox.Ticket` | | The second line: a `TicketKey` and `Inbox.Title` |
+| `Inbox.Title` | | The ticket's title, cut off at the end |
+| `Inbox.Resolved` | | Put first in `Inbox.Ticket` when the entry was cleared from here (a reply sent): a green check and the note |
+| `Inbox.ContextMenu` | `className` | The row's context menu (right-click or long-press), as wide as its longest item. Without it, right-click is the browser's |
+
+## Rules
+
+### The message leads, the ticket follows
+
+An entry is the thing a person clears, not the ticket: an assignment and two mention threads on one ticket are three entries. So the first line says who did what, and the ticket drops to the second line as context. Three entries on one ticket then read as three different messages instead of three copies of one title.
+
+### The reason sits on the avatar
+
+A 16px glyph on the avatar's lower-right corner says why the entry is here: `@` for a mention (comment or description), a person-plus for an assignment, nothing for updates. Its disc takes the row's own surface (`--surface`), so it cuts cleanly out of the avatar on rest, hover and selected fills. Direct reasons don't get a coloured badge: the glyph and the bold unread line carry it.
+
+### Who said it, then what
+
+When the summary is something said, the actor takes a colon ("Maya: …"), so the name reads as the speaker and not as the first word of the quote. An event ("Maya assigned you") reads as a sentence and has none. Members mentioned in the excerpt are `Inbox.Mention`: their handle in blue (`--state-info-ink`, the info hue at text contrast), with no chip, so a mention stands out from the quote without another avatar in a row that already has one.
+
+### Unread is a dot and weight, not colour
+
+An unread entry has a 6px foreground dot in the left gutter and the actor in semibold; a mention's text reads in the foreground too. Read entries keep the actor in the foreground at regular weight, and the rest goes muted. The dot shrinks out over 150ms when the entry is read.
+
+### Hover only lights the row; actions live in its menu
+
+Hovering a row lights it and nothing else: the time stays where it is and no buttons appear, so moving down the list is calm. The row's actions are in its context menu (right-click, or long-press on touch): Mark as read or unread (`u`), Delete notification (a `DropdownMenuConfirmItem`: it confirms in place, while `backspace` on the selected row deletes at once) and Unsubscribe (`shift+u`, the ticket's own key) come first, the entry's own actions, with Unsubscribe last because it reaches past this entry to the whole ticket. Under a divider sit the ticket's actions: Pin (the ticket goes on the sidebar's Pinned shelf), and Copy, a submenu with the ticket menu's copy actions (ID, URL, title, as Markdown, as prompt), so the app reuses its `CopySubmenu`. There is no Done: reading an entry is enough, and an entry that asks for something clears when you do it (reply in the thread). Delete notification clears one by hand. Read and Delete share one glyph, the inbox tray with its corner mark: a dot for read, a small x for delete. The same keys work on the selected row without opening the menu, and the menu shows them so they're learnt there. While the menu is open the highlight stays on its row.
+
+### A reply clears the entry in place
+
+When a reply sent from the inbox succeeds, the entry is cleared, but its row stays where it is with a green check and "Cleared" before the ticket, so the list doesn't jump under the person's cursor. Success ink (`--state-success-ink`) is the one colour on the row. The row drops out when the person moves to another entry.
+
+### Two lines, 56px
+
+A row is two lines (13px over 12px) with 8px above and below: 56px. Its corners are 20px with `--button-corner`, like every list row, and the hover highlight and focus ring share them. Rows in an `InboxList` share one gliding highlight, like the backlog.
+
+### A quiet header
+
+The list pane starts with "Inbox" at title size (16px semibold, not the page's 28px display: the pane is half a page) and the unread count beside it as a plain muted number that rolls when it changes and goes away at 0. Mark all read is a ghost button with the inbox-dot glyph of the row's Mark as read, its shortcut (`shift+r`) in the tooltip, and disabled when nothing is unread, so it never offers a no-op. There is no Mark all done: an entry clears when you act on it or delete it.
+
+### Empty states are calm
+
+An empty inbox is good news, so it says so ("All caught up") in the standard `Empty`, with no illustration beyond the dither. When there are entries but none is open, the ticket pane's empty state is plain text with no dither, so the eye stays on the list.
+
+### Today and Earlier
+
+`InboxGroup` labels runs of entries with a quiet 11px caption, aligned with the avatars. Groups keep the list scannable without section chrome.
+
+## Examples
+
+### The inbox list
+
+Mark all read in the header clears every dot and the count. Click a row to select and read it. Right-click for its menu: Mark as unread brings the dot back, Delete notification removes the entry.
+
+<Demo name="inbox" title="Inbox" />
+
+### All caught up
+
+With no entries there is no split: the page is one pane, the header across the top (no count, Mark all read disabled) and one dithered `Empty` filling the rest, animated like every page-level empty state. Two empty panes side by side would compete, and "pick an entry" makes no sense with none to pick. The copy says where things come from, not what to do; there's nothing to do. The split comes back with the first entry.
+
+<Demo name="caught-up" title="All caught up" className="min-h-[28rem]" />
+
+### Nothing open
+
+With entries but none selected (a narrow window opening the inbox, or after Delete notification), the ticket side shows a plain `Empty` (`variant="plain"`): just the two lines of muted text, no dither, so "nothing" looks like nothing and the eye stays on the list.
+
+<Demo name="nothing-selected" title="Nothing open" />

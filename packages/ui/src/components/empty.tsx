@@ -32,6 +32,7 @@ export type EmptyProps = React.ComponentProps<"div"> &
     // and a click still ripples it). Reduced motion always holds it still.
     animated?: boolean
     intensity?: EmptyIntensity
+    variant?: "dithered" | "plain"
   }>
 
 // One empty state for every place: a page, a panel, a popover, ⌘K. It sizes
@@ -41,6 +42,7 @@ function Empty({
   className,
   animated = true,
   intensity = "medium",
+  variant = "dithered",
   children,
   ...props
 }: EmptyProps) {
@@ -52,35 +54,40 @@ function Empty({
     <div
       data-slot="empty"
       data-intensity={intensity}
+      data-variant={variant}
       className={cn(
-        "@container/empty relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-[20px] bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-4 duration-500 [corner-shape:var(--button-corner)] fade-in",
+        "@container/empty relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-[20px] p-4 duration-500 [corner-shape:var(--button-corner)] fade-in",
+        variant === "dithered" &&
+          "bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)]",
         className
       )}
       {...props}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <Dither
-          disableAnimation={!animated}
-          speed={animated ? 0.1 : 0}
-          octaves={6}
-          frequency={1.2}
-          amplitude={0.52}
-          lacunarity={2.2}
-          rotationAngle={0.5}
-          warpStrength={1.1}
-          contrast={0.2}
-          bias={-0.05}
-          colorFront={INK[intensity]}
-          seed={seed}
-          pixelSize={2}
-          ditherType="4x4"
-          cardRef={cardRef}
-          cardWellEnabled
-          cardFalloff={60}
-          cardCornerRadius={16}
-          timeWarpZones={EMPTY_WARP_ZONES}
-        />
-      </div>
+      {variant === "dithered" && (
+        <div className="pointer-events-none absolute inset-0">
+          <Dither
+            disableAnimation={!animated}
+            speed={animated ? 0.1 : 0}
+            octaves={6}
+            frequency={1.2}
+            amplitude={0.52}
+            lacunarity={2.2}
+            rotationAngle={0.5}
+            warpStrength={1.1}
+            contrast={0.2}
+            bias={-0.05}
+            colorFront={INK[intensity]}
+            seed={seed}
+            pixelSize={2}
+            ditherType="4x4"
+            cardRef={cardRef}
+            cardWellEnabled
+            cardFalloff={60}
+            cardCornerRadius={16}
+            timeWarpZones={EMPTY_WARP_ZONES}
+          />
+        </div>
+      )}
       <div
         ref={cardRef}
         className="relative flex max-w-sm min-w-0 animate-in flex-col items-center gap-1 px-4 py-3 text-center text-balance [overflow-wrap:anywhere] duration-500 zoom-in-95 fade-in @md/empty:px-6 @md/empty:py-5"

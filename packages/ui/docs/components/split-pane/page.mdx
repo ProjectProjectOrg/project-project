@@ -1,0 +1,70 @@
+export const meta = {
+  title: "Split pane",
+  group: "Primitives",
+  description:
+    "Panes side by side with a draggable hairline between them: the inbox's list and the ticket it opened.",
+  sources: [
+    {
+      kind: "own",
+      name: "SplitPane",
+      note: "On react-resizable-panels (Group, Panel, Separator)",
+      href: "https://react-resizable-panels.vercel.app"
+    }
+  ]
+}
+
+## Overview
+
+Drag the line, or focus it and use the arrow keys. Double-click puts it back. The width is remembered, so a reload keeps it.
+
+<Demo name="overview" title="Inbox list and ticket" />
+
+## Usage
+
+```tsx
+import { SplitPane } from "@pp/ui/split-pane"
+
+<SplitPane.Root id="inbox">
+  <SplitPane.Panel id="list" defaultSize="38%" minSize={320} maxSize="60%">
+    <InboxList />
+  </SplitPane.Panel>
+  <SplitPane.Divider aria-label={m.inbox_resize_list()} />
+  <SplitPane.Panel id="ticket" minSize={420}>
+    <TicketPane />
+  </SplitPane.Panel>
+</SplitPane.Root>
+```
+
+| Part | Props | What it is |
+| --- | --- | --- |
+| `SplitPane.Root` | `id`, `orientation`, `disabled`, `resizePreviewMode` | The group. With an `id` its layout is saved per browser (localStorage, ignored when storage is blocked) |
+| `SplitPane.Panel` | `id`, `defaultSize`, `minSize`, `maxSize`, `collapsible` | One pane. Numbers are pixels, `"38%"` is a share of the group |
+| `SplitPane.Divider` | `aria-label` | The hairline between two panes; its label names what it resizes |
+
+`splitPaneDividerClass` is the divider's look, for drawing it outside a group (the gallery's pinned states).
+
+## Rules
+
+### A hairline, always there
+
+The panes are split by a 1px `--border` line, visible at rest, so the list and the ticket read as two places.
+
+### Hover is quiet; grabbing is clear
+
+Hovered, the divider widens to 2px, only a step darker than the hairline (`--border` mixed 14% toward the text colour), so it says "you can drag this" without jumping out. Pressing it, dragging or focusing it turns it to `--ring`. Like every hover, it lands at once and eases back over 150ms.
+
+### A wider grab than the line
+
+The line is 1px but the area that takes the drag is 10px for a mouse and 20px for touch (react-resizable-panels' `resizeTargetMinimumSize`), so it's easy to catch without a thick line.
+
+### Dragging never re-renders the panes
+
+The library moves the panes' flex sizes through a store; the list and the ticket inside are the same elements and don't render again. If a heavy pane still makes dragging feel slow, `resizePreviewMode="separator"` moves only the line until release.
+
+### Keyboard and limits
+
+The divider is a `separator` with its value: arrow keys move it, Home and End go to the limits, Enter collapses a collapsible pane. `minSize` and `maxSize` hold in every case, so neither side can be squeezed shut by accident.
+
+### Phone width shows one pane
+
+Below the width both panes need, the page renders one pane at a time (the list, or the ticket full-screen) instead of a split. That choice belongs to the page, not to the split.
