@@ -17,11 +17,12 @@ import {
   type ReactElement
 } from "react"
 
-import { Pencil, Trash2 } from "../../components/icons"
+import { DropdownMenuItem } from "../../components/dropdown-menu"
+import { Pencil } from "../../components/icons"
 import { Input } from "../../components/input"
-import { NodeOverlayAction } from "../../editor/node-overlay-action"
 import { useDecoratorSelection } from "../../editor/use-decorator-selection"
 import { cn } from "../../lib/utils"
+import { EmbedMenu } from "../embed-menu"
 import { m } from "../messages"
 import { PaperChip } from "./paper-chip"
 
@@ -180,9 +181,7 @@ function PaperSelectable({
         data-paper-selected={isSelected ? "true" : undefined}
         className={cn(
           "group/hitbox relative my-0.5 inline-flex max-w-full rounded-[10px] align-middle transition-shadow duration-150 [--chip-shift:0px] [corner-shape:var(--button-corner)] focus-within:z-20 hover:z-20",
-          isSelected
-            ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
-            : "z-0 ring-0 ring-transparent"
+          isSelected ? "z-20" : "z-0 ring-0 ring-transparent"
         )}
       >
         {editing ? (
@@ -201,24 +200,22 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <PaperChip url={url} label={resolvedLabel} />
+          <EmbedMenu
+            url={url}
+            openLabel={m.editor_paper_open()}
+            onRemove={remove}
+            action={
+              <DropdownMenuItem
+                onClick={() => requestAnimationFrame(startEditing)}
+              >
+                <Pencil />
+                {m.editor_embed_rename()}
+              </DropdownMenuItem>
+            }
+          >
+            <PaperChip url={url} label={resolvedLabel} />
+          </EmbedMenu>
         )}
-        <NodeOverlayAction
-          slot="absolute right-full -top-1 mr-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
-          label={m.editor_paper_remove()}
-          variant="overlay-destructive"
-          onClick={remove}
-        >
-          <Trash2 strokeWidth={1.75} />
-        </NodeOverlayAction>
-        <NodeOverlayAction
-          slot="absolute left-full -top-1 ml-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
-          label={m.editor_paper_edit_name()}
-          variant="overlay"
-          onClick={startEditing}
-        >
-          <Pencil strokeWidth={1.75} />
-        </NodeOverlayAction>
       </span>
     </span>
   )

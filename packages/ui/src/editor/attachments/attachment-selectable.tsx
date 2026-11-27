@@ -38,6 +38,7 @@ const pendingMedia = (element: HTMLElement) => {
 
 export function AttachmentSelectable({
   nodeKey,
+  image = false,
   deletable,
   density,
   onToggleDensity,
@@ -45,6 +46,7 @@ export function AttachmentSelectable({
   children
 }: Readonly<{
   nodeKey: NodeKey
+  image?: boolean
   deletable: boolean
   density: AttachmentDensity
   onToggleDensity?: () => void
@@ -94,6 +96,7 @@ export function AttachmentSelectable({
         content.style.width = `${next.width}px`
         content.style.height = `${next.height}px`
       }
+      if (image) element.style.overflow = "clip"
       animation = element.animate(
         [
           { width: `${previous.width}px`, height: `${previous.height}px` },
@@ -104,7 +107,14 @@ export function AttachmentSelectable({
       animation.addEventListener("finish", unpin, { once: true })
     }
 
-    const media = pendingMedia(element)
+    const observer = new ResizeObserver(() => {
+      morphSizes.set(element, element.getBoundingClientRect())
+    })
+    observer.observe(element)
+    const media =
+      density === "compact" || !contentRef.current
+        ? null
+        : pendingMedia(contentRef.current)
     if (previous !== undefined && media !== null) {
       element.style.width = `${previous.width}px`
       element.style.height = `${previous.height}px`
@@ -115,6 +125,7 @@ export function AttachmentSelectable({
       media.target.addEventListener(media.ready, onReady, { once: true })
       media.target.addEventListener("error", settle, { once: true })
       return () => {
+        observer.disconnect()
         cancelled = true
         media.target.removeEventListener(media.ready, onReady)
         media.target.removeEventListener("error", settle)
@@ -125,11 +136,12 @@ export function AttachmentSelectable({
 
     settle()
     return () => {
+      observer.disconnect()
       cancelled = true
       animation?.cancel()
       unpin()
     }
-  }, [density, reduceMotion])
+  }, [density, image, reduceMotion])
 
   const compact = density === "compact"
   const overlaySlot = cn(
@@ -142,7 +154,10 @@ export function AttachmentSelectable({
 
   return (
     <span
-      className="inline-chip inline-block max-w-full"
+      className={cn(
+        "inline-chip inline-block max-w-full",
+        compact && !image && "px-9"
+      )}
       onMouseDown={selectOnPointer}
     >
       <span
@@ -155,33 +170,49 @@ export function AttachmentSelectable({
           compact
             ? "my-0.5 rounded-[10px] [corner-shape:var(--button-corner)]"
             : "my-2 rounded-[18px] corner-squircle",
-          isSelected
+          isSelected && !image
             ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
             : "z-0 ring-0 ring-transparent"
         )}
       >
         <LayoutGroup id={morphId}>
-          <AnimatePresence initial={false} mode="popLayout">
-            <motion.span
-              ref={contentRef}
-              data-attachment-content="true"
-              key={compact ? "compact" : "expanded"}
-              layoutId={morphId}
-              transition={CONTENT_MORPH}
-              style={
-                clipRadius === undefined
-                  ? undefined
-                  : { borderRadius: clipRadius, overflow: "hidden" }
-              }
-              className="block"
-            >
-              {children}
-            </motion.span>
-          </AnimatePresence>
-          {deletable ? (
+          {image ? (
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.span
+                key={density}
+                ref={contentRef}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={transitions.morph}
+                className="block max-w-full"
+              >
+                {children}
+              </motion.span>
+            </AnimatePresence>
+          ) : (
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.span
+                ref={contentRef}
+                data-attachment-content="true"
+                key={compact ? "compact" : "expanded"}
+                layoutId={morphId}
+                transition={CONTENT_MORPH}
+                style={
+                  clipRadius === undefined
+                    ? undefined
+                    : { borderRadius: clipRadius, overflow: "hidden" }
+                }
+                className="block"
+              >
+                {children}
+              </motion.span>
+            </AnimatePresence>
+          )}
+          {deletable && !image ? (
             <NodeOverlayAction
               morphId={`${morphId}-remove`}
-              slot={cn(overlaySlot, compact ? "right-full mr-1" : "-left-2")}
+              slot={cn(overlaySlot, compact ? "right-full mr-1" : "left-1")}
               label={m.editor_attachment_remove()}
               variant="overlay-destructive"
               onClick={remove}
@@ -189,10 +220,10 @@ export function AttachmentSelectable({
               <Trash2 strokeWidth={1.75} />
             </NodeOverlayAction>
           ) : null}
-          {onToggleDensity === undefined ? null : (
+          {onToggleDensity === undefined || image ? null : (
             <NodeOverlayAction
               morphId={`${morphId}-density`}
-              slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}
+              slot={cn(overlaySlot, compact ? "left-full ml-1" : "right-1")}
               label={
                 compact
                   ? m.editor_attachment_view_rich()

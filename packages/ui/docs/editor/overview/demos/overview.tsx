@@ -23,7 +23,7 @@ const START = `After a session expires, signing in again should bring you back t
 
 The new sign-in screen; the flow it's part of is [Onboarding, three screens](${FIGMA_CHIP_URL}).
 
-![Sign-in screen](${IMAGE_URL})
+![Sign-in screen](${IMAGE_URL}?d=compact)
 
 \`\`\`ts
 const next = safeNext(url.searchParams.get("next"))

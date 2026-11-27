@@ -1,5 +1,4 @@
 import type { FigmaRef } from "@pp/shared"
-import { motion } from "motion/react"
 import { useState } from "react"
 
 import { Badge } from "../../components/badge"
@@ -10,7 +9,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "../../components/popover"
-import { transitions } from "../../lib/springs"
 import { cn } from "../../lib/utils"
 import { m } from "../messages"
 import type { TicketTarget } from "../services"
@@ -97,7 +95,7 @@ function FigmaChipContent({
     return (
       <Badge
         size="xs"
-        className="inline-chip mx-0.5 max-w-full gap-1 text-caption text-muted-foreground"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption text-muted-foreground select-none"
       >
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
@@ -116,23 +114,14 @@ function FigmaChipContent({
 
   const nameParts = (
     <>
-      <motion.span
-        layout="position"
-        transition={transitions.morph}
-        // A 12px box like the open icon's, so the logo sits as far from
-        // the start as the icon does from the end.
-        className="flex size-3 shrink-0 items-center justify-center"
-      >
+      <span className="flex size-3 shrink-0 items-center justify-center">
         <FigmaGlyph className="h-3" />
-      </motion.span>
-      <motion.span
-        layoutId={`${morphId}-name`}
-        layout="position"
-        transition={transitions.morph}
+      </span>
+      <span
         className={cn("truncate", name.length === 0 && "text-muted-foreground")}
       >
         {resolvedName}
-      </motion.span>
+      </span>
     </>
   )
   const open =
@@ -153,7 +142,7 @@ function FigmaChipContent({
     return (
       <Badge
         size="xs"
-        className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
+        className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
         title={metadata?.fileName ?? resolvedName}
       >
         {nameParts}
@@ -167,7 +156,7 @@ function FigmaChipContent({
   return (
     <Badge
       size="xs"
-      className="inline-chip mx-0.5 max-w-full gap-1 text-caption"
+      className="inline-chip mx-0.5 max-w-full gap-1 text-caption select-none"
       title={metadata?.fileName ?? resolvedName}
       contentEditable={false}
     >
