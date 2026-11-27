@@ -170,6 +170,7 @@ export function TicketPointerMenu({
           anchor={context.anchor ?? undefined}
           instant={context.instant}
           className="w-52"
+          flyoutSubmenus
           onContextMenu={context.suppressNativeMenu}
         >
           <TicketMenuItems {...menu} onFlow={setFlow} />
