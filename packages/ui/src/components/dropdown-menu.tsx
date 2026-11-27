@@ -903,19 +903,48 @@ const SUBMENU_GAP = 2
 const SUBMENU_SIDE_OFFSET = MENU_ROW_INSET + SUBMENU_GAP
 const SUBMENU_ALIGN_OFFSET = -MENU_ROW_INSET
 
+type SubmenuRootProps = React.ComponentProps<typeof MenuPrimitive.SubmenuRoot>
+
+type SubmenuHover = Readonly<{ open: boolean; openFromHover: () => void }>
+
+const SubmenuHoverContext = React.createContext<SubmenuHover | null>(null)
+
+// The submenu's open state lives here, so its row opens it on hover itself:
+// Base UI's own hover stops the menu's other rows taking the pointer for as
+// long as the submenu is open, which makes a sweep down the menu skip rows.
 function DropdownMenuSub({
   filterable = false,
+  open: openProp,
+  defaultOpen = false,
   onOpenChange,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.SubmenuRoot> & {
+}: Omit<SubmenuRootProps, "onOpenChange"> & {
   filterable?: DropdownMenuFilter
+  onOpenChange?: (open: boolean) => void
 }) {
+  const [ownOpen, setOwnOpen] = React.useState(defaultOpen)
+  const open = openProp ?? ownOpen
+  const change = (next: boolean) => {
+    setOwnOpen(next)
+    onOpenChange?.(next)
+  }
   // Stays open while an item in the menu is running its action.
-  const guarded = useHeldOpenChange(onOpenChange)
+  const guarded =
+    useHeldOpenChange<
+      Parameters<NonNullable<SubmenuRootProps["onOpenChange"]>>[1]
+    >(change)
   return (
-    <FilterableRoot filterable={filterable}>
-      <MenuPrimitive.SubmenuRoot {...props} onOpenChange={guarded} />
-    </FilterableRoot>
+    <SubmenuHoverContext
+      value={{ open, openFromHover: () => open || change(true) }}
+    >
+      <FilterableRoot filterable={filterable}>
+        <MenuPrimitive.SubmenuRoot
+          {...props}
+          open={open}
+          onOpenChange={guarded}
+        />
+      </FilterableRoot>
+    </SubmenuHoverContext>
   )
 }
 
@@ -932,15 +961,31 @@ function DropdownMenuSubTrigger({
   keyLabels,
   children,
   variant = "default",
+  openOnHover = true,
+  onMouseMove,
+  onMouseDown,
   ...props
-}: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> &
+}: Omit<
+  React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger>,
+  "delay" | "closeDelay"
+> &
   SubTriggerHotkey & {
     inset?: boolean
     variant?: "default" | "destructive"
   }) {
+  const submenu = React.use(SubmenuHoverContext)
   return (
     <MenuPrimitive.SubmenuTrigger
-      delay={0}
+      openOnHover={false}
+      onMouseMove={(event) => {
+        onMouseMove?.(event)
+        if (openOnHover) submenu?.openFromHover()
+      }}
+      onMouseDown={(event) => {
+        onMouseDown?.(event)
+        // A press on a row whose submenu hover already opened keeps it open.
+        if (openOnHover && submenu?.open) event.preventBaseUIHandler()
+      }}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       data-variant={variant}
@@ -973,7 +1018,9 @@ type DropdownMenuSubContentProps = React.ComponentProps<
     "align" | "alignOffset" | "side" | "sideOffset"
   > & { lazy?: boolean }
 
-// Escape and keyboard closes are marked data-instant and skip the fade.
+// Base UI shows a submenu a frame after it opens, once it is placed, so the
+// one being left fades out meanwhile and the menu never shows a frame without
+// one. Escape and keyboard closes are marked data-instant and skip the fade.
 const submenuExitClass =
   "transition-opacity duration-80 ease-standard data-[ending-style]:opacity-0 data-[instant]:transition-none"
 

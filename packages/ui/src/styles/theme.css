@@ -1132,43 +1132,11 @@
   }
 }
 
-/* Base UI stops a menu's rows taking the pointer for as long as one of its
-   submenus is open from hover; menu-highlight.tsx does it only while the
-   pointer heads for that submenu. */
-:is(
-  [data-slot="dropdown-menu-content"],
-  [data-slot="dropdown-menu-sub-content"]
-)[style*="pointer-events: none"] {
-  pointer-events: auto !important;
-}
+/* Rows other than the open submenu's own ignore the pointer while it heads
+   for that submenu (menu-highlight.tsx). */
 [data-menu-aiming]
   :is([role^="menuitem"], [role="option"]):not([data-popup-open]) {
-  pointer-events: none !important;
-}
-
-/* A submenu left for a sibling holds for 50ms, under the next one, then goes
-   at once: Base UI shows a submenu a frame after it opens, once it is placed,
-   and the menu would blink empty in between. Only the last one fades. */
-[data-base-ui-portal]:has(
-    > [data-base-ui-portal]
-      > [data-slot="dropdown-menu-sub-positioner"]
-      > [data-slot="dropdown-menu-sub-content"][data-open]
-  )
-  > [data-base-ui-portal]
-  > [data-slot="dropdown-menu-sub-positioner"]
-  > [data-slot="dropdown-menu-sub-content"][data-ending-style] {
-  transition: opacity 0s linear 50ms;
-}
-[data-base-ui-portal]:has(
-    > [data-base-ui-portal]
-      > [data-slot="dropdown-menu-sub-positioner"]
-      > [data-slot="dropdown-menu-sub-content"][data-ending-style]
-  )
-  > [data-base-ui-portal]
-  > [data-slot="dropdown-menu-sub-positioner"]:has(
-    > [data-slot="dropdown-menu-sub-content"][data-open]
-  ) {
-  z-index: 1;
+  pointer-events: none;
 }
 
 /* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
