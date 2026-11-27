@@ -216,15 +216,24 @@ const entryOf = (project: Project, user: string, key: string) =>
     return found
   })
 
-const asOrgMember = (project: Project, user: string) =>
-  Effect.provideService(
-    OrgScope,
-    orgScope("member", {
-      userId: user,
-      organizationId: project.organizationId,
-      orgSlug: project.orgSlug
-    })
-  )
+const asOrgMember =
+  (
+    project: Project,
+    user: string,
+    actor: ActivityActor["Service"] = ActivityActor.user(user)
+  ) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provideService(
+        OrgScope,
+        orgScope("member", {
+          userId: user,
+          organizationId: project.organizationId,
+          orgSlug: project.orgSlug
+        })
+      ),
+      Effect.provideService(ActivityActor, actor)
+    )
 
 const assign = (who: string) => [
   {
@@ -412,6 +421,37 @@ describe.skipIf(!databaseUrl)("inbox", () => {
       )
       expect(yield* entryOf(project, project.bob, "updates")).toMatchObject({
         state: "unread"
+      })
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("records the agent that read an entry for its person", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* record(project, ActivityActor.user(project.ann), {
+        notices: [
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: "c1",
+            threadId: "c1"
+          })
+        ]
+      })
+      const seen = yield* entryOf(project, project.bob, "mention:thread:c1")
+      const inbox = yield* Inbox.Inbox
+      const agent = ActivityActor.agent(project.bob, {
+        id: "client-1",
+        name: "Claude Code"
+      })
+      yield* inbox
+        .markRead(seen.id, seen.revision)
+        .pipe(asOrgMember(project, project.bob, agent))
+      const [listed] = yield* inbox
+        .list({ state: "all" })
+        .pipe(asOrgMember(project, project.bob))
+      expect(listed).toMatchObject({
+        state: "read",
+        readByClientName: "Claude Code"
       })
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )

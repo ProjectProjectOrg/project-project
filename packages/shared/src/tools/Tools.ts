@@ -67,6 +67,13 @@ import {
 } from "../groups/Group"
 import { SprintState } from "../groups/sprints"
 import {
+  InboxEntry,
+  InboxEntryId,
+  InboxEntryStatus,
+  InboxListScope,
+  InboxRevision
+} from "../inbox/InboxEntry"
+import {
   BlockKey,
   LibraryContent,
   LibraryDescription,
@@ -149,6 +156,20 @@ const ticketId = TicketId.annotate({
   description: "A ticket id such as `T-12`."
 })
 const groupId = GroupId.annotate({ description: "A group id such as `G-3`." })
+const inboxEntryId = InboxEntryId.annotate({
+  description: "An inbox entry id, from `list_inbox`."
+})
+const inboxRevision = InboxRevision.annotate({
+  description:
+    "The entry's `revision` from `list_inbox`. Only that revision is " +
+    "changed: if newer activity arrived since, the entry stays as it is."
+})
+const inboxWrite: ToolHints = {
+  readOnly: false,
+  destructive: false,
+  idempotent: true,
+  openWorld: false
+}
 
 const removedTemplate = Schema.optionalKey(
   Schema.Never.annotate({
@@ -1416,6 +1437,117 @@ export const Tools = Toolkit.make(
       })
     }),
     success: UpdateGroupTicketsOutput
+  }),
+  defineTool("list_inbox", {
+    title: "List inbox",
+    hints: reads,
+    description:
+      "Your inbox in an org: one entry per thing for you to clear, newest " +
+      "first. `kind` is `assigned` (you were assigned the ticket), " +
+      "`mentioned` (someone mentioned you in a comment thread or the " +
+      "description) or `updates` (a rollup of routine activity on a " +
+      "ticket you follow). Each entry has the ticket, who acted last, an " +
+      "`excerpt` of what was said, and `eventCount`, the events since it " +
+      "was last read. `state` is `active` by default (unread and read), " +
+      "or `unread` or `all`; `since` keeps entries with activity after a " +
+      "time. Paginated: pass `nextCursor` back as `cursor` for older " +
+      "entries. Listing never changes anything. To clear a mention, reply in " +
+      "its thread with `create_comment` (`commentId` is the thread); to " +
+      "clear the rest, `read_inbox_entry`. Keep `listedAt` for " +
+      "`read_all_inbox`.",
+    cli: {
+      command: ["inbox", "list"],
+      summary: "List your inbox."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      state: Schema.optional(InboxListScope).annotate({
+        description: "`active` (default), `unread` or `all`."
+      }),
+      since: Schema.optional(Schema.DateFromString).annotate({
+        description: "Only entries with activity after this ISO time."
+      }),
+      cursor: Pagination.fields.cursor,
+      limit: Pagination.fields.limit
+    }),
+    success: Schema.Struct({
+      unread: Schema.Int,
+      listedAt: Schema.DateFromString,
+      items: Schema.Array(InboxEntry),
+      nextCursor: Schema.NullOr(Schema.String)
+    })
+  }),
+  defineTool("read_inbox_entry", {
+    title: "Read inbox entry",
+    hints: inboxWrite,
+    description:
+      "Mark one inbox entry read, for the revision you saw. An assignment " +
+      "or updates entry is cleared; a mention loses its unread dot but " +
+      "stays until you reply in its thread or delete it. Records that " +
+      "your agent read it. Returns the entry's new state.",
+    cli: {
+      command: ["inbox", "read"],
+      args: ["id"],
+      summary: "Mark an inbox entry read."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      id: inboxEntryId,
+      revision: inboxRevision
+    }),
+    success: InboxEntryStatus
+  }),
+  defineTool("unread_inbox_entry", {
+    title: "Mark inbox entry unread",
+    hints: inboxWrite,
+    description:
+      "Put the unread dot back on an inbox entry you read, to come back " +
+      "to it later. Returns the entry's new state.",
+    cli: {
+      command: ["inbox", "unread"],
+      args: ["id"],
+      summary: "Mark an inbox entry unread."
+    },
+    parameters: Schema.Struct({ orgSlug, id: inboxEntryId }),
+    success: InboxEntryStatus
+  }),
+  defineTool("delete_inbox_entry", {
+    title: "Delete inbox entry",
+    hints: inboxWrite,
+    description:
+      "Clear an inbox entry by hand, for the revision you saw, without " +
+      "acting on it. New activity on the same thing brings it back. " +
+      "Returns the entry's new state.",
+    cli: {
+      command: ["inbox", "delete"],
+      args: ["id"],
+      summary: "Delete an inbox entry."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      id: inboxEntryId,
+      revision: inboxRevision
+    }),
+    success: InboxEntryStatus
+  }),
+  defineTool("read_all_inbox", {
+    title: "Read all inbox entries",
+    hints: inboxWrite,
+    description:
+      "Mark every unread inbox entry with activity up to `upTo` read. " +
+      "Pass the `listedAt` from your last `list_inbox` so nothing newer " +
+      "is cleared unseen. Returns how many entries were read.",
+    cli: {
+      command: ["inbox", "read-all"],
+      summary: "Mark your whole inbox read."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      upTo: Schema.DateFromString.annotate({
+        description: "The `listedAt` from `list_inbox`, an ISO time."
+      })
+    }),
+    success: Schema.Struct({ read: Schema.Int })
   })
 )
 

@@ -17,7 +17,11 @@ const NOT_IN_COMMAND_MENU: Readonly<Partial<Record<ToolName, string>>> = {
   update_sprint: "Sprints are edited on the sprints page",
   complete_sprint: "Sprints are completed on the sprints page",
   rebuild_ticket_index: "Index repair is an operator task",
-  add_tickets_to_group: "Tickets are moved into sprints by drag and drop"
+  add_tickets_to_group: "Tickets are moved into sprints by drag and drop",
+  read_inbox_entry: "Inbox entries are worked from the inbox's keys and menu",
+  unread_inbox_entry: "Inbox entries are worked from the inbox's keys and menu",
+  delete_inbox_entry: "Inbox entries are worked from the inbox's keys and menu",
+  read_all_inbox: "Mark all read is in the inbox header"
 }
 
 const writeTools = Object.entries(Tools.tools)

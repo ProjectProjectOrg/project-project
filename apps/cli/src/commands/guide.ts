@@ -24,6 +24,7 @@ export const guideText = [
     agentGuide.statuses,
     agentGuide.findingTickets,
     agentGuide.workingOnTicket,
+    agentGuide.inbox,
     agentGuide.refining,
     agentGuide.writing,
     agentGuide.blocks,

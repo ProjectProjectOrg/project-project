@@ -12,6 +12,7 @@ import { upgradeCommand } from "./upgrade"
 
 const groupDescriptions: Readonly<Record<string, string>> = {
   tickets: "Read, create and change tickets.",
+  inbox: "Your assignments, mentions and updates to work through.",
   orgs: "Organizations you belong to.",
   projects: "Projects in an organization.",
   groups: "Sprints, epics, milestones and other groups of tickets.",
