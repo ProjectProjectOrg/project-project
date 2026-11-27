@@ -7,7 +7,11 @@ import {
   serializeCommentsRegion,
   type CommentBlock
 } from "../comments/comments-region"
-import { subscriptionIntents, type SubscriptionSource } from "./intents"
+import {
+  commentChanges,
+  subscriptionIntents,
+  type SubscriptionSource
+} from "./intents"
 
 const userId = Schema.decodeUnknownSync(UserId)
 
@@ -111,5 +115,22 @@ describe("subscriptionIntents", () => {
     expect(reasons(null, { ...base, assignees: [userId("creator")] })).toEqual([
       ["creator", "assigned"]
     ])
+  })
+})
+
+describe("commentChanges", () => {
+  it("keeps a thread named after its root, even once the root is gone", () => {
+    const root = comment("c_root", "ann", "Root")
+    const reply = { ...comment("c_reply", "bob", "Reply"), replyTo: "c_root" }
+    const edited = { ...reply, body: `Reply ${mention("carl")}` }
+    const thread = (blocks: ReadonlyArray<CommentBlock>) =>
+      commentChanges(
+        serializeCommentsRegion([root, reply]),
+        serializeCommentsRegion(blocks)
+      ).map((change) => change.threadId)
+    expect(thread([root, edited])).toEqual(["c_root"])
+    expect(thread([edited])).toEqual(["c_root"])
+    const answer = { ...comment("c_answer", "carl", "Ok"), replyTo: "c_reply" }
+    expect(thread([reply, answer])).toEqual(["c_root"])
   })
 })

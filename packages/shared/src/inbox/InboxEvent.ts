@@ -38,8 +38,21 @@ export const InboxEvent = Schema.Union([
 export type InboxEvent = typeof InboxEvent.Type
 export type InboxEventEncoded = typeof InboxEvent.Encoded
 
-export const DirectReason = Schema.Literals(["assigned", "mentioned"])
-export type DirectReason = typeof DirectReason.Type
+export const InboxEntryKind = Schema.Literals([
+  "assigned",
+  "mentioned",
+  "updates"
+])
+export type InboxEntryKind = typeof InboxEntryKind.Type
 
-export const InboxState = Schema.Literals(["unread", "read", "done"])
-export type InboxState = typeof InboxState.Type
+export const InboxEntryState = Schema.Literals(["unread", "read", "cleared"])
+export type InboxEntryState = typeof InboxEntryState.Type
+
+export const InboxClearedBy = Schema.Literals([
+  "read",
+  "replied",
+  "deleted",
+  "unassigned",
+  "finished"
+])
+export type InboxClearedBy = typeof InboxClearedBy.Type
