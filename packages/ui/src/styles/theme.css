@@ -1146,7 +1146,9 @@
   pointer-events: none !important;
 }
 
-/* A submenu left for a sibling goes at once; only the last one fades. */
+/* A submenu left for a sibling holds for 50ms, under the next one, then goes
+   at once: Base UI shows a submenu a frame after it opens, once it is placed,
+   and the menu would blink empty in between. Only the last one fades. */
 [data-base-ui-portal]:has(
     > [data-base-ui-portal]
       > [data-slot="dropdown-menu-sub-positioner"]
@@ -1155,7 +1157,18 @@
   > [data-base-ui-portal]
   > [data-slot="dropdown-menu-sub-positioner"]
   > [data-slot="dropdown-menu-sub-content"][data-ending-style] {
-  transition: none;
+  transition: opacity 0s linear 50ms;
+}
+[data-base-ui-portal]:has(
+    > [data-base-ui-portal]
+      > [data-slot="dropdown-menu-sub-positioner"]
+      > [data-slot="dropdown-menu-sub-content"][data-ending-style]
+  )
+  > [data-base-ui-portal]
+  > [data-slot="dropdown-menu-sub-positioner"]:has(
+    > [data-slot="dropdown-menu-sub-content"][data-open]
+  ) {
+  z-index: 1;
 }
 
 /* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
