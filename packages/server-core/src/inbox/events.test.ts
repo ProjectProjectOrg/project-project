@@ -79,9 +79,14 @@ describe("stageInbox", () => {
       ]
     })
     expect(staged?.direct).toEqual([
-      { userId: "bob", event: { kind: "assigned" } }
+      {
+        userId: "bob",
+        key: "assigned",
+        event: { kind: "assigned" },
+        commentId: null
+      }
     ])
-    expect(staged?.resolve).toEqual([{ kind: "assigned", userId: "carl" }])
+    expect(staged?.resolve).toEqual([{ kind: "unassigned", userId: "carl" }])
     expect(staged?.subscribers).toEqual([
       { kind: "reassigned", added: ["bob"], removed: ["carl"] }
     ])
@@ -94,7 +99,7 @@ describe("stageInbox", () => {
     ).toMatchObject({ resolve: [], unblockWith: null })
     expect(
       stageInbox({ ...base, changes: statusTo("done"), finished })
-    ).toMatchObject({ resolve: [{ kind: "all" }], unblockWith: ["done"] })
+    ).toMatchObject({ resolve: [{ kind: "finished" }], unblockWith: ["done"] })
   })
 
   it("unblocks only when the ticket leaves the open statuses", () => {
@@ -114,7 +119,7 @@ describe("stageInbox", () => {
         ],
         finished
       })
-    ).toMatchObject({ resolve: [{ kind: "all" }], unblockWith: null })
+    ).toMatchObject({ resolve: [{ kind: "finished" }], unblockWith: null })
     expect(
       stageInbox({
         ...base,
@@ -150,7 +155,7 @@ describe("stageInbox", () => {
         ],
         finished: new Set(["done"])
       })
-    ).toMatchObject({ direct: [], resolve: [{ kind: "all" }] })
+    ).toMatchObject({ direct: [], resolve: [{ kind: "finished" }] })
   })
 
   it("stays quiet for imports and cleanup, but not for git automation", () => {
@@ -179,17 +184,44 @@ describe("stageInbox", () => {
     ).toMatchObject({ notify: true, actor: { actorKind: "system" } })
   })
 
-  it("tells subscribers about a comment and resolves its author's mention", () => {
+  it("tells subscribers about a comment and clears its author's mention in that thread", () => {
     expect(
       stageInbox({
         ...base,
-        notices: [InboxNotice.commented({ authorId: "ann", commentId: "c1" })]
+        notices: [
+          InboxNotice.commented({
+            authorId: "ann",
+            commentId: "c2",
+            threadId: "c1"
+          })
+        ]
       })
     ).toMatchObject({
-      subscribers: [{ kind: "commented", commentId: "c1" }],
-      resolve: [{ kind: "mentioned", userId: "ann" }],
+      version: 2,
+      subscribers: [{ kind: "commented", commentId: "c2" }],
+      resolve: [{ kind: "replied", userId: "ann", threadId: "c1" }],
       readBy: true
     })
+  })
+
+  it("keys a mention by its thread, or the description", () => {
+    expect(
+      stageInbox({
+        ...base,
+        notices: [
+          InboxNotice.mentioned({
+            userId: "bob",
+            commentId: "c2",
+            threadId: "c1"
+          }),
+          InboxNotice.mentioned({
+            userId: "bob",
+            commentId: null,
+            threadId: null
+          })
+        ]
+      })?.direct.map((delivery) => delivery.key)
+    ).toEqual(["mention:thread:c1", "mention:description"])
   })
 })
 
@@ -205,8 +237,12 @@ describe("inboxNotices", () => {
         ])
       })
     ).toEqual([
-      InboxNotice.commented({ authorId: "carl", commentId: "c2" }),
-      InboxNotice.mentioned({ userId: "bob", commentId: "c2" })
+      InboxNotice.commented({
+        authorId: "carl",
+        commentId: "c2",
+        threadId: "c2"
+      }),
+      InboxNotice.mentioned({ userId: "bob", commentId: "c2", threadId: "c2" })
     ])
   })
 

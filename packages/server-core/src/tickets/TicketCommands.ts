@@ -82,7 +82,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import { openSprintOf, type SprintFiles } from "../groups/sprintMembership"
-import { lockTickets } from "../inbox/inboxRows"
+import { lockTickets } from "../inbox/inboxEntries"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -1675,14 +1675,14 @@ const make = Effect.gen(function* () {
                       )
                     )
                   yield* db
-                    .update(schema.inboxRow)
+                    .update(schema.inboxEntry)
                     .set(target)
                     .where(
                       and(
-                        eq(schema.inboxRow.projectId, source.projectId),
-                        eq(schema.inboxRow.ticketId, from),
+                        eq(schema.inboxEntry.projectId, source.projectId),
+                        eq(schema.inboxEntry.ticketId, from),
                         inArray(
-                          schema.inboxRow.userId,
+                          schema.inboxEntry.userId,
                           db
                             .select({ userId: schema.projectMember.userId })
                             .from(schema.projectMember)
@@ -1696,11 +1696,11 @@ const make = Effect.gen(function* () {
                       )
                     )
                   yield* db
-                    .delete(schema.inboxRow)
+                    .delete(schema.inboxEntry)
                     .where(
                       and(
-                        eq(schema.inboxRow.projectId, source.projectId),
-                        eq(schema.inboxRow.ticketId, from)
+                        eq(schema.inboxEntry.projectId, source.projectId),
+                        eq(schema.inboxEntry.ticketId, from)
                       )
                     )
                 }),

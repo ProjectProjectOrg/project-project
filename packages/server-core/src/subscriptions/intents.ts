@@ -53,12 +53,19 @@ export const commentChanges = (before: string, after: string) => {
   const previous = new Map(
     parseCommentsRegion(before).map((block) => [block.id, block.body])
   )
-  return parseCommentsRegion(after).flatMap((block) => {
+  const blocks = parseCommentsRegion(after)
+  const replyTo = new Map(blocks.map((block) => [block.id, block.replyTo]))
+  const threadOf = (block: (typeof blocks)[number]) =>
+    block.replyTo === undefined
+      ? block.id
+      : (replyTo.get(block.replyTo) ?? block.replyTo)
+  return blocks.flatMap((block) => {
     const earlier = previous.get(block.id)
     if (earlier === block.body) return []
     return [
       {
         commentId: block.id,
+        threadId: threadOf(block),
         authorId: block.author.kind === "user" ? block.author.userId : null,
         native: block.origin === "native",
         isNew: earlier === undefined,

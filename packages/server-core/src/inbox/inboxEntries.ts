@@ -1,19 +1,18 @@
 import { Db } from "@pp/db"
 import {
-  inboxRow,
+  inboxEntry,
   projectMember,
   ticketIndex,
   ticketRelationIndex,
   ticketSubscription,
-  type InboxDirect,
-  type StagedInbox
+  type StagedInbox,
+  type StagedInboxDelivery
 } from "@pp/db/schema"
-import type { InboxEventEncoded } from "@pp/shared"
 import { and, eq, inArray, ne, sql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
-import { deliver, read, resolve, type InboxRowValue } from "./rows"
+import { deliver, read, resolve, updatesKey, type EntryValue } from "./entries"
 
 type Database = Db["Service"]
 
@@ -35,21 +34,35 @@ export const lockTickets = (
       yield* db.execute(sql`select pg_advisory_xact_lock(${hash})`)
   })
 
-const loadRows = (db: Database, projectId: string, ticketId: string) =>
+const slot = (userId: string, key: string) => `${userId}\u0000${key}`
+
+type Slot = Readonly<{ userId: string; key: string; value: EntryValue }>
+
+const loadEntries = (db: Database, projectId: string, ticketId: string) =>
   db
     .select()
-    .from(inboxRow)
+    .from(inboxEntry)
     .where(
-      and(eq(inboxRow.projectId, projectId), eq(inboxRow.ticketId, ticketId))
+      and(
+        eq(inboxEntry.projectId, projectId),
+        eq(inboxEntry.ticketId, ticketId)
+      )
     )
     .pipe(
       Effect.map(
         (rows) =>
-          new Map<string, InboxRowValue>(
-            rows.map(({ projectId: _p, ticketId: _t, userId, ...value }) => [
-              userId,
-              value
-            ])
+          new Map<string, Slot>(
+            rows.map(
+              ({
+                id: _id,
+                projectId: _p,
+                ticketId: _t,
+                createdAt: _c,
+                userId,
+                key,
+                ...value
+              }) => [slot(userId, key), { userId, key, value }]
+            )
           )
       )
     )
@@ -89,49 +102,48 @@ const upsert = (
   db: Database,
   projectId: string,
   ticketId: string,
-  rows: ReadonlyMap<string, InboxRowValue>
+  entries: ReadonlyMap<string, Slot>
 ) =>
-  rows.size === 0
+  entries.size === 0
     ? Effect.void
     : db
-        .insert(inboxRow)
+        .insert(inboxEntry)
         .values(
-          [...rows].map(([userId, value]) => ({
+          [...entries.values()].map(({ userId, key, value }) => ({
             projectId,
             ticketId,
             userId,
+            key,
             ...value
           }))
         )
         .onConflictDoUpdate({
-          target: [inboxRow.projectId, inboxRow.ticketId, inboxRow.userId],
+          target: [
+            inboxEntry.projectId,
+            inboxEntry.ticketId,
+            inboxEntry.userId,
+            inboxEntry.key
+          ],
           set: {
+            kind: sql`excluded.kind`,
             state: sql`excluded.state`,
-            direct: sql`excluded.direct`,
+            clearedBy: sql`excluded.cleared_by`,
+            resolvedAt: sql`excluded.resolved_at`,
+            revision: sql`excluded.revision`,
+            readRevision: sql`excluded.read_revision`,
+            eventCount: sql`excluded.event_count`,
             latest: sql`excluded.latest`,
             latestAt: sql`excluded.latest_at`,
+            commentId: sql`excluded.comment_id`,
             actorKind: sql`excluded.actor_kind`,
             actorUserId: sql`excluded.actor_user_id`,
             actorClientId: sql`excluded.actor_client_id`,
             actorClientName: sql`excluded.actor_client_name`,
             actorSource: sql`excluded.actor_source`,
-            unreadCount: sql`excluded.unread_count`,
-            lastReadAt: sql`excluded.last_read_at`,
             readByClientName: sql`excluded.read_by_client_name`
           }
         })
         .pipe(Effect.asVoid)
-
-const directEntry = (event: InboxEventEncoded, at: string) =>
-  event.kind === "assigned"
-    ? ({ reason: "assigned", at, commentId: null } satisfies InboxDirect)
-    : event.kind === "mentioned"
-      ? ({
-          reason: "mentioned",
-          at,
-          commentId: event.commentId
-        } satisfies InboxDirect)
-      : null
 
 const isStillBlocked = (
   db: Database,
@@ -173,9 +185,26 @@ const isStillBlocked = (
     )
   })
 
+const deliverTo = (
+  entries: ReadonlyMap<string, Slot>,
+  changed: Map<string, Slot>,
+  userId: string,
+  delivery: Omit<StagedInboxDelivery, "userId">,
+  at: Date,
+  actor: StagedInbox["actor"]
+) => {
+  const id = slot(userId, delivery.key)
+  const current = changed.get(id) ?? entries.get(id) ?? null
+  changed.set(id, {
+    userId,
+    key: delivery.key,
+    value: deliver(current?.value ?? null, { ...delivery, at, actor })
+  })
+}
+
 export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
   Effect.gen(function* () {
-    if (staged === null) return
+    if (staged === null || staged.version !== 2) return
     const db = yield* Db
     const at = DateTime.toDate(DateTime.makeUnsafe(staged.occurredAt))
     const actorUserId = staged.actor.actorUserId ?? null
@@ -196,15 +225,13 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
       staged.ticketId,
       ...waiting.map((entry) => entry.ticketId)
     ])
-    const rows = yield* loadRows(db, projectId, staged.ticketId)
-    const changed = new Map<string, InboxRowValue>()
-    const current = (userId: string) =>
-      changed.get(userId) ?? rows.get(userId) ?? null
+    const entries = yield* loadEntries(db, projectId, staged.ticketId)
+    const changed = new Map<string, Slot>()
 
     if (staged.resolve.length > 0)
-      for (const [userId, row] of rows) {
-        const next = resolve(row, userId, staged.resolve, at)
-        if (next !== row) changed.set(userId, next)
+      for (const [id, { userId, key, value }] of entries) {
+        const next = resolve(value, key, userId, staged.resolve, at)
+        if (next !== value) changed.set(id, { userId, key, value: next })
       }
 
     if (staged.notify) {
@@ -213,49 +240,52 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
         projectId,
         staged.direct.map((entry) => entry.userId)
       )
-      const deliveries = new Map<
-        string,
-        { event: InboxEventEncoded; direct: Array<InboxDirect> }
-      >()
-      for (const { userId, event } of staged.direct) {
+      const reached = new Set<string>()
+      for (const { userId, ...delivery } of staged.direct) {
         if (userId === actorUserId || !members.has(userId)) continue
-        const entry = directEntry(event, staged.occurredAt)
-        const delivery = deliveries.get(userId) ?? { event, direct: [] }
-        deliveries.set(userId, {
-          event,
-          direct: entry === null ? delivery.direct : [...delivery.direct, entry]
-        })
+        reached.add(userId)
+        deliverTo(entries, changed, userId, delivery, at, staged.actor)
       }
-      const latest = staged.subscribers.at(-1)
-      if (latest !== undefined)
+      if (staged.subscribers.length > 0)
         for (const userId of yield* subscribersOf(
           db,
           projectId,
           staged.ticketId
         )) {
-          if (userId === actorUserId || deliveries.has(userId)) continue
-          deliveries.set(userId, { event: latest, direct: [] })
+          if (userId === actorUserId || reached.has(userId)) continue
+          for (const event of staged.subscribers)
+            deliverTo(
+              entries,
+              changed,
+              userId,
+              {
+                key: updatesKey,
+                event,
+                commentId: event.kind === "commented" ? event.commentId : null
+              },
+              at,
+              staged.actor
+            )
         }
-      for (const [userId, delivery] of deliveries)
-        changed.set(
-          userId,
-          deliver(current(userId), { ...delivery, at, actor: staged.actor })
-        )
     }
 
     if (staged.readBy && actorUserId !== null) {
-      const row = current(actorUserId)
-      if (row !== null)
-        changed.set(
-          actorUserId,
-          read(
-            row,
-            at,
+      const id = slot(actorUserId, updatesKey)
+      const current = changed.get(id) ?? entries.get(id)
+      if (
+        current !== undefined &&
+        current.value.latestAt.getTime() <= at.getTime()
+      )
+        changed.set(id, {
+          ...current,
+          value: read(
+            current.value,
+            current.value.revision,
             staged.actor.actorKind === "agent"
               ? (staged.actor.actorClientName ?? null)
               : null
           )
-        )
+        })
     }
 
     yield* upsert(db, projectId, staged.ticketId, changed)
@@ -273,18 +303,21 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
         )
       )
         continue
-      const waitingRows = yield* loadRows(db, projectId, ticketId)
-      const unblocked = new Map<string, InboxRowValue>()
+      const waitingEntries = yield* loadEntries(db, projectId, ticketId)
+      const unblocked = new Map<string, Slot>()
       for (const userId of yield* subscribersOf(db, projectId, ticketId)) {
         if (userId === actorUserId) continue
-        unblocked.set(
+        deliverTo(
+          waitingEntries,
+          unblocked,
           userId,
-          deliver(waitingRows.get(userId) ?? null, {
+          {
+            key: updatesKey,
             event: { kind: "unblocked", by: staged.ticketId },
-            direct: [],
-            at,
-            actor: staged.actor
-          })
+            commentId: null
+          },
+          at,
+          staged.actor
         )
       }
       yield* upsert(db, projectId, ticketId, unblocked)
@@ -294,8 +327,11 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
 export const removeTicketInbox = (projectId: string, ticketId: string) =>
   Effect.flatMap(Db, (db) =>
     db
-      .delete(inboxRow)
+      .delete(inboxEntry)
       .where(
-        and(eq(inboxRow.projectId, projectId), eq(inboxRow.ticketId, ticketId))
+        and(
+          eq(inboxEntry.projectId, projectId),
+          eq(inboxEntry.ticketId, ticketId)
+        )
       )
   )

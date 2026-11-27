@@ -28,7 +28,11 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 
 import { stageInbox, type InboxNotice } from "../inbox/events"
-import { applyInbox, lockTickets, removeTicketInbox } from "../inbox/inboxRows"
+import {
+  applyInbox,
+  lockTickets,
+  removeTicketInbox
+} from "../inbox/inboxEntries"
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import { removeTicketPins } from "../pins/pinRows"

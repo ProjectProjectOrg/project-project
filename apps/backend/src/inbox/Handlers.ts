@@ -8,6 +8,6 @@ export const InboxHandlerLive = HttpApiBuilder.group(
   "inbox",
   (handlers) =>
     handlers.handle("markRead", ({ params }) =>
-      Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markRead(params.id))
+      Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markTicketRead(params.id))
     )
 )

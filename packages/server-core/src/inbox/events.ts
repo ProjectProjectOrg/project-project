@@ -1,4 +1,8 @@
-import type { InboxResolution, StagedInbox } from "@pp/db/schema"
+import type {
+  InboxResolution,
+  StagedInbox,
+  StagedInboxDelivery
+} from "@pp/db/schema"
 import {
   ActivityActor,
   InboxEvent,
@@ -15,11 +19,16 @@ import {
   newlyMentioned,
   type SubscriptionSource
 } from "../subscriptions/intents"
+import { assignedKey, mentionKey } from "./entries"
 
 export type InboxNotice = Data.TaggedEnum<{
   assigned: Readonly<{ userId: string }>
-  mentioned: Readonly<{ userId: string; commentId: string | null }>
-  commented: Readonly<{ authorId: string; commentId: string }>
+  mentioned: Readonly<{
+    userId: string
+    commentId: string | null
+    threadId: string | null
+  }>
+  commented: Readonly<{ authorId: string; commentId: string; threadId: string }>
 }>
 export const InboxNotice = Data.taggedEnum<InboxNotice>()
 
@@ -45,6 +54,14 @@ const CLEANUP_CAUSES: ReadonlySet<ActivityCause> = new Set([
 
 const encodeEvent = Schema.encodeSync(InboxEvent)
 
+const assignedDelivery = (userId: string) =>
+  ({
+    userId,
+    key: assignedKey,
+    event: encodeEvent({ kind: "assigned" }),
+    commentId: null
+  }) satisfies StagedInboxDelivery
+
 export const inboxNotices = (
   before: SubscriptionSource | null,
   after: SubscriptionSource
@@ -53,7 +70,7 @@ export const inboxNotices = (
     ? after.assignees.map((userId) => InboxNotice.assigned({ userId }))
     : []),
   ...newlyMentioned(before?.body ?? "", after.body).map((userId) =>
-    InboxNotice.mentioned({ userId, commentId: null })
+    InboxNotice.mentioned({ userId, commentId: null, threadId: null })
   ),
   ...commentChanges(before?.commentsRegion ?? "", after.commentsRegion)
     .filter((comment) => comment.native)
@@ -62,12 +79,17 @@ export const inboxNotices = (
         ? [
             InboxNotice.commented({
               authorId: comment.authorId,
-              commentId: comment.commentId
+              commentId: comment.commentId,
+              threadId: comment.threadId
             })
           ]
         : []),
       ...comment.mentioned.map((userId) =>
-        InboxNotice.mentioned({ userId, commentId: comment.commentId })
+        InboxNotice.mentioned({
+          userId,
+          commentId: comment.commentId,
+          threadId: comment.threadId
+        })
       )
     ])
 ]
@@ -85,8 +107,7 @@ export const stageInbox = (input: InboxInput) => {
     !(actor.kind === "system" && actor.source === "import") &&
     !causes.some((cause) => CLEANUP_CAUSES.has(cause))
 
-  const direct: Array<Readonly<{ userId: string; event: InboxEventEncoded }>> =
-    []
+  const direct: Array<StagedInboxDelivery> = []
   const subscribers: Array<InboxEventEncoded> = []
   const resolve: Array<InboxResolution> = []
   let unblocks = false
@@ -102,13 +123,13 @@ export const stageInbox = (input: InboxInput) => {
           })
         )
         if (input.finished?.has(change.to) === true) {
-          resolve.push({ kind: "all" })
+          resolve.push({ kind: "finished" })
           if (!input.finished.has(change.from)) unblocks = true
         }
         break
       case "archived":
         subscribers.push(encodeEvent({ kind: "archived" }))
-        resolve.push({ kind: "all" })
+        resolve.push({ kind: "finished" })
         if (
           input.statusBefore === null ||
           input.finished?.has(input.statusBefore) !== true
@@ -116,10 +137,9 @@ export const stageInbox = (input: InboxInput) => {
           unblocks = true
         break
       case "assignees_changed":
-        for (const userId of change.added)
-          direct.push({ userId, event: encodeEvent({ kind: "assigned" }) })
+        for (const userId of change.added) direct.push(assignedDelivery(userId))
         for (const userId of change.removed)
-          resolve.push({ kind: "assigned", userId })
+          resolve.push({ kind: "unassigned", userId })
         subscribers.push(
           encodeEvent({
             kind: "reassigned",
@@ -147,23 +167,25 @@ export const stageInbox = (input: InboxInput) => {
 
   for (const notice of input.notices) {
     InboxNotice.$match(notice, {
-      commented: ({ authorId, commentId }) => {
+      commented: ({ authorId, commentId, threadId }) => {
         subscribers.push(encodeEvent({ kind: "commented", commentId }))
-        resolve.push({ kind: "mentioned", userId: authorId })
+        resolve.push({ kind: "replied", userId: authorId, threadId })
       },
-      mentioned: ({ userId, commentId }) => {
+      mentioned: ({ userId, commentId, threadId }) => {
         direct.push({
           userId,
-          event: encodeEvent({ kind: "mentioned", commentId })
+          key: mentionKey(threadId),
+          event: encodeEvent({ kind: "mentioned", commentId }),
+          commentId
         })
       },
       assigned: ({ userId }) => {
-        direct.push({ userId, event: encodeEvent({ kind: "assigned" }) })
+        direct.push(assignedDelivery(userId))
       }
     })
   }
 
-  const delivered = resolve.some((resolution) => resolution.kind === "all")
+  const delivered = resolve.some((resolution) => resolution.kind === "finished")
     ? []
     : direct
 
@@ -179,6 +201,7 @@ export const stageInbox = (input: InboxInput) => {
     return null
 
   return {
+    version: 2,
     ticketId: input.ticketId,
     occurredAt: input.occurredAt,
     actor: actorColumns(actor),

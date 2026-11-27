@@ -6,12 +6,15 @@ import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
   ActivityActor,
+  NotFound,
+  OrgScope,
   ProjectScope,
   TicketId,
   TicketStatus,
   UserId
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -19,12 +22,13 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
-import { projectScope } from "../access/testing"
+import { orgScope, projectScope } from "../access/testing"
 import type { TicketScopedChange } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Markdown from "../markdown/Markdown"
-import { InboxNotice } from "./events"
+import { InboxNotice, stageInbox } from "./events"
 import * as Inbox from "./Inbox"
+import { applyInbox } from "./inboxEntries"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -74,7 +78,7 @@ const TestLayer = Layer.unwrap(
         )
       ),
       Inbox.layer
-    ).pipe(Layer.provide(DbLive.pipe(Layer.provideMerge(PgLive))))
+    ).pipe(Layer.provideMerge(DbLive.pipe(Layer.provideMerge(PgLive))))
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
@@ -180,65 +184,129 @@ const record = (
     )
   ).pipe(Effect.provideService(ActivityActor, actor))
 
-const rows = (project: Project) =>
+const entries = (project: Project) =>
   sql(
-    `select ticket_id, user_id, state, unread_count, latest, direct, read_by_client_name
-       from inbox_row where project_id = $1 order by ticket_id, user_id`,
+    `select id, ticket_id, user_id, key, kind, state, cleared_by, revision, event_count, latest, read_by_client_name
+       from inbox_entry where project_id = $1 order by ticket_id, user_id, key`,
     [project.projectId]
   ).pipe(
     Effect.map((result) =>
       result.rows.map((row) => ({
+        id: row.id as string,
         ticket: row.ticket_id,
         user: row.user_id,
+        key: row.key,
+        kind: row.kind,
         state: row.state,
-        count: row.unread_count,
+        clearedBy: row.cleared_by,
+        revision: row.revision,
+        count: row.event_count,
         latest: row.latest.kind,
-        direct: row.direct.map(
-          (entry: Readonly<{ reason: string }>) => entry.reason
-        ),
         readBy: row.read_by_client_name
       }))
     )
   )
 
+const entryOf = (project: Project, user: string, key: string) =>
+  Effect.map(entries(project), (all) => {
+    const found = all.find((entry) => entry.user === user && entry.key === key)
+    if (found === undefined) throw new Error(`no ${key} entry for ${user}`)
+    return found
+  })
+
+const asOrgMember = (project: Project, user: string) =>
+  Effect.provideService(
+    OrgScope,
+    orgScope("member", {
+      userId: user,
+      organizationId: project.organizationId,
+      orgSlug: project.orgSlug
+    })
+  )
+
+const assign = (who: string) => [
+  {
+    ticketId: ticketId("T-1"),
+    change: {
+      kind: "assignees_changed" as const,
+      added: [userId(who)],
+      removed: []
+    }
+  }
+]
+
 describe.skipIf(!databaseUrl)("inbox", () => {
   it.live(
-    "tells subscribers and mentioned people, never the person acting",
+    "gives each reason its own entry, and never tells the person acting",
     () =>
       Effect.gen(function* () {
         const project = yield* seedProject
         yield* subscribe(project, "T-1", project.ann)
         yield* subscribe(project, "T-1", project.bob)
+        yield* subscribe(project, "T-1", project.carl)
         yield* record(project, ActivityActor.user(project.ann), {
+          changes: assign(project.carl),
           notices: [
-            InboxNotice.commented({ authorId: project.ann, commentId: "c1" }),
-            InboxNotice.mentioned({ userId: project.carl, commentId: "c1" })
+            InboxNotice.commented({
+              authorId: project.ann,
+              commentId: "c1",
+              threadId: "c1"
+            }),
+            InboxNotice.mentioned({
+              userId: project.carl,
+              commentId: "c1",
+              threadId: "c1"
+            })
           ]
         })
-        expect(yield* rows(project)).toMatchObject([
-          {
-            user: project.bob,
-            state: "unread",
-            latest: "commented",
-            direct: []
-          },
-          {
-            user: project.carl,
-            state: "unread",
-            latest: "mentioned",
-            direct: ["mentioned"]
-          }
+        expect(yield* entries(project)).toMatchObject([
+          { user: project.bob, key: "updates", state: "unread" },
+          { user: project.carl, key: "assigned", kind: "assigned" },
+          { user: project.carl, key: "mention:thread:c1", kind: "mentioned" }
         ])
       }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
-  it.live("your agent replying resolves your mention and reads for you", () =>
+  it.live(
+    "a mention in another thread is another entry; a repeat updates it",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        const mention = (commentId: string, threadId: string) =>
+          record(project, ActivityActor.user(project.ann), {
+            notices: [
+              InboxNotice.mentioned({
+                userId: project.bob,
+                commentId,
+                threadId
+              })
+            ]
+          })
+        yield* mention("c1", "c1")
+        yield* mention("c2", "c2")
+        yield* mention("c3", "c1")
+        expect(yield* entries(project)).toMatchObject([
+          { key: "mention:thread:c1", revision: 2, count: 2 },
+          { key: "mention:thread:c2", revision: 1, count: 1 }
+        ])
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("your agent replying in the thread clears that mention", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      yield* subscribe(project, "T-1", project.bob)
       yield* record(project, ActivityActor.user(project.ann), {
         notices: [
-          InboxNotice.mentioned({ userId: project.bob, commentId: "c1" })
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: "c1",
+            threadId: "c1"
+          }),
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: null,
+            threadId: null
+          })
         ]
       })
       yield* record(
@@ -246,13 +314,162 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         ActivityActor.agent(project.bob, { id: "cc", name: "Claude Code" }),
         {
           notices: [
-            InboxNotice.commented({ authorId: project.bob, commentId: "c2" })
+            InboxNotice.commented({
+              authorId: project.bob,
+              commentId: "c2",
+              threadId: "c1"
+            })
           ]
         }
       )
-      expect(yield* rows(project)).toMatchObject([
-        { user: project.bob, state: "done", direct: [], readBy: "Claude Code" }
+      expect(yield* entries(project)).toMatchObject([
+        { key: "mention:description", state: "unread" },
+        { key: "mention:thread:c1", state: "cleared", clearedBy: "replied" }
       ])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("an older action never reads newer updates for its actor", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* subscribe(project, "T-1", project.bob)
+      yield* record(project, ActivityActor.user(project.ann), {
+        changes: assign(project.carl)
+      })
+      const earlier = DateTime.formatIso(
+        DateTime.subtract(DateTime.nowUnsafe(), { hours: 1 })
+      )
+      yield* applyInbox(
+        project.projectId,
+        stageInbox({
+          ticketId: "T-1",
+          occurredAt: earlier,
+          actor: ActivityActor.user(project.bob),
+          cause: null,
+          changes: [],
+          notices: [],
+          finished: null,
+          statusBefore: null,
+          touched: true
+        })
+      )
+      expect(yield* entryOf(project, project.bob, "updates")).toMatchObject({
+        state: "unread"
+      })
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("read and delete apply only to the revision the person saw", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const mention = (commentId: string) =>
+        record(project, ActivityActor.user(project.ann), {
+          notices: [
+            InboxNotice.mentioned({
+              userId: project.bob,
+              commentId,
+              threadId: "c1"
+            })
+          ]
+        })
+      yield* mention("c1")
+      const seen = yield* entryOf(project, project.bob, "mention:thread:c1")
+      yield* mention("c2")
+      const inbox = yield* Inbox.Inbox
+      const stale = yield* inbox
+        .markRead(seen.id, seen.revision)
+        .pipe(asOrgMember(project, project.bob))
+      expect(stale).toMatchObject({ state: "unread", revision: 2 })
+      const read = yield* inbox
+        .markRead(seen.id, 2)
+        .pipe(asOrgMember(project, project.bob))
+      expect(read).toMatchObject({ state: "read", revision: 2 })
+      const deleted = yield* inbox
+        .remove(seen.id, 2)
+        .pipe(asOrgMember(project, project.bob))
+      expect(deleted).toMatchObject({ state: "cleared", clearedBy: "deleted" })
+      yield* mention("c3")
+      expect(
+        yield* entryOf(project, project.bob, "mention:thread:c1")
+      ).toMatchObject({ state: "unread", clearedBy: null, revision: 3 })
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("an entry belongs to its person; others get NotFound", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* record(project, ActivityActor.user(project.ann), {
+        changes: assign(project.bob)
+      })
+      const entry = yield* entryOf(project, project.bob, "assigned")
+      const error = yield* Effect.flip(
+        Effect.flatMap(Inbox.Inbox, (inbox) =>
+          inbox.markRead(entry.id, 1)
+        ).pipe(asOrgMember(project, project.carl))
+      )
+      expect(error).toBeInstanceOf(NotFound)
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("mark all read clears assignments and updates, keeps mentions", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* subscribe(project, "T-2", project.bob)
+      yield* record(project, ActivityActor.user(project.ann), {
+        changes: assign(project.bob),
+        notices: [
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: "c1",
+            threadId: "c1"
+          })
+        ]
+      })
+      yield* record(project, ActivityActor.user(project.ann), {
+        ticket: "T-2",
+        notices: [
+          InboxNotice.commented({
+            authorId: project.ann,
+            commentId: "c9",
+            threadId: "c9"
+          })
+        ]
+      })
+      const count = yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+        inbox.markAllRead(
+          DateTime.toDate(DateTime.makeUnsafe("2100-01-01T00:00:00.000Z"))
+        )
+      ).pipe(asOrgMember(project, project.bob))
+      expect(count).toBe(3)
+      expect(yield* entries(project)).toMatchObject([
+        { ticket: "T-1", key: "assigned", state: "cleared", clearedBy: "read" },
+        { ticket: "T-1", key: "mention:thread:c1", state: "read" },
+        { ticket: "T-2", key: "updates", state: "cleared", clearedBy: "read" }
+      ])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("a subscriber counts every change in one write", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* subscribe(project, "T-1", project.bob)
+      yield* record(project, ActivityActor.user(project.ann), {
+        changes: [
+          {
+            ticketId: ticketId("T-1"),
+            change: {
+              kind: "status_changed",
+              from: status("todo"),
+              to: status("doing")
+            }
+          },
+          ...assign(project.ann)
+        ]
+      })
+      expect(yield* entryOf(project, project.bob, "updates")).toMatchObject({
+        count: 2,
+        latest: "reassigned"
+      })
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
@@ -279,28 +496,26 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         ],
         finished: new Set(["done"])
       })
-      expect(yield* rows(project)).toMatchObject([
-        { ticket: "T-2", user: project.bob, latest: "unblocked" }
+      expect(yield* entries(project)).toMatchObject([
+        {
+          ticket: "T-2",
+          user: project.bob,
+          key: "updates",
+          latest: "unblocked"
+        }
       ])
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
-  it.live("opening the ticket reads it and resets the count", () =>
+  it.live("opening the ticket elsewhere reads its entries", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
       yield* record(project, ActivityActor.user(project.ann), {
-        changes: [
-          {
-            ticketId: ticketId("T-1"),
-            change: {
-              kind: "assignees_changed",
-              added: [userId(project.bob)],
-              removed: []
-            }
-          }
-        ]
+        changes: assign(project.bob)
       })
-      yield* Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markRead("T-1")).pipe(
+      yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+        inbox.markTicketRead("T-1")
+      ).pipe(
         Effect.provideService(
           ProjectScope,
           projectScope("member", "pm", {
@@ -312,30 +527,28 @@ describe.skipIf(!databaseUrl)("inbox", () => {
           })
         )
       )
-      expect(yield* rows(project)).toMatchObject([
-        {
-          user: project.bob,
-          state: "read",
-          count: 0,
-          direct: ["assigned"],
-          readBy: null
-        }
+      expect(yield* entries(project)).toMatchObject([
+        { user: project.bob, key: "assigned", state: "cleared", count: 0 }
       ])
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
-  it.live("drops a ticket's rows when the ticket is removed", () =>
+  it.live("drops a ticket's entries when the ticket is removed", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
       yield* record(project, ActivityActor.user(project.ann), {
         notices: [
-          InboxNotice.mentioned({ userId: project.bob, commentId: null })
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: null,
+            threadId: null
+          })
         ]
       })
       yield* Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
         activity.removeTicket(project.orgSlug, project.slug, "T-1")
       )
-      expect(yield* rows(project)).toEqual([])
+      expect(yield* entries(project)).toEqual([])
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 })

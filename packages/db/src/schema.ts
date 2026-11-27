@@ -54,9 +54,10 @@ import type {
   ProjectBanner,
   ProjectIconImage,
   TicketActivityChangeEncoded,
-  DirectReason,
+  InboxClearedBy,
+  InboxEntryKind,
+  InboxEntryState,
   InboxEventEncoded,
-  InboxState,
   TypeKey
 } from "@pp/shared"
 import { STATUS_PHASES } from "@pp/shared"
@@ -1173,40 +1174,48 @@ export type TicketActivityOutboxActor = Readonly<
 >
 
 export type InboxResolution =
-  | Readonly<{ kind: "all" }>
-  | Readonly<{ kind: DirectReason; userId: string }>
+  | Readonly<{ kind: "finished" }>
+  | Readonly<{ kind: "unassigned"; userId: string }>
+  | Readonly<{ kind: "replied"; userId: string; threadId: string }>
+
+export type StagedInboxDelivery = Readonly<{
+  userId: string
+  key: string
+  event: InboxEventEncoded
+  commentId: string | null
+}>
 
 export type StagedInbox = Readonly<{
+  version: 2
   ticketId: string
   occurredAt: string
   actor: TicketActivityOutboxActor
   notify: boolean
   readBy: boolean
-  direct: ReadonlyArray<Readonly<{ userId: string; event: InboxEventEncoded }>>
+  direct: ReadonlyArray<StagedInboxDelivery>
   subscribers: ReadonlyArray<InboxEventEncoded>
   resolve: ReadonlyArray<InboxResolution>
   unblockWith: ReadonlyArray<string> | null
 }>
 
-export type InboxDirect = Readonly<{
-  reason: DirectReason
-  at: string
-  commentId: string | null
-}>
-
-export const inboxRow = pgTable(
-  "inbox_row",
+export const inboxEntry = pgTable(
+  "inbox_entry",
   {
+    id: uuid("id").defaultRandom().primaryKey(),
     projectId: uuid("project_id").notNull(),
     ticketId: text("ticket_id").notNull(),
     userId: text("user_id").notNull(),
-    state: text("state").$type<InboxState>().notNull(),
-    direct: jsonb("direct")
-      .$type<ReadonlyArray<InboxDirect>>()
-      .notNull()
-      .default([]),
+    key: text("key").notNull(),
+    kind: text("kind").$type<InboxEntryKind>().notNull(),
+    state: text("state").$type<InboxEntryState>().notNull(),
+    clearedBy: text("cleared_by").$type<InboxClearedBy>(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    revision: integer("revision").notNull().default(1),
+    readRevision: integer("read_revision").notNull().default(0),
+    eventCount: integer("event_count").notNull().default(1),
     latest: jsonb("latest").$type<InboxEventEncoded>().notNull(),
     latestAt: timestamp("latest_at", { withTimezone: true }).notNull(),
+    commentId: text("comment_id"),
     actorKind: text("actor_kind", {
       enum: ["user", "agent", "system"]
     }).notNull(),
@@ -1216,18 +1225,19 @@ export const inboxRow = pgTable(
     actorSource: text("actor_source", {
       enum: ["github", "automation", "import"]
     }),
-    unreadCount: integer("unread_count").notNull().default(0),
-    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
-    readByClientName: text("read_by_client_name")
+    readByClientName: text("read_by_client_name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
   },
   (t) => [
-    primaryKey({ columns: [t.projectId, t.ticketId, t.userId] }),
+    unique("inbox_entry_key_uidx").on(t.projectId, t.ticketId, t.userId, t.key),
     foreignKey({
-      name: "inbox_row_project_member_fkey",
+      name: "inbox_entry_project_member_fkey",
       columns: [t.projectId, t.userId],
       foreignColumns: [projectMember.projectId, projectMember.userId]
     }).onDelete("cascade"),
-    index("inbox_row_user_idx").on(t.userId, t.state, t.latestAt)
+    index("inbox_entry_user_idx").on(t.userId, t.state, t.latestAt)
   ]
 )
 
