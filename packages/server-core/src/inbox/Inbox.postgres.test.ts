@@ -22,10 +22,12 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
+import * as Access from "../access/Access"
 import { orgScope, projectScope } from "../access/testing"
 import type { TicketScopedChange } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Markdown from "../markdown/Markdown"
+import * as Users from "../users/Users"
 import { InboxNotice, stageInbox } from "./events"
 import * as Inbox from "./Inbox"
 import { applyInbox } from "./inboxEntries"
@@ -65,20 +67,20 @@ const TestLayer = Layer.unwrap(
     const root = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-inbox-"
     })
-    return Layer.mergeAll(
-      TicketActivity.layer.pipe(
-        Layer.provideMerge(
-          Markdown.layer.pipe(
-            Layer.provide(
-              ConfigProvider.layer(
-                ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
-              )
+    return Layer.mergeAll(TicketActivity.layer, Inbox.layer).pipe(
+      Layer.provideMerge(Users.layer),
+      Layer.provideMerge(
+        Markdown.layer.pipe(
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
             )
           )
         )
       ),
-      Inbox.layer
-    ).pipe(Layer.provideMerge(DbLive.pipe(Layer.provideMerge(PgLive))))
+      Layer.provideMerge(Access.layer),
+      Layer.provideMerge(DbLive.pipe(Layer.provideMerge(PgLive)))
+    )
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
 
@@ -329,6 +331,61 @@ describe.skipIf(!databaseUrl)("inbox", () => {
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
+  it.live("hides entries from a project the person was removed from", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* record(project, ActivityActor.user(project.ann), {
+        notices: [
+          InboxNotice.mentioned({
+            userId: project.bob,
+            commentId: "c1",
+            threadId: "c1"
+          })
+        ]
+      })
+      const inbox = yield* Inbox.Inbox
+      const asBob = asOrgMember(project, project.bob)
+      expect(yield* inbox.count().pipe(asBob)).toBe(1)
+      yield* sql(
+        "delete from project_member where project_id = $1 and user_id = $2",
+        [project.projectId, project.bob]
+      )
+      expect(yield* inbox.list({}).pipe(asBob)).toEqual([])
+      expect(yield* inbox.count().pipe(asBob)).toBe(0)
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("pages older entries after the last one listed", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      for (const thread of ["c1", "c2", "c3"])
+        yield* record(project, ActivityActor.user(project.ann), {
+          notices: [
+            InboxNotice.mentioned({
+              userId: project.bob,
+              commentId: thread,
+              threadId: thread
+            })
+          ]
+        })
+      const inbox = yield* Inbox.Inbox
+      const first = yield* inbox
+        .list({ limit: 2 })
+        .pipe(asOrgMember(project, project.bob))
+      const last = first.at(-1)
+      expect(first).toHaveLength(2)
+      if (last === undefined) return
+      const rest = yield* inbox
+        .list({ before: { at: last.latestAt, id: last.id } })
+        .pipe(asOrgMember(project, project.bob))
+      expect(
+        [...first, ...rest]
+          .map((entry) => entry.commentId ?? "")
+          .toSorted((a, b) => a.localeCompare(b))
+      ).toEqual(["c1", "c2", "c3"])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
   it.live("an older action never reads newer updates for its actor", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
@@ -471,6 +528,68 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         latest: "reassigned"
       })
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live(
+    "lists the person's entries newest first, with the ticket and actor",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        yield* record(project, ActivityActor.user(project.ann), {
+          changes: assign(project.bob)
+        })
+        yield* record(project, ActivityActor.user(project.carl), {
+          ticket: "T-2",
+          notices: [
+            InboxNotice.mentioned({
+              userId: project.bob,
+              commentId: "c1",
+              threadId: "c1"
+            })
+          ]
+        })
+        const inbox = yield* Inbox.Inbox
+        const listed = yield* inbox
+          .list({})
+          .pipe(asOrgMember(project, project.bob))
+        expect(listed).toMatchObject([
+          {
+            kind: "mentioned",
+            state: "unread",
+            ticket: { id: "T-2", title: "T-2", projectSlug: project.slug },
+            actor: { kind: "user", user: { id: project.carl } },
+            latest: { kind: "mentioned", commentId: "c1" },
+            excerpt: null
+          },
+          {
+            kind: "assigned",
+            ticket: { id: "T-1" },
+            actor: { kind: "user", user: { id: project.ann } }
+          }
+        ])
+        expect(
+          yield* inbox.count().pipe(asOrgMember(project, project.bob))
+        ).toBe(2)
+        yield* inbox
+          .markRead(listed[1].id, listed[1].revision)
+          .pipe(asOrgMember(project, project.bob))
+        expect(
+          (yield* inbox.list({}).pipe(asOrgMember(project, project.bob))).map(
+            (entry) => entry.kind
+          )
+        ).toEqual(["mentioned"])
+        expect(
+          (yield* inbox
+            .list({ state: "all" })
+            .pipe(asOrgMember(project, project.bob))).length
+        ).toBe(2)
+        expect(
+          yield* inbox.count().pipe(asOrgMember(project, project.bob))
+        ).toBe(1)
+        expect(
+          yield* inbox.list({}).pipe(asOrgMember(project, project.carl))
+        ).toEqual([])
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
   it.live("unblocks a waiting ticket once its last open blocker finishes", () =>

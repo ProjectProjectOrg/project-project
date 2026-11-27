@@ -51,6 +51,7 @@ export * from "./github/GitState"
 export * from "./github/types"
 export * from "./github/webhooks"
 
+export * from "./inbox/InboxEntry"
 export * from "./inbox/InboxEvent"
 
 export * from "./groups/Group"
