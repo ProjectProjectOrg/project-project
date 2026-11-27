@@ -1949,6 +1949,25 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             if (winner === "cancel")
               expect(current.retainedUntil).not.toBeNull()
             else expect(current.retainedUntil).toBeNull()
+            // Cancel returns once the interrupt is sent, while the workflow is
+            // still unwinding. Closing the cluster under that unwind can stall
+            // the shard handoff past the test timeout, so let the run finish.
+            if (winner === "cancel")
+              yield* JiraMigrationWorkflow.poll(
+                running.workflowExecutionId!
+              ).pipe(
+                Effect.repeat({
+                  while: (result) =>
+                    Option.isNone(result) ||
+                    !Predicate.isTagged(result.value, "Complete"),
+                  schedule: Schedule.spaced("10 millis")
+                }),
+                Effect.timeoutOrElse({
+                  duration: "5 seconds",
+                  orElse: () =>
+                    Effect.die("the cancelled workflow did not finish")
+                })
+              )
           }).pipe(
             Effect.provide(Layer.merge(commands, scanningWorkflow(p, owner)))
           )
