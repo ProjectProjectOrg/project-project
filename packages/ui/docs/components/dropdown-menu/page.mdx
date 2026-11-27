@@ -164,6 +164,14 @@ A submenu opens as the pointer reaches its row, so sweeping down a menu shows ea
 
 `DropdownMenuSub` holds the submenu's open state and its row opens it on hover, with Base UI's own `openOnHover` off: that one stops the menu's other rows taking the pointer for as long as the submenu is open, which costs two pointer moves per switch. `menu-highlight.tsx` blocks the other rows only while the pointer is heading for the open submenu (`data-menu-aiming`), so a diagonal move into it still crosses them safely. `openOnHover={false}` on a `DropdownMenuSubTrigger` keeps a submenu to click and keyboard.
 
+### Flyout submenus switch without opening a popup
+
+A menu swept quickly (the ticket context menu) passes `flyoutSubmenus` to its content. Its submenus then open as panels in one layer inside the menu's popup instead of a Base UI popup each, and moving from one submenu row to the next is a hard cut in the same task as the pointer event: two rows and two panels change attributes, nothing renders and nothing is measured, because every panel is placed while it is hidden (when it or the menu resizes, or the rows scroll). Opening and closing a Base UI popup costs 11–14ms per switch in the dev build; a flyout switch costs about 3ms, most of it the menu's own row hover. Moving onto a plain row fades the open panel out over 80ms; leaving the menu keeps it.
+
+The rows inside a panel are the same `DropdownMenu*` parts. Inside a panel they render plain rows with Base UI's roles, slots and state attributes, so they look and highlight the same; a part without a flyout version (a label, a nested submenu) throws, and `flyout={false}` on its `DropdownMenuSub` keeps that one submenu on Base UI. A panel uses virtual focus: focus sits on the panel or its search field and `aria-activedescendant` names the highlighted row. Arrow keys, Home and End, Enter and Space, typeahead and a row's digit work as in a Base UI submenu; ArrowLeft or Escape closes the panel and returns focus to its row, and a second Escape closes the menu. Search fields filter on the same rule as `Menu.FilterProvider`.
+
+Rows that change on every hover never feed a `:has()` selector: a toggle of an attribute that a `:has()` rule names restyles the whole page (about 1ms each). The pressed fill keys off `data-menu-pressed`, which the highlight sets on its host, and a submenu row is marked `data-submenu-open`, not `data-popup-open`, which the app's `has-[[data-popup-open]]` utilities watch.
+
 ### Submenus line up with their row
 
 A submenu opens 2px beside the menu, with its first row level with the row that opened it; its own top edge sits 5px higher, by its padding. The arrow on a submenu row ends where a shortcut's last key does, 9px from the highlight.
@@ -205,6 +213,12 @@ The error rolls in and the icon turns into an alert, because the label is alread
 The more-actions menu on a ticket row, opened from its three-dot button. Properties open as submenus with radio rows, the assignee submenu filters as you type, and destructive actions sit last, after a separator.
 
 <Demo name="ticket-actions" title="Ticket actions" className="min-h-[30rem] place-items-start" />
+
+### Flyout submenus
+
+The same menu with `flyoutSubmenus`, as the ticket context menu opens them. Sweep down the rows: each submenu shows the moment the pointer reaches its row.
+
+<Demo name="flyout-submenus" title="Flyout submenus" className="min-h-[30rem] place-items-start" />
 
 ### Status picker
 
