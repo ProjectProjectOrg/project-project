@@ -13,7 +13,7 @@ export type TicketReadRequest = Readonly<{
 export const markTicketRead = Atom.family((req: TicketReadRequest) =>
   Api.runtime.fn(
     Effect.fn("markTicketRead")(function* (_: void) {
-      yield* Api.use((client) => client.inbox.markRead({ params: req }))
+      yield* Api.use((client) => client.inbox.markTicketRead({ params: req }))
     })
   )
 )
