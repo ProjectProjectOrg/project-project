@@ -80,15 +80,15 @@ export function EstimateChip({
   )
 }
 
-// One width for an estimate with a value, so a list's estimate column and a
-// card's chips don't move as values come and go: the chip's icon and padding
-// (28px) plus two characters (points up to 99, XL) or four (time, as its
-// largest unit: "1.5d"). An empty estimate is just its icon.
+// One width for an estimate with a value on a card, so its chips don't move as
+// values come and go: the chip's icon and padding (28px) plus two characters
+// (points up to 99, XL) or four (time, as its largest unit: "1.5d"). An empty
+// estimate is just its icon.
 const twoCharChipWidth = "min-w-[calc(1.75rem+2ch)]"
 const timeChipWidth = "min-w-[calc(1.75rem+4ch)]"
 
-// A list row reserves that width for the column even while the row has no
-// estimate; the empty chip sits at its start, next to the tags.
+// On a row the chip fits its value, and an empty estimate keeps only its
+// icon's room, revealed on hover.
 export function RowEstimate({
   unit,
   ticket,
@@ -100,19 +100,20 @@ export function RowEstimate({
   mode: EstimationMode
 }> &
   ComponentProps<typeof Chip>) {
-  const chip = compactEstimateTrigger(ticket, mode, unit, {
-    "aria-haspopup": unit === "tshirt" ? "menu" : "dialog",
-    "data-tooltip": appHotkeys["tickets.estimate"].meta?.name,
-    "data-tooltip-keys": hotkeyKeys("tickets.estimate"),
-    ...props
-  })
+  const chip = compactEstimateTrigger(
+    ticket,
+    mode,
+    unit,
+    {
+      "aria-haspopup": unit === "tshirt" ? "menu" : "dialog",
+      "data-tooltip": appHotkeys["tickets.estimate"].meta?.name,
+      "data-tooltip-keys": hotkeyKeys("tickets.estimate"),
+      ...props
+    },
+    "fit"
+  )
   return (
-    <span
-      className={cn(
-        "flex text-caption",
-        unit === "time" ? timeChipWidth : twoCharChipWidth
-      )}
-    >
+    <span className="flex text-caption">
       {activeEstimate(ticket.estimate, mode) === null ? (
         <Reveal>{chip}</Reveal>
       ) : (
@@ -250,7 +251,8 @@ function compactEstimateTrigger(
   mode: EstimationMode,
   unit: EstimateUnit,
   props: ComponentProps<typeof Chip> &
-    Readonly<Record<`data-${string}`, string | undefined>> = {}
+    Readonly<Record<`data-${string}`, string | undefined>> = {},
+  width: "steady" | "fit" = "steady"
 ) {
   const active = activeEstimate(ticket.estimate, mode)
   const label =
@@ -264,7 +266,9 @@ function compactEstimateTrigger(
       aria-label={m.tickets_estimate_aria_label({ label })}
       className={cn(
         "tabular-nums",
-        active !== null && (unit === "time" ? timeChipWidth : twoCharChipWidth)
+        width === "steady" &&
+          active !== null &&
+          (unit === "time" ? timeChipWidth : twoCharChipWidth)
       )}
       {...props}
     >

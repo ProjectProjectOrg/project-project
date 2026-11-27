@@ -36,10 +36,12 @@ import { HoverSide } from "./tooltip"
  *   </div>
  *
  * Columns, left to right: lead (the selection checkbox, revealed on hover),
- * status, priority, key, title with trailing chips, estimate
- * and assignee. The CSS variables `--list-lead`, `--list-lead-gap`,
- * `--list-icon` and `--list-row-gap` (theme.css) size the leading columns, so
- * section headers can line up with them; `--ticket-key-width` (set by the
+ * status, priority, key, title with trailing chips and estimate, and
+ * assignee. The estimate belongs to its row, not a list column: a row with
+ * one moves its own chips aside without widening any other row. The CSS
+ * variables `--list-lead`, `--list-lead-gap`, `--list-icon` and
+ * `--list-row-gap` (theme.css) size the leading columns, so section headers
+ * can line up with them; `--ticket-key-width` (set by the
  * list) keeps keys of different lengths one width. A row that isn't a ticket
  * (a sprint) leaves out priority and key; its title then starts where a
  * section header's label does.
@@ -50,7 +52,7 @@ import { HoverSide } from "./tooltip"
 export const listRowHeight = 40
 
 export const listGridClassName =
-  "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_auto_auto]"
+  "@container/list grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(10rem,1fr)_auto]"
 
 const InHoverScopeContext = createContext(false)
 
@@ -386,7 +388,7 @@ export function ListRow({
         </Fields>
         <div
           className={cn(
-            "row-start-1 grid min-w-0 grid-cols-[minmax(10rem,1fr)_minmax(0,auto)] items-center gap-x-(--list-row-gap) self-stretch",
+            "row-start-1 grid min-w-0 grid-cols-[minmax(10rem,1fr)_minmax(0,auto)_auto] items-center gap-x-(--list-row-gap) self-stretch has-[[data-row-estimate]:empty]:grid-cols-[minmax(10rem,1fr)_minmax(0,auto)]",
             ticketColumns ? "col-start-5" : "col-span-3 col-start-3"
           )}
         >
@@ -399,9 +401,13 @@ export function ListRow({
           <div className="-m-1 flex h-8 min-w-0 flex-wrap items-center justify-end gap-1 overflow-hidden p-1 [&>fieldset>span:empty]:hidden">
             {trailing}
           </div>
+          <Fields disabled={disabled}>
+            <div data-row-estimate="" className="flex empty:hidden">
+              {estimate}
+            </div>
+          </Fields>
         </div>
         <Fields disabled={disabled}>
-          <div className="flex justify-end">{estimate}</div>
           <div className="hidden justify-end sm:flex">{assignee}</div>
         </Fields>
       </div>
