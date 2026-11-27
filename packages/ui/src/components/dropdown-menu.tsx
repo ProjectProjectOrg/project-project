@@ -815,6 +815,7 @@ function DropdownMenuList({
   return (
     <MenuPrimitive.List
       data-slot="dropdown-menu-list"
+      data-menu-highlight-host=""
       className={cn("relative -mx-[5px] overflow-x-hidden px-[5px]", className)}
       {...props}
     >

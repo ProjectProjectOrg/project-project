@@ -183,7 +183,6 @@ function observeHighlight(
     document.removeEventListener("pointermove", track, { capture: true })
     mutations.disconnect()
     resizes?.disconnect()
-    container.removeAttribute("data-menu-highlight-host")
   }
 }
 
