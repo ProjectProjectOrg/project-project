@@ -5,7 +5,6 @@ import {
   sprintState,
   type Group,
   type Member,
-  type TicketId,
   type TicketListQuery,
   TicketListSource,
   TicketStatus
@@ -57,7 +56,6 @@ import { m } from "@/paraglide/messages"
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import { SectionList, TicketPagination } from "./SectionList"
-import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
@@ -91,7 +89,6 @@ export function SprintSections(props: Props) {
   useListRowAutoScroll(listElement)
   const groupsReq = sprintListRequest(orgSlug, slug)
   const snapshotReq = sprintSectionsRequest(orgSlug, slug, props.query)
-  const preview = useTicketPreview()
   const groupsResult = useAtomValue(sprintList(groupsReq))
   const snapshotResult = useAtomValue(sprintSections(snapshotReq))
   const refreshGroups = useAtomRefresh(sprintList(groupsReq))
@@ -167,9 +164,6 @@ export function SprintSections(props: Props) {
                 count={section?.count ?? 0}
                 estimates={section?.estimates ?? null}
                 waiting={waiting}
-                activePreviewId={preview.activePreviewId}
-                onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                onPreviewOpenChange={preview.onPreviewOpenChange}
               />
             )
           })}
@@ -214,9 +208,6 @@ type SprintSectionProps = Props &
     count: number
     estimates: SprintSectionValue["estimates"]
     waiting: boolean
-    activePreviewId: TicketId | null
-    onPreviewPointerEnter: (id: TicketId) => void
-    onPreviewOpenChange: (id: TicketId, open: boolean) => void
   }>
 
 function SprintSection({
@@ -227,9 +218,6 @@ function SprintSection({
   count,
   estimates,
   waiting,
-  activePreviewId,
-  onPreviewPointerEnter,
-  onPreviewOpenChange,
   ...props
 }: SprintSectionProps) {
   const id = sprintSectionKey(sprint?.id ?? null)
@@ -314,9 +302,6 @@ function SprintSection({
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
         members={members}
-        activePreviewId={activePreviewId}
-        onPreviewPointerEnter={onPreviewPointerEnter}
-        onPreviewOpenChange={onPreviewOpenChange}
       />
     </div>
   )

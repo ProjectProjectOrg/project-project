@@ -43,7 +43,6 @@ import {
 } from "@/features/tickets/atoms/myTickets"
 import { GroupingMenu } from "@/features/tickets/components/ticket-list/GroupingMenu"
 import { useClearSelectionWhen } from "@/features/tickets/components/ticket-list/TicketSelection"
-import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import {
   createLocalStorageCodec,
   useLocalStorageState
@@ -157,7 +156,6 @@ function MyTicketsList({
 
 function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
   const [expanded, setExpanded] = useState(false)
-  const preview = useTicketPreview()
   const result = useAtomValue(myTickets(req))
   const refresh = useAtomRefresh(myTickets(req))
   return (
@@ -173,7 +171,6 @@ function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
           value={value}
           expanded={expanded}
           setExpanded={setExpanded}
-          preview={preview}
         />
       )}
     />
@@ -184,14 +181,12 @@ function FlatTicketRows({
   req,
   value,
   expanded,
-  setExpanded,
-  preview
+  setExpanded
 }: Readonly<{
   req: MyTicketsRequest
   value: OrgTicketsValue
   expanded: boolean
   setExpanded: (expanded: boolean) => void
-  preview: ReturnType<typeof useTicketPreview>
 }>) {
   const limit = expanded ? undefined : COMPACT_TICKET_LIMIT
   return value.tickets.length === 0 ? (
@@ -204,7 +199,6 @@ function FlatTicketRows({
           limit === undefined ? value.tickets : value.tickets.slice(0, limit)
         }
         update={myTicketUpdates(req)}
-        preview={preview}
       />
       {expanded ? (
         <>
@@ -265,7 +259,6 @@ export function RecentTicketsSection({
   orgSlug
 }: Readonly<{ orgSlug: string }>) {
   const req = recentTicketsRequest(orgSlug)
-  const preview = useTicketPreview()
   const result = useAtomValue(recentTickets(req))
   const refresh = useAtomRefresh(recentTickets(req))
   return (
@@ -287,7 +280,6 @@ export function RecentTicketsSection({
               orgSlug={orgSlug}
               tickets={value.tickets}
               update={recentTicketUpdates(req)}
-              preview={preview}
               below={(item) => <TicketActivityLabel activity={item.activity} />}
             />
           )

@@ -47,11 +47,22 @@ const RELATION_CHIPS = [
   }>
 >
 
-export function RelationChips({
-  ticket,
-  className
-}: Readonly<{ ticket: RelationCounts; className?: string }>) {
+export function RelationChips(
+  props: Readonly<{ ticket: RelationCounts; className?: string }>
+) {
   const { shows } = useDisplayProperties()
+  return <RelationChipList {...props} shows={shows} />
+}
+
+export function RelationChipList({
+  ticket,
+  shows,
+  className
+}: Readonly<{
+  ticket: RelationCounts
+  shows: ReturnType<typeof useDisplayProperties>["shows"]
+  className?: string
+}>) {
   return RELATION_CHIPS.map((chip) => {
     const { relation, field, icon: Icon } = chip
     const n = ticket[field] ?? 0

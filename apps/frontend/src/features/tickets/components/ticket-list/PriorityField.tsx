@@ -62,15 +62,36 @@ export function PriorityMenu({
       >
         <DropdownMenuTrigger render={trigger} />
       </ShortcutTooltip>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
+      <PriorityMenuContent
+        value={value}
+        onChange={onChange}
         className={className}
-        finalFocus={false}
-      >
-        <PriorityOptions value={value} onChange={onChange} />
-      </DropdownMenuContent>
+      />
     </DropdownMenu>
+  )
+}
+
+export function PriorityMenuContent({
+  value,
+  onChange,
+  className = "w-44",
+  anchor,
+  finalFocus = false
+}: Pick<
+  ComponentProps<typeof PriorityMenu>,
+  "value" | "onChange" | "className"
+> &
+  Pick<ComponentProps<typeof DropdownMenuContent>, "anchor" | "finalFocus">) {
+  return (
+    <DropdownMenuContent
+      anchor={anchor}
+      align="start"
+      sideOffset={6}
+      className={className}
+      finalFocus={finalFocus}
+    >
+      <PriorityOptions value={value} onChange={onChange} />
+    </DropdownMenuContent>
   )
 }
 
@@ -136,27 +157,6 @@ export function PrioritySelect({
           </Button>
         )
       }
-    />
-  )
-}
-
-export function PriorityButton({
-  ticket,
-  selected,
-  stopPropagation,
-  onPatch
-}: {
-  ticket: { id: TicketId; priority: TicketPriority }
-  selected?: TicketPriority | null
-  stopPropagation?: boolean
-  onPatch: (patch: TicketEdit) => void
-}) {
-  return (
-    <PrioritySelect
-      value={ticket.priority}
-      selected={selected === undefined ? ticket.priority : selected}
-      stopPropagation={stopPropagation}
-      onChange={(priority) => onPatch({ priority })}
     />
   )
 }

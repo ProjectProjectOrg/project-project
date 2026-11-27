@@ -43,7 +43,7 @@ import {
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { appHotkeys } from "@/lib/appHotkeys"
+import { appHotkeys, hotkeyKeys } from "@/lib/appHotkeys"
 import { formatWorkDurationLong } from "@/lib/duration"
 import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
@@ -91,12 +91,21 @@ const timeChipWidth = "min-w-[calc(1.75rem+4ch)]"
 // estimate; the empty chip sits at its start, next to the tags.
 export function RowEstimate({
   unit,
+  ticket,
+  mode,
   ...props
-}: Pick<
-  ComponentProps<typeof EstimateBadgeTrigger>,
-  "ticket" | "mode" | "onPatch"
-> &
-  Readonly<{ unit: EstimateUnit }>) {
+}: Readonly<{
+  unit: EstimateUnit
+  ticket: EstimateTicket
+  mode: EstimationMode
+}> &
+  ComponentProps<typeof Chip>) {
+  const chip = compactEstimateTrigger(ticket, mode, unit, {
+    "aria-haspopup": unit === "tshirt" ? "menu" : "dialog",
+    "data-tooltip": appHotkeys["tickets.estimate"].meta?.name,
+    "data-tooltip-keys": hotkeyKeys("tickets.estimate"),
+    ...props
+  })
   return (
     <span
       className={cn(
@@ -104,7 +113,11 @@ export function RowEstimate({
         unit === "time" ? timeChipWidth : twoCharChipWidth
       )}
     >
-      <EstimateBadgeTrigger {...props} variant="compact" />
+      {activeEstimate(ticket.estimate, mode) === null ? (
+        <Reveal>{chip}</Reveal>
+      ) : (
+        chip
+      )}
     </span>
   )
 }
@@ -152,8 +165,6 @@ function SizeSelect({
   onPatch: (patch: TicketEdit) => void
   trigger: ReactElement
 }>) {
-  const current =
-    ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
   return (
     <DropdownMenu>
       <ShortcutTooltip
@@ -162,31 +173,53 @@ function SizeSelect({
       >
         <DropdownMenuTrigger render={trigger} />
       </ShortcutTooltip>
-      <DropdownMenuContent align="start" className="w-40" finalFocus={false}>
-        <DropdownMenuRadioGroup
-          items={ESTIMATE_SIZES.map((value) => ({
-            value,
-            label: value,
-            closeOnClick: true
-          }))}
-          value={current}
-          onValueChange={(size) => {
-            if (size !== current) {
-              onPatch({ estimate: { unit: "tshirt", value: size } })
-            }
-          }}
-        />
-        {ticket.estimate !== null && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onPatch({ estimate: null })}>
-              <X className="size-4" strokeWidth={1.75} />
-              {m.tickets_estimate_clear()}
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
+      <SizeMenuContent ticket={ticket} onPatch={onPatch} />
     </DropdownMenu>
+  )
+}
+
+export function SizeMenuContent({
+  ticket,
+  onPatch,
+  anchor,
+  finalFocus = false
+}: Readonly<{
+  ticket: EstimateTicket
+  onPatch: (patch: TicketEdit) => void
+}> &
+  Pick<ComponentProps<typeof DropdownMenuContent>, "anchor" | "finalFocus">) {
+  const current =
+    ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
+  return (
+    <DropdownMenuContent
+      anchor={anchor}
+      align="start"
+      className="w-40"
+      finalFocus={finalFocus}
+    >
+      <DropdownMenuRadioGroup
+        items={ESTIMATE_SIZES.map((value) => ({
+          value,
+          label: value,
+          closeOnClick: true
+        }))}
+        value={current}
+        onValueChange={(size) => {
+          if (size !== current) {
+            onPatch({ estimate: { unit: "tshirt", value: size } })
+          }
+        }}
+      />
+      {ticket.estimate !== null && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onPatch({ estimate: null })}>
+            <X className="size-4" strokeWidth={1.75} />
+            {m.tickets_estimate_clear()}
+          </DropdownMenuItem>
+        </>
+      )}
+    </DropdownMenuContent>
   )
 }
 
@@ -215,7 +248,9 @@ function estimateTrigger(ticket: EstimateTicket, mode: EstimationMode) {
 function compactEstimateTrigger(
   ticket: EstimateTicket,
   mode: EstimationMode,
-  unit: EstimateUnit
+  unit: EstimateUnit,
+  props: ComponentProps<typeof Chip> &
+    Readonly<Record<`data-${string}`, string | undefined>> = {}
 ) {
   const active = activeEstimate(ticket.estimate, mode)
   const label =
@@ -231,6 +266,7 @@ function compactEstimateTrigger(
         "tabular-nums",
         active !== null && (unit === "time" ? timeChipWidth : twoCharChipWidth)
       )}
+      {...props}
     >
       <Icon strokeWidth={1.75} />
       {active !== null && formatEstimateShort(active)}
@@ -238,7 +274,7 @@ function compactEstimateTrigger(
   )
 }
 
-type TypedUnit = Exclude<EstimateUnit, "tshirt">
+export type TypedUnit = Exclude<EstimateUnit, "tshirt">
 
 const INPUT_COPY: Readonly<
   Record<
@@ -298,25 +334,48 @@ function EstimateInputPopover({
       >
         <PopoverTrigger render={trigger} />
       </ShortcutTooltip>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        // Points: as wide as the quick-point buttons, so they line up with
-        // the field under them.
-        className={unit === "points" ? "w-53" : "w-60"}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <EstimateInputForm
-          unit={unit}
-          initial={draftFor(unit, ticket.estimate)}
-          canClear={ticket.estimate !== null}
-          onSubmit={(estimate) => {
-            onPatch({ estimate })
-            setOpen(false)
-          }}
-        />
-      </PopoverContent>
+      <EstimatePopoverContent
+        unit={unit}
+        ticket={ticket}
+        onSubmit={(estimate) => {
+          onPatch({ estimate })
+          setOpen(false)
+        }}
+      />
     </Popover>
+  )
+}
+
+export function EstimatePopoverContent({
+  unit,
+  ticket,
+  onSubmit,
+  anchor,
+  finalFocus
+}: Readonly<{
+  unit: TypedUnit
+  ticket: EstimateTicket
+  onSubmit: (estimate: Estimate | null) => void
+}> &
+  Pick<ComponentProps<typeof PopoverContent>, "anchor" | "finalFocus">) {
+  return (
+    <PopoverContent
+      anchor={anchor}
+      finalFocus={finalFocus}
+      align="start"
+      sideOffset={6}
+      // Points: as wide as the quick-point buttons, so they line up with
+      // the field under them.
+      className={unit === "points" ? "w-53" : "w-60"}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <EstimateInputForm
+        unit={unit}
+        initial={draftFor(unit, ticket.estimate)}
+        canClear={ticket.estimate !== null}
+        onSubmit={onSubmit}
+      />
+    </PopoverContent>
   )
 }
 

@@ -18,6 +18,7 @@ import { TextLink } from "@pp/ui/text-link"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
+  use,
   useState,
   type ComponentProps,
   type ReactElement,
@@ -30,6 +31,7 @@ import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
+import { InListRow } from "@/features/tickets/components/ticket-list/inListRow"
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
 import {
   FlagChip,
@@ -227,15 +229,27 @@ export function TagChips({
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
   const rich = useAtomValue(richChipColors)
-  if (names.length === 0)
-    return placeholder !== undefined && onPatch ? (
+  const inRow = use(InListRow)
+  if (names.length === 0) {
+    if (placeholder === undefined || !onPatch) return null
+    const content = (
+      <>
+        <Tag className="size-3 shrink-0" strokeWidth={1.75} />
+        {placeholder}
+      </>
+    )
+    return inRow ? (
+      <Chip interaction="press" aria-haspopup="menu" data-row-menu="tags">
+        {content}
+      </Chip>
+    ) : (
       <TagChipMenu applied={names} onPatch={onPatch}>
         <DropdownMenuTrigger render={<Chip interaction="press" />}>
-          <Tag className="size-3 shrink-0" strokeWidth={1.75} />
-          {placeholder}
+          {content}
         </DropdownMenuTrigger>
       </TagChipMenu>
-    ) : null
+    )
+  }
   const colors = new Map(
     Result.isSuccess(tags) ? tags.value.map((tag) => [tag.name, tag.color]) : []
   )
@@ -248,7 +262,18 @@ export function TagChips({
     ariaLabel: string | undefined,
     button: ReactElement
   ) =>
-    onPatch ? (
+    onPatch && inRow ? (
+      <TicketPreviewTrigger
+        key={key}
+        preview={preview}
+        aria-label={ariaLabel}
+        aria-haspopup="menu"
+        data-row-menu="tags"
+        render={button}
+      >
+        {content}
+      </TicketPreviewTrigger>
+    ) : onPatch ? (
       <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
           preview={preview}
@@ -332,17 +357,47 @@ function TagChipMenu({
   onPatch: (patch: TicketEdit) => void
   children: ReactNode
 }>) {
-  const menu = useTicketTagMenu(applied, onPatch)
   const [anchor, setAnchor] =
     useState<ComponentProps<typeof DropdownMenuContent>["anchor"]>()
   return (
-    <DropdownMenu
-      filterable={menu.filterable}
+    <TagMenu
+      applied={applied}
+      onPatch={onPatch}
+      anchor={anchor}
       onOpenChange={(open, { trigger }) => {
-        menu.onOpenChange(open)
         if (!open || !trigger) return
         const bounds = trigger.getBoundingClientRect()
         setAnchor({ getBoundingClientRect: () => bounds })
+      }}
+    >
+      {children}
+    </TagMenu>
+  )
+}
+
+export function TagMenu({
+  applied,
+  onPatch,
+  open,
+  onOpenChange,
+  anchor,
+  finalFocus = false,
+  children
+}: Readonly<{
+  applied: Ticket["tags"]
+  onPatch: (patch: TicketEdit) => void
+  children?: ReactNode
+}> &
+  Pick<ComponentProps<typeof DropdownMenu>, "open" | "onOpenChange"> &
+  Pick<ComponentProps<typeof DropdownMenuContent>, "anchor" | "finalFocus">) {
+  const menu = useTicketTagMenu(applied, onPatch)
+  return (
+    <DropdownMenu
+      filterable={menu.filterable}
+      open={open}
+      onOpenChange={(next, details) => {
+        menu.onOpenChange(next)
+        onOpenChange?.(next, details)
       }}
     >
       {children}
@@ -351,7 +406,7 @@ function TagChipMenu({
         align="start"
         sideOffset={6}
         className="w-56"
-        finalFocus={false}
+        finalFocus={finalFocus}
         onClick={(event) => event.stopPropagation()}
       >
         <TagMenuBody {...menu.body} />

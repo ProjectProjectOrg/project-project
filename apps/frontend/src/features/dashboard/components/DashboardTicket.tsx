@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
-import type { Member, Ticket } from "@pp/shared"
+import type { Member } from "@pp/shared"
 import { boardCardSlotClass } from "@pp/ui/board-column"
 import { cn } from "@pp/ui/lib/utils"
 import { listGridClassName } from "@pp/ui/list-row"
@@ -20,8 +20,8 @@ import type {
   OrgTicketUpdates
 } from "@/features/tickets/atoms/myTickets"
 import { Row } from "@/features/tickets/components/ticket-list/Row"
+import { RowSettings } from "@/features/tickets/components/ticket-list/RowSettings"
 import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection"
-import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
@@ -48,19 +48,13 @@ type DashboardTicketProps = Readonly<{
 type DashboardRowProps = DashboardTicketProps &
   Readonly<{
     below?: ReactNode
-    previewOpen: boolean
-    onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
-    onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
   }>
 
 export function DashboardRow({
   orgSlug,
   item,
   update,
-  below,
-  previewOpen,
-  onPreviewPointerEnter,
-  onPreviewOpenChange
+  below
 }: DashboardRowProps) {
   const updates = useTicketUpdates(update, item)
   const projectReq = projectRequest(orgSlug, item.project.slug)
@@ -78,17 +72,16 @@ export function DashboardRow({
             "relative isolate rounded-lg border border-border surface-card transition-colors hover:surface-lit has-[[data-popup-open]]:surface-lit has-[[data-selected]]:bg-foreground/6"
         )}
       >
-        <Row
-          variant={below === undefined ? "standalone" : "embedded"}
-          showSprint={false}
-          ticket={item.ticket}
-          members={members}
-          editable={editable}
-          update={updates}
-          previewOpen={previewOpen}
-          onPreviewPointerEnter={onPreviewPointerEnter}
-          onPreviewOpenChange={onPreviewOpenChange}
-        />
+        <RowSettings>
+          <Row
+            variant={below === undefined ? "standalone" : "embedded"}
+            showSprint={false}
+            ticket={item.ticket}
+            members={members}
+            editable={editable}
+            update={updates}
+          />
+        </RowSettings>
         {below !== undefined && (
           <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) pr-3 pb-2.5 pl-(--list-pad-start)">
             {below}
@@ -116,19 +109,15 @@ export function DashboardCard({ orgSlug, item, update }: DashboardTicketProps) {
   )
 }
 
-export type TicketPreview = ReturnType<typeof useTicketPreview>
-
 export function DashboardRows({
   orgSlug,
   tickets,
   update,
-  preview,
   below
 }: Readonly<{
   orgSlug: string
   tickets: ReadonlyArray<OrgTicket>
   update: OrgTicketUpdates
-  preview: TicketPreview
   below?: (item: OrgTicket) => ReactNode
 }>) {
   const viewerId = useAtomValue(currentUserId) ?? ""
@@ -156,9 +145,6 @@ export function DashboardRows({
             item={item}
             update={update}
             below={below?.(item)}
-            previewOpen={preview.activePreviewId === item.ticket.id}
-            onPreviewPointerEnter={preview.onPreviewPointerEnter}
-            onPreviewOpenChange={preview.onPreviewOpenChange}
           />
         ))}
       </div>

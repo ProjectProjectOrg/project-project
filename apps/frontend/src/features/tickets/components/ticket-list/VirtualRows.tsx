@@ -9,7 +9,7 @@ import {
   type ReactNode
 } from "react"
 
-import { usePreparedRows } from "../../hooks/usePreparedRows"
+import { useVisibleRows } from "../../hooks/useVisibleRows"
 
 const ROW_GAP = 4
 const ROW_STRIDE = listRowHeight + ROW_GAP
@@ -18,14 +18,19 @@ const PAGE_HEIGHT = TICKET_LIST_LIMIT * ROW_STRIDE
 export function VirtualRows({
   rowKeys,
   className,
-  activeIndex,
   reveal,
   scrollTo = null,
+  total = 0,
+  footer = null,
   children
 }: Readonly<{
   rowKeys: ReadonlyArray<string>
   className: string
-  activeIndex: number
+  // Rows once every page has loaded: the list keeps their height from the
+  // start, so the scrollbar doesn't jump as pages arrive.
+  total?: number
+  // Under the loaded rows, such as the next page's loader.
+  footer?: ReactNode
   reveal: Readonly<{ index: number }> | null
   // Brings a row into view without moving focus (a ticket just created
   // from a field that keeps it).
@@ -34,7 +39,7 @@ export function VirtualRows({
 }>) {
   const listRef = useRef<HTMLDivElement>(null)
   const count = rowKeys.length
-  const range = usePreparedRows(listRef, count, ROW_STRIDE)
+  const range = useVisibleRows(listRef, count, ROW_STRIDE)
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const revealed = useRef<Readonly<{ index: number }> | null>(null)
   const revealIndex = reveal?.index ?? -1
@@ -65,7 +70,7 @@ export function VirtualRows({
     bringIntoView(list, row, scrollTo.index, "created")
   })
 
-  const pinned = [activeIndex, focusedIndex, revealIndex, scrollIndex]
+  const pinned = [focusedIndex, revealIndex, scrollIndex]
   const indexes = new Set<number>()
   for (let i = range.start; i < Math.min(range.end, count); i++) indexes.add(i)
   for (const i of pinned) {
@@ -74,49 +79,58 @@ export function VirtualRows({
   const rows = [...indexes].toSorted((a, b) => a - b)
   const first = Math.min(range.start, count)
   const length = Math.min(range.end, count) - first
-  const windowHeight = Math.max(0, length * ROW_STRIDE - ROW_GAP)
-  const inset = `min(0px, calc(var(--scroll-viewport-height) - ${windowHeight}px))`
+  const reserved = total > count
   return (
-    <div
-      ref={listRef}
-      data-virtual-rows
-      data-loaded-rows={count}
-      data-mounted-rows={rows.length}
-      style={{
-        height: Math.max(0, count * ROW_STRIDE - ROW_GAP),
-        overflow: "clip"
-      }}
-    >
-      <div aria-hidden style={{ height: first * ROW_STRIDE }} />
-      <ul
-        className={className}
+    <>
+      <div
+        ref={listRef}
+        data-virtual-rows
+        data-loaded-rows={count}
+        data-mounted-rows={rows.length}
         style={{
-          position: "sticky",
-          top: inset,
-          bottom: inset,
-          height: windowHeight,
-          gridTemplateRows: rows.length > length ? "0px" : undefined,
-          gridAutoRows: ROW_STRIDE,
-          rowGap: 0,
-          alignContent: "start"
+          height: Math.max(0, Math.max(count, total) * ROW_STRIDE - ROW_GAP),
+          overflow: "clip",
+          position: "relative"
         }}
       >
-        {rows.map((index) => (
-          <RowSlot
-            key={rowKeys[index]}
-            index={index}
-            count={count}
-            pinnedOffset={
-              index < first || index >= first + length
-                ? (index - first) * ROW_STRIDE
-                : undefined
-            }
-            onFocus={setFocusedIndex}
-            render={children}
-          />
-        ))}
-      </ul>
-    </div>
+        <div aria-hidden style={{ height: first * ROW_STRIDE }} />
+        <ul
+          className={className}
+          style={{
+            gridTemplateRows: rows.length > length ? "0px" : undefined,
+            gridAutoRows: ROW_STRIDE,
+            rowGap: 0,
+            alignContent: "start"
+          }}
+        >
+          {rows.map((index) => (
+            <RowSlot
+              key={rowKeys[index]}
+              index={index}
+              count={count}
+              pinnedOffset={
+                index < first || index >= first + length
+                  ? (index - first) * ROW_STRIDE
+                  : undefined
+              }
+              onFocus={setFocusedIndex}
+              render={children}
+            />
+          ))}
+        </ul>
+        {/* Spans every row still to load, so landing anywhere in them (a
+            scrollbar drag, End) still loads the next page. */}
+        {reserved && (
+          <div
+            className="absolute inset-x-0 grid"
+            style={{ top: count * ROW_STRIDE, bottom: 0 }}
+          >
+            {footer}
+          </div>
+        )}
+      </div>
+      {!reserved && footer}
+    </>
   )
 }
 

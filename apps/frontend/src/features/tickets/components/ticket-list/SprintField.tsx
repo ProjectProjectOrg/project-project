@@ -12,7 +12,7 @@ import {
 } from "@pp/ui/picker-field"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { use, useState } from "react"
+import { use, useState, type ComponentProps } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -37,33 +37,82 @@ export function SprintField({
   ticketId,
   membership,
   variant = "default",
-  onRequestNewSprint,
+  disabled,
   placeholder
 }: {
   ticketId: TicketId
   membership: Group | null
   variant?: "default" | "responsive"
-  onRequestNewSprint?: () => void
+  disabled: boolean
   // Not in a sprint: an empty chip that adds it to one ("Sprint"), for a
   // selected row, which shows every field.
   placeholder?: string
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
-  const list = useAtomValue(sprintList(req))
-  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
   const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
+  const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
+  if (!membership && placeholder === undefined) return null
+  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
+  return (
+    <Chip
+      interaction="press"
+      disabled={disabled || !canMove}
+      aria-haspopup="menu"
+      data-row-field="sprint"
+      data-row-menu="sprint"
+      aria-label={
+        failed
+          ? m.tickets_sprint_assign_error_fallback()
+          : membership
+            ? m.tickets_sprint_chip_aria({ name: membership.name })
+            : placeholder
+      }
+      tone={failed ? "error" : undefined}
+      className="max-w-[14ch]"
+    >
+      {membership ? (
+        <SprintStateIcon sprint={membership} size="xs" />
+      ) : (
+        <Zap className="size-3 shrink-0" strokeWidth={1.75} />
+      )}
+      <span
+        className={cn(
+          "truncate",
+          variant === "responsive" && "hidden sm:inline"
+        )}
+      >
+        {membership?.name ?? placeholder}
+      </span>
+    </Chip>
+  )
+}
+
+export function SprintFieldMenu({
+  ticketId,
+  open,
+  onOpenChange,
+  anchor,
+  finalFocus
+}: Readonly<{ ticketId: TicketId }> &
+  Pick<
+    ComponentProps<typeof SprintAssignMenu>,
+    "open" | "onOpenChange" | "anchor" | "finalFocus"
+  >) {
+  const { orgSlug, slug } = useProjectRoute()
+  const req = sprintListRequest(orgSlug, slug)
+  const list = useAtomValue(sprintList(req))
+  const membershipResult = useAtomValue(sprintMembership(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
   const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }), {
     mode: "promiseExit"
   })
-  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
-  const [open, setOpen] = useState(false)
-  const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
   const registry = use(RegistryContext)
   const selection = useSelectionActions(selectionKey(slug, ticketId))
-
-  if (!membership && placeholder === undefined) return null
-
+  const membership = Result.isSuccess(membershipResult)
+    ? (membershipResult.value.get(ticketId) ?? null)
+    : null
   const sprints = Result.isSuccess(list) ? list.value : []
   const sprintOf = (id: TicketId) =>
     sprints.find(
@@ -79,63 +128,31 @@ export function SprintField({
       : selectedSprints.size === 1
         ? sharedSprint
         : undefined
-  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
-
   return (
-    <fieldset disabled={!canMove} className="contents">
-      <SprintAssignMenu
-        open={open}
-        onOpenChange={setOpen}
-        sprints={sprints}
-        selectedId={selectedId}
-        onSelect={(s) => {
-          if (s === null) {
-            if (!selection.patchBulk({ sprint: null }) && membership) {
-              void removeTickets({ groupId: membership.id })
-            }
-            return
+    <SprintAssignMenu
+      open={open}
+      onOpenChange={onOpenChange}
+      anchor={anchor}
+      finalFocus={finalFocus}
+      sprints={sprints}
+      selectedId={selectedId}
+      onSelect={(s) => {
+        if (s === null) {
+          if (!selection.patchBulk({ sprint: null }) && membership) {
+            void removeTickets({ groupId: membership.id })
           }
-          if (selection.count === 1) {
-            addTickets({ groupId: s.id })
-            return
-          }
-          void fireMutation(registry, bulkAssignTicketSprint(req), {
-            patch: { sprint: s.id },
-            tickets: selection.selectedIds()
-          })
-        }}
-        onRequestNewSprint={onRequestNewSprint}
-        trigger={
-          <Chip
-            interaction="press"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={
-              failed
-                ? m.tickets_sprint_assign_error_fallback()
-                : membership
-                  ? m.tickets_sprint_chip_aria({ name: membership.name })
-                  : placeholder
-            }
-            tone={failed ? "error" : undefined}
-            className="max-w-[14ch]"
-          >
-            {membership ? (
-              <SprintStateIcon sprint={membership} size="xs" />
-            ) : (
-              <Zap className="size-3 shrink-0" strokeWidth={1.75} />
-            )}
-            <span
-              className={cn(
-                "truncate",
-                variant === "responsive" && "hidden sm:inline"
-              )}
-            >
-              {membership?.name ?? placeholder}
-            </span>
-          </Chip>
+          return
         }
-      />
-    </fieldset>
+        if (selection.count === 1) {
+          addTickets({ groupId: s.id })
+          return
+        }
+        void fireMutation(registry, bulkAssignTicketSprint(req), {
+          patch: { sprint: s.id },
+          tickets: selection.selectedIds()
+        })
+      }}
+    />
   )
 }
 

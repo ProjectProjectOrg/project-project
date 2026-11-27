@@ -1,33 +1,36 @@
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { m as motion, useReducedMotion } from "motion/react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState, type ComponentProps } from "react"
 
 import { isFresh } from "@/features/tickets/lib/createdRow"
 
-import { LandingFlash } from "./ListRowDrag"
+const LANDING_MS = 900
 
 // A row that mounts as a new ticket fades and drops into place; rows that
 // mount because the list scrolled show at once.
 export function RowEnter({
   enter: initialEnter,
   className,
-  children
-}: Readonly<{ enter: boolean; className?: string; children: ReactNode }>) {
+  ...props
+}: Omit<
+  ComponentProps<"div">,
+  "onAnimationStart" | "onDrag" | "onDragStart" | "onDragEnd"
+> &
+  Readonly<{ enter: boolean }>) {
   const reduceMotion = useReducedMotion() ?? false
 
   const [animateOnMount] = useState(() => initialEnter)
   if (!animateOnMount)
-    return <div className={cn("relative isolate", className)}>{children}</div>
+    return <div className={cn("relative isolate", className)} {...props} />
   return (
     <motion.div
       initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={spring.moderate}
       className={cn("relative isolate", className)}
-    >
-      {children}
-    </motion.div>
+      {...props}
+    />
   )
 }
 
@@ -43,4 +46,27 @@ export function CreatedFlash({
   }, [start, onDone])
   if (start === null) return null
   return <LandingFlash at={start} className={className} onDone={onDone} />
+}
+
+export function LandingFlash({
+  at,
+  className,
+  onDone
+}: Readonly<{ at: number; className?: string; onDone: () => void }>) {
+  const [left] = useState(() =>
+    Math.max(0, 1 - (performance.now() - at) / LANDING_MS)
+  )
+  return (
+    <motion.div
+      aria-hidden
+      initial={{ opacity: left }}
+      animate={{ opacity: 0 }}
+      transition={{ duration: (left * LANDING_MS) / 1000, ease: "easeOut" }}
+      onAnimationComplete={onDone}
+      className={cn(
+        "pointer-events-none absolute inset-0 -z-10 rounded-md bg-foreground/10",
+        className
+      )}
+    />
+  )
 }

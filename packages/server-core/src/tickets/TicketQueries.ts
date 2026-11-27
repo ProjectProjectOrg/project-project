@@ -394,10 +394,7 @@ const make = Effect.gen(function* () {
     const scope = yield* queryable(query)
     const { userId } = scope
     const [members, sectionMembers] = yield* Effect.all(
-      [
-        resolveGroupMembers(query.groupId),
-        resolveGroupMembers(query.section?.groupId)
-      ],
+      [resolveGroupMembers(query.groupId), resolveSectionMembers(query)],
       { concurrency: 2 }
     )
     const pageLimit = limit ?? TICKET_LIST_LIMIT
@@ -795,8 +792,10 @@ const make = Effect.gen(function* () {
     return { counts, sections: Object.fromEntries(pages) }
   })
 
+  // What each section of the sprint backlog holds. Its first page, its count
+  // and every later page all read it from here, so they can't disagree.
   const sprintSectionMembers = Effect.fnUntraced(function* (
-    query: TicketListQuery
+    query: Pick<TicketListQuery, "groupId">
   ) {
     const documents = yield* groups.documents()
     const now = yield* DateTime.nowAsDate
@@ -805,20 +804,16 @@ const make = Effect.gen(function* () {
       query.groupId,
       now
     )
-    const unscheduled = query.groupId?.includes("ungrouped")
-      ? {
-          sprints: [],
-          tickets: [],
-          outsideSprints: [
-            ...new Set([
-              ...openSprintIds(documents),
-              ...sections.flatMap((sprint) =>
-                sprint === null ? [] : [sprint.id]
-              )
-            ])
-          ]
-        }
-      : undefined
+    const unscheduled = {
+      sprints: [],
+      tickets: [],
+      outsideSprints: [
+        ...new Set([
+          ...openSprintIds(documents),
+          ...sections.flatMap((sprint) => (sprint === null ? [] : [sprint.id]))
+        ])
+      ]
+    }
     return sections.map(
       (sprint) =>
         (sprint === null
@@ -830,8 +825,27 @@ const make = Effect.gen(function* () {
                 tickets: [],
                 outsideSprints: null
               }
-            }) satisfies TicketIndex.TicketIndexSection & { key: GroupIdFilter }
+            }) satisfies TicketIndex.TicketIndexSection & {
+          key: GroupIdFilter
+        }
     )
+  })
+
+  const resolveSectionMembers = Effect.fnUntraced(function* (
+    query: TicketPageQuery
+  ) {
+    const keys = query.section?.groupId
+    if (keys === undefined || keys.length === 0) return undefined
+    const sections = (yield* sprintSectionMembers(query)).filter(({ key }) =>
+      keys.includes(key)
+    )
+    return {
+      sprints: sections.flatMap(({ members }) => members.sprints),
+      tickets: [],
+      outsideSprints:
+        sections.find(({ members }) => members.outsideSprints !== null)?.members
+          .outsideSprints ?? null
+    } satisfies TicketIndex.TicketIndexMembers
   })
 
   const sprintSections = Effect.fn("TicketQueries.sprintSections")(function* (

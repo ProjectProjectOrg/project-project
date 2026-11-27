@@ -1229,6 +1229,10 @@ function CardPortals({
   React.useSyncExternalStore(subscribe, getVersion, getVersion)
   const children = activeId === id ? content.current?.children : null
   if (children == null) return null
+  return <CardSlots>{children}</CardSlots>
+}
+
+function CardSlots({ children }: Readonly<{ children: React.ReactNode }>) {
   // React events bubble through the React tree, so a click or right-click in
   // the card would reach the row it was written in (opening the row, its
   // context menu). They stop at the card.
@@ -1373,11 +1377,199 @@ function PinnedCard({
   return <CardPortals id={id} content={content} />
 }
 
+type DelegatedCard = Readonly<{
+  content: React.ReactNode
+  className?: string
+  openOnClick: boolean
+}>
+
+const DELEGATED_TRIGGER = "[data-tooltip], [data-hover-card]"
+const delegatedIds = new WeakMap<Element, string>()
+let delegatedCount = 0
+
+const delegatedId = (element: Element) => {
+  const known = delegatedIds.get(element)
+  if (known !== undefined) return known
+  delegatedCount += 1
+  const id = `delegated-${delegatedCount}`
+  delegatedIds.set(element, id)
+  return id
+}
+
+/** Tooltips and cards declared by `data-tooltip` / `data-hover-card` inside `root`. */
+function HoverDelegate({
+  root,
+  side = "top",
+  keyLabels,
+  card
+}: Readonly<{
+  root: React.RefObject<HTMLElement | null>
+  side?: Side
+  keyLabels: KeyLabels
+  card?: (trigger: HTMLElement) => DelegatedCard | null
+}>) {
+  const options = React.useRef({ side, keyLabels, card })
+  React.useLayoutEffect(() => {
+    options.current = { side, keyLabels, card }
+  })
+  const [cards] = React.useState(() => new Map<string, DelegatedCard>())
+  React.useEffect(() => {
+    const element = root.current
+    if (element === null) return undefined
+    const owned = new Set<string>()
+    let hovered: HTMLElement | null = null
+    const triggerOf = (target: EventTarget | null) => {
+      const trigger =
+        target instanceof Element
+          ? target.closest<HTMLElement>(DELEGATED_TRIGGER)
+          : null
+      return trigger !== null && element.contains(trigger) ? trigger : null
+    }
+    const forget = (keep: string | null) => {
+      for (const id of owned) {
+        if (id === keep || id === activeId || id === focusedId) continue
+        owned.delete(id)
+        cards.delete(id)
+        registrations.delete(id)
+      }
+    }
+    const register = (trigger: HTMLElement) => {
+      const id = delegatedId(trigger)
+      forget(id)
+      const current = options.current
+      if (trigger.hasAttribute("data-hover-card")) {
+        const resolved = current.card?.(trigger) ?? null
+        if (resolved === null) return null
+        cards.set(id, resolved)
+        registrations.set(id, {
+          current: {
+            element: trigger,
+            content: null,
+            placement: { ...CARD_PLACEMENT, side: current.side },
+            className: resolved.className,
+            disabled: false,
+            kind: "card"
+          }
+        })
+      } else {
+        const label = trigger.dataset.tooltip
+        const keys = trigger.dataset.tooltipKeys
+        registrations.set(id, {
+          current: {
+            element: trigger,
+            content:
+              keys === undefined ? (
+                label
+              ) : (
+                <>
+                  {label}
+                  <KbdShortcut
+                    keys={keys}
+                    keyLabels={current.keyLabels}
+                    size="sm"
+                    aria-hidden
+                  />
+                </>
+              ),
+            placement: { ...DEFAULT_PLACEMENT, side: current.side },
+            className:
+              keys === undefined ? undefined : "flex items-center gap-2",
+            disabled: false,
+            kind: "tooltip"
+          }
+        })
+      }
+      owned.add(id)
+      tooltipStore.touch(id)
+      return id
+    }
+    const onPointerOver = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return
+      const trigger = triggerOf(event.target)
+      if (trigger === hovered) return
+      if (hovered !== null) tooltipStore.hoverEnd(delegatedId(hovered))
+      hovered = trigger
+      const id = trigger === null ? null : register(trigger)
+      if (id !== null) tooltipStore.hoverStart(id)
+    }
+    const onPointerOut = (event: PointerEvent) => {
+      if (event.pointerType === "touch" || hovered === null) return
+      if (
+        event.relatedTarget instanceof Node &&
+        hovered.contains(event.relatedTarget)
+      )
+        return
+      tooltipStore.hoverEnd(delegatedId(hovered))
+      hovered = null
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const trigger = triggerOf(event.target)
+      if (trigger === null) return
+      if (opensContextMenu(event)) {
+        handOff()
+        tooltipStore.dismiss(true)
+      } else if (!trigger.hasAttribute("data-hover-card"))
+        tooltipStore.dismiss()
+    }
+    const onClick = (event: MouseEvent) => {
+      const trigger = triggerOf(event.target)
+      if (trigger === null) return
+      if (!trigger.hasAttribute("data-hover-card")) {
+        tooltipStore.dismiss()
+        return
+      }
+      if (trigger.getAttribute("aria-haspopup") === "menu") return
+      const id = register(trigger)
+      if (id !== null && cards.get(id)?.openOnClick) tooltipStore.click(id)
+    }
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.matches(DELEGATED_TRIGGER) ||
+        !target.matches(":focus-visible")
+      )
+        return
+      const id = register(target)
+      if (id !== null) tooltipStore.focusIn(id)
+    }
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLElement && target.matches(DELEGATED_TRIGGER))
+        tooltipStore.focusOut(delegatedId(target))
+    }
+    element.addEventListener("pointerover", onPointerOver)
+    element.addEventListener("pointerout", onPointerOut)
+    element.addEventListener("pointerdown", onPointerDown)
+    element.addEventListener("click", onClick)
+    element.addEventListener("focusin", onFocusIn)
+    element.addEventListener("focusout", onFocusOut)
+    return () => {
+      element.removeEventListener("pointerover", onPointerOver)
+      element.removeEventListener("pointerout", onPointerOut)
+      element.removeEventListener("pointerdown", onPointerDown)
+      element.removeEventListener("click", onClick)
+      element.removeEventListener("focusin", onFocusIn)
+      element.removeEventListener("focusout", onFocusOut)
+      const showing = activeId !== null && owned.has(activeId)
+      for (const id of owned) registrations.delete(id)
+      cards.clear()
+      if (showing) hide()
+    }
+  }, [root, cards])
+  React.useSyncExternalStore(subscribe, getVersion, getVersion)
+  const active = activeId === null ? undefined : cards.get(activeId)
+  return active === undefined ? null : <CardSlots>{active.content}</CardSlots>
+}
+
 /** Closes whatever the host shows at once, e.g. after a click in a card. */
 const closeHoverCard = () => hide(true)
 
+export type { DelegatedCard }
+
 export {
   closeHoverCard,
+  HoverDelegate,
   HoverSide,
   HoverCard,
   HoverCardContent,

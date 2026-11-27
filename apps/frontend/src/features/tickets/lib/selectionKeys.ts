@@ -36,7 +36,9 @@ export const openRowField = (
     .querySelector(
       `[data-selection-key="${CSS.escape(selectionKey(slug, row.id))}"]`
     )
-    ?.querySelector<HTMLElement>(`[data-row-field="${field}"] button`)
+    ?.querySelector<HTMLElement>(
+      `button[data-row-field="${field}"], [data-row-field="${field}"] button`
+    )
   if (!control) return false
   control.click()
   return true

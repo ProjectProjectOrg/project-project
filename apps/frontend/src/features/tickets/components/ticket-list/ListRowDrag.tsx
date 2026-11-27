@@ -16,7 +16,6 @@ import {
 } from "@pp/shared"
 import { cn } from "@pp/ui/lib/utils"
 import * as Schema from "effect/Schema"
-import { m as motion } from "motion/react"
 import {
   createContext,
   use,
@@ -46,6 +45,7 @@ import {
 import { RowDragData, isRowDragData } from "@/features/tickets/lib/rowDragData"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
+import { LandingFlash, RowEnter } from "./CreatedRow"
 import { fireSelected } from "./selectionStore"
 import { useSelectionActions, useSelectionStore } from "./TicketSelection"
 
@@ -64,8 +64,6 @@ const draggedRows = (data: DragPayload) =>
     : null
 
 type Landing = Readonly<{ ids: ReadonlyArray<TicketId>; at: number }>
-
-const LANDING_MS = 900
 
 export type SectionDrop = Readonly<{
   section: string
@@ -225,12 +223,16 @@ export function DraggableRow({
   ticket,
   nextId,
   pending,
+  enter,
+  flash,
   className,
   children
 }: Readonly<{
   ticket: Ticket
   nextId: TicketId | null
   pending: boolean
+  enter: boolean
+  flash: ReactNode
   className: string
   children: ReactNode
 }>) {
@@ -321,14 +323,19 @@ export function DraggableRow({
     gap === id ? "top" : gap === "end" && nextId === null ? "bottom" : null
 
   return (
-    <div
+    <RowEnter
       ref={ref}
+      enter={enter}
+      inert={pending}
+      aria-busy={pending}
       className={cn(
-        "relative isolate before:absolute before:inset-x-0 before:-top-0.5 before:-z-10 before:h-0.5 before:content-[''] after:absolute after:inset-x-0 after:-bottom-0.5 after:-z-10 after:h-0.5 after:content-['']",
+        "before:absolute before:inset-x-0 before:-top-0.5 before:-z-10 before:h-0.5 before:content-[''] after:absolute after:inset-x-0 after:-bottom-0.5 after:-z-10 after:h-0.5 after:content-['']",
         className,
+        pending && "pointer-events-none",
         dragging && "opacity-40"
       )}
     >
+      {flash}
       {children}
       {landed !== null && drop !== null && (
         <LandingFlash at={landed.at} onDone={drop.settle} />
@@ -342,30 +349,7 @@ export function DraggableRow({
           )}
         />
       )}
-    </div>
-  )
-}
-
-export function LandingFlash({
-  at,
-  className,
-  onDone
-}: Readonly<{ at: number; className?: string; onDone: () => void }>) {
-  const [left] = useState(() =>
-    Math.max(0, 1 - (performance.now() - at) / LANDING_MS)
-  )
-  return (
-    <motion.div
-      aria-hidden
-      initial={{ opacity: left }}
-      animate={{ opacity: 0 }}
-      transition={{ duration: (left * LANDING_MS) / 1000, ease: "easeOut" }}
-      onAnimationComplete={onDone}
-      className={cn(
-        "pointer-events-none absolute inset-0 -z-10 rounded-md bg-foreground/10",
-        className
-      )}
-    />
+    </RowEnter>
   )
 }
 

@@ -27,7 +27,14 @@ import {
   Link as LinkIcon
 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Fragment, useRef, useState, type ReactNode } from "react"
+import {
+  Fragment,
+  use,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject
+} from "react"
 
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { RemoveBranchItem } from "@/features/github/components/ticket-git/BranchMenu"
@@ -39,6 +46,7 @@ import {
   stackPullRequestCount,
   TONES
 } from "@/features/github/lib/stackPresentation"
+import { InListRow } from "@/features/tickets/components/ticket-list/inListRow"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -91,31 +99,106 @@ function branchActions(state: GitState, github: GithubConnection) {
   return { branch, pr, repo, createPr, live }
 }
 
-export function GitChipMenu({
-  state,
-  stack,
-  layers,
-  github,
-  ticket,
-  children
-}: Readonly<{
+type GitMenuProps = Readonly<{
   state: GitState
   stack: ReadonlyArray<StackLayerState>
   layers: ReadonlyArray<StackLayerState>
   github: GithubConnection
   ticket: MenuTicket
-  children: ReactNode
-}>) {
-  const actor = useProjectActor()
-  const canClear = actor.call("tickets", "clearBranch")
+}>
+
+export function GitChipMenu({
+  children,
+  ...props
+}: GitMenuProps & Readonly<{ children: ReactNode }>) {
+  return use(InListRow) ? (
+    <span
+      data-git-chip=""
+      data-slot="context-menu-trigger"
+      className={chipWrapClass}
+    >
+      {children}
+    </span>
+  ) : (
+    <MountedGitChipMenu {...props}>{children}</MountedGitChipMenu>
+  )
+}
+
+const chipWrapClass = "inline-flex max-w-full min-w-0"
+
+function MountedGitChipMenu({
+  children,
+  ...props
+}: GitMenuProps & Readonly<{ children: ReactNode }>) {
   const anchor = useRef<HTMLSpanElement>(null)
   const [stacking, setStacking] = useState(false)
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger
+          render={
+            <span
+              ref={anchor}
+              className={chipWrapClass}
+              onContextMenu={(event) => event.stopPropagation()}
+            />
+          }
+        >
+          {children}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-56">
+          <GitMenuItems {...props} onStack={() => setStacking(true)} />
+        </ContextMenuContent>
+      </ContextMenu>
+      <GitStackPicker
+        {...props}
+        anchor={anchor}
+        open={stacking}
+        onOpenChange={setStacking}
+      />
+    </>
+  )
+}
+
+const useCanStack = ({ state, stack }: Pick<GitMenuProps, "state" | "stack">) =>
+  useProjectActor().call("tickets", "stackBranch") &&
+  (stack.length > 0 || canStackOn(state))
+
+export function GitStackPicker({
+  anchor,
+  open,
+  onOpenChange,
+  ...props
+}: GitMenuProps &
+  Readonly<{
+    anchor: RefObject<HTMLElement | null>
+    open: boolean
+    onOpenChange: (open: boolean) => void
+  }>) {
+  const canStack = useCanStack(props)
+  if (!canStack) return null
+  return (
+    <BranchPicker
+      mode="stack"
+      ticket={props.ticket}
+      github={props.github}
+      anchor={anchor}
+      align="start"
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+export function GitMenuItems({
+  onStack,
+  ...props
+}: GitMenuProps & Readonly<{ onStack: () => void }>) {
+  const { state, stack, layers, github, ticket } = props
+  const canClear = useProjectActor().call("tickets", "clearBranch")
+  const canStack = useCanStack(props)
   const actions = branchActions(state, github)
   const { branch, pr, createPr } = actions
-  const canStack =
-    actor.call("tickets", "stackBranch") &&
-    (stack.length > 0 || canStackOn(state))
-
   const sections = [
     stack.length > 0 ? (
       <StackPullRequests
@@ -130,50 +213,19 @@ export function GitChipMenu({
       )
     ),
     canStack && (
-      <DropdownMenuItem key="stack-add" onClick={() => setStacking(true)}>
+      <DropdownMenuItem key="stack-add" onClick={onStack}>
         <Layers strokeWidth={1.75} />
         {m.git_stack_add_button()}
       </DropdownMenuItem>
     ),
     canClear && <RemoveBranchItem key="remove" ticket={ticket} />
   ].filter((section) => section !== false)
-
-  return (
-    <>
-      <ContextMenu>
-        <ContextMenuTrigger
-          render={
-            <span
-              ref={anchor}
-              className="inline-flex max-w-full min-w-0"
-              onContextMenu={(event) => event.stopPropagation()}
-            />
-          }
-        >
-          {children}
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-56">
-          {sections.map((section, index) => (
-            <Fragment key={section.key}>
-              {index > 0 && <DropdownMenuSeparator />}
-              {section}
-            </Fragment>
-          ))}
-        </ContextMenuContent>
-      </ContextMenu>
-      {canStack && (
-        <BranchPicker
-          mode="stack"
-          ticket={ticket}
-          github={github}
-          anchor={anchor}
-          align="start"
-          open={stacking}
-          onOpenChange={setStacking}
-        />
-      )}
-    </>
-  )
+  return sections.map((section, index) => (
+    <Fragment key={section.key}>
+      {index > 0 && <DropdownMenuSeparator />}
+      {section}
+    </Fragment>
+  ))
 }
 
 function BranchActions({

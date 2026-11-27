@@ -35,7 +35,7 @@ function edgeOf(element: Element, edge: Edge) {
 }
 
 function spacerOf(root: HTMLElement) {
-  return root.querySelector<HTMLElement>(":scope > [data-scroll-spacer]")
+  return root.querySelector<HTMLElement>("[data-scroll-spacer]")
 }
 
 function setHeight(spacer: HTMLElement, height: number) {
@@ -45,7 +45,7 @@ function setHeight(spacer: HTMLElement, height: number) {
 function watch(root: HTMLElement, spacer: HTMLElement) {
   if (watched.has(root)) return
   watched.add(root)
-  const content = root.querySelector(":scope > [data-scroll-content]")
+  const content = root.querySelector("[data-scroll-content]")
   const trim = () => {
     const current = spacer.offsetHeight
     const contentEnd = root.scrollHeight - current

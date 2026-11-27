@@ -1,8 +1,13 @@
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
-import type { Member, ParentFilter, TicketId } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
+import type { Member, ParentFilter } from "@pp/shared"
 import { listGridClassName } from "@pp/ui/list-row"
-import { useCallback, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps
+} from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { justCreatedTicket } from "@/features/tickets/atoms/createTicket"
@@ -14,7 +19,7 @@ import { isFresh } from "@/features/tickets/lib/createdRow"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
-import { CreatedFlash, RowEnter } from "./CreatedRow"
+import { CreatedFlash } from "./CreatedRow"
 import { useListKeyboardSection } from "./ListKeyboard"
 import {
   DraggableRow,
@@ -22,6 +27,7 @@ import {
   type SectionDrop
 } from "./ListRowDrag"
 import { Row } from "./Row"
+import { RowSettings } from "./RowSettings"
 import { SelectionOrder } from "./TicketSelection"
 import { VirtualRows } from "./VirtualRows"
 
@@ -34,22 +40,19 @@ export function SectionRows({
   editable,
   contextParent,
   showSprint,
-  activePreviewId,
-  onPreviewPointerEnter,
-  onPreviewOpenChange
-}: Readonly<{
-  items: ReadonlyArray<TicketRow>
-  drop: SectionDrop | null
-  update: TicketUpdates
-  bulkUpdate: BulkTicketUpdateAtom
-  members: ReadonlyArray<Member>
-  editable: boolean
-  contextParent: ParentFilter | undefined
-  showSprint: boolean
-  activePreviewId: TicketId | null
-  onPreviewPointerEnter: (ticketId: TicketId) => void
-  onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
-}>) {
+  total,
+  footer
+}: Pick<ComponentProps<typeof VirtualRows>, "total" | "footer"> &
+  Readonly<{
+    items: ReadonlyArray<TicketRow>
+    drop: SectionDrop | null
+    update: TicketUpdates
+    bulkUpdate: BulkTicketUpdateAtom
+    members: ReadonlyArray<Member>
+    editable: boolean
+    contextParent: ParentFilter | undefined
+    showSprint: boolean
+  }>) {
   const { slug } = useProjectRoute()
   const section = useRef<HTMLDivElement>(null)
   const [reveal, setReveal] = useState<Readonly<{ index: number }> | null>(null)
@@ -94,58 +97,45 @@ export function SectionRows({
     >
       <SectionDropProvider drop={drop}>
         <div ref={section} className="contents">
-          <VirtualRows
-            className={listGridClassName}
-            rowKeys={items.map(({ key }) => key)}
-            activeIndex={items.findIndex(
-              ({ ticket }) => ticket.id === activePreviewId
-            )}
-            reveal={reveal}
-            scrollTo={scrollTo}
-          >
-            {(index) => {
-              const { ticket, pending } = items[index]
-              const justCreated = !pending && created?.id === ticket.id
-              return (
-                <RowEnter
-                  enter={pending || (justCreated && isFresh(created.at))}
-                  className="col-span-full grid grid-cols-subgrid"
-                >
-                  {justCreated && (
-                    <CreatedFlash at={created.at} onDone={clearCreated} />
-                  )}
-                  <div
-                    inert={pending}
-                    aria-busy={pending}
-                    className={cn(
-                      "col-span-full grid grid-cols-subgrid",
-                      pending && "pointer-events-none"
-                    )}
+          <RowSettings>
+            <VirtualRows
+              className={listGridClassName}
+              rowKeys={items.map(({ key }) => key)}
+              reveal={reveal}
+              scrollTo={scrollTo}
+              total={total}
+              footer={footer}
+            >
+              {(index) => {
+                const { ticket, pending } = items[index]
+                const justCreated = !pending && created?.id === ticket.id
+                return (
+                  <DraggableRow
+                    ticket={ticket}
+                    nextId={items[index + 1]?.ticket.id ?? null}
+                    pending={pending}
+                    enter={pending || (justCreated && isFresh(created.at))}
+                    flash={
+                      justCreated && (
+                        <CreatedFlash at={created.at} onDone={clearCreated} />
+                      )
+                    }
+                    className="col-span-full grid grid-cols-subgrid"
                   >
-                    <DraggableRow
+                    <Row
+                      update={update}
+                      contextParent={contextParent}
+                      showSprint={showSprint}
                       ticket={ticket}
-                      nextId={items[index + 1]?.ticket.id ?? null}
+                      members={members}
                       pending={pending}
-                      className="col-span-full grid grid-cols-subgrid"
-                    >
-                      <Row
-                        update={update}
-                        contextParent={contextParent}
-                        showSprint={showSprint}
-                        ticket={ticket}
-                        members={members}
-                        pending={pending}
-                        editable={editable}
-                        previewOpen={activePreviewId === ticket.id}
-                        onPreviewPointerEnter={onPreviewPointerEnter}
-                        onPreviewOpenChange={onPreviewOpenChange}
-                      />
-                    </DraggableRow>
-                  </div>
-                </RowEnter>
-              )
-            }}
-          </VirtualRows>
+                      editable={editable}
+                    />
+                  </DraggableRow>
+                )
+              }}
+            </VirtualRows>
+          </RowSettings>
         </div>
       </SectionDropProvider>
     </SelectionOrder>

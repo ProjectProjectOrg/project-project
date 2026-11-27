@@ -25,10 +25,9 @@ import {
   SectionHeader,
   type SectionHeading
 } from "@/features/tickets/components/ticket-list/SectionHeader"
-import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { m } from "@/paraglide/messages"
 
-import { DashboardRows, type TicketPreview } from "./DashboardTicket"
+import { DashboardRows } from "./DashboardTicket"
 import {
   COMPACT_TICKET_LIMIT,
   MyTicketsPagination,
@@ -188,7 +187,6 @@ function GroupedSections({
     groups: ReadonlyArray<Group>
     update: OrgTicketUpdates
   }>) {
-  const preview = useTicketPreview()
   if (groups.every((group) => group.tickets.length === 0)) return empty
   return (
     <>
@@ -200,7 +198,6 @@ function GroupedSections({
             collapseKey={collapseKey}
             group={group}
             update={update}
-            preview={preview}
           />
         ))}
       </div>
@@ -212,14 +209,12 @@ function GroupSection({
   orgSlug,
   collapseKey,
   group,
-  update,
-  preview
+  update
 }: Readonly<{
   orgSlug: string
   collapseKey: string
   group: Group
   update: OrgTicketUpdates
-  preview: TicketPreview
 }>) {
   const [collapsed, toggle] = useCollapsedInSet(
     collapseKey,
@@ -250,12 +245,7 @@ function GroupSection({
             —
           </div>
         ) : (
-          <DashboardRows
-            orgSlug={orgSlug}
-            tickets={shown}
-            update={update}
-            preview={preview}
-          />
+          <DashboardRows orgSlug={orgSlug} tickets={shown} update={update} />
         )}
         {group.footer}
         {limited && group.count > shown.length && (

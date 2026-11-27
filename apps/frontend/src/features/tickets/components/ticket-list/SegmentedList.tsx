@@ -2,7 +2,6 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type {
   Member,
   ProjectStatus,
-  TicketId,
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
@@ -45,7 +44,6 @@ import { m } from "@/paraglide/messages"
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
 import { SectionList } from "./SectionList"
-import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
@@ -104,7 +102,6 @@ export function SegmentedList({
       resetScroll: false
     })
   }
-  const preview = useTicketPreview()
   const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
   const bulkUpdate = bulkUpdateBacklogTickets(
     backlogRequest(orgSlug, slug, query)
@@ -221,9 +218,6 @@ export function SegmentedList({
           count={byStatus[status] ?? 0}
           page={sections[status] ?? EMPTY_PAGE}
           members={members}
-          activePreviewId={preview.activePreviewId}
-          onPreviewPointerEnter={preview.onPreviewPointerEnter}
-          onPreviewOpenChange={preview.onPreviewOpenChange}
         />
       ))}
     </div>
@@ -242,10 +236,7 @@ function StatusSection({
   bulkMove,
   count,
   page,
-  members,
-  activePreviewId,
-  onPreviewPointerEnter,
-  onPreviewOpenChange
+  members
 }: {
   persistKey: string
   searchQuery: string | undefined
@@ -258,9 +249,6 @@ function StatusSection({
   count: number
   page: TicketRowPage
   members: ReadonlyArray<Member>
-  activePreviewId: TicketId | null
-  onPreviewPointerEnter: (ticketId: TicketId) => void
-  onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
   const [collapsed, toggleCollapsed] = useCollapsedInSet(
     persistKey,
@@ -281,9 +269,6 @@ function StatusSection({
       collapsed={collapsed}
       onToggleCollapsed={toggleCollapsed}
       members={members}
-      activePreviewId={activePreviewId}
-      onPreviewPointerEnter={onPreviewPointerEnter}
-      onPreviewOpenChange={onPreviewOpenChange}
     />
   )
 }

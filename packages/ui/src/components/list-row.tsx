@@ -113,6 +113,8 @@ export function ListHoverScope({
   const targetRow = useRef<HTMLElement | null>(null)
   const targetRect = useRef<ItemRect | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
+  // The row whose popup just closed stays lit until the pointer moves.
+  const held = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
   const track = useCallback(() => {
@@ -121,12 +123,18 @@ export function ListHoverScope({
     const at = point.current
     if (!container) return
     const paused =
-      container.closest("[data-scroll-root]")?.hasAttribute("data-scrolling") ??
-      false
+      container
+        .closest("[data-scroll-root]")
+        ?.hasAttribute("data-scroll-active") ?? false
     if (paused) return
     const instant = scrolled.current
     scrolled.current = false
-    const row = (at && rowAt(container, at.x, at.y)) ?? openPopupRow(container)
+    const open = openPopupRow(container)
+    if (open) held.current = open
+    const row =
+      (at && rowAt(container, at.x, at.y)) ??
+      open ??
+      (held.current?.isConnected ? held.current : null)
     if (at && !row) {
       const under = document.elementFromPoint(at.x, at.y)
       if (!under || !container.contains(under)) point.current = null
@@ -184,20 +192,32 @@ export function ListHoverScope({
     const scrollRoot = container?.closest("[data-scroll-root]")
     const root = scrollRoot ?? window
     const onScroll = () => {
+      held.current = null
       if (point.current) schedule()
     }
     root.addEventListener("scroll", onScroll, { passive: true })
     const scrolling = new MutationObserver(() => {
-      if (scrollRoot?.hasAttribute("data-scrolling")) scrolled.current = true
+      if (scrollRoot?.hasAttribute("data-scroll-active"))
+        scrolled.current = true
       schedule()
     })
     if (scrollRoot) {
-      scrolling.observe(scrollRoot, { attributeFilter: ["data-scrolling"] })
+      scrolling.observe(scrollRoot, { attributeFilter: ["data-scroll-active"] })
     }
     // Content ignores the pointer while scrolling, so follow it from the document.
     const onPausedMove = (event: MouseEvent) => {
-      if (scrollRoot?.hasAttribute("data-scrolling"))
+      if (scrollRoot?.hasAttribute("data-scroll-active"))
         point.current = { x: event.clientX, y: event.clientY }
+      // The list sees no move once the pointer is outside it.
+      if (
+        held.current &&
+        container &&
+        !(event.target instanceof Node && container.contains(event.target)) &&
+        !openPopupRow(container)
+      ) {
+        held.current = null
+        schedule()
+      }
     }
     document.addEventListener("mousemove", onPausedMove, { passive: true })
     const popups = new MutationObserver(schedule)
@@ -242,12 +262,14 @@ export function ListHoverScope({
           !event.currentTarget.contains(event.target)
         )
           return
+        held.current = null
         point.current = { x: event.clientX, y: event.clientY }
         schedule()
       }}
       onMouseLeave={(event) => {
         // Content dropping pointer events while scrolling reads as leaving.
-        if (event.currentTarget.closest("[data-scrolling]")) return
+        if (event.currentTarget.closest("[data-scroll-active]")) return
+        held.current = null
         point.current = null
         schedule()
       }}
@@ -257,7 +279,7 @@ export function ListHoverScope({
         hover={hover}
         instant={hovered?.instant}
         onArrive={arrive}
-        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scrolling:invisible"
+        className="rounded-[20px] [corner-shape:var(--button-corner)] in-data-keyboard-navigation:invisible in-data-scroll-active:invisible"
       />
       <InHoverScopeContext value={true}>{children}</InHoverScopeContext>
     </div>
@@ -341,7 +363,7 @@ export function ListRow({
         >
           {lead}
         </span>
-        <fieldset disabled={disabled} className="contents">
+        <Fields disabled={disabled}>
           <span
             className={cn(
               itemLayerClass,
@@ -362,7 +384,7 @@ export function ListRow({
               </span>
             </>
           )}
-        </fieldset>
+        </Fields>
         <div
           className={cn(
             "row-start-1 grid min-w-0 grid-cols-[minmax(10rem,1fr)_minmax(0,auto)] items-center gap-x-(--list-row-gap) self-stretch",
@@ -379,12 +401,25 @@ export function ListRow({
             {trailing}
           </div>
         </div>
-        <fieldset disabled={disabled} className="contents">
+        <Fields disabled={disabled}>
           <div className="flex justify-end">{estimate}</div>
           <div className="hidden justify-end sm:flex">{assignee}</div>
-        </fieldset>
+        </Fields>
       </div>
     </HoverSide>
+  )
+}
+
+function Fields({
+  disabled,
+  children
+}: Readonly<{ disabled: boolean; children: ReactNode }>) {
+  return disabled ? (
+    <fieldset disabled className="contents">
+      {children}
+    </fieldset>
+  ) : (
+    children
   )
 }
 

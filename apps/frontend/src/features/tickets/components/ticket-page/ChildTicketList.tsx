@@ -12,11 +12,11 @@ import {
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
 import { Row } from "@/features/tickets/components/ticket-list/Row"
+import { RowSettings } from "@/features/tickets/components/ticket-list/RowSettings"
 import {
   SelectionOrder,
   TicketSelectionProvider
 } from "@/features/tickets/components/ticket-list/TicketSelection"
-import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
@@ -34,7 +34,6 @@ export function ChildTicketList({
   const { orgSlug, slug } = useProjectRoute()
   const req = childTicketsRequest(orgSlug, slug, parent.id)
   const result = useAtomValue(childTickets(req))
-  const preview = useTicketPreview()
 
   return (
     <div className="flex flex-col gap-1">
@@ -61,23 +60,22 @@ export function ChildTicketList({
               <TicketViewSourceContext
                 value={{ from: "parent", parentId: parent.id }}
               >
-                <div className={listGridClassName}>
-                  {value.map((row) => (
-                    <Row
-                      key={row.key}
-                      update={childTicketUpdates(req)}
-                      titleVariant="quiet"
-                      ticket={row.ticket}
-                      members={members}
-                      contextParent={parent.id}
-                      pending={row.pending}
-                      editable={editable}
-                      previewOpen={preview.activePreviewId === row.ticket.id}
-                      onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                      onPreviewOpenChange={preview.onPreviewOpenChange}
-                    />
-                  ))}
-                </div>
+                <RowSettings>
+                  <div className={listGridClassName}>
+                    {value.map((row) => (
+                      <Row
+                        key={row.key}
+                        update={childTicketUpdates(req)}
+                        titleVariant="quiet"
+                        ticket={row.ticket}
+                        members={members}
+                        contextParent={parent.id}
+                        pending={row.pending}
+                        editable={editable}
+                      />
+                    ))}
+                  </div>
+                </RowSettings>
               </TicketViewSourceContext>
             </SelectionOrder>
           </TicketSelectionProvider>

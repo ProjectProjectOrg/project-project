@@ -13,7 +13,7 @@ type OpenMenu = { current: Handoff | null }
 
 const openMenu: OpenMenu = { current: null }
 
-const pointAnchor = (x: number, y: number) => ({
+export const pointAnchor = (x: number, y: number) => ({
   getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
 })
 
@@ -72,6 +72,7 @@ export function useTicketContextMenu() {
     anchor,
     open,
     instant,
+    showAt,
     openAt: (event: MouseEvent<HTMLElement>) => {
       if (!opensMenu(event.target, event.currentTarget)) return
       event.preventDefault()
