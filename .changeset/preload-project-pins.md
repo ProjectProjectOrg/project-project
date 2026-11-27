@@ -2,4 +2,4 @@
 kind: improvements
 area: navigation
 ---
-Pinned items start loading earlier when you open a project
+Pinned items and Project Settings appear sooner when you open a project
