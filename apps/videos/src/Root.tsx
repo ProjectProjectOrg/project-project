@@ -7,6 +7,10 @@ import {
 } from "./compositions/CommentThreadsClip"
 import { NEW_LOOK_FRAMES, NewLookClip } from "./compositions/NewLookClip"
 import {
+  NUMBER_KEYS_FRAMES,
+  NumberKeysClip
+} from "./compositions/NumberKeysClip"
+import {
   WHATS_NEW_CARD_FRAMES,
   WhatsNewCardClip
 } from "./compositions/WhatsNewCardClip"
@@ -33,6 +37,13 @@ export function Root() {
         id="comment-threads"
         component={CommentThreadsClip}
         durationInFrames={COMMENT_THREADS_FRAMES}
+        defaultProps={CLIP_DEFAULT_PROPS}
+        {...CLIP}
+      />
+      <Composition
+        id="number-keys-in-pickers"
+        component={NumberKeysClip}
+        durationInFrames={NUMBER_KEYS_FRAMES}
         defaultProps={CLIP_DEFAULT_PROPS}
         {...CLIP}
       />
