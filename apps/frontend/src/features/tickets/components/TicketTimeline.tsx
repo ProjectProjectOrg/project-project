@@ -4,6 +4,9 @@ import type {
   TicketActivityActor,
   TicketId
 } from "@pp/shared"
+import claudeLogo from "@pp/ui/assets/logos/claude.svg"
+import codexDarkLogo from "@pp/ui/assets/logos/codex_dark.svg"
+import codexLightLogo from "@pp/ui/assets/logos/codex_light.svg"
 import { Avatar, AvatarFallback } from "@pp/ui/avatar"
 import { Bot, GitBranch, Import, type IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
@@ -20,9 +23,6 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { AnimatePresence } from "motion/react"
 import { useMemo, useState, type ReactNode } from "react"
 
-import claudeLogo from "@/assets/logos/claude.svg"
-import codexDarkLogo from "@/assets/logos/codex_dark.svg"
-import codexLightLogo from "@/assets/logos/codex_light.svg"
 import {
   statusesFor,
   statusesRequest

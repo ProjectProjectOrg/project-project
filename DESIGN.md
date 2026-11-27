@@ -232,8 +232,10 @@ A scarce vocabulary, used only when state needs to read at a glance.
 
 - **Destructive** (`oklch(0.577 0.245 27.325)`): delete actions, validation failures, irreversible-action confirmations.
 - **State Success** (`oklch(0.7 0.16 135)`): open PRs, passing checks.
+- **State Success Ink** (`--state-success-ink`: the success hue at L 0.5 light / 0.8 dark): success as text that must hold 4.5:1, such as an inbox entry's "Cleared" note.
 - **State Warning** (`oklch(0.5 0.16 75)` / `oklch(0.78 0.07 75)` dark): pending review, attention-required.
 - **State Info** (`oklch(0.7 0.16 255)`): in-flight branches, active sprints.
+- **State Info Ink** (`--state-info-ink`: the info hue at L 0.5 light / 0.8 dark): info as text that must hold 4.5:1, such as a mentioned handle in an inbox excerpt.
 - **State Merged** (`oklch(0.7 0.16 285)`): merged-and-closed state.
 - **State Danger** (`oklch(0.7 0.16 15)`): failed checks, blocked work.
 

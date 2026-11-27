@@ -18,6 +18,7 @@ import {
   ArrowUp02Icon,
   ArrowUpBigIcon,
   ArrowUpRight01Icon,
+  AtIcon,
   Attachment01Icon,
   Book02Icon,
   BookOpen01Icon,
@@ -110,6 +111,7 @@ import {
   Idea01Icon,
   Image01Icon,
   InboxIcon,
+  InboxUnreadIcon,
   InformationCircleIcon,
   InputTextIcon,
   JusticeScale01Icon,
@@ -273,6 +275,41 @@ export function icon(svg: IconSvgElement, name: string) {
 }
 
 // Glyphs the free set lacks, drawn in its style: round caps and joins, 1.5.
+const InboxRemoveGlyph: IconSvgElement = [
+  [
+    "path",
+    {
+      d: "M21 12V12.5C21 16.9783 21 19.2175 19.6088 20.6088C18.2175 22 15.9783 22 11.5 22C7.02166 22 4.78249 22 3.39124 20.6088C2 19.2175 2 16.9783 2 12.5C2 8.02166 2 5.78249 3.39124 4.39124C4.78249 3 7.02166 3 11.5 3H12",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: "1.5",
+      key: "0"
+    }
+  ],
+  [
+    "path",
+    {
+      d: "M16.5 3.5L20.5 7.5M20.5 3.5L16.5 7.5",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: "1.5",
+      key: "1"
+    }
+  ],
+  [
+    "path",
+    {
+      d: "M21 14H16.0743C15.2322 14 14.5706 14.7036 14.1995 15.4472C13.7963 16.2551 12.9889 17 11.5 17C10.0111 17 9.20373 16.2551 8.80054 15.4472C8.42942 14.7036 7.76777 14 6.92566 14H2",
+      stroke: "currentColor",
+      strokeLinejoin: "round",
+      strokeWidth: "1.5",
+      key: "2"
+    }
+  ]
+]
+
 const BackspaceGlyph: IconSvgElement = [
   [
     "path",
@@ -498,6 +535,7 @@ export const ArrowRightToLine = icon(ArrowRightToLineIcon, "ArrowRightToLine")
 export const ArrowUp = icon(ArrowUp02Icon, "ArrowUp")
 export const ArrowUpNarrowWide = icon(SortByUp02Icon, "ArrowUpNarrowWide")
 export const ArrowUpRight = icon(ArrowUpRight01Icon, "ArrowUpRight")
+export const AtSign = icon(AtIcon, "AtSign")
 export const Award = icon(Medal01Icon, "Award")
 export const Ban = icon(UnavailableIcon, "Ban")
 export const Bell = icon(Notification03Icon, "Bell")
@@ -608,6 +646,8 @@ export const Hourglass = icon(HourglassIcon, "Hourglass")
 export const Image = icon(Image01Icon, "Image")
 export const Import = icon(FileImportIcon, "Import")
 export const Inbox = icon(InboxIcon, "Inbox")
+export const InboxRemove = icon(InboxRemoveGlyph, "InboxRemove")
+export const InboxUnread = icon(InboxUnreadIcon, "InboxUnread")
 export const Info = icon(InformationCircleIcon, "Info")
 export const Italic = icon(TextItalicIcon, "Italic")
 export const KeyRound = icon(Key01Icon, "KeyRound")

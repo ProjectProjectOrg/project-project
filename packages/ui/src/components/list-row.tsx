@@ -56,6 +56,10 @@ export const listGridClassName =
 
 const InHoverScopeContext = createContext(false)
 
+const ROW_SELECTOR = '[data-slot="list-row"], [data-slot="inbox-row"]'
+
+export const useInListHoverScope = () => use(InHoverScopeContext)
+
 // How far past a row the pointer still holds the highlight: the 4px gap
 // between rows, but not a section header.
 const HOVER_REACH = 6
@@ -79,7 +83,7 @@ const rowAt = (container: HTMLElement, x: number, y: number) => {
   for (const dy of [0, -HOVER_REACH, HOVER_REACH]) {
     const row = document
       .elementFromPoint(x, y + dy)
-      ?.closest<HTMLElement>('[data-slot="list-row"]')
+      ?.closest<HTMLElement>(ROW_SELECTOR)
     if (row && container.contains(row)) return row
   }
   return null
@@ -87,7 +91,7 @@ const rowAt = (container: HTMLElement, x: number, y: number) => {
 
 const openPopupRow = (container: HTMLElement) =>
   container.querySelector<HTMLElement>(
-    '[data-slot="list-row"]:is([data-popup-open], :has([data-popup-open], [data-card-open]))'
+    `:is(${ROW_SELECTOR}):is([data-popup-open], :has([data-popup-open], [data-card-open]))`
   )
 
 /*

@@ -60,6 +60,7 @@ import {
 | -------------- | ----------- | ----------------------------------- | ---------- |
 | `Empty`        | `intensity` | `"subtle" \| "medium" \| "strong"` | `"medium"` |
 |                | `animated`  | `boolean`                           | `true`     |
+|                | `variant`   | `"dithered" \| "plain"`            | `"dithered"` |
 | `EmptyMedia`   | `variant`   | `"default" \| "icon"`               | `"default"` |
 | `EmptyContent` | (children)  | the action: a button, or a row      |            |
 
@@ -68,6 +69,10 @@ import {
 ### One variant, tuned by intensity and motion
 
 There used to be three looks (a dithered card, a dashed inline box and a compact ⌘K box), and call sites restyled them by hand. Now there is one. What changes between places is how loud the dither's ink is (`intensity`) and whether it drifts (`animated`). The structure doesn't change.
+
+### Plain when nothing is picked yet
+
+`variant="plain"` drops the dither and the well and keeps only the text, centred. It's for a pane that is empty because nothing is selected (the inbox's ticket pane before you open an entry), not because something is missing: a dithered well there makes "nothing" look like an event. Use it without `EmptyMedia`.
 
 ### Intensity is colour, never density
 

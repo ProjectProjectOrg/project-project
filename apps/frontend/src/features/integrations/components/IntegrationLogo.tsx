@@ -1,11 +1,10 @@
+import figmaLogo from "@pp/ui/assets/logos/figma.svg"
+import githubDarkLogo from "@pp/ui/assets/logos/github_dark.svg"
+import githubLightLogo from "@pp/ui/assets/logos/github_light.svg"
+import slackLogo from "@pp/ui/assets/logos/slack.svg"
 import { HardDrive, Mail, Timer, type IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Match from "effect/Match"
-
-import figmaLogo from "@/assets/logos/figma.svg"
-import githubDarkLogo from "@/assets/logos/github_dark.svg"
-import githubLightLogo from "@/assets/logos/github_light.svg"
-import slackLogo from "@/assets/logos/slack.svg"
 
 export type IntegrationKind =
   | "github"
