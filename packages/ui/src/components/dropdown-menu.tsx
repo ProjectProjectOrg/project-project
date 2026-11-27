@@ -16,6 +16,7 @@ import {
   useMenuControl,
   useMenuRoot
 } from "../lib/menuClose"
+import type { FlyoutLevel } from "../lib/menuFlyout"
 import { openOnReleaseProps } from "../lib/openOnRelease"
 import {
   PopupAnchorProvider,
@@ -33,9 +34,36 @@ import {
   type KeyLabels
 } from "./kbd"
 import { LogoLoader } from "./logo"
+import {
+  FlyoutPanelContext,
+  FlyoutRoot,
+  FlyoutRootContext,
+  FlyoutSub,
+  FlyoutSubContext,
+  FlyoutSubTrigger,
+  useFlyoutOpen,
+  usePreparedAfterPaint,
+  type DropdownMenuFilter
+} from "./menu-flyout"
+import {
+  FlyoutCheckboxItem,
+  FlyoutEmpty,
+  FlyoutGroup,
+  FlyoutIndicator,
+  FlyoutInput,
+  FlyoutItem,
+  FlyoutList,
+  FlyoutRadioGroup,
+  FlyoutRadioItem,
+  FlyoutSeparator
+} from "./menu-flyout-items"
+import { FlyoutPanel } from "./menu-flyout-panel"
 import { MenuHighlight, chosenRow, whileOpen } from "./menu-highlight"
 import {
+  MENU_ROW_INSET,
+  SUBMENU_GAP,
   destructiveItemClass,
+  flyoutMenuPopupClass,
   PopupLayerContext,
   atPointerMotionClass,
   menuItemClass,
@@ -48,9 +76,6 @@ import {
 import { TextSwap } from "./text-swap"
 
 const DeferMenusContext = React.createContext(false)
-type DropdownMenuFilter =
-  | boolean
-  | Omit<MenuPrimitive.FilterProvider.Props, "children">
 type DropdownMenuProps = React.ComponentProps<typeof MenuPrimitive.Root> & {
   filterable?: DropdownMenuFilter
 }
@@ -213,7 +238,11 @@ type DropdownMenuContentProps = React.ComponentProps<
     | "sideOffset"
     | "anchor"
     | "collisionAvoidance"
-  > & { highlightFirst?: boolean }
+  > & {
+    highlightFirst?: boolean
+    // Submenus open in panels beside the menu instead of popups of their own.
+    flyoutSubmenus?: boolean
+  }
 
 function DropdownMenuContent(props: DropdownMenuContentProps) {
   const deferred = React.useContext(DeferredMenuContext)
@@ -330,6 +359,7 @@ const closedFromKeyboard = () => lastInputKeyboard
 
 function DropdownMenuPopup({
   highlightFirst = false,
+  flyoutSubmenus = false,
   className,
   align,
   alignOffset,
@@ -367,22 +397,60 @@ function DropdownMenuPopup({
             onKeyDown?.(event)
             event.stopPropagation()
           }}
-          className={cn(menuPopupClass, raisedClass, className)}
+          className={cn(
+            flyoutSubmenus ? flyoutMenuPopupClass : menuPopupClass,
+            raisedClass,
+            className
+          )}
           {...props}
         >
-          <MenuHighlight restOnFirst={highlightFirst} />
-          <StartOnChecked />
-          <PopupLayerContext value={true}>{children}</PopupLayerContext>
+          <FlyoutRootContext value={null}>
+            {flyoutSubmenus ? (
+              <FlyoutRoot>
+                <PopupRows highlightFirst={highlightFirst}>
+                  {children}
+                </PopupRows>
+              </FlyoutRoot>
+            ) : (
+              <PopupRows highlightFirst={highlightFirst}>{children}</PopupRows>
+            )}
+          </FlyoutRootContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>
   )
 }
 
+function PopupRows({
+  highlightFirst,
+  children
+}: Readonly<{ highlightFirst: boolean; children: React.ReactNode }>) {
+  return (
+    <>
+      <MenuHighlight restOnFirst={highlightFirst} />
+      <StartOnChecked />
+      <PopupLayerContext value={true}>{children}</PopupLayerContext>
+    </>
+  )
+}
+
+const useInFlyout = () => React.use(FlyoutPanelContext) !== null
+
+function useNoFlyoutVariant(part: string) {
+  if (useInFlyout())
+    throw new Error(
+      `${part} has no flyout variant: keep this submenu on Base UI with <DropdownMenuSub flyout={false}>`
+    )
+}
+
 function DropdownMenuGroup({
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Group>) {
-  return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+  return useInFlyout() ? (
+    <FlyoutGroup data-slot="dropdown-menu-group" {...props} />
+  ) : (
+    <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+  )
 }
 
 function DropdownMenuItem({
@@ -394,8 +462,9 @@ function DropdownMenuItem({
   inset?: boolean
   variant?: "default" | "destructive"
 }) {
+  const Item = useInFlyout() ? FlyoutItem : MenuPrimitive.Item
   return (
-    <MenuPrimitive.Item
+    <Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -607,21 +676,26 @@ function DropdownMenuCheckboxItem({
   // `checked` stays false while it's mixed.
   mixed?: boolean
 }) {
-  const item = (
-    <MenuPrimitive.CheckboxItem
-      data-slot="dropdown-menu-checkbox-item"
-      data-mixed={mixed ? "" : undefined}
-      className={cn(
-        menuItemClass,
-        checkboxItemClass,
-        mixed && checkboxMixedClass,
-        className
-      )}
-      checked={checked}
-      {...(mixed ? mixedProps : undefined)}
-      {...props}
-    >
-      <MenuPrimitive.CheckboxItemIndicator
+  const flyout = useInFlyout()
+  const itemProps = {
+    "data-slot": "dropdown-menu-checkbox-item",
+    "data-mixed": mixed ? "" : undefined,
+    className: cn(
+      menuItemClass,
+      checkboxItemClass,
+      mixed && checkboxMixedClass,
+      className
+    ),
+    checked,
+    ...(mixed ? mixedProps : undefined),
+    ...props
+  }
+  const Indicator = flyout
+    ? FlyoutIndicator
+    : MenuPrimitive.CheckboxItemIndicator
+  const content = (
+    <>
+      <Indicator
         keepMounted
         aria-hidden
         data-slot="dropdown-menu-checkbox-indicator"
@@ -637,8 +711,17 @@ function DropdownMenuCheckboxItem({
             className={cn(checkboxTickClass, mixed && "[stroke-dashoffset:0]")}
           />
         </svg>
-      </MenuPrimitive.CheckboxItemIndicator>
+      </Indicator>
       {children}
+    </>
+  )
+  const item = flyout ? (
+    <FlyoutCheckboxItem {...itemProps} mixed={mixed}>
+      {content}
+    </FlyoutCheckboxItem>
+  ) : (
+    <MenuPrimitive.CheckboxItem {...itemProps}>
+      {content}
     </MenuPrimitive.CheckboxItem>
   )
   return separated ? (
@@ -688,8 +771,9 @@ function DropdownMenuRadioGroup<
   const picked = React.use(MenuPickedContext)
   const [shown, setShown] = React.useState(value)
   if (!picked && shown !== value) setShown(value)
+  const RadioGroup = useInFlyout() ? FlyoutRadioGroup : MenuPrimitive.RadioGroup
   return (
-    <MenuPrimitive.RadioGroup
+    <RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
       value={shown}
@@ -712,7 +796,7 @@ function DropdownMenuRadioGroup<
           {label}
         </DropdownMenuRadioItem>
       ))}
-    </MenuPrimitive.RadioGroup>
+    </RadioGroup>
   )
 }
 
@@ -731,15 +815,18 @@ function DropdownMenuRadioItem({
     separated?: boolean
     number?: HotkeyChord
   }>) {
+  const flyout = useInFlyout()
+  const RadioItem = flyout ? FlyoutRadioItem : MenuPrimitive.RadioItem
+  const Indicator = flyout ? FlyoutIndicator : MenuPrimitive.RadioItemIndicator
   const item = (
-    <MenuPrimitive.RadioItem
+    <RadioItem
       data-slot="dropdown-menu-radio-item"
       closeOnClick={closeOnClick}
       aria-keyshortcuts={number}
       className={cn(menuItemClass, checkboxItemClass, className)}
       {...props}
     >
-      <MenuPrimitive.RadioItemIndicator
+      <Indicator
         keepMounted
         aria-hidden
         data-slot="dropdown-menu-radio-indicator"
@@ -748,7 +835,7 @@ function DropdownMenuRadioItem({
         <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
           <circle cx="8" cy="8" r="3" className={radioDotClass} />
         </svg>
-      </MenuPrimitive.RadioItemIndicator>
+      </Indicator>
       {children}
       {number !== undefined && (
         <KbdNumber
@@ -761,7 +848,7 @@ function DropdownMenuRadioItem({
           className="mr-px ml-auto [[data-menu-meta]+&]:ml-0"
         />
       )}
-    </MenuPrimitive.RadioItem>
+    </RadioItem>
   )
   return separated ? (
     <>
@@ -779,8 +866,9 @@ function DropdownMenuInput({
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Input> &
   Readonly<{ shortcut?: React.ReactNode }>) {
+  const Input = useInFlyout() ? FlyoutInput : MenuPrimitive.Input
   const input = (
-    <MenuPrimitive.Input
+    <Input
       data-slot="dropdown-menu-input"
       className={cn(
         "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
@@ -814,15 +902,16 @@ function DropdownMenuList({
   children,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.List>) {
+  const List = useInFlyout() ? FlyoutList : MenuPrimitive.List
   return (
-    <MenuPrimitive.List
+    <List
       data-slot="dropdown-menu-list"
       className={cn("relative -mx-[5px] overflow-x-hidden px-[5px]", className)}
       {...props}
     >
       <MenuHighlight />
       {children}
-    </MenuPrimitive.List>
+    </List>
   )
 }
 
@@ -830,8 +919,9 @@ function DropdownMenuEmpty({
   className,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Empty>) {
+  const Empty = useInFlyout() ? FlyoutEmpty : MenuPrimitive.Empty
   return (
-    <MenuPrimitive.Empty
+    <Empty
       data-slot="dropdown-menu-empty"
       className={cn(
         "px-2 py-2 text-muted-foreground empty:hidden",
@@ -850,6 +940,7 @@ function DropdownMenuLabel({
 }: React.ComponentProps<typeof MenuPrimitive.GroupLabel> & {
   inset?: boolean
 }) {
+  useNoFlyoutVariant("DropdownMenuLabel")
   return (
     <MenuPrimitive.GroupLabel
       data-slot="dropdown-menu-label"
@@ -864,8 +955,9 @@ function DropdownMenuSeparator({
   className,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Separator>) {
+  const Separator = useInFlyout() ? FlyoutSeparator : MenuPrimitive.Separator
   return (
-    <MenuPrimitive.Separator
+    <Separator
       data-slot="dropdown-menu-separator"
       className={cn(menuSeparatorClass, className)}
       {...props}
@@ -894,12 +986,9 @@ function DropdownMenuShortcut({
   )
 }
 
-// Rows sit 5px inside the popup (its padding). The submenu is
-// placed against the row, so the side offset adds that inset back for a
-// 2px gap between the two surfaces, and the align offset lines its first
-// row up with the trigger row.
-const MENU_ROW_INSET = 5
-const SUBMENU_GAP = 2
+// The submenu is placed against the row, so the side offset adds the row's
+// inset back for the gap between the two surfaces, and the align offset lines
+// its first row up with the trigger row.
 const SUBMENU_SIDE_OFFSET = MENU_ROW_INSET + SUBMENU_GAP
 const SUBMENU_ALIGN_OFFSET = -MENU_ROW_INSET
 
@@ -909,25 +998,63 @@ type SubmenuHover = Readonly<{ open: boolean; openFromHover: () => void }>
 
 const SubmenuHoverContext = React.createContext<SubmenuHover | null>(null)
 
+type DropdownMenuSubProps = Omit<SubmenuRootProps, "onOpenChange"> & {
+  filterable?: DropdownMenuFilter
+  onOpenChange?: (open: boolean) => void
+  // In a menu with flyoutSubmenus, false keeps this one a Base UI popup.
+  flyout?: boolean
+}
+
+function DropdownMenuSub({ flyout = true, ...props }: DropdownMenuSubProps) {
+  const root = React.use(FlyoutRootContext)
+  if (useInFlyout())
+    throw new Error("DropdownMenuSub cannot nest inside a flyout submenu")
+  if (root === null) return <BaseSubmenu {...props} />
+  if (!flyout || props.open !== undefined)
+    return <BaseSubmenu {...props} level={root.level} />
+  return (
+    <FlyoutSub
+      filterable={props.filterable ?? false}
+      onOpenChange={props.onOpenChange}
+    >
+      {props.children}
+    </FlyoutSub>
+  )
+}
+
 // The submenu's open state lives here, so its row opens it on hover itself:
 // Base UI's own hover stops the menu's other rows taking the pointer for as
 // long as the submenu is open, which makes a sweep down the menu skip rows.
-function DropdownMenuSub({
+// In a flyout menu the level holds it, so one submenu is open at a time.
+function BaseSubmenu({
   filterable = false,
   open: openProp,
   defaultOpen = false,
   onOpenChange,
+  level,
   ...props
-}: Omit<SubmenuRootProps, "onOpenChange"> & {
-  filterable?: DropdownMenuFilter
-  onOpenChange?: (open: boolean) => void
-}) {
+}: Omit<DropdownMenuSubProps, "flyout"> & Readonly<{ level?: FlyoutLevel }>) {
+  const id = React.useId()
   const [ownOpen, setOwnOpen] = React.useState(defaultOpen)
-  const open = openProp ?? ownOpen
+  const levelOpen = useFlyoutOpen(id)
+  const open = openProp ?? (level === undefined ? ownOpen : levelOpen)
   const change = (next: boolean) => {
+    if (level !== undefined) {
+      if (next) level.open(id)
+      else level.release(id, "instant")
+      return
+    }
     setOwnOpen(next)
     onOpenChange?.(next)
   }
+  const latest = React.useRef(onOpenChange)
+  React.useLayoutEffect(() => {
+    latest.current = onOpenChange
+  })
+  React.useEffect(
+    () => level?.watch(id, (next) => latest.current?.(next)),
+    [level, id]
+  )
   // Stays open while an item in the menu is running its action.
   const guarded =
     useHeldOpenChange<
@@ -974,6 +1101,41 @@ function DropdownMenuSubTrigger({
     variant?: "default" | "destructive"
   }) {
   const submenu = React.use(SubmenuHoverContext)
+  const flyout = React.use(FlyoutSubContext) !== null
+  const shared = {
+    "data-slot": "dropdown-menu-sub-trigger",
+    "data-inset": inset,
+    "data-variant": variant,
+    className: cn(
+      menuItemClass,
+      "data-[inset]:pl-8",
+      destructiveItemClass,
+      "data-[variant=destructive]:data-[submenu-open]:text-destructive",
+      className
+    ),
+    children: (
+      <>
+        {children}
+        {hotkey !== undefined && (
+          <DropdownMenuShortcut keys={hotkey} keyLabels={keyLabels} />
+        )}
+        {/* The arrow's tip ends where a shortcut's last key does. */}
+        <ChevronRightIcon
+          className={cn("-mr-[5px] size-4", hotkey === undefined && "ml-auto")}
+        />
+      </>
+    )
+  }
+  if (flyout)
+    return (
+      <FlyoutSubTrigger
+        openOnHover={openOnHover}
+        onMouseMove={onMouseMove}
+        onMouseDown={onMouseDown}
+        {...props}
+        {...shared}
+      />
+    )
   return (
     <MenuPrimitive.SubmenuTrigger
       openOnHover={false}
@@ -986,27 +1148,10 @@ function DropdownMenuSubTrigger({
         // A press on a row whose submenu hover already opened keeps it open.
         if (openOnHover && submenu?.open) event.preventBaseUIHandler()
       }}
-      data-slot="dropdown-menu-sub-trigger"
-      data-inset={inset}
-      data-variant={variant}
-      className={cn(
-        menuItemClass,
-        "data-[inset]:pl-8",
-        destructiveItemClass,
-        "data-[variant=destructive]:data-[popup-open]:text-destructive",
-        className
-      )}
+      data-submenu-open={submenu?.open ? "" : undefined}
       {...props}
-    >
-      {children}
-      {hotkey !== undefined && (
-        <DropdownMenuShortcut keys={hotkey} keyLabels={keyLabels} />
-      )}
-      {/* The arrow's tip ends where a shortcut's last key does. */}
-      <ChevronRightIcon
-        className={cn("-mr-[5px] size-4", hotkey === undefined && "ml-auto")}
-      />
-    </MenuPrimitive.SubmenuTrigger>
+      {...shared}
+    />
   )
 }
 
@@ -1024,25 +1169,31 @@ type DropdownMenuSubContentProps = React.ComponentProps<
 const submenuExitClass =
   "transition-opacity duration-80 ease-standard data-[ending-style]:opacity-0 data-[instant]:transition-none"
 
-function usePreparedAfterPaint() {
-  const [prepared, setPrepared] = React.useState(false)
-  React.useEffect(() => {
-    const timer = window.setTimeout(
-      () => React.startTransition(() => setPrepared(true)),
-      0
-    )
-    return () => window.clearTimeout(timer)
-  }, [])
-  return prepared
+function DropdownMenuSubContent({
+  lazy = false,
+  ...props
+}: DropdownMenuSubContentProps) {
+  if (React.use(FlyoutSubContext) === null)
+    return <BaseSubmenuContent lazy={lazy} {...props} />
+  return (
+    <FlyoutPanel
+      className={
+        typeof props.className === "string" ? props.className : undefined
+      }
+      lazy={lazy}
+    >
+      {props.children}
+    </FlyoutPanel>
+  )
 }
 
-function DropdownMenuSubContent({
+function BaseSubmenuContent({
   className,
   align,
   alignOffset = SUBMENU_ALIGN_OFFSET,
   side,
   sideOffset = SUBMENU_SIDE_OFFSET,
-  lazy = false,
+  lazy,
   children,
   ...props
 }: DropdownMenuSubContentProps) {
@@ -1063,7 +1214,9 @@ function DropdownMenuSubContent({
         >
           <MenuHighlight restOnFirst />
           <StartOnChecked />
-          <PopupLayerContext value={true}>{children}</PopupLayerContext>
+          <FlyoutRootContext value={null}>
+            <PopupLayerContext value={true}>{children}</PopupLayerContext>
+          </FlyoutRootContext>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>

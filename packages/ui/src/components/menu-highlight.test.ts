@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { aimsAt, nextHighlight, type HighlightRect } from "./menu-highlight"
+import {
+  aimsAt,
+  nextHighlight,
+  settleHighlight,
+  type HighlightRect
+} from "./menu-highlight"
 
 const rect = (top: number) =>
   ({
@@ -56,5 +61,38 @@ describe("aimsAt", () => {
     const left = { left: 0, right: 150, top: 100, bottom: 400 }
     expect(aimsAt(from, { x: 180, y: 150 }, left)).toBe(true)
     expect(aimsAt(from, { x: 220, y: 150 }, left)).toBe(false)
+  })
+})
+
+describe("settleHighlight", () => {
+  const destructive = (top: number) =>
+    ({ ...rect(top), tone: "destructive" }) satisfies HighlightRect
+
+  it("leaves state alone while the fill glides between rows of one tone", () => {
+    const state = { rect: rect(0), session: 1 }
+    expect(settleHighlight(state, rect(32), "glide")).toBe(state)
+  })
+
+  it("updates the rect when a glide changes the tone", () => {
+    const next = settleHighlight(
+      { rect: rect(0), session: 1 },
+      destructive(32),
+      "glide"
+    )
+    expect(next).toEqual({ rect: destructive(32), session: 1 })
+  })
+
+  it("starts a new shape when a resumed panel's kept fill no longer fits", () => {
+    const state = { rect: rect(0), session: 1 }
+    expect(settleHighlight(state, rect(0), "resume")).toBe(state)
+    expect(settleHighlight(state, rect(64), "resume")).toEqual({
+      rect: rect(64),
+      session: 2
+    })
+  })
+
+  it("falls back to nextHighlight otherwise", () => {
+    const first = settleHighlight({ rect: null, session: 0 }, rect(0), "set")
+    expect(first).toEqual({ rect: rect(0), session: 1 })
   })
 })

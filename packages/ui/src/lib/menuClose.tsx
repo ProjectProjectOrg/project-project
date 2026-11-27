@@ -13,7 +13,7 @@ import {
 // can't close it under a running action. DropdownMenu and ContextMenu
 // provide it from their root.
 type MenuControl = Readonly<{
-  close: () => void
+  close: (options?: Readonly<{ picked?: boolean }>) => void
   hold: (held: boolean) => void
   held: () => boolean
 }>
@@ -39,9 +39,13 @@ export function useMenuRoot<T extends MenuActions, D extends CancelableDetails>(
   // A count, not a flag: two items can be running at once, and the first
   // to finish mustn't release the other's hold.
   const holds = useRef(0)
+  const [picked, setPicked] = useState(false)
   const control = useMemo<MenuControl>(
     () => ({
-      close: () => ref.current?.close(),
+      close: (options) => {
+        ref.current?.close()
+        if (options?.picked) setPicked(true)
+      },
       hold: (held) => {
         holds.current = Math.max(0, holds.current + (held ? 1 : -1))
       },
@@ -49,7 +53,6 @@ export function useMenuRoot<T extends MenuActions, D extends CancelableDetails>(
     }),
     [ref]
   )
-  const [picked, setPicked] = useState(false)
   const trackPick = (open: boolean, details: D) => {
     setPicked(!open && details.reason === "item-press")
     onOpenChange?.(open, details)

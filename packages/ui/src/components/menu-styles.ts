@@ -33,9 +33,20 @@ export const atPointerMotionClass =
 
 // Rows sit 5px in, so the popup's 19px corners are concentric with a row's
 // 14px highlight.
-export const menuSurfaceClass = `relative max-h-[var(--available-height)] min-w-[8rem] overflow-x-hidden overflow-y-auto p-[5px] select-none ${popupSurfaceClass}`
+export const menuScrollClass =
+  "max-h-[var(--available-height)] overflow-x-hidden overflow-y-auto p-[5px]"
+
+export const menuSurfaceClass = `relative min-w-[8rem] ${menuScrollClass} select-none ${popupSurfaceClass}`
 
 export const menuPopupClass = `${menuSurfaceClass} ${popupMotionClass}`
+
+// A menu whose submenus fly out beside it: its rows scroll in an inner box.
+export const flyoutMenuPopupClass = `relative min-w-[8rem] select-none ${popupSurfaceClass} ${popupMotionClass}`
+
+// A submenu sits 2px beside its menu, its first row level with the row
+// that opened it: rows sit 5px inside their popup.
+export const MENU_ROW_INSET = 5
+export const SUBMENU_GAP = 2
 
 export const menuItemClass =
   "relative flex cursor-pointer items-center gap-2 rounded-md [corner-shape:var(--button-corner)] border-y border-transparent bg-clip-padding px-2 py-[7px] text-body font-[450] text-(--menu-foreground) outline-hidden [&_svg]:text-muted-foreground lit:[&_svg]:text-foreground transition-colors lit:text-foreground lit:duration-0 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 lit:[&_svg]:stroke-[2] lit:[&_svg]:duration-0 [&_svg:not([class*='size-'])]:size-4"

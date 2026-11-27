@@ -11,7 +11,7 @@
    holds on while the pointer crosses a separator, the row it rests on
    with no pointer, or a submenu trigger whose submenu has focus
    (menu-highlight.tsx). */
-@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting], [data-slot=dropdown-menu-sub-trigger][data-popup-open]));
+@custom-variant lit (&:is([data-highlighted], [data-menu-held], [data-menu-resting], [data-slot=dropdown-menu-sub-trigger][data-submenu-open]));
 @custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 /* A row's hover reveals: in a ListHoverScope they follow the gliding
    highlight (the row it marks data-hover-highlight), so they light up in the
@@ -1135,7 +1135,7 @@
 /* Rows other than the open submenu's own ignore the pointer while it heads
    for that submenu (menu-highlight.tsx). */
 [data-menu-aiming]
-  :is([role^="menuitem"], [role="option"]):not([data-popup-open]) {
+  :is([role^="menuitem"], [role="option"]):not([data-submenu-open]) {
   pointer-events: none;
 }
 
@@ -1150,12 +1150,12 @@
 [data-slot="menu-highlight"][data-tone="destructive"] {
   background-color: var(--destructive-light);
 }
-[data-menu-highlight-host]:has([data-highlighted]:active)
-  [data-slot="menu-highlight"] {
+[data-menu-pressed] > [data-menu-chrome] > [data-slot="menu-highlight"] {
   background-color: var(--menu-active);
 }
-[data-menu-highlight-host]:has([data-highlighted]:active)
-  [data-slot="menu-highlight"][data-tone="destructive"] {
+[data-menu-pressed]
+  > [data-menu-chrome]
+  > [data-slot="menu-highlight"][data-tone="destructive"] {
   background-color: color-mix(
     in oklab,
     var(--destructive-light),

@@ -27,7 +27,7 @@ type HighlightState = Readonly<{
 
 const HIGHLIGHTED = "[data-highlighted]:not(input)"
 const OPEN_SUBMENU_TRIGGER =
-  "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
+  "[data-slot=dropdown-menu-sub-trigger][data-submenu-open]"
 const MENU_ROW =
   "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
 const CHOICE_ROW = "[role=menuitemradio], [role=option]"
@@ -37,8 +37,10 @@ const RESTING = "data-menu-resting"
 const HELD = "data-menu-held"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const SUBMENU_POPUP = "[data-slot=dropdown-menu-sub-content]"
+const FLYOUT_PANEL = "[data-flyout-panel]"
 const HOST = "data-menu-highlight-host"
 const AIMING = "data-menu-aiming"
+const PRESSED = "data-menu-pressed"
 const AIM_REST_MS = 100
 const HIGHLIGHT_INSET = 1
 
@@ -168,6 +170,24 @@ export const nextHighlight = (
   return { rect, session: fresh ? previous.session + 1 : previous.session }
 }
 
+// A glide animates from the measurement, so state changes only with the tone;
+// a hidden panel's kept fill that no longer fits starts a new shape.
+export const settleHighlight = (
+  previous: HighlightState,
+  rect: HighlightRect | null,
+  move: "set" | "glide" | "resume"
+) => {
+  if (move === "glide" && previous.rect !== null && rect !== null)
+    return previous.rect.tone === rect.tone ? previous : { ...previous, rect }
+  if (
+    move === "resume" &&
+    previous.rect !== null &&
+    !sameRect(previous.rect, rect)
+  )
+    return { rect, session: previous.session + 1 }
+  return nextHighlight(previous, rect)
+}
+
 function observeHighlight(
   container: HTMLElement,
   measure: (pointer: Point | null) => void
@@ -213,6 +233,19 @@ function observeHighlight(
     passive: true
   })
   document.addEventListener("keydown", yieldToKeys, { capture: true })
+  const press = (event: PointerEvent) => {
+    const row =
+      event.target instanceof Element ? event.target.closest(MENU_ROW) : null
+    container.toggleAttribute(
+      PRESSED,
+      row !== null && ownerOf(row) === container
+    )
+  }
+  const release = () => container.removeAttribute(PRESSED)
+  container.addEventListener("pointerdown", press)
+  container.addEventListener("pointerleave", release)
+  document.addEventListener("pointerup", release, { capture: true })
+  document.addEventListener("pointercancel", release, { capture: true })
   measure(pointer)
   // Row changes come in bursts (Base UI marks rows and opens submenus in
   // several steps), so they're measured once, in the frame they paint in.
@@ -225,7 +258,7 @@ function observeHighlight(
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ["data-highlighted", "data-popup-open"]
+    attributeFilter: ["data-highlighted", "data-submenu-open"]
   })
   const resizes =
     typeof ResizeObserver === "undefined" ? null : new ResizeObserver(remeasure)
@@ -236,6 +269,11 @@ function observeHighlight(
     stopAiming()
     document.removeEventListener("pointermove", track, { capture: true })
     document.removeEventListener("keydown", yieldToKeys, { capture: true })
+    container.removeEventListener("pointerdown", press)
+    container.removeEventListener("pointerleave", release)
+    document.removeEventListener("pointerup", release, { capture: true })
+    document.removeEventListener("pointercancel", release, { capture: true })
+    release()
     mutations.disconnect()
     resizes?.disconnect()
   }
@@ -280,8 +318,11 @@ function useHighlightRect(
     if (!container) return undefined
     // Claimed while mounted, so a reopening submenu never takes its list's rows.
     container.setAttribute(HOST, "")
+    // A flyout panel keeps its fill while hidden, so reopening it renders nothing.
+    const keeps = container.closest(FLYOUT_PANEL) !== null
     const stopWatching = whileOpen(container, () => {
       let lit: HTMLElement | undefined
+      let resumed = true
       // Measured outside setState: React runs updaters during render, where
       // every layout read is a forced one.
       const stop = observeHighlight(container, (pointer) => {
@@ -297,16 +338,22 @@ function useHighlightRect(
           return
         }
         lit?.removeAttribute(HELD)
+        const glides =
+          next !== null && lit !== undefined && placeRef.current !== null
         if (next && lit !== undefined) placeRef.current?.(next.rect)
         lit = next?.element
         if (next?.pointed && !next.element.matches(selector))
           next.element.setAttribute(HELD, "")
-        setState((previous) => nextHighlight(previous, next?.rect ?? null))
+        const move = resumed ? "resume" : glides ? "glide" : "set"
+        resumed = false
+        setState((previous) =>
+          settleHighlight(previous, next?.rect ?? null, move)
+        )
       })
       return () => {
         stop()
         lit?.removeAttribute(HELD)
-        setState((previous) => nextHighlight(previous, null))
+        if (!keeps) setState((previous) => nextHighlight(previous, null))
       }
     })
     return () => {
