@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema"
 import { callTool, callToolAs } from "../client/callTool"
 import { usage } from "../CliFailure"
 import { printResult } from "../output/format"
+import { presentInboxEntry } from "../output/inbox"
 import { pagingEnabled } from "../output/pager"
 import { stdoutTerminal } from "../output/terminal"
 import { quotedCommandText } from "../output/terminalText"
@@ -168,7 +169,8 @@ export const commandFor = (entry: CatalogEntry) => {
   const layout = [
     "search_tickets",
     "list_comments",
-    "list_ticket_activity"
+    "list_ticket_activity",
+    "list_inbox"
   ].includes(entry.name)
     ? "details"
     : "table"
@@ -214,6 +216,7 @@ export const commandFor = (entry: CatalogEntry) => {
         string,
         (typeof TicketActivityPage.Encoded)["people"][number]
       >()
+      let firstPage: typeof UnknownPage.Type | undefined
       const page = (cursor: string | undefined) => {
         const pageInput = { limit: 200, ...input, cursor }
         return entry.name === "list_ticket_activity"
@@ -230,7 +233,18 @@ export const commandFor = (entry: CatalogEntry) => {
                 })
               )
             )
-          : callToolAs(server, entry.name, pageInput, UnknownPage)
+          : callToolAs(server, entry.name, pageInput, UnknownPage).pipe(
+              Effect.tap((found) =>
+                Effect.sync(() => {
+                  firstPage ??= found
+                })
+              ),
+              Effect.map((found) =>
+                entry.name === "list_inbox" && !flags.json
+                  ? { ...found, items: found.items.map(presentInboxEntry) }
+                  : found
+              )
+            )
       }
       if (
         paginated &&
@@ -256,14 +270,18 @@ export const commandFor = (entry: CatalogEntry) => {
         (items) =>
           entry.name === "list_ticket_activity"
             ? { items, nextCursor: null, people: [...people.values()] }
-            : { items, nextCursor: null }
+            : { ...firstPage, items, nextCursor: null }
       )
       const result =
         raw["all"] === true
           ? yield* everyPage.pipe(explainDefault(scope))
-          : yield* callTool(server, entry.name, input).pipe(
-              explainDefault(scope)
-            )
+          : entry.name === "list_inbox"
+            ? yield* page(
+                Predicate.isString(firstCursor) ? firstCursor : undefined
+              ).pipe(explainDefault(scope))
+            : yield* callTool(server, entry.name, input).pipe(
+                explainDefault(scope)
+              )
       yield* printResult(result, flags.json, layout)
     })
   ).pipe(

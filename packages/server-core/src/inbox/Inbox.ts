@@ -1,6 +1,7 @@
 import { Db } from "@pp/db"
 import { inboxEntry, projectIndex, ticketIndex } from "@pp/db/schema"
 import {
+  ActivityActor,
   InboxEntryId,
   InboxEvent,
   NotFound,
@@ -76,7 +77,7 @@ export class Inbox extends Context.Service<
     markRead: (
       entryId: string,
       revision: number
-    ) => Effect.Effect<EntryState, NotFound, OrgScope>
+    ) => Effect.Effect<EntryState, NotFound, OrgScope | ActivityActor>
     markUnread: (
       entryId: string
     ) => Effect.Effect<EntryState, NotFound, OrgScope>
@@ -84,13 +85,19 @@ export class Inbox extends Context.Service<
       entryId: string,
       revision: number
     ) => Effect.Effect<EntryState, NotFound, OrgScope>
-    markAllRead: (upTo: Date) => Effect.Effect<number, never, OrgScope>
+    markAllRead: (
+      upTo: Date
+    ) => Effect.Effect<number, never, OrgScope | ActivityActor>
     list: (
       options: InboxListOptions
     ) => Effect.Effect<ReadonlyArray<InboxEntry>, never, OrgScope>
     count: () => Effect.Effect<number, never, OrgScope>
   }>
 >()("@pp/server-core/inbox/Inbox") {}
+
+const readerName = Effect.map(ActivityActor, (actor) =>
+  actor.kind === "agent" ? actor.clientName : null
+)
 
 const stateOf = (id: string, value: EntryValue) =>
   ({
@@ -219,7 +226,8 @@ const make = Effect.gen(function* () {
     entryId: string,
     revision: number
   ) {
-    return yield* change(entryId, (value) => read(value, revision, null))
+    const reader = yield* readerName
+    return yield* change(entryId, (value) => read(value, revision, reader))
   })
 
   const markUnreadEntry = Effect.fn("Inbox.markUnread")(function* (
@@ -237,6 +245,7 @@ const make = Effect.gen(function* () {
 
   const markAllRead = Effect.fn("Inbox.markAllRead")(function* (upTo: Date) {
     const scope = yield* OrgScope
+    const reader = yield* readerName
     const projects = yield* readableProjects
     if (projects.length === 0) return 0
     const unreadUpTo = and(
@@ -272,7 +281,7 @@ const make = Effect.gen(function* () {
               clearedBy: sql`case when ${inboxEntry.kind} = 'mentioned' then null else 'read' end`,
               readRevision: sql`${inboxEntry.revision}`,
               eventCount: 0,
-              readByClientName: null
+              readByClientName: reader
             })
             .where(
               and(

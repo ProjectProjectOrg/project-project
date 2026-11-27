@@ -8,6 +8,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -95,6 +96,7 @@ const unused = Layer.mergeAll(
   ),
   Layer.mock(Comments.Comments, {}),
   Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
+  Layer.mock(Inbox.Inbox, {}),
   Layer.mock(Groups.Groups, {}),
   Layer.mock(Tags.Tags, {}),
   Layer.mock(Users.Users, {}),

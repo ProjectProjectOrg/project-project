@@ -31,6 +31,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -277,6 +278,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(GroupDocs.GroupDocs, {}),
       Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
       Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
+      Layer.mock(Inbox.Inbox, {}),
       Layer.mock(TicketIndex.TicketIndex, {}),
       Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
       Layer.mock(ProjectStatuses.ProjectStatuses, {}),
@@ -956,6 +958,7 @@ describe("MCP attachment contracts", () => {
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
             Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
+            Layer.mock(Inbox.Inbox, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
             Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
             Layer.mergeAll(

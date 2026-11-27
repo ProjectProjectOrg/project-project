@@ -13,6 +13,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -51,6 +52,7 @@ import {
   CommentId,
   type GroupDetail,
   type TicketListQuery,
+  OrgScope,
   ProjectScope,
   TypeKey,
   TicketArchiveConflict,
@@ -315,6 +317,7 @@ const TestLayer = Layer.mergeAll(
   AccessStub,
   Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
   Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
+  Layer.mock(Inbox.Inbox, {}),
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(OrgStorage.OrgStorage, {}),
   TicketsStub,
@@ -2017,5 +2020,56 @@ describe("MCP ticket discovery and history", () => {
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toBe("Not found.")
       }).pipe(Effect.provide(Layer.mergeAll(TestLayer, accessAs(null))))
+  )
+})
+
+describe("MCP handlers → inbox", () => {
+  const InboxStub = Layer.mock(Inbox.Inbox, {
+    list: (options) =>
+      Effect.gen(function* () {
+        expect((yield* OrgScope).orgSlug).toBe("acme")
+        expect(options).toEqual({ state: "unread", limit: 50 })
+        return []
+      }),
+    count: () => Effect.succeed(3),
+    markRead: (id, revision) =>
+      Effect.succeed({
+        id,
+        revision,
+        state: "cleared" as const,
+        clearedBy: "read" as const
+      })
+  })
+
+  it.effect("lists the org's inbox with the unread count and when", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const result = yield* registered.get("list_inbox")!({
+        orgSlug: "acme",
+        state: "unread"
+      })
+      expect(result.isError).toBeUndefined()
+      const listed = parseJson(result.content[0].text)
+      expect(listed).toMatchObject({ unread: 3, items: [], nextCursor: null })
+      expect(listed).toHaveProperty("listedAt", expect.any(String))
+    }).pipe(Effect.provide(Layer.mergeAll(TestLayer, InboxStub)))
+  )
+
+  it.effect("reads only the revision the agent saw", () =>
+    Effect.gen(function* () {
+      const registered = register(yield* Effect.context<HandlerServices>())
+      const result = yield* registered.get("read_inbox_entry")!({
+        orgSlug: "acme",
+        id: "entry-1",
+        revision: 2
+      })
+      expect(result.isError).toBeUndefined()
+      expect(parseJson(result.content[0].text)).toEqual({
+        id: "entry-1",
+        revision: 2,
+        state: "cleared",
+        clearedBy: "read"
+      })
+    }).pipe(Effect.provide(Layer.mergeAll(TestLayer, InboxStub)))
   )
 })

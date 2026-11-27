@@ -46,6 +46,16 @@ export const agentGuide = {
     "Move the status yourself with `update_ticket` only for steps that " +
     "no status's `setBy` covers. Never set a status by hand that " +
     "automation sets, such as the one set by `pr_merged`.",
+  inbox:
+    "Your inbox: when asked what needs attention, call `list_inbox` " +
+    "for the org. Each entry is one thing to clear: an assignment, a " +
+    "mention in a comment thread or description, or a rollup of " +
+    "updates on a ticket you follow. Summarise by ticket, then work " +
+    "through them: answer a mention by replying in its thread with " +
+    "`create_comment` (that clears it), and mark the rest read with " +
+    "`read_inbox_entry`, passing the `revision` you listed so newer " +
+    "activity is never cleared unseen. Use `read_all_inbox` with " +
+    "`listedAt` only when asked to clear everything.",
   refining:
     "Refining a ticket: read the ticket and the project's `body` " +
     "(`get_project`), then fill in its blocks: the context, acceptance " +
@@ -96,6 +106,7 @@ export const MCP_INSTRUCTIONS = [
   agentGuide.statuses,
   agentGuide.findingTickets,
   agentGuide.workingOnTicket,
+  agentGuide.inbox,
   agentGuide.refining,
   agentGuide.writing,
   agentGuide.blocks,

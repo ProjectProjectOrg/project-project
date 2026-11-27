@@ -6,6 +6,7 @@ import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -28,6 +29,7 @@ import {
   InvalidBlocks,
   SprintInvalid,
   GIT_AUTOMATION_EVENTS,
+  InboxEntryId,
   isRasterImageContentType,
   parseTicketBlocks,
   permits,
@@ -40,6 +42,7 @@ import {
   Validation,
   validateTicketBlocks,
   tryDecodeCursor,
+  encodeCursor,
   type AttachBranchInput,
   type CompleteSprintInput,
   type CreateCommentInput,
@@ -58,6 +61,7 @@ import {
   TicketBlockSegment
 } from "@pp/shared"
 import type { Tool } from "effect/ai"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 import * as Result from "effect/Result"
@@ -670,6 +674,72 @@ const add_tickets_to_group = (input: {
     groups.addTickets(input.groupId, input.ticketIds)
   )
 
+const entryStatus = (entry: Inbox.EntryState) => ({
+  ...entry,
+  id: InboxEntryId.make(entry.id)
+})
+
+const list_inbox = Effect.fn("list_inbox")(function* (
+  input: typeof Tools.tools.list_inbox.parametersSchema.Type
+) {
+  const inbox = yield* Inbox.Inbox
+  const listedAt = DateTime.toDate(yield* DateTime.now)
+  const limit = input.limit ?? DEFAULT_LIMIT
+  const after = tryDecodeCursor(input.cursor)
+  const entries = yield* inbox.list({
+    ...(input.state === undefined ? {} : { state: input.state }),
+    ...(input.since === undefined ? {} : { since: input.since }),
+    ...(after === undefined
+      ? {}
+      : {
+          before: {
+            at: DateTime.toDate(DateTime.makeUnsafe(after.sort)),
+            id: after.id
+          }
+        }),
+    limit
+  })
+  const last = entries.at(-1)
+  const nextCursor =
+    entries.length < limit || last === undefined
+      ? null
+      : encodeCursor({ id: last.id, sort: last.latestAt.toISOString() })
+  return {
+    unread: yield* inbox.count(),
+    listedAt,
+    items: entries,
+    nextCursor
+  }
+})
+
+const read_inbox_entry = (
+  input: typeof Tools.tools.read_inbox_entry.parametersSchema.Type
+) =>
+  Effect.flatMap(Inbox.Inbox, (inbox) =>
+    inbox.markRead(input.id, input.revision)
+  ).pipe(Effect.map(entryStatus))
+
+const unread_inbox_entry = (
+  input: typeof Tools.tools.unread_inbox_entry.parametersSchema.Type
+) =>
+  Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markUnread(input.id)).pipe(
+    Effect.map(entryStatus)
+  )
+
+const delete_inbox_entry = (
+  input: typeof Tools.tools.delete_inbox_entry.parametersSchema.Type
+) =>
+  Effect.flatMap(Inbox.Inbox, (inbox) =>
+    inbox.remove(input.id, input.revision)
+  ).pipe(Effect.map(entryStatus))
+
+const read_all_inbox = (
+  input: typeof Tools.tools.read_all_inbox.parametersSchema.Type
+) =>
+  Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markAllRead(input.upTo)).pipe(
+    Effect.map((read) => ({ read }))
+  )
+
 export const ToolHandlersLive = Tools.toLayer(
   Effect.gen(function* () {
     const run = yield* toolRunner
@@ -731,7 +801,12 @@ export const ToolHandlersLive = Tools.toLayer(
       add_tickets_to_group: run.project("membership", add_tickets_to_group),
       create_sprint: run.project({ sprint: ["manage"] }, create_sprint),
       update_sprint: run.project({ sprint: ["manage"] }, update_sprint),
-      complete_sprint: run.project({ sprint: ["manage"] }, complete_sprint)
+      complete_sprint: run.project({ sprint: ["manage"] }, complete_sprint),
+      list_inbox: run.org("membership", list_inbox),
+      read_inbox_entry: run.org("membership", read_inbox_entry),
+      unread_inbox_entry: run.org("membership", unread_inbox_entry),
+      delete_inbox_entry: run.org("membership", delete_inbox_entry),
+      read_all_inbox: run.org("membership", read_all_inbox)
     })
   })
 )
