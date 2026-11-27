@@ -24,10 +24,8 @@ type ScrollAreaProps = ComponentProps<"div"> &
   Readonly<{
     viewportClassName?: string
     viewportProps?: ViewportProps
-    // Renders the viewport as this element instead, such as a motion.div.
     viewportRender?: ReactElement<Record<string, unknown>>
     contentClassName?: string
-    // Keeps the scrollbar clear of a rounded container's corners.
     insetScrollbar?: boolean
     orientation?: Orientation
     roleDescription?: string
@@ -47,7 +45,6 @@ function ScrollArea({
   ...props
 }: ScrollAreaProps) {
   const isTouch = useTouchPrimary()
-  // Touch keeps the native scrollbar, so it scrolls a plain viewport.
   const nativeViewport = useRender({
     defaultTagName: "div",
     render: viewportRender,
@@ -63,7 +60,6 @@ function ScrollArea({
         orientation === "both" && "overflow-auto",
         viewportClassName
       ),
-      // A scroll viewport takes focus so the keyboard can scroll it.
       tabIndex: 0,
       children: (
         <div data-slot="scroll-area-content" className={contentClassName}>

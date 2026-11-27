@@ -93,16 +93,17 @@ function RowImpl({
   return (
     <div
       ref={(element) => {
-        if (element !== null)
-          sources?.set(element, {
-            ticket,
-            members,
-            update,
-            editable,
-            key,
-            project: projectReq,
-            search
-          })
+        if (element === null) return undefined
+        sources?.set(element, {
+          ticket,
+          members,
+          update,
+          editable,
+          key,
+          project: projectReq,
+          search
+        })
+        return () => sources?.drop(element)
       }}
       className="group/list-row col-span-full grid grid-cols-subgrid"
       data-ticket-id={ticket.id}

@@ -33,7 +33,6 @@ import {
 import { createRowSources, RowSources, useFollowRow } from "./rowSources"
 import { toggleRowSelection, useSelectionStore } from "./TicketSelection"
 
-// An edit can swap the field's button for a new one.
 const fieldAnchor = (field: FieldMenuState, ticketRow: Element) =>
   (field.anchor.isConnected
     ? field.anchor

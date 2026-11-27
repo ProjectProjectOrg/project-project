@@ -113,7 +113,6 @@ export function ListHoverScope({
   const targetRow = useRef<HTMLElement | null>(null)
   const targetRect = useRef<ItemRect | null>(null)
   const litRow = useRef<HTMLElement | null>(null)
-  // The row whose popup just closed stays lit until the pointer moves.
   const held = useRef<HTMLElement | null>(null)
   const [hovered, setHovered] = useState<Hovered | null>(null)
 
@@ -208,7 +207,6 @@ export function ListHoverScope({
     const onPausedMove = (event: MouseEvent) => {
       if (scrollRoot?.hasAttribute("data-scroll-active"))
         point.current = { x: event.clientX, y: event.clientY }
-      // The list sees no move once the pointer is outside it.
       if (
         held.current &&
         container &&

@@ -1813,9 +1813,7 @@
   --avatar-cut-size: 0px;
 }
 
-/* Centre the initials in the part of a stacked avatar the cutout leaves.
-   A variable, not a descendant selector: Chrome restyles every [data-slot]
-   element under a container whose last child changes for one of those. */
+/* Centre the initials in the part of a stacked avatar the cutout leaves. */
 [data-slot="avatar-group"] > :not(:last-child) {
   --avatar-initials-inset: calc(var(--avatar-overlap) + var(--avatar-gap));
 }

@@ -26,10 +26,7 @@ export function VirtualRows({
 }: Readonly<{
   rowKeys: ReadonlyArray<string>
   className: string
-  // Rows once every page has loaded: the list keeps their height from the
-  // start, so the scrollbar doesn't jump as pages arrive.
   total?: number
-  // Under the loaded rows, such as the next page's loader.
   footer?: ReactNode
   reveal: Readonly<{ index: number }> | null
   // Brings a row into view without moving focus (a ticket just created
@@ -118,8 +115,6 @@ export function VirtualRows({
             />
           ))}
         </ul>
-        {/* Spans every row still to load, so landing anywhere in them (a
-            scrollbar drag, End) still loads the next page. */}
         {reserved && (
           <div
             className="absolute inset-x-0 grid"

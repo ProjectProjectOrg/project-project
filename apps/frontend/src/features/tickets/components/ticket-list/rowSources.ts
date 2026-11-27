@@ -8,18 +8,23 @@ import {
 
 import type { RowSource, Target } from "./RowMenus"
 
-// Rows register their latest data on every render, so a menu that stays
-// open follows edits made from it.
 export const createRowSources = () => {
   const sources = new WeakMap<Element, RowSource>()
-  const listeners = new Set<(ticketRow: Element) => void>()
+  const listeners = new Set<(ticketRow: Element, removed: boolean) => void>()
+  const notify = (ticketRow: Element, removed: boolean) => {
+    for (const listener of listeners) listener(ticketRow, removed)
+  }
   return {
     get: (ticketRow: Element) => sources.get(ticketRow),
     set: (ticketRow: Element, source: RowSource) => {
       sources.set(ticketRow, source)
-      for (const listener of listeners) listener(ticketRow)
+      notify(ticketRow, false)
     },
-    subscribe: (listener: (ticketRow: Element) => void) => {
+    drop: (ticketRow: Element) =>
+      queueMicrotask(() => {
+        if (!ticketRow.isConnected) notify(ticketRow, true)
+      }),
+    subscribe: (listener: (ticketRow: Element, removed: boolean) => void) => {
       listeners.add(listener)
       return () => void listeners.delete(listener)
     }
@@ -30,8 +35,6 @@ type RowSources = ReturnType<typeof createRowSources>
 
 export const RowSources = createContext<RowSources | null>(null)
 
-// Keeps a menu's row data and anchor current while it is mounted, closing
-// animation included.
 export function useFollowRow<T extends Target>(
   sources: RowSources,
   target: T | null,
@@ -44,9 +47,13 @@ export function useFollowRow<T extends Target>(
   })
   useLayoutEffect(
     () =>
-      sources.subscribe((ticketRow) => {
+      sources.subscribe((ticketRow, removed) => {
         const followed = latest.current.target
         if (followed === null || !ticketRow.contains(followed.row)) return
+        if (removed) {
+          setTarget(null)
+          return
+        }
         setTarget((current) => {
           if (current === null) return current
           const source = sources.get(ticketRow) ?? current.source

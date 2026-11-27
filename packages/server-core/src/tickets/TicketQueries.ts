@@ -792,8 +792,6 @@ const make = Effect.gen(function* () {
     return { counts, sections: Object.fromEntries(pages) }
   })
 
-  // What each section of the sprint backlog holds. Its first page, its count
-  // and every later page all read it from here, so they can't disagree.
   const sprintSectionMembers = Effect.fnUntraced(function* (
     query: Pick<TicketListQuery, "groupId">
   ) {
