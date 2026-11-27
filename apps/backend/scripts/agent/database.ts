@@ -137,7 +137,11 @@ export async function server(root: string, create: boolean) {
         root
       )
     } catch (error) {
-      if (!(await containerNames())) throw error
+      if (
+        !(error instanceof Error && error.message.includes("is already in use"))
+      )
+        throw error
+      await waitForContainer(containerNames, error)
     }
   }
   const [info] = decodeContainer(
@@ -167,6 +171,17 @@ export async function server(root: string, create: boolean) {
   if (!binding || binding.HostIp !== "127.0.0.1")
     throw new Error("Agent Postgres must bind only to loopback")
   return { id: info.Id, port: binding.HostPort }
+}
+
+async function waitForContainer(
+  containerNames: () => Promise<string>,
+  conflict: Error
+) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (await containerNames()) return
+    await Bun.sleep(250)
+  }
+  throw conflict
 }
 
 export function databaseName(environment: Environment) {
