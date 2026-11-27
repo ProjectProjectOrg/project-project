@@ -1132,6 +1132,32 @@
   }
 }
 
+/* Base UI stops a menu's rows taking the pointer for as long as one of its
+   submenus is open from hover; menu-highlight.tsx does it only while the
+   pointer heads for that submenu. */
+:is(
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"]
+)[style*="pointer-events: none"] {
+  pointer-events: auto !important;
+}
+[data-menu-aiming]
+  :is([role^="menuitem"], [role="option"]):not([data-popup-open]) {
+  pointer-events: none !important;
+}
+
+/* A submenu left for a sibling goes at once; only the last one fades. */
+[data-base-ui-portal]:has(
+    > [data-base-ui-portal]
+      > [data-slot="dropdown-menu-sub-positioner"]
+      > [data-slot="dropdown-menu-sub-content"][data-open]
+  )
+  > [data-base-ui-portal]
+  > [data-slot="dropdown-menu-sub-positioner"]
+  > [data-slot="dropdown-menu-sub-content"][data-ending-style] {
+  transition: none;
+}
+
 /* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
    Plain rows take --menu-hover, then --menu-active while pressed (the
    ghost button's fills, lifted in dark for the tooltip skin); destructive

@@ -36,11 +36,37 @@ const CHOSEN_ROW =
 const RESTING = "data-menu-resting"
 const HELD = "data-menu-held"
 const NO_HIGHLIGHT = "[data-menu-no-highlight]"
+const SUBMENU_POPUP = "[data-slot=dropdown-menu-sub-content]"
+const AIMING = "data-menu-aiming"
+const AIM_REST_MS = 100
 const HIGHLIGHT_INSET = 1
 
 type Point = Readonly<{ x: number; y: number }>
 
 type Place = (rect: HighlightRect) => void
+
+type Edges = Readonly<{
+  left: number
+  right: number
+  top: number
+  bottom: number
+}>
+
+export const aimsAt = (from: Point, to: Point, target: Edges) => {
+  const reach = (target.left >= from.x ? target.left : target.right) - from.x
+  const travelled = to.x - from.x
+  if (reach === 0 || travelled * reach <= 0) return false
+  const progress = travelled / reach
+  return (
+    to.y >= from.y + (target.top - from.y) * progress &&
+    to.y <= from.y + (target.bottom - from.y) * progress
+  )
+}
+
+const submenuOf = (trigger: HTMLElement) => {
+  const id = trigger.getAttribute("aria-controls")
+  return id === null ? null : document.getElementById(id)
+}
 
 const toneOf = (element: HTMLElement) =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
@@ -88,11 +114,13 @@ const measureHighlight = (
   const hit =
     pointer === null ? null : document.elementFromPoint(pointer.x, pointer.y)
   if (ownedAt(container, NO_HIGHLIGHT, hit)) return null
+  const pointed =
+    selector === HIGHLIGHTED ? ownedAt(container, MENU_ROW, hit) : undefined
   const active =
+    pointed ??
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
-      ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
-        ownedAt(container, MENU_ROW, hit))
+      ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
       : undefined)
   if (active === undefined && hit !== null && ownerOf(hit) === container)
     return "hold" as const
@@ -110,6 +138,7 @@ const measureHighlight = (
   if (element === undefined) return null
   return {
     element,
+    pointed: element === pointed,
     rect: {
       top: element.offsetTop + HIGHLIGHT_INSET,
       left: element.offsetLeft,
@@ -153,14 +182,38 @@ function observeHighlight(
       measure(pointer)
     })
   }
+  let aimRest = 0
+  const stopAiming = () => container.removeAttribute(AIMING)
+  // Rows other than the open submenu's own ignore the pointer while it
+  // heads for that submenu, so crossing them neither lights nor opens them.
+  const aim = (from: Point | null, to: Point, over: EventTarget | null) => {
+    clearTimeout(aimRest)
+    const trigger =
+      from !== null && over instanceof Node && container.contains(over)
+        ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
+        : undefined
+    const submenu = trigger === undefined ? null : submenuOf(trigger)
+    const aiming =
+      from !== null &&
+      submenu !== null &&
+      aimsAt(from, to, submenu.getBoundingClientRect())
+    container.toggleAttribute(AIMING, aiming)
+    if (aiming) aimRest = window.setTimeout(stopAiming, AIM_REST_MS)
+  }
   const track = (event: PointerEvent) => {
-    pointer = { x: event.clientX, y: event.clientY }
+    const next = { x: event.clientX, y: event.clientY }
+    aim(pointer, next, event.target)
+    pointer = next
     remeasure()
+  }
+  const yieldToKeys = () => {
+    pointer = null
   }
   document.addEventListener("pointermove", track, {
     capture: true,
     passive: true
   })
+  document.addEventListener("keydown", yieldToKeys, { capture: true })
   measure(pointer)
   // Row changes come in bursts (Base UI marks rows and opens submenus in
   // several steps), so they're measured once, in the frame they paint in.
@@ -180,10 +233,34 @@ function observeHighlight(
   resizes?.observe(container)
   return () => {
     cancelAnimationFrame(frame)
+    clearTimeout(aimRest)
+    stopAiming()
     document.removeEventListener("pointermove", track, { capture: true })
+    document.removeEventListener("keydown", yieldToKeys, { capture: true })
     mutations.disconnect()
     resizes?.disconnect()
     container.removeAttribute("data-menu-highlight-host")
+  }
+}
+
+export function whileOpen(element: HTMLElement, start: () => () => void) {
+  const popup = element.closest<HTMLElement>(SUBMENU_POPUP)
+  if (popup === null) return start()
+  let stop: (() => void) | null = null
+  const sync = () => {
+    const open = popup.hasAttribute("data-open")
+    if (open && stop === null) stop = start()
+    if (!open && stop !== null) {
+      stop()
+      stop = null
+    }
+  }
+  const openness = new MutationObserver(sync)
+  openness.observe(popup, { attributes: true, attributeFilter: ["data-open"] })
+  sync()
+  return () => {
+    openness.disconnect()
+    stop?.()
   }
 }
 
@@ -203,30 +280,35 @@ function useHighlightRect(
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
     if (!container) return undefined
-    let lit: HTMLElement | undefined
-    // Measured outside setState: React runs updaters during render, where
-    // every layout read is a forced one.
-    const stop = observeHighlight(container, (pointer) => {
-      const next = measureHighlight(
-        container,
-        selector,
-        pointer,
-        restOnFirst,
-        lit !== undefined
-      )
-      if (next === "hold") {
-        lit?.setAttribute(HELD, "")
-        return
+    return whileOpen(container, () => {
+      let lit: HTMLElement | undefined
+      // Measured outside setState: React runs updaters during render, where
+      // every layout read is a forced one.
+      const stop = observeHighlight(container, (pointer) => {
+        const next = measureHighlight(
+          container,
+          selector,
+          pointer,
+          restOnFirst,
+          lit !== undefined
+        )
+        if (next === "hold") {
+          lit?.setAttribute(HELD, "")
+          return
+        }
+        lit?.removeAttribute(HELD)
+        if (next && lit !== undefined) placeRef.current?.(next.rect)
+        lit = next?.element
+        if (next?.pointed && !next.element.matches(selector))
+          next.element.setAttribute(HELD, "")
+        setState((previous) => nextHighlight(previous, next?.rect ?? null))
+      })
+      return () => {
+        stop()
+        lit?.removeAttribute(HELD)
+        setState((previous) => nextHighlight(previous, null))
       }
-      lit?.removeAttribute(HELD)
-      if (next && lit !== undefined) placeRef.current?.(next.rect)
-      lit = next?.element
-      setState((previous) => nextHighlight(previous, next?.rect ?? null))
     })
-    return () => {
-      stop()
-      lit?.removeAttribute(HELD)
-    }
   }, [anchorRef, placeRef, selector, restOnFirst])
 
   return state

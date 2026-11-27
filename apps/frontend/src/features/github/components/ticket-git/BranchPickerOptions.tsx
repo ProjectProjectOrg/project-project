@@ -63,7 +63,7 @@ export function BaseBranchSubmenu(props: BaseBranchProps) {
           />
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-72">
+      <DropdownMenuSubContent lazy className="w-72">
         <BaseBranchOptions {...props} query={query} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>

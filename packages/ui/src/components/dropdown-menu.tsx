@@ -33,7 +33,7 @@ import {
   type KeyLabels
 } from "./kbd"
 import { LogoLoader } from "./logo"
-import { MenuHighlight, chosenRow } from "./menu-highlight"
+import { MenuHighlight, chosenRow, whileOpen } from "./menu-highlight"
 import {
   destructiveItemClass,
   PopupLayerContext,
@@ -298,18 +298,20 @@ function StartOnChecked() {
   React.useLayoutEffect(() => {
     const popup = anchorRef.current?.parentElement
     if (!popup) return undefined
-    let live = true
-    queueMicrotask(() =>
-      queueMicrotask(() => {
-        if (!live) return
-        const highlighted = popup.querySelector("[data-highlighted]")
-        const checked = chosenRow(popup)
-        if (highlighted && checked && highlighted !== checked) checked.focus()
-      })
-    )
-    return () => {
-      live = false
-    }
+    return whileOpen(popup, () => {
+      let live = true
+      queueMicrotask(() =>
+        queueMicrotask(() => {
+          if (!live) return
+          const highlighted = popup.querySelector("[data-highlighted]")
+          const checked = chosenRow(popup)
+          if (highlighted && checked && highlighted !== checked) checked.focus()
+        })
+      )
+      return () => {
+        live = false
+      }
+    })
   }, [])
   return <span ref={anchorRef} hidden data-menu-chrome />
 }
@@ -938,6 +940,7 @@ function DropdownMenuSubTrigger({
   }) {
   return (
     <MenuPrimitive.SubmenuTrigger
+      delay={0}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       data-variant={variant}
@@ -968,14 +971,23 @@ type DropdownMenuSubContentProps = React.ComponentProps<
   Pick<
     React.ComponentProps<typeof MenuPrimitive.Positioner>,
     "align" | "alignOffset" | "side" | "sideOffset"
-  >
+  > & { lazy?: boolean }
 
-// Base UI keeps a closing popup mounted until its exit transition ends, so
-// the submenu being left fades out while the next one opens beside it and
-// the menu never shows a frame without one. Escape and keyboard closes are
-// marked data-instant and skip the fade.
+// Escape and keyboard closes are marked data-instant and skip the fade.
 const submenuExitClass =
   "transition-opacity duration-80 ease-standard data-[ending-style]:opacity-0 data-[instant]:transition-none"
+
+function usePreparedAfterPaint() {
+  const [prepared, setPrepared] = React.useState(false)
+  React.useEffect(() => {
+    const timer = window.setTimeout(
+      () => React.startTransition(() => setPrepared(true)),
+      0
+    )
+    return () => window.clearTimeout(timer)
+  }, [])
+  return prepared
+}
 
 function DropdownMenuSubContent({
   className,
@@ -983,11 +995,13 @@ function DropdownMenuSubContent({
   alignOffset = SUBMENU_ALIGN_OFFSET,
   side,
   sideOffset = SUBMENU_SIDE_OFFSET,
+  lazy = false,
   children,
   ...props
 }: DropdownMenuSubContentProps) {
+  const prepared = usePreparedAfterPaint()
   return (
-    <DropdownMenuPortal>
+    <DropdownMenuPortal keepMounted={prepared && !lazy}>
       <MenuPrimitive.Positioner
         data-slot="dropdown-menu-sub-positioner"
         align={align}
