@@ -94,7 +94,6 @@ uniform float u_bias;
 uniform float u_seed;
 
 uniform vec4 u_colorFront;
-uniform vec4 u_colorBack;
 
 uniform float u_pxSize;
 uniform int u_ditherType;
@@ -308,7 +307,10 @@ void main() {
   dither -= 0.5;
   float res = step(0.5, shape + dither);
 
-  fragColor = mix(u_colorBack, u_colorFront, res);
+  // Only the ink is drawn; the back colour is the host's CSS background, so
+  // it matches neighbouring surfaces exactly (a scaled canvas can composite a
+  // shade off).
+  fragColor = vec4(u_colorFront.rgb * u_colorFront.a, u_colorFront.a) * res;
 }
 `
 
@@ -401,7 +403,6 @@ function DitherCanvas({
   bias = 0.0,
   seed = 0,
   colorFront = "var(--dither-front)",
-  colorBack = "var(--dither-back)",
   pixelSize = 2,
   ditherType = "8x8",
   timeWarpZones,
@@ -418,12 +419,8 @@ function DitherCanvas({
 }: DitherProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const requestRenderRef = useRef<(() => void) | null>(null)
-  const parsedColorsRef = useRef<{
-    front: Rgba
-    back: Rgba
-  }>({
-    front: [0, 0, 0, 1],
-    back: [0, 0, 0, 1]
+  const parsedColorsRef = useRef<{ front: Rgba }>({
+    front: [0, 0, 0, 1]
   })
   const propsRef = useRef({
     speed,
@@ -437,7 +434,6 @@ function DitherCanvas({
     bias,
     seed,
     colorFront,
-    colorBack,
     pixelSize,
     ditherType,
     timeWarpZones: timeWarpZones ?? [],
@@ -463,7 +459,6 @@ function DitherCanvas({
       bias,
       seed,
       colorFront,
-      colorBack,
       pixelSize,
       ditherType,
       timeWarpZones: timeWarpZones ?? [],
@@ -487,7 +482,6 @@ function DitherCanvas({
     bias,
     seed,
     colorFront,
-    colorBack,
     pixelSize,
     ditherType,
     timeWarpZones,
@@ -504,10 +498,9 @@ function DitherCanvas({
 
   useLayoutEffect(() => {
     parsedColorsRef.current = {
-      front: parseColor(colorFront),
-      back: parseColor(colorBack)
+      front: parseColor(colorFront)
     }
-  }, [colorFront, colorBack, themeRevision])
+  }, [colorFront, themeRevision])
 
   useLayoutEffect(() => {
     requestRenderRef.current?.()
@@ -567,7 +560,6 @@ function DitherCanvas({
       u_bias: gl.getUniformLocation(program, "u_bias"),
       u_seed: gl.getUniformLocation(program, "u_seed"),
       u_colorFront: gl.getUniformLocation(program, "u_colorFront"),
-      u_colorBack: gl.getUniformLocation(program, "u_colorBack"),
       u_pxSize: gl.getUniformLocation(program, "u_pxSize"),
       u_ditherType: gl.getUniformLocation(program, "u_ditherType"),
       u_warpCenters: gl.getUniformLocation(program, "u_warpCenters"),
@@ -708,7 +700,6 @@ function DitherCanvas({
       effectiveSpeed: number
     ) => {
       const fg = parsedColorsRef.current.front
-      const bg = parsedColorsRef.current.back
       if (cur.pixelSize !== sizedFor) fit()
       gl.uniform1f(uniforms.u_reveal, reveal)
       gl.uniform1f(uniforms.u_time, elapsed * 0.001)
@@ -723,7 +714,6 @@ function DitherCanvas({
       gl.uniform1f(uniforms.u_bias, cur.bias)
       gl.uniform1f(uniforms.u_seed, cur.seed)
       gl.uniform4f(uniforms.u_colorFront, fg[0], fg[1], fg[2], fg[3])
-      gl.uniform4f(uniforms.u_colorBack, bg[0], bg[1], bg[2], bg[3])
       gl.uniform1i(uniforms.u_ditherType, DITHER_TYPE_TO_INT[cur.ditherType])
       const zones = cur.timeWarpZones
       warpCenters.fill(0)
@@ -851,7 +841,12 @@ function DitherCanvas({
 // (200px ahead): scrolled away, its canvas unmounts, and the browser reclaims
 // those contexts first. Coming back on screen it reveals again. (No explicit
 // loseContext: React's dev double-run would reuse the lost context.)
-export function Dither({ className, style, ...props }: DitherProps) {
+export function Dither({
+  className,
+  style,
+  colorBack = "var(--dither-back)",
+  ...props
+}: DitherProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   // Without IntersectionObserver (old browsers, tests), just draw.
   const [near, setNear] = useState(
@@ -881,6 +876,7 @@ export function Dither({ className, style, ...props }: DitherProps) {
         overflow: "hidden",
         width: "100%",
         height: "100%",
+        background: colorBack,
         ...style
       }}
     >
