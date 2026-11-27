@@ -12,7 +12,7 @@ export type ProjectRoute = Readonly<{
 
 export type SidebarScope = Data.TaggedEnum<{
   changelog: {}
-  dashboard: Readonly<{ page: "overview" | "projects" | null }>
+  dashboard: Readonly<{ page: "overview" | "inbox" | "projects" | null }>
   project: Readonly<{
     slug: string
     route: ProjectRoute
@@ -71,7 +71,9 @@ export function sidebarScope(
     .slice(orgPrefix.length + 1)
     .split("/")
   if (area !== "projects")
-    return SidebarScope.dashboard({ page: area === "" ? "overview" : null })
+    return SidebarScope.dashboard({
+      page: area === "" ? "overview" : area === "inbox" ? "inbox" : null
+    })
   if (slug === "") return SidebarScope.dashboard({ page: "projects" })
   const viewing = viewingIn(section, sub)
   if (section === "tickets" && fromSprint !== undefined)

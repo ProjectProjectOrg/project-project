@@ -63,6 +63,10 @@ export const unreadInboxCount = Atom.family((req: InboxCountRequest) =>
 
 type EntryKey = Readonly<{ req: InboxRequest; id: InboxEntryId }>
 
+export const actedInboxEntry = Atom.family((_req: InboxRequest) =>
+  Atom.make<InboxEntryId | null>(null)
+)
+
 const entryParams = ({ req, id }: EntryKey) => ({ ...req.params, id })
 
 const countChanged = (req: InboxRequest) => [

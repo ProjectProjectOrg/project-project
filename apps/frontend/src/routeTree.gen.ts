@@ -29,6 +29,7 @@ import { Route as AuthedSettingsProfilePreferencesRouteImport } from './routes/_
 import { Route as AuthedSettingsProfileConnectionsRouteImport } from './routes/_authed/settings/profile/connections'
 import { Route as AuthedSettingsProfileAgentsRouteImport } from './routes/_authed/settings/profile/agents'
 import { Route as AuthedSettingsProfileAccountRouteImport } from './routes/_authed/settings/profile/account'
+import { Route as AuthedOrgsOrgSlugInboxRouteImport } from './routes/_authed/orgs/$orgSlug/inbox'
 import { Route as AuthedSettingsOrgsOrgSlugRouteRouteImport } from './routes/_authed/settings/orgs/$orgSlug/route'
 import { Route as AuthedSettingsOrgsOrgSlugIndexRouteImport } from './routes/_authed/settings/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
@@ -188,6 +189,11 @@ const AuthedSettingsProfileAccountRoute =
     path: '/account',
     getParentRoute: () => AuthedSettingsProfileRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugInboxRoute = AuthedOrgsOrgSlugInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+} as any)
 const AuthedSettingsOrgsOrgSlugRouteRoute =
   AuthedSettingsOrgsOrgSlugRouteRouteImport.update({
     id: '/orgs/$orgSlug',
@@ -531,6 +537,7 @@ export interface FileRoutesByFullPath {
   '/changelog/$version': typeof AuthedChangelogVersionRoute
   '/settings/': typeof AuthedSettingsIndexRoute
   '/settings/orgs/$orgSlug': typeof AuthedSettingsOrgsOrgSlugRouteRouteWithChildren
+  '/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
   '/settings/profile/agents': typeof AuthedSettingsProfileAgentsRoute
   '/settings/profile/connections': typeof AuthedSettingsProfileConnectionsRoute
@@ -600,6 +607,7 @@ export interface FileRoutesByTo {
   '/oauth/consent': typeof publicOauthConsentRoute
   '/changelog/$version': typeof AuthedChangelogVersionRoute
   '/settings': typeof AuthedSettingsIndexRoute
+  '/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
   '/settings/profile/agents': typeof AuthedSettingsProfileAgentsRoute
   '/settings/profile/connections': typeof AuthedSettingsProfileConnectionsRoute
@@ -666,6 +674,7 @@ export interface FileRoutesById {
   '/_authed/changelog_/$version': typeof AuthedChangelogVersionRoute
   '/_authed/settings/': typeof AuthedSettingsIndexRoute
   '/_authed/settings/orgs/$orgSlug': typeof AuthedSettingsOrgsOrgSlugRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/_authed/settings/profile/account': typeof AuthedSettingsProfileAccountRoute
   '/_authed/settings/profile/agents': typeof AuthedSettingsProfileAgentsRoute
   '/_authed/settings/profile/connections': typeof AuthedSettingsProfileConnectionsRoute
@@ -742,6 +751,7 @@ export interface FileRouteTypes {
     | '/changelog/$version'
     | '/settings/'
     | '/settings/orgs/$orgSlug'
+    | '/orgs/$orgSlug/inbox'
     | '/settings/profile/account'
     | '/settings/profile/agents'
     | '/settings/profile/connections'
@@ -811,6 +821,7 @@ export interface FileRouteTypes {
     | '/oauth/consent'
     | '/changelog/$version'
     | '/settings'
+    | '/orgs/$orgSlug/inbox'
     | '/settings/profile/account'
     | '/settings/profile/agents'
     | '/settings/profile/connections'
@@ -876,6 +887,7 @@ export interface FileRouteTypes {
     | '/_authed/changelog_/$version'
     | '/_authed/settings/'
     | '/_authed/settings/orgs/$orgSlug'
+    | '/_authed/orgs/$orgSlug/inbox'
     | '/_authed/settings/profile/account'
     | '/_authed/settings/profile/agents'
     | '/_authed/settings/profile/connections'
@@ -1087,6 +1099,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/profile/account'
       preLoaderRoute: typeof AuthedSettingsProfileAccountRouteImport
       parentRoute: typeof AuthedSettingsProfileRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/inbox': {
+      id: '/_authed/orgs/$orgSlug/inbox'
+      path: '/inbox'
+      fullPath: '/orgs/$orgSlug/inbox'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugInboxRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
     '/_authed/settings/orgs/$orgSlug': {
       id: '/_authed/settings/orgs/$orgSlug'
@@ -1769,6 +1788,7 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
   )
 
 interface AuthedOrgsOrgSlugRouteRouteChildren {
+  AuthedOrgsOrgSlugInboxRoute: typeof AuthedOrgsOrgSlugInboxRoute
   AuthedOrgsOrgSlugIndexRoute: typeof AuthedOrgsOrgSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsIndexRoute: typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -1781,6 +1801,7 @@ interface AuthedOrgsOrgSlugRouteRouteChildren {
 
 const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugInboxRoute: AuthedOrgsOrgSlugInboxRoute,
     AuthedOrgsOrgSlugIndexRoute: AuthedOrgsOrgSlugIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugRouteRoute:
       AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren,

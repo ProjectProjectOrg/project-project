@@ -11,7 +11,7 @@ import { Markdown } from "@pp/ui/editor/markdown"
 import { Archive } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import type { ReactNode } from "react"
+import { use, type ReactNode } from "react"
 
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
@@ -50,6 +50,7 @@ import { TemplateSwapNote } from "@/features/tickets/components/ticket-page/Temp
 import { TicketBackButton } from "@/features/tickets/components/ticket-page/TicketBackButton"
 import { TicketDesignLinks } from "@/features/tickets/components/ticket-page/TicketDesignLinks"
 import { TicketDiscussion } from "@/features/tickets/components/ticket-page/TicketDiscussion"
+import { TicketLayoutContext } from "@/features/tickets/components/ticket-page/ticketLayout"
 import { TicketPageHeader } from "@/features/tickets/components/ticket-page/TicketPageHeader"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
@@ -80,6 +81,7 @@ export function TicketPage({
   stepper: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  const pane = use(TicketLayoutContext) === "pane"
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -107,7 +109,7 @@ export function TicketPage({
 
   return (
     <TicketPageShell
-      back={<TicketBackButton from={from} />}
+      back={pane ? null : <TicketBackButton from={from} />}
       aside={
         <TicketContextMenu
           ticket={ticket}
@@ -118,9 +120,19 @@ export function TicketPage({
         >
           <aside
             data-ticket-page={ticket.id}
-            className="min-w-0 lg:min-h-[calc(100dvh-8rem)]"
+            className={
+              pane
+                ? "min-w-0 @3xl/ticket:col-start-2"
+                : "min-w-0 lg:min-h-[calc(100dvh-8rem)]"
+            }
           >
-            <div className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5">
+            <div
+              className={
+                pane
+                  ? "flex min-w-0 flex-col gap-5 px-2 @3xl/ticket:sticky @3xl/ticket:top-3 @3xl/ticket:pl-5"
+                  : "flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pb-1 lg:pl-5"
+              }
+            >
               <fieldset disabled={!canEdit} className="contents">
                 <MetaRow
                   inset="control"
