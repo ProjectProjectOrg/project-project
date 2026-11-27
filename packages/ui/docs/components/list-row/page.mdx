@@ -20,7 +20,7 @@ The rows a list shows: interactive ones first (hover a row, tick its checkbox), 
 
 ## Usage
 
-The list sets `listGridClassName` on the element that holds its rows; each `ListRow` uses that grid to align status, key, estimate and assignee across rows and sections. The title and chips share the space between them.
+The list sets `listGridClassName` on the element that holds its rows; each `ListRow` uses that grid to align status, key and assignee across rows and sections. The title and chips share the space between them.
 
 ```tsx
 import { ItemLink } from "@pp/ui/item-link"
@@ -57,7 +57,8 @@ import { TicketKey } from "@pp/ui/ticket-key"
 | `ticketKey` | `ReactNode` | A `TicketKey`; give it `min-w-(--ticket-key-width)` so keys line up. Leave out with `priority` for a row that isn't a ticket |
 | `title` | `ReactNode` | The title column, which takes the remaining width: the parent (`ListRowCrumbs`), `ListRowTitle`, inline chips |
 | `trailing` | `ReactNode` | Chips at the end: tags, git, relations, sprint |
-| `estimate`, `assignee` | `ReactNode` | The last two columns; the assignee hides on narrow screens |
+| `estimate` | `ReactNode` | After the chips, in the row's own space; an empty one takes no room |
+| `assignee` | `ReactNode` | The last column; hides on narrow screens |
 | `selected` | `boolean` | Tinted fill for a ticket in the multi-select |
 | `disabled` | `boolean` | Disables the row's fields, for someone who can only look |
 | `variant` | `"standalone" \| "embedded"` | `embedded` drops the hover and corners, for a row inside a card |
@@ -76,13 +77,19 @@ A ticket has at most one parent: its epic, or the ticket it is a sub-ticket of (
 
 A click anywhere on the row opens the ticket, through one `ItemLink` stretched under the row's content. The row's own controls (status, priority, assignee, chips) sit above it on `z-20`, so they still take their own clicks. Keyboard users tab to the link once per row; the link's inset ring is the row's focus.
 
+### The estimate belongs to its row
+
+The estimate sits after the row's chips, not in a list column. A row with an estimate moves its own chips aside; it never widens the other rows, so one wide time estimate ("1.5w") doesn't leave a gap in front of every assignee. The order stays the same in every row (chips, estimate, assignee), and the assignee keeps its column, so the right edge still lines up. A row without an estimate keeps a 24px slot for the estimate button, revealed on hover like the checkbox, so estimating from the row is one click. On a card, the estimate chip keeps one width per unit instead, so its chips don't move as the value changes.
+
+<Demo name="estimates" title="Estimates" />
+
 ### Rows that aren't tickets
 
 A row for something other than a ticket (a sprint on the Sprints page) leaves out `priority` and `ticketKey`. Those two columns then go to the title, so it starts 8px after the icon, where a section header's label starts, instead of after two empty columns' gaps.
 
 ### One grid for the whole list
 
-Rows are subgrids of the list's grid, so a long key or a wide estimate in one row widens that column for every row, and the columns never zigzag. The leading widths are CSS variables (`--list-lead`, `--list-icon`, `--list-row-gap`, `--list-lead-gap`) so section headers can line up with the rows under them. `--list-pad-start` (5px) sets the start padding of rows and headers so the lead column (checkbox, chevron) centres on the icons of the fields above the list, the composer and search, which sit 17px in.
+Rows are subgrids of the list's grid, so a long key in one row widens that column for every row, and the columns never zigzag. The leading widths are CSS variables (`--list-lead`, `--list-icon`, `--list-row-gap`, `--list-lead-gap`) so section headers can line up with the rows under them. `--list-pad-start` (5px) sets the start padding of rows and headers so the lead column (checkbox, chevron) centres on the icons of the fields above the list, the composer and search, which sit 17px in.
 
 ### One highlight glides between rows
 

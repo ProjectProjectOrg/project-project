@@ -5,6 +5,7 @@ import { ItemLink } from "@pp/ui/item-link"
 import { ListRow, ListRowTitle } from "@pp/ui/list-row"
 import { ListRowCrumbs, type ListRowCrumb } from "@pp/ui/list-row-crumbs"
 import { TicketKey } from "@pp/ui/ticket-key"
+import type { ReactNode } from "react"
 
 import {
   AssigneeField,
@@ -61,6 +62,7 @@ export function Row({
   selected = false,
   pending = false,
   disabled = false,
+  estimate,
   onSelect
 }: Readonly<{
   ticket: SampleTicket
@@ -68,6 +70,7 @@ export function Row({
   selected?: boolean
   pending?: boolean
   disabled?: boolean
+  estimate?: ReactNode
   onSelect?: (selected: boolean) => void
 }>) {
   return (
@@ -122,7 +125,7 @@ export function Row({
           <SprintChip sprint={ticket.sprint} />
         </>
       }
-      estimate={<EstimateChip estimate={ticket.estimate} />}
+      estimate={estimate ?? <EstimateChip estimate={ticket.estimate} />}
       assignee={<AssigneeField assignee={ticket.assignee} size={20} />}
     />
   )
