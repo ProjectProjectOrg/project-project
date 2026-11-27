@@ -4,7 +4,9 @@ export const ownsKeystrokes = (target: EventTarget | null) =>
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
-    target.closest('[role="menu"], [role="listbox"], [role="dialog"]') !== null)
+    target.closest(
+      '[role="menu"], [role="listbox"], [role="dialog"], [data-slot="dropdown-menu-content"]'
+    ) !== null)
 
 export const hasModifier = (event: KeyboardEvent) =>
   event.metaKey || event.ctrlKey || event.altKey || event.shiftKey

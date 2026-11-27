@@ -402,6 +402,7 @@ function DropdownMenuPopup({
             raisedClass,
             className
           )}
+          {...(flyoutSubmenus ? flyoutPopupRole : undefined)}
           {...props}
         >
           <FlyoutRootContext value={null}>
@@ -433,6 +434,9 @@ function PopupRows({
     </>
   )
 }
+
+// A menu holds only rows, so flyout panels sit beside the rows' menu, not in it.
+const flyoutPopupRole = { role: "presentation" } as const
 
 const useInFlyout = () => React.use(FlyoutPanelContext) !== null
 

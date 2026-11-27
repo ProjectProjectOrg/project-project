@@ -173,6 +173,8 @@ export function FlyoutRoot({
     <FlyoutRootContext value={root}>
       <div
         ref={scrollRef}
+        role="menu"
+        aria-orientation="vertical"
         data-slot="dropdown-menu-scroll"
         className={cn(
           "relative rounded-[inherit] [corner-shape:var(--button-corner)]",
