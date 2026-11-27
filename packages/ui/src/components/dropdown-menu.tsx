@@ -954,8 +954,9 @@ function DropdownMenuSubTrigger({
       {hotkey !== undefined && (
         <DropdownMenuShortcut keys={hotkey} keyLabels={keyLabels} />
       )}
+      {/* The arrow's tip ends where a shortcut's last key does. */}
       <ChevronRightIcon
-        className={cn("size-4", hotkey === undefined && "ml-auto")}
+        className={cn("-mr-[5px] size-4", hotkey === undefined && "ml-auto")}
       />
     </MenuPrimitive.SubmenuTrigger>
   )

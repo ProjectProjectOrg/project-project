@@ -96,7 +96,13 @@ const GLYPH_ICONS = {
 const isGlyph = (cap: string): cap is keyof typeof GLYPH_ICONS =>
   Object.hasOwn(GLYPH_ICONS, cap)
 
+// Marks that sit on the baseline, lifted to the middle of the cap height so
+// they centre in the key like letters do.
+const BASELINE_MARKS = new Set([".", ",", "_"])
+
 function KbdCap({ cap }: Readonly<{ cap: string }>) {
+  if (BASELINE_MARKS.has(cap))
+    return <span className="-translate-y-[0.3em]">{cap}</span>
   if (!isGlyph(cap)) return cap
   const Icon = GLYPH_ICONS[cap]
   return (

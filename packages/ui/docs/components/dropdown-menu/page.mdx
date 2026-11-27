@@ -162,6 +162,10 @@ A row's label is weight 450, a hair above body text, so short labels hold up on 
 
 A submenu opens once the pointer rests on its row for Base UI's default 100ms, so sweeping down a menu doesn't mount every submenu it passes. A closing one fades out over 80ms. Escape and keyboard closes skip the fade (`data-instant`). The highlight glides between rows on `transitions.snap` (40ms) so it never trails the pointer.
 
+### Submenus line up with their row
+
+A submenu opens 2px beside the menu, with its first row level with the row that opened it; its own top edge sits 5px higher, by its padding. The arrow on a submenu row ends where a shortcut's last key does, 9px from the highlight.
+
 ### A pick closes the menu as it was
 
 A radio row that closes the menu (`closeOnClick`) doesn't move the dot on its way out: the menu fades out showing the selection it opened with, and the new value shows on the page. A selection changing inside a menu that is leaving reads as two events at once. The next open shows the new value. Escape and an outside click close the same way.
